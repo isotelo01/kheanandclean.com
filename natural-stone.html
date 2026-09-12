@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Natural Stone Cleaning — Khean &amp; Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Dancing+Script:wght@500;600&family=Inter:wght@600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* measured from reference */
+    --bar-h:120px;
+    --blue-0:#315399;   /* left edge   x=0    */
+    --blue-1:#3a5ea5;   /* x=150       */
+    --blue-2:#446cb5;   /* x=350       */
+    --blue-3:#4977c4;   /* x=700-800 peak */
+    --blue-4:#446fbd;   /* x=1000      */
+    --blue-5:#456db5;   /* x=1200      */
+    --blue-6:#3a5fa8;   /* right edge  */
+    --gold-lite:#efcd7d;  /* logo highlight */
+    --gold-mid:#d9a94a;
+    --gold-dim:#a8834e;   /* wordmark */
+    --gold-btn:#c9982d;   /* button fill */
+    --nav-ink:#bccbdd;    /* nav labels — soft blue-white, not pure #fff */
+    --phone-ink:#ece4d0;  /* warm cream */
+    --btn-ink:#1a1004;
+    --black:#0a0a0b;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    /* Every digit on the page sits on one baseline at a uniform height,
+       inherited by body copy, footers, buttons and form fields alike. */
+    font-variant-numeric:lining-nums;
+    font-feature-settings:"lnum" 1,"onum" 0;
+    background:var(--black);
+    font-family:"Cormorant Garamond",Georgia,serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ============ header bar ============ */
+  .site-header{
+    position:sticky; top:0; z-index:50;
+    height:var(--bar-h);
+    background:
+      radial-gradient(70% 190% at 49% 48%, rgba(255,255,255,.085) 0%, rgba(255,255,255,0) 68%),
+      linear-gradient(90deg,
+        var(--blue-0)  0%,
+        var(--blue-1) 10%,
+        var(--blue-2) 23%,
+        var(--blue-3) 46%,
+        var(--blue-3) 53%,
+        var(--blue-4) 65%,
+        var(--blue-5) 78%,
+        var(--blue-6) 100%);
+    box-shadow:inset 0 -1px 0 rgba(190,215,255,.28);
+  }
+
+  .bar{
+    max-width:1531px; height:100%;
+    margin:0 auto; padding:0 147px;
+    display:flex; align-items:center;
+  }
+
+  /* ============ logo (x 151–198, y 8–59) ============ */
+  .logo{
+    display:flex; align-items:center;
+    text-decoration:none; flex:none;
+  }
+  .logo img{
+    display:block;
+    height:104px; width:auto;
+    /* lifts the gold off the blue the way it reads on black */
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));
+  }
+  .logo:focus-visible{outline:2px solid var(--gold-lite); outline-offset:6px; border-radius:2px;}
+
+  /* ============ nav (x 649–1085, 30px gaps, cap-height 9px) ============ */
+  .nav{
+    display:flex; align-items:center; gap:30px;
+    margin-left:auto;
+  }
+  .nav a{
+    color:var(--nav-ink); text-decoration:none;
+    font-family:"Inter",-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size:12px; font-weight:700;
+    letter-spacing:.055em; text-transform:uppercase;
+    white-space:nowrap;
+    transition:color .18s ease;
+  }
+  .nav a:hover{color:#fff;}
+  .nav a:focus-visible{outline:2px solid var(--gold-lite); outline-offset:5px; border-radius:1px;}
+
+  /* ============ phone (x 1141–1237, 56px after nav) ============ */
+  .phone{
+    margin-left:56px;
+    color:var(--phone-ink); text-decoration:none;
+    font-size:21px; font-weight:500;
+    /* all digits sit on the baseline at a uniform height */
+    font-family:"Playfair Display",serif; font-variant-numeric:lining-nums; font-feature-settings:"lnum" 1,"onum" 0;
+    letter-spacing:.01em; white-space:nowrap;
+    transition:color .18s ease;
+  }
+  .phone:hover{color:#fff;}
+
+  /* ============ button (x 1282–1384 → 103×44, 45px after phone) ============ */
+  .cta{
+    margin-left:45px;
+    width:103px; height:44px; flex:none;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:var(--gold-btn); color:var(--btn-ink);
+    font-size:14px; font-weight:700; letter-spacing:.005em;
+    text-decoration:none; border-radius:2px; white-space:nowrap;
+    transition:background .18s ease;
+  }
+  .cta:hover{background:#dcac3f;}
+  .cta:focus-visible{outline:2px solid #fff; outline-offset:3px;}
+
+  .nav .mobile-only{display:none;}
+
+  /* ============ mobile toggle ============ */
+  .menu-btn{
+    display:none; margin-left:auto;
+    background:none; border:0; padding:10px; cursor:pointer;
+  }
+  .menu-btn span{
+    display:block; width:24px; height:2px; background:var(--nav-ink); margin:5px 0;
+    transition:transform .2s ease, opacity .2s ease;
+  }
+  .menu-btn[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+  .menu-btn[aria-expanded="true"] span:nth-child(2){opacity:0;}
+  .menu-btn[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+
+  /* ============ page below (black, with the corner blooms) ============ */
+  .below{
+    min-height:calc(100vh - var(--bar-h));
+    background:var(--black);
+    position:relative; overflow:hidden;
+  }
+  /* decorative gold blooms sitting in the top corners, behind everything */
+  .bloom{
+    position:absolute; top:-14px; z-index:0;
+    width:clamp(190px,26vw,340px); height:auto;
+    pointer-events:none; user-select:none;
+    opacity:.92;
+  }
+  .bloom.left{left:-38px;}
+  .bloom.right{right:-38px; transform:scaleX(-1);}
+  .below > :not(.bloom){position:relative; z-index:1;}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:1400px){ .bar{padding:0 60px;} .nav{gap:24px;} }
+  @media (max-width:1180px){
+    .bar{padding:0 32px;}
+    .nav{gap:18px;}
+    .nav a{font-size:11.5px; letter-spacing:.04em;}
+    .phone{margin-left:28px; font-size:19px;}
+    .cta{margin-left:22px;}
+  }
+  @media (max-width:940px){
+    .bar{padding:0 20px;}
+    .menu-btn{display:block;}
+    .nav{
+      position:absolute; top:var(--bar-h); left:0; right:0;
+      margin:0; flex-direction:column; align-items:stretch; gap:0;
+      background:var(--blue-0); padding:6px 20px 16px;
+      box-shadow:0 10px 24px rgba(0,0,0,.5);
+      display:none;
+    }
+    .nav.open{display:flex;}
+    .nav a{padding:14px 0; border-bottom:1px solid rgba(255,255,255,.10); font-size:14px;}
+    .phone,.cta{display:none;}
+    .nav .mobile-only{display:block;}
+  }
+
+  @media (prefers-reduced-motion:reduce){ *{transition:none !important;} }
+
+  /* ============ page content ============ */
+  .below{padding-bottom:clamp(72px,9vw,140px);}
+
+  .wrap{
+    width:min(100% - 40px, 1180px);
+    margin-inline:auto;
+  }
+
+  .intro{padding:clamp(56px,7vw,104px) 0 clamp(40px,5vw,72px);}
+
+  .intro{text-align:center;}
+
+  .intro h1{
+    margin:0 auto;
+    max-width:18ch;
+    color:var(--gold-lite);
+    font-size:clamp(38px,6.2vw,68px);
+    font-weight:500;
+    line-height:1.04;
+    letter-spacing:-.01em;
+  }
+
+  .lede{
+    margin:26px auto 0;
+    max-width:60ch;
+    color:var(--phone-ink);
+    font-size:clamp(19px,2.1vw,22px);
+    line-height:1.62;
+  }
+
+  .banner{
+    margin:clamp(38px,4.5vw,56px) auto 0;
+    max-width:820px;
+    padding:20px 30px;
+    border:1px solid rgba(217,169,74,.45);
+    background:rgba(217,169,74,.07);
+    color:var(--gold-lite);
+    font-size:clamp(19px,2.2vw,24px);
+    line-height:1.38;
+  }
+
+  /* the three headline items, set as tiles with a grout line between them */
+  .at-a-glance{
+    margin:clamp(38px,4.5vw,56px) 0 0;
+    padding:0;
+    list-style:none;
+    display:grid;
+    gap:1px;
+    background:rgba(217,169,74,.26);
+    border:1px solid rgba(217,169,74,.26);
+    grid-template-columns:repeat(3,1fr);
+  }
+  .at-a-glance li{
+    background:var(--black);
+    padding:22px 24px 24px;
+    color:#e6ddc8;
+    font-size:19px;
+    line-height:1.4;
+  }
+  .at-a-glance b{
+    display:block;
+    margin-bottom:6px;
+    color:var(--gold-mid);
+    font-family:"Inter",-apple-system,Helvetica,Arial,sans-serif;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.09em;
+  }
+
+  /* ============ process ============ */
+  .process{padding:clamp(44px,5vw,76px) 0 0;}
+
+  .process h2, .care h2{
+    margin:0 0 clamp(28px,3.4vw,44px);
+    color:#fff;
+    font-size:clamp(28px,3.6vw,40px);
+    font-weight:500;
+    line-height:1.15;
+  }
+
+  .step{
+    display:grid;
+    grid-template-columns:96px 1fr;
+    gap:0 32px;
+    padding:28px 0;
+    border-top:1px solid rgba(190,215,255,.14);
+  }
+  .step{
+    border-top:0;
+    padding:28px 32px;
+    margin-bottom:18px;
+  }
+  .step:nth-of-type(odd){ background:#0f5c3e; }
+  .step:last-of-type{border-bottom:0; margin-bottom:0;}
+
+  .step .n{
+    display:flex; align-items:center; justify-content:center;
+    width:76px; height:76px;
+    border:1px solid rgba(217,169,74,.45);
+    color:var(--gold-mid);
+    font-size:34px;
+    line-height:1;
+    font-family:"Playfair Display",serif; font-variant-numeric:lining-nums; font-feature-settings:"lnum" 1,"onum" 0;
+  }
+  .step h3{
+    margin:0 0 8px;
+    color:var(--gold-lite);
+    font-size:clamp(22px,2.5vw,27px);
+    font-weight:600;
+    line-height:1.2;
+  }
+  .step h3 span{color:var(--gold-dim); font-weight:400;}
+  .step p{
+    margin:0;
+    max-width:58ch;
+    color:#cfc8b8;
+    font-size:19px;
+    line-height:1.6;
+  }
+
+  /* ============ care + quote ============ */
+  .care{
+    margin-top:clamp(56px,6.5vw,96px);
+    padding:clamp(36px,4.4vw,60px) clamp(28px,4vw,56px);
+    background:linear-gradient(120deg, rgba(49,83,153,.42), rgba(73,119,196,.16));
+    border:1px solid rgba(190,215,255,.16);
+  }
+  .care p{
+    margin:0;
+    max-width:64ch;
+    color:#e8e2d4;
+    font-size:clamp(19px,2.1vw,21px);
+    line-height:1.62;
+  }
+  .quote-line{
+    display:flex; flex-wrap:wrap; align-items:center; gap:22px;
+    margin-top:clamp(28px,3.2vw,40px);
+  }
+  .quote-line .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-height:48px; padding:0 26px;
+    background:var(--gold-btn); color:var(--btn-ink);
+    font-family:"Inter",-apple-system,Helvetica,Arial,sans-serif;
+    font-size:14px; font-weight:700;
+    text-decoration:none; border-radius:2px;
+    transition:background .18s ease;
+  }
+  .quote-line .btn:hover{background:#dcac3f;}
+  .quote-line .btn:focus-visible{outline:2px solid #fff; outline-offset:3px;}
+  .quote-line .tel{
+    color:var(--phone-ink); text-decoration:none;
+    font-size:22px; font-family:"Playfair Display",serif; font-variant-numeric:lining-nums; font-feature-settings:"lnum" 1,"onum" 0;
+  }
+  .quote-line .tel:hover{color:#fff;}
+
+  @media (max-width:860px){
+    .at-a-glance{grid-template-columns:1fr;}
+    .step{grid-template-columns:1fr; gap:16px 0;}
+    .step .n{width:58px; height:58px; font-size:26px;}
+  }
+
+/* ══ ROUNDED CORNERS ═══════════════════════════════════════════════
+   Same scale as index.html so the pages stay in sync. Tune these and
+   the whole page moves together. Set them all to 0 to revert. */
+:root{
+  --r-xs:6px;
+  --r-sm:10px;
+  --r-md:16px;
+  --r-lg:22px;
+}
+
+/* buttons + phone links */
+.cta, .phone, .btn, .quote-line .btn, .quote-line .tel, .menu-btn{
+  border-radius:var(--r-sm);
+}
+
+/* panels */
+.banner, .care, .why, .intro, .quote-line{ border-radius:var(--r-lg); }
+
+/* bordered grids need overflow clipping so the children follow the curve */
+.at-a-glance, .pkg-grid, .why-grid, .steps{ border-radius:var(--r-md); overflow:hidden; }
+.pkg{ border-radius:0; }
+.pkg-grid > .pkg:first-child{ border-radius:var(--r-md) var(--r-md) 0 0; }
+.pkg-grid > .pkg:last-child{ border-radius:0 0 var(--r-md) var(--r-md); }
+
+/* step blocks + their number badges */
+.step{ border-radius:var(--r-md); }
+.step .n{ border-radius:50%; }
+
+/* decorative artwork + media */
+.bloom{ border-radius:var(--r-md); }
+.hero-grid, .section > img, .below img{ border-radius:var(--r-md); }
+.dim, .foot{ border-radius:var(--r-md); }
+
+
+  /* ---------- sticky mobile call bar ---------- */
+  .callbar{
+    position:fixed; left:0; right:0; z-index:80; display:none;
+    bottom:calc(10px + env(safe-area-inset-bottom));
+    margin:0 12px; height:90px; padding:0 14px;
+    background:#172239;
+    border-radius:var(--r-lg,22px);
+    box-shadow:0 14px 34px -14px rgba(0,0,0,.65);
+  }
+  .callbar__in{ display:flex; align-items:center; gap:12px; height:100%; }
+  .callbar__btn{
+    flex:1; display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:5px; min-height:56px; padding:0 18px; text-decoration:none;
+    font-family:"Cormorant Garamond",Georgia,serif;
+    font-size:15px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+  }
+  .callbar__btn svg{ width:30px; height:30px; color:#E3B64A; }
+  .callbar__btn span{
+    background-image:linear-gradient(115deg,#A67C1E 0%,#F0C670 28%,#FCE7AE 45%,#C9982D 62%,#8A631A 100%);
+    background-size:180% 180%;
+    background-clip:text; -webkit-background-clip:text;
+    color:transparent; -webkit-text-fill-color:transparent;
+  }
+  .callbar__btn:active{ opacity:.65; }
+  @media (max-width:940px){
+    .callbar{ display:block; }
+    .below{ padding-bottom:calc(clamp(72px,9vw,140px) + 110px); }
+  }
+
+  /* The header is sticky, so an unadjusted #quote jump parks the top of the
+     form card underneath it. Offset by the bar height plus a little air. */
+  #quote{ scroll-margin-top:calc(var(--bar-h) + 18px); }
+  html{ scroll-behavior:smooth; }
+  @media (prefers-reduced-motion:reduce){ html{ scroll-behavior:auto; } }
+
+/* ============ floating "bubble" header ============ */
+.site-header{
+  top:10px; margin:10px 12px 0;
+  border-radius:var(--r-lg,22px);
+  box-shadow:inset 0 -1px 0 rgba(190,215,255,.28), 0 14px 34px -14px rgba(0,0,0,.65);
+}
+.logo img{ border-radius:12px; }
+/* flat navy, matching the home page */
+.site-header{
+  background:
+    radial-gradient(70% 190% at 49% 48%, rgba(255,255,255,.085) 0%, rgba(255,255,255,0) 68%),
+    linear-gradient(90deg,#172239 0%,#172239 100%);
+}
+/* centred Quick Quote, mobile only - mirrors .masthead__quote on the home page */
+.hdrQuote{ display:none; margin-left:auto; margin-right:auto; height:38px; padding:0 20px; gap:8px;
+  align-items:center; justify-content:center; background:transparent; color:#E3B64A;
+  text-decoration:none; font-family:"Dancing Script",cursive; font-size:24px; font-weight:600;
+  letter-spacing:.01em; white-space:nowrap; border:0; border-radius:999px; }
+.hdrQuote svg{ width:20px; height:20px; flex:none; }
+.hdrQuote:hover{ color:#F0C670; }
+.hdrQuote:active{ opacity:.65; }
+@media (max-width:940px){ .hdrQuote{ display:inline-flex; } }
+.cta{ border-radius:999px !important; }
+.nav a{ padding:8px 12px; border-radius:999px; transition:color .18s ease, background-color .18s ease; }
+.nav a:hover{ background:rgba(255,255,255,.10); }
+.nav{ gap:8px; }
+@media (max-width:1400px){ .nav{ gap:4px; } }
+@media (max-width:1180px){ .nav{ gap:2px; } }
+@media (max-width:940px){
+  .logo img{ height:84px; border-radius:10px; }
+  .menu-btn{ border-radius:999px; }
+  /* the dropdown becomes its own rounded panel hanging just under the bubble */
+  .nav{ top:calc(var(--bar-h) + 8px); border-radius:var(--r-lg,22px); padding:6px 20px 10px; gap:0; box-shadow:0 18px 40px -12px rgba(0,0,0,.6); }
+  .nav a{ padding:14px 0; border-radius:0; }
+  .nav a:hover{ background:none; }
+  .nav a:last-child{ border-bottom:0; }
+}
+</style>
+<link rel="stylesheet" href="quote-form.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="bar">
+
+    <a class="logo" href="index.html" aria-label="Khean &amp; Clean — home">
+      <img src="images/khean-clean-logo.png" alt="Khean &amp; Clean" width="164" height="156">
+    </a>
+
+    <a class="hdrQuote" href="#quote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M15 9h-4.25a1.75 1.75 0 0 0 0 3.5h2.5a1.75 1.75 0 0 1 0 3.5H9"/><path d="M12 7.2v1.8"/><path d="M12 16v1.8"/></svg><span>Quick Quote</span></a>
+
+    <button class="menu-btn" aria-expanded="false" aria-controls="primary-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="nav" id="primary-nav">
+      <a href="index.html">Home</a>
+      <a href="carpet.html">Carpet</a>
+      <a href="tile-and-grout.html">Tile &amp; Grout</a>
+      <a href="hardwood-lvp.html">Hardwood/LVP</a>
+      <a href="upholstery.html">Upholstery</a>
+      <a class="mobile-only" href="tel:+19167672520">(916) 767&#8211;2520</a>
+      <a class="mobile-only" href="#quote">Free quote</a>
+    </nav>
+
+    <a class="cta" href="#quote">Free quote</a>
+  </div>
+</header>
+
+<main class="below">
+  <img class="bloom left" src="images/flower.png" alt="" aria-hidden="true" width="460" height="409" decoding="async" fetchpriority="low">
+  <img class="bloom right" src="images/flower.png" alt="" aria-hidden="true" width="460" height="409" decoding="async" fetchpriority="low">
+
+  <section class="wrap intro">
+    <h1>Professional Natural Stone Cleaning Services</h1>
+    <p class="lede">Natural stone surfaces like marble, granite, travertine, and slate add timeless elegance to any home, but they require specialized care to maintain their beauty. Over time, porous stone and grout lines absorb dirt, spills, and grime, leading to discoloration and potential surface damage. Our professional stone cleaning service gently removes deeply embedded contaminants without harming the stone&rsquo;s natural finish or seal, restoring its original luster and extending the lifespan of your investment.</p>
+
+    <p class="banner">pH-balanced solutions and low-pressure extraction on every natural stone service.</p>
+  </section>
+
+  <section class="wrap process" id="method">
+    <h2>Our Stone Cleaning Process</h2>
+
+    <div class="step">
+      <div class="n">1</div>
+      <div>
+        <h3>Stone Inspection <span>&amp; Identification</span></h3>
+        <p>We examine your stone surfaces to identify the exact material, seal level, and existing wear, allowing us to select pH-balanced cleaning solutions tailored specifically for delicate natural stone.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">2</div>
+      <div>
+        <h3>Surface Preparation <span>&amp; Dusting</span></h3>
+        <p>Loose dirt and abrasive debris are carefully removed using soft microfibers and specialized vacuums to prevent scratching sensitive stone finishes prior to liquid cleaning.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">3</div>
+      <div>
+        <h3>Safe Stone Pre-Treatment</h3>
+        <p>We apply a gentle, stone-safe emulsifier that penetrates deep into pores and grout lines to break down oil, grease, and grime without etching the surface.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">4</div>
+      <div>
+        <h3>Gentle Agitation</h3>
+        <p>Using soft-bristle brushes or low-speed rotary polishers, we agitate the solution into grout lines and textured stone surfaces for a deep, thorough clean.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">5</div>
+      <div>
+        <h3>Low-Pressure Hot Water Extraction</h3>
+        <p>Our controlled extraction equipment rinses away dirt and cleaning agents using regulated temperature and pressure to ensure safe, residue-free results.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="n">6</div>
+      <div>
+        <h3>Drying <span>&amp; Natural Shine Buffing</span></h3>
+        <p>We dry the stone thoroughly and buff the surface to eliminate moisture spots and enhance the natural clarity and texture of your stone floors.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ QUICK ONLINE QUOTE — shared component ══
+       Markup, styling and behaviour all live in quote-form.css and
+       quote-form.js. Do not paste form HTML back in here. -->
+  <section class="wrap squote" id="quote">
+    <div data-kc-quote
+         data-service="Natural stone"
+         data-estimator="index.html#estimate"></div>
+    <noscript>
+      <div class="kcq__noscript">
+        <p><strong>The online quote form needs JavaScript.</strong></p>
+        <p>Please call us on <a href="tel:+19167672520">(916)&nbsp;767-2520</a>
+           and we will give you a quote over the phone.</p>
+      </div>
+    </noscript>
+  </section>
+
+
+  <section class="wrap">
+    <div class="care">
+      <h2>Why Natural Stone Maintenance Matters</h2>
+      <p>Unlike ceramic or porcelain tile, natural stone is particularly susceptible to etching, staining, and moisture damage if neglected. Routine professional cleaning removes damaging grit, protects protective sealers, and prevents long-term discoloration, ensuring your stone surfaces remain a striking, hygienic centerpiece in your home.</p>
+
+      <div class="quote-line">
+        <a class="btn" href="tel:+19167672520">Call Us</a>
+        <a class="tel" href="tel:+19167672520">(916)&nbsp;767&#8211;2520</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const btn = document.querySelector('.menu-btn');
+  const nav = document.getElementById('primary-nav');
+  btn.addEventListener('click', () => {
+    const open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', String(!open));
+    btn.setAttribute('aria-label', open ? 'Open menu' : 'Close menu');
+    nav.classList.toggle('open', !open);
+  });
+</script>
+<script src="quote-form.js" defer></script>
+
+<div class="callbar">
+  <div class="callbar__in">
+    <a class="callbar__btn" href="tel:+19167672520"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span>Call Us</span></a>
+    <a class="callbar__btn" href="sms:+19167672520"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span>Text Us</span></a>
+  </div>
+</div>
+</body>
+</html>
