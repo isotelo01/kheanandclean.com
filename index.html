@@ -2561,6 +2561,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         quickdry:  { name:'Quick Dry Encapsulation', sqft:0.37 }
       },
       addons: {
+        stairs: { name:'Flights of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
+                   text:'$100 per flight' },
         hair:   { name:'Hair & debris removal', sqft:0.12 },
         deo:    { name:'Deodorizer',            sqft:0.05 },
         prot:   { name:'Stain protector',      sqft:0.10 },
@@ -2727,6 +2729,14 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         st.addons[k].on = el.checked;
         st.touched = true;
 
+        // Stairs starts at one flight on check (matching the room picker's first-click
+        // behavior) since its count lives in st.rooms, not in the add-on's own qty.
+        if(k === 'stairs'){
+          if(el.checked){ if(!(st.rooms.stairs > 0)) st.rooms.stairs = 1; }
+          else st.rooms.stairs = 0;
+          applyRoomValuesFromState();
+        }
+
         // Deodorizer/protector are what actually distinguish Signature from Deep, so
         // unchecking either one steps the package down. Drying is required under
         // Signature (locked, can't be unchecked) but is a real, price-affecting
@@ -2773,12 +2783,20 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     });
     addsList.querySelectorAll('[data-addqty]').forEach(function(el){
       var k = el.dataset.addqty;
-      if(st.addons[k] && st.addons[k].qty != null) el.value = st.addons[k].qty;
+      if(k === 'stairs') el.value = st.rooms.stairs || 0;
+      else if(st.addons[k] && st.addons[k].qty != null) el.value = st.addons[k].qty;
       var evt = el.tagName === 'SELECT' ? 'change' : 'input';
       el.addEventListener(evt, function(){
         var v = +el.value || 0;
         st.addons[k] = st.addons[k] || {};
-        st.addons[k].qty = v;
+        // Stairs lives in st.rooms so the room picker and this add-on stay one number.
+        // roomTotals() reads the picker's input, so write straight through to it.
+        if(k === 'stairs'){
+          st.rooms.stairs = v;
+          var rInp = roomList && roomList.querySelector('[data-room="stairs"]');
+          if(rInp) rInp.value = v;
+        }
+        else st.addons[k].qty = v;
         st.touched = true;
 
         // A quantity has been entered, so drop the "please enter a quantity" highlight.
@@ -3030,6 +3048,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       var inp = roomList.querySelector('[data-room="'+rt.key+'"]');
       if(inp) inp.value = STATE[activeSvc].rooms[rt.key] || 0;
     });
+    // Stairs is mirrored by the front-screen add-on box; keep the two displays equal.
+    var sInp = addsList && addsList.querySelector('[data-addqty="stairs"]');
+    if(sInp) sInp.value = STATE[activeSvc].rooms.stairs || 0;
   }
 
   function roomTotals(){
@@ -3134,6 +3155,20 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       : 'No rooms selected yet';
     roomPicker.style.display = 'none';
     roomSummary.style.display = '';
+    // Push any stairs change made inside the picker back onto the front-screen add-on.
+    var sBox = addsList && addsList.querySelector('[data-addqty="stairs"]'),
+        sRoom = roomList && roomList.querySelector('[data-room="stairs"]');
+    if(sBox && sRoom){
+      var sv = +sRoom.value || 0;
+      sBox.value = sv;
+      STATE[activeSvc].rooms.stairs = sv;
+      var sCb = addsList.querySelector('[data-add="stairs"]');
+      if(sCb){
+        sCb.checked = sv > 0;
+        STATE[activeSvc].addons.stairs = STATE[activeSvc].addons.stairs || {};
+        STATE[activeSvc].addons.stairs.on = sv > 0;
+      }
+    }
     removeRoomBreakout();
     STATE[activeSvc].collapsed = true;
     syncRoomsDone();
@@ -3212,7 +3247,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
           cost: sqft * rate
         });
       }
-      if(flatRooms > 0){
+      // If the stairs add-on is checked it prints its own line below; don't print twice.
+      if(flatRooms > 0 && !(st.addons.stairs && st.addons.stairs.on)){
         items.push({ label: 'Flights of Stairs', cost: flatRooms });
       }
 
@@ -3229,7 +3265,10 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         if(svcKey==='carpet' && st.tier==='quickdry' && ['dry','prot'].indexOf(k) > -1) return;
         if(!ast || !ast.on) return;
         var cost;
-        if(a.needsQty)  cost = (ast.qty||0) * a.linear;
+        // Stairs is entered in two places (this add-on and the room picker) but is one
+        // number: both read/write st.rooms.stairs, so it can never double-charge.
+        if(k === 'stairs') cost = (st.rooms.stairs || 0) * a.linear;
+        else if(a.needsQty)  cost = (ast.qty||0) * a.linear;
         else if(a.flat) cost = a.flat;
         else            cost = sqft * a.sqft;
         if(cost > 0) items.push({ label: a.name, cost: cost });
