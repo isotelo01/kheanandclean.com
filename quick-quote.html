@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quick Online Quote &middot; Khean &amp; Clean</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600&family=Archivo+Narrow:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="quote-form.css">
+<style>
+
+/* ============================================================================
+   KHEAN & CLEAN — "THE SPECIMEN BOOK"
+   Premium trade work, documented precisely. Numbered plates, hairline rules,
+   small-caps labels, marginal spec notes, tabular figures. High-end earned
+   through craft and restraint. Plain language keeps it accessible.
+
+   Palette keyed to the brand mark: near-black ground, gilded gold as the
+   single hero accent, a low teal ember (from the mark's smoke) as the
+   secondary "after" colour, warm ivory paper in place of a cool cast.
+   ============================================================================ */
+:root{
+  --ink:      #0A0A0B;
+  --ink-2:    #161310;
+  --slate:    #6B6155;
+  --dust:     #A89C8A;
+  --line:     rgba(0,0,0,.14);
+  --line-d:   rgba(236,228,210,.16);
+  --paper:    #F8F5EC;
+  --paper-2:  #EFE9D9;
+  --emerald:  #0F5C3E;
+
+  /* corner radii — nothing on this site should read as a hard right angle */
+  --r-sm:     8px;
+  --r-md:     16px;
+  --r-lg:     24px;
+  --r-pill:   999px;
+  --on-em:    #F4F1E6;
+  --on-em-2:  rgba(244,241,230,.74);
+  --bar-h: 120px;
+  --line-em:  rgba(244,241,230,.20);
+  --bone:     #ECE4D0;
+  --jade:     #1B4FA0;
+  --jade-lit: #3E7FD6;
+  --jade-dim: #0A2C5C;
+  --brass:    #C9982D;
+  --brass-lit:#F0C670;
+  --gold-grad: linear-gradient(115deg, #A67C1E 0%, #F0C670 28%, #FCE7AE 45%, #C9982D 62%, #8A631A 100%);
+  --emerald:      #0F5C3E;
+  --emerald-lit:  #1E8F63;
+  --emerald-dim:  #083825;
+
+  --shell: min(1240px, 100% - 3rem);
+  --gutter: clamp(1.5rem, 4vw, 4rem);
+
+  --fs-display: clamp(3rem, 8.5vw, 6.75rem);
+  --fs-h2:      clamp(2rem, 4.2vw, 3.5rem);
+  --fs-lede:    clamp(1.05rem, 1.5vw, 1.28rem);
+  --fs-body:    1.0125rem;
+  --fs-sm:      .875rem;
+  --fs-xs:      .75rem;
+  --fs-2xs:     .6875rem;
+
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
+
+body{
+  /* Every digit on the page sits on one baseline at a uniform height,
+     inherited by body copy, footers, buttons and form fields alike. */
+  font-variant-numeric:lining-nums;
+  font-feature-settings:"lnum" 1,"onum" 0;
+  margin:0; background:var(--ink); color:var(--ink);
+  font-family:"Archivo",system-ui,-apple-system,sans-serif;
+  font-size:var(--fs-body); line-height:1.62;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+
+
+/* paper grain — the one texture that lifts flat colour */
+.grain{ position:relative; isolation:isolate; }
+
+.grain > *{ position:relative; z-index:1; }
+
+
+/* label / rule system */
+.label{
+  display:flex; align-items:center; gap:.85rem;
+  font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); font-weight:700;
+  letter-spacing:.22em; text-transform:uppercase; color:var(--jade); margin-bottom:1.4rem;
+}
+
+
+/* buttons */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:.6rem;
+  font-family:"Archivo",sans-serif; font-size:var(--fs-sm); font-weight:700;
+  letter-spacing:.02em; padding:1.05rem 1.75rem; border-radius:2px;
+  border:1px solid transparent; text-decoration:none; cursor:pointer;
+  transition:background .2s ease, color .2s ease, border-color .2s ease, transform .12s ease;
+}
+
+.btn:active{ transform:translateY(1px); }
+
+.btn--call{ background:var(--brass); color:#1A1004; border-color:var(--brass); }
+
+.popup{ position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; padding:1.25rem; background:rgba(6,12,10,.72); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); animation:popupFade .25s ease; }
+
+.popup[hidden]{ display:none; }
+
+.popup__card{ width:min(100%,420px); background:var(--emerald); color:var(--on-em); border:1px solid var(--line-em); border-radius:var(--r-lg); padding:2rem 1.6rem 1.6rem; text-align:center; box-shadow:0 30px 70px -20px rgba(0,0,0,.7); animation:popupRise .3s cubic-bezier(.22,.61,.36,1); }
+
+.popup__icon{ width:56px; height:56px; margin:0 auto 1rem; border-radius:var(--r-pill); background:var(--brass); color:#1A1004; display:flex; align-items:center; justify-content:center; }
+
+.popup__icon svg{ width:28px; height:28px; }
+
+.popup__title{ font-family:"Playfair Display",serif; font-size:1.5rem; font-weight:600; margin:0 0 .5rem; color:#fff; }
+
+.popup__text{ margin:0 0 1.4rem; font-size:1rem; line-height:1.55; color:var(--on-em-2); }
+
+.popup__ok{ width:100%; }
+
+.btn--call:hover{ background:var(--brass-lit); border-color:var(--brass-lit); }
+
+.btn--jade{ background:var(--jade); color:#fff; border-color:var(--jade); }
+
+.btn--jade:hover{ background:var(--jade-lit); border-color:var(--jade-lit); }
+
+.btn--wire{ background:transparent; color:var(--bone); border-color:rgba(231,233,227,.32); }
+
+.btn--wire:hover{ border-color:var(--bone); background:rgba(231,233,227,.06); }
+
+.btn--em{ background:var(--emerald); color:var(--on-em); border-color:var(--emerald); }
+
+.btn--em:hover{ background:var(--emerald-lit); border-color:var(--emerald-lit); }
+
+.btn--wireDark{ background:transparent; color:var(--ink); border-color:var(--line); }
+
+.btn--wireDark:hover{ border-color:var(--ink); background:rgba(12,24,20,.04); }
+
+
+/* entrance motion */
+.rise{ opacity:0; transform:translateY(22px); transition:opacity .75s cubic-bezier(.22,.61,.36,1), transform .75s cubic-bezier(.22,.61,.36,1); transition-delay:var(--d,0ms); }
+
+
+/* ---------------------------------- MASTHEAD (matches the service pages) ---------------------------------- */
+.masthead{ position:sticky; top:0; z-index:70; height:var(--bar-h); color:var(--bone);
+  background:
+    radial-gradient(70% 190% at 49% 48%, rgba(255,255,255,.085) 0%, rgba(255,255,255,0) 68%),
+    linear-gradient(90deg, #172239 0%, #172239 100%);
+  box-shadow:inset 0 -1px 0 rgba(190,215,255,.28); }
+
+
+  /* hide on scroll down, reveal on scroll up */
+  .masthead{ transition:transform .28s ease; will-change:transform; }
+
+/* Same clipping trick as .gilt, but fills the letterforms with the foil photo
+   instead of a gradient. Falls back to --gold-grad if the image is missing. */
+.foil{ background-image:url("images/gold-foil.jpg"), var(--gold-grad); background-clip:text; -webkit-background-clip:text; color:transparent; -webkit-text-fill-color:transparent; background-size:cover; background-position:center; }
+
+/* review seal in the old Quote slot. keeps the 103px footprint so the header
+   layout is unchanged, but the image overhangs the 44px bar height */
+/* invisible stand-in holding the old Quote button's footprint so the nav
+   and phone number keep their original positions */
+.masthead__spacer{ margin-left:45px; width:103px; height:44px; flex:none; display:inline-block; }
+
+/* the bar only lifts --bar-h, but the seal box runs further down the page.
+   lift it by its own height on top of that so it clears the viewport. */
+.masthead.is-hidden .masthead__seal{ transform:translateY(-100%); transition:transform .28s ease; }
+
+/* Mobile hamburger + dropdown, styled like the service pages. */
+.masthead__quote{ display:none; margin-left:auto; margin-right:auto; height:38px; padding:0 20px; gap:8px; align-items:center; justify-content:center; background:transparent; color:#E3B64A; text-decoration:none; font-family:"Dancing Script",cursive; font-size:24px; font-weight:600; letter-spacing:.01em; text-transform:none; white-space:nowrap; border:0; border-radius:var(--r-pill); }
+
+/* Blue bar rounded at the bottom, black filling the corners behind it (all screen sizes). */
+.masthead{ background:transparent; box-shadow:none; transition:background-color .2s ease;
+  /* floating bubble, matching the service pages */
+  top:10px; margin:10px 12px 0; border-radius:var(--r-lg); }
+
+/* desktop: pill CTA and soft pill hover on the nav links */
+.masthead__cta{ border-radius:var(--r-pill) !important; }
+
+.quoteAnchor{ display:block; height:0; scroll-margin-top:calc(var(--bar-h) + 30px); }
+
+
+/* ---------------------------------- HERO ---------------------------------- */
+.hero{ background:var(--ink); color:var(--bone); padding:clamp(3.5rem,7vw,6.5rem) 0 clamp(4rem,7vw,6rem); position:relative; }
+
+.hero__stack .qform{ width:100%; margin-bottom:2.75rem; }
+
+.hero .qform{ padding:clamp(1.35rem,2.2vw,1.9rem); }
+
+.hero .qfield{ margin-bottom:.95rem; }
+
+.hero .qform__sub{ margin-bottom:1.4rem; }
+
+/* Whole tagline is gold, not just the .lit half — it used to switch to white
+   mid-sentence. Same gradient the .lit spans already use. */
+.hero__tagline{ background-image:var(--gold-grad); background-clip:text; -webkit-background-clip:text; color:transparent; -webkit-text-fill-color:transparent; background-size:180% 180%; }
+
+
+/* platform brand colors, shared by the hero pills and the footer icon row */
+[href*="instagram.com"]{ --brand:#E4405F; }
+
+[href*="facebook.com"]{ --brand:#4A90F0; }
+
+[href*="tiktok.com"]{ --brand:#25F4EE; }
+
+[href*="youtube.com"]{ --brand:#FF4A4A; }
+
+[href*="nextdoor.com"]{ --brand:#9BDD2B; }
+
+[href*="share.google"]{ --brand:#5C9CFF; }
+
+
+/* SIGNATURE: the plate */
+.plate{ position:relative; padding:14px; margin:0; border:1px solid var(--line-d); background:linear-gradient(180deg, rgba(231,233,227,.05), transparent); }
+
+
+/* ---------------------------------- SPEC RAIL ---------------------------------- */
+.rail{ background:var(--ink-2); color:var(--bone); border-top:1px solid var(--line-d); border-bottom:1px solid var(--line-d); }
+
+
+/* ---------------------------------- BANDS ---------------------------------- */
+.band{ padding:clamp(4.5rem,9vw,8rem) 0; }
+
+
+/* text and rules sitting directly on the emerald ground */
+.band--paper .label, .band--paper2 .label{ color:var(--brass-lit); }
+
+
+/* light cards keep their own ink text — the band colour must not leak in */
+.band--paper .pkg, .band--paper2 .pkg,
+.band--paper .rev, .band--paper2 .rev,
+.band--paper .qform, .band--paper2 .qform{ color:var(--ink); }
+
+
+/* ---------------------------------- SERVICES ---------------------------------- */
+.entries{ display:grid; gap:14px; }
+
+/* on navy: the title picks up the same gold as the header quote button, and the
+   supporting text lifts off --slate, which would be unreadable on the navy. */
+.entry__ttl{ color:#E3B64A; }
+
+
+/* Even boxes flip to cream. The golds above are all tuned for navy and would
+   vanish on paper, so the text colours flip with the background. The gradient
+   fill on .entry__txt has to be switched off explicitly — background-image and
+   -webkit-text-fill-color both need resetting, not just color. */
+.entry:nth-of-type(even){ background:var(--paper); }
+
+
+/* ---------------------------------- PACKAGES ---------------------------------- */
+.pkgs{ display:grid; grid-template-columns:repeat(2,1fr); gap:1.5rem; align-items:stretch; }
+
+/* Just the word "Signature" in script, since the package name is literally a
+   signature. Dancing Script runs small beside Playfair caps, so it is scaled up
+   relative to the heading rather than given a fixed size. */
+.pkgScript{ font-family:"Dancing Script",cursive; font-weight:600; font-size:1.3em; line-height:1; color:#EA5545; }
+
+/* Flat near-black variant. Mirrors the .pkg--pick text treatment so content
+   stays legible on a dark card, without the lift, shadow, or jade accents. */
+.pkg--dark{ background:#0a0a0b; color:var(--bone); border-color:#0a0a0b; }
+
+.pkg .btn{ width:100%; }
+
+/* Package cards: jade is a blue (#1B4FA0) and reads as a stray accent on the
+   black cards. Price figure takes the clipped --gold-grad like .gilt; the 5px
+   bullets take a flat gold, since a gradient across five pixels is just one
+   colour; the Select button becomes gold on near-black. The "/ sq ft" suffix is
+   pushed back to dust — -webkit-text-fill-color inherits, so without this it
+   would pick up the gradient too and lose its place in the hierarchy. */
+.pkg .pkg__fig{
+  background-image:var(--gold-grad); background-size:180% 180%;
+  background-clip:text; -webkit-background-clip:text;
+  color:transparent; -webkit-text-fill-color:transparent;
+}
+
+.pkg .btn--jade{ background:var(--brass); color:#1A1004; border-color:var(--brass); }
+
+.pkg .btn--jade:hover{ background:var(--brass-lit); border-color:var(--brass-lit); }
+
+
+/* ---------------------------------- ESTIMATOR ---------------------------------- */
+.est{ display:grid; grid-template-columns:2fr 1fr; border:1px solid var(--line-d); align-items:start; }
+
+/* "Signature" in the package picker, matching .pkgScript on the package card.
+   .seg label is uppercase with .13em tracking, so both are reset here or the
+   script face renders as spaced-out capitals. Goes white when selected, since
+   the red would sit on the jade fill and be unreadable. */
+.segScript{ font-family:"Dancing Script",cursive; font-size:1.45em; font-weight:600; letter-spacing:0; text-transform:none; color:#EA5545; margin-right:.12em; }
+
+/* "Deep" stays gold in both states — a colour set on the span itself beats the
+   white inherited from .seg input:checked + label. */
+.segGold{ color:#E3B64A; }
+
+
+/* Next-service hint: a visual nudge after the room picker closes. Hint only — never selected. */
+.seg label.seg__hint{ border-color:var(--brass-lit); color:var(--brass-lit); box-shadow:0 0 0 3px rgba(240,198,112,.28); animation:segHint 1.4s ease-in-out infinite; }
+
+
+/* Floating Done for the room picker. It lives inside the picker and sticks to the bottom of the
+   screen only while the picker is in view; scroll past the picker and it leaves with it. */
+.roomsDone{ display:none; }
+
+body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem + env(safe-area-inset-bottom)); z-index:20; width:100%; margin-top:1.4rem; box-shadow:0 12px 32px -8px rgba(0,0,0,.6); }
+
+/* Room rows were inconsistent because the name and its sq ft caption sat inline
+   in one span: long names wrapped and pushed the caption onto a second line,
+   short ones didn't, so the stepper sat at a different height on every row.
+   The flex rule pins the stepper right at every width; below 940px the caption
+   drops to its own line, where there isn't room for both on one. */
+#roomList .add > span:first-child{ flex:1 1 auto; min-width:0; }
+
+/* Estimator contact fields — left input column, matches .fld / .lgnd conventions */
+.estSend{ padding-top:0; }
+
+/* Autofill: browsers paint their own pale tint over filled boxes; keep ours black/white. */
+.estField input:-webkit-autofill, .estField input:-webkit-autofill:hover, .estField input:-webkit-autofill:focus,
+.estField select:-webkit-autofill, .estField textarea:-webkit-autofill{
+  -webkit-box-shadow:0 0 0 1000px #000 inset; box-shadow:0 0 0 1000px #000 inset;
+  -webkit-text-fill-color:#fff; caret-color:#fff; transition:background-color 9999s ease-out 0s;
+}
+
+/* Same idea for the quick quote, which stays white. */
+.qfield input:-webkit-autofill, .qfield input:-webkit-autofill:hover, .qfield input:-webkit-autofill:focus, .qfield select:-webkit-autofill{
+  -webkit-box-shadow:0 0 0 1000px #fff inset; box-shadow:0 0 0 1000px #fff inset;
+  -webkit-text-fill-color:var(--ink); transition:background-color 9999s ease-out 0s;
+}
+
+/* Photo hand-off: a real tap target, since texting is how photos actually arrive. */
+.est__photos{ margin:.9rem 0 0; }
+
+.qform__photos{ margin:.6rem 0 1.1rem; }
+
+.btn--text{ display:flex; align-items:center; justify-content:center; gap:.7rem; width:100%; padding:1.15rem 1rem; font-size:var(--fs-sm); line-height:1.2; }
+
+.btn--text svg{ width:22px; height:22px; flex:none; }
+
+.btn--text .btn__sub{ display:block; font-size:var(--fs-2xs); font-weight:400; letter-spacing:.06em; opacity:.8; margin-top:.25rem; text-transform:none; }
+
+/* Phones text, desktops email — a desktop has no messaging app, so sms: is a dead tap there. */
+.est__photos .photo--mail, .qform__photos .photo--mail{ display:none; }
+
+.estSend .btn{ width:100%; margin-top:.3rem; }
+
+/* Gate: contact block first, estimator opens once Enter is pressed. */
+.estField select{
+  width:100%; font-family:"Archivo",sans-serif; font-size:var(--fs-body); color:#fff;
+  background:#000; border:1px solid var(--line-d); border-radius:var(--r-sm); padding:.82rem 2.4rem .82rem .9rem;
+  appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23c9a86a' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right .9rem center;
+  transition:border-color .2s ease, box-shadow .2s ease;
+}
+
+/* Estimator section legends: --fs-2xs was too small to read as a section
+   heading. Sized up and set full width; letter-spacing eases off because .2em
+   over-stretches at this size. This also supersedes the #uphFields size above,
+   so every legend in the estimator matches. */
+#estimate .lgnd{ width:100%; font-size:1.35rem; letter-spacing:.14em; margin-bottom:1rem; text-align:center; color:#EA5545; }
+
+.est__out .btn{ width:100%; }
+
+
+/* ---------------------------------- METHOD ---------------------------------- */
+.steps{ border-top:1px solid var(--line); }
+
+/* Method steps as cream bubbles on the green band. The colours above assume the
+   text sits straight on the emerald, so each one flips for paper. Selectors are
+   .steps .stp to match the .band--paper overrides' specificity and win on order.
+   The step number moves off --brass, which is too faint on cream at 1.05rem. */
+.steps{ display:grid; gap:14px; border-top:0; }
+
+
+/* ---------------------------------- REVIEWS ---------------------------------- */
+.score{ display:flex; align-items:flex-end; gap:1.1rem; flex-wrap:wrap; }
+
+
+/* ---------------------------------- AREAS ---------------------------------- */
+.areas{ display:flex; flex-wrap:wrap; gap:.6rem; }
+
+
+/* ---------------------------------- QUOTE ---------------------------------- */
+.quote__grid{ display:grid; grid-template-columns:.82fr 1.18fr; gap:clamp(1.25rem,2.5vw,2.5rem); align-items:start; }
+
+/* OWNER PHOTO — drop a portrait in here for a big trust lift:
+   <div class="qside__photo"><img src="/images/owners.jpg" alt="..." width="800" height="600"></div>
+   .qside__photo{ margin:0 0 1.5rem; overflow:hidden; }
+ */
+.qside .mark{ margin-bottom:1.5rem; }
+
+
+.qform{ background:var(--paper); color:var(--ink); padding:clamp(1.6rem,2.8vw,2.5rem); border:1px solid var(--line); }
+
+.qform__ttl{ font-family:"Playfair Display",serif; font-size:1.6rem; font-weight:700; letter-spacing:-.022em; line-height:1.05; text-align:center; }
+
+.qform__sub{ font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--jade); margin:.5rem 0 1.9rem; text-align:center; }
+
+
+/* header icon controls (pencil / clear) — mirrors the .kcq__tool rules in
+   quote-form.css so the homepage quick quote matches the service pages.
+   #quoteWrap carries position:relative inline. Only one button is visible at
+   a time; the quick quote script toggles the hidden attribute. */
+.kcq__tools{ position:absolute; top:14px; right:0; display:flex; gap:6px; z-index:2; }
+
+.kcq__tool{
+  display:grid; place-items:center; width:34px; height:34px; padding:0; cursor:pointer;
+  color:var(--slate); background:transparent;
+  border:1px solid var(--line); border-radius:var(--r-sm);
+  transition:color .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.kcq__tool[hidden]{ display:none; }
+
+.kcq__tool svg{ width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+
+.kcq__tool:hover{ color:#1b4fa0; border-color:#1b4fa0; background:rgba(27,79,160,.06); }
+
+.kcq__tool:focus-visible{ outline:2px solid #1b4fa0; outline-offset:2px; }
+
+
+/* estimator clear button sits beside Request Appointment */
+/* Request Appointment on top at full width, Clear tucked underneath and much
+   smaller so it never competes with the primary action. */
+.estActions{ display:flex; flex-direction:column; align-items:flex-start; gap:.7rem; }
+
+/* Deliberately taller than .btn--text (the "Email us photos" button) — this is
+   the primary action on the page, so it gets double the vertical padding. */
+.estActions .estSubmit{ width:100%; padding:2.3rem 1rem; font-size:var(--fs-sm); }
+
+
+/* four-way clear dialog */
+/* Emerald panel, matching .popup__card's on-emerald treatment. Note --jade is
+   blue (#1B4FA0); --emerald is the green. */
+.estClearDlg{
+  border:1px solid var(--line-em); border-radius:var(--r-md);
+  padding:1.5rem 1.5rem 1.3rem; max-width:26rem; width:calc(100% - 2rem);
+  background:var(--emerald); color:var(--on-em);
+  box-shadow:0 30px 70px -20px rgba(0,0,0,.7);
+}
+
+.estClearDlg::backdrop{ background:rgba(10,10,11,.55); }
+
+.estClearDlg__ttl{ font-family:"Playfair Display",serif; font-size:1.25rem; font-weight:700; margin:0 0 .3rem; color:var(--on-em); }
+
+.estClearDlg__sub{ font-size:var(--fs-xs); color:var(--on-em-2); margin:0 0 1.1rem; }
+
+.estClearDlg__acts{ display:grid; gap:.5rem; }
+
+/* Light buttons on the emerald. Colours are set here rather than left to
+   .btn--wireDark, whose dark-on-light scheme disappears against this panel. */
+.estClearDlg__acts .btn{
+  width:100%; justify-content:center; text-align:center;
+  background:var(--on-em); border:1px solid var(--on-em);
+  color:var(--emerald-dim);
+  transition:background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.estClearDlg__acts .btn:hover{ background:#fff; border-color:#fff; color:var(--emerald-dim); }
+
+.estClearDlg__acts .btn:focus-visible{ outline:2px solid var(--on-em); outline-offset:3px; }
+
+/* Cancel is secondary, but kept at full opacity — dimming it against emerald
+   pushed the contrast under AA. It recedes by being outlined rather than solid. */
+.estClearDlg__cancel{
+  margin-top:.35rem;
+  background:transparent; border-color:var(--on-em-2); color:var(--on-em);
+}
+
+.estClearDlg__acts .estClearDlg__cancel:hover{
+  background:rgba(244,241,230,.12); border-color:var(--on-em); color:var(--on-em);
+}
+
+.orGetA{ text-align:center; font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-xs); font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--dust); margin:0 0 1rem; }
+
+/* Gold pill linking the homepage to the property managers / realtors page.
+   Same palette and hover as .masthead__cta, sized up for the hero. */
+.pmBand{ display:flex; justify-content:center; margin:0 0 1.5rem; }
+
+/* Slow diagonal sheen sweeping across the face of the pill. Sits behind the
+   label via z-index, so the text never dims as it passes. */
+.pmBand__btn::after{ content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(105deg, transparent 38%, rgba(255,244,214,.55) 50%, transparent 62%); background-size:260% 100%; background-repeat:no-repeat; animation:pmSheen 5.5s ease-in-out infinite; }
+
+  /* Same sheen as .pmBand__btn, reusing the pmSheen keyframes. */
+  .callBox__save::after{ content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(105deg, transparent 38%, rgba(255,244,214,.55) 50%, transparent 62%); background-size:260% 100%; background-repeat:no-repeat; animation:pmSheen 5.5s ease-in-out infinite; }
+
+
+.qrow{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+
+.qfield{ margin-bottom:1.15rem; border:0; padding:0; min-width:0; }
+
+.qCollapsedSummary{ display:block; scroll-margin-top:calc(var(--bar-h) + 16px); margin:-.6rem 0 1.3rem; background:rgba(27,79,160,.05); border:1px solid var(--line); border-radius:var(--r-md); padding:.9rem 1rem; }
+
+.qCollapsedSummary .chips{ display:flex; flex-wrap:wrap; gap:.45rem; margin-bottom:.75rem; }
+
+.qCollapsedSummary .chip{ background:rgba(27,79,160,.08); border:1px solid var(--line); border-radius:999px; padding:.35rem .8rem; font-size:var(--fs-xs); color:var(--ink); font-family:"Archivo Narrow",sans-serif; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+
+.qCollapsedSummary .row{ display:grid; grid-template-columns:auto 1fr; gap:.25rem .8rem; padding:.55rem 0; border-top:1px solid var(--line); font-size:var(--fs-sm); color:var(--ink); }
+
+.qCollapsedSummary .row:first-child{ border-top:0; padding-top:0; }
+
+.qCollapsedSummary .chips + .row{ border-top:1px solid var(--line); }
+
+.qCollapsedSummary .row b{ font-family:"Archivo Narrow",sans-serif; font-weight:700; font-size:var(--fs-xs); letter-spacing:.08em; text-transform:uppercase; color:var(--slate); padding-top:.15em; white-space:nowrap; }
+
+.qCollapsedSummary .row span{ white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55; }
+
+.qCollapsedSummary .row .est{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.86em; }
+
+.qCollapsedSummary .row--full{ grid-template-columns:1fr; }
+
+
+/* ---- frozen snapshot bubbles ---- */
+.qBubbles{ display:flex; flex-direction:column; gap:.7rem; margin:.85rem 0 0; }
+
+.qBub{
+  position:relative; border:1px solid var(--line-d); border-radius:var(--r-lg,24px);
+  background:linear-gradient(180deg, rgba(231,233,227,.06), rgba(231,233,227,.02));
+  padding:.85rem 2.1rem .9rem 1rem;
+}
+
+.qBub--estimate{ border-color:rgba(27,180,160,.38); }
+
+.qBub__ttl{
+  margin:0 0 .5rem; font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs);
+  letter-spacing:.12em; text-transform:uppercase; color:var(--dim,#9aa39c);
+}
+
+.qBub__x{
+  position:absolute; top:.5rem; right:.55rem; width:26px; height:26px; padding:0;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--line-d); border-radius:999px; background:transparent;
+  color:var(--dim,#9aa39c); font-size:16px; line-height:1; cursor:pointer;
+  transition:color .15s ease, border-color .15s ease;
+}
+
+.qBub__x:hover{ color:var(--bone,#ECE4D0); border-color:var(--bone,#ECE4D0); }
+
+.qBub__x:focus-visible{ outline:2px solid var(--jade,#1BB4A0); outline-offset:2px; }
+
+.qBub__print{
+  display:flex; align-items:center; gap:.5rem; margin:.9rem 0 0 auto; padding:.6rem 1.15rem;
+  font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-xs); font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase;
+  border:1px solid #0F5C3E; border-radius:999px; background:#0F5C3E;
+  color:#F4F1E6; cursor:pointer;
+  transition:background .15s ease, border-color .15s ease;
+}
+
+.qBub__print svg{ width:16px; height:16px; flex:none; }
+
+.qBub__print:hover{ background:#0c4a32; border-color:#0c4a32; }
+
+.qBub__print:focus-visible{ outline:2px solid var(--jade,#1BB4A0); outline-offset:2px; }
+
+.qBub__body .row{ display:flex; gap:.6rem; justify-content:space-between; padding:.18rem 0; font-size:var(--fs-sm); }
+
+.qBub__body .row b{ color:var(--dim,#9aa39c); font-weight:600; flex:0 0 auto; }
+
+.qBub__body .row span{ text-align:right; }
+
+.qBub__body .chips{ display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.45rem; }
+
+.qexpand{ display:grid; grid-template-rows:0fr; opacity:0; transition:grid-template-rows .5s cubic-bezier(.22,.61,.36,1), opacity .4s ease; }
+
+.qexpand.is-open{ grid-template-rows:1fr; opacity:1; }
+
+.qexpand__inner{ overflow:hidden; min-height:0; }
+
+.qexpand__inner > *:first-child{ margin-top:1.15rem; }
+
+.qfield > label, .qfield > legend{ display:block; font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--slate); margin-bottom:.5rem; padding:0; }
+
+.qfield .opt{ color:var(--dust); letter-spacing:.12em; }
+
+.qfield input[type=text],.qfield input[type=tel],.qfield input[type=email],.qfield select,.qfield textarea{
+  width:100%; font-family:"Archivo",sans-serif; font-size:var(--fs-body); color:var(--ink);
+  background:#fff; border:1px solid var(--line); border-radius:2px; padding:.85rem .9rem;
+  transition:border-color .2s ease, box-shadow .2s ease;
+}
+
+.qfield textarea{ resize:vertical; min-height:96px; line-height:1.5; }
+
+.qfield select{ appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2347574F' stroke-width='1.6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right .9rem center; padding-right:2.4rem; }
+
+.qfield :is(input,select,textarea):focus{ outline:none; border-color:var(--jade); box-shadow:0 0 0 3px rgba(27,79,160,.13); }
+
+.qfield :is(input,select,textarea)[aria-invalid="true"]{ border-color:#A6402F; }
+
+.qerr{ display:block; font-size:var(--fs-xs); color:#A6402F; margin-top:.35rem; min-height:0; }
+
+
+
+.qchecks{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+
+.qcheck{ display:flex; align-items:center; gap:.6rem; padding:.72rem .85rem; font-size:var(--fs-sm); border:1px solid var(--line); border-radius:2px; background:#fff; cursor:pointer; transition:border-color .18s ease, background .18s ease; }
+
+.qcheck:hover{ border-color:var(--slate); }
+
+.qcheck input{ width:17px; height:17px; flex:none; accent-color:var(--jade); cursor:pointer; }
+
+.qcheck:has(input:checked){ border-color:var(--jade); background:rgba(27,79,160,.06); }
+
+
+.qhp{ position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
+
+.qform__submit{ width:100%; margin-top:.5rem; }
+
+.qform__submit[disabled]{ opacity:.6; cursor:progress; }
+
+.qform__submit.is-sent{ opacity:1; cursor:default; background:var(--emerald); border-color:var(--emerald); color:var(--on-em); }
+
+.qform__fine{ font-size:var(--fs-2xs); color:var(--slate); margin-top:.9rem; line-height:1.6; }
+
+.qstatus{ font-size:var(--fs-sm); margin-top:.9rem; }
+
+.qstatus.err{ color:#A6402F; }
+
+
+.qdone{ text-align:center; padding:clamp(1.5rem,4vw,3rem) 0; }
+
+.qdone__tick{ width:56px; height:56px; margin:0 auto 1.25rem; border-radius:50%; background:var(--jade); color:#fff; display:grid; place-items:center; }
+
+.qdone h3{ font-size:1.5rem; margin-bottom:.7rem; }
+
+.qdone p{ font-size:var(--fs-sm); color:var(--slate); max-width:38ch; margin:0 auto 1.5rem; }
+
+/* Success modal. Must come after .qdone so the card's own padding wins on
+   source order (both are single-class, so specificity is a tie). */
+.qdonePop__card{ width:min(100%,460px); background:var(--paper); border:1px solid var(--line); border-radius:var(--r-lg); padding:clamp(1.8rem,4vw,2.4rem) clamp(1.4rem,4vw,2rem); box-shadow:0 30px 70px -20px rgba(0,0,0,.7); animation:popupRise .3s cubic-bezier(.22,.61,.36,1); }
+
+.qdonePop__ok{ display:flex; width:100%; margin:.95rem 0 0; }
+
+
+/* ---------------------------------- FINALE ---------------------------------- */
+.finale{ background:var(--jade-dim); color:#fff; padding:clamp(3rem,6vw,4.75rem) 0; }
+
+
+/* ---------------------------------- FOOTER ---------------------------------- */
+.foot{ background:var(--ink); color:var(--bone); padding:clamp(3rem,5vw,4.5rem) 0 7rem; font-size:var(--fs-sm); }
+
+/* ---------- sticky mobile call bar ---------- */
+.callbar{ transition:opacity .18s ease, transform .18s ease, visibility .18s ease; }
+
+/* Icon strokes take the flat brass; only the label gets the gradient fill. */
+.callbar__btn svg{ width:24px; height:24px; color:#E3B64A; }
+
+/* review link, inline in the hero above the PM band. mobile only — hidden on
+   desktop, where it used to be absent as a floating bar anyway. */
+.reviewInline{ display:none; margin:0 0 1.5rem; }
+
+
+/* ============================================================================
+   ROUNDED CORNERS
+   Appended last so it overrides the square defaults set further up.
+   ============================================================================ */
+.btn{ border-radius:var(--r-pill); }
+
+
+/* cards & panels */
+.pkg{ border-radius:var(--r-md); }
+
+.qform{ border-radius:var(--r-md); }
+
+
+/* the plate frame and its corner ticks curve together */
+.plate{ border-radius:var(--r-md); }
+
+
+/* form controls */
+.qfield input[type=text],.qfield input[type=tel],.qfield input[type=email],
+.qfield select,.qfield textarea{ border-radius:var(--r-sm); }
+
+.qcheck{ border-radius:var(--r-sm); }
+
+
+/* pills & rows */
+.areas span{ border-radius:var(--r-pill); }
+
+/* standalone page shell — this page has no header, hero or sticky bar */
+body{ background:var(--paper); }
+.qqPage{ max-width:760px; margin:0 auto; padding:2rem 1.25rem 4rem; }
+.qqHome{ display:inline-block; margin-bottom:1.5rem; font-family:"Archivo",sans-serif;
+  font-size:.875rem; color:var(--emerald); text-decoration:none; }
+.qqHome:hover{ text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<main class="qqPage">
+  <a class="qqHome" href="index.html">&larr; Back to home</a>
+
+  <div class="qform">
+        <div id="quoteWrap" style="position:relative; scroll-margin-top:calc(var(--bar-h) + 16px)">
+          <span id="quote" class="quoteAnchor" aria-hidden="true"></span>
+          <!-- Icon-only controls, top-right. Exactly one shows at a time: the
+               pencil while the form is collapsed into its summary, the bin
+               while it is open. Same pair as the service pages. -->
+          <div class="kcq__tools">
+            <button type="button" class="kcq__tool" id="qEditBtn" title="Edit your answers" aria-label="Edit your answers" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3z"/><path d="M13.5 6.5l4 4"/>
+              </svg>
+            </button>
+            <button type="button" class="kcq__tool" id="qClearBtn" title="Clear the form" aria-label="Clear the form">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/>
+                <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>
+          </div>
+          <p class="qform__ttl">Quick Online Quote</p>
+          <p class="qform__sub">Free &middot; No obligation</p>
+
+          <form id="quoteForm" novalidate>
+            <div class="qrow">
+              <div class="qfield">
+                <label for="qName">Name</label>
+                <input id="qName" name="name" type="text" autocomplete="name" required>
+                <span class="qerr" data-for="qName"></span>
+              </div>
+              <div class="qfield">
+                <label for="qPhone">Phone</label>
+                <input id="qPhone" name="phone" type="tel" autocomplete="tel">
+                <span class="qerr" data-for="qPhone"></span>
+              </div>
+            </div>
+
+            <div class="qrow">
+              <div class="qfield">
+                <label for="qEmail">Email</label>
+                <input id="qEmail" name="email" type="email" autocomplete="email">
+                <span class="qerr" data-for="qEmail"></span>
+              </div>
+              <div class="qfield">
+                <label for="qType">Property type</label>
+                <select id="qType" name="property_type">
+                  <option selected>Residential</option>
+                  <option>Move-out deep clean</option>
+                  <option>Commercial</option>
+                </select>
+                <span class="qerr" data-for="qType"></span>
+              </div>
+            </div>
+
+            <div id="qCollapsedSummary" class="qCollapsedSummary" hidden></div>
+
+            <!-- frozen snapshot bubbles; independent of the live summary above -->
+            <div id="qBubbles" class="qBubbles" hidden></div>
+
+            <div id="qExpand" class="qexpand">
+              <div class="qexpand__inner">
+                <div class="qfield">
+                  <label for="qAddr">Property address</label>
+                  <input id="qAddr" name="address" type="text" autocomplete="street-address" placeholder="Street and city">
+                  <span class="qerr" data-for="qAddr"></span>
+                </div>
+
+                <fieldset class="qfield">
+                  <legend>Services needed</legend>
+                  <div class="qchecks">
+                    <label class="qcheck"><input type="checkbox" name="services" value="Carpet cleaning"> Carpet</label>
+                    <label class="qcheck"><input type="checkbox" name="services" value="Tile &amp; grout"> Tile &amp; grout</label>
+                    <label class="qcheck"><input type="checkbox" name="services" value="Upholstery"> Upholstery</label>
+                    <label class="qcheck"><input type="checkbox" name="services" value="Area rugs"> Area rugs</label>
+                    <label class="qcheck"><input type="checkbox" name="services" value="Pet treatment"> Pet treatment</label>
+                    <label class="qcheck"><input type="checkbox" name="services" value="Stain treatment"> Stain treatment</label>
+                    <label class="qcheck"><input type="checkbox" name="services" value="Hardwood/LVP"> Hardwood/LVP</label>
+                    <label class="qcheck"><input type="checkbox" name="services" value="Carpet stretching"> Carpet stretching</label>
+                    <label class="qcheck"><input type="checkbox" name="services" value="Natural stone"> Natural stone</label>
+                    <label class="qcheck"><input type="checkbox" name="services" value="Other"> Other</label>
+                  </div>
+                  <span class="qerr" data-for="services"></span>
+                </fieldset>
+
+                <div class="qfield">
+                  <label for="qMsg">Rooms or areas needing service</label>
+                  <textarea id="qMsg" name="message" rows="4" placeholder="e.g. three bedrooms and a hallway, one pet stain in the living room"></textarea>
+                </div>
+
+                <p class="qform__photos">
+                  <a class="btn btn--jade btn--text photo--sms" href="sms:+19167672520?&amp;body=Photos%20for%20my%20Khean%20%26%20Clean%20estimate" aria-label="Text us photos at (916) 767-2520">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                    <span>Text us photos<span class="btn__sub">(916) 767-2520</span></span>
+                  </a>
+                  <a class="btn btn--jade btn--text photo--mail" href="mailto:kheanandclean@gmail.com?subject=Photos%20for%20my%20Khean%20%26%20Clean%20estimate" aria-label="Email us photos at kheanandclean@gmail.com">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    <span>Email us photos<span class="btn__sub">kheanandclean@gmail.com</span></span>
+                  </a>
+                </p>
+
+                <input type="checkbox" name="botcheck" class="qhp" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+                <button type="button" class="btn btn--wireDark" id="qSummarizeBtn" style="width:100%; margin-bottom:.85rem;">Summarize</button>
+              </div>
+            </div>
+
+            <button class="btn btn--call qform__submit" type="submit" id="qSubmit">Send quote request</button>
+            <p class="qform__fine">We reply during business hours, 9am&ndash;9pm daily. For emergency water removal, call <a href="tel:+19167672520">(916) 767-2520</a> any time, day or night.</p>
+            <p class="qstatus" id="qStatus" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+
+        <!-- Quick quote's clear confirmation. Own id so it does not collide with
+             estClearDlg, but shares that dialog's emerald styling. -->
+        <dialog id="qClearDlg" class="estClearDlg" aria-labelledby="qClearTtl">
+          <p class="estClearDlg__ttl" id="qClearTtl">Clear the form and start over?</p>
+          <p class="estClearDlg__sub">This cannot be undone.</p>
+          <div class="estClearDlg__acts">
+            <button type="button" class="btn btn--wireDark" data-qclear="yes">Yes</button>
+            <button type="button" class="btn btn--wireDark estClearDlg__cancel" data-qclear="no">No</button>
+          </div>
+        </dialog>
+  </div>
+</main>
+
+<div class="popup qdonePop" id="quoteDone" hidden>
+  <div class="qdone qdonePop__card" role="dialog" aria-modal="true" aria-labelledby="quoteDoneTtl">
+    <div class="qdone__tick">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <h3 id="quoteDoneTtl">Request received.</h3>
+    <p>We will come back to you with a real figure, usually the same day. If it is urgent, call and we will pick up.</p>
+    <button type="button" class="btn btn--wireDark qdonePop__ok" id="quoteDoneOk">OK</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var qEmail = document.getElementById('qEmail'),
+      qName  = document.getElementById('qName'),
+      qPhone = document.getElementById('qPhone'),
+      qAddr  = document.getElementById('qAddr'),
+      qMsg   = document.getElementById('qMsg'),
+      qExpand = document.getElementById('qExpand'),
+      quoteWrap = document.getElementById('quoteWrap'),
+      qSummary = document.getElementById('qCollapsedSummary'),
+      qSummarizeBtn = document.getElementById('qSummarizeBtn'),
+      qEditBtn = document.getElementById('qEditBtn'),
+      qClearBtn = document.getElementById('qClearBtn');
+  if(!qEmail || !qExpand || !quoteWrap) return;
+
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderSummary(){
+    if(!qSummary) return;
+    var chips = [];
+    var services = Array.prototype.map.call(
+      document.querySelectorAll('input[name="services"]:checked'),
+      function(el){ return el.value; }
+    );
+    if(services.length){
+      chips.push('<div class="chips">' + services.map(function(s){ return '<span class="chip">' + escapeHtml(s) + '</span>'; }).join('') + '</div>');
+    }
+    if(qAddr && qAddr.value.trim()){
+      chips.push('<div class="row"><b>Address</b><span>' + escapeHtml(qAddr.value.trim()) + '</span></div>');
+    }
+    if(qMsg && qMsg.value.trim()){
+      var m = qMsg.value.trim(), isEst = /^ESTIMATE FROM YOUR ONLINE ESTIMATOR/.test(m), notes = '';
+      if(isEst){
+        m = m.replace(/^ESTIMATE FROM YOUR ONLINE ESTIMATOR\s*/, '');
+        var ni = m.indexOf('\nNotes: ');
+        if(ni !== -1){ notes = m.slice(ni + 8).trim(); m = m.slice(0, ni); }
+      }
+      var d = window.quoteEstimateData;
+      if(isEst && d && d.text === qMsg.value.trim()){
+        var html = d.services.map(function(sv){
+          return '<div class="qEst__svc"><div class="qEst__head"><span>' + escapeHtml(sv.label) + '</span><span class="qEst__price">$' + sv.cost + '</span></div>'
+            + (sv.measure ? '<div class="qEst__meta">' + escapeHtml(sv.measure) + '</div>' : '')
+            + (sv.items.length ? '<ul class="qEst__items">' + sv.items.map(function(it){ return '<li><span>' + escapeHtml(it.label) + '</span><span>$' + it.cost + '</span></li>'; }).join('') + '</ul>' : '')
+            + '</div>';
+        }).join('');
+        html += '<div class="qEst__total"><span>Estimated total</span><span class="qEst__price">$' + d.total + '</span></div>';
+        var foot = [];
+        if(d.minNote) foot.push(d.minNote);
+        if(d.sqft > 0) foot.push(d.sqft.toLocaleString() + ' sq ft total floor area');
+        if(foot.length) html += '<div class="qEst__foot">' + escapeHtml(foot.join(' \u00b7 ')) + '</div>';
+        chips.push('<div class="row row--full"><b>Estimate</b><span class="qEst">' + html + '</span></div>');
+      } else {
+        chips.push('<div class="row"><b>' + (isEst ? 'Estimate' : 'Rooms/areas') + '</b><span' + (isEst ? ' class="est"' : '') + '>' + escapeHtml(m) + '</span></div>');
+      }
+      if(notes) chips.push('<div class="row"><b>Notes</b><span>' + escapeHtml(notes) + '</span></div>');
+    }
+    if(chips.length){
+      qSummary.innerHTML = chips.join('');
+      qSummary.hidden = false;
+    } else {
+      qSummary.innerHTML = '';
+      qSummary.hidden = true;
+    }
+  }
+
+  /* One control at a time: pencil while collapsed, bin while open. Driven off
+     whether qExpand carries is-open, so the buttons cannot fall out of step. */
+  function syncTools(){
+    var open = qExpand.classList.contains('is-open');
+    if(qEditBtn)  qEditBtn.hidden  = open;
+    if(qClearBtn) qClearBtn.hidden = !open;
+  }
+
+  function expand(){
+    qExpand.classList.add('is-open');
+    if(qSummary) qSummary.hidden = true;
+    syncTools();
+  }
+
+  if(qName){
+    // in case the name field comes pre-filled (autofill, back/forward nav)
+    if(qName.value.trim()) expand();
+  }
+
+  // Expands once they have entered a name plus at least one way to reach them
+  // (phone or email). Stays collapsed until then, so the box opens small.
+  function maybeExpand(){
+    if(qExpand.classList.contains('is-open')) return;
+    var hasName  = qName  && qName.value.trim();
+    var hasPhone = qPhone && qPhone.value.trim();
+    var hasEmail = qEmail && qEmail.value.trim();
+    if(hasName && (hasPhone || hasEmail)) expand();
+  }
+  [qName, qPhone, qEmail].forEach(function(el){
+    if(el) el.addEventListener('input', maybeExpand);
+  });
+
+  /* ---- frozen snapshot bubbles -------------------------------------------
+     Separate from renderSummary(), which rebuilds from live inputs on every
+     change. These are snapshots taken at Summarize time and must survive any
+     later edit to the fields, so they hold their own copy of the data. */
+  var qBubbles = document.getElementById('qBubbles');
+  var bubbleList = [], bubbleSeq = 0, MAX_BUBBLES = 5;
+
+  /* The estimator writes "ESTIMATE FROM YOUR ONLINE ESTIMATOR ...\nNotes: <typed>"
+     into Rooms/areas. The estimate bubble already shows that breakdown in full, so
+     the quote bubble keeps only what the person typed themselves. */
+  function ownNotes(v){
+    var m = (v || '').trim();
+    if(!/^ESTIMATE FROM YOUR ONLINE ESTIMATOR/.test(m)) return m;
+    var ni = m.indexOf('\nNotes: ');
+    return ni === -1 ? '' : m.slice(ni + 8).trim();
+  }
+
+  function snapshotQuote(){
+    var rows = [];
+    function add(label, val){ if(val && val.trim()) rows.push({ label:label, value:val.trim() }); }
+    var qType = document.getElementById('qType');
+    add('Name',        qName  ? qName.value  : '');
+    add('Phone',       qPhone ? qPhone.value : '');
+    add('Email',       qEmail ? qEmail.value : '');
+    add('Property',    qType  ? qType.value  : '');
+    add('Address',     qAddr  ? qAddr.value  : '');
+    add('Rooms/areas', qMsg   ? ownNotes(qMsg.value) : '');
+    var services = Array.prototype.map.call(
+      document.querySelectorAll('input[name="services"]:checked'),
+      function(el){ return el.value; });
+    if(!rows.length && !services.length) return null;
+    return { id: ++bubbleSeq, kind:'quote', rows:rows, services:services };
+  }
+
+  function snapshotEstimate(){
+    var d = window.quoteEstimateData;
+    if(!d || !d.services || !d.services.length) return null;
+    var frozen; try{ frozen = JSON.parse(JSON.stringify(d)); }catch(e){ return null; }
+    return { id: ++bubbleSeq, kind:'estimate', est:frozen };
+  }
+
+  function bubbleBody(b){
+    if(b.kind === 'quote'){
+      var out = b.rows.map(function(r){
+        return '<div class="row"><b>' + escapeHtml(r.label) + '</b><span>' + escapeHtml(r.value) + '</span></div>';
+      }).join('');
+      if(b.services.length){
+        out += '<div class="chips">' + b.services.map(function(sv){
+          return '<span class="chip">' + escapeHtml(sv) + '</span>'; }).join('') + '</div>';
+      }
+      return out;
+    }
+    var d = b.est;
+    var out2 = d.services.map(function(sv){
+      return '<div class="qEst__svc"><div class="qEst__head"><span>' + escapeHtml(sv.label) + '</span><span class="qEst__price">$' + sv.cost + '</span></div>'
+        + (sv.measure ? '<div class="qEst__meta">' + escapeHtml(sv.measure) + '</div>' : '')
+        + (sv.items && sv.items.length ? '<ul class="qEst__items">' + sv.items.map(function(it){
+            return '<li><span>' + escapeHtml(it.label) + '</span><span>$' + it.cost + '</span></li>'; }).join('') + '</ul>' : '')
+        + '</div>';
+    }).join('');
+    out2 += '<div class="qEst__total"><span>Estimated total</span><span class="qEst__price">$' + d.total + '</span></div>';
+    var foot = [];
+    if(d.minNote) foot.push(d.minNote);
+    if(d.sqft > 0) foot.push(d.sqft.toLocaleString() + ' sq ft total floor area');
+    if(foot.length) out2 += '<div class="qEst__foot">' + escapeHtml(foot.join(' \u00b7 ')) + '</div>';
+    return out2;
+  }
+
+  function renderBubbles(){
+    if(!qBubbles) return;
+    if(!bubbleList.length){ qBubbles.innerHTML = ''; qBubbles.hidden = true; return; }
+    qBubbles.innerHTML = bubbleList.map(function(b){
+      return '<div class="qBub qBub--' + b.kind + '" data-bub="' + b.id + '">'
+        + '<button type="button" class="qBub__x" data-bub-del="' + b.id + '" aria-label="Remove this snapshot">&times;</button>'
+        + '<p class="qBub__ttl">' + (b.kind === 'estimate' ? 'Estimate' : 'Quote details') + '</p>'
+        + '<div class="qBub__body">' + bubbleBody(b) + '</div>'
+        + '<button type="button" class="qBub__print" data-bub-print="' + b.id + '">'
+        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>'
+        + '<span>Print / PDF</span></button>'
+        + '</div>';
+    }).join('');
+    qBubbles.hidden = false;
+  }
+
+  function addBubbles(){
+    var q = snapshotQuote();    if(q) bubbleList.push(q);
+    var e = snapshotEstimate(); if(e) bubbleList.push(e);
+    while(bubbleList.length > MAX_BUBBLES) bubbleList.shift();
+    renderBubbles();
+  }
+
+  /* Opens one snapshot on its own page as a branded quote document, then calls
+     print so the browser's own dialog offers Print or Save as PDF. The page is
+     standalone, so it carries its own styles and an absolute logo URL. */
+  /* Customer details for the printed sheet, read live from the quick quote
+     fields. Blank fields are skipped rather than printing an empty label. */
+  function custBlock(){
+    function val(id){ var el = document.getElementById(id); return el && el.value ? el.value.trim() : ''; }
+    var nm = val('qName'), addr = val('qAddr'), ph = val('qPhone'), em = val('qEmail'), ty = val('qType');
+    if(!nm && !addr && !ph && !em) return '';
+    var out = '<div class="cust"><h2>Prepared for</h2>';
+    if(nm) out += '<p class="nm">' + escapeHtml(nm) + '</p>';
+    var lines = [];
+    if(addr) lines.push(escapeHtml(addr));
+    var contact = [];
+    if(ph) contact.push(escapeHtml(ph));
+    if(em) contact.push(escapeHtml(em));
+    if(contact.length) lines.push(contact.join(' \u00b7 '));
+    if(ty) lines.push(escapeHtml(ty));
+    if(lines.length) out += '<div class="ln">' + lines.join('<br>') + '</div>';
+    return out + '</div>';
+  }
+
+  function printBubble(b){
+    var logo;
+    try{ logo = new URL('images/logo.png', location.href).href; }
+    catch(e){ logo = 'images/logo.png'; }
+
+    var heading = b.kind === 'estimate' ? 'Estimate' : 'Quote details';
+    var dated   = new Date().toLocaleDateString('en-US',
+                    { year:'numeric', month:'long', day:'numeric' });
+
+    var css = 'body{margin:0;padding:34px 30px;font-family:Georgia,"Times New Roman",serif;color:#12201B;background:#fff;}'
+      + '*{box-sizing:border-box;}'
+      + '.lh{display:flex;align-items:center;gap:18px;border-bottom:2px solid #12201B;padding-bottom:16px;}'
+      + '.lh img{width:86px;height:auto;flex:0 0 auto;}'
+      + '.lh__co{font-size:21px;font-weight:700;letter-spacing:.01em;margin:0 0 4px;}'
+      + '.lh__meta{font-family:Arial,Helvetica,sans-serif;font-size:11.5px;line-height:1.6;color:#4A5A52;}'
+      + '.doc{display:flex;justify-content:space-between;align-items:baseline;margin:22px 0 14px;}'
+      + '.cust{margin:20px 0 0;padding:13px 15px;background:#F7F5EF;border:1px solid #E4E0D6;border-radius:6px;}'
+      + '.cust h2{font-family:Arial,Helvetica,sans-serif;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:#4A5A52;margin:0 0 7px;font-weight:700;}'
+      + '.cust .nm{font-size:15px;font-weight:700;margin:0 0 3px;}'
+      + '.cust .ln{font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:#4A5A52;}'
+      + '.doc h1{font-size:17px;margin:0;letter-spacing:.02em;}'
+      + '.doc span{font-family:Arial,Helvetica,sans-serif;font-size:11.5px;color:#4A5A52;}'
+      + '.row{display:flex;justify-content:space-between;gap:18px;padding:7px 0;border-bottom:1px solid #E4E0D6;font-family:Arial,Helvetica,sans-serif;font-size:12.5px;}'
+      + '.row b{color:#4A5A52;font-weight:600;flex:0 0 auto;}'
+      + '.row span{text-align:right;}'
+      + '.chips{margin-top:12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;}'
+      + '.chip{display:inline-block;border:1px solid #C9C2B2;border-radius:999px;padding:3px 11px;margin:0 6px 6px 0;}'
+      + '.qEst__svc{padding:9px 0;border-bottom:1px solid #E4E0D6;}'
+      + '.qEst__head{display:flex;justify-content:space-between;font-size:14px;font-weight:700;}'
+      + '.qEst__price{white-space:nowrap;}'
+      + '.qEst__meta{font-family:Arial,Helvetica,sans-serif;font-size:11.5px;color:#4A5A52;margin-top:3px;}'
+      + '.qEst__items{list-style:none;margin:7px 0 0;padding:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;}'
+      + '.qEst__items li{display:flex;justify-content:space-between;padding:2px 0;color:#4A5A52;}'
+      + '.qEst__total{display:flex;justify-content:space-between;margin-top:12px;padding-top:11px;border-top:2px solid #12201B;font-size:16px;font-weight:700;}'
+      + '.qEst__foot{font-family:Arial,Helvetica,sans-serif;font-size:11.5px;color:#4A5A52;margin-top:9px;}'
+      + '.ft{margin-top:30px;padding-top:13px;border-top:1px solid #C9C2B2;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.6;color:#4A5A52;text-align:center;}'
+      + '.bar{margin-top:24px;text-align:center;}'
+      + '.bar button{font-family:Arial,Helvetica,sans-serif;font-size:12.5px;padding:9px 20px;margin:0 5px;border:1px solid #12201B;border-radius:999px;background:#fff;cursor:pointer;}'
+      + '@media print{.bar{display:none;}body{padding:0;}}';
+
+    var html = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+      + '<title>Khean &amp; Clean \u2014 ' + heading + '</title>'
+      + '<style>' + css + '</style></head>'
+      + '<body onload="window.print()">'
+      + '<div class="lh"><img src="' + logo + '" alt="Khean &amp; Clean">'
+      + '<div><p class="lh__co">Khean &amp; Clean LLC</p>'
+      + '<div class="lh__meta">(916) 767-2520 &nbsp;&middot;&nbsp; kheanandclean@gmail.com<br>kheanandclean.com</div>'
+      + '</div></div>'
+      + custBlock()
+      + '<div class="doc"><h1>' + heading + '</h1><span>' + dated + '</span></div>'
+      + bubbleBody(b)
+      + '<div class="ft">Licensed &amp; insured &nbsp;&middot;&nbsp; Serving Folsom &amp; surrounding communities<br>'
+      + 'This is an estimate, not a final invoice. Heavy soiling or specialty stain removal may change the figure.</div>'
+      + '<div class="bar"><button onclick="window.print()">Print</button>'
+      + '<button onclick="window.close()">Close</button></div>'
+      + '</body></html>';
+
+    var w = window.open('', '_blank');
+    if(!w){ alert('Please allow pop-ups for this site to print your quote.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  }
+
+  if(qBubbles){
+    // stopPropagation so these buttons do not also trip the click-to-expand on the box
+    qBubbles.addEventListener('click', function(ev){
+      if(!ev.target || !ev.target.closest) return;
+
+      var pb = ev.target.closest('[data-bub-print]');
+      if(pb){
+        ev.stopPropagation();
+        var pid = parseInt(pb.getAttribute('data-bub-print'), 10);
+        for(var i = 0; i < bubbleList.length; i++){
+          if(bubbleList[i].id === pid){ printBubble(bubbleList[i]); break; }
+        }
+        return;
+      }
+
+      var btn = ev.target.closest('[data-bub-del]');
+      if(!btn) return;
+      ev.stopPropagation();
+      var id = parseInt(btn.getAttribute('data-bub-del'), 10);
+      bubbleList = bubbleList.filter(function(b){ return b.id !== id; });
+      renderBubbles();
+    });
+  }
+
+  function summarize(scroll){
+    addBubbles();
+    qExpand.classList.remove('is-open');
+    renderSummary();
+    syncTools();
+    if(scroll){
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      quoteWrap.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    }
+  }
+  window.quoteSummarize = function(scroll){ summarize(!!scroll); };
+  if(qSummarizeBtn){
+    qSummarizeBtn.addEventListener('click', function(){
+      summarize(true);
+      qSummarizeBtn.blur();
+    });
+  }
+
+  /* ---- header icon controls ---- */
+  if(qEditBtn){
+    qEditBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      expand();
+      qEditBtn.blur();
+      if(qName) qName.focus();
+    });
+  }
+  if(qClearBtn){
+    /* The clearing work, lifted out of the old inline confirm so the dialog's
+       Yes button can call it. Every step is unchanged. */
+    function doClear(){
+      ['qName','qPhone','qEmail','qAddr','qType','qMsg'].forEach(function(id){
+        var el = document.getElementById(id); if(el) el.value = '';
+      });
+      var qf = document.getElementById('quoteForm');
+      if(qf){
+        qf.querySelectorAll('input[name="services"]').forEach(function(c){ c.checked = false; });
+        qf.querySelectorAll('.qerr').forEach(function(s){ s.textContent = ''; });
+      }
+      // the estimator's structured copy is no longer valid once the text is gone
+      window.quoteEstimateData = null;
+      bubbleList = []; renderBubbles();
+      try{ window.localStorage.removeItem('kcQuote'); }catch(err){}
+      if(qSummary){ qSummary.innerHTML = ''; qSummary.hidden = true; }
+      qExpand.classList.remove('is-open');
+      syncTools();
+      if(qName) qName.focus();
+    }
+
+    var qClearDlg = document.getElementById('qClearDlg');
+
+    qClearBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      qClearBtn.blur();
+      if(qClearDlg && typeof qClearDlg.showModal === 'function') qClearDlg.showModal();
+      else if(window.confirm('Clear the form and start over?')) doClear();
+    });
+
+    if(qClearDlg){
+      qClearDlg.addEventListener('click', function(e){
+        var btn = e.target.closest('[data-qclear]');
+        if(!btn) return;
+        qClearDlg.close();
+        if(btn.getAttribute('data-qclear') === 'yes') doClear();
+      });
+    }
+  }
+
+  syncTools();
+
+  // Live email format check — only flags it when something's actually typed;
+  // an empty email field is fine (phone can cover contact instead).
+  var emailErr = document.querySelector('.qerr[data-for="qEmail"]');
+  function checkEmail(){
+    var v = qEmail.value.trim();
+    var ok = !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    if(emailErr) emailErr.textContent = ok ? '' : 'Enter a valid email address.';
+    qEmail.setAttribute('aria-invalid', ok ? 'false' : 'true');
+  }
+  qEmail.addEventListener('input', checkEmail);
+  qEmail.addEventListener('blur', checkEmail);
+
+  /* Format phone numbers live, on both the quick quote and the estimate builder.
+     A leading 1 (or +1) is kept and shown ahead of the area code: 1 (916) 767-2520.
+     Without it, the plain ten-digit form is used: (916) 767-2520. No 1 is ever added.
+     A real US area code never starts with 1, so a leading 1 is unambiguous. */
+  function fmtTen(d){
+    if(!d) return '';
+    if(d.length < 4) return '(' + d;
+    if(d.length < 7) return '(' + d.slice(0,3) + ') ' + d.slice(3);
+    return '(' + d.slice(0,3) + ') ' + d.slice(3,6) + '-' + d.slice(6);
+  }
+  function fmtPhone(raw){
+    var digits = String(raw).replace(/\D/g,'');
+    if(digits.charAt(0) === '1'){
+      digits = digits.slice(0,11);
+      var rest = digits.slice(1);
+      return rest ? '1 ' + fmtTen(rest) : '1';
+    }
+    return fmtTen(digits.slice(0,10));
+  }
+  ['qPhone','ePhone'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('input', function(){ el.value = fmtPhone(el.value); });
+  });
+})();
+
+(function(){
+  var FORM_ENDPOINT = 'https://api.web3forms.com/submit';
+  var ACCESS_KEY    = '2e49144b-d36b-4e13-bec4-aad215f7abc6';
+
+  var form = document.getElementById('quoteForm');
+  if(!form) return;
+  var statusEl = document.getElementById('qStatus'),
+      submit   = document.getElementById('qSubmit'),
+      wrap     = document.getElementById('quoteWrap'),
+      done     = document.getElementById('quoteDone');
+
+  function setErr(id, msg){
+    var el = document.getElementById(id),
+        slot = document.querySelector('.qerr[data-for="'+id+'"]');
+    if(slot) slot.textContent = msg || '';
+    if(el) el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+  }
+
+  function validate(){
+    var ok = true;
+    ['qName','qPhone','qAddr','qType'].forEach(function(id){ setErr(id,''); });
+    setErr('qEmail','');
+    var slot = document.querySelector('.qerr[data-for="services"]');
+    if(slot) slot.textContent = '';
+
+    var name = document.getElementById('qName');
+    if(!name.value.trim()){ setErr('qName','Please tell us your name.'); ok=false; }
+
+    var phone = document.getElementById('qPhone'),
+        digits = phone.value.replace(/\D/g,''),
+        phoneProvided = phone.value.trim().length > 0;
+    var email = document.getElementById('qEmail'),
+        emailProvided = email.value.trim().length > 0,
+        emailFormatOk = !emailProvided || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
+
+    if(emailProvided && !emailFormatOk){ setErr('qEmail','Check the email address.'); ok=false; }
+
+    if(phoneProvided && digits.length < 10){ setErr('qPhone','That looks too short for a phone number.'); ok=false; }
+
+    var havePhone = phoneProvided && digits.length >= 10;
+    var haveEmail = emailProvided && emailFormatOk;
+    if(!havePhone && !haveEmail){
+      if(!phoneProvided) setErr('qPhone','Give us a phone number or an email.');
+      if(!emailProvided) setErr('qEmail','Give us a phone number or an email.');
+      ok = false;
+    }
+
+    if(!document.querySelector('input[name="services"]:checked')){
+      if(slot) slot.textContent = 'Choose at least one service.';
+      ok = false;
+    }
+    return ok;
+  }
+
+  form.addEventListener('input', function(){
+    if(submit.classList.contains('is-sent')){
+      submit.classList.remove('is-sent'); submit.disabled = false; submit.textContent = 'Resend request';
+    }
+  });
+  /* Success modal: OK, a click on the backdrop, or Escape closes it. The form
+     underneath is left exactly as it was filled in. */
+  function showDone(){
+    if(!done) return;
+    done.hidden = false;
+    var ok = document.getElementById('quoteDoneOk'); if(ok) ok.focus();
+  }
+  function hideDone(){ if(done) done.hidden = true; }
+  if(done){
+    var doneOk = document.getElementById('quoteDoneOk');
+    if(doneOk) doneOk.addEventListener('click', hideDone);
+    done.addEventListener('click', hideDone);
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !done.hidden) hideDone(); });
+  }
+
+  form.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    statusEl.textContent = '';
+    statusEl.classList.remove('err');
+
+    if(!validate()){
+      statusEl.textContent = 'Please fix the highlighted fields.';
+      statusEl.classList.add('err');
+      var bad = form.querySelector('[aria-invalid="true"]');
+      if(bad) bad.focus();
+      return;
+    }
+
+    var services = Array.prototype.map.call(
+      form.querySelectorAll('input[name="services"]:checked'),
+      function(c){ return c.value; }
+    ).join(', ');
+
+    var fd = new FormData();
+    fd.append('access_key', ACCESS_KEY);
+    fd.append('subject', 'Quote request from ' + document.getElementById('qName').value.trim());
+    fd.append('from_name', 'Khean & Clean website');
+    fd.append('name',     document.getElementById('qName').value.trim());
+    fd.append('phone',    document.getElementById('qPhone').value.trim());
+    fd.append('email',    document.getElementById('qEmail').value.trim());
+    fd.append('address',  document.getElementById('qAddr').value.trim());
+    fd.append('property_type', document.getElementById('qType').value);
+    fd.append('services', services);
+    fd.append('message',  document.getElementById('qMsg').value.trim());
+    if (form.querySelector('.qhp').checked) { fd.append('botcheck', 'true'); }
+
+    submit.disabled = true;
+    submit.textContent = 'Sending...';
+    submit.classList.remove('is-sent');
+
+    fetch(FORM_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Accept':'application/json' },
+      body: fd
+    })
+    .then(function(r){ return r.json().catch(function(){ return { success:r.ok }; }); })
+    .then(function(res){
+      if(res && res.success){
+        if(typeof gtag === 'function'){ gtag('event', 'generate_lead', { form_name: 'standalone_quick_quote' }); }
+        submit.textContent = 'Request sent';
+        submit.classList.add('is-sent');
+        showDone();
+      } else {
+        throw new Error((res && res.message) || 'Submission failed');
+      }
+    })
+    .catch(function(){
+      statusEl.innerHTML = 'Something went wrong sending that. Please call <a href="tel:+19167672520">(916) 767-2520</a> and we will sort it out.';
+      statusEl.classList.add('err');
+      submit.disabled = false;
+      submit.textContent = 'Send quote request';
+    });
+  });
+})();
+</script>
+</body>
+</html>
