@@ -158,6 +158,14 @@
             <div class="adds" id="uphList"></div>
           </fieldset>
         </div>
+
+        <fieldset class="disc" style="margin-bottom:1.9rem">
+          <legend class="lgnd">Discount</legend>
+          <div class="disc__row">
+            <label class="disc__box"><span>$</span><input type="number" id="discAmt" min="0" step="1" inputmode="decimal" placeholder="Amount" aria-label="Discount in dollars"></label>
+            <label class="disc__box"><input type="number" id="discPct" min="0" max="100" step="1" inputmode="decimal" placeholder="Percent" aria-label="Discount in percent"><span>%</span></label>
+          </div>
+        </fieldset>
       </div>
 
       <div class="est__out">
@@ -179,6 +187,7 @@
           <span class="est__sqft-num" id="totalSqftNum"></span>
           <span class="est__sqft-label" id="totalSqftLabel"></span>
         </p>
+        <ul class="est__disc" id="discLines" hidden></ul>
         <div class="est__fig">
           <span class="est__cur">$</span><span class="est__amt num" id="total">0</span>
         </div>
@@ -190,8 +199,36 @@
           <textarea id="eNotes" rows="4" placeholder="Parking and access, stairs up to the unit, furniture to move, pets at home, preferred days or times"></textarea>
         </div>
 
+        <!-- Customer approval block. Layout only for now: everything is disabled
+             until the customer-link build wires it up. -->
+        <div class="qterms">
+          <p class="est__k">Before you approve</p>
+          <label class="qterms__box">
+            <input type="checkbox" disabled>
+            <span>I have read and agree to <a class="qterms__link">Disclaimer one</a> <em>(text coming soon)</em></span>
+          </label>
+          <label class="qterms__box">
+            <input type="checkbox" disabled>
+            <span>I have read and agree to <a class="qterms__link">Disclaimer two</a> <em>(text coming soon)</em></span>
+          </label>
+          <div class="qsign">
+            <label for="qSignName">Type your full name to sign</label>
+            <input type="text" id="qSignName" placeholder="Your full name" autocomplete="off" disabled>
+            <p class="qsign__date">Dated automatically when approved</p>
+          </div>
+          <button type="button" class="qapprove" disabled>Approve Estimate</button>
+        </div>
 
-      <button type="button" class="est__send" id="eSendBtn" disabled>Send Estimate</button>
+
+      <button type="button" class="est__send" id="eSendBtn">Send Estimate</button>
+      <div class="qlink" id="qLinkBox" hidden>
+        <p class="qlink__k" id="qLinkMsg"></p>
+        <input class="qlink__url" id="qLinkUrl" readonly>
+        <div class="qlink__acts">
+          <button type="button" class="qlink__btn" id="qLinkCopy">Copy link</button>
+          <a class="qlink__btn" id="qLinkSms">Text it</a>
+        </div>
+      </div>
       <p class="est__fine">Based on normal soiling. Heavy soiling, pet urine, stairs or specialty stain removal may change the figure — we will always tell you before we begin.</p>
     </div>
 </main>
@@ -212,6 +249,7 @@
 </dialog>
 
 <script src="app.js"></script>
+<script type="module" src="send.js"></script>
 <script>
 /* Letterhead: mirror customer name + address into the quote panel as you type */
 (function () {

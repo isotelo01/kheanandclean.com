@@ -832,13 +832,30 @@
     if(!b.breakdown.length){
       linesEl.innerHTML = '';
       totalEl.textContent = '0';
+      var dl0 = document.getElementById('discLines'); if(dl0){ dl0.innerHTML = ''; dl0.hidden = true; }
       totalSqftNumEl.textContent = '';
       totalSqftLabelEl.textContent = '';
       minEl.textContent = 'Enter your rooms, square footage, or furniture above to build your estimate.';
       return;
     }
 
-    var applied = Math.max(b.sum, MIN_JOB);
+    /* Discount: dollars or percent, never both (the two boxes clear each other).
+       It comes off the subtotal, and the MIN_JOB floor still holds: the discount
+       is capped so subtotal - discount = total always adds up on the quote. */
+    var dAmtEl = document.getElementById('discAmt'), dPctEl = document.getElementById('discPct');
+    var dAmt = dAmtEl ? Math.max(0, +dAmtEl.value || 0) : 0;
+    var dPct = dPctEl ? Math.min(100, Math.max(0, +dPctEl.value || 0)) : 0;
+    var wanted = Math.round(dAmt > 0 ? dAmt : b.sum * dPct / 100);
+    var disc = Math.min(wanted, Math.max(0, Math.round(b.sum - MIN_JOB)));
+    var applied = Math.max(b.sum - disc, MIN_JOB);
+    var discEl = document.getElementById('discLines');
+    if(discEl){
+      if(disc > 0){
+        discEl.innerHTML = '<li><span>Subtotal</span><span>$'+money(b.sum)+'</span></li>' +
+          '<li class="discLine"><span>Discount'+(dAmt > 0 ? '' : ' ('+dPct+'%)')+'</span><span>\u2212$'+money(disc)+'</span></li>';
+        discEl.hidden = false;
+      } else { discEl.innerHTML = ''; discEl.hidden = true; }
+    }
     /* On screen the size goes on its own line and the dash disappears. This is
        done here rather than in the label itself because the same label strings
        are reused for the plain-text email below, where a <br> would show up
@@ -866,8 +883,15 @@
     totalSqftLabelEl.textContent = sqftTotal > 0 ? 'total sq ft across all floor types' : '';
     minEl.textContent = applied > b.sum
       ? 'Minimum service charge of $' + money(MIN_JOB) + ' applied.'
-      : '';
+      : (wanted > disc ? 'Discount limited by the $' + money(MIN_JOB) + ' minimum service charge.' : '');
   }
+
+  /* Discount boxes: typing in one empties the other, then reprice. */
+  ['discAmt','discPct'].forEach(function(id, i){
+    var el = document.getElementById(id), other = document.getElementById(i ? 'discAmt' : 'discPct');
+    if(!el) return;
+    el.addEventListener('input', function(){ if(el.value !== '' && other) other.value = ''; calc(); });
+  });
 
   document.getElementById('plus').addEventListener('click', function(){
     qty.value = (+qty.value||0) + (+qty.step||1);
@@ -968,6 +992,7 @@
       initState();
       var notes = document.getElementById('eNotes');
       if(notes) notes.value = '';
+      ['discAmt','discPct'].forEach(function(id){ var d = document.getElementById(id); if(d) d.value = ''; });
       syncService();
       calc();
       window.scrollTo({ top:0, behavior:'smooth' });
