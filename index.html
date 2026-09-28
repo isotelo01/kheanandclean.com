@@ -4002,6 +4002,22 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       });
     }
     if(touched){
+      /* Arriving straight from a sent quick quote: show the collapsed summary
+         instead of the open form. Any other visit opens the fields as before. */
+      var sent = false;
+      try{ sent = /(^|[?&])sent=1(&|$)/.test(window.location.search); }catch(e){}
+      if(sent && typeof window.quoteSummarize === 'function'){
+        window.quoteSummarize(false);
+        /* They just sent this quote, so the button must not invite a resend.
+           The existing input listener flips it back the moment they edit. */
+        var sb = document.getElementById('qSubmit');
+        if(sb){
+          sb.textContent = 'Request sent \u00b7 Thank you';
+          sb.disabled = true;
+          sb.classList.add('is-sent');
+        }
+        return;
+      }
       var ex = document.getElementById('qExpand'); if(ex) ex.classList.add('is-open');
     }
   }

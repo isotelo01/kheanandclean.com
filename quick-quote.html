@@ -400,6 +400,10 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 
 .qform__ttl{ font-family:"Playfair Display",serif; font-size:1.6rem; font-weight:700; letter-spacing:-.022em; line-height:1.05; text-align:center; }
 
+/* Brand mark above the form title. Mirrors .heroMark on index.html but
+   narrower, since this card is much tighter than the homepage band. */
+.qqMark{ display:block; width:30%; max-width:150px; height:auto; margin:0 auto .9rem; }
+
 .qform__sub{ font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--jade); margin:.5rem 0 1.9rem; text-align:center; }
 
 
@@ -423,6 +427,13 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .kcq__tool:hover{ color:#1b4fa0; border-color:#1b4fa0; background:rgba(27,79,160,.06); }
 
 .kcq__tool:focus-visible{ outline:2px solid #1b4fa0; outline-offset:2px; }
+
+/* Touch devices: pull the tools out of the card's inner padding so the pencil
+   sits in the true top-right corner. Keyed to pointer:coarse rather than a
+   width breakpoint so rotating the phone does not move the button. */
+@media (pointer:coarse){
+  .kcq__tools{ right:calc(-1 * clamp(1.6rem,2.8vw,2.5rem) + 10px); }
+}
 
 
 /* estimator clear button sits beside Request Appointment */
@@ -496,6 +507,10 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qfield{ margin-bottom:1.15rem; border:0; padding:0; min-width:0; }
 
 .qCollapsedSummary{ display:block; scroll-margin-top:calc(var(--bar-h) + 16px); margin:-.6rem 0 1.3rem; background:rgba(27,79,160,.05); border:1px solid var(--line); border-radius:var(--r-md); padding:.9rem 1rem; }
+
+/* display:block above beats the browser default for the hidden attribute, so an
+   empty summary still painted its background and border. Restore hiding. */
+.qCollapsedSummary[hidden]{ display:none; }
 
 .qCollapsedSummary .chips{ display:flex; flex-wrap:wrap; gap:.45rem; margin-bottom:.75rem; }
 
@@ -715,6 +730,7 @@ body{ background:var(--paper); }
               </svg>
             </button>
           </div>
+          <img class="qqMark" src="images/logo.png" alt="Khean &amp; Clean logo">
           <p class="qform__ttl">Quick Online Quote</p>
           <p class="qform__sub">Free &middot; No obligation</p>
 
@@ -1358,6 +1374,9 @@ body{ background:var(--paper); }
         submit.textContent = 'Request sent';
         submit.classList.add('is-sent');
         showDone();
+        /* Let the confirmation read for a moment, then go to the home page.
+           The saved kcQuote entry means the form there arrives already filled. */
+        window.setTimeout(function(){ window.location.href = 'index.html?sent=1'; }, 2000);
       } else {
         throw new Error((res && res.message) || 'Submission failed');
       }
