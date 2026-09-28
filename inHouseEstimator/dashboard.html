@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Estimates &middot; Khean &amp; Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border-radius:6px;padding:10px 18px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.bar input{flex:1;min-width:200px;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.block{margin-bottom:30px}
+.blockhead{display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--gold);padding-bottom:6px;margin-bottom:12px}
+.blockhead h2{font:700 20px "Playfair Display",Georgia,serif;margin:0}
+.blockhead .count{color:var(--muted);font-size:14px}
+.blockhead .tot{margin-left:auto;font:700 17px "Playfair Display",Georgia,serif}
+.none{color:var(--muted);font-size:14px;padding:6px 2px}
+.tab{font:600 14px "Archivo";background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:7px 15px;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}
+.sum{color:var(--muted);font-size:14px;margin-bottom:10px}
+.trashbtn{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 13px;font:600 15px "Archivo",system-ui,sans-serif;cursor:pointer;color:var(--ink)}
+.trashbtn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+.trashbtn span{margin-left:6px;color:var(--muted);font-size:13px}
+.trashbtn[aria-pressed="true"] span{color:#cfd6e4}
+.restore{background:var(--green);color:#fff;border:0;border-radius:6px;padding:6px 13px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
+.cardrow{display:flex;align-items:stretch;gap:10px;margin-bottom:10px}
+.cardrow .card{flex:1;min-width:0;margin-bottom:0}
+.card{position:relative;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 46px 14px 16px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center}
+.del{position:absolute;top:9px;right:9px;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);font:700 14px/1 "Archivo",system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.del:hover{background:var(--red);border-color:var(--red);color:#fff}
+.del[disabled]{opacity:.5;cursor:default}
+.card:hover{box-shadow:0 2px 14px rgba(23,34,57,.16)}
+.invbtn{flex:0 0 118px;background:var(--navy);color:#fff;border:0;border-radius:10px;padding:10px;font:700 16px "Archivo",system-ui,sans-serif;cursor:pointer;box-shadow:0 1px 6px rgba(23,34,57,.08)}
+.paidbtn{flex:0 0 118px;background:var(--green);color:#fff;border:0;border-radius:10px;padding:10px;font:700 16px "Archivo",system-ui,sans-serif;cursor:pointer;box-shadow:0 1px 6px rgba(23,34,57,.08)}
+.paidbtn:hover{background:#0c7a50}
+.paidbtn[disabled]{opacity:.55;cursor:default}
+.invbtn:hover{background:#24324f}
+.invbtn[disabled]{opacity:.55;cursor:default}
+.who{font-weight:600}
+.meta{color:var(--muted);font-size:14px;margin-top:2px}
+.right{text-align:right;margin-left:auto}
+.amt{font:700 20px "Playfair Display",Georgia,serif}
+.status{display:inline-block;font-weight:700;padding:3px 11px;border-radius:20px;font-size:13px;margin-top:4px}
+.status.sent,.status.draft{background:#eef1f6;color:var(--muted)}
+.status.accepted,.status.invoiced,.status.paid{background:#e5f2ec;color:var(--green)}
+.status.expired,.status.declined{background:#fbe9e6;color:var(--red)}
+.msg{background:#fff;border-radius:10px;padding:50px 20px;text-align:center;color:var(--muted)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+@media (max-width:520px){.right{text-align:left;margin-left:0;width:100%}.cardrow{flex-wrap:wrap}.cardrow .card{flex:1 1 100%}.invbtn,.paidbtn{flex:1 1 100%;padding:13px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1 id="pageTitle">Estimates</h1>
+    <div style="display:flex;gap:10px;align-items:center;margin-left:auto">
+      <button type="button" id="trashToggle" class="trashbtn" aria-pressed="false" title="Trash">&#128465;<span id="trashCount"></span></button>
+      <a class="new" href="./index.html">New estimate</a>
+    </div>
+  </div>
+  <div class="bar"><input id="q" placeholder="Search name, phone, or quote number" aria-label="Search"></div>
+  <p class="sum" id="sum"></p>
+  <div id="board"><div class="msg">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, query, orderBy, limit, getDocs,
+         doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const db = getFirestore(initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+}));
+
+const boardEl = document.getElementById("board"), sumEl = document.getElementById("sum"), qEl = document.getElementById("q");
+const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const when = ts => {
+  if (!ts || !ts.toDate) return "";
+  const d = ts.toDate(), days = Math.floor((Date.now() - d) / 864e5);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return days + " days ago";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
+/* An unapproved quote past its expiresAt reads as expired, whatever the stored status says. */
+const stateOf = d => {
+  const open = d.status === "sent" || d.status === "draft";
+  if (open && d.expiresAt && d.expiresAt.toDate && d.expiresAt.toDate() < new Date()) return "expired";
+  return d.status || "sent";
+};
+const LABEL = { sent:"Awaiting reply", draft:"Draft", accepted:"Accepted", invoiced:"Invoiced", paid:"Paid", declined:"Declined", expired:"Expired" };
+
+const SECTIONS = [
+  { key: "quotes",         title: "Estimates",          empty: "No estimates yet. Build one and hit Send Estimate &mdash; it will show up here." },
+  { key: "acceptedQuotes", title: "Accepted Estimates", empty: "Nothing accepted yet." },
+  { key: "invoices",       title: "Invoices",           empty: "No invoices yet." },
+  { key: "paidInvoices",   title: "Paid Invoices",      empty: "No paid invoices yet." }
+];
+
+const TRASH_SECTION = [{ key: "trash", title: "Trash", empty: "Trash is empty." }];
+let showTrash = false;
+const viewSections = () => showTrash ? TRASH_SECTION : SECTIONS;
+
+/* All four lists are on screen at once; data[key] holds each one's rows. */
+const data = {};
+let loaded = false;
+
+const card = r =>
+  '<div class="cardrow">' +
+  '<a class="card" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
+    '<div>' +
+      '<div class="who">' + esc(r.name || "No name") + '</div>' +
+      '<div class="meta">' + esc(r.number) + (r.phone ? " &middot; " + esc(r.phone) : "") + (r.date ? " &middot; " + esc(r.date) : "") + '</div>' +
+    '</div>' +
+    '<div class="right">' +
+      '<div class="amt">' + money(r.total) + '</div>' +
+      '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>' +
+      (r.source === "trash"
+        ? '<button type="button" class="restore" data-restore="' + esc(r.id) + '">Restore</button>'
+        : '') +
+    '</div>' +
+    (r.source !== "trash"
+      ? '<button type="button" class="del" data-del="' + esc(r.id) + '" data-from="' + esc(r.source) + '" aria-label="Move to trash" title="Move to trash">&times;</button>'
+      : '') +
+  '</a>' +
+  (r.source === "acceptedQuotes"
+    ? '<button type="button" class="invbtn" data-inv="' + esc(r.id) + '">Invoice</button>'
+    : '') +
+  (r.source === "invoices"
+    ? '<button type="button" class="paidbtn" data-paid="' + esc(r.id) + '">Paid</button>'
+    : '') +
+  '</div>';
+
+function render(){
+  if (!loaded) return;
+  const term = qEl.value.trim().toLowerCase();
+  const match = r => !term || (r.name + " " + r.phone + " " + r.number).toLowerCase().includes(term);
+
+  let grand = 0, anyRows = 0, anyShown = 0;
+
+  boardEl.innerHTML = viewSections().map(s => {
+    const all = data[s.key] || [], shown = all.filter(match);
+    const sum = shown.reduce((a, r) => a + (Number(r.total) || 0), 0);
+    grand += sum; anyRows += all.length; anyShown += shown.length;
+
+    const count = term ? shown.length + " of " + all.length : String(all.length);
+    const body = !all.length ? '<div class="none">' + s.empty + '</div>'
+               : !shown.length ? '<div class="none">Nothing here matches that.</div>'
+               : shown.map(card).join("");
+
+    return '<div class="block">' +
+      '<div class="blockhead"><h2>' + s.title + '</h2><span class="count">' + count + '</span>' +
+      (shown.length ? '<span class="tot">' + money(sum) + '</span>' : '') + '</div>' +
+      body + '</div>';
+  }).join("");
+
+  sumEl.innerHTML = term
+    ? anyShown + " of " + anyRows + " matching &ldquo;" + esc(qEl.value.trim()) + "&rdquo; &middot; " + money(grand)
+    : anyRows + " total &middot; " + money(grand);
+}
+
+async function grab(name){
+  const snap = await getDocs(query(collection(db, name), orderBy("createdAt", "desc"), limit(200)));
+  return snap.docs.map(docSnap => {
+    const d = docSnap.data(), c = d.customer || {};
+    return { id: docSnap.id, source: name, createdAt: d.createdAt,
+             number: d.number || "", name: c.name || "", phone: c.phone || "",
+             total: d.total, date: when(d.createdAt), state: stateOf(d) };
+  });
+}
+
+async function load(){
+  try {
+    /* A missing collection just reads empty, so one absent section can't blank the page. */
+    const all = SECTIONS.concat(TRASH_SECTION);
+    const got = await Promise.all(all.map(s => grab(s.key).catch(e => { console.error(s.key, e); return []; })));
+    all.forEach((s, i) => { data[s.key] = got[i]; });
+    const tc = document.getElementById("trashCount");
+    if (tc) tc.textContent = (data.trash || []).length || "";
+    loaded = true;
+    render();
+  } catch (e) {
+    console.error(e);
+    boardEl.innerHTML = '<div class="msg">Could not load the list. If this keeps happening, check the Firestore Rules tab &mdash; reads may be blocked.</div>';
+  }
+}
+
+/* Accepted estimate -> invoice. Its own I- number from meta/counters.invoice,
+   copied into "invoices" under a fresh id, then removed from "acceptedQuotes".
+   Copy first, delete second: a failure mid-way can never lose the record. */
+async function toInvoice(id, btn){
+  const src = await getDoc(doc(db, "acceptedQuotes", id));
+  if (!src.exists()) { alert("That accepted estimate is no longer there. Refresh the page."); return; }
+  const d = src.data();
+
+  const num = await runTransaction(db, async tx => {
+    const ref = doc(db, "meta", "counters");
+    const snap = await tx.get(ref);
+    const next = ((snap.exists() && snap.data().invoice) || 1000) + 1;
+    tx.set(ref, { invoice: next }, { merge: true });
+    return next;
+  });
+
+  const inv = Object.assign({}, d, {
+    type: "invoice", status: "unpaid", number: "I-" + num,
+    quoteNumber: d.number || "", quoteId: id,
+    invoicedAt: serverTimestamp(), createdAt: d.createdAt || serverTimestamp()
+  });
+  delete inv.expiresAt;
+
+  /* Same id as the quote, so a link already sent keeps resolving. */
+  await setDoc(doc(db, "invoices", id), inv);
+  await deleteDoc(doc(db, "acceptedQuotes", id));
+  return "I-" + num;
+}
+
+/* Invoice -> paid. Same id, so a link already sent still resolves. */
+async function toPaid(id){
+  const src = await getDoc(doc(db, "invoices", id));
+  if (!src.exists()) { alert("That invoice is no longer there. Refresh the page."); return; }
+  await setDoc(doc(db, "paidInvoices", id), Object.assign({}, src.data(), {
+    status: "paid", paidAt: serverTimestamp()
+  }));
+  await deleteDoc(doc(db, "invoices", id));
+}
+
+boardEl.addEventListener("click", async e => {
+  const paid = e.target.closest(".paidbtn");
+  if (paid) {
+    e.preventDefault(); e.stopPropagation();
+    const id = paid.getAttribute("data-paid");
+    const row = (data.invoices || []).find(r => r.id === id);
+    if (!confirm("Mark " + (row ? row.number : "this invoice") + " as paid?\n\nIt moves to Paid Invoices.")) return;
+    paid.disabled = true; paid.textContent = "Working\u2026";
+    try { await toPaid(id); await load(); }
+    catch (err) {
+      console.error(err);
+      paid.disabled = false; paid.textContent = "Paid";
+      alert("That didn't go through. If it keeps failing, check the Firestore Rules \u2014 writes to \"paidInvoices\" may be blocked.");
+    }
+    return;
+  }
+  const btn = e.target.closest(".invbtn");
+  if (!btn) return;
+  e.preventDefault();           /* the row is a link; don't follow it */
+  e.stopPropagation();
+  const id = btn.getAttribute("data-inv");
+  const row = (data.acceptedQuotes || []).find(r => r.id === id);
+  if (!confirm("Turn " + (row ? row.number : "this estimate") + " into an invoice?\n\nIt moves out of Accepted Estimates.")) return;
+  btn.disabled = true; btn.textContent = "Working\u2026";
+  try {
+    await toInvoice(id, btn);
+    await load();
+  } catch (err) {
+    console.error(err);
+    btn.disabled = false; btn.textContent = "Invoice";
+    alert("That didn't go through. If it keeps failing, check the Firestore Rules \u2014 writes to \"invoices\" or deletes from \"acceptedQuotes\" may be blocked.");
+  }
+});
+
+/* Trash is a move, not an erase: the doc is copied to "trash" with a note of the
+   collection it came from, so Restore can put it back where it was. */
+async function toTrash(id, from){
+  const src = await getDoc(doc(db, from, id));
+  if (!src.exists()) return;
+  const d = src.data();
+  await setDoc(doc(db, "trash", id), Object.assign({}, d, {
+    trashedFrom: from, trashedAt: serverTimestamp()
+  }));
+  await deleteDoc(doc(db, from, id));
+}
+
+async function restore(id){
+  const src = await getDoc(doc(db, "trash", id));
+  if (!src.exists()) return;
+  const d = src.data();
+  const back = d.trashedFrom || "quotes";
+  const clean = Object.assign({}, d);
+  delete clean.trashedFrom; delete clean.trashedAt;
+  await setDoc(doc(db, back, id), clean);
+  await deleteDoc(doc(db, "trash", id));
+}
+
+document.getElementById("trashToggle").addEventListener("click", e => {
+  showTrash = !showTrash;
+  e.currentTarget.setAttribute("aria-pressed", String(showTrash));
+  document.getElementById("pageTitle").textContent = showTrash ? "Trash" : "Estimates";
+  render();
+});
+
+boardEl.addEventListener("click", async e => {
+  const del = e.target.closest(".del"), res = e.target.closest(".restore");
+  if (!del && !res) return;
+  e.preventDefault(); e.stopPropagation();
+  const btn = del || res;
+  btn.disabled = true;
+  try {
+    if (del) await toTrash(del.getAttribute("data-del"), del.getAttribute("data-from"));
+    else await restore(res.getAttribute("data-restore"));
+    await load();
+  } catch (err) {
+    console.error(err);
+    btn.disabled = false;
+    alert("That didn't go through. If it keeps failing, check the Firestore Rules \u2014 writes to \"trash\" or deletes may be blocked.");
+  }
+});
+
+qEl.addEventListener("input", render);
+load();
+</script>
+</body>
+</html>

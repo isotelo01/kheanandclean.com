@@ -1,0 +1,219 @@
+--- dashboard.html.before
++++ dashboard.html
+@@ -27,8 +27,21 @@
+ .tab{font:600 14px "Archivo";background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:7px 15px;cursor:pointer}
+ .tab[aria-pressed="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}
+ .sum{color:var(--muted);font-size:14px;margin-bottom:10px}
+-.card{text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center}
++.trashbtn{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 13px;font:600 15px "Archivo",system-ui,sans-serif;cursor:pointer;color:var(--ink)}
++.trashbtn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
++.trashbtn span{margin-left:6px;color:var(--muted);font-size:13px}
++.trashbtn[aria-pressed="true"] span{color:#cfd6e4}
++.restore{background:var(--green);color:#fff;border:0;border-radius:6px;padding:6px 13px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
++.cardrow{display:flex;align-items:stretch;gap:10px;margin-bottom:10px}
++.cardrow .card{flex:1;min-width:0;margin-bottom:0}
++.card{position:relative;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 46px 14px 16px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center}
++.del{position:absolute;top:9px;right:9px;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);font:700 14px/1 "Archivo",system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
++.del:hover{background:var(--red);border-color:var(--red);color:#fff}
++.del[disabled]{opacity:.5;cursor:default}
+ .card:hover{box-shadow:0 2px 14px rgba(23,34,57,.16)}
++.invbtn{flex:0 0 118px;background:var(--navy);color:#fff;border:0;border-radius:10px;padding:10px;font:700 16px "Archivo",system-ui,sans-serif;cursor:pointer;box-shadow:0 1px 6px rgba(23,34,57,.08)}
++.invbtn:hover{background:#24324f}
++.invbtn[disabled]{opacity:.55;cursor:default}
+ .who{font-weight:600}
+ .meta{color:var(--muted);font-size:14px;margin-top:2px}
+ .right{text-align:right;margin-left:auto}
+@@ -39,14 +52,17 @@
+ .status.expired,.status.declined{background:#fbe9e6;color:var(--red)}
+ .msg{background:#fff;border-radius:10px;padding:50px 20px;text-align:center;color:var(--muted)}
+ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+-@media (max-width:520px){.right{text-align:left;margin-left:0;width:100%}}
++@media (max-width:520px){.right{text-align:left;margin-left:0;width:100%}.cardrow{flex-wrap:wrap}.cardrow .card{flex:1 1 100%}.invbtn{flex:1 1 100%;padding:13px}}
+ </style>
+ </head>
+ <body>
+ <div class="wrap">
+   <div class="top">
+     <h1 id="pageTitle">Estimates</h1>
+-    <a class="new" href="./index.html">New estimate</a>
++    <div style="display:flex;gap:10px;align-items:center;margin-left:auto">
++      <button type="button" id="trashToggle" class="trashbtn" aria-pressed="false" title="Trash">&#128465;<span id="trashCount"></span></button>
++      <a class="new" href="./index.html">New estimate</a>
++    </div>
+   </div>
+   <div class="bar"><input id="q" placeholder="Search name, phone, or quote number" aria-label="Search"></div>
+   <p class="sum" id="sum"></p>
+@@ -55,7 +71,8 @@
+ 
+ <script type="module">
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+-import { getFirestore, collection, query, orderBy, limit, getDocs }
++import { getFirestore, collection, query, orderBy, limit, getDocs,
++         doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp }
+   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+ 
+ const db = getFirestore(initializeApp({
+@@ -95,11 +112,16 @@
+   { key: "paidInvoices",   title: "Paid Invoices",      empty: "No paid invoices yet." }
+ ];
+ 
++const TRASH_SECTION = [{ key: "trash", title: "Trash", empty: "Trash is empty." }];
++let showTrash = false;
++const viewSections = () => showTrash ? TRASH_SECTION : SECTIONS;
++
+ /* All four lists are on screen at once; data[key] holds each one's rows. */
+ const data = {};
+ let loaded = false;
+ 
+ const card = r =>
++  '<div class="cardrow">' +
+   '<a class="card" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
+     '<div>' +
+       '<div class="who">' + esc(r.name || "No name") + '</div>' +
+@@ -108,8 +130,18 @@
+     '<div class="right">' +
+       '<div class="amt">' + money(r.total) + '</div>' +
+       '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>' +
++      (r.source === "trash"
++        ? '<button type="button" class="restore" data-restore="' + esc(r.id) + '">Restore</button>'
++        : '') +
+     '</div>' +
+-  '</a>';
++    (r.source !== "trash"
++      ? '<button type="button" class="del" data-del="' + esc(r.id) + '" data-from="' + esc(r.source) + '" aria-label="Move to trash" title="Move to trash">&times;</button>'
++      : '') +
++  '</a>' +
++  (r.source === "acceptedQuotes"
++    ? '<button type="button" class="invbtn" data-inv="' + esc(r.id) + '">Invoice</button>'
++    : '') +
++  '</div>';
+ 
+ function render(){
+   if (!loaded) return;
+@@ -118,7 +150,7 @@
+ 
+   let grand = 0, anyRows = 0, anyShown = 0;
+ 
+-  boardEl.innerHTML = SECTIONS.map(s => {
++  boardEl.innerHTML = viewSections().map(s => {
+     const all = data[s.key] || [], shown = all.filter(match);
+     const sum = shown.reduce((a, r) => a + (Number(r.total) || 0), 0);
+     grand += sum; anyRows += all.length; anyShown += shown.length;
+@@ -152,8 +184,11 @@
+ async function load(){
+   try {
+     /* A missing collection just reads empty, so one absent section can't blank the page. */
+-    const got = await Promise.all(SECTIONS.map(s => grab(s.key).catch(e => { console.error(s.key, e); return []; })));
+-    SECTIONS.forEach((s, i) => { data[s.key] = got[i]; });
++    const all = SECTIONS.concat(TRASH_SECTION);
++    const got = await Promise.all(all.map(s => grab(s.key).catch(e => { console.error(s.key, e); return []; })));
++    all.forEach((s, i) => { data[s.key] = got[i]; });
++    const tc = document.getElementById("trashCount");
++    if (tc) tc.textContent = (data.trash || []).length || "";
+     loaded = true;
+     render();
+   } catch (e) {
+@@ -162,6 +197,103 @@
+   }
+ }
+ 
++/* Accepted estimate -> invoice. Its own I- number from meta/counters.invoice,
++   copied into "invoices" under a fresh id, then removed from "acceptedQuotes".
++   Copy first, delete second: a failure mid-way can never lose the record. */
++async function toInvoice(id, btn){
++  const src = await getDoc(doc(db, "acceptedQuotes", id));
++  if (!src.exists()) { alert("That accepted estimate is no longer there. Refresh the page."); return; }
++  const d = src.data();
++
++  const num = await runTransaction(db, async tx => {
++    const ref = doc(db, "meta", "counters");
++    const snap = await tx.get(ref);
++    const next = ((snap.exists() && snap.data().invoice) || 1000) + 1;
++    tx.set(ref, { invoice: next }, { merge: true });
++    return next;
++  });
++
++  const newId = Array.from(crypto.getRandomValues(new Uint8Array(20)))
++    .map(b => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join("");
++
++  const inv = Object.assign({}, d, {
++    type: "invoice", status: "unpaid", number: "I-" + num,
++    quoteNumber: d.number || "", quoteId: id,
++    invoicedAt: serverTimestamp(), createdAt: d.createdAt || serverTimestamp()
++  });
++  delete inv.expiresAt;
++
++  await setDoc(doc(db, "invoices", newId), inv);
++  await deleteDoc(doc(db, "acceptedQuotes", id));
++  return "I-" + num;
++}
++
++boardEl.addEventListener("click", async e => {
++  const btn = e.target.closest(".invbtn");
++  if (!btn) return;
++  e.preventDefault();           /* the row is a link; don't follow it */
++  e.stopPropagation();
++  const id = btn.getAttribute("data-inv");
++  const row = (data.acceptedQuotes || []).find(r => r.id === id);
++  if (!confirm("Turn " + (row ? row.number : "this estimate") + " into an invoice?\n\nIt moves out of Accepted Estimates.")) return;
++  btn.disabled = true; btn.textContent = "Working\u2026";
++  try {
++    await toInvoice(id, btn);
++    await load();
++  } catch (err) {
++    console.error(err);
++    btn.disabled = false; btn.textContent = "Invoice";
++    alert("That didn't go through. If it keeps failing, check the Firestore Rules \u2014 writes to \"invoices\" or deletes from \"acceptedQuotes\" may be blocked.");
++  }
++});
++
++/* Trash is a move, not an erase: the doc is copied to "trash" with a note of the
++   collection it came from, so Restore can put it back where it was. */
++async function toTrash(id, from){
++  const src = await getDoc(doc(db, from, id));
++  if (!src.exists()) return;
++  const d = src.data();
++  await setDoc(doc(db, "trash", id), Object.assign({}, d, {
++    trashedFrom: from, trashedAt: serverTimestamp()
++  }));
++  await deleteDoc(doc(db, from, id));
++}
++
++async function restore(id){
++  const src = await getDoc(doc(db, "trash", id));
++  if (!src.exists()) return;
++  const d = src.data();
++  const back = d.trashedFrom || "quotes";
++  const clean = Object.assign({}, d);
++  delete clean.trashedFrom; delete clean.trashedAt;
++  await setDoc(doc(db, back, id), clean);
++  await deleteDoc(doc(db, "trash", id));
++}
++
++document.getElementById("trashToggle").addEventListener("click", e => {
++  showTrash = !showTrash;
++  e.currentTarget.setAttribute("aria-pressed", String(showTrash));
++  document.getElementById("pageTitle").textContent = showTrash ? "Trash" : "Estimates";
++  render();
++});
++
++boardEl.addEventListener("click", async e => {
++  const del = e.target.closest(".del"), res = e.target.closest(".restore");
++  if (!del && !res) return;
++  e.preventDefault(); e.stopPropagation();
++  const btn = del || res;
++  btn.disabled = true;
++  try {
++    if (del) await toTrash(del.getAttribute("data-del"), del.getAttribute("data-from"));
++    else await restore(res.getAttribute("data-restore"));
++    await load();
++  } catch (err) {
++    console.error(err);
++    btn.disabled = false;
++    alert("That didn't go through. If it keeps failing, check the Firestore Rules \u2014 writes to \"trash\" or deletes may be blocked.");
++  }
++});
++
+ qEl.addEventListener("input", render);
+ load();
+ </script>

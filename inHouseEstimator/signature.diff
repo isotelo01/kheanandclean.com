@@ -1,0 +1,60 @@
+--- quote.html.before
++++ quote.html
+@@ -6,7 +6,7 @@
+ <meta name="robots" content="noindex, nofollow">
+ <title>Khean &amp; Clean</title>
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
++<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+ <style>
+ :root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+ *{box-sizing:border-box}
+@@ -31,7 +31,14 @@
+ th{font-size:13px;color:var(--muted);font-weight:600}
+ .r{text-align:right}
+ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
+-.totals{margin-left:auto;max-width:280px;margin-top:14px}
++.totalrow{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-top:14px}
++.sig{flex:1 1 260px;min-width:240px}
++.sig .name{font:600 30px "Dancing Script",cursive;color:var(--navy);line-height:1.1;padding:0 4px 2px}
++.sig .line{border-bottom:1.5px solid var(--navy);margin-bottom:5px}
++.sig .cap{font-size:12.5px;color:var(--muted)}
++.sig .ok{margin-top:9px;font-size:13.5px;color:var(--ink);display:flex;gap:7px;align-items:center}
++.sig .box{color:var(--green);font-weight:700;font-size:15px}
++.totals{max-width:280px;flex:0 0 auto;margin-left:auto}
+ .totals div{display:flex;justify-content:space-between;padding:4px 0}
+ .grand{font:700 22px "Playfair Display",Georgia,serif;border-top:2px solid var(--navy);margin-top:6px;padding-top:8px}
+ .notes{background:#f7f8fa;border-left:4px solid var(--gold);padding:12px 16px;margin-top:22px;white-space:pre-wrap}
+@@ -105,6 +112,16 @@
+   const dateText = d.createdAt && d.createdAt.toDate
+     ? d.createdAt.toDate().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+     : fmtDate(d.date);
++  const acceptedOn = d.acceptedAt && d.acceptedAt.toDate
++    ? d.acceptedAt.toDate().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
++    : "";
++  const sigHtml = d.acceptedName ? `
++        <div class="sig">
++          <div class="name">${esc(d.acceptedName)}</div>
++          <div class="line"></div>
++          <div class="cap">Accepted by${acceptedOn ? " &middot; " + acceptedOn : ""}</div>
++          ${d.termsAccepted ? `<div class="ok"><span class="box">&#10003;</span><span>Disclaimer approved</span></div>` : ""}
++        </div>` : "";
+   let statusHtml = "";
+   if (isQuote && (d.status === "accepted" || d.status === "invoiced"))
+     statusHtml = `<span class="status accepted">Accepted${d.acceptedName ? " by " + esc(d.acceptedName) : ""}</span>`;
+@@ -134,11 +151,14 @@
+         <tbody>${(d.lines || []).map(l => `<tr><td><strong>${esc(l.label)}</strong></td><td class="r"><strong>${money(l.cost)}</strong></td></tr>` +
+           (l.items || []).map(it => `<tr class="sub"><td>${esc(it.label)}</td><td class="r">${money(it.cost)}</td></tr>`).join("")).join("")}</tbody>
+       </table>
+-      <div class="totals">
++      <div class="totalrow">
++        ${sigHtml}
++        <div class="totals">
+         <div><span>Subtotal</span><span>${money(d.subtotal)}</span></div>
+         ${d.discount > 0 ? `<div><span>${esc(d.discountLabel || "Discount")}</span><span>&minus;${money(d.discount)}</span></div>` : ""}
+         ${d.tax ? `<div><span>Tax (${d.taxRate}%)</span><span>${money(d.tax)}</span></div>` : ""}
+         <div class="grand"><span>Total</span><span>${money(d.total)}</span></div>
++        </div>
+       </div>
+       ${d.minApplied ? `<p style="text-align:right;color:var(--muted);font-size:14px;margin:6px 0 0">Minimum service charge applied.</p>` : ""}
+       ${d.notes ? `<div class="notes">${esc(d.notes)}</div>` : ""}

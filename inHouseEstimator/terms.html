@@ -29,6 +29,15 @@ body{
 .head__contact{ margin:.3rem 0 0; font-size:.85rem; color:var(--dust); }
 .head__contact a{ color:inherit; text-decoration:none; }
 
+.closebtn{
+  margin-left:auto; flex:none; width:2.5rem; height:2.5rem; border-radius:50%;
+  display:grid; place-items:center; cursor:pointer;
+  background:rgba(236,228,208,.06); border:1px solid var(--rule);
+  color:var(--gold); font:400 1.5rem/1 "Archivo", sans-serif;
+  -webkit-appearance:none; appearance:none;
+}
+.closebtn:hover{ background:rgba(227,182,74,.16); }
+
 h1{
   font-family:"Playfair Display", Georgia, serif; font-weight:700;
   font-size:clamp(1.9rem,5vw,2.6rem); line-height:1.1; color:var(--bone);
@@ -63,6 +72,7 @@ a:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
   h1, .lede, ol.terms p, .agree{ color:#111; }
   .head__contact, .foot{ color:#555; }
   .agree{ background:none; }
+  .closebtn{ display:none; }
   ol.terms > li{ break-inside:avoid; border-top-color:#ddd; }
 }
 </style>
@@ -76,6 +86,7 @@ a:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
       <p class="head__name">Khean &amp; Clean LLC</p>
       <p class="head__contact"><a href="tel:+19167672520">(916) 767-2520</a> &nbsp;|&nbsp; <a href="https://kheanandclean.com">kheanandclean.com</a> &nbsp;|&nbsp; Folsom, CA</p>
     </div>
+    <button type="button" class="closebtn" id="closeBtn" aria-label="Close" title="Close">&times;</button>
   </header>
 
   <h1>Service Terms &amp; Conditions</h1>
@@ -124,5 +135,13 @@ a:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
 
   <p class="foot">Khean &amp; Clean LLC &middot; Folsom, CA 95630</p>
 </main>
+<script>
+  /* Close the tab this page was opened in. If the browser blocks that
+     (page wasn't script-opened), fall back to going back. */
+  document.getElementById("closeBtn").addEventListener("click", () => {
+    window.close();
+    setTimeout(() => { if (history.length > 1) history.back(); }, 120);
+  });
+</script>
 </body>
 </html>
