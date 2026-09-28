@@ -19,6 +19,7 @@
 <header class="appbar">
   <img class="appbar__mark" src="../images/icon-180.png" alt="">
   <h1>Estimator</h1>
+  <button type="button" class="appbar__new" id="eCtBtn">Contacts</button>
   <button type="button" class="appbar__new" id="eNewBtn">New</button>
 </header>
 
@@ -42,8 +43,22 @@
               <input id="eEmail" name="email" type="email" autocomplete="off" placeholder="customer@example.com">
             </div>
             <div class="estField">
-              <label for="eAddr">Address</label>
-              <input id="eAddr" name="address" type="text" autocomplete="off" placeholder="Street, city">
+              <label for="eAddr">Street</label>
+              <input id="eAddr" name="street" type="text" autocomplete="off" placeholder="123 Main St">
+            </div>
+          </div>
+          <div class="estRow estRow--csz">
+            <div class="estField">
+              <label for="eCity">City</label>
+              <input id="eCity" name="city" type="text" autocomplete="off" placeholder="Folsom">
+            </div>
+            <div class="estField">
+              <label for="eState">State</label>
+              <input id="eState" name="state" type="text" value="CA" readonly tabindex="-1">
+            </div>
+            <div class="estField">
+              <label for="eZip">Zip</label>
+              <input id="eZip" name="zip" type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" autocomplete="off" placeholder="95630">
             </div>
           </div>
           <div class="estRow">
@@ -150,7 +165,7 @@
           <img class="qhead__logo" src="../images/logo.png" alt="Khean &amp; Clean">
           <div class="qhead__biz">
             <p class="qhead__name">Khean &amp; Clean LLC</p>
-            <p class="qhead__contact">(916) 767-2520 &middot; kheanandclean.com</p>
+            <p class="qhead__contact"><span>(916) 767-2520</span><span>kheanandclean.com</span></p>
           </div>
         </header>
         <div class="qcust">
@@ -190,19 +205,82 @@
   </div>
 </dialog>
 
+<dialog id="ctDlg" class="ctDlg" aria-label="Pick a contact">
+  <input id="ctSearch" class="ctDlg__search" type="search" placeholder="Search name, street or phone" autocomplete="off">
+  <ul id="ctList" class="ctDlg__list"></ul>
+  <button type="button" class="ctDlg__close" id="ctClose">Close</button>
+</dialog>
+
 <script src="app.js"></script>
 <script>
 /* Letterhead: mirror customer name + address into the quote panel as you type */
 (function () {
   var n = document.getElementById('eName'), a = document.getElementById('eAddr');
+  var c = document.getElementById('eCity'), z = document.getElementById('eZip');
   var on = document.getElementById('qCustName'), oa = document.getElementById('qCustAddr');
   function sync() {
     on.textContent = n.value.trim() || '\u2014';
-    oa.textContent = a.value.trim();
+    z.value = z.value.replace(/\D/g, '').slice(0, 5);
+    var city = c.value.trim(), tail = ('CA ' + z.value).trim();
+    var line2 = city ? city + ', ' + tail : (z.value ? tail : '');
+    oa.textContent = [a.value.trim(), line2].filter(Boolean).join('\n');
   }
-  n.addEventListener('input', sync);
-  a.addEventListener('input', sync);
+  [n, a, c, z].forEach(function (el) { el.addEventListener('input', sync); });
   sync();
+
+  /* Phone: format as (916) 767-2520 while typing */
+  var ph = document.getElementById('ePhone');
+  ph.addEventListener('input', function () {
+    var d = ph.value.replace(/\D/g, '');
+    if (d.length === 11 && d[0] === '1') d = d.slice(1);
+    d = d.slice(0, 10);
+    ph.value = !d ? '' : d.length <= 3 ? '(' + d
+      : d.length <= 6 ? '(' + d.slice(0, 3) + ') ' + d.slice(3)
+      : '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+  });
+})();
+</script>
+<script>
+/* Contacts: TEST DATA ONLY. Swap for the real list once the estimator has a login. */
+(function () {
+  var CONTACTS = [
+    { name: 'Contact One',   phone: '9165550101', street: '101 Test St',   city: 'Folsom',          zip: '95630' },
+    { name: 'Contact Two',   phone: '9165550102', street: '202 Sample Ave', city: 'El Dorado Hills', zip: '95762' },
+    { name: 'Contact Three', phone: '9165550103', street: '303 Demo Ct',    city: 'Rancho Cordova',  zip: '95670' }
+  ];
+  var dlg = document.getElementById('ctDlg'), q = document.getElementById('ctSearch');
+  var list = document.getElementById('ctList');
+  function set(id, v) {
+    var el = document.getElementById(id);
+    el.value = v || '';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  function render() {
+    var t = q.value.trim().toLowerCase(), digits = t.replace(/\D/g, '');
+    list.innerHTML = '';
+    CONTACTS.filter(function (c) {
+      return !t || (c.name + ' ' + c.street + ' ' + c.city).toLowerCase().indexOf(t) > -1
+        || (digits && c.phone.indexOf(digits) > -1);
+    }).forEach(function (c) {
+      var li = document.createElement('li'), b = document.createElement('button');
+      b.type = 'button'; b.className = 'ctDlg__item';
+      b.innerHTML = '<span class="ctDlg__name"></span><span class="ctDlg__meta"></span>';
+      b.children[0].textContent = c.name;
+      b.children[1].textContent = c.street + ', ' + c.city;
+      b.addEventListener('click', function () {
+        set('eName', c.name); set('ePhone', c.phone); set('eAddr', c.street);
+        set('eCity', c.city); set('eZip', c.zip);
+        dlg.close();
+      });
+      li.appendChild(b); list.appendChild(li);
+    });
+    if (!list.children.length) list.innerHTML = '<li class="ctDlg__none">No match. Type the details in by hand.</li>';
+  }
+  q.addEventListener('input', render);
+  document.getElementById('eCtBtn').addEventListener('click', function () {
+    q.value = ''; render(); dlg.showModal(); q.focus();
+  });
+  document.getElementById('ctClose').addEventListener('click', function () { dlg.close(); });
 })();
 </script>
 <script>

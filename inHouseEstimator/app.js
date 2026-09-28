@@ -7,24 +7,24 @@
        Within each group, larger rooms first. */
 
     /* --- most likely carpet (upstairs / soft floors) --- */
-    { key:'masterBed',  name:'Master / Primary Bedroom',  sqft:250, dims:'12\' 6" \u00d7 20\'' },
+    { key:'masterBed',  name:'Master Bedroom',            sqft:250, dims:'12\' 6" \u00d7 20\'' },
     { key:'den',        name:'Large Den / Office',        sqft:180, dims:'15\' \u00d7 12\'' },
-    { key:'smallBed',   name:'Small / Guest Bedroom',     sqft:110, dims:'10\' \u00d7 11\'' },
+    { key:'smallBed',   name:'Bedroom',                   sqft:110, dims:'10\' \u00d7 11\'' },
     { key:'closet',     name:'Walk-In Closet (Master)',   sqft:80,  dims:'8\' \u00d7 10\'' },
+    { key:'hallway',    name:'Hallway',                   sqft:40,  dims:'4\' \u00d7 10\'' },
 
     /* --- most likely tile & grout (wet rooms) --- */
     { key:'kitchen',    name:'Kitchen',                   sqft:200, dims:'10\' \u00d7 20\'' },
-    { key:'masterBath', name:'Master / Ensuite Bath',     sqft:150, dims:'10\' \u00d7 15\'' },
-    { key:'fullBath',   name:'Standard Full Bathroom',    sqft:50,  dims:'5\' \u00d7 10\'' },
+    { key:'masterBath', name:'Master Bath',               sqft:150, dims:'10\' \u00d7 15\'' },
+    { key:'fullBath',   name:'Full Bath',                 sqft:50,  dims:'5\' \u00d7 10\'' },
     { key:'laundry',    name:'Laundry Room',              sqft:45,  dims:'5\' \u00d7 9\'' },
     { key:'halfBath',   name:'Half Bath / Powder Room',   sqft:21,  dims:'3\' \u00d7 7\'' },
 
     /* --- most likely hard floor (downstairs living space) --- */
-    { key:'greatRoom',  name:'Open Floor Plan (Great Room)', sqft:375, dims:'combined living, dining & kitchen' },
+    { key:'greatRoom',  name:'Great Room', sqft:375, dims:'combined living, dining & kitchen' },
     { key:'living',     name:'Living / Family Room',      sqft:350, dims:'17\' 6" \u00d7 20\'' },
-    { key:'loft',       name:'Loft / Formal Dining Room', sqft:275, dims:'11\' \u00d7 25\'' },
-    { key:'dining',     name:'Dining Room',               sqft:215, dims:'10\' \u00d7 21\' 6"' },
-    { key:'hallway',    name:'Hallway',                   sqft:40,  dims:'4\' \u00d7 10\'' },
+    { key:'loft',       name:'Large Loft',               sqft:275, dims:'11\' \u00d7 25\'' },
+    { key:'dining',     name:'Dining Room',               sqft:245, dims:'12\' \u00d7 20\' 6"' },
 
     /* --- always last --- */
     { key:'stairs',     name:'Flights of Stairs',         flat:100, step:0.5 },
@@ -710,11 +710,15 @@
     var s = SERVICES[svcKey], st = STATE[svcKey], items = [];
 
     if(s.mode === 'area'){
-      var sqft = 0, flatRooms = 0;
+      var sqft = 0, flatRooms = 0, roomList = [];
       if(st.mode === 'room'){
         ROOM_TYPES.forEach(function(rt){
           var q = st.rooms[rt.key] || 0;
           if(rt.flat != null) flatRooms += q * rt.flat; else sqft += q * rt.sqft;
+          /* Keep the rooms that were actually picked so the estimate can show
+             what produced the square footage. Stairs price flat and print their
+             own line, so they're excluded here. */
+          if(q > 0 && rt.flat == null) roomList.push({ name:rt.name, qty:q, sqft:q * rt.sqft });
         });
       } else {
         sqft = st.sqft || 0;
@@ -725,7 +729,8 @@
       if(sqft > 0){
         items.push({
           label: tierName + ' \u2014 ' + sqft.toLocaleString() + ' sq ft @ $' + rate.toFixed(2) + '/sq ft',
-          cost: sqft * rate
+          cost: sqft * rate,
+          rooms: roomList
         });
       }
       // If the stairs add-on is checked it prints its own line below; don't print twice.
@@ -842,7 +847,16 @@
     linesEl.innerHTML = b.breakdown.map(function(r){
       var head = '<li class="lineItem"><span>'+twoLine(r.label)+'</span><span>$'+money(r.cost)+'</span></li>';
       var subs = r.items.map(function(it){
-        return '<li class="lineItem__sub"><span>'+twoLine(it.label)+'</span><span>$'+money(it.cost)+'</span></li>';
+        var line = '<li class="lineItem__sub"><span>'+twoLine(it.label)+'</span><span>$'+money(it.cost)+'</span></li>';
+        /* Rooms that produced the footage above. No dollar figure — the money is
+           on the line they sit under. Only room-mode items carry this. */
+        if(it.rooms && it.rooms.length){
+          line += it.rooms.map(function(rm){
+            var nm = rm.qty > 1 ? rm.name + ' \u00d7 ' + rm.qty : rm.name;
+            return '<li class="lineItem__room"><span>'+nm+'</span><span>'+rm.sqft.toLocaleString()+' sq ft</span></li>';
+          }).join('');
+        }
+        return line;
       }).join('');
       return head + subs;
     }).join('');
