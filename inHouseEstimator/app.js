@@ -484,7 +484,7 @@
       }
       var disclaimer = rt.disclaimer ? '<br><span class="roomDisclaimer">'+rt.disclaimer+'</span>' : '';
       var step = rt.step || 1;
-      return '<div class="add" style="cursor:default">'+
+      return '<div class="add" data-roomrow="'+rt.key+'" style="cursor:pointer">'+
              '<span>'+rt.name+' <span class="add__c">'+caption+'</span>'+disclaimer+'</span>'+
              '<div class="step step--sm" style="margin-left:auto">'+
                '<button type="button" data-roomminus="'+rt.key+'" aria-label="Decrease">&minus;</button>'+
@@ -520,6 +520,15 @@
         STATE[activeSvc].rooms[k] = +inp.value; STATE[activeSvc].touched = true;
         if(k === 'addSqft'){ STATE[activeSvc].sqft = +inp.value; qty.value = inp.value; }
         calc();
+      });
+    });
+    /* Click anywhere on a room row to add one, same as pressing +.
+       Clicks on the -/+/number controls are left alone so they don't count twice. */
+    roomList.querySelectorAll('[data-roomrow]').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('.step')) return;
+        var plus = row.querySelector('[data-roomplus]');
+        if(plus) plus.click();
       });
     });
   }
@@ -836,6 +845,7 @@
       totalSqftNumEl.textContent = '';
       totalSqftLabelEl.textContent = '';
       minEl.textContent = 'Enter your rooms, square footage, or furniture above to build your estimate.';
+      window.KC_quote = null;
       return;
     }
 
@@ -884,6 +894,12 @@
     minEl.textContent = applied > b.sum
       ? 'Minimum service charge of $' + money(MIN_JOB) + ' applied.'
       : (wanted > disc ? 'Discount limited by the $' + money(MIN_JOB) + ' minimum service charge.' : '');
+    /* What's on screen right now, for send.js to save. Same numbers the panel shows. */
+    window.KC_quote = {
+      lines: b.breakdown, subtotal: b.sum, discount: disc,
+      discountLabel: disc > 0 ? 'Discount' + (dAmt > 0 ? '' : ' (' + dPct + '%)') : '',
+      total: applied, minApplied: applied > b.sum, sqftTotal: sqftTotal
+    };
   }
 
   /* Discount boxes: typing in one empties the other, then reprice. */
