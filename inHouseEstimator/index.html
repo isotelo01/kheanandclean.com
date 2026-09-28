@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>K&amp;C Estimator</title>
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600;700&family=Cormorant+Garamond:wght@700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600&family=Dancing+Script:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="appbar">
+  <img class="appbar__mark" src="images/icon-180.png" alt="">
+  <h1>Estimator</h1>
+  <button type="button" class="appbar__new" id="eNewBtn">New</button>
+</header>
+
+<main class="est" id="estGrid">
+  <div class="est__form">
+        <fieldset id="svcField" style="scroll-margin-top:calc(var(--bar-h) + 16px)">
+          <legend class="lgnd">Cleaning Service</legend>
+          <div class="seg seg--wrap" id="svcRow">
+            <input type="radio" name="svc" id="svcCarpet" value="carpet" checked>
+            <label for="svcCarpet">Carpet</label>
+            <input type="radio" name="svc" id="svcTile" value="tile">
+            <label for="svcTile">Tile &amp; Grout</label>
+            <input type="radio" name="svc" id="svcLvp" value="lvp">
+            <label for="svcLvp">Hardwood/LVP</label>
+            <input type="radio" name="svc" id="svcUph" value="upholstery">
+            <label for="svcUph">Upholstery</label>
+            <input type="radio" name="svc" id="svcStone" value="stone">
+            <label for="svcStone">Natural Stone</label>
+          </div>
+        </fieldset>
+
+        <div id="areaFields">
+          <fieldset id="tierField">
+            <legend class="lgnd">Cleaning Package</legend>
+            <div class="seg seg--half">
+              <input type="radio" name="tier" id="tQuick" value="quickdry">
+              <label for="tQuick">Quick Dry Encapsulation</label>
+              <input type="radio" name="tier" id="tEss" value="essential">
+              <label for="tEss">Essential Cleaning</label>
+              <input type="radio" name="tier" id="tDeep" value="deep" checked>
+              <label for="tDeep"><span class="segGold">Deep</span> Cleaning</label>
+              <input type="radio" name="tier" id="tSig" value="signature">
+              <label for="tSig"><span class="segScript">Signature</span> Cleaning</label>
+            </div>
+          </fieldset>
+
+          <fieldset id="addonsField" style="margin-bottom:1.9rem">
+            <legend class="lgnd">Cleaning Add-ons</legend>
+            <div class="adds" id="addsList"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend class="lgnd">Measure by</legend>
+            <div class="measureRow">
+              <div class="seg">
+                <input type="radio" name="mode" id="mRoom" value="room">
+                <label for="mRoom">Estimate by rooms</label>
+                <input type="radio" name="mode" id="mSqft" value="sqft" checked>
+                <label for="mSqft">Square feet</label>
+              </div>
+              <div class="fld" id="sqftBox" style="margin-bottom:0">
+                <label for="qty">Total square feet</label>
+                <div class="step">
+                  <button type="button" id="minus" aria-label="Decrease">&minus;</button>
+                  <input type="number" id="qty" value="0" min="0" step="50" inputmode="numeric">
+                  <button type="button" id="plus" aria-label="Increase">+</button>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+
+          <div id="roomFields" style="display:none">
+            <fieldset id="roomBlock" style="margin-bottom:1.9rem; scroll-margin-top:calc(var(--bar-h) + 16px)">
+              <legend class="lgnd">Which rooms</legend>
+              <p class="roomNote">Square footage shown is a typical average for that room type — your actual room may run smaller or larger.</p>
+              <div id="roomPicker">
+                <div class="adds" id="roomList"></div>
+                <button type="button" id="roomsOk" class="btn btn--jade roomsOk" style="width:100%; margin-top:1.4rem;">OK</button>
+                <button type="button" id="roomsDone" class="btn btn--jade roomsDone" aria-label="Done choosing rooms">Done</button>
+              </div>
+              <div id="roomSummary" class="roomSummary" style="display:none">
+                <span id="roomSummaryText"></span>
+              </div>
+            </fieldset>
+          </div>
+        </div>
+
+
+        <div id="uphFields" style="display:none">
+          <fieldset style="margin-bottom:1.9rem">
+            <legend class="lgnd">Furniture pieces</legend>
+            <p class="roomNote">Included with every upholstery cleaning:</p>
+            <ul class="uphIncluded">
+              <li>Stain treatment</li>
+              <li>Deodorizer</li>
+              <li>Stain protectant</li>
+            </ul>
+            <div class="adds" id="uphList"></div>
+          </fieldset>
+        </div>
+      </div>
+
+      <div class="est__out">
+        <p class="est__k">Your estimate</p>
+        <ul class="est__lines" id="lines"></ul>
+        <p class="est__sqft" id="totalSqft">
+          <span class="est__sqft-num" id="totalSqftNum"></span>
+          <span class="est__sqft-label" id="totalSqftLabel"></span>
+        </p>
+        <div class="est__fig">
+          <span class="est__cur">$</span><span class="est__amt num" id="total">0</span>
+        </div>
+        <p class="est__min" id="minNote"></p>
+
+
+        <div class="estField est__notes">
+          <label for="eNotes">Anything else we should know <span class="opt">(optional)</span></label>
+          <textarea id="eNotes" rows="4" placeholder="Parking and access, stairs up to the unit, furniture to move, pets at home, preferred days or times"></textarea>
+        </div>
+
+
+      <p class="est__fine">Based on normal soiling. Heavy soiling, pet urine, stairs or specialty stain removal may change the figure — we will always tell you before we begin.</p>
+    </div>
+</main>
+
+<dialog id="estClearDlg" class="estClearDlg" aria-labelledby="estClearTtl">
+  <p class="estClearDlg__ttl" id="estClearTtl">Start a new estimate?</p>
+  <p class="estClearDlg__sub">This cannot be undone.</p>
+  <div class="estClearDlg__acts">
+    <button type="button" class="btn btn--wireDark" data-clear="all">Yes, clear everything</button>
+    <button type="button" class="btn btn--wireDark estClearDlg__cancel" data-clear="cancel">Cancel</button>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js');
+  });
+}
+</script>
+</body>
+</html>
