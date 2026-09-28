@@ -9,21 +9,55 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="images/icon-180.png">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600;700&family=Cormorant+Garamond:wght@700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600&family=Dancing+Script:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="app.css">
 </head>
-<body>
+<body id="estimate">
 <header class="appbar">
-  <img class="appbar__mark" src="images/icon-180.png" alt="">
+  <img class="appbar__mark" src="../images/icon-180.png" alt="">
   <h1>Estimator</h1>
   <button type="button" class="appbar__new" id="eNewBtn">New</button>
 </header>
 
 <main class="est" id="estGrid">
   <div class="est__form">
+        <fieldset id="estSend" class="estSend">
+          <legend class="lgnd">Your details</legend>
+          <div class="estRow">
+            <div class="estField">
+              <label for="eName">Name</label>
+              <input id="eName" name="name" type="text" autocomplete="off" placeholder="Customer name">
+            </div>
+            <div class="estField">
+              <label for="ePhone">Phone</label>
+              <input id="ePhone" name="phone" type="tel" autocomplete="off" placeholder="(916) 000-0000">
+            </div>
+          </div>
+          <div class="estRow">
+            <div class="estField">
+              <label for="eEmail">Email</label>
+              <input id="eEmail" name="email" type="email" autocomplete="off" placeholder="customer@example.com">
+            </div>
+            <div class="estField">
+              <label for="eAddr">Address</label>
+              <input id="eAddr" name="address" type="text" autocomplete="off" placeholder="Street, city">
+            </div>
+          </div>
+          <div class="estRow">
+            <div class="estField">
+              <label for="eType">Property type</label>
+              <select id="eType" name="property_type">
+                <option selected>Residential</option>
+                <option>Move-out deep clean</option>
+                <option>Commercial</option>
+              </select>
+            </div>
+          </div>
+        </fieldset>
+
         <fieldset id="svcField" style="scroll-margin-top:calc(var(--bar-h) + 16px)">
           <legend class="lgnd">Cleaning Service</legend>
           <div class="seg seg--wrap" id="svcRow">
