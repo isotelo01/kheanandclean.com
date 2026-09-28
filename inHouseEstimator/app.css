@@ -12,9 +12,11 @@ body{ padding:calc(env(safe-area-inset-top) + 56px) env(safe-area-inset-right)
 .appbar__new{ background:transparent; color:#f4f1ea; border:1px solid rgba(255,255,255,.35);
   border-radius:999px; padding:.4rem .9rem; font:inherit; font-size:.85rem; }
 /* one column on the phone — no side-by-side form/output */
+@media (max-width:900px){
 .est{ display:block !important; grid-template-columns:none !important; max-width:640px; margin:0 auto; padding:0 14px; }
 .est__form,.est__out{ width:auto !important; max-width:none !important; }
 .est__out{ position:static !important; margin-top:1.6rem; }
+}
 .est--locked{ pointer-events:auto !important; opacity:1 !important; filter:none !important; }
 .estClearDlg__acts{ display:flex; flex-direction:column; gap:.5rem; }
 
@@ -331,6 +333,7 @@ body{
 .est__form{ padding:clamp(1.75rem,3vw,2.75rem); border-right:1px solid var(--line-d); min-width:0; }
 
 .est__out{ padding:clamp(1.75rem,3vw,2.75rem); background:linear-gradient(165deg, rgba(27,79,160,.14), rgba(0,0,0,.28)); display:flex; flex-direction:column; }
+@media (min-width:901px){ .est__out{ position:sticky; top:70px; max-height:calc(100vh - 86px); overflow-y:auto; } }
 
 .fld{ margin-bottom:1.9rem; }
 
@@ -897,3 +900,16 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
   #roomList .add__c{ display:block; margin-left:0; margin-top:.2rem; }
 }
 @media (prefers-reduced-motion:reduce){ .seg label.seg__hint{ animation:none; } }
+
+/* ---- Quote letterhead (live quote panel) ---- */
+.qhead{ display:flex; align-items:center; gap:.9rem; padding-bottom:1rem; margin-bottom:1rem; border-bottom:1px solid rgba(227,182,74,.45); }
+.qhead__logo{ width:56px; height:56px; object-fit:contain; flex:none; }
+.qhead__name{ font-family:"Playfair Display",serif; font-size:1.35rem; color:#E3B64A; line-height:1.15; margin:0; }
+.qhead__contact{ font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); letter-spacing:.08em; color:var(--bone); margin:.25rem 0 0; }
+.qcust{ margin-bottom:1.3rem; }
+.qcust__k{ font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:#E3B64A; margin:0 0 .3rem; }
+.qcust__name{ font-size:1.1rem; color:var(--bone); margin:0; }
+.qcust__addr{ font-size:var(--fs-2xs); color:var(--dust); margin:.15rem 0 0; }
+.est__send{ width:100%; margin-top:1.2rem; padding:.95rem 1rem; border:0; border-radius:var(--r-md,6px); background:#E3B64A; color:#0d1b2a; font-family:"Archivo",sans-serif; font-weight:700; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; }
+.est__send:disabled{ opacity:.45; cursor:not-allowed; }
+.est__out .est__fig{ color:#E3B64A; }

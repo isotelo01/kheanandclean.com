@@ -146,6 +146,18 @@
       </div>
 
       <div class="est__out">
+        <header class="qhead">
+          <img class="qhead__logo" src="../images/logo.png" alt="Khean &amp; Clean">
+          <div class="qhead__biz">
+            <p class="qhead__name">Khean &amp; Clean LLC</p>
+            <p class="qhead__contact">(916) 767-2520 &middot; kheanandclean.com</p>
+          </div>
+        </header>
+        <div class="qcust">
+          <p class="qcust__k">Prepared for</p>
+          <p class="qcust__name" id="qCustName">&mdash;</p>
+          <p class="qcust__addr" id="qCustAddr"></p>
+        </div>
         <p class="est__k">Your estimate</p>
         <ul class="est__lines" id="lines"></ul>
         <p class="est__sqft" id="totalSqft">
@@ -164,6 +176,7 @@
         </div>
 
 
+      <button type="button" class="est__send" id="eSendBtn" disabled>Send Estimate</button>
       <p class="est__fine">Based on normal soiling. Heavy soiling, pet urine, stairs or specialty stain removal may change the figure — we will always tell you before we begin.</p>
     </div>
 </main>
@@ -178,6 +191,20 @@
 </dialog>
 
 <script src="app.js"></script>
+<script>
+/* Letterhead: mirror customer name + address into the quote panel as you type */
+(function () {
+  var n = document.getElementById('eName'), a = document.getElementById('eAddr');
+  var on = document.getElementById('qCustName'), oa = document.getElementById('qCustAddr');
+  function sync() {
+    on.textContent = n.value.trim() || '\u2014';
+    oa.textContent = a.value.trim();
+  }
+  n.addEventListener('input', sync);
+  a.addEventListener('input', sync);
+  sync();
+})();
+</script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
