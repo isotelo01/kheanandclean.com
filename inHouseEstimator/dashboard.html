@@ -33,6 +33,8 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .trashbtn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
 .trashbtn span{margin-left:6px;color:var(--muted);font-size:13px}
 .trashbtn[aria-pressed="true"] span{color:#cfd6e4}
+.editbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
+.editbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
 .restore{background:var(--green);color:#fff;border:0;border-radius:6px;padding:6px 13px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
 .cardrow{display:flex;align-items:stretch;gap:10px;margin-bottom:10px}
 .cardrow .card{flex:1;min-width:0;margin-bottom:0}
@@ -136,7 +138,7 @@ const card = r =>
       '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>' +
       (r.source === "trash"
         ? '<button type="button" class="restore" data-restore="' + esc(r.id) + '">Restore</button>'
-        : '') +
+        : '<button type="button" class="editbtn" data-edit="' + esc(r.id) + '" data-from="' + esc(r.source) + '">Edit</button>') +
     '</div>' +
     (r.source !== "trash"
       ? '<button type="button" class="del" data-del="' + esc(r.id) + '" data-from="' + esc(r.source) + '" aria-label="Move to trash" title="Move to trash">&times;</button>'
@@ -321,6 +323,15 @@ boardEl.addEventListener("click", async e => {
     btn.disabled = false;
     alert("That didn't go through. If it keeps failing, check the Firestore Rules \u2014 writes to \"trash\" or deletes may be blocked.");
   }
+});
+
+/* Edit reopens the estimate in the estimator, which saves back over the same record. */
+boardEl.addEventListener("click", e => {
+  const ed = e.target.closest(".editbtn");
+  if (!ed) return;
+  e.preventDefault(); e.stopPropagation();   /* the row is a link; don't follow it */
+  location.href = "./index.html?edit=" + encodeURIComponent(ed.getAttribute("data-edit")) +
+                  "&from=" + encodeURIComponent(ed.getAttribute("data-from"));
 });
 
 if (qEl) qEl.addEventListener("input", render);

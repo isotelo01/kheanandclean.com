@@ -1,0 +1,282 @@
+--- /home/claude/work/orig/app.js	2026-09-29 06:35:59.149056143 +0000
++++ /home/claude/work/app.js	2026-09-29 06:42:13.505445450 +0000
+@@ -1029,6 +1029,41 @@
+     });
+   })();
+ 
++  /* ---- Edit a saved estimate. send.js calls these two. ----
++     KC_snapshot()     the form choices behind the estimate on screen; saved with every quote.
++     KC_restore(form)  put saved choices back on screen and reprice. */
++
++  window.KC_snapshot = function(){
++    var dA = document.getElementById('discAmt'), dP = document.getElementById('discPct');
++    return JSON.parse(JSON.stringify({
++      v:1, active: activeSvc, state: STATE,
++      discAmt: dA ? dA.value : '', discPct: dP ? dP.value : ''
++    }));
++  };
++
++  window.KC_restore = function(form){
++    if(!form || !form.state) return false;
++    initState();
++    Object.keys(STATE).forEach(function(k){
++      var saved = form.state[k], cur = STATE[k];
++      if(!saved) return;
++      Object.keys(saved).forEach(function(p){
++        /* Merge these so a room or add-on added to the app later still gets its default. */
++        if(p === 'rooms' || p === 'addons' || p === 'items') cur[p] = Object.assign(cur[p] || {}, saved[p]);
++        else cur[p] = saved[p];
++      });
++    });
++    var dA = document.getElementById('discAmt'), dP = document.getElementById('discPct');
++    if(dA) dA.value = form.discAmt || '';
++    if(dP) dP.value = form.discPct || '';
++    var t = STATE.carpet.tier, tid = t==='signature' ? 'tSig' : (t==='quickdry' ? 'tQuick' : (t==='essential' ? 'tEss' : 'tDeep'));
++    document.getElementById(tid).checked = true;
++    var radio = document.querySelector('input[name="svc"][value="' + (form.active || 'carpet') + '"]');
++    if(radio) radio.checked = true;
++    syncService();
++    return true;
++  };
++
+   /* Phase 2 hook: a "Text this estimate" button would call buildBreakdown()
+      and calc() here. Nothing sends anything today. */
+ })();
+--- /home/claude/work/orig/send.js	2026-09-29 06:35:59.149265153 +0000
++++ /home/claude/work/send.js	2026-09-29 06:42:26.484058363 +0000
+@@ -1,17 +1,20 @@
+ /* Send Estimate — stage one: save the quote to Firestore and hand back a link.
+    The link opens quote.html (stage two). Unapproved quotes expire after 30 days. */
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+-import { getFirestore, doc, setDoc, runTransaction, serverTimestamp, Timestamp }
++import { getFirestore, doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp }
+   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
++import { getAuth, onAuthStateChanged }
++  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+ 
+-const db = getFirestore(initializeApp({
++const app = initializeApp({
+   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+   authDomain: "khean-estimator-78f3e.firebaseapp.com",
+   projectId: "khean-estimator-78f3e",
+   storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+   messagingSenderId: "581692353222",
+   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+-}));
++});
++const db = getFirestore(app);
+ 
+ const $ = (id) => document.getElementById(id);
+ const val = (id) => ($(id) ? $(id).value.trim() : '');
+@@ -30,12 +33,114 @@
+   msg.classList.toggle('is-err', !!isErr);
+ }
+ 
++/* Everything that comes from the form. Used for new quotes and for edits.
++   "form" is the snapshot of choices that lets Edit reopen the estimate later. */
++function fromForm(q){
++  return {
++    customer: {
++      name: val('eName'), phone: val('ePhone'), email: val('eEmail'), type: val('eType'),
++      street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip')
++    },
++    lines: JSON.parse(JSON.stringify(q.lines)),
++    subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel,
++    total: q.total, minApplied: q.minApplied, sqftTotal: q.sqftTotal,
++    notes: val('eNotes'),
++    form: window.KC_snapshot ? window.KC_snapshot() : null
++  };
++}
++
++function showLink(id, number, text){
++  const link = new URL('quote.html?id=' + id, location.href).href;
++  url.value = link;
++  const first = val('eName').split(' ')[0];
++  const body = 'Hi' + (first ? ' ' + first : '') + ', here is your Khean & Clean estimate ' + number + ': ' + link;
++  const phone = val('ePhone').replace(/\D/g, '');
++  $('qLinkSms').href = 'sms:' + (phone ? '+1' + phone : '') + '?&body=' + encodeURIComponent(body);
++  show(text);
++}
++
++/* ---- Edit mode: index.html?edit=<id>&from=<collection>, opened from the Dashboard ---- */
++const EDITABLE = ['quotes', 'acceptedQuotes', 'invoices', 'paidInvoices'];
++const ACCEPT_FIELDS = ['acceptedName', 'acceptedAt', 'termsAccepted', 'termsVersion'];
++let edit = null, banner = null;
++
++const signedIn = () => new Promise(res => {
++  const off = onAuthStateChanged(getAuth(app), u => { if (u) { off(); res(u); } });
++});
++
++async function loadForEdit(id, from){
++  banner = document.createElement('p');
++  banner.className = 'qlink__k';
++  banner.textContent = 'Loading estimate\u2026';
++  btn.before(banner);
++  btn.disabled = true;
++  try {
++    await signedIn();
++    const snap = await getDoc(doc(db, from, id));
++    if (!snap.exists()) { banner.textContent = 'That estimate is no longer there. Go back to the Dashboard and refresh.'; return; }
++    const d = snap.data(), c = d.customer || {};
++    [['eName', c.name], ['ePhone', c.phone], ['eEmail', c.email], ['eAddr', c.street],
++     ['eCity', c.city], ['eZip', c.zip], ['eNotes', d.notes]].forEach(([fid, v]) => {
++      const el = $(fid); if (!el) return;
++      el.value = v || '';
++      el.dispatchEvent(new Event('input', { bubbles: true }));   /* keeps the letterhead in sync */
++    });
++    if ($('eType') && c.type) { $('eType').value = c.type; $('eType').dispatchEvent(new Event('change', { bubbles: true })); }
++
++    if (d.form) window.KC_restore(d.form);
++    edit = { id, from, data: d };
++
++    let note = 'Editing ' + (d.number || 'this estimate') + '.';
++    if (!d.form) {
++      note += ' It has no saved form, so the estimate below is blank. Rebuild it before saving.';
++    } else {
++      const now = window.KC_quote ? window.KC_quote.total : 0, was = Number(d.total) || 0;
++      if (Math.abs(now - was) >= 0.01) note += ' Heads up: it now totals $' + now.toFixed(2) + ' but was saved at $' + was.toFixed(2) + '. Check it before saving.';
++    }
++    banner.textContent = note;
++    btn.textContent = 'Save changes';
++  } catch (e) {
++    console.error(e);
++    banner.textContent = 'Could not load that estimate: ' + (e && e.message ? e.message : 'check your connection') + '.';
++  } finally {
++    btn.disabled = false;
++  }
++}
++
++/* Save over the same document: same id, same number, so links already sent keep working.
++   An accepted estimate whose price changed goes back to Estimates for a fresh approval. */
++async function saveEdit(q){
++  const merged = Object.assign({}, edit.data, fromForm(q), { updatedAt: serverTimestamp() });
++  const priceChanged = Math.abs(Number(q.total) - (Number(edit.data.total) || 0)) >= 0.01;
++  let target = edit.from, text = 'Saved changes to ' + merged.number + '. Same link as before.';
++
++  if (edit.from === 'quotes' || (edit.from === 'acceptedQuotes' && priceChanged)) {
++    ACCEPT_FIELDS.forEach(k => delete merged[k]);
++    merged.status = 'sent';
++    merged.expiresAt = Timestamp.fromMillis(Date.now() + 30 * 864e5);
++    target = 'quotes';
++    if (edit.from === 'acceptedQuotes') text = 'Saved ' + merged.number + '. The price changed, so it moved back to Estimates for the customer to approve again. Same link as before.';
++  }
++
++  await setDoc(doc(db, target, edit.id), merged);           /* copy first ... */
++  if (target !== edit.from) await deleteDoc(doc(db, edit.from, edit.id));   /* ... then remove */
++  edit.from = target; edit.data = merged;
++  showLink(edit.id, merged.number, text);
++}
++
++{
++  const p = new URLSearchParams(location.search);
++  if (p.get('edit') && EDITABLE.includes(p.get('from'))) loadForEdit(p.get('edit'), p.get('from'));
++}
++
+ btn.addEventListener('click', async () => {
+   const q = window.KC_quote;
+   if(!q){ show('Build an estimate first — nothing to send yet.', true); url.value = ''; return; }
+ 
+   btn.disabled = true; btn.textContent = 'Saving…';
+   try {
++    if (edit) { await saveEdit(q); return; }
++
+     /* Next quote number, Q-1001 onward. A transaction so two sends can't share a number. */
+     const n = await runTransaction(db, async (tx) => {
+       const ref = doc(db, 'meta', 'counters');
+@@ -46,33 +151,19 @@
+     });
+     const id = randomId(), number = 'Q-' + n;
+ 
+-    await setDoc(doc(db, 'quotes', id), {
++    await setDoc(doc(db, 'quotes', id), Object.assign({
+       number, status: 'sent',
+       createdAt: serverTimestamp(),
+-      expiresAt: Timestamp.fromMillis(Date.now() + 30 * 864e5),
+-      customer: {
+-        name: val('eName'), phone: val('ePhone'), email: val('eEmail'), type: val('eType'),
+-        street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip')
+-      },
+-      lines: JSON.parse(JSON.stringify(q.lines)),
+-      subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel,
+-      total: q.total, minApplied: q.minApplied, sqftTotal: q.sqftTotal,
+-      notes: val('eNotes')
+-    });
++      expiresAt: Timestamp.fromMillis(Date.now() + 30 * 864e5)
++    }, fromForm(q)));
+ 
+-    const link = new URL('quote.html?id=' + id, location.href).href;
+-    url.value = link;
+-    const first = val('eName').split(' ')[0];
+-    const body = 'Hi' + (first ? ' ' + first : '') + ', here is your Khean & Clean estimate ' + number + ': ' + link;
+-    const phone = val('ePhone').replace(/\D/g, '');
+-    $('qLinkSms').href = 'sms:' + (phone ? '+1' + phone : '') + '?&body=' + encodeURIComponent(body);
+-    show('Saved as ' + number + '. Link is good for 30 days unless approved.');
++    showLink(id, number, 'Saved as ' + number + '. Link is good for 30 days unless approved.');
+   } catch (e) {
+     console.error(e);
+     show('Could not save — ' + (e && e.message ? e.message : 'check your connection') + '.', true);
+     url.value = '';
+   } finally {
+-    btn.disabled = false; btn.textContent = 'Send Estimate';
++    btn.disabled = false; btn.textContent = edit ? 'Save changes' : 'Send Estimate';
+   }
+ });
+ 
+@@ -85,5 +176,10 @@
+ 
+ /* "New" clears the old link so it can't be texted by mistake. */
+ document.addEventListener('click', (e) => {
+-  if(e.target.closest('[data-clear="all"]')){ box.hidden = true; url.value = ''; }
++  if(e.target.closest('[data-clear="all"]')){
++    box.hidden = true; url.value = '';
++    /* New while editing leaves edit mode, so the next Send makes a fresh quote. */
++    if(edit){ edit = null; history.replaceState(null, '', location.pathname); btn.textContent = 'Send Estimate'; }
++    if(banner){ banner.remove(); banner = null; }
++  }
+ });
+--- /home/claude/work/orig/dashboard.html	2026-09-29 06:35:59.149572715 +0000
++++ /home/claude/work/dashboard.html	2026-09-29 06:37:32.372478431 +0000
+@@ -33,6 +33,8 @@
+ .trashbtn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+ .trashbtn span{margin-left:6px;color:var(--muted);font-size:13px}
+ .trashbtn[aria-pressed="true"] span{color:#cfd6e4}
++.editbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
++.editbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
+ .restore{background:var(--green);color:#fff;border:0;border-radius:6px;padding:6px 13px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
+ .cardrow{display:flex;align-items:stretch;gap:10px;margin-bottom:10px}
+ .cardrow .card{flex:1;min-width:0;margin-bottom:0}
+@@ -136,7 +138,7 @@
+       '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>' +
+       (r.source === "trash"
+         ? '<button type="button" class="restore" data-restore="' + esc(r.id) + '">Restore</button>'
+-        : '') +
++        : '<button type="button" class="editbtn" data-edit="' + esc(r.id) + '" data-from="' + esc(r.source) + '">Edit</button>') +
+     '</div>' +
+     (r.source !== "trash"
+       ? '<button type="button" class="del" data-del="' + esc(r.id) + '" data-from="' + esc(r.source) + '" aria-label="Move to trash" title="Move to trash">&times;</button>'
+@@ -323,6 +325,15 @@
+   }
+ });
+ 
++/* Edit reopens the estimate in the estimator, which saves back over the same record. */
++boardEl.addEventListener("click", e => {
++  const ed = e.target.closest(".editbtn");
++  if (!ed) return;
++  e.preventDefault(); e.stopPropagation();   /* the row is a link; don't follow it */
++  location.href = "./index.html?edit=" + encodeURIComponent(ed.getAttribute("data-edit")) +
++                  "&from=" + encodeURIComponent(ed.getAttribute("data-from"));
++});
++
+ if (qEl) qEl.addEventListener("input", render);
+ load();
+ </script>
+--- /home/claude/work/orig/sw.js	2026-09-29 06:35:59.153154938 +0000
++++ /home/claude/work/sw.js	2026-09-29 06:37:32.376944135 +0000
+@@ -1,6 +1,6 @@
+ /* K&C Estimator service worker — offline-first.
+    Bump CACHE when you upload new files, or phones keep the old copy. */
+-var CACHE = 'kc-estimator-v10';
++var CACHE = 'kc-estimator-v11';
+ var ASSETS = ['./','./index.html','./app.css','./app.js','./manifest.webmanifest',
+               '../images/icon-180.png','../images/icon-192.png','../images/icon-512.png'];
+ 

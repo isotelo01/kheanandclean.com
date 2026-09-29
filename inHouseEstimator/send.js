@@ -1,17 +1,20 @@
 /* Send Estimate — stage one: save the quote to Firestore and hand back a link.
    The link opens quote.html (stage two). Unapproved quotes expire after 30 days. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, setDoc, runTransaction, serverTimestamp, Timestamp }
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
-const db = getFirestore(initializeApp({
+const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
   projectId: "khean-estimator-78f3e",
   storageBucket: "khean-estimator-78f3e.firebasestorage.app",
   messagingSenderId: "581692353222",
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
-}));
+});
+const db = getFirestore(app);
 
 const $ = (id) => document.getElementById(id);
 const val = (id) => ($(id) ? $(id).value.trim() : '');
@@ -30,12 +33,114 @@ function show(text, isErr){
   msg.classList.toggle('is-err', !!isErr);
 }
 
+/* Everything that comes from the form. Used for new quotes and for edits.
+   "form" is the snapshot of choices that lets Edit reopen the estimate later. */
+function fromForm(q){
+  return {
+    customer: {
+      name: val('eName'), phone: val('ePhone'), email: val('eEmail'), type: val('eType'),
+      street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip')
+    },
+    lines: JSON.parse(JSON.stringify(q.lines)),
+    subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel,
+    total: q.total, minApplied: q.minApplied, sqftTotal: q.sqftTotal,
+    notes: val('eNotes'),
+    form: window.KC_snapshot ? window.KC_snapshot() : null
+  };
+}
+
+function showLink(id, number, text){
+  const link = new URL('quote.html?id=' + id, location.href).href;
+  url.value = link;
+  const first = val('eName').split(' ')[0];
+  const body = 'Hi' + (first ? ' ' + first : '') + ', here is your Khean & Clean estimate ' + number + ': ' + link;
+  const phone = val('ePhone').replace(/\D/g, '');
+  $('qLinkSms').href = 'sms:' + (phone ? '+1' + phone : '') + '?&body=' + encodeURIComponent(body);
+  show(text);
+}
+
+/* ---- Edit mode: index.html?edit=<id>&from=<collection>, opened from the Dashboard ---- */
+const EDITABLE = ['quotes', 'acceptedQuotes', 'invoices', 'paidInvoices'];
+const ACCEPT_FIELDS = ['acceptedName', 'acceptedAt', 'termsAccepted', 'termsVersion'];
+let edit = null, banner = null;
+
+const signedIn = () => new Promise(res => {
+  const off = onAuthStateChanged(getAuth(app), u => { if (u) { off(); res(u); } });
+});
+
+async function loadForEdit(id, from){
+  banner = document.createElement('p');
+  banner.className = 'qlink__k';
+  banner.textContent = 'Loading estimate\u2026';
+  btn.before(banner);
+  btn.disabled = true;
+  try {
+    await signedIn();
+    const snap = await getDoc(doc(db, from, id));
+    if (!snap.exists()) { banner.textContent = 'That estimate is no longer there. Go back to the Dashboard and refresh.'; return; }
+    const d = snap.data(), c = d.customer || {};
+    [['eName', c.name], ['ePhone', c.phone], ['eEmail', c.email], ['eAddr', c.street],
+     ['eCity', c.city], ['eZip', c.zip], ['eNotes', d.notes]].forEach(([fid, v]) => {
+      const el = $(fid); if (!el) return;
+      el.value = v || '';
+      el.dispatchEvent(new Event('input', { bubbles: true }));   /* keeps the letterhead in sync */
+    });
+    if ($('eType') && c.type) { $('eType').value = c.type; $('eType').dispatchEvent(new Event('change', { bubbles: true })); }
+
+    if (d.form) window.KC_restore(d.form);
+    edit = { id, from, data: d };
+
+    let note = 'Editing ' + (d.number || 'this estimate') + '.';
+    if (!d.form) {
+      note += ' It has no saved form, so the estimate below is blank. Rebuild it before saving.';
+    } else {
+      const now = window.KC_quote ? window.KC_quote.total : 0, was = Number(d.total) || 0;
+      if (Math.abs(now - was) >= 0.01) note += ' Heads up: it now totals $' + now.toFixed(2) + ' but was saved at $' + was.toFixed(2) + '. Check it before saving.';
+    }
+    banner.textContent = note;
+    btn.textContent = 'Save changes';
+  } catch (e) {
+    console.error(e);
+    banner.textContent = 'Could not load that estimate: ' + (e && e.message ? e.message : 'check your connection') + '.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* Save over the same document: same id, same number, so links already sent keep working.
+   An accepted estimate whose price changed goes back to Estimates for a fresh approval. */
+async function saveEdit(q){
+  const merged = Object.assign({}, edit.data, fromForm(q), { updatedAt: serverTimestamp() });
+  const priceChanged = Math.abs(Number(q.total) - (Number(edit.data.total) || 0)) >= 0.01;
+  let target = edit.from, text = 'Saved changes to ' + merged.number + '. Same link as before.';
+
+  if (edit.from === 'quotes' || (edit.from === 'acceptedQuotes' && priceChanged)) {
+    ACCEPT_FIELDS.forEach(k => delete merged[k]);
+    merged.status = 'sent';
+    merged.expiresAt = Timestamp.fromMillis(Date.now() + 30 * 864e5);
+    target = 'quotes';
+    if (edit.from === 'acceptedQuotes') text = 'Saved ' + merged.number + '. The price changed, so it moved back to Estimates for the customer to approve again. Same link as before.';
+  }
+
+  await setDoc(doc(db, target, edit.id), merged);           /* copy first ... */
+  if (target !== edit.from) await deleteDoc(doc(db, edit.from, edit.id));   /* ... then remove */
+  edit.from = target; edit.data = merged;
+  showLink(edit.id, merged.number, text);
+}
+
+{
+  const p = new URLSearchParams(location.search);
+  if (p.get('edit') && EDITABLE.includes(p.get('from'))) loadForEdit(p.get('edit'), p.get('from'));
+}
+
 btn.addEventListener('click', async () => {
   const q = window.KC_quote;
   if(!q){ show('Build an estimate first — nothing to send yet.', true); url.value = ''; return; }
 
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
+    if (edit) { await saveEdit(q); return; }
+
     /* Next quote number, Q-1001 onward. A transaction so two sends can't share a number. */
     const n = await runTransaction(db, async (tx) => {
       const ref = doc(db, 'meta', 'counters');
@@ -46,33 +151,19 @@ btn.addEventListener('click', async () => {
     });
     const id = randomId(), number = 'Q-' + n;
 
-    await setDoc(doc(db, 'quotes', id), {
+    await setDoc(doc(db, 'quotes', id), Object.assign({
       number, status: 'sent',
       createdAt: serverTimestamp(),
-      expiresAt: Timestamp.fromMillis(Date.now() + 30 * 864e5),
-      customer: {
-        name: val('eName'), phone: val('ePhone'), email: val('eEmail'), type: val('eType'),
-        street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip')
-      },
-      lines: JSON.parse(JSON.stringify(q.lines)),
-      subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel,
-      total: q.total, minApplied: q.minApplied, sqftTotal: q.sqftTotal,
-      notes: val('eNotes')
-    });
+      expiresAt: Timestamp.fromMillis(Date.now() + 30 * 864e5)
+    }, fromForm(q)));
 
-    const link = new URL('quote.html?id=' + id, location.href).href;
-    url.value = link;
-    const first = val('eName').split(' ')[0];
-    const body = 'Hi' + (first ? ' ' + first : '') + ', here is your Khean & Clean estimate ' + number + ': ' + link;
-    const phone = val('ePhone').replace(/\D/g, '');
-    $('qLinkSms').href = 'sms:' + (phone ? '+1' + phone : '') + '?&body=' + encodeURIComponent(body);
-    show('Saved as ' + number + '. Link is good for 30 days unless approved.');
+    showLink(id, number, 'Saved as ' + number + '. Link is good for 30 days unless approved.');
   } catch (e) {
     console.error(e);
     show('Could not save — ' + (e && e.message ? e.message : 'check your connection') + '.', true);
     url.value = '';
   } finally {
-    btn.disabled = false; btn.textContent = 'Send Estimate';
+    btn.disabled = false; btn.textContent = edit ? 'Save changes' : 'Send Estimate';
   }
 });
 
@@ -85,5 +176,10 @@ $('qLinkCopy').addEventListener('click', async () => {
 
 /* "New" clears the old link so it can't be texted by mistake. */
 document.addEventListener('click', (e) => {
-  if(e.target.closest('[data-clear="all"]')){ box.hidden = true; url.value = ''; }
+  if(e.target.closest('[data-clear="all"]')){
+    box.hidden = true; url.value = '';
+    /* New while editing leaves edit mode, so the next Send makes a fresh quote. */
+    if(edit){ edit = null; history.replaceState(null, '', location.pathname); btn.textContent = 'Send Estimate'; }
+    if(banner){ banner.remove(); banner = null; }
+  }
 });

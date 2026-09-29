@@ -1029,6 +1029,41 @@
     });
   })();
 
+  /* ---- Edit a saved estimate. send.js calls these two. ----
+     KC_snapshot()     the form choices behind the estimate on screen; saved with every quote.
+     KC_restore(form)  put saved choices back on screen and reprice. */
+
+  window.KC_snapshot = function(){
+    var dA = document.getElementById('discAmt'), dP = document.getElementById('discPct');
+    return JSON.parse(JSON.stringify({
+      v:1, active: activeSvc, state: STATE,
+      discAmt: dA ? dA.value : '', discPct: dP ? dP.value : ''
+    }));
+  };
+
+  window.KC_restore = function(form){
+    if(!form || !form.state) return false;
+    initState();
+    Object.keys(STATE).forEach(function(k){
+      var saved = form.state[k], cur = STATE[k];
+      if(!saved) return;
+      Object.keys(saved).forEach(function(p){
+        /* Merge these so a room or add-on added to the app later still gets its default. */
+        if(p === 'rooms' || p === 'addons' || p === 'items') cur[p] = Object.assign(cur[p] || {}, saved[p]);
+        else cur[p] = saved[p];
+      });
+    });
+    var dA = document.getElementById('discAmt'), dP = document.getElementById('discPct');
+    if(dA) dA.value = form.discAmt || '';
+    if(dP) dP.value = form.discPct || '';
+    var t = STATE.carpet.tier, tid = t==='signature' ? 'tSig' : (t==='quickdry' ? 'tQuick' : (t==='essential' ? 'tEss' : 'tDeep'));
+    document.getElementById(tid).checked = true;
+    var radio = document.querySelector('input[name="svc"][value="' + (form.active || 'carpet') + '"]');
+    if(radio) radio.checked = true;
+    syncService();
+    return true;
+  };
+
   /* Phase 2 hook: a "Text this estimate" button would call buildBreakdown()
      and calc() here. Nothing sends anything today. */
 })();
