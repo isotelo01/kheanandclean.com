@@ -32,30 +32,29 @@ th{font-size:13px;color:var(--muted);font-weight:600}
 .r{text-align:right}
 tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
 .totalrow{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-top:14px}
-.sig{flex:1 1 260px;min-width:240px}
+.sig{max-width:360px;margin-top:22px}
 .sig .name{font:600 30px "Dancing Script",cursive;color:var(--navy);line-height:1.1;padding:0 4px 2px}
 .sig .line{border-bottom:1.5px solid var(--navy);margin-bottom:5px}
 .sig .cap{font-size:12.5px;color:var(--muted)}
 .sig .ok{margin-top:9px;font-size:13.5px;color:var(--ink);display:flex;gap:7px;align-items:center}
 .sig .box{color:var(--green);font-weight:700;font-size:15px}
 .totals{max-width:280px;flex:0 0 auto;margin-left:auto}
-.totals div{display:flex;justify-content:space-between;padding:4px 0}
-.grand{font:700 22px "Playfair Display",Georgia,serif;border-top:2px solid var(--navy);margin-top:6px;padding-top:8px}
+.totals div{display:flex;justify-content:space-between;gap:24px;padding:4px 0}
+.grand{font-weight:700;border-top:2px solid var(--navy);margin-top:6px;padding-top:8px}
 .notes{background:#f7f8fa;border-left:4px solid var(--gold);padding:12px 16px;margin-top:22px;white-space:pre-wrap}
-.pay{margin-top:26px;border:2px solid var(--navy);border-radius:10px;padding:20px}
+.pay{margin-top:26px}
 .pay h2{font:700 20px "Playfair Display",Georgia,serif;margin:0 0 4px}
 .payamt{margin:0 0 14px;color:var(--muted)}
 .payamt strong{color:var(--ink);font:700 19px "Playfair Display",Georgia,serif}
-.paygrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:11px}
-.paybox{border:1px solid var(--line);border-radius:9px;padding:13px 15px;background:#fff;text-decoration:none;color:inherit;display:block}
-.paybox.go:hover{border-color:var(--navy);box-shadow:0 2px 10px rgba(23,34,57,.12)}
-.paybox.card{background:var(--navy);border-color:var(--navy);color:#fff}
-.paybox.card .pnote{color:#cfd6e4}
-.paybox.soon{background:#f7f8fa;color:var(--muted)}
+.paygrid{display:block}
+.paybox{padding:8px 0;text-decoration:none;color:inherit;display:grid;grid-template-columns:24px 1fr;column-gap:12px}
+.pico{width:24px;height:24px;grid-row:1 / span 2;margin-top:1px;color:var(--navy)}
+.paybox.soon .pico{color:var(--muted)}
+.paybox.go .pname{color:var(--navy);text-decoration:underline}
+.paybox.soon{color:var(--muted)}
 .pname{font-weight:700;margin-bottom:3px}
 .pnote{font-size:13.5px;color:var(--muted);line-height:1.4}
 .payhelp{margin:14px 0 0;font-size:14px;color:var(--muted)}
-@media print{.pay .paybox.go{border-color:var(--line)}}
 .status{display:inline-block;font-weight:700;padding:4px 12px;border-radius:20px;font-size:14px}
 .status.paid,.status.accepted{background:#e5f2ec;color:var(--green)}
 .status.unpaid{background:#fbe9e6;color:var(--red)}
@@ -74,6 +73,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 .foot{padding:0 30px 26px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:14px}
 .msg{padding:60px 30px;text-align:center;color:var(--muted)}
 @media (max-width:560px){.top,.body,.foot{padding-left:18px;padding-right:18px}.kind{text-align:left}.sheet{margin:0;border-radius:0}}
+/* phone letterhead: logo spans the full text block (name to phone line); "Invoice #I-1005" becomes one row under a thin rule */
+@media (max-width:560px){.idblock{gap:12px}.idblock img{width:88px;height:88px;border-radius:6px}.contact{font-size:13px}.kind{width:100%;display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid rgba(255,255,255,.18);padding-top:12px}.kind .t{font-size:24px}.kind .n{margin-top:0}}
 @media print{body{background:#fff}.sheet{box-shadow:none;margin:0}.accept,.foot button{display:none}.top{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style>
 </head>
@@ -103,6 +104,14 @@ const ZELLE = "(916) 767-2520";
 const VENMO = "Khean-Clean";
 const PAYPAL_ME = "kheanandclean";
 const STRIPE_LINK = "";
+// generic pay-list icons (inline SVG, no image files)
+const ico = d => `<svg class="pico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const PICO = {
+  dollar: ico('<circle cx="12" cy="12" r="9.5"/><path d="M15 9.3c-.6-.9-1.7-1.4-3-1.4-1.7 0-3 .9-3 2.1 0 2.9 6 1.6 6 4.4 0 1.3-1.3 2.2-3 2.2-1.4 0-2.5-.5-3.1-1.4M12 6v1.9M12 16.6v1.5"/>'),
+  phone:  ico('<rect x="6.5" y="2.5" width="11" height="19" rx="2.2"/><path d="M11 18.5h2"/>'),
+  wallet: ico('<path d="M4 7.5V6.5A2 2 0 0 1 6 4.5h11v3"/><rect x="3" y="7.5" width="18" height="12.5" rx="2"/><path d="M15.5 13.75h2"/>'),
+  card:   ico('<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 9.8h19M6 15h4"/>')
+};
 const sheet = document.getElementById("sheet");
 const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -131,7 +140,9 @@ function render(d){
   const num = isQuote ? d.number : "#" + d.number;
   document.title = `${isQuote ? "Quote" : "Invoice"} ${num} · Khean & Clean`;
   const c = d.customer || {};
-  const address = [c.street, [c.city, c.state].filter(Boolean).join(", "), c.zip].filter(Boolean).join(" ");
+  /* two lines: street, then "City, ST ZIP" */
+  const addr1 = c.street || "";
+  const addr2 = [[c.city, c.state].filter(Boolean).join(", "), c.zip].filter(Boolean).join(" ");
   const dateText = d.createdAt && d.createdAt.toDate
     ? d.createdAt.toDate().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
     : fmtDate(d.date);
@@ -157,8 +168,8 @@ function render(d){
       <div class="idblock">
         <img src="../images/logo.png" alt="Khean &amp; Clean">
         <div>
-          <div class="brand">Khean &amp; Clean</div>
-          <div class="legal">Khean &amp; Clean LLC · Folsom, CA</div>
+          <div class="brand">Khean &amp; Clean LLC</div>
+          <div class="legal">Folsom, CA</div>
           <div class="contact"><a href="tel:${TEL}">${PHONE}</a> · <a href="${SITE_URL}" target="_blank" rel="noopener">${SITE}</a></div>
         </div>
       </div>
@@ -166,7 +177,7 @@ function render(d){
     </div>
     <div class="body">
       <div class="meta">
-        <div><h3>Prepared for</h3><p><strong>${esc(c.name)}</strong>${address ? "<br>" + esc(address) : ""}${c.phone ? "<br>" + esc(c.phone) : ""}</p></div>
+        <div><h3>Prepared for</h3><p><strong>${esc(c.name)}</strong>${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}${c.phone ? "<br>" + esc(c.phone) : ""}</p></div>
         <div class="r"><h3>Date</h3><p>${dateText}</p>${statusHtml ? `<p style="margin-top:10px">${statusHtml}</p>` : ""}</div>
       </div>
       <table>
@@ -175,7 +186,6 @@ function render(d){
           (l.items || []).map(it => `<tr class="sub"><td>${esc(it.label)}</td><td class="r">${money(it.cost)}</td></tr>`).join("")).join("")}</tbody>
       </table>
       <div class="totalrow">
-        ${sigHtml}
         <div class="totals">
         <div><span>Subtotal</span><span>${money(d.subtotal)}</span></div>
         ${d.discount > 0 ? `<div><span>${esc(d.discountLabel || "Discount")}</span><span>&minus;${money(d.discount)}</span></div>` : ""}
@@ -184,6 +194,7 @@ function render(d){
         </div>
       </div>
       ${d.minApplied ? `<p style="text-align:right;color:var(--muted);font-size:14px;margin:6px 0 0">Minimum service charge applied.</p>` : ""}
+      ${sigHtml}
       ${d.notes ? `<div class="notes">${esc(d.notes)}</div>` : ""}
       ${canAccept ? `
       <div class="accept">
@@ -204,24 +215,24 @@ function render(d){
         <p class="payamt">Amount due <strong>${money(d.total)}</strong></p>
         <div class="paygrid">
           <div class="paybox">
-            <div class="pname">Zelle</div>
+            ${PICO.dollar}<div class="pname">Zelle</div>
             <div class="pnote">No fees. Send to <strong>${ZELLE}</strong> from your bank app.</div>
           </div>
           <a class="paybox go" href="https://venmo.com/${VENMO}?txn=pay&amount=${Number(d.total).toFixed(2)}&note=${encodeURIComponent("Khean & Clean " + d.number)}" target="_blank" rel="noopener">
-            <div class="pname">Venmo</div>
+            ${PICO.phone}<div class="pname">Venmo</div>
             <div class="pnote">Opens Venmo with the amount filled in.</div>
           </a>
           <a class="paybox go" href="https://paypal.me/${PAYPAL_ME}/${Number(d.total).toFixed(2)}" target="_blank" rel="noopener">
-            <div class="pname">PayPal</div>
+            ${PICO.wallet}<div class="pname">PayPal</div>
             <div class="pnote">Pay with a PayPal balance or a card.</div>
           </a>
           ${STRIPE_LINK ? `
           <a class="paybox go card" href="${STRIPE_LINK}" target="_blank" rel="noopener">
-            <div class="pname">Card or Apple Pay</div>
+            ${PICO.card}<div class="pname">Card or Apple Pay</div>
             <div class="pnote">Visa, Mastercard, Amex, Apple Pay, Google Pay.</div>
           </a>` : `
           <div class="paybox soon">
-            <div class="pname">Card or Apple Pay</div>
+            ${PICO.card}<div class="pname">Card or Apple Pay</div>
             <div class="pnote">Coming soon. Call to pay by card for now.</div>
           </div>`}
         </div>

@@ -1,0 +1,72 @@
+--- orig.html	2026-09-29 04:09:43.687735483 +0000
++++ login.html	2026-09-29 04:09:52.819081790 +0000
+@@ -30,6 +30,10 @@
+   cursor:pointer; letter-spacing:.04em; }
+ button[disabled]{ opacity:.6; cursor:default; }
+ .err{ min-height:1.2em; margin:14px 0 0; font-size:.86rem; color:#ff9b8a; }
++.err.ok{ color:#9fd8b8; }
++.linkbtn{ width:auto; background:none; color:rgba(244,241,234,.7); padding:4px 2px; margin-top:14px;
++  border-radius:0; font:500 .85rem "Archivo",sans-serif; letter-spacing:0; text-decoration:underline; }
++.linkbtn:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+ .back{ display:inline-block; margin-top:20px; font-size:.85rem;
+   color:rgba(244,241,234,.55); text-decoration:none; }
+ </style>
+@@ -47,6 +51,7 @@
+     <input id="pw" type="password" autocomplete="current-password" required>
+     <button type="submit" id="goBtn">Sign in</button>
+   </form>
++  <button type="button" class="linkbtn" id="forgotBtn">Forgot password?</button>
+ 
+   <p class="err" id="err"></p>
+   <a class="back" href="../index.html">Back to the website</a>
+@@ -54,7 +59,7 @@
+ 
+ <script type="module">
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+-import { getAuth, signInWithEmailAndPassword, setPersistence,
++import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, setPersistence,
+          browserLocalPersistence, onAuthStateChanged }
+   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+ 
+@@ -92,7 +97,7 @@
+ 
+ form.addEventListener("submit", async e => {
+   e.preventDefault();
+-  err.textContent = "";
++  err.textContent = ""; err.classList.remove("ok");
+   btn.disabled = true; btn.textContent = "Signing in\u2026";
+   try {
+     /* Local persistence: stays signed in after the tab closes. */
+@@ -107,6 +112,32 @@
+     btn.disabled = false; btn.textContent = "Sign in";
+   }
+ });
++
++/* Forgot password: Firebase emails a reset link to whatever is in the Email box.
++   The message is the same whether or not the address has an account, so the
++   page never reveals which emails are registered. */
++const forgot = document.getElementById("forgotBtn");
++forgot.addEventListener("click", async () => {
++  const emailEl = document.getElementById("email");
++  const email = emailEl.value.trim();
++  err.classList.remove("ok");
++  if (!email) { err.textContent = "Type your email above first, then tap Forgot password."; emailEl.focus(); return; }
++  forgot.disabled = true;
++  try {
++    await sendPasswordResetEmail(auth, email);
++    err.classList.add("ok");
++    err.textContent = "If that email has an account, a reset link is on its way. Check spam too.";
++  } catch (ex) {
++    console.error(ex);
++    if (ex.code === "auth/user-not-found") {
++      err.classList.add("ok");
++      err.textContent = "If that email has an account, a reset link is on its way. Check spam too.";
++    } else {
++      err.textContent = SAYS[ex.code] || "Could not send the reset email. Try again.";
++    }
++  }
++  forgot.disabled = false;
++});
+ </script>
+ </body>
+ </html>

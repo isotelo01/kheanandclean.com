@@ -2,16 +2,30 @@
    Rules below the shell are lifted from the site stylesheet unchanged. */
 :root{ --app-navy:#0d1b2a; }
 html,body{ margin:0; padding:0; background:var(--app-navy); color:#f4f1ea; }
-body{ padding:calc(env(safe-area-inset-top) + 56px) env(safe-area-inset-right)
+body{ padding:calc(env(safe-area-inset-top) + 46px) env(safe-area-inset-right)
        calc(env(safe-area-inset-bottom) + 24px) env(safe-area-inset-left); }
-.appbar{ position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; gap:.6rem;
-  padding:calc(env(safe-area-inset-top) + 8px) 14px 8px; background:var(--app-navy); color:#f4f1ea;
+.appbar{ position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; gap:.5rem;
+  padding:calc(env(safe-area-inset-top) + 5px) 12px 5px; background:var(--app-navy); color:#f4f1ea;
   border-bottom:1px solid rgba(255,255,255,.14); }
-.appbar__mark{ width:28px; height:28px; object-fit:contain; }
+.appbar__home{ display:flex; flex:none; border-radius:6px; }
+.appbar__home:focus-visible{ outline:2px solid #e0b64a; outline-offset:2px; }
+.appbar__mark{ width:26px; height:26px; object-fit:contain; display:block; }
 .appbar h1{ font-size:1rem; margin:0; flex:1; letter-spacing:.04em; }
 .appbar__new{ background:transparent; color:#f4f1ea; border:1px solid rgba(255,255,255,.35);
-  border-radius:999px; padding:.4rem .9rem; font:inherit; font-size:.85rem; }
+  border-radius:999px; padding:.3rem .75rem; font:inherit; font-size:.8rem; line-height:1.2; }
 a.appbar__new{ text-decoration:none; display:inline-block; }
+/* phone: drop the "Estimator" word so all three buttons fit; logo stays.
+   Text stays in the page for screen readers; the first button takes over
+   pushing the buttons to the right. */
+@media (max-width:480px){
+.appbar h1{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.appbar h1 + .appbar__new{ margin-left:auto; }
+}
+/* Sign out: quiet link at the bottom right of the page */
+.signout{ display:flex; justify-content:flex-end; padding:2.5rem 14px 0; }
+.signout__btn{ background:none; border:0; color:rgba(244,241,234,.45); font:inherit; font-size:.8rem;
+  text-decoration:underline; padding:.4rem .2rem; cursor:pointer; }
+.signout__btn:focus-visible{ outline:2px solid #e0b64a; outline-offset:2px; }
 /* one column on the phone — no side-by-side form/output */
 @media (max-width:900px){
 .est{ display:block !important; grid-template-columns:none !important; max-width:640px; margin:0 auto; padding:0 14px; }
@@ -917,7 +931,10 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .est__send{ width:100%; margin-top:1.2rem; padding:.95rem 1rem; border:0; border-radius:var(--r-md,6px); background:#E3B64A; color:#0d1b2a; font-family:"Archivo",sans-serif; font-weight:700; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; }
 .est__send:disabled{ opacity:.45; cursor:not-allowed; }
 .est__out .est__fig{ color:#E3B64A; }
-.estRow--csz{ grid-template-columns:2fr 1fr 1fr; }
+.estRow--csz{ grid-template-columns:2fr auto 1.4fr; }
+/* State is fixed at CA: show it as plain text, no box. Border stays (transparent)
+   so the text lines up with City and Zip beside it. */
+.estField #eState{ width:3ch; padding-left:0; padding-right:0; background:transparent; border-color:transparent; box-shadow:none; pointer-events:none; }
 .qcust__addr{ white-space:pre-line; }
 /* Contacts picker */
 .ctDlg{ width:min(92vw,420px); max-height:80vh; padding:1rem; border:1px solid rgba(227,182,74,.45); border-radius:10px; background:#0d1b2a; color:#f4f1ea; }

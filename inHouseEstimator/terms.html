@@ -37,6 +37,7 @@ body{
   -webkit-appearance:none; appearance:none;
 }
 .closebtn:hover{ background:rgba(227,182,74,.16); }
+.closebtn--bottom{ margin:2rem auto 0; }
 
 h1{
   font-family:"Playfair Display", Georgia, serif; font-weight:700;
@@ -134,14 +135,15 @@ a:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
   <p class="agree">By approving this estimate, Customer acknowledges that they have read, understand, and agree to these terms and conditions.</p>
 
   <p class="foot">Khean &amp; Clean LLC &middot; Folsom, CA 95630</p>
+  <button type="button" class="closebtn closebtn--bottom" aria-label="Close" title="Close">&times;</button>
 </main>
 <script>
   /* Close the tab this page was opened in. If the browser blocks that
      (page wasn't script-opened), fall back to going back. */
-  document.getElementById("closeBtn").addEventListener("click", () => {
+  document.querySelectorAll(".closebtn").forEach(btn => btn.addEventListener("click", () => {
     window.close();
     setTimeout(() => { if (history.length > 1) history.back(); }, 120);
-  });
+  }));
 </script>
 </body>
 </html>

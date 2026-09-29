@@ -14,10 +14,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600;700&family=Cormorant+Garamond:wght@700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600&family=Dancing+Script:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="app.css">
+<style id="authwait">body{visibility:hidden}</style>
 </head>
 <body id="estimate">
 <header class="appbar">
-  <img class="appbar__mark" src="../images/icon-180.png" alt="">
+  <a class="appbar__home" href="./index.html" aria-label="Estimator home"><img class="appbar__mark" src="../images/icon-180.png" alt=""></a>
   <h1>Estimator</h1>
   <button type="button" class="appbar__new" id="eCtBtn">Contacts</button>
   <button type="button" class="appbar__new" id="eNewBtn">New</button>
@@ -230,6 +231,8 @@
     </div>
 </main>
 
+<div class="signout"><button type="button" class="signout__btn" id="signOutBtn">Sign out</button></div>
+
 <dialog id="estClearDlg" class="estClearDlg" aria-labelledby="estClearTtl">
   <p class="estClearDlg__ttl" id="estClearTtl">Start a new estimate?</p>
   <p class="estClearDlg__sub">This cannot be undone.</p>
@@ -247,6 +250,27 @@
 
 <script src="app.js"></script>
 <script type="module" src="send.js"></script>
+<script type="module">
+/* Page lock + Sign out. Not signed in -> sent to the login page. */
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+const app = getApps().length ? getApp() : initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+onAuthStateChanged(getAuth(app), user => {
+  if (user) document.getElementById("authwait")?.remove();
+  else location.replace("./login.html?next=index.html");
+});
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  try { await signOut(getAuth(app)); } catch (e) { console.error(e); }
+  location.replace("./login.html");
+});
+</script>
 <script>
 /* Letterhead: mirror customer name + address into the quote panel as you type */
 (function () {

@@ -1,0 +1,81 @@
+--- orig-app.css	2026-09-29 04:17:49.001984341 +0000
++++ app.css	2026-09-29 04:17:49.272191406 +0000
+@@ -2,15 +2,17 @@
+    Rules below the shell are lifted from the site stylesheet unchanged. */
+ :root{ --app-navy:#0d1b2a; }
+ html,body{ margin:0; padding:0; background:var(--app-navy); color:#f4f1ea; }
+-body{ padding:calc(env(safe-area-inset-top) + 56px) env(safe-area-inset-right)
++body{ padding:calc(env(safe-area-inset-top) + 46px) env(safe-area-inset-right)
+        calc(env(safe-area-inset-bottom) + 24px) env(safe-area-inset-left); }
+-.appbar{ position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; gap:.6rem;
+-  padding:calc(env(safe-area-inset-top) + 8px) 14px 8px; background:var(--app-navy); color:#f4f1ea;
++.appbar{ position:fixed; top:0; left:0; right:0; z-index:50; display:flex; align-items:center; gap:.5rem;
++  padding:calc(env(safe-area-inset-top) + 5px) 12px 5px; background:var(--app-navy); color:#f4f1ea;
+   border-bottom:1px solid rgba(255,255,255,.14); }
+-.appbar__mark{ width:28px; height:28px; object-fit:contain; }
++.appbar__home{ display:flex; flex:none; border-radius:6px; }
++.appbar__home:focus-visible{ outline:2px solid #e0b64a; outline-offset:2px; }
++.appbar__mark{ width:26px; height:26px; object-fit:contain; display:block; }
+ .appbar h1{ font-size:1rem; margin:0; flex:1; letter-spacing:.04em; }
+ .appbar__new{ background:transparent; color:#f4f1ea; border:1px solid rgba(255,255,255,.35);
+-  border-radius:999px; padding:.4rem .9rem; font:inherit; font-size:.85rem; }
++  border-radius:999px; padding:.3rem .75rem; font:inherit; font-size:.8rem; line-height:1.2; }
+ a.appbar__new{ text-decoration:none; display:inline-block; }
+ /* phone: drop the "Estimator" word so all three buttons fit; logo stays.
+    Text stays in the page for screen readers; the first button takes over
+@@ -19,6 +21,11 @@
+ .appbar h1{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+ .appbar h1 + .appbar__new{ margin-left:auto; }
+ }
++/* Sign out: quiet link at the bottom right of the page */
++.signout{ display:flex; justify-content:flex-end; padding:2.5rem 14px 0; }
++.signout__btn{ background:none; border:0; color:rgba(244,241,234,.45); font:inherit; font-size:.8rem;
++  text-decoration:underline; padding:.4rem .2rem; cursor:pointer; }
++.signout__btn:focus-visible{ outline:2px solid #e0b64a; outline-offset:2px; }
+ /* one column on the phone — no side-by-side form/output */
+ @media (max-width:900px){
+ .est{ display:block !important; grid-template-columns:none !important; max-width:640px; margin:0 auto; padding:0 14px; }
+--- orig-index.html	2026-09-29 04:17:49.000133687 +0000
++++ index.html	2026-09-29 04:17:49.272389394 +0000
+@@ -17,7 +17,7 @@
+ </head>
+ <body id="estimate">
+ <header class="appbar">
+-  <img class="appbar__mark" src="../images/icon-180.png" alt="">
++  <a class="appbar__home" href="./index.html" aria-label="Estimator home"><img class="appbar__mark" src="../images/icon-180.png" alt=""></a>
+   <h1>Estimator</h1>
+   <button type="button" class="appbar__new" id="eCtBtn">Contacts</button>
+   <button type="button" class="appbar__new" id="eNewBtn">New</button>
+@@ -230,6 +230,8 @@
+     </div>
+ </main>
+ 
++<div class="signout"><button type="button" class="signout__btn" id="signOutBtn">Sign out</button></div>
++
+ <dialog id="estClearDlg" class="estClearDlg" aria-labelledby="estClearTtl">
+   <p class="estClearDlg__ttl" id="estClearTtl">Start a new estimate?</p>
+   <p class="estClearDlg__sub">This cannot be undone.</p>
+@@ -247,6 +249,23 @@
+ 
+ <script src="app.js"></script>
+ <script type="module" src="send.js"></script>
++<script type="module">
++/* Sign out: ends the Firebase session on this device, then goes to the login page. */
++import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
++import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
++const app = getApps().length ? getApp() : initializeApp({
++  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
++  authDomain: "khean-estimator-78f3e.firebaseapp.com",
++  projectId: "khean-estimator-78f3e",
++  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
++  messagingSenderId: "581692353222",
++  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
++});
++document.getElementById("signOutBtn").addEventListener("click", async () => {
++  try { await signOut(getAuth(app)); } catch (e) { console.error(e); }
++  location.replace("./login.html");
++});
++</script>
+ <script>
+ /* Letterhead: mirror customer name + address into the quote panel as you type */
+ (function () {
