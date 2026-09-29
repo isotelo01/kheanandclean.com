@@ -20,7 +20,7 @@
 <header class="appbar">
   <a class="appbar__home" href="./index.html" aria-label="Estimator home"><img class="appbar__mark" src="../images/icon-180.png" alt=""></a>
   <h1>Estimator</h1>
-  <button type="button" class="appbar__new" id="eCtBtn">Contacts</button>
+  <a class="appbar__new" href="./customers.html">Contacts</a>
   <button type="button" class="appbar__new" id="eNewBtn">New</button>
   <a class="appbar__new" id="eDashLink" href="./dashboard.html">Dashboard</a>
 </header>
@@ -242,12 +242,6 @@
   </div>
 </dialog>
 
-<dialog id="ctDlg" class="ctDlg" aria-label="Pick a contact">
-  <input id="ctSearch" class="ctDlg__search" type="search" placeholder="Search name, street or phone" autocomplete="off">
-  <ul id="ctList" class="ctDlg__list"></ul>
-  <button type="button" class="ctDlg__close" id="ctClose">Close</button>
-</dialog>
-
 <script src="app.js"></script>
 <script type="module" src="send.js"></script>
 <script type="module">
@@ -299,48 +293,99 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
   });
 })();
 </script>
-<script>
-/* Contacts: TEST DATA ONLY. Swap for the real list once the estimator has a login. */
-(function () {
-  var CONTACTS = [
-    { name: 'Contact One',   phone: '9165550101', street: '101 Test St',   city: 'Folsom',          zip: '95630' },
-    { name: 'Contact Two',   phone: '9165550102', street: '202 Sample Ave', city: 'El Dorado Hills', zip: '95762' },
-    { name: 'Contact Three', phone: '9165550103', street: '303 Demo Ct',    city: 'Rancho Cordova',  zip: '95670' }
-  ];
-  var dlg = document.getElementById('ctDlg'), q = document.getElementById('ctSearch');
-  var list = document.getElementById('ctList');
-  function set(id, v) {
-    var el = document.getElementById(id);
-    el.value = v || '';
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-  function render() {
-    var t = q.value.trim().toLowerCase(), digits = t.replace(/\D/g, '');
-    list.innerHTML = '';
-    CONTACTS.filter(function (c) {
-      return !t || (c.name + ' ' + c.street + ' ' + c.city).toLowerCase().indexOf(t) > -1
-        || (digits && c.phone.indexOf(digits) > -1);
-    }).forEach(function (c) {
-      var li = document.createElement('li'), b = document.createElement('button');
-      b.type = 'button'; b.className = 'ctDlg__item';
-      b.innerHTML = '<span class="ctDlg__name"></span><span class="ctDlg__meta"></span>';
-      b.children[0].textContent = c.name;
-      b.children[1].textContent = c.street + ', ' + c.city;
-      b.addEventListener('click', function () {
-        set('eName', c.name); set('ePhone', c.phone); set('eAddr', c.street);
-        set('eCity', c.city); set('eZip', c.zip);
-        dlg.close();
-      });
-      li.appendChild(b); list.appendChild(li);
+<script type="module">
+/* Contact autofill: type in Name, Phone or Email -> suggestions from the customers collection. */
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+const app = getApps().length ? getApp() : initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+
+let CUSTOMERS = null, loading = null;
+function load() {
+  if (CUSTOMERS) return Promise.resolve(CUSTOMERS);
+  if (loading) return loading;
+  loading = getDocs(collection(db, 'customers')).then(snap => {
+    CUSTOMERS = snap.docs.map(d => d.data() || {}).filter(c => !c.trashed).map(c => {
+      const addrs = Array.isArray(c.addresses) ? c.addresses : [];
+      const last = addrs.length ? addrs[addrs.length - 1] : {};
+      return {
+        name: c.name || '',
+        phone: c.phone || '',
+        email: c.email || '',
+        street: last.street || '',
+        city: last.city || '',
+        zip: last.zip || ''
+      };
     });
-    if (!list.children.length) list.innerHTML = '<li class="ctDlg__none">No match. Type the details in by hand.</li>';
+    return CUSTOMERS;
+  }).catch(e => { console.error('contact autofill load failed', e); return (CUSTOMERS = []); });
+  return loading;
+}
+onAuthStateChanged(getAuth(app), u => { if (u) load(); });
+
+function set(id, v) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = v || '';
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+function fill(c) {
+  set('eName', c.name); set('ePhone', c.phone); set('eEmail', c.email);
+  set('eAddr', c.street); set('eCity', c.city); set('eZip', c.zip);
+}
+
+function attach(inputId, field) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.setAttribute('autocomplete', 'off');
+  const box = document.createElement('ul');
+  box.className = 'acList';
+  box.hidden = true;
+  const wrap = input.parentNode;
+  if (getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
+  wrap.appendChild(box);
+
+  function hide() { box.hidden = true; box.innerHTML = ''; }
+  function render(rows) {
+    box.innerHTML = '';
+    if (!rows.length) { hide(); return; }
+    rows.slice(0, 8).forEach(c => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'acList__item';
+      b.innerHTML = '<span class="acList__name"></span><span class="acList__meta"></span>';
+      b.children[0].textContent = c.name || c.email || c.phone;
+      b.children[1].textContent = [c.phone, c.street].filter(Boolean).join(' \u00b7 ');
+      b.addEventListener('mousedown', ev => { ev.preventDefault(); fill(c); hide(); });
+      li.appendChild(b); box.appendChild(li);
+    });
+    box.hidden = false;
   }
-  q.addEventListener('input', render);
-  document.getElementById('eCtBtn').addEventListener('click', function () {
-    q.value = ''; render(); dlg.showModal(); q.focus();
+  input.addEventListener('input', async () => {
+    const raw = input.value.trim();
+    if (raw.length < 3) { hide(); return; }
+    const t = raw.toLowerCase(), digits = raw.replace(/\D/g, '');
+    const all = await load();
+    if (input.value.trim() !== raw) return;
+    render(all.filter(c => {
+      if (field === 'phone') return digits.length >= 3 && c.phone.replace(/\D/g, '').indexOf(digits) > -1;
+      if (field === 'email') return c.email.toLowerCase().indexOf(t) > -1;
+      return c.name.toLowerCase().indexOf(t) > -1;
+    }));
   });
-  document.getElementById('ctClose').addEventListener('click', function () { dlg.close(); });
-})();
+  input.addEventListener('blur', () => setTimeout(hide, 120));
+}
+attach('eName', 'name');
+attach('ePhone', 'phone');
+attach('eEmail', 'email');
 </script>
 <script>
 if ('serviceWorker' in navigator) {

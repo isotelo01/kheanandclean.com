@@ -87,6 +87,7 @@ async function fileCustomer(){
       if (!d.name && name)   patch.name = name;
       if (!d.phone && phone) Object.assign(patch, { phone, phoneKey: pk });
       if (!d.email && email) Object.assign(patch, { email, emailKey: ek });
+      if (d.trashed) Object.assign(patch, { trashed: false, trashedAt: null });   /* estimating for them again means they're active */
       if (Object.keys(patch).length) await setDoc(hit.ref, Object.assign(patch, { updatedAt: serverTimestamp() }), { merge: true });
     } else {
       await setDoc(doc(db, 'customers', randomId()), {

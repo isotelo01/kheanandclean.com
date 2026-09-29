@@ -50,6 +50,8 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .paidbtn[disabled]{opacity:.55;cursor:default}
 .invbtn:hover{background:#24324f}
 .invbtn[disabled]{opacity:.55;cursor:default}
+.textbtn{flex:0 0 100px;background:#fff;color:var(--navy);border:2px solid var(--navy);border-radius:10px;padding:8px;font:700 16px "Archivo",system-ui,sans-serif;cursor:pointer}
+.textbtn:hover{background:var(--navy);color:#fff}
 .who{font-weight:600}
 .meta{color:var(--muted);font-size:14px;margin-top:2px}
 .right{text-align:right;margin-left:auto}
@@ -60,7 +62,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .status.expired,.status.declined{background:#fbe9e6;color:var(--red)}
 .msg{background:#fff;border-radius:10px;padding:50px 20px;text-align:center;color:var(--muted)}
 button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-@media (max-width:520px){.right{text-align:left;margin-left:0;width:100%}.cardrow{flex-wrap:wrap}.cardrow .card{flex:1 1 100%}.invbtn,.paidbtn{flex:1 1 100%;padding:13px}}
+@media (max-width:520px){.right{text-align:left;margin-left:0;width:100%}.cardrow{flex-wrap:wrap}.cardrow .card{flex:1 1 100%}.invbtn,.paidbtn,.textbtn{flex:1 1 100%;padding:13px}}
 </style>
 <style id="authwait">body{visibility:hidden}</style>
 </head>
@@ -151,6 +153,9 @@ const card = r =>
     : '') +
   (r.source === "invoices"
     ? '<button type="button" class="paidbtn" data-paid="' + esc(r.id) + '">Paid</button>'
+    : '') +
+  (r.source !== "trash" && r.phone
+    ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-kind="' + (r.source === "invoices" || r.source === "paidInvoices" ? "invoice" : "estimate") + '">Text</button>'
     : '') +
   '</div>';
 
@@ -246,6 +251,20 @@ async function toPaid(id){
   }));
   await deleteDoc(doc(db, "invoices", id));
 }
+
+/* Text: open the phone's messaging app with the number and link filled in.
+   sms: with a body needs "?body=" on Android and "&body=" on iOS. */
+boardEl.addEventListener("click", e => {
+  const t = e.target.closest(".textbtn");
+  if (!t) return;
+  e.preventDefault(); e.stopPropagation();
+  const digits = String(t.dataset.phone || "").replace(/\D/g, "");
+  if (!digits) { alert("No phone number on this one."); return; }
+  const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "quote.html?id=" + encodeURIComponent(t.dataset.text);
+  const body = "Hi, here's your " + (t.dataset.kind === "invoice" ? "invoice" : "estimate") + " from Khean & Clean: " + link;
+  const sep = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? "&" : "?";
+  location.href = "sms:" + digits + sep + "body=" + encodeURIComponent(body);
+});
 
 boardEl.addEventListener("click", async e => {
   const paid = e.target.closest(".paidbtn");

@@ -1,0 +1,85 @@
+--- prev4/customers.html	2026-09-29 17:37:46.662988234 +0000
++++ customers.html	2026-09-29 17:38:27.731047189 +0000
+@@ -39,6 +39,12 @@
+ textarea{min-height:90px;resize:vertical}
+ .addr{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px}
+ .photos{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:14px}
++.jobs{color:var(--muted);font-size:14px}
++.job{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;text-decoration:none;color:inherit}
++.job:hover{border-color:var(--gold);background:#fbfaf7}
++.job__date{flex:0 0 110px;color:var(--muted);font-size:13px}
++.job__no{flex:1 1 auto;font-weight:600}
++.job__total{flex:0 0 auto;font-weight:700}
+ .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px}
+ .new:disabled{opacity:.6;cursor:default}
+ .note{font-size:14px;color:var(--muted)}
+@@ -157,6 +163,16 @@
+   return isNaN(n) ? null : n;
+ };
+ 
++/* Paid invoices keep the whole quote, so a job row can read date, number and total. */
++const anyMs = t => {
++  if (!t) return null;
++  if (typeof t.toMillis === "function") return t.toMillis();
++  const n = Date.parse(t);
++  return isNaN(n) ? null : n;
++};
++const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
++const shortDate = ms => ms ? new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
++
+ async function showTrash(){
+   titleEl.textContent = "Trash";
+   document.title = "Trash \u00b7 Khean & Clean";
+@@ -246,6 +262,8 @@
+       '<button type="button" class="ghost" id="addAddr">Add address</button>' +
+       '<h2>Notes</h2>' +
+       '<label>Anything worth remembering<textarea id="cNotes">' + esc(c.notes) + '</textarea></label>' +
++      '<h2>Job history</h2>' +
++      '<div id="jobs" class="jobs">' + (isNew ? "Job history appears once this customer has a paid invoice." : "Loading\u2026") + '</div>' +
+       '<h2>Photos</h2>' +
+       '<div class="photos">Photos are coming later.</div>' +
+       '<div class="actions">' +
+@@ -284,6 +302,33 @@
+       btn.disabled = false;
+     }
+   }
++  /* Job history: paid invoices whose customer phone matches this one. */
++  async function loadJobs(){
++    const box = $("jobs");
++    if (!box || isNew) return;
++    const pk = phoneKey(c.phone);
++    if (!pk) { box.textContent = "Add a phone number to match up past jobs."; return; }
++    try {
++      const snap = await getDocs(collection(db, "paidInvoices"));
++      const rows = snap.docs
++        .map(d => ({ id: d.id, ...d.data() }))
++        .filter(r => phoneKey(r.customer && r.customer.phone) === pk)
++        .map(r => ({ ...r, ms: anyMs(r.paidAt) }))
++        .sort((a, b) => (b.ms || 0) - (a.ms || 0));
++      if (!rows.length) { box.textContent = "No paid jobs yet."; return; }
++      box.innerHTML = rows.map(r =>
++        '<a class="job" href="./quote.html?id=' + encodeURIComponent(r.id) + '" target="_blank" rel="noopener">' +
++          '<span class="job__date">' + esc(shortDate(r.ms) || "\u2014") + '</span>' +
++          '<span class="job__no">' + esc(r.number || "") + '</span>' +
++          '<span class="job__total">' + esc(money(r.total)) + '</span>' +
++        '</a>').join("");
++    } catch (e) {
++      console.error(e);
++      box.textContent = "Could not load job history.";
++    }
++  }
++  loadJobs();
++
+   $("delBtn")?.addEventListener("click", () => setTrashed(true));
+   $("restoreBtn")?.addEventListener("click", () => setTrashed(false));
+ 
+--- prev4/sw.js	2026-09-29 17:37:46.663870505 +0000
++++ sw.js	2026-09-29 17:40:13.340150024 +0000
+@@ -1,6 +1,6 @@
+ /* K&C Estimator service worker — offline-first.
+    Bump CACHE when you upload new files, or phones keep the old copy. */
+-var CACHE = 'kc-estimator-v14';
++var CACHE = 'kc-estimator-v15';
+ var ASSETS = ['./','./index.html','./app.css','./app.js','./manifest.webmanifest',
+               '../images/icon-180.png','../images/icon-192.png','../images/icon-512.png'];
+ 
