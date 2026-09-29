@@ -1,6 +1,6 @@
 /* K&C Estimator service worker — offline-first.
    Bump CACHE when you upload new files, or phones keep the old copy. */
-var CACHE = 'kc-estimator-v9';
+var CACHE = 'kc-estimator-v10';
 var ASSETS = ['./','./index.html','./app.css','./app.js','./manifest.webmanifest',
               '../images/icon-180.png','../images/icon-192.png','../images/icon-512.png'];
 
@@ -14,6 +14,9 @@ self.addEventListener('activate', function(e){
 });
 self.addEventListener('fetch', function(e){
   if(e.request.method !== 'GET') return;
+  /* Let the browser handle page navigations itself. Intercepting them
+     breaks auth redirects (login.html) with ERR_FAILED. */
+  if(e.request.mode === 'navigate') return;
   e.respondWith(caches.match(e.request).then(function(hit){
     return hit || fetch(e.request).catch(function(){ return caches.match('./index.html'); });
   }));
