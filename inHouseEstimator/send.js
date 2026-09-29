@@ -1,7 +1,8 @@
 /* Send Estimate — stage one: save the quote to Firestore and hand back a link.
    The link opens quote.html (stage two). Unapproved quotes expire after 30 days. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp }
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp,
+         collection, query, where, limit, getDocs }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
@@ -57,6 +58,46 @@ function showLink(id, number, text){
   const phone = val('ePhone').replace(/\D/g, '');
   $('qLinkSms').href = 'sms:' + (phone ? '+1' + phone : '') + '?&body=' + encodeURIComponent(body);
   show(text);
+}
+
+/* ---- Customers: every saved estimate files its customer. ----
+   Matched on phone or email (same keys as customers.html). A new address is added to
+   their list; anything already on file stays as it is, except blanks get filled. */
+const phoneKey = s => { const d = String(s || '').replace(/\D/g, '').slice(-10); return d.length === 10 ? d : ''; };
+const emailKey = s => String(s || '').trim().toLowerCase();
+const sameAddr = (a, b) => ['street', 'city', 'zip'].every(k =>
+  String(a[k] || '').trim().toLowerCase() === String(b[k] || '').trim().toLowerCase());
+
+async function fileCustomer(){
+  const name = val('eName'), phone = val('ePhone'), email = val('eEmail');
+  const pk = phoneKey(phone), ek = emailKey(email);
+  if (!pk && !ek) return;   /* nothing to match on, so don't risk a duplicate */
+  const addr = { street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip') };
+  const hasAddr = !!(addr.street || addr.city || addr.zip);
+  try {
+    let hit = null;
+    for (const [f, v] of [['phoneKey', pk], ['emailKey', ek]]) {
+      if (!v || hit) continue;
+      const s = await getDocs(query(collection(db, 'customers'), where(f, '==', v), limit(1)));
+      if (!s.empty) hit = s.docs[0];
+    }
+    if (hit) {
+      const d = hit.data(), addresses = (d.addresses || []).slice(), patch = {};
+      if (hasAddr && !addresses.some(a => sameAddr(a, addr))) { addresses.push(addr); patch.addresses = addresses; }
+      if (!d.name && name)   patch.name = name;
+      if (!d.phone && phone) Object.assign(patch, { phone, phoneKey: pk });
+      if (!d.email && email) Object.assign(patch, { email, emailKey: ek });
+      if (Object.keys(patch).length) await setDoc(hit.ref, Object.assign(patch, { updatedAt: serverTimestamp() }), { merge: true });
+    } else {
+      await setDoc(doc(db, 'customers', randomId()), {
+        name, phone, email, notes: '', addresses: hasAddr ? [addr] : [],
+        phoneKey: pk, emailKey: ek, source: 'estimate',
+        createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+      });
+    }
+  } catch (e) {
+    console.error('Customer not filed:', e);   /* the quote is already saved; don't fail the send */
+  }
 }
 
 /* ---- Edit mode: index.html?edit=<id>&from=<collection>, opened from the Dashboard ---- */
@@ -124,6 +165,7 @@ async function saveEdit(q){
 
   await setDoc(doc(db, target, edit.id), merged);           /* copy first ... */
   if (target !== edit.from) await deleteDoc(doc(db, edit.from, edit.id));   /* ... then remove */
+  await fileCustomer();
   edit.from = target; edit.data = merged;
   showLink(edit.id, merged.number, text);
 }
@@ -156,6 +198,7 @@ btn.addEventListener('click', async () => {
       createdAt: serverTimestamp(),
       expiresAt: Timestamp.fromMillis(Date.now() + 30 * 864e5)
     }, fromForm(q)));
+    await fileCustomer();
 
     showLink(id, number, 'Saved as ' + number + '. Link is good for 30 days unless approved.');
   } catch (e) {

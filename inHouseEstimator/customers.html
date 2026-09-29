@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Customers &middot; Khean &amp; Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.bar{display:flex;gap:8px;margin-bottom:10px}
+.bar input{flex:1;min-width:200px;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px}
+.count{color:var(--muted);font-size:14px;margin-bottom:10px}
+.list{display:grid;gap:10px}
+.row{display:block;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 16px}
+.row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
+.who{font-weight:700}
+.meta{color:var(--muted);font-size:14px}
+.msg{color:var(--muted);font-size:14px;padding:6px 2px}
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
+.panel h2{font:700 20px "Playfair Display",Georgia,serif;margin:24px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
+.panel h2:first-child{margin-top:0}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.addr .grid{grid-template-columns:2fr 1.2fr .6fr .8fr}
+@media(max-width:620px){.grid,.addr .grid{grid-template-columns:1fr}}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted)}
+label input,label textarea{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
+textarea{min-height:90px;resize:vertical}
+.addr{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px}
+.photos{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:14px}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px}
+.new:disabled{opacity:.6;cursor:default}
+.note{font-size:14px;color:var(--muted)}
+.note.err{color:var(--red)}
+.note a{color:var(--navy);font-weight:600}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./index.html" aria-label="Estimator home"><img src="../images/icon-180.png" alt=""></a>
+    <h1 id="title">Customers</h1>
+    <div style="display:flex;gap:10px;align-items:center;margin-left:auto">
+      <a class="ghost" href="./dashboard.html">Dashboard</a>
+      <a class="new" href="#new">Add customer</a>
+    </div>
+  </div>
+  <div id="view"><div class="msg">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+
+const view = document.getElementById("view"), titleEl = document.getElementById("title");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const digits = s => String(s || "").replace(/\D/g, "");
+
+/* Match keys. send.js uses the same two rules, so auto-filed and hand-added customers line up. */
+const phoneKey = s => { const d = digits(s).slice(-10); return d.length === 10 ? d : ""; };
+const emailKey = s => String(s || "").trim().toLowerCase();
+
+function randomId(){
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  return Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join("");
+}
+const addrLine = a => [a.street, [a.city, a.state].filter(Boolean).join(", "), a.zip].filter(Boolean).join(" ");
+const byName = (a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" });
+
+let all = null, lastTerm = "";
+
+/* Someone already on file with this phone or email? */
+async function findMatch(pk, ek, skipId){
+  for (const [f, v] of [["phoneKey", pk], ["emailKey", ek]]) {
+    if (!v) continue;
+    const s = await getDocs(query(collection(db, "customers"), where(f, "==", v), limit(2)));
+    const hit = s.docs.find(d => d.id !== skipId);
+    if (hit) return { id: hit.id, ...hit.data() };
+  }
+  return null;
+}
+
+/* ---- List ---- */
+async function showList(){
+  titleEl.textContent = "Customers";
+  document.title = "Customers \u00b7 Khean & Clean";
+  if (!all) {
+    view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+    try {
+      const snap = await getDocs(collection(db, "customers"));
+      all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byName);
+    } catch (e) {
+      console.error(e);
+      view.innerHTML = '<div class="msg">Could not load customers: ' + esc(e.message) + '</div>';
+      return;
+    }
+  }
+  view.innerHTML =
+    '<div class="bar"><input id="q" type="search" placeholder="Search name, phone, email, or address" autocomplete="off" value="' + esc(lastTerm) + '"></div>' +
+    '<div class="count" id="count"></div><div class="list" id="list"></div>';
+  const q = document.getElementById("q"), listEl = document.getElementById("list"), countEl = document.getElementById("count");
+  const draw = () => {
+    lastTerm = q.value;
+    const t = q.value.trim().toLowerCase(), td = digits(q.value);
+    const rows = all.filter(c => !t ||
+      [c.name, c.email, ...(c.addresses || []).map(addrLine)].join(" ").toLowerCase().includes(t) ||
+      (td.length >= 3 && digits(c.phone).includes(td)));
+    countEl.textContent = rows.length + (rows.length === 1 ? " customer" : " customers") + (t ? " found" : "");
+    listEl.innerHTML = rows.length ? rows.map(c => {
+      const ad = c.addresses || [];
+      return '<a class="row" href="#' + encodeURIComponent(c.id) + '">' +
+        '<div class="who">' + esc(c.name || "No name") + '</div>' +
+        '<div class="meta">' + [c.phone, c.email].filter(Boolean).map(esc).join(" &middot; ") + '</div>' +
+        (ad.length ? '<div class="meta">' + esc(addrLine(ad[0])) + (ad.length > 1 ? " &middot; +" + (ad.length - 1) + " more" : "") + '</div>' : "") +
+      '</a>';
+    }).join("") : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>';
+  };
+  q.addEventListener("input", draw);
+  draw();
+}
+
+/* ---- Profile ---- */
+const addrBlock = (a = {}) =>
+  '<div class="addr"><div class="grid">' +
+    '<label>Street<input data-f="street" autocomplete="off" value="' + esc(a.street) + '"></label>' +
+    '<label>City<input data-f="city" autocomplete="off" value="' + esc(a.city) + '"></label>' +
+    '<label>State<input data-f="state" autocomplete="off" value="' + esc(a.state ?? "CA") + '"></label>' +
+    '<label>ZIP<input data-f="zip" inputmode="numeric" autocomplete="off" value="' + esc(a.zip) + '"></label>' +
+  '</div></div>';
+
+async function showProfile(id){
+  const isNew = id === "new";
+  let c = { name: "", phone: "", email: "", notes: "", addresses: [] };
+  if (!isNew) {
+    c = all && all.find(x => x.id === id);
+    if (!c) {
+      view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+      try {
+        const s = await getDoc(doc(db, "customers", id));
+        if (!s.exists()) { view.innerHTML = '<div class="msg">That customer isn\u2019t on file. <a href="#">Back to the list</a></div>'; return; }
+        c = { id, ...s.data() };
+      } catch (e) {
+        console.error(e);
+        view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>';
+        return;
+      }
+    }
+  }
+  titleEl.textContent = isNew ? "New customer" : (c.name || "Customer");
+  document.title = titleEl.textContent + " \u00b7 Khean & Clean";
+
+  const addrs = (c.addresses || []).length ? c.addresses : [{}];
+  view.innerHTML =
+    '<div class="panel">' +
+      '<h2>Contact</h2>' +
+      '<div class="grid">' +
+        '<label>Name<input id="cName" autocomplete="off" value="' + esc(c.name) + '"></label>' +
+        '<label>Phone<input id="cPhone" type="tel" autocomplete="off" value="' + esc(c.phone) + '"></label>' +
+        '<label>Email<input id="cEmail" type="email" autocomplete="off" value="' + esc(c.email) + '"></label>' +
+      '</div>' +
+      '<h2>Addresses</h2>' +
+      '<div id="addrs">' + addrs.map(addrBlock).join("") + '</div>' +
+      '<button type="button" class="ghost" id="addAddr">Add address</button>' +
+      '<h2>Notes</h2>' +
+      '<label>Anything worth remembering<textarea id="cNotes">' + esc(c.notes) + '</textarea></label>' +
+      '<h2>Photos</h2>' +
+      '<div class="photos">Photos are coming later.</div>' +
+      '<div class="actions">' +
+        '<button type="button" class="new" id="saveBtn">' + (isNew ? "Add customer" : "Save changes") + '</button>' +
+        '<a class="ghost" href="#">Back to list</a>' +
+        '<span class="note" id="note"></span>' +
+      '</div>' +
+    '</div>';
+
+  const $ = i => document.getElementById(i), note = $("note"), saveBtn = $("saveBtn");
+  const say = (html, isErr) => { note.innerHTML = html; note.classList.toggle("err", !!isErr); };
+
+  $("addAddr").addEventListener("click", () => {
+    $("addrs").insertAdjacentHTML("beforeend", addrBlock());
+    $("addrs").lastElementChild.querySelector("input").focus();
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const name = $("cName").value.trim(), phone = $("cPhone").value.trim(), email = $("cEmail").value.trim();
+    const addresses = [...$("addrs").querySelectorAll(".addr")].map(b => {
+      const o = {};
+      b.querySelectorAll("input[data-f]").forEach(i => { o[i.dataset.f] = i.value.trim(); });
+      return o;
+    }).filter(a => a.street || a.city || a.zip);   /* a row with only the state filled is blank */
+    if (!name && !phone && !email) { say("Add at least a name, phone, or email.", true); return; }
+
+    saveBtn.disabled = true; say("Saving&hellip;");
+    try {
+      const pk = phoneKey(phone), ek = emailKey(email);
+      const dup = await findMatch(pk, ek, isNew ? null : id);
+      if (dup) {
+        say('That phone or email is already on file for <a href="#' + encodeURIComponent(dup.id) + '">' + esc(dup.name || "another customer") + '</a>.', true);
+        return;
+      }
+      const theId = isNew ? randomId() : id;
+      const data = { name, phone, email, notes: $("cNotes").value.trim(), addresses, phoneKey: pk, emailKey: ek, updatedAt: serverTimestamp() };
+      if (isNew) Object.assign(data, { source: "manual", createdAt: serverTimestamp() });
+      await setDoc(doc(db, "customers", theId), data, { merge: true });
+
+      if (all) {
+        const rec = Object.assign({}, c, data, { id: theId });
+        all = all.filter(x => x.id !== theId).concat(rec).sort(byName);
+      }
+      if (isNew) { location.hash = "#" + encodeURIComponent(theId); return; }
+      titleEl.textContent = name || "Customer";
+      say("Saved.");
+    } catch (e) {
+      console.error(e);
+      say("Could not save: " + esc(e.message), true);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+}
+
+/* #new = add, #<id> = profile, nothing = list */
+const route = () => {
+  const h = decodeURIComponent(location.hash.slice(1));
+  window.scrollTo(0, 0);
+  h ? showProfile(h) : showList();
+};
+
+/* Page lock. Not signed in -> login page, then back here. */
+let started = false;
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=customers.html"); return; }
+  document.getElementById("authwait")?.remove();
+  if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
+});
+</script>
+</body>
+</html>

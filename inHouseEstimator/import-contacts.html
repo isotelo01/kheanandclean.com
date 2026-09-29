@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Import contacts &middot; Khean &amp; Clean</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+.wrap{max-width:760px;margin:0 auto;padding:26px 18px 60px}
+h1{font:700 28px "Playfair Display",Georgia,serif;margin:0 0 4px;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:20px;margin-top:18px}
+button{font:600 15px "Archivo";background:var(--navy);color:#fff;border:0;border-radius:6px;padding:11px 20px;cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+a.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:10px 16px;margin-left:8px}
+.log{margin-top:16px;font-size:14px;max-height:340px;overflow:auto;border-top:1px solid var(--line);padding-top:10px}
+.log div{padding:3px 0;border-bottom:1px solid #f1f3f6}
+.ok{color:var(--green);font-weight:600}
+.skip{color:var(--muted)}
+.err{color:var(--red);font-weight:600}
+p.note{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <h1>Import contacts</h1>
+  <div class="panel">
+    <p class="note">One-time job: adds the 22 contacts from your Google export into Customers.
+    Anyone already on file by phone or email is skipped, so pressing this twice is safe.
+    Delete this page when you are done.</p>
+    <button id="go">Import 22 contacts</button>
+    <a class="ghost" href="./customers.html">Customers</a>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, query, where, limit, getDocs, doc, setDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+const ROWS = [{"name": "Alicia Feick","phone": "(916) 337 6591","email": "","notes": "Property Type: Residential\nCreated Date: 07/31/2026","addresses": [{"street": "112 Garrett Dr.","city": "Folsom","state": "CA","zip": "95630"}],"phoneKey": "9163376591","emailKey": ""},{"name": "Andrew","phone": "+1 530-647-6395","email": "","notes": "","addresses": [],"phoneKey": "5306476395","emailKey": ""},{"name": "Annette Seay","phone": "+19169368180","email": "","notes": "","addresses": [],"phoneKey": "9169368180","emailKey": ""},{"name": "Arihant Baid","phone": "(732) 208 8069","email": "","notes": "Property Type: Residential\nCreated Date: 06/17/2026","addresses": [{"street": "4691 Scenic Vista Dr","city": "Folsom","state": "CA","zip": "95630"}],"phoneKey": "7322088069","emailKey": ""},{"name": "Doug Talmadge","phone": "(916) 202 1806","email": "","notes": "Property Type: Residential\nCreated Date: 07/07/2026","addresses": [{"street": "159 Orange Blossom Cir","city": "Folsom","state": "CA","zip": "95630"}],"phoneKey": "9162021806","emailKey": ""},{"name": "Israel Sotelo","phone": "(279) 321 2944","email": "Isotelo01@yahoo.com","notes": "Property Type: Residential\nCreated Date: 06/06/2026","addresses": [{"street": "116 Framingham Way","city": "Folsom","state": "CA","zip": "95630"}],"phoneKey": "2793212944","emailKey": "isotelo01@yahoo.com"},{"name": "Israel Sotelo","phone": "","email": "israelsotelo01@gmail.com","notes": "","addresses": [],"phoneKey": "","emailKey": "israelsotelo01@gmail.com"},{"name": "James Adkins","phone": "(916) 616 7629","email": "","notes": "Property Type: Residential\nCreated Date: 06/24/2026","addresses": [{"street": "4326 Prodperine Ln","city": "Sacramento","state": "CA","zip": "95827"}],"phoneKey": "9166167629","emailKey": ""},{"name": "Janey Mason","phone": "(916) 467 0425","email": "","notes": "Property Type: Residential\nCreated Date: 07/27/2026","addresses": [{"street": "2030 Youngs Ct","city": "El Dorado Hills","state": "CA","zip": "95762"}],"phoneKey": "9164670425","emailKey": ""},{"name": "Jeffrey Thorne","phone": "(916) 990-8790","email": "","notes": "Property Type: Residential\nCreated Date: 08/24/2026","addresses": [{"street": "7580 Red Bud Rd","city": "Granite Bay","state": "CA","zip": "95746"}],"phoneKey": "9169908790","emailKey": ""},{"name": "Mark Exner","phone": "+1 949-683-0004","email": "","notes": "","addresses": [],"phoneKey": "9496830004","emailKey": ""},{"name": "Muy","phone": "+15302308018","email": "","notes": "","addresses": [],"phoneKey": "5302308018","emailKey": ""},{"name": "Nancy Gutierrez","phone": "","email": "","notes": "Created Date: 06/23/2026","addresses": [],"phoneKey": "","emailKey": ""},{"name": "Narsing Rao","phone": "(714) 721 9515","email": "","notes": "Property Type: Residential\nCreated Date: 06/17/2026","addresses": [{"street": "4687 Scenic Vista Dr","city": "Folsom","state": "CA","zip": "95630"}],"phoneKey": "7147219515","emailKey": ""},{"name": "","phone": "","email": "newtoneprinting@yahoo.com","notes": "","addresses": [],"phoneKey": "","emailKey": "newtoneprinting@yahoo.com"},{"name": "Sal P","phone": "(310) 261 4809","email": "","notes": "Property Type: Commercial\nCreated Date: 06/06/2026","addresses": [{"street": "EDH Casino","city": "El Dorado Hills","state": "CA","zip": "95762"}],"phoneKey": "3102614809","emailKey": ""},{"name": "Siva M","phone": "(717) 440 6675","email": "","notes": "Property Type: Residential\nCreated Date: 07/30/2026","addresses": [{"street": "497 williams st","city": "Folsom","state": "CA","zip": "95630"}],"phoneKey": "7174406675","emailKey": ""},{"name": "Sunny Haitians","phone": "(408) 505 8510","email": "","notes": "Property Type: Residential\nCreated Date: 06/28/2026","addresses": [{"street": "885 Halidon Way 721","city": "Folsom","state": "CA","zip": "95630"}],"phoneKey": "4085058510","emailKey": ""},{"name": "support@pchpm.com","phone": "","email": "support@pchpm.com","notes": "","addresses": [],"phoneKey": "","emailKey": "support@pchpm.com"},{"name": "Tuyen Jacky","phone": "(916) 420 5048","email": "","notes": "Property Type: Commercial\nCreated Date: 07/24/2026","addresses": [{"street": "1000 C St","city": "Galt","state": "CA","zip": "95632"}],"phoneKey": "9164205048","emailKey": ""},{"name": "Tyda Khean","phone": "(209) 489-8418","email": "tydakhean@gmail.com","notes": "","addresses": [],"phoneKey": "2094898418","emailKey": "tydakhean@gmail.com"},{"name": "Tyna Chhen","phone": "(916) 307 7116","email": "tynachhen@gmail.com","notes": "Property Type: Residential\nCreated Date: 06/04/2026","addresses": [{"street": "4338 Prodperine Ln","city": "Sacramento","state": "CA","zip": "95827"}],"phoneKey": "9163077116","emailKey": "tynachhen@gmail.com"}];
+
+const logEl = document.getElementById("log"), go = document.getElementById("go");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const say = (cls, msg) => { logEl.insertAdjacentHTML("beforeend", '<div class="' + cls + '">' + esc(msg) + '</div>'); logEl.scrollTop = logEl.scrollHeight; };
+
+function randomId(){
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  return Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join("");
+}
+
+async function exists(pk, ek){
+  for (const [f, v] of [["phoneKey", pk], ["emailKey", ek]]) {
+    if (!v) continue;
+    const s = await getDocs(query(collection(db, "customers"), where(f, "==", v), limit(1)));
+    if (!s.empty) return true;
+  }
+  return false;
+}
+
+go.addEventListener("click", async () => {
+  go.disabled = true;
+  let added = 0, skipped = 0, failed = 0;
+  for (const r of ROWS) {
+    try {
+      if ((r.phoneKey || r.emailKey) && await exists(r.phoneKey, r.emailKey)) {
+        say("skip", "Already on file: " + r.name); skipped++; continue;
+      }
+      await setDoc(doc(db, "customers", randomId()), Object.assign({}, r, {
+        source: "import", createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+      }));
+      say("ok", "Added " + r.name); added++;
+    } catch (e) {
+      console.error(e);
+      say("err", "Failed " + r.name + ": " + e.message); failed++;
+    }
+  }
+  say("", "Done. " + added + " added, " + skipped + " skipped, " + failed + " failed.");
+  go.textContent = "Import again";
+  go.disabled = false;
+});
+
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=import-contacts.html"); return; }
+  document.getElementById("authwait")?.remove();
+});
+</script>
+</body>
+</html>
