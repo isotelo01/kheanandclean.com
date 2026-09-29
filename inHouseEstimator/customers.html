@@ -50,6 +50,14 @@ textarea{min-height:90px;resize:vertical}
 .note{font-size:14px;color:var(--muted)}
 .note.err{color:var(--red)}
 .note a{color:var(--navy);font-weight:600}
+.who{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{font:600 12px "Archivo";border-radius:999px;padding:2px 9px;white-space:nowrap}
+.t-residential{background:#e6eef9;color:#1f4f8f}
+.t-pm{background:#e3f1ea;color:var(--green)}
+.t-realtor{background:#fbf1d8;color:#8a6412}
+.t-commercial{background:#f4e4e1;color:var(--red)}
+label[hidden]{display:none}
+label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
 </style>
 </head>
 <body>
@@ -96,7 +104,20 @@ function randomId(){
   return Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join("");
 }
 const addrLine = a => [a.street, [a.city, a.state].filter(Boolean).join(", "), a.zip].filter(Boolean).join(" ");
-const byName = (a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" });
+/* Contact type. No type on file = residential (covers everyone imported before this). */
+const TYPES = [
+  { v: "residential", label: "Residential",         cls: "t-residential" },
+  { v: "pm",          label: "Property management", cls: "t-pm" },
+  { v: "realtor",     label: "Realtor",             cls: "t-realtor" },
+  { v: "commercial",  label: "Commercial",          cls: "t-commercial" }
+];
+const typeOf = c => TYPES.find(t => t.v === c.type) || TYPES[0];
+const isBiz = c => typeOf(c).v !== "residential";
+/* Business types lead with the business name; residential leads with the person. */
+const displayName = c => (isBiz(c) && c.business ? c.business : c.name) || c.business || "No name";
+const subName = c => isBiz(c) && c.business && c.name ? c.name : "";
+const badge = c => { const t = typeOf(c); return '<span class="badge ' + t.cls + '">' + t.label + '</span>'; };
+const byName = (a, b) => displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base" });
 
 let all = null, lastTerm = "";
 
@@ -127,21 +148,21 @@ async function showList(){
     }
   }
   view.innerHTML =
-    '<div class="bar"><input id="q" type="search" placeholder="Search name, phone, email, or address" autocomplete="off" value="' + esc(lastTerm) + '"></div>' +
+    '<div class="bar"><input id="q" type="search" placeholder="Search name, business, phone, email, or address" autocomplete="off" value="' + esc(lastTerm) + '"></div>' +
     '<div class="count" id="count"></div><div class="list" id="list"></div>';
   const q = document.getElementById("q"), listEl = document.getElementById("list"), countEl = document.getElementById("count");
   const draw = () => {
     lastTerm = q.value;
     const t = q.value.trim().toLowerCase(), td = digits(q.value);
     const rows = all.filter(c => !c.trashed).filter(c => !t ||
-      [c.name, c.email, ...(c.addresses || []).map(addrLine)].join(" ").toLowerCase().includes(t) ||
+      [c.name, c.business, typeOf(c).label, c.email, ...(c.addresses || []).map(addrLine)].join(" ").toLowerCase().includes(t) ||
       (td.length >= 3 && digits(c.phone).includes(td)));
     countEl.textContent = rows.length + (rows.length === 1 ? " customer" : " customers") + (t ? " found" : "");
     listEl.innerHTML = rows.length ? rows.map(c => {
       const ad = c.addresses || [];
       return '<a class="row" href="#' + encodeURIComponent(c.id) + '">' +
-        '<div class="who">' + esc(c.name || "No name") + '</div>' +
-        '<div class="meta">' + [c.phone, c.email].filter(Boolean).map(esc).join(" &middot; ") + '</div>' +
+        '<div class="who">' + esc(displayName(c)) + badge(c) + '</div>' +
+        '<div class="meta">' + [subName(c), c.phone, c.email].filter(Boolean).map(esc).join(" &middot; ") + '</div>' +
         (ad.length ? '<div class="meta">' + esc(addrLine(ad[0])) + (ad.length > 1 ? " &middot; +" + (ad.length - 1) + " more" : "") + '</div>' : "") +
       '</a>';
     }).join("") : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>';
@@ -210,8 +231,8 @@ async function showTrash(){
       (purged ? " &middot; " + purged + (purged === 1 ? " erased" : " erased") + " after 30 days" : "") + '</div>' +
     '<div class="list">' + (rows.length ? rows.map(c =>
       '<a class="row" href="#' + encodeURIComponent(c.id) + '">' +
-        '<div class="who">' + esc(c.name || "No name") + '</div>' +
-        '<div class="meta">' + [c.phone, c.email].filter(Boolean).map(esc).join(" &middot; ") + '</div>' +
+        '<div class="who">' + esc(displayName(c)) + badge(c) + '</div>' +
+        '<div class="meta">' + [subName(c), c.phone, c.email].filter(Boolean).map(esc).join(" &middot; ") + '</div>' +
         '<div class="meta">' + esc(left(c)) + '</div>' +
       '</a>').join("")
       : '<div class="msg">The trash is empty.</div>') + '</div>' +
@@ -229,7 +250,7 @@ const addrBlock = (a = {}) =>
 
 async function showProfile(id){
   const isNew = id === "new";
-  let c = { name: "", phone: "", email: "", notes: "", addresses: [] };
+  let c = { type: "residential", business: "", name: "", phone: "", email: "", notes: "", addresses: [] };
   if (!isNew) {
     c = all && all.find(x => x.id === id);
     if (!c) {
@@ -245,13 +266,18 @@ async function showProfile(id){
       }
     }
   }
-  titleEl.textContent = isNew ? "New customer" : (c.name || "Customer");
+  titleEl.textContent = isNew ? "New customer" : displayName(c);
   document.title = titleEl.textContent + " \u00b7 Khean & Clean";
 
   const addrs = (c.addresses || []).length ? c.addresses : [{}];
   view.innerHTML =
     '<div class="panel">' +
       '<h2>Contact</h2>' +
+      '<div class="grid" style="margin-bottom:10px">' +
+        '<label>Type<select id="cType">' + TYPES.map(t =>
+          '<option value="' + t.v + '"' + (t.v === typeOf(c).v ? " selected" : "") + '>' + t.label + '</option>').join("") + '</select></label>' +
+        '<label id="bizWrap">Business name<input id="cBiz" autocomplete="off" value="' + esc(c.business) + '"></label>' +
+      '</div>' +
       '<div class="grid">' +
         '<label>Name<input id="cName" autocomplete="off" value="' + esc(c.name) + '"></label>' +
         '<label>Phone<input id="cPhone" type="tel" autocomplete="off" value="' + esc(c.phone) + '"></label>' +
@@ -278,6 +304,11 @@ async function showProfile(id){
 
   const $ = i => document.getElementById(i), note = $("note"), saveBtn = $("saveBtn");
   const say = (html, isErr) => { note.innerHTML = html; note.classList.toggle("err", !!isErr); };
+
+  /* Business name only shows for the three business types. */
+  const syncType = () => { $("bizWrap").hidden = $("cType").value === "residential"; };
+  $("cType").addEventListener("change", syncType);
+  syncType();
 
   $("addAddr").addEventListener("click", () => {
     $("addrs").insertAdjacentHTML("beforeend", addrBlock());
@@ -334,12 +365,13 @@ async function showProfile(id){
 
   saveBtn.addEventListener("click", async () => {
     const name = $("cName").value.trim(), phone = $("cPhone").value.trim(), email = $("cEmail").value.trim();
+    const type = $("cType").value, business = type === "residential" ? "" : $("cBiz").value.trim();
     const addresses = [...$("addrs").querySelectorAll(".addr")].map(b => {
       const o = {};
       b.querySelectorAll("input[data-f]").forEach(i => { o[i.dataset.f] = i.value.trim(); });
       return o;
     }).filter(a => a.street || a.city || a.zip);   /* a row with only the state filled is blank */
-    if (!name && !phone && !email) { say("Add at least a name, phone, or email.", true); return; }
+    if (!name && !business && !phone && !email) { say("Add at least a name, business, phone, or email.", true); return; }
 
     saveBtn.disabled = true; say("Saving&hellip;");
     try {
@@ -350,7 +382,7 @@ async function showProfile(id){
         return;
       }
       const theId = isNew ? randomId() : id;
-      const data = { name, phone, email, notes: $("cNotes").value.trim(), addresses, phoneKey: pk, emailKey: ek, updatedAt: serverTimestamp() };
+      const data = { type, business, name, phone, email, notes: $("cNotes").value.trim(), addresses, phoneKey: pk, emailKey: ek, updatedAt: serverTimestamp() };
       if (isNew) Object.assign(data, { source: "manual", createdAt: serverTimestamp() });
       await setDoc(doc(db, "customers", theId), data, { merge: true });
 
@@ -359,7 +391,7 @@ async function showProfile(id){
         all = all.filter(x => x.id !== theId).concat(rec).sort(byName);
       }
       if (isNew) { location.hash = "#" + encodeURIComponent(theId); return; }
-      titleEl.textContent = name || "Customer";
+      titleEl.textContent = displayName(data);
       say("Saved.");
     } catch (e) {
       console.error(e);

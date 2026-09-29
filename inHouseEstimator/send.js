@@ -91,6 +91,7 @@ async function fileCustomer(){
       if (Object.keys(patch).length) await setDoc(hit.ref, Object.assign(patch, { updatedAt: serverTimestamp() }), { merge: true });
     } else {
       await setDoc(doc(db, 'customers', randomId()), {
+        type: val('eType') === 'Commercial' ? 'commercial' : 'residential', business: '',
         name, phone, email, notes: '', addresses: hasAddr ? [addr] : [],
         phoneKey: pk, emailKey: ek, source: 'estimate',
         createdAt: serverTimestamp(), updatedAt: serverTimestamp()
