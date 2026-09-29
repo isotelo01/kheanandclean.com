@@ -50,8 +50,9 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .paidbtn[disabled]{opacity:.55;cursor:default}
 .invbtn:hover{background:#24324f}
 .invbtn[disabled]{opacity:.55;cursor:default}
-.textbtn{flex:0 0 100px;background:#fff;color:var(--navy);border:2px solid var(--navy);border-radius:10px;padding:8px;font:700 16px "Archivo",system-ui,sans-serif;cursor:pointer}
-.textbtn:hover{background:var(--navy);color:#fff}
+.textbtn,.mailbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
+.textbtn:hover,.mailbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
+.mailbtn.off,.mailbtn.off:hover{background:#fff;color:#b3b8c2;border-color:var(--line);cursor:default}
 .who{font-weight:600}
 .meta{color:var(--muted);font-size:14px;margin-top:2px}
 .right{text-align:right;margin-left:auto}
@@ -62,7 +63,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .status.expired,.status.declined{background:#fbe9e6;color:var(--red)}
 .msg{background:#fff;border-radius:10px;padding:50px 20px;text-align:center;color:var(--muted)}
 button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-@media (max-width:520px){.right{text-align:left;margin-left:0;width:100%}.cardrow{flex-wrap:wrap}.cardrow .card{flex:1 1 100%}.invbtn,.paidbtn,.textbtn{flex:1 1 100%;padding:13px}}
+@media (max-width:520px){.right{text-align:left;margin-left:0;width:100%}.cardrow{flex-wrap:wrap}.cardrow .card{flex:1 1 100%}.invbtn,.paidbtn{flex:1 1 100%;padding:13px}}
 </style>
 <style id="authwait">body{visibility:hidden}</style>
 </head>
@@ -130,6 +131,8 @@ const viewSections = () => showTrash ? TRASH_SECTION : SECTIONS;
 const data = {};
 let loaded = false;
 
+const kindOf = r => (r.source === "invoices" || r.source === "paidInvoices") ? "invoice" : "estimate";
+
 const card = r =>
   '<div class="cardrow">' +
   '<a class="card" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
@@ -143,6 +146,14 @@ const card = r =>
       (r.source === "trash"
         ? '<button type="button" class="restore" data-restore="' + esc(r.id) + '">Restore</button>'
         : '<button type="button" class="editbtn" data-edit="' + esc(r.id) + '" data-from="' + esc(r.source) + '">Edit</button>') +
+      (r.source !== "trash" && r.phone
+        ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-kind="' + kindOf(r) + '">Text</button>'
+        : '') +
+      (r.source !== "trash"
+        ? (r.email
+            ? '<button type="button" class="mailbtn" data-mail="' + esc(r.id) + '" data-email="' + esc(r.email) + '" data-kind="' + kindOf(r) + '">Email</button>'
+            : '<button type="button" class="mailbtn off" aria-disabled="true" title="No email on file">Email</button>')
+        : '') +
     '</div>' +
     (r.source !== "trash"
       ? '<button type="button" class="del" data-del="' + esc(r.id) + '" data-from="' + esc(r.source) + '" aria-label="Move to trash" title="Move to trash">&times;</button>'
@@ -153,9 +164,6 @@ const card = r =>
     : '') +
   (r.source === "invoices"
     ? '<button type="button" class="paidbtn" data-paid="' + esc(r.id) + '">Paid</button>'
-    : '') +
-  (r.source !== "trash" && r.phone
-    ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-kind="' + (r.source === "invoices" || r.source === "paidInvoices" ? "invoice" : "estimate") + '">Text</button>'
     : '') +
   '</div>';
 
@@ -192,7 +200,7 @@ async function grab(name){
   return snap.docs.map(docSnap => {
     const d = docSnap.data(), c = d.customer || {};
     return { id: docSnap.id, source: name, createdAt: d.createdAt,
-             number: d.number || "", name: c.name || "", phone: c.phone || "",
+             number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",
              total: d.total, date: when(d.createdAt), state: stateOf(d) };
   });
 }
@@ -264,6 +272,20 @@ boardEl.addEventListener("click", e => {
   const body = "Hi, here's your " + (t.dataset.kind === "invoice" ? "invoice" : "estimate") + " from Khean & Clean: " + link;
   const sep = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? "&" : "?";
   location.href = "sms:" + digits + sep + "body=" + encodeURIComponent(body);
+});
+
+/* Email: open the mail app with the address, subject and link filled in.
+   Greyed-out (no email on file) does nothing. */
+boardEl.addEventListener("click", e => {
+  const m = e.target.closest(".mailbtn");
+  if (!m) return;
+  e.preventDefault(); e.stopPropagation();
+  if (m.classList.contains("off")) return;
+  const kind = m.dataset.kind === "invoice" ? "invoice" : "estimate";
+  const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "quote.html?id=" + encodeURIComponent(m.dataset.mail);
+  const subject = "Your " + kind + " from Khean & Clean";
+  const body = "Hi, here's your " + kind + " from Khean & Clean:\n\n" + link;
+  location.href = "mailto:" + encodeURIComponent(m.dataset.email) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
 });
 
 boardEl.addEventListener("click", async e => {
