@@ -23,6 +23,9 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .bar input{flex:1;min-width:200px;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px}
 .count{color:var(--muted);font-size:14px;margin-bottom:10px}
 .list{display:grid;gap:10px}
+.col{display:grid;gap:10px;align-content:start;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:14px}
+.col .colhead{grid-column:1/-1}
+.colhead{font:700 13px "Archivo",system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 2px}
 .row{display:block;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 16px}
 .row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
 .who{font-weight:700}
@@ -38,6 +41,12 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted)}
 label input,label textarea{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
 textarea{min-height:90px;resize:vertical}
 .addr{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px}
+.read{display:grid;gap:10px;margin-bottom:4px}
+.rrow{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline}
+@media(max-width:620px){.rrow{grid-template-columns:1fr;gap:2px}}
+.rlab{font-size:13px;font-weight:600;color:var(--muted)}
+.rval{font-size:16px;color:var(--ink);white-space:pre-wrap}
+.rval.empty{color:var(--muted)}
 .photos{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:14px}
 .jobs{color:var(--muted);font-size:14px}
 .job{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;text-decoration:none;color:inherit}
@@ -104,6 +113,7 @@ function randomId(){
   return Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join("");
 }
 const addrLine = a => [a.street, [a.city, a.state].filter(Boolean).join(", "), a.zip].filter(Boolean).join(" ");
+const cityLine = a => [[a.city, a.state].filter(Boolean).join(", "), a.zip].filter(Boolean).join(" ");
 /* Contact type. No type on file = residential (covers everyone imported before this). */
 const TYPES = [
   { v: "residential", label: "Residential",         cls: "t-residential" },
@@ -118,6 +128,12 @@ const displayName = c => (isBiz(c) && c.business ? c.business : c.name) || c.bus
 const subName = c => isBiz(c) && c.business && c.name ? c.name : "";
 const badge = c => { const t = typeOf(c); return '<span class="badge ' + t.cls + '">' + t.label + '</span>'; };
 const byName = (a, b) => displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base" });
+/* List is grouped into three columns; pm and realtor share one. */
+const GROUPS = [
+  { key: "residential", label: "Residential",           has: c => typeOf(c).v === "residential" },
+  { key: "pmr",         label: "Property mgmt & realtor", has: c => ["pm","realtor"].includes(typeOf(c).v) },
+  { key: "commercial",  label: "Commercial",            has: c => typeOf(c).v === "commercial" }
+];
 
 let all = null, lastTerm = "";
 
@@ -158,14 +174,24 @@ async function showList(){
       [c.name, c.business, typeOf(c).label, c.email, ...(c.addresses || []).map(addrLine)].join(" ").toLowerCase().includes(t) ||
       (td.length >= 3 && digits(c.phone).includes(td)));
     countEl.textContent = rows.length + (rows.length === 1 ? " customer" : " customers") + (t ? " found" : "");
-    listEl.innerHTML = rows.length ? rows.map(c => {
-      const ad = c.addresses || [];
+    const card = c => {
+      const a = (c.addresses || [])[0] || {}, more = (c.addresses || []).length - 1;
+      const lines = [
+        cityLine(a) + (more > 0 ? " \u00b7 +" + more + " more" : ""),
+        c.phone || ""
+      ].filter(x => x.trim());
       return '<a class="row" href="#' + encodeURIComponent(c.id) + '">' +
         '<div class="who">' + esc(displayName(c)) + badge(c) + '</div>' +
-        '<div class="meta">' + [subName(c), c.phone, c.email].filter(Boolean).map(esc).join(" &middot; ") + '</div>' +
-        (ad.length ? '<div class="meta">' + esc(addrLine(ad[0])) + (ad.length > 1 ? " &middot; +" + (ad.length - 1) + " more" : "") + '</div>' : "") +
+        lines.map(l => '<div class="meta">' + esc(l) + '</div>').join("") +
       '</a>';
-    }).join("") : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>';
+    };
+    listEl.innerHTML = rows.length
+      ? GROUPS.map(g => {
+          const inG = rows.filter(g.has);
+          return inG.length ? '<section class="col"><h3 class="colhead">' + g.label + '</h3>' +
+            inG.map(card).join("") + '</section>' : "";
+        }).join("")
+      : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>';
   };
   q.addEventListener("input", draw);
   draw();
@@ -248,6 +274,27 @@ const addrBlock = (a = {}) =>
     '<label>ZIP<input data-f="zip" inputmode="numeric" autocomplete="off" value="' + esc(a.zip) + '"></label>' +
   '</div></div>';
 
+/* Read view: the profile as a record, not a form. */
+const rrow = (lab, val) =>
+  '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval' +
+  (val ? '' : ' empty') + '">' + (val ? esc(val) : "\u2014") + '</div></div>';
+
+function readBlock(c){
+  const addrs = (c.addresses || []).filter(a => a && (a.street || a.city || a.zip));
+  return '<div class="read" id="readView">' +
+    rrow("Name", displayName(c)) +
+    (subName(c) ? rrow("Contact", subName(c)) : "") +
+    rrow("Type", typeOf(c).label) +
+    rrow("Phone", c.phone) +
+    rrow("Email", c.email) +
+    (addrs.length
+      ? addrs.map((a, n) => rrow(n ? "" : "Address",
+          [a.street, cityLine(a)].filter(Boolean).join("\n"))).join("")
+      : rrow("Address", "")) +
+    rrow("Notes", c.notes) +
+  '</div>';
+}
+
 async function showProfile(id){
   const isNew = id === "new";
   let c = { type: "residential", business: "", name: "", phone: "", email: "", notes: "", addresses: [] };
@@ -270,9 +317,12 @@ async function showProfile(id){
   document.title = titleEl.textContent + " \u00b7 Khean & Clean";
 
   const addrs = (c.addresses || []).length ? c.addresses : [{}];
+  const editing = isNew;
   view.innerHTML =
     '<div class="panel">' +
       '<h2>Contact</h2>' +
+      (isNew ? '' : readBlock(c)) +
+      '<div id="editView">' +
       '<div class="grid" style="margin-bottom:10px">' +
         '<label>Type<select id="cType">' + TYPES.map(t =>
           '<option value="' + t.v + '"' + (t.v === typeOf(c).v ? " selected" : "") + '>' + t.label + '</option>').join("") + '</select></label>' +
@@ -288,12 +338,15 @@ async function showProfile(id){
       '<button type="button" class="ghost" id="addAddr">Add address</button>' +
       '<h2>Notes</h2>' +
       '<label>Anything worth remembering<textarea id="cNotes">' + esc(c.notes) + '</textarea></label>' +
+      '</div>' +
       '<h2>Job history</h2>' +
       '<div id="jobs" class="jobs">' + (isNew ? "Job history appears once this customer has a paid invoice." : "Loading\u2026") + '</div>' +
       '<h2>Photos</h2>' +
       '<div class="photos">Photos are coming later.</div>' +
       '<div class="actions">' +
+        (isNew ? '' : '<button type="button" class="new" id="editBtn">Edit</button>') +
         '<button type="button" class="new" id="saveBtn">' + (isNew ? "Add customer" : "Save changes") + '</button>' +
+        (isNew ? '' : '<button type="button" class="ghost" id="cancelBtn">Cancel</button>') +
         '<a class="ghost" href="#">Back to list</a>' +
         (isNew ? "" : (c.trashed
           ? '<button type="button" class="ghost" id="restoreBtn">Restore</button>'
@@ -309,6 +362,22 @@ async function showProfile(id){
   const syncType = () => { $("bizWrap").hidden = $("cType").value === "residential"; };
   $("cType").addEventListener("change", syncType);
   syncType();
+
+  /* Read vs edit. New customers open straight into the form. */
+  const setMode = on => {
+    const rv = $("readView"), ev = $("editView");
+    if (rv) rv.hidden = on;
+    if (ev) ev.hidden = !on;
+    if ($("addAddr")) $("addAddr").hidden = !on;
+    if ($("editBtn")) $("editBtn").hidden = on;
+    saveBtn.hidden = !on;
+    if ($("cancelBtn")) $("cancelBtn").hidden = !on;
+  };
+  if (!isNew) {
+    $("editBtn").addEventListener("click", () => { setMode(true); $("cName").focus(); });
+    $("cancelBtn").addEventListener("click", () => showProfile(id));
+  }
+  setMode(editing);
 
   $("addAddr").addEventListener("click", () => {
     $("addrs").insertAdjacentHTML("beforeend", addrBlock());

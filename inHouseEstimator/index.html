@@ -68,7 +68,8 @@
               <label for="eType">Property type</label>
               <select id="eType" name="property_type">
                 <option selected>Residential</option>
-                <option>Move-out deep clean</option>
+                <option>Property management</option>
+                <option>Realtor</option>
                 <option>Commercial</option>
               </select>
             </div>
@@ -242,6 +243,16 @@
   </div>
 </dialog>
 
+<dialog id="sendDlg" class="estClearDlg sendDlg" aria-labelledby="sendDlgTtl">
+  <button type="button" class="sendDlg__x" id="sendDlgX" aria-label="Close">&times;</button>
+  <p class="estClearDlg__ttl" id="sendDlgTtl">Estimate saved</p>
+  <p class="estClearDlg__sub" id="sendDlgSub">Send it to the customer, or close to go to the dashboard.</p>
+  <div class="estClearDlg__acts">
+    <a class="btn btn--wireDark" id="sendDlgSms">Send text</a>
+    <a class="btn btn--wireDark" id="sendDlgMail">Send email</a>
+  </div>
+</dialog>
+
 <script src="app.js"></script>
 <script type="module" src="send.js"></script>
 <script type="module">
@@ -349,8 +360,16 @@ function attach(inputId, field) {
   const box = document.createElement('ul');
   box.className = 'acList';
   box.hidden = true;
-  const wrap = input.parentNode;
-  if (getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
+  /* The list floats from a holder around the input, not from the grid cell,
+     so showing it can never stretch the row and push the next field down. */
+  let wrap = input.parentNode;
+  if (!wrap.classList.contains('acWrap')) {
+    const holder = document.createElement('div');
+    holder.className = 'acWrap';
+    input.before(holder);
+    holder.appendChild(input);
+    wrap = holder;
+  }
   wrap.appendChild(box);
 
   function hide() { box.hidden = true; box.innerHTML = ''; }

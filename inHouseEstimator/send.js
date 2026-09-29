@@ -58,6 +58,40 @@ function showLink(id, number, text){
   const phone = val('ePhone').replace(/\D/g, '');
   $('qLinkSms').href = 'sms:' + (phone ? '+1' + phone : '') + '?&body=' + encodeURIComponent(body);
   show(text);
+  return { link, body };
+}
+
+/* After a new estimate saves: offer text or email, then go to the Dashboard.
+   Closing the dialog any way -- button, X, Esc, backdrop -- lands on the Dashboard. */
+function askHowToSend(number, link, body){
+  const dlg = $('sendDlg');
+  if (!dlg || !dlg.showModal) { location.href = './dashboard.html'; return; }
+
+  const phone = val('ePhone').replace(/\D/g, '');
+  const email = val('eEmail');
+  const sms = $('sendDlgSms'), mail = $('sendDlgMail');
+
+  $('sendDlgTtl').textContent = 'Saved as ' + number;
+  $('sendDlgSub').textContent = 'Send it to the customer, or close to go to the Dashboard.';
+
+  /* Only offer a route we actually have a destination for. */
+  sms.hidden = !phone;
+  sms.href = 'sms:' + (phone ? '+1' + phone : '') + '?&body=' + encodeURIComponent(body);
+  mail.hidden = !email;
+  mail.href = 'mailto:' + encodeURIComponent(email) +
+    '?subject=' + encodeURIComponent('Your Khean & Clean estimate ' + number) +
+    '&body=' + encodeURIComponent(body);
+  if (!phone && !email) $('sendDlgSub').textContent = 'No phone or email on the estimate, so there is nobody to send it to. The link is on the Dashboard.';
+
+  const leave = () => { location.href = './dashboard.html'; };
+  dlg.addEventListener('close', leave, { once: true });
+  $('sendDlgX').onclick = () => dlg.close();
+  /* Click outside the sheet closes it. */
+  dlg.onclick = (e) => { if (e.target === dlg) dlg.close(); };
+  /* Tapping Send hands off to the phone's app, then we move on. */
+  [sms, mail].forEach(a => a.addEventListener('click', () => setTimeout(() => dlg.close(), 400), { once: true }));
+
+  dlg.showModal();
 }
 
 /* ---- Customers: every saved estimate files its customer. ----
@@ -67,6 +101,13 @@ const phoneKey = s => { const d = String(s || '').replace(/\D/g, '').slice(-10);
 const emailKey = s => String(s || '').trim().toLowerCase();
 const sameAddr = (a, b) => ['street', 'city', 'zip'].every(k =>
   String(a[k] || '').trim().toLowerCase() === String(b[k] || '').trim().toLowerCase());
+/* Property type on the estimate -> contact type on the customer record. */
+const TYPE_MAP = {
+  'Residential': 'residential',
+  'Property management': 'pm',
+  'Realtor': 'realtor',
+  'Commercial': 'commercial'
+};
 
 async function fileCustomer(){
   const name = val('eName'), phone = val('ePhone'), email = val('eEmail');
@@ -91,7 +132,7 @@ async function fileCustomer(){
       if (Object.keys(patch).length) await setDoc(hit.ref, Object.assign(patch, { updatedAt: serverTimestamp() }), { merge: true });
     } else {
       await setDoc(doc(db, 'customers', randomId()), {
-        type: val('eType') === 'Commercial' ? 'commercial' : 'residential', business: '',
+        type: TYPE_MAP[val('eType')] || 'residential', business: '',
         name, phone, email, notes: '', addresses: hasAddr ? [addr] : [],
         phoneKey: pk, emailKey: ek, source: 'estimate',
         createdAt: serverTimestamp(), updatedAt: serverTimestamp()
@@ -202,7 +243,8 @@ btn.addEventListener('click', async () => {
     }, fromForm(q)));
     await fileCustomer();
 
-    showLink(id, number, 'Saved as ' + number + '. Link is good for 30 days unless approved.');
+    const sent = showLink(id, number, 'Saved as ' + number + '. Link is good for 30 days unless approved.');
+    askHowToSend(number, sent.link, sent.body);
   } catch (e) {
     console.error(e);
     show('Could not save — ' + (e && e.message ? e.message : 'check your connection') + '.', true);
