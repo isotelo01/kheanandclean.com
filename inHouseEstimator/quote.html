@@ -110,6 +110,7 @@ const ZELLE = "(916) 767-2520";
 const VENMO = "Khean-Clean";
 const PAYPAL_ME = "kheanandclean";
 const STRIPE_LINK = "";
+const CHECKOUT_URL = "https://us-central1-khean-estimator-78f3e.cloudfunctions.net/createCheckout";
 // generic pay-list icons (inline SVG, no image files)
 const ico = d => `<svg class="pico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const PICO = {
@@ -232,8 +233,8 @@ function render(d){
             ${PICO.wallet}<div class="pname">PayPal</div>
             <div class="pnote">Pay with a PayPal balance or a card.</div>
           </a>
-          ${STRIPE_LINK ? `
-          <a class="paybox go card" href="${STRIPE_LINK}" target="_blank" rel="noopener">
+          ${CHECKOUT_URL ? `
+          <a class="paybox go card" href="#" id="cardPay">
             ${PICO.card}<div class="pname">Card or Apple Pay</div>
             <div class="pnote">Visa, Mastercard, Amex, Apple Pay, Google Pay.</div>
           </a>` : `
@@ -246,6 +247,22 @@ function render(d){
       </div>` : ""}
     </div>
     <div class="foot"><span>Thank you for choosing Khean &amp; Clean.</span><button class="ghost" onclick="print()">Print or save as PDF</button></div>`;
+
+  const cardPay = document.getElementById("cardPay");
+  if (cardPay) cardPay.addEventListener("click", async e => {
+    e.preventDefault();
+    const note = cardPay.querySelector(".pnote"), was = note.textContent;
+    note.textContent = "Opening secure checkout…";
+    try {
+      const r = await fetch(CHECKOUT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const j = await r.json();
+      if (!r.ok || !j.url) throw new Error(j.error || "No checkout URL");
+      location.href = j.url;
+    } catch (err) {
+      console.error(err); note.textContent = was;
+      alert(`Card payment couldn't start. Try again, or call ${PHONE}.`);
+    }
+  });
 
   const form = document.getElementById("acceptForm");
   if (form) {
