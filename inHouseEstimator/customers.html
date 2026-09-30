@@ -28,6 +28,11 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .colhead{font:700 13px "Archivo",system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 2px}
 .row{display:block;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 16px}
 .row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
+/* Card tint by contact type, same colours as the type badges. */
+.row.bg-residential{background:#e6eef9}
+.row.bg-pm{background:#e3f1ea}
+.row.bg-realtor{background:#fbf1d8}
+.row.bg-commercial{background:#f4e4e1}
 .who{font-weight:700}
 .meta{color:var(--muted);font-size:14px}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
@@ -41,6 +46,14 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted)}
 label input,label textarea{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
 textarea{min-height:90px;resize:vertical}
 .addr{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px}
+.multi2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+@media(max-width:620px){.multi2{grid-template-columns:1fr}}
+.mlab{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.mrow{display:flex;gap:6px;margin-bottom:6px}
+.mrow input{flex:1;min-width:0;font:16px "Archivo";padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
+.mdel{flex:none;width:40px;font:400 20px/1 "Archivo";border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted);cursor:pointer}
+.mdel:hover{color:var(--red);border-color:var(--red)}
+.madd{font-size:14px;padding:6px 12px}
 .read{display:grid;gap:10px;margin-bottom:4px}
 .rrow{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline}
 @media(max-width:620px){.rrow{grid-template-columns:1fr;gap:2px}}
@@ -137,11 +150,22 @@ const GROUPS = [
 
 let all = null, lastTerm = "";
 
-/* Someone already on file with this phone or email? */
-async function findMatch(pk, ek, skipId){
-  for (const [f, v] of [["phoneKey", pk], ["emailKey", ek]]) {
+/* Phones and emails are lists; the first one is the primary.
+   Records from before the lists only have the single phone/email field. */
+const listOf = (arr, one) => (Array.isArray(arr) && arr.length ? arr : [one])
+  .map(x => String(x || "").trim()).filter(Boolean);
+const phonesOf = c => listOf(c.phones, c.phone);
+const emailsOf = c => listOf(c.emails, c.email);
+
+/* Someone already on file with any of these phones or emails?
+   Checks the new key lists and the old single keys, so unmigrated records still match. */
+async function findMatch(pks, eks, skipId){
+  const tries = [];
+  pks.forEach(v => tries.push(["phoneKeys", "array-contains", v], ["phoneKey", "==", v]));
+  eks.forEach(v => tries.push(["emailKeys", "array-contains", v], ["emailKey", "==", v]));
+  for (const [f, op, v] of tries) {
     if (!v) continue;
-    const s = await getDocs(query(collection(db, "customers"), where(f, "==", v), limit(2)));
+    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(2)));
     const hit = s.docs.find(d => d.id !== skipId);
     if (hit) return { id: hit.id, ...hit.data() };
   }
@@ -171,8 +195,8 @@ async function showList(){
     lastTerm = q.value;
     const t = q.value.trim().toLowerCase(), td = digits(q.value);
     const rows = all.filter(c => !c.trashed).filter(c => !t ||
-      [c.name, c.business, typeOf(c).label, c.email, ...(c.addresses || []).map(addrLine)].join(" ").toLowerCase().includes(t) ||
-      (td.length >= 3 && digits(c.phone).includes(td)));
+      [c.name, c.business, typeOf(c).label, ...emailsOf(c), ...(c.addresses || []).map(addrLine)].join(" ").toLowerCase().includes(t) ||
+      (td.length >= 3 && phonesOf(c).some(p => digits(p).includes(td))));
     countEl.textContent = rows.length + (rows.length === 1 ? " customer" : " customers") + (t ? " found" : "");
     const card = c => {
       const a = (c.addresses || [])[0] || {}, more = (c.addresses || []).length - 1;
@@ -180,8 +204,10 @@ async function showList(){
         cityLine(a) + (more > 0 ? " \u00b7 +" + more + " more" : ""),
         c.phone || ""
       ].filter(x => x.trim());
-      return '<a class="row" href="#' + encodeURIComponent(c.id) + '">' +
-        '<div class="who">' + esc(displayName(c)) + badge(c) + '</div>' +
+      /* No badge here: the card already sits under its type's heading, so the
+         tint carries the type instead and every name lines up. */
+      return '<a class="row bg-' + typeOf(c).v + '" href="#' + encodeURIComponent(c.id) + '">' +
+        '<div class="who">' + esc(displayName(c)) + '</div>' +
         lines.map(l => '<div class="meta">' + esc(l) + '</div>').join("") +
       '</a>';
     };
@@ -274,6 +300,11 @@ const addrBlock = (a = {}) =>
     '<label>ZIP<input data-f="zip" inputmode="numeric" autocomplete="off" value="' + esc(a.zip) + '"></label>' +
   '</div></div>';
 
+/* One phone or email row, with an X to remove it. */
+const multiRow = (kind, v = "") =>
+  '<div class="mrow"><input data-k="' + kind + '" type="' + (kind === "phone" ? "tel" : "email") +
+  '" autocomplete="off" value="' + esc(v) + '"><button type="button" class="mdel" aria-label="Remove">&times;</button></div>';
+
 /* Read view: the profile as a record, not a form. */
 const rrow = (lab, val) =>
   '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval' +
@@ -285,8 +316,8 @@ function readBlock(c){
     rrow("Name", displayName(c)) +
     (subName(c) ? rrow("Contact", subName(c)) : "") +
     rrow("Type", typeOf(c).label) +
-    rrow("Phone", c.phone) +
-    rrow("Email", c.email) +
+    rrow(phonesOf(c).length > 1 ? "Phones" : "Phone", phonesOf(c).join("\n")) +
+    rrow(emailsOf(c).length > 1 ? "Emails" : "Email", emailsOf(c).join("\n")) +
     (addrs.length
       ? addrs.map((a, n) => rrow(n ? "" : "Address",
           [a.street, cityLine(a)].filter(Boolean).join("\n"))).join("")
@@ -328,10 +359,14 @@ async function showProfile(id){
           '<option value="' + t.v + '"' + (t.v === typeOf(c).v ? " selected" : "") + '>' + t.label + '</option>').join("") + '</select></label>' +
         '<label id="bizWrap">Business name<input id="cBiz" autocomplete="off" value="' + esc(c.business) + '"></label>' +
       '</div>' +
-      '<div class="grid">' +
-        '<label>Name<input id="cName" autocomplete="off" value="' + esc(c.name) + '"></label>' +
-        '<label>Phone<input id="cPhone" type="tel" autocomplete="off" value="' + esc(c.phone) + '"></label>' +
-        '<label>Email<input id="cEmail" type="email" autocomplete="off" value="' + esc(c.email) + '"></label>' +
+      '<label>Name<input id="cName" autocomplete="off" value="' + esc(c.name) + '"></label>' +
+      '<div class="multi2">' +
+        '<div><span class="mlab">Phones</span><div id="phones">' +
+          (phonesOf(c).length ? phonesOf(c) : [""]).map(v => multiRow("phone", v)).join("") + '</div>' +
+          '<button type="button" class="ghost madd" data-add="phone">Add phone</button></div>' +
+        '<div><span class="mlab">Emails</span><div id="emails">' +
+          (emailsOf(c).length ? emailsOf(c) : [""]).map(v => multiRow("email", v)).join("") + '</div>' +
+          '<button type="button" class="ghost madd" data-add="email">Add email</button></div>' +
       '</div>' +
       '<h2>Addresses</h2>' +
       '<div id="addrs">' + addrs.map(addrBlock).join("") + '</div>' +
@@ -379,6 +414,19 @@ async function showProfile(id){
   }
   setMode(editing);
 
+  /* Add phone / Add email, and the X on each row. */
+  $("editView").addEventListener("click", e => {
+    const add = e.target.closest("[data-add]");
+    if (add) {
+      const box = $(add.dataset.add === "phone" ? "phones" : "emails");
+      box.insertAdjacentHTML("beforeend", multiRow(add.dataset.add));
+      box.lastElementChild.querySelector("input").focus();
+      return;
+    }
+    const del = e.target.closest(".mdel");
+    if (del) del.closest(".mrow").remove();
+  });
+
   $("addAddr").addEventListener("click", () => {
     $("addrs").insertAdjacentHTML("beforeend", addrBlock());
     $("addrs").lastElementChild.querySelector("input").focus();
@@ -406,13 +454,13 @@ async function showProfile(id){
   async function loadJobs(){
     const box = $("jobs");
     if (!box || isNew) return;
-    const pk = phoneKey(c.phone);
-    if (!pk) { box.textContent = "Add a phone number to match up past jobs."; return; }
+    const pks = phonesOf(c).map(phoneKey).filter(Boolean);
+    if (!pks.length) { box.textContent = "Add a phone number to match up past jobs."; return; }
     try {
       const snap = await getDocs(collection(db, "paidInvoices"));
       const rows = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .filter(r => phoneKey(r.customer && r.customer.phone) === pk)
+        .filter(r => pks.includes(phoneKey(r.customer && r.customer.phone)))
         .map(r => ({ ...r, ms: anyMs(r.paidAt) }))
         .sort((a, b) => (b.ms || 0) - (a.ms || 0));
       if (!rows.length) { box.textContent = "No paid jobs yet."; return; }
@@ -433,7 +481,18 @@ async function showProfile(id){
   $("restoreBtn")?.addEventListener("click", () => setTrashed(false));
 
   saveBtn.addEventListener("click", async () => {
-    const name = $("cName").value.trim(), phone = $("cPhone").value.trim(), email = $("cEmail").value.trim();
+    /* Collect the lists, drop blanks and repeats. First entry is the primary. */
+    const collect = (kind, keyFn) => {
+      const seen = new Set();
+      return [...view.querySelectorAll('input[data-k="' + kind + '"]')].map(i => i.value.trim()).filter(v => {
+        if (!v) return false;
+        const k = keyFn(v) || v.toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+    };
+    const phones = collect("phone", phoneKey), emails = collect("email", emailKey);
+    const name = $("cName").value.trim(), phone = phones[0] || "", email = emails[0] || "";
     const type = $("cType").value, business = type === "residential" ? "" : $("cBiz").value.trim();
     const addresses = [...$("addrs").querySelectorAll(".addr")].map(b => {
       const o = {};
@@ -444,14 +503,15 @@ async function showProfile(id){
 
     saveBtn.disabled = true; say("Saving&hellip;");
     try {
-      const pk = phoneKey(phone), ek = emailKey(email);
-      const dup = await findMatch(pk, ek, isNew ? null : id);
+      const phoneKeys = phones.map(phoneKey).filter(Boolean), emailKeys = emails.map(emailKey).filter(Boolean);
+      const dup = await findMatch(phoneKeys, emailKeys, isNew ? null : id);
       if (dup) {
         say('That phone or email is already on file for <a href="#' + encodeURIComponent(dup.id) + '">' + esc(dup.name || "another customer") + '</a>.', true);
         return;
       }
       const theId = isNew ? randomId() : id;
-      const data = { type, business, name, phone, email, notes: $("cNotes").value.trim(), addresses, phoneKey: pk, emailKey: ek, updatedAt: serverTimestamp() };
+      const data = { type, business, name, phone, email, notes: $("cNotes").value.trim(), addresses,
+        phones, emails, phoneKeys, emailKeys, phoneKey: phoneKey(phone), emailKey: emailKey(email), updatedAt: serverTimestamp() };
       if (isNew) Object.assign(data, { source: "manual", createdAt: serverTimestamp() });
       await setDoc(doc(db, "customers", theId), data, { merge: true });
 

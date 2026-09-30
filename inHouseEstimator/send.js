@@ -40,6 +40,7 @@ function fromForm(q){
   return {
     customer: {
       name: val('eName'), phone: val('ePhone'), email: val('eEmail'), type: val('eType'),
+      business: val('eBiz'),
       street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip')
     },
     lines: JSON.parse(JSON.stringify(q.lines)),
@@ -101,6 +102,9 @@ const phoneKey = s => { const d = String(s || '').replace(/\D/g, '').slice(-10);
 const emailKey = s => String(s || '').trim().toLowerCase();
 const sameAddr = (a, b) => ['street', 'city', 'zip'].every(k =>
   String(a[k] || '').trim().toLowerCase() === String(b[k] || '').trim().toLowerCase());
+/* Phones and emails are lists on the customer; first is the primary (same as customers.html). */
+const listOf = (arr, one) => (Array.isArray(arr) && arr.length ? arr : [one])
+  .map(x => String(x || '').trim()).filter(Boolean);
 /* Property type on the estimate -> contact type on the customer record. */
 const TYPE_MAP = {
   'Residential': 'residential',
@@ -117,23 +121,35 @@ async function fileCustomer(){
   const hasAddr = !!(addr.street || addr.city || addr.zip);
   try {
     let hit = null;
-    for (const [f, v] of [['phoneKey', pk], ['emailKey', ek]]) {
+    /* New key lists first, then the old single keys for records not yet migrated. */
+    for (const [f, op, v] of [['phoneKeys', 'array-contains', pk], ['phoneKey', '==', pk],
+                              ['emailKeys', 'array-contains', ek], ['emailKey', '==', ek]]) {
       if (!v || hit) continue;
-      const s = await getDocs(query(collection(db, 'customers'), where(f, '==', v), limit(1)));
+      const s = await getDocs(query(collection(db, 'customers'), where(f, op, v), limit(1)));
       if (!s.empty) hit = s.docs[0];
     }
     if (hit) {
       const d = hit.data(), addresses = (d.addresses || []).slice(), patch = {};
       if (hasAddr && !addresses.some(a => sameAddr(a, addr))) { addresses.push(addr); patch.addresses = addresses; }
       if (!d.name && name)   patch.name = name;
-      if (!d.phone && phone) Object.assign(patch, { phone, phoneKey: pk });
-      if (!d.email && email) Object.assign(patch, { email, emailKey: ek });
+      if (!d.business && val('eBiz')) patch.business = val('eBiz');
+      /* A phone or email not on file yet is added to the end of their list. */
+      const phones = listOf(d.phones, d.phone), emails = listOf(d.emails, d.email);
+      if (pk && !phones.some(x => phoneKey(x) === pk)) phones.push(phone);
+      if (ek && !emails.some(x => emailKey(x) === ek)) emails.push(email);
+      const phoneKeys = phones.map(phoneKey).filter(Boolean), emailKeys = emails.map(emailKey).filter(Boolean);
+      if (JSON.stringify(phones) !== JSON.stringify(d.phones || []) || JSON.stringify(emails) !== JSON.stringify(d.emails || []))
+        Object.assign(patch, { phones, emails, phoneKeys, emailKeys,
+          phone: phones[0] || '', email: emails[0] || '',
+          phoneKey: phoneKey(phones[0]), emailKey: emailKey(emails[0]) });
       if (d.trashed) Object.assign(patch, { trashed: false, trashedAt: null });   /* estimating for them again means they're active */
       if (Object.keys(patch).length) await setDoc(hit.ref, Object.assign(patch, { updatedAt: serverTimestamp() }), { merge: true });
     } else {
       await setDoc(doc(db, 'customers', randomId()), {
-        type: TYPE_MAP[val('eType')] || 'residential', business: '',
+        type: TYPE_MAP[val('eType')] || 'residential', business: val('eBiz'),
         name, phone, email, notes: '', addresses: hasAddr ? [addr] : [],
+        phones: phone ? [phone] : [], emails: email ? [email] : [],
+        phoneKeys: pk ? [pk] : [], emailKeys: ek ? [ek] : [],
         phoneKey: pk, emailKey: ek, source: 'estimate',
         createdAt: serverTimestamp(), updatedAt: serverTimestamp()
       });
@@ -170,6 +186,9 @@ async function loadForEdit(id, from){
       el.dispatchEvent(new Event('input', { bubbles: true }));   /* keeps the letterhead in sync */
     });
     if ($('eType') && c.type) { $('eType').value = c.type; $('eType').dispatchEvent(new Event('change', { bubbles: true })); }
+    /* After the change event, since that handler clears the field when the type
+       is Residential — setting it earlier would be wiped. */
+    if ($('eBiz') && c.business) $('eBiz').value = c.business;
 
     if (d.form) window.KC_restore(d.form);
     edit = { id, from, data: d };
@@ -221,6 +240,15 @@ async function saveEdit(q){
 btn.addEventListener('click', async () => {
   const q = window.KC_quote;
   if(!q){ show('Build an estimate first — nothing to send yet.', true); url.value = ''; return; }
+  /* Business name is required for every non-residential type. Checked here, not
+     via the browser's form validation, because Send is a plain button outside a
+     submitting form — nothing would enforce required on its own. */
+  if (val('eType') !== 'Residential' && !val('eBiz')) {
+    show('Add the business name before sending.', true);
+    url.value = '';
+    const b = $('eBiz'); if (b) { b.focus(); }
+    return;
+  }
 
   btn.disabled = true; btn.textContent = 'Saving…';
   try {

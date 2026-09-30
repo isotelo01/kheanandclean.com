@@ -81,6 +81,23 @@
       addons: {},
       quoteValue: 'Hardwood/LVP'
     },
+    commcarpet: {
+      name: 'Commercial Carpet',
+      mode: 'area',
+      rate: 0.45,
+      addons: {
+        stain: { name:'Stain treatment', linear:15, needsQty:true, qtyDefault:0, qtyStep:1,
+                 text:'$15 starting per spot' }
+      },
+      quoteValue: 'Commercial carpet'
+    },
+    commhard: {
+      name: 'Commercial Hard Floor',
+      mode: 'area',
+      rate: 0.45,
+      addons: {},
+      quoteValue: 'Commercial hard floor'
+    },
     upholstery: {
       name: 'Upholstery Cleaning',
       mode: 'items',
@@ -137,7 +154,7 @@
     return o;
   }
   function initState(){
-    ['carpet','tile','stone','lvp'].forEach(function(k){
+    ['carpet','tile','stone','lvp','commcarpet','commhard'].forEach(function(k){
       STATE[k] = { mode:'sqft', sqft:0, rooms:defaultRooms(), collapsed:false, addons:defaultAddons(k), touched:false };
     });
     STATE.carpet.tier = 'deep';
@@ -151,6 +168,17 @@
   initState();
 
   function svc(){ return document.querySelector('input[name="svc"]:checked').value; }
+  /* Residential and commercial can't share an invoice, so the service row shows
+     one group or the other, never both. Property type drives the swap, and the
+     hidden group's numbers are cleared so nothing invisible can price into the
+     estimate. */
+  var COMM_SVCS = ['commcarpet','commhard'];
+  var RES_SVCS  = ['carpet','tile','lvp','upholstery','stone'];
+  function isComm(k){ return COMM_SVCS.indexOf(k) > -1; }
+  function commercialMode(){
+    var sel = document.getElementById('eType');
+    return !!sel && sel.value === 'Commercial';
+  }
   function service(){ return SERVICES[svc()]; }
   function mode(){ return document.querySelector('input[name="mode"]:checked').value; }
   function tier(){ return document.querySelector('input[name="tier"]:checked').value; }
@@ -680,6 +708,76 @@
     syncRoomsDone();
   }
 
+  /* Wipe a group's entries so a service that's off screen can never contribute
+     a charge. Uses initState's own defaults rather than a hand-written reset so
+     the two can't drift apart as services change. */
+  function clearGroup(keys){
+    keys.forEach(function(k){
+      if(k === 'upholstery'){
+        STATE.upholstery.touched = false;
+        Object.keys(STATE.upholstery.items).forEach(function(i){ STATE.upholstery.items[i] = 0; });
+        return;
+      }
+      var st = STATE[k];
+      if(!st) return;
+      st.mode = 'sqft'; st.sqft = 0; st.touched = false; st.collapsed = false;
+      st.rooms = defaultRooms();
+      st.addons = defaultAddons(k);
+      if(k === 'carpet'){
+        st.tier = 'deep';
+        st.addons.dry.on = true;
+        st.dryDefaultApplied = true;
+      }
+    });
+  }
+
+  /* Show one service group and hide the other. Called on load and whenever the
+     property type changes. */
+  /* Business name is required for every non-residential type, so the field only
+     appears when it applies. Hiding also clears it, so a type switched back to
+     Residential can't ship a stale business name the user can no longer see. */
+  function syncBizField(){
+    var sel = document.getElementById('eType'),
+        wrap = document.getElementById('eBizField'),
+        inp = document.getElementById('eBiz');
+    if(!sel || !wrap) return;
+    var need = sel.value !== 'Residential';
+    wrap.hidden = !need;
+    if(inp){
+      inp.required = need;
+      if(!need) inp.value = '';
+    }
+  }
+
+  function syncSvcGroup(){
+    syncBizField();
+    var comm = commercialMode();
+    var show = comm ? COMM_SVCS : RES_SVCS;
+    var hide = comm ? RES_SVCS  : COMM_SVCS;
+
+    clearGroup(hide);
+
+    document.querySelectorAll('input[name="svc"]').forEach(function(el){
+      var on = show.indexOf(el.value) > -1;
+      var lab = document.querySelector('label[for="' + el.id + '"]');
+      el.disabled = !on;
+      el.hidden = !on;
+      if(lab) lab.hidden = !on;
+    });
+
+    var lgnd = document.getElementById('svcLegend');
+    if(lgnd) lgnd.textContent = comm ? 'Commercial Cleaning Service' : 'Cleaning Service';
+
+    /* If the tab that was open belongs to the group being hidden, land on the
+       first tab of the group now showing. */
+    var cur = document.querySelector('input[name="svc"]:checked');
+    if(!cur || show.indexOf(cur.value) === -1){
+      var first = document.querySelector('input[name="svc"][value="' + show[0] + '"]');
+      if(first) first.checked = true;
+    }
+    syncService();
+  }
+
   function syncService(){
     activeSvc = svc();
     var s = SERVICES[activeSvc], isArea = s.mode === 'area', st = STATE[activeSvc];
@@ -688,6 +786,12 @@
     areaFields.style.display = isArea ? '' : 'none';
     uphFields.style.display  = isArea ? 'none' : '';
     tierField.style.display  = (activeSvc==='carpet') ? '' : 'none';
+    /* Commercial is priced straight off square footage, so the rooms/sq-ft
+       toggle is hidden — but the square-feet box itself lives in the same row
+       and must stay visible, so only the toggle is hidden, not the row. */
+    var mToggle = document.querySelector('.measureRow > .seg');
+    if(mToggle) mToggle.style.display = isComm(activeSvc) ? 'none' : '';
+    if(isComm(activeSvc)) STATE[activeSvc].mode = 'sqft';
 
     if(isArea){
       document.getElementById(st.mode==='room' ? 'mRoom' : 'mSqft').checked = true;
@@ -921,6 +1025,10 @@
     STATE[activeSvc].sqft = +qty.value || 0; STATE[activeSvc].touched = true; calc();
   });
   document.querySelectorAll('input[name="svc"]').forEach(function(el){ el.addEventListener('change', syncService); });
+  (function(){
+    var sel = document.getElementById('eType');
+    if(sel) sel.addEventListener('change', syncSvcGroup);
+  })();
   document.querySelectorAll('input[name="mode"]').forEach(function(el){
     el.addEventListener('change', function(){
       STATE[activeSvc].mode = mode();
@@ -995,7 +1103,9 @@
 
   renderRoomList();
   syncMode();
-  syncService();
+  /* Calls syncService() itself, after picking the right group for the property
+     type the form loaded with. */
+  syncSvcGroup();
 
 
   /* ---- New estimate: one button, resets every service to zero ---- */
@@ -1060,6 +1170,12 @@
     document.getElementById(tid).checked = true;
     var radio = document.querySelector('input[name="svc"][value="' + (form.active || 'carpet') + '"]');
     if(radio) radio.checked = true;
+    /* The property type dropdown is restored by send.js before this runs, so
+       syncSvcGroup shows the matching group. It clears the other group, which
+       is safe: a saved quote is never a mix of the two. It also calls
+       syncService itself. */
+    syncSvcGroup();
+    if(radio && !radio.hidden) radio.checked = true;
     syncService();
     return true;
   };

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Upgrade phones &amp; emails &middot; Khean &amp; Clean</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+.wrap{max-width:760px;margin:0 auto;padding:26px 18px 60px}
+h1{font:700 28px "Playfair Display",Georgia,serif;margin:0 0 4px;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:20px;margin-top:18px}
+button{font:600 15px "Archivo";background:var(--navy);color:#fff;border:0;border-radius:6px;padding:11px 20px;cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+a.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:10px 16px;margin-left:8px}
+.log{margin-top:16px;font-size:14px;max-height:340px;overflow:auto;border-top:1px solid var(--line);padding-top:10px}
+.log div{padding:3px 0;border-bottom:1px solid #f1f3f6}
+.ok{color:var(--green);font-weight:600}
+.skip{color:var(--muted)}
+.err{color:var(--red);font-weight:600}
+p.note{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <h1>Upgrade phones &amp; emails</h1>
+  <div class="panel">
+    <p class="note">One-time job: turns each customer's single phone and email into a list,
+    so a profile can hold more than one. Nothing is deleted or retyped. Customers already
+    upgraded are skipped, so pressing this twice is safe. Delete this page when you are done.</p>
+    <button id="go">Upgrade customers</button>
+    <a class="ghost" href="./customers.html">Customers</a>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, setDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+
+const logEl = document.getElementById("log"), go = document.getElementById("go");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const say = (cls, msg) => { logEl.insertAdjacentHTML("beforeend", '<div class="' + cls + '">' + esc(msg) + '</div>'); logEl.scrollTop = logEl.scrollHeight; };
+
+/* Same key rules as customers.html and send.js. */
+const phoneKey = s => { const d = String(s || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
+const emailKey = s => String(s || "").trim().toLowerCase();
+const one = v => { const t = String(v || "").trim(); return t ? [t] : []; };
+
+go.addEventListener("click", async () => {
+  go.disabled = true;
+  let done = 0, skipped = 0, failed = 0;
+  try {
+    const snap = await getDocs(collection(db, "customers"));
+    for (const d of snap.docs) {
+      const c = d.data(), who = c.business || c.name || c.email || d.id;
+      if (Array.isArray(c.phones) && Array.isArray(c.emails)) { say("skip", "Already upgraded: " + who); skipped++; continue; }
+      try {
+        const phones = Array.isArray(c.phones) ? c.phones : one(c.phone);
+        const emails = Array.isArray(c.emails) ? c.emails : one(c.email);
+        await setDoc(doc(db, "customers", d.id), {
+          phones, emails,
+          phoneKeys: phones.map(phoneKey).filter(Boolean),
+          emailKeys: emails.map(emailKey).filter(Boolean),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        say("ok", "Upgraded " + who); done++;
+      } catch (e) {
+        console.error(e); say("err", "Failed " + who + ": " + e.message); failed++;
+      }
+    }
+  } catch (e) {
+    console.error(e); say("err", "Could not read customers: " + e.message); failed++;
+  }
+  say("", "Done. " + done + " upgraded, " + skipped + " skipped, " + failed + " failed.");
+  go.textContent = "Run again";
+  go.disabled = false;
+});
+
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=migrate-contacts.html"); return; }
+  document.getElementById("authwait")?.remove();
+});
+</script>
+</body>
+</html>
