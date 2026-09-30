@@ -954,14 +954,15 @@
     }
 
     /* Discount: dollars or percent, never both (the two boxes clear each other).
-       It comes off the subtotal, and the MIN_JOB floor still holds: the discount
-       is capped so subtotal - discount = total always adds up on the quote. */
+       It comes off the subtotal and has the final say: the MIN_JOB floor only
+       applies when there is no discount. Capped at the subtotal so the total
+       never goes below $0, and subtotal - discount = total always adds up. */
     var dAmtEl = document.getElementById('discAmt'), dPctEl = document.getElementById('discPct');
     var dAmt = dAmtEl ? Math.max(0, +dAmtEl.value || 0) : 0;
     var dPct = dPctEl ? Math.min(100, Math.max(0, +dPctEl.value || 0)) : 0;
     var wanted = Math.round(dAmt > 0 ? dAmt : b.sum * dPct / 100);
-    var disc = Math.min(wanted, Math.max(0, Math.round(b.sum - MIN_JOB)));
-    var applied = Math.max(b.sum - disc, MIN_JOB);
+    var disc = Math.min(wanted, b.sum);
+    var applied = disc > 0 ? b.sum - disc : Math.max(b.sum, MIN_JOB);
     var discEl = document.getElementById('discLines');
     if(discEl){
       if(disc > 0){
@@ -997,7 +998,7 @@
     totalSqftLabelEl.textContent = sqftTotal > 0 ? 'total sq ft across all floor types' : '';
     minEl.textContent = applied > b.sum
       ? 'Minimum service charge of $' + money(MIN_JOB) + ' applied.'
-      : (wanted > disc ? 'Discount limited by the $' + money(MIN_JOB) + ' minimum service charge.' : '');
+      : '';
     /* What's on screen right now, for send.js to save. Same numbers the panel shows. */
     window.KC_quote = {
       lines: b.breakdown, subtotal: b.sum, discount: disc,
