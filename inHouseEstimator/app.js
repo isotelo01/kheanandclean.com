@@ -84,7 +84,7 @@
     commcarpet: {
       name: 'Commercial Carpet',
       mode: 'area',
-      rate: 0.45,
+      rate: 0.50,
       addons: {
         stain: { name:'Stain treatment', linear:15, needsQty:true, qtyDefault:0, qtyStep:1,
                  text:'$15 starting per spot' }
@@ -94,7 +94,7 @@
     commhard: {
       name: 'Commercial Hard Floor',
       mode: 'area',
-      rate: 0.45,
+      rate: 0.50,
       addons: {},
       quoteValue: 'Commercial hard floor'
     },
