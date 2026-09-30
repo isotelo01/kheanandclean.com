@@ -8,7 +8,9 @@
 <meta property="og:site_name" content="Khean &amp; Clean">
 <meta property="og:title" content="Khean &amp; Clean">
 <meta property="og:description" content="Your quote is ready. Tap to view and approve.">
-<meta property="og:image" content="https://kheanandclean.com/images/logo.png">
+<meta property="og:image" content="https://kheanandclean.com/images/quote-preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="1200">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
 <style>
@@ -181,7 +183,7 @@ function render(d){
     </div>
     <div class="body">
       <div class="meta">
-        <div><h3>Prepared for</h3><p><strong>${esc(c.name)}</strong>${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}${c.phone ? "<br>" + esc(c.phone) : ""}</p></div>
+        <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}${c.phone ? "<br>" + esc(c.phone) : ""}</p></div>
         <div class="r"><h3>Date</h3><p>${dateText}</p>${statusHtml ? `<p style="margin-top:10px">${statusHtml}</p>` : ""}</div>
       </div>
       <table>
