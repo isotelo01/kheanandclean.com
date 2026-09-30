@@ -1385,9 +1385,19 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
             <div id="qExpand" class="qexpand">
               <div class="qexpand__inner">
                 <div class="qfield">
-                  <label for="qAddr">Property address</label>
-                  <input id="qAddr" name="address" type="text" autocomplete="street-address" placeholder="Street and city">
+                  <label for="qAddr">Street</label>
+                  <input id="qAddr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">
                   <span class="qerr" data-for="qAddr"></span>
+                </div>
+                <div class="qrow">
+                  <div class="qfield">
+                    <label for="qCity">City</label>
+                    <input id="qCity" name="city" type="text" autocomplete="address-level2" placeholder="Folsom">
+                  </div>
+                  <div class="qfield">
+                    <label for="qZip">ZIP</label>
+                    <input id="qZip" name="zip" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="95630">
+                  </div>
                 </div>
 
                 <fieldset class="qfield">
@@ -1656,9 +1666,19 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
               <span class="estErr" data-for="eEmail"></span>
             </div>
             <div class="estField">
-              <label for="eAddr">Address</label>
-              <input id="eAddr" name="address" type="text" autocomplete="street-address" placeholder="Street, city">
+              <label for="eAddr">Street</label>
+              <input id="eAddr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">
               <span class="estErr" data-for="eAddr"></span>
+            </div>
+          </div>
+          <div class="estRow">
+            <div class="estField">
+              <label for="eCity">City</label>
+              <input id="eCity" name="city" type="text" autocomplete="address-level2" placeholder="Folsom">
+            </div>
+            <div class="estField">
+              <label for="eZip">ZIP</label>
+              <input id="eZip" name="zip" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="95630">
             </div>
           </div>
           <div class="estRow estRow--gate">
@@ -2002,6 +2022,13 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 </div>
 
 <script>
+/* Quick quote address: street, city and ZIP are separate fields; this joins
+   them into one line for summaries, the printed sheet and the email. */
+window.kcQAddr = function(){
+  function v(id){ var el = document.getElementById(id); return el && el.value ? el.value.trim() : ''; }
+  var z = v('qZip');
+  return [v('qAddr'), v('qCity'), z ? 'CA ' + z : ''].filter(Boolean).join(', ');
+};
 document.getElementById('yr').textContent = new Date().getFullYear();
 
 /* Header logo: back to the top of the page. */
@@ -2074,8 +2101,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     if(services.length){
       chips.push('<div class="chips">' + services.map(function(s){ return '<span class="chip">' + escapeHtml(s) + '</span>'; }).join('') + '</div>');
     }
-    if(qAddr && qAddr.value.trim()){
-      chips.push('<div class="row"><b>Address</b><span>' + escapeHtml(qAddr.value.trim()) + '</span></div>');
+    if(window.kcQAddr()){
+      chips.push('<div class="row"><b>Address</b><span>' + escapeHtml(window.kcQAddr()) + '</span></div>');
     }
     if(qMsg && qMsg.value.trim()){
       var m = qMsg.value.trim(), isEst = /^ESTIMATE FROM YOUR ONLINE ESTIMATOR/.test(m), notes = '';
@@ -2169,7 +2196,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     add('Phone',       qPhone ? qPhone.value : '');
     add('Email',       qEmail ? qEmail.value : '');
     add('Property',    qType  ? qType.value  : '');
-    add('Address',     qAddr  ? qAddr.value  : '');
+    add('Address',     window.kcQAddr());
     add('Rooms/areas', qMsg   ? ownNotes(qMsg.value) : '');
     var services = Array.prototype.map.call(
       document.querySelectorAll('input[name="services"]:checked'),
@@ -2242,7 +2269,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
      fields. Blank fields are skipped rather than printing an empty label. */
   function custBlock(){
     function val(id){ var el = document.getElementById(id); return el && el.value ? el.value.trim() : ''; }
-    var nm = val('qName'), addr = val('qAddr'), ph = val('qPhone'), em = val('qEmail'), ty = val('qType');
+    var nm = val('qName'), addr = window.kcQAddr(), ph = val('qPhone'), em = val('qEmail'), ty = val('qType');
     if(!nm && !addr && !ph && !em) return '';
     var out = '<div class="cust"><h2>Prepared for</h2>';
     if(nm) out += '<p class="nm">' + escapeHtml(nm) + '</p>';
@@ -2374,7 +2401,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     /* The clearing work, lifted out of the old inline confirm so the dialog's
        Yes button can call it. Every step is unchanged. */
     function doClear(){
-      ['qName','qPhone','qEmail','qAddr','qType','qMsg'].forEach(function(id){
+      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg'].forEach(function(id){
         var el = document.getElementById(id); if(el) el.value = '';
       });
       var qf = document.getElementById('quoteForm');
@@ -3478,6 +3505,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       ePhone = document.getElementById('ePhone'),
       eEmail = document.getElementById('eEmail'),
       eAddr = document.getElementById('eAddr'),
+      eCityEl = document.getElementById('eCity'),
+      eZipEl = document.getElementById('eZip'),
       eNotes = document.getElementById('eNotes'),
       eType = document.getElementById('eType'),
       eEnter = document.getElementById('eEnter'),
@@ -3503,7 +3532,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       calc();
     }
     function clearContact(){
-      ['eName','ePhone','eEmail','eAddr'].forEach(function(id){
+      ['eName','ePhone','eEmail','eAddr','eCity','eZip'].forEach(function(id){
         var el = document.getElementById(id);
         if(el){ el.value = ''; el.removeAttribute('aria-invalid'); }
       });
@@ -3565,8 +3594,12 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       return hasPhone || !!emailRaw;
     }
     function eCity(){
-      var parts = eAddr.value.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
-      return parts.length > 1 ? parts[1].replace(/\s*\d{5}(-\d{4})?\s*$/,'') : '';
+      return eCityEl ? eCityEl.value.trim() : '';
+    }
+    /* Street, city and ZIP joined into one line for the email. */
+    function eFullAddr(){
+      var z = eZipEl ? eZipEl.value.trim() : '';
+      return [eAddr.value.trim(), eCity(), z ? 'CA ' + z : ''].filter(Boolean).join(', ');
     }
     function eSubjectTail(){
       var c = eCity();
@@ -3581,7 +3614,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       if(sp) sp.textContent = '';
       if(eGateOk()){ eStatus.textContent = ''; eStatus.classList.remove('err'); }
     }
-    [eName,ePhone,eEmail,eAddr].forEach(function(el){
+    [eName,ePhone,eEmail,eAddr,eCityEl,eZipEl].filter(Boolean).forEach(function(el){
       el.addEventListener('input', eSyncGate);
       el.addEventListener('change', eSyncGate);
     });
@@ -3616,7 +3649,10 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         fd.append('name',    eName.value.trim());
         fd.append('phone',   ePhone.value.trim());
         fd.append('email',   eEmail.value.trim());
-        fd.append('address', eAddr.value.trim());
+        fd.append('address', eFullAddr());
+        fd.append('street',  eAddr.value.trim());
+        fd.append('city',    eCity());
+        fd.append('zip',     eZipEl ? eZipEl.value.trim() : '');
         fd.append('property_type', eType ? eType.value : '');
         fd.append('stage',   'Opened the estimator (details only, no estimate yet)');
         if (eSend.querySelector('input.esthp').checked) { fd.append('botcheck', 'true'); }
@@ -3674,7 +3710,10 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       fd.append('name',    eName.value.trim());
       fd.append('phone',   ePhone.value.trim());
       fd.append('email',   eEmail.value.trim());
-      fd.append('address', eAddr.value.trim());
+      fd.append('address', eFullAddr());
+      fd.append('street',  eAddr.value.trim());
+      fd.append('city',    eCity());
+      fd.append('zip',     eZipEl ? eZipEl.value.trim() : '');
       fd.append('property_type', eType ? eType.value : '');
       fd.append('estimate', eSummary());
       fd.append('notes',    eNotes ? eNotes.value.trim() : '');
@@ -3920,7 +3959,10 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     fd.append('name',     document.getElementById('qName').value.trim());
     fd.append('phone',    document.getElementById('qPhone').value.trim());
     fd.append('email',    document.getElementById('qEmail').value.trim());
-    fd.append('address',  document.getElementById('qAddr').value.trim());
+    fd.append('address',  window.kcQAddr());
+    fd.append('street',   document.getElementById('qAddr').value.trim());
+    fd.append('city',     document.getElementById('qCity').value.trim());
+    fd.append('zip',      document.getElementById('qZip').value.trim());
     fd.append('property_type', document.getElementById('qType').value);
     fd.append('services', services);
     fd.append('message',  document.getElementById('qMsg').value.trim());
@@ -3965,7 +4007,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
 (function(){
   var KEY = 'kcQuote';
   var form = document.getElementById('quoteForm'); if(!form) return;
-  var fields = ['qName','qPhone','qEmail','qAddr','qType','qMsg'];
+  var fields = ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg'];
   function store(){ try{ return window.localStorage; }catch(e){ return null; } }
 
   function save(){
@@ -4033,7 +4075,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
    never enter it twice. The field currently being typed in is never overwritten,
    and a guard flag stops the two handlers echoing each other. */
 (function(){
-  var pairs = [['qName','eName'],['qPhone','ePhone'],['qEmail','eEmail'],['qAddr','eAddr']];
+  var pairs = [['qName','eName'],['qPhone','ePhone'],['qEmail','eEmail'],['qAddr','eAddr'],['qCity','eCity'],['qZip','eZip']];
   var syncing = false;
 
   function link(aId, bId){
@@ -4170,5 +4212,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   }, { passive:true });
 })();
 </script>
+<script src="places.js" defer></script>
 </body>
 </html>

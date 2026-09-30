@@ -773,9 +773,19 @@ body{ background:var(--paper); }
             <div id="qExpand" class="qexpand">
               <div class="qexpand__inner">
                 <div class="qfield">
-                  <label for="qAddr">Property address</label>
-                  <input id="qAddr" name="address" type="text" autocomplete="street-address" placeholder="Street and city">
+                  <label for="qAddr">Street</label>
+                  <input id="qAddr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">
                   <span class="qerr" data-for="qAddr"></span>
+                </div>
+                <div class="qrow">
+                  <div class="qfield">
+                    <label for="qCity">City</label>
+                    <input id="qCity" name="city" type="text" autocomplete="address-level2" placeholder="Folsom">
+                  </div>
+                  <div class="qfield">
+                    <label for="qZip">ZIP</label>
+                    <input id="qZip" name="zip" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="95630">
+                  </div>
                 </div>
 
                 <fieldset class="qfield">
@@ -848,6 +858,13 @@ body{ background:var(--paper); }
 </div>
 
 <script>
+/* Quick quote address: street, city and ZIP are separate fields; this joins
+   them into one line for summaries, the printed sheet and the email. */
+window.kcQAddr = function(){
+  function v(id){ var el = document.getElementById(id); return el && el.value ? el.value.trim() : ''; }
+  var z = v('qZip');
+  return [v('qAddr'), v('qCity'), z ? 'CA ' + z : ''].filter(Boolean).join(', ');
+};
 (function(){
   var qEmail = document.getElementById('qEmail'),
       qName  = document.getElementById('qName'),
@@ -876,8 +893,8 @@ body{ background:var(--paper); }
     if(services.length){
       chips.push('<div class="chips">' + services.map(function(s){ return '<span class="chip">' + escapeHtml(s) + '</span>'; }).join('') + '</div>');
     }
-    if(qAddr && qAddr.value.trim()){
-      chips.push('<div class="row"><b>Address</b><span>' + escapeHtml(qAddr.value.trim()) + '</span></div>');
+    if(window.kcQAddr()){
+      chips.push('<div class="row"><b>Address</b><span>' + escapeHtml(window.kcQAddr()) + '</span></div>');
     }
     if(qMsg && qMsg.value.trim()){
       var m = qMsg.value.trim(), isEst = /^ESTIMATE FROM YOUR ONLINE ESTIMATOR/.test(m), notes = '';
@@ -971,7 +988,7 @@ body{ background:var(--paper); }
     add('Phone',       qPhone ? qPhone.value : '');
     add('Email',       qEmail ? qEmail.value : '');
     add('Property',    qType  ? qType.value  : '');
-    add('Address',     qAddr  ? qAddr.value  : '');
+    add('Address',     window.kcQAddr());
     add('Rooms/areas', qMsg   ? ownNotes(qMsg.value) : '');
     var services = Array.prototype.map.call(
       document.querySelectorAll('input[name="services"]:checked'),
@@ -1044,7 +1061,7 @@ body{ background:var(--paper); }
      fields. Blank fields are skipped rather than printing an empty label. */
   function custBlock(){
     function val(id){ var el = document.getElementById(id); return el && el.value ? el.value.trim() : ''; }
-    var nm = val('qName'), addr = val('qAddr'), ph = val('qPhone'), em = val('qEmail'), ty = val('qType');
+    var nm = val('qName'), addr = window.kcQAddr(), ph = val('qPhone'), em = val('qEmail'), ty = val('qType');
     if(!nm && !addr && !ph && !em) return '';
     var out = '<div class="cust"><h2>Prepared for</h2>';
     if(nm) out += '<p class="nm">' + escapeHtml(nm) + '</p>';
@@ -1176,7 +1193,7 @@ body{ background:var(--paper); }
     /* The clearing work, lifted out of the old inline confirm so the dialog's
        Yes button can call it. Every step is unchanged. */
     function doClear(){
-      ['qName','qPhone','qEmail','qAddr','qType','qMsg'].forEach(function(id){
+      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg'].forEach(function(id){
         var el = document.getElementById(id); if(el) el.value = '';
       });
       var qf = document.getElementById('quoteForm');
@@ -1352,7 +1369,10 @@ body{ background:var(--paper); }
     fd.append('name',     document.getElementById('qName').value.trim());
     fd.append('phone',    document.getElementById('qPhone').value.trim());
     fd.append('email',    document.getElementById('qEmail').value.trim());
-    fd.append('address',  document.getElementById('qAddr').value.trim());
+    fd.append('address',  window.kcQAddr());
+    fd.append('street',   document.getElementById('qAddr').value.trim());
+    fd.append('city',     document.getElementById('qCity').value.trim());
+    fd.append('zip',      document.getElementById('qZip').value.trim());
     fd.append('property_type', document.getElementById('qType').value);
     fd.append('services', services);
     fd.append('message',  document.getElementById('qMsg').value.trim());
@@ -1390,5 +1410,6 @@ body{ background:var(--paper); }
   });
 })();
 </script>
+<script src="places.js" defer></script>
 </body>
 </html>

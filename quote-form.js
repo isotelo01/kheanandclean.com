@@ -136,9 +136,19 @@
           '<div class="kcq__expandInner">' +
 
             '<div class="kcq__field">' +
-              '<label for="' + p + 'Addr">Property address</label>' +
-              '<input id="' + p + 'Addr" name="address" type="text" autocomplete="street-address" placeholder="Street and city">' +
+              '<label for="' + p + 'Addr">Street</label>' +
+              '<input id="' + p + 'Addr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">' +
               '<span class="kcq__err" data-for="' + p + 'Addr"></span>' +
+            '</div>' +
+            '<div class="kcq__row">' +
+              '<div class="kcq__field">' +
+                '<label for="' + p + 'City">City</label>' +
+                '<input id="' + p + 'City" name="city" type="text" autocomplete="address-level2" placeholder="Folsom">' +
+              '</div>' +
+              '<div class="kcq__field">' +
+                '<label for="' + p + 'Zip">ZIP</label>' +
+                '<input id="' + p + 'Zip" name="zip" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="95630">' +
+              '</div>' +
             '</div>' +
 
             '<fieldset class="kcq__field">' +
@@ -225,6 +235,14 @@
      shared key ("kcQuote"), and every page's quick quote reads it back on load —
      so details entered on the homepage appear here and vice versa. The homepage
      form (index.html) reads and writes the very same key. Cleared on send. */
+  /* Address autocomplete: load places.js once, from the same folder as this
+     file, unless the page already includes it. */
+  if (!document.querySelector('script[src$="places.js"]')) {
+    var pj = document.createElement('script');
+    pj.src = 'places.js'; pj.defer = true;
+    document.head.appendChild(pj);
+  }
+
   var STORE_KEY = 'kcQuote';
   function store() { try { return window.localStorage; } catch (e) { return null; } }
   function readSaved() {
@@ -262,9 +280,18 @@
         emailEl   = $('Email'),
         typeEl    = $('Type'),
         addrEl    = $('Addr'),
+        cityEl    = $('City'),
+        zipEl     = $('Zip'),
         msgEl     = $('Msg'),
         editBtn   = $('Edit'),
         clearBtn  = $('Clear');
+
+    /* Street, city and ZIP joined into one line for the summary and email. */
+    function fullAddr() {
+      var z = zipEl ? zipEl.value.trim() : '';
+      return [addrEl ? addrEl.value.trim() : '', cityEl ? cityEl.value.trim() : '', z ? 'CA ' + z : '']
+        .filter(Boolean).join(', ');
+    }
 
     /* ---- error helpers ---- */
     function setErr(suffix, msg) {
@@ -301,7 +328,7 @@
       var prev = readSaved();
       writeSaved({
         name: nameEl.value, phone: phoneEl.value, email: emailEl.value,
-        addr: addrEl.value, type: typeEl.value, msg: msgEl.value,
+        addr: addrEl.value, city: cityEl.value, zip: zipEl.value, type: typeEl.value, msg: msgEl.value,
         services: Array.prototype.map.call(form.querySelectorAll('input[name="services"]:checked'), function (c) { return c.value; }),
         est: prev && prev.est ? prev.est : null,
         ts: Date.now()
@@ -310,7 +337,7 @@
     function restore() {
       var d = readSaved(); if (!d) return false;
       var touched = false;
-      [['name', nameEl], ['phone', phoneEl], ['email', emailEl], ['addr', addrEl], ['type', typeEl], ['msg', msgEl]].forEach(function (pair) {
+      [['name', nameEl], ['phone', phoneEl], ['email', emailEl], ['addr', addrEl], ['city', cityEl], ['zip', zipEl], ['type', typeEl], ['msg', msgEl]].forEach(function (pair) {
         var v = d[pair[0]], el = pair[1];
         if (!el || typeof v !== 'string' || !v) return;
         if (el.tagName === 'SELECT' && !Array.prototype.some.call(el.options, function (o) { return o.value === v; })) return;
@@ -377,7 +404,7 @@
         }).join('') + '</div>');
       }
 
-      addRow('Address',  addrEl ? addrEl.value.trim() : '');
+      addRow('Address',  fullAddr());
 
       /* Rooms/areas — but if this text came from the homepage estimator, show
          the same itemised breakdown the homepage shows rather than the raw
@@ -453,7 +480,7 @@
       /* The wipe itself, lifted unchanged out of the old click handler so
          both the dialog's Yes button and the confirm() fallback can call it. */
       var doClear = function () {
-        [nameEl, phoneEl, emailEl, typeEl, addrEl, msgEl].forEach(function (el) {
+        [nameEl, phoneEl, emailEl, typeEl, addrEl, cityEl, zipEl, msgEl].forEach(function (el) {
           if (el) el.value = '';
         });
         Array.prototype.forEach.call(
@@ -579,7 +606,10 @@
       fd.append('name',    nameEl.value.trim());
       fd.append('phone',   phoneEl.value.trim());
       fd.append('email',   emailEl.value.trim());
-      fd.append('address', addrEl.value.trim());
+      fd.append('address', fullAddr());
+      fd.append('street',  addrEl.value.trim());
+      fd.append('city',    cityEl.value.trim());
+      fd.append('zip',     zipEl.value.trim());
       fd.append('property_type', $('Type').value);
       fd.append('services', services);
       fd.append('message', msgEl.value.trim());
