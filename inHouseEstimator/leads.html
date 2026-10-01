@@ -45,6 +45,10 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .new:disabled,.ghost:disabled{opacity:.6;cursor:default}
 .note{font-size:14px;color:var(--muted)}
 .note.err{color:var(--red)}
+/* History: converted and trashed leads, kept 30 days then erased. */
+.row.done{background:#f7f8fa}
+.exp{font-size:13px;font-weight:600;color:var(--red);margin-top:4px}
+.note a{color:var(--navy);font-weight:600}
 </style>
 </head>
 <body>
@@ -56,6 +60,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
     <div style="display:flex;gap:10px;align-items:center;margin-left:auto">
       <a class="ghost" href="./dashboard.html">Dashboard</a>
       <a class="ghost" href="./customers.html">Customers</a>
+      <a class="ghost" href="#trash">Trash</a>
     </div>
   </div>
   <div id="view"><div class="msg">Loading&hellip;</div></div>
@@ -63,7 +68,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, serverTimestamp }
+import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
@@ -110,10 +115,50 @@ const pathsOf = l => (Array.isArray(l.photoPaths) ? l.photoPaths : [])
   .filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes(".."));
 const photoCount = l => photosOf(l).length + pathsOf(l).length;
 
-let all = null;
+/* ---- History: converted and trashed leads stay 30 days, then are erased.
+   Same rule as the customers Trash. A browser page can only erase while it is
+   open, so the sweep runs each time the leads list loads. ---- */
+const HISTORY_DAYS = 30, msDay = 86400000;
+const historyMs = l => l.trashed ? ms(l.trashedAt) : l.converted ? ms(l.convertedAt) : 0;
+const inHistory = l => !!(l.trashed || l.converted);
+const daysLeft = l => { const t = historyMs(l); return t ? HISTORY_DAYS - Math.floor((Date.now() - t) / msDay) : null; };
+const leftLabel = l => {
+  const d = daysLeft(l);
+  if (d === null) return "";
+  const verb = l.trashed ? "Erased" : "Falls off";
+  return d <= 1 ? verb + " tomorrow" : verb + " in " + d + " days";
+};
+
+/* Same match keys and id format as customers.html, so converted leads line up. */
+const phoneKey = s => { const d = String(s || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
+const emailKey = s => String(s || "").trim().toLowerCase();
+const one = v => { const t = String(v || "").trim(); return t ? [t] : []; };
+function randomId(){
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  return Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join("");
+}
+async function findMatch(pks, eks){
+  const tries = [];
+  pks.forEach(v => tries.push(["phoneKeys", "array-contains", v], ["phoneKey", "==", v]));
+  eks.forEach(v => tries.push(["emailKeys", "array-contains", v], ["emailKey", "==", v]));
+  for (const [f, op, v] of tries) {
+    if (!v) continue;
+    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(1)));
+    if (!s.empty) return { id: s.docs[0].id, ...s.docs[0].data() };
+  }
+  return null;
+}
+
+let all = null, purged = 0;
 async function load(){
   const snap = await getDocs(collection(db, "leads"));
   all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
+  for (const l of all.slice()) {
+    const d = daysLeft(l);
+    if (d === null || d > 0) continue;
+    try { await deleteDoc(doc(db, "leads", l.id)); all = all.filter(x => x.id !== l.id); purged++; }
+    catch (e) { console.error("Could not erase lead " + l.id, e); }
+  }
 }
 
 /* ---- List: newest first, grouped by status ---- */
@@ -133,18 +178,46 @@ async function showList(){
     const n = photoCount(l);
     const lines = [cityLine(addrOf(l)), l.phone, servicesOf(l),
       [when(l), n ? n + (n === 1 ? " photo" : " photos") : ""].filter(Boolean).join(" · ")];
-    return '<a class="row src-' + esc(l.source || "other") + '" href="#' + encodeURIComponent(l.id) + '">' +
+    return '<a class="row ' + (inHistory(l) ? "done" : "src-" + esc(l.source || "other")) + '" href="#' + encodeURIComponent(l.id) + '">' +
       '<div class="who">' + esc(l.name || "No name") + '</div>' +
       lines.filter(x => x && String(x).trim()).map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
+      (inHistory(l) ? '<div class="exp">' + esc(leftLabel(l)) + '</div>' : '') +
     '</a>';
   };
-  view.innerHTML = all.length
+  const live = all.filter(l => !inHistory(l));
+  const converted = all.filter(l => l.converted && !l.trashed);
+  view.innerHTML = (live.length
     ? STATUSES.map(s => {
-        const inS = all.filter(l => statusOf(l).v === s.v);
+        const inS = live.filter(l => statusOf(l).v === s.v);
         return inS.length ? '<section class="col"><h3 class="colhead">' + s.label + ' (' + inS.length + ')</h3>' +
           inS.map(card).join("") + '</section>' : "";
       }).join("")
-    : '<div class="msg">No leads yet. Quick quotes from the website land here.</div>';
+    : '<div class="msg">No open leads. Quick quotes from the website land here.</div>') +
+    (converted.length
+      ? '<section class="col"><h3 class="colhead">Converted to customers (' + converted.length + ')</h3>' +
+        converted.map(card).join("") + '</section>' : "") +
+    (purged ? '<div class="msg">' + purged + (purged === 1 ? " lead" : " leads") + ' erased after 30 days.</div>' : "");
+}
+
+/* ---- Trash: deleted leads, erased 30 days after deleting ---- */
+async function showTrash(){
+  titleEl.textContent = "Trash";
+  document.title = "Lead trash · Khean & Clean";
+  if (!all) {
+    view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+    try { await load(); }
+    catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load leads: ' + esc(e.message) + '</div>'; return; }
+  }
+  const rows = all.filter(l => l.trashed);
+  view.innerHTML = (rows.length
+    ? '<section class="col"><h3 class="colhead">Deleted leads (' + rows.length + ')</h3>' + rows.map(l =>
+        '<a class="row done" href="#' + encodeURIComponent(l.id) + '">' +
+          '<div class="who">' + esc(l.name || "No name") + '</div>' +
+          [l.phone, l.email].filter(Boolean).map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
+          '<div class="exp">' + esc(leftLabel(l)) + '</div>' +
+        '</a>').join("") + '</section>'
+    : '<div class="msg">The trash is empty.</div>') +
+    '<div class="actions"><a class="ghost" href="#">Back to leads</a></div>';
 }
 
 /* ---- One lead: details, photos, status ---- */
@@ -191,6 +264,19 @@ async function showLead(id){
       '<h2>Status</h2>' +
       '<div class="actions">' +
         STATUSES.map(s => '<button type="button" class="' + (s.v === cur ? "new" : "ghost") + '" data-status="' + s.v + '">' + s.label + '</button>').join("") +
+      '</div>' +
+      (l.converted
+        ? '<p class="note">Converted to a customer. ' +
+            (l.customerId ? '<a href="./customers.html#' + encodeURIComponent(l.customerId) + '">Open customer</a>. ' : '') +
+            esc(leftLabel(l)) + '.</p>'
+        : '') +
+      (l.trashed ? '<p class="note err">In the trash. ' + esc(leftLabel(l)) + '.</p>' : '') +
+      '<div class="actions">' +
+        (!l.trashed ? '<button type="button" class="new" id="quoteBtn">New quote</button>' : '') +
+        (!l.converted && !l.trashed ? '<button type="button" class="new" id="convertBtn">Convert to customer</button>' : '') +
+        (l.trashed
+          ? '<button type="button" class="ghost" id="restoreBtn">Restore</button>'
+          : '<button type="button" class="ghost" id="delBtn">Delete</button>') +
         '<a class="ghost" href="#">Back to leads</a>' +
         '<span class="note" id="note"></span>' +
       '</div>' +
@@ -211,6 +297,93 @@ async function showLead(id){
   })();
 
   const note = document.getElementById("note");
+  const say = (html, isErr) => { note.innerHTML = html; note.classList.toggle("err", !!isErr); };
+  const patchLocal = p => { if (all) all = all.map(x => x.id === id ? Object.assign({}, x, p) : x); };
+
+  /* Delete = move to trash. Erased for good 30 days later; Restore until then. */
+  const delBtn = document.getElementById("delBtn"), restoreBtn = document.getElementById("restoreBtn");
+  if (delBtn) delBtn.addEventListener("click", async () => {
+    if (!confirm("Move this lead to the trash? It is erased for good after 30 days. You can restore it until then.")) return;
+    delBtn.disabled = true; say("Moving to trash…");
+    try {
+      await updateDoc(doc(db, "leads", id), { trashed: true, trashedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      patchLocal({ trashed: true, trashedAt: new Date().toISOString() });
+      location.hash = "#trash";
+    } catch (e) { console.error(e); say("Could not delete: " + esc(e.message), true); delBtn.disabled = false; }
+  });
+  if (restoreBtn) restoreBtn.addEventListener("click", async () => {
+    restoreBtn.disabled = true; say("Restoring…");
+    try {
+      await updateDoc(doc(db, "leads", id), { trashed: false, trashedAt: null, updatedAt: serverTimestamp() });
+      patchLocal({ trashed: false, trashedAt: null });
+      showLead(id);
+    } catch (e) { console.error(e); say("Could not restore: " + esc(e.message), true); restoreBtn.disabled = false; }
+  });
+
+  /* Convert = make a customer from this lead (or link to the one already on file),
+     then mark the lead converted. It stays in Converted for 30 days, then is erased. */
+  const convertBtn = document.getElementById("convertBtn");
+  const quoteBtn = document.getElementById("quoteBtn");
+  if (quoteBtn) quoteBtn.addEventListener("click", () => {
+    const a = addrOf(l);
+    /* Hand the estimator just the customer fields it asks for. It reads
+       this on load, fills the form, then clears it. */
+    const prefill = {
+      type: String(l.type || l.property_type || "residential").toLowerCase(),
+      business: l.business || l.company || "",
+      name: l.name || "",
+      phone: l.phone || "",
+      email: l.email || "",
+      street: a.street || "",
+      city: a.city || "",
+      state: a.state || "",
+      zip: a.zip || "",
+      leadId: l.id
+    };
+    try { sessionStorage.setItem("kc_prefill", JSON.stringify(prefill)); } catch (e) {}
+    location.href = "./index.html";
+  });
+
+  if (convertBtn) convertBtn.addEventListener("click", async () => {
+    convertBtn.disabled = true; say("Checking customers…");
+    try {
+      const phones = one(l.phone), emails = one(l.email);
+      const phoneKeys = phones.map(phoneKey).filter(Boolean), emailKeys = emails.map(emailKey).filter(Boolean);
+      const dup = await findMatch(phoneKeys, emailKeys);
+      let customerId;
+      if (dup) {
+        if (!confirm((dup.business || dup.name || "Someone") + " is already a customer with that phone or email. Link this lead to them instead of making a duplicate?")) {
+          say(""); convertBtn.disabled = false; return;
+        }
+        customerId = dup.id;
+      } else {
+        say("Creating customer…");
+        const a = addrOf(l);
+        const addresses = (a.street || a.city || a.zip)
+          ? [{ street: a.street || "", city: a.city || "", state: a.state || "CA", zip: a.zip || "" }] : [];
+        const t = String(l.type || l.property_type || "residential").toLowerCase();
+        const notes = [
+          l.message ? String(l.message).trim() : "",
+          servicesOf(l) ? "Asked about: " + servicesOf(l) : "",
+          "From website lead" + (when(l) ? ", " + when(l) : "") + "."
+        ].filter(Boolean).join("\n\n");
+        const phone = phones[0] || "", email = emails[0] || "";
+        customerId = randomId();
+        await setDoc(doc(db, "customers", customerId), {
+          type: t === "commercial" ? "commercial" : "residential", business: "",
+          name: String(l.name || "").trim(), phone, email, notes, addresses,
+          phones, emails, phoneKeys, emailKeys, phoneKey: phoneKey(phone), emailKey: emailKey(email),
+          /* Carried over so the photos survive after the lead is erased. */
+          photoUrls: photosOf(l), photoPaths: pathsOf(l),
+          source: "lead", leadId: id, createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+        });
+      }
+      await updateDoc(doc(db, "leads", id), { converted: true, convertedAt: serverTimestamp(), customerId, updatedAt: serverTimestamp() });
+      patchLocal({ converted: true, convertedAt: new Date().toISOString(), customerId });
+      showLead(id);
+    } catch (e) { console.error(e); say("Could not convert: " + esc(e.message), true); convertBtn.disabled = false; }
+  });
+
   view.querySelectorAll("[data-status]").forEach(b => b.addEventListener("click", async () => {
     const v = b.dataset.status;
     if (v === cur) return;
@@ -233,7 +406,7 @@ async function showLead(id){
 const route = () => {
   const h = decodeURIComponent(location.hash.slice(1));
   window.scrollTo(0, 0);
-  if (h) showLead(h); else showList();
+  if (h === "trash") showTrash(); else if (h) showLead(h); else showList();
 };
 
 /* Page lock. Not signed in -> login page, then back here. */

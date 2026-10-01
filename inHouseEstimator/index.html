@@ -23,6 +23,7 @@
   <a class="appbar__new" href="./customers.html">Contacts</a>
   <button type="button" class="appbar__new" id="eNewBtn">New</button>
   <a class="appbar__new" id="eDashLink" href="./dashboard.html">Dashboard</a>
+  <a class="appbar__new" href="./leads.html">Leads</a>
 </header>
 
 <main class="est" id="estGrid">
@@ -189,6 +190,7 @@
         </header>
         <div class="qcust">
           <p class="qcust__k">Prepared for</p>
+          <p class="qcust__biz" id="qCustBiz" hidden></p>
           <p class="qcust__name" id="qCustName">&mdash;</p>
           <p class="qcust__addr" id="qCustAddr"></p>
         </div>
@@ -283,21 +285,72 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
   try { await signOut(getAuth(app)); } catch (e) { console.error(e); }
   location.replace("./login.html");
 });
+
+/* Prefill from a lead. The leads page stashes the customer fields in
+   sessionStorage, then opens this page. Fill the form, let app.js react,
+   then clear the stash so a plain reload starts blank. */
+(function () {
+  let data;
+  try { data = JSON.parse(sessionStorage.getItem("kc_prefill") || "null"); }
+  catch (e) { data = null; }
+  if (!data) return;
+  sessionStorage.removeItem("kc_prefill");
+
+  const fill = () => {
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (!el || val == null || val === "") return;
+      el.value = val;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    /* Property type: the options have no value attribute, so the value is
+       the visible label ("Residential"). Map the lead's type onto a label. */
+    const typeSel = document.getElementById("eType");
+    if (typeSel && data.type) {
+      /* Realtor and property management keep their own type: app.js only
+         switches to commercial pricing for "Commercial", so they still price
+         as residential, and the business-name field stays visible. */
+      const map = { residential: "residential", commercial: "commercial",
+        pm: "property management", "property management": "property management",
+        realtor: "realtor" };
+      const want = map[String(data.type).toLowerCase()] || String(data.type).toLowerCase();
+      const opt = [...typeSel.options].find(o => o.textContent.trim().toLowerCase() === want);
+      if (opt) { typeSel.value = opt.value; typeSel.dispatchEvent(new Event("change", { bubbles: true })); }
+    }
+    /* After the type change, since app.js clears this field for Residential. */
+    set("eBiz", data.business);
+    set("eName", data.name);
+    set("ePhone", data.phone);
+    set("eEmail", data.email);
+    set("eAddr", data.street);
+    set("eCity", data.city);
+    set("eState", data.state);
+    set("eZip", data.zip);
+  };
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", fill);
+  else fill();
+})();
 </script>
 <script>
 /* Letterhead: mirror customer name + address into the quote panel as you type */
 (function () {
   var n = document.getElementById('eName'), a = document.getElementById('eAddr');
   var c = document.getElementById('eCity'), z = document.getElementById('eZip');
+  var b = document.getElementById('eBiz');
   var on = document.getElementById('qCustName'), oa = document.getElementById('qCustAddr');
+  var ob = document.getElementById('qCustBiz');
   function sync() {
+    var biz = b ? b.value.trim() : '';
+    if (ob) { ob.textContent = biz; ob.hidden = !biz; }
     on.textContent = n.value.trim() || '\u2014';
     z.value = z.value.replace(/\D/g, '').slice(0, 5);
     var city = c.value.trim(), tail = ('CA ' + z.value).trim();
     var line2 = city ? city + ', ' + tail : (z.value ? tail : '');
     oa.textContent = [a.value.trim(), line2].filter(Boolean).join('\n');
   }
-  [n, a, c, z].forEach(function (el) { el.addEventListener('input', sync); });
+  [n, a, c, z, b].forEach(function (el) { if (el) el.addEventListener('input', sync); });
   sync();
 
   /* Phone: format as (916) 767-2520 while typing */

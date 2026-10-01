@@ -34,8 +34,14 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .row.bg-realtor{background:#fbf1d8}
 .row.bg-commercial{background:#f4e4e1}
 .who{font-weight:700}
+/* Account number sits on its own line above the name, right-aligned,
+   so a long name or address never has to share the line with it. */
+.row .acct{text-align:right;margin-bottom:2px}
 .meta{color:var(--muted);font-size:14px}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
+.trashlink{text-align:center;margin:28px 0 8px}
+.trashlink a{color:var(--muted);font-size:13px;text-decoration:none}
+.trashlink a:hover{text-decoration:underline}
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
 .panel h2{font:700 20px "Playfair Display",Georgia,serif;margin:24px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
 .panel h2:first-child{margin-top:0}
@@ -66,6 +72,7 @@ textarea{min-height:90px;resize:vertical}
 .job:hover{border-color:var(--gold);background:#fbfaf7}
 .job__date{flex:0 0 110px;color:var(--muted);font-size:13px}
 .job__no{flex:1 1 auto;font-weight:600}
+.acct{font:600 12px/1.3 ui-monospace,Menlo,Consolas,monospace;color:#6b7280;letter-spacing:.04em}
 .job__total{flex:0 0 auto;font-weight:700}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px}
 .new:disabled{opacity:.6;cursor:default}
@@ -90,7 +97,6 @@ label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding
     <h1 id="title">Customers</h1>
     <div style="display:flex;gap:10px;align-items:center;margin-left:auto">
       <a class="ghost" href="./dashboard.html">Dashboard</a>
-      <a class="ghost" href="#trash">Trash</a>
       <a class="new" href="#new">Add customer</a>
     </div>
   </div>
@@ -99,7 +105,7 @@ label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, deleteDoc, serverTimestamp }
+import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, deleteDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
@@ -125,6 +131,46 @@ function randomId(){
   const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
   return Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join("");
 }
+/* ---- Account numbers ----
+   Short, human-readable, never reused. The next number lives in one
+   counter doc (meta/customerCounter) and is handed out inside a
+   transaction, so two people adding a customer at once can't collide. */
+const ACCT_START = 1001;
+const acctLabel = c => c && c.acctNo ? "KC-" + c.acctNo : "";
+
+async function nextAcctNo(){
+  const ref = doc(db, "meta", "customerCounter");
+  return await runTransaction(db, async tx => {
+    const snap = await tx.get(ref);
+    const last = snap.exists() ? Number(snap.data().last) || 0 : 0;
+    const n = Math.max(last + 1, ACCT_START);
+    tx.set(ref, { last: n, updatedAt: serverTimestamp() }, { merge: true });
+    return n;
+  });
+}
+
+/* Backfill. Anyone without a number gets one, oldest first, so the
+   longest-standing customer is KC-1001. Runs once per page load and
+   does nothing when everybody already has one. */
+async function backfillAcctNos(list){
+  /* Own date reader: anyMs is declared further down the file. */
+  const ms = t => {
+    if (!t) return 0;
+    if (typeof t.toMillis === "function") return t.toMillis();
+    const n = Date.parse(t);
+    return isNaN(n) ? 0 : n;
+  };
+  const missing = list.filter(c => !c.acctNo)
+    .sort((a, b) => ms(a.createdAt) - ms(b.createdAt));
+  if (!missing.length) return 0;
+  for (const c of missing) {
+    const n = await nextAcctNo();
+    await setDoc(doc(db, "customers", c.id), { acctNo: n }, { merge: true });
+    c.acctNo = n;
+  }
+  return missing.length;
+}
+
 const addrLine = a => [a.street, [a.city, a.state].filter(Boolean).join(", "), a.zip].filter(Boolean).join(" ");
 const cityLine = a => [[a.city, a.state].filter(Boolean).join(", "), a.zip].filter(Boolean).join(" ");
 /* Contact type. No type on file = residential (covers everyone imported before this). */
@@ -181,6 +227,7 @@ async function showList(){
     try {
       const snap = await getDocs(collection(db, "customers"));
       all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byName);
+      try { await backfillAcctNos(all); } catch (e) { console.error("account numbers:", e); }
     } catch (e) {
       console.error(e);
       view.innerHTML = '<div class="msg">Could not load customers: ' + esc(e.message) + '</div>';
@@ -189,13 +236,14 @@ async function showList(){
   }
   view.innerHTML =
     '<div class="bar"><input id="q" type="search" placeholder="Search name, business, phone, email, or address" autocomplete="off" value="' + esc(lastTerm) + '"></div>' +
-    '<div class="count" id="count"></div><div class="list" id="list"></div>';
+    '<div class="count" id="count"></div><div class="list" id="list"></div>' +
+    '<div class="trashlink"><a href="#trash">Trash</a></div>';
   const q = document.getElementById("q"), listEl = document.getElementById("list"), countEl = document.getElementById("count");
   const draw = () => {
     lastTerm = q.value;
     const t = q.value.trim().toLowerCase(), td = digits(q.value);
     const rows = all.filter(c => !c.trashed).filter(c => !t ||
-      [c.name, c.business, typeOf(c).label, ...emailsOf(c), ...(c.addresses || []).map(addrLine)].join(" ").toLowerCase().includes(t) ||
+      [c.name, c.business, typeOf(c).label, acctLabel(c), String(c.acctNo || ""), ...emailsOf(c), ...(c.addresses || []).map(addrLine)].join(" ").toLowerCase().includes(t) ||
       (td.length >= 3 && phonesOf(c).some(p => digits(p).includes(td))));
     countEl.textContent = rows.length + (rows.length === 1 ? " customer" : " customers") + (t ? " found" : "");
     const card = c => {
@@ -207,6 +255,7 @@ async function showList(){
       /* No badge here: the card already sits under its type's heading, so the
          tint carries the type instead and every name lines up. */
       return '<a class="row bg-' + typeOf(c).v + '" href="#' + encodeURIComponent(c.id) + '">' +
+        (acctLabel(c) ? '<div class="acct">' + esc(acctLabel(c)) + '</div>' : "") +
         '<div class="who">' + esc(displayName(c)) + '</div>' +
         lines.map(l => '<div class="meta">' + esc(l) + '</div>').join("") +
       '</a>';
@@ -313,6 +362,7 @@ const rrow = (lab, val) =>
 function readBlock(c){
   const addrs = (c.addresses || []).filter(a => a && (a.street || a.city || a.zip));
   return '<div class="read" id="readView">' +
+    (acctLabel(c) ? rrow("Account", acctLabel(c)) : "") +
     rrow("Name", displayName(c)) +
     (subName(c) ? rrow("Contact", subName(c)) : "") +
     rrow("Type", typeOf(c).label) +
@@ -510,7 +560,16 @@ async function showProfile(id){
         return;
       }
       const theId = isNew ? randomId() : id;
+      /* New customers get the next account number. If the counter can't be
+         reached the save still goes through without one, and the next list
+         load backfills it. */
+      let acctNo = c.acctNo;
+      if (isNew && !acctNo) {
+        try { acctNo = await nextAcctNo(); }
+        catch (e) { console.error("account number:", e); }
+      }
       const data = { type, business, name, phone, email, notes: $("cNotes").value.trim(), addresses,
+        ...(acctNo ? { acctNo } : {}),
         phones, emails, phoneKeys, emailKeys, phoneKey: phoneKey(phone), emailKey: emailKey(email), updatedAt: serverTimestamp() };
       if (isNew) Object.assign(data, { source: "manual", createdAt: serverTimestamp() });
       await setDoc(doc(db, "customers", theId), data, { merge: true });
