@@ -37,6 +37,13 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 /* Account number sits on its own line above the name, right-aligned,
    so a long name or address never has to share the line with it. */
 .row .acct{text-align:right;margin-bottom:2px}
+.leadhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.leadtime{color:var(--muted);font-size:13px;white-space:nowrap}
+.read .cacct{font-size:14px;color:var(--muted);margin-bottom:8px;font-variant-numeric:tabular-nums}
+.read .contact{margin-bottom:12px}
+.read .contact .prow{font-size:17px;line-height:1.45}
+.read .contact .cname{font-weight:600}
+.read .contact .cnamerow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .meta{color:var(--muted);font-size:14px}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
 .trashlink{text-align:center;margin:28px 0 8px}
@@ -358,20 +365,22 @@ const multiRow = (kind, v = "") =>
 const rrow = (lab, val) =>
   '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval' +
   (val ? '' : ' empty') + '">' + (val ? esc(val) : "\u2014") + '</div></div>';
+/* A bare value with no label — contact lines where the meaning is obvious. */
+const prow = (val, cls) => val ? '<div class="prow' + (cls ? ' ' + cls : '') + '">' + esc(val).replace(/\n/g, "<br>") + '</div>' : '';
 
 function readBlock(c){
   const addrs = (c.addresses || []).filter(a => a && (a.street || a.city || a.zip));
   return '<div class="read" id="readView">' +
-    (acctLabel(c) ? rrow("Account", acctLabel(c)) : "") +
-    rrow("Name", displayName(c)) +
-    (subName(c) ? rrow("Contact", subName(c)) : "") +
-    rrow("Type", typeOf(c).label) +
-    rrow(phonesOf(c).length > 1 ? "Phones" : "Phone", phonesOf(c).join("\n")) +
-    rrow(emailsOf(c).length > 1 ? "Emails" : "Email", emailsOf(c).join("\n")) +
-    (addrs.length
-      ? addrs.map((a, n) => rrow(n ? "" : "Address",
-          [a.street, cityLine(a)].filter(Boolean).join("\n"))).join("")
-      : rrow("Address", "")) +
+    (acctLabel(c) ? prow(acctLabel(c), "cacct") : "") +
+    '<div class="contact">' +
+      '<div class="prow cname cnamerow">' + esc(displayName(c)) + ' ' + badge(c) + '</div>' +
+      (subName(c) ? prow(subName(c)) : "") +
+      (addrs.length
+        ? addrs.map(a => prow([a.street, cityLine(a)].filter(Boolean).join("\n"))).join("")
+        : "") +
+      prow(phonesOf(c).join("\n")) +
+      prow(emailsOf(c).join("\n")) +
+    '</div>' +
     rrow("Notes", c.notes) +
   '</div>';
 }
@@ -401,7 +410,9 @@ async function showProfile(id){
   const editing = isNew;
   view.innerHTML =
     '<div class="panel">' +
-      '<h2>Contact</h2>' +
+      '<div class="leadhead"><h2>Contact</h2>' +
+        (!isNew && anyMs(c.createdAt) ? '<span class="leadtime">' + esc(shortDate(anyMs(c.createdAt))) + '</span>' : '') +
+      '</div>' +
       (isNew ? '' : readBlock(c)) +
       '<div id="editView">' +
       '<div class="grid" style="margin-bottom:10px">' +
@@ -469,8 +480,9 @@ async function showProfile(id){
     const add = e.target.closest("[data-add]");
     if (add) {
       const box = $(add.dataset.add === "phone" ? "phones" : "emails");
-      box.insertAdjacentHTML("beforeend", multiRow(add.dataset.add));
-      box.lastElementChild.querySelector("input").focus();
+      /* Newest goes on top, so it saves first and becomes the main one. */
+      box.insertAdjacentHTML("afterbegin", multiRow(add.dataset.add));
+      box.firstElementChild.querySelector("input").focus();
       return;
     }
     const del = e.target.closest(".mdel");
@@ -478,8 +490,8 @@ async function showProfile(id){
   });
 
   $("addAddr").addEventListener("click", () => {
-    $("addrs").insertAdjacentHTML("beforeend", addrBlock());
-    $("addrs").lastElementChild.querySelector("input").focus();
+    $("addrs").insertAdjacentHTML("afterbegin", addrBlock());
+    $("addrs").firstElementChild.querySelector("input").focus();
   });
 
   async function setTrashed(flag){

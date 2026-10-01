@@ -41,6 +41,28 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
 .pgrid a{display:block;border-radius:8px;overflow:hidden;background:#eef0f4}
 .pgrid img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.lbox{position:fixed;inset:0;z-index:1000;background:rgba(10,14,22,.92);display:none;align-items:center;justify-content:center;padding:24px}
+.lbox.on{display:flex}
+.leadhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.leadtime{color:#8a93a6;font-size:13px;white-space:nowrap}
+.contact{margin-bottom:14px}
+.contact .prow{font-size:17px;line-height:1.4}
+.contact .prow:first-child{font-weight:600}
+.maplink{color:inherit;text-decoration:none;border-bottom:1px dotted #9aa3b5}
+.maplink:hover{border-bottom-style:solid}
+.notesbox textarea,#msgEdit textarea{width:100%;box-sizing:border-box;font:inherit;padding:8px 10px;border:1px solid #c9cedb;border-radius:6px;resize:vertical}
+.tiny{padding:2px 10px;font-size:13px}
+.rrow.msgrow{display:block}
+.msgrow #msgView{margin-top:4px}
+.msghead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pcell{position:relative}
+.pdel{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border:2px solid #fff;border-radius:50%;background:#1c2230;color:#fff;font-size:16px;line-height:1;cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.4);padding:0;z-index:2}
+.pdel:hover{background:#b23b3b}
+.pdel:disabled{opacity:.5;cursor:default}
+.lbox__fig{position:relative;display:inline-flex;max-width:95vw;max-height:90vh}
+.lbox img{display:block;max-width:95vw;max-height:90vh;object-fit:contain;border-radius:6px}
+.lbox__x{position:absolute;top:-14px;right:-14px;width:40px;height:40px;border:2px solid #fff;border-radius:50%;background:#1c2230;color:#fff;font-size:24px;line-height:1;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.lbox__x:hover{background:#333a4d}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
 .new:disabled,.ghost:disabled{opacity:.6;cursor:default}
 .note{font-size:14px;color:var(--muted)}
@@ -91,7 +113,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const STATUSES = [
   { v: "new",       label: "New" },
   { v: "contacted", label: "Contacted" },
-  { v: "closed",    label: "Closed" }
+  { v: "quoted",    label: "Quoted" }
 ];
 const statusOf = l => STATUSES.find(s => s.v === l.status) || STATUSES[0];
 
@@ -194,7 +216,7 @@ async function showList(){
       }).join("")
     : '<div class="msg">No open leads. Quick quotes from the website land here.</div>') +
     (converted.length
-      ? '<section class="col"><h3 class="colhead">Converted to customers (' + converted.length + ')</h3>' +
+      ? '<section class="col"><h3 class="colhead">Quoted leads (' + converted.length + ')</h3>' +
         converted.map(card).join("") + '</section>' : "") +
     (purged ? '<div class="msg">' + purged + (purged === 1 ? " lead" : " leads") + ' erased after 30 days.</div>' : "");
 }
@@ -224,6 +246,8 @@ async function showTrash(){
 const rrow = (lab, val) =>
   '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval' +
   (val ? '' : ' empty') + '">' + (val ? esc(val) : "—") + '</div></div>';
+/* A bare value with no label — contact lines where the meaning is obvious. */
+const prow = val => val ? '<div class="prow">' + esc(val).replace(/\n/g, "<br>") + '</div>' : '';
 
 async function showLead(id){
   let l = all && all.find(x => x.id === id);
@@ -247,13 +271,32 @@ async function showLead(id){
   const cur = statusOf(l).v;
   view.innerHTML =
     '<div class="panel">' +
-      '<h2>Lead</h2>' +
+      '<div class="leadhead"><h2>Lead</h2>' +
+        (when(l) ? '<span class="leadtime">' + esc(when(l)) + '</span>' : '') +
+      '</div>' +
       '<div class="read">' +
-        rrow("Name", l.name) + rrow("Phone", l.phone) + rrow("Email", l.email) +
+        '<div class="contact">' +
+          prow(l.name) +
+          (function(){
+            const full = [a.street, cityLine(a)].filter(Boolean).join("\n");
+            if (!full) return "";
+            /* Plain maps link so each device opens its preferred maps app. */
+            const q = encodeURIComponent([a.street, cityLine(a)].filter(Boolean).join(", "));
+            return '<div class="prow"><a class="maplink" href="https://maps.google.com/?q=' + q +
+              '" target="_blank" rel="noopener">' + esc(full).replace(/\n/g, "<br>") + '</a></div>';
+          })() +
+          prow(l.phone) + prow(l.email) +
+        '</div>' +
         rrow("Type", typeLabel(l)) +
-        rrow("Address", [a.street, cityLine(a)].filter(Boolean).join("\n")) +
-        rrow("Services", servicesOf(l)) + rrow("Message", l.message) +
-        rrow("Received", when(l)) + rrow("Source", l.source) +
+        rrow("Services", servicesOf(l)) +
+        '<div class="rrow msgrow"><div class="msghead"><div class="rlab">Message</div>' +
+          '<button type="button" class="ghost tiny" id="editMsg">Edit</button></div>' +
+          '<div class="rval' + (l.message ? '' : ' empty') + '" id="msgView">' + (l.message ? esc(l.message) : "\u2014") + '</div>' +
+          '<div id="msgEdit" hidden><textarea id="msgText" rows="3">' + esc(l.message || "") + '</textarea>' +
+            '<div class="actions"><button type="button" class="new" id="saveMsg">Save</button>' +
+            '<button type="button" class="ghost" id="cancelMsg">Cancel</button>' +
+            '<span class="note" id="msgMsg"></span></div></div>' +
+        '</div>' +
       '</div>' +
       '<div class="actions">' +
         (tel ? '<a class="ghost" href="tel:' + esc(tel) + '">Call</a><a class="ghost" href="sms:' + esc(tel) + '">Text</a>' : '') +
@@ -265,6 +308,12 @@ async function showLead(id){
       '<div class="actions">' +
         STATUSES.map(s => '<button type="button" class="' + (s.v === cur ? "new" : "ghost") + '" data-status="' + s.v + '">' + s.label + '</button>').join("") +
       '</div>' +
+      '<h2>Notes</h2>' +
+      '<div class="notesbox">' +
+        '<textarea id="staffNotes" rows="4" placeholder="Notes about this lead\u2026">' + esc(l.staffNotes || "") + '</textarea>' +
+        '<div class="actions"><button type="button" class="ghost" id="saveNotes">Save notes</button>' +
+        '<span class="note" id="notesMsg"></span></div>' +
+      '</div>' +
       (l.converted
         ? '<p class="note">Converted to a customer. ' +
             (l.customerId ? '<a href="./customers.html#' + encodeURIComponent(l.customerId) + '">Open customer</a>. ' : '') +
@@ -273,6 +322,7 @@ async function showLead(id){
       (l.trashed ? '<p class="note err">In the trash. ' + esc(leftLabel(l)) + '.</p>' : '') +
       '<div class="actions">' +
         (!l.trashed ? '<button type="button" class="new" id="quoteBtn">New quote</button>' : '') +
+        (!l.trashed && cur === "quoted" ? '<button type="button" class="ghost" id="cancelQuoteBtn">Quote canceled</button>' : '') +
         (!l.converted && !l.trashed ? '<button type="button" class="new" id="convertBtn">Convert to customer</button>' : '') +
         (l.trashed
           ? '<button type="button" class="ghost" id="restoreBtn">Restore</button>'
@@ -287,13 +337,38 @@ async function showLead(id){
   if (photoCount(l)) (async () => {
     const fromPaths = await Promise.all(pathsOf(l).map(p =>
       getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
-    const urls = photos.concat(fromPaths.filter(Boolean));
+    /* Each tile remembers which array and value it came from, so the X trashes the right one. */
+    const pathList = pathsOf(l);
+    const tiles = photos.map(u => ({ url: u, kind: "url", val: u }))
+      .concat(fromPaths.map((u, i) => u ? { url: u, kind: "path", val: pathList[i] } : null).filter(Boolean));
     const box = document.getElementById("photos");
     if (!box || !box.isConnected) return;
-    box.innerHTML = urls.length
-      ? '<div class="pgrid">' + urls.map(u =>
-          '<a href="' + esc(u) + '" target="_blank" rel="noopener"><img src="' + esc(u) + '" alt="" loading="lazy"></a>').join("") + '</div>'
+    box.innerHTML = tiles.length
+      ? '<div class="pgrid">' + tiles.map(t =>
+          '<div class="pcell"><a href="' + esc(t.url) + '" class="pshot" data-full="' + esc(t.url) + '"><img src="' + esc(t.url) + '" alt="" loading="lazy"></a>'
+          + '<button type="button" class="pdel" data-kind="' + esc(t.kind) + '" data-val="' + esc(t.val) + '" aria-label="Remove photo">\u00d7</button></div>').join("") + '</div>'
       : '<div class="msg">The photos for this lead could not be loaded.</div>';
+
+    /* X on a thumbnail: move that photo into trashedPhotos and drop it from its array.
+       It disappears from the row right away. The file stays in Storage for now;
+       sweeping trashed photos out of Storage is a later step. */
+    box.addEventListener("click", async e => {
+      const btn = e.target.closest(".pdel");
+      if (!btn) return;
+      e.preventDefault();
+      const kind = btn.dataset.kind, val = btn.dataset.val;
+      const cur = all && all.find(x => x.id === id);
+      if (!cur) return;
+      const field = kind === "path" ? "photoPaths" : "photoUrls";
+      const left = (Array.isArray(cur[field]) ? cur[field] : []).filter(v => v !== val);
+      const trashed = (Array.isArray(cur.trashedPhotos) ? cur.trashedPhotos : []).concat([{ kind, val, at: new Date().toISOString() }]);
+      btn.disabled = true;
+      try {
+        await updateDoc(doc(db, "leads", id), { [field]: left, trashedPhotos: trashed, updatedAt: serverTimestamp() });
+        patchLocal({ [field]: left, trashedPhotos: trashed });
+        location.reload();
+      } catch (err) { console.error(err); btn.disabled = false; alert("Could not remove the photo: " + err.message); }
+    });
   })();
 
   const note = document.getElementById("note");
@@ -324,7 +399,7 @@ async function showLead(id){
      then mark the lead converted. It stays in Converted for 30 days, then is erased. */
   const convertBtn = document.getElementById("convertBtn");
   const quoteBtn = document.getElementById("quoteBtn");
-  if (quoteBtn) quoteBtn.addEventListener("click", () => {
+  if (quoteBtn) quoteBtn.addEventListener("click", async () => {
     const a = addrOf(l);
     /* Hand the estimator just the customer fields it asks for. It reads
        this on load, fills the form, then clears it. */
@@ -341,6 +416,12 @@ async function showLead(id){
       leadId: l.id
     };
     try { sessionStorage.setItem("kc_prefill", JSON.stringify(prefill)); } catch (e) {}
+    /* Mark the lead quoted before handing off. Wait for the write so a fast
+       navigation can't drop it; if it fails, still open the estimator. */
+    if (quoteBtn) quoteBtn.disabled = true;
+    try {
+      await updateDoc(doc(db, "leads", l.id), { status: "quoted", updatedAt: serverTimestamp() });
+    } catch (e) { console.error(e); }
     location.href = "./index.html";
   });
 
@@ -400,7 +481,79 @@ async function showLead(id){
       view.querySelectorAll("[data-status]").forEach(x => { x.disabled = false; });
     }
   }));
+
+  /* Edit the message in place. Saving overwrites the original message text. */
+  const editMsg = document.getElementById("editMsg");
+  if (editMsg) editMsg.addEventListener("click", () => {
+    document.getElementById("msgView").hidden = true;
+    editMsg.hidden = true;
+    document.getElementById("msgEdit").hidden = false;
+    document.getElementById("msgText").focus();
+  });
+  const cancelMsg = document.getElementById("cancelMsg");
+  if (cancelMsg) cancelMsg.addEventListener("click", () => {
+    document.getElementById("msgEdit").hidden = true;
+    document.getElementById("msgView").hidden = false;
+    document.getElementById("editMsg").hidden = false;
+  });
+  const saveMsg = document.getElementById("saveMsg");
+  if (saveMsg) saveMsg.addEventListener("click", async () => {
+    const text = document.getElementById("msgText").value.trim();
+    const msg = document.getElementById("msgMsg");
+    saveMsg.disabled = true; msg.classList.remove("err"); msg.textContent = "Saving\u2026";
+    try {
+      await updateDoc(doc(db, "leads", id), { message: text, updatedAt: serverTimestamp() });
+      patchLocal({ message: text });
+      showLead(id);
+    } catch (e) { console.error(e); msg.classList.add("err"); msg.textContent = "Could not save: " + e.message; saveMsg.disabled = false; }
+  });
+
+  /* Quote canceled: drop the lead out of Quoted, back to a regular lead. */
+  const cancelQuoteBtn = document.getElementById("cancelQuoteBtn");
+  if (cancelQuoteBtn) cancelQuoteBtn.addEventListener("click", async () => {
+    cancelQuoteBtn.disabled = true;
+    try {
+      await updateDoc(doc(db, "leads", id), { status: "contacted", updatedAt: serverTimestamp() });
+      patchLocal({ status: "contacted" });
+      showLead(id);
+    } catch (e) { console.error(e); cancelQuoteBtn.disabled = false; alert("Could not update: " + e.message); }
+  });
+
+  /* Save notes onto the lead. They ride along into Convert and (step two) New quote. */
+  const saveNotesBtn = document.getElementById("saveNotes");
+  if (saveNotesBtn) saveNotesBtn.addEventListener("click", async () => {
+    const ta = document.getElementById("staffNotes");
+    const msg = document.getElementById("notesMsg");
+    const text = ta ? ta.value.trim() : "";
+    saveNotesBtn.disabled = true;
+    msg.classList.remove("err"); msg.textContent = "Saving\u2026";
+    try {
+      await updateDoc(doc(db, "leads", id), { staffNotes: text, updatedAt: serverTimestamp() });
+      patchLocal({ staffNotes: text });
+      msg.textContent = "Saved.";
+    } catch (e) { console.error(e); msg.classList.add("err"); msg.textContent = "Could not save: " + e.message; }
+    saveNotesBtn.disabled = false;
+  });
 }
+
+/* ---- Photo lightbox: tap a photo to open over the page, tap backdrop or X to close ---- */
+(function () {
+  const lb = document.createElement("div");
+  lb.className = "lbox";
+  lb.innerHTML = '<div class="lbox__fig"><button type="button" class="lbox__x" aria-label="Close">\u00d7</button><img alt=""></div>';
+  document.body.appendChild(lb);
+  const img = lb.querySelector("img");
+  const close = () => { lb.classList.remove("on"); img.src = ""; };
+  lb.addEventListener("click", e => { if (e.target === lb || e.target.closest(".lbox__x")) close(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && lb.classList.contains("on")) close(); });
+  document.addEventListener("click", e => {
+    const a = e.target.closest(".pshot");
+    if (!a) return;
+    e.preventDefault();
+    img.src = a.dataset.full;
+    lb.classList.add("on");
+  });
+})();
 
 /* #<id> = one lead, nothing = list */
 const route = () => {
