@@ -704,6 +704,13 @@ body{ background:var(--paper); }
 .qqHome{ display:inline-block; margin-bottom:1.5rem; font-family:"Archivo",sans-serif;
   font-size:.875rem; color:var(--emerald); text-decoration:none; }
 .qqHome:hover{ text-decoration:underline; }
+/* Photo previews: even square tiles with an X to remove one. */
+.qPhotoPreview{ display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px; margin-top:10px; }
+.qPhotoPreview:empty{ display:none; }
+.qPhotoTile{ position:relative; }
+.qPhotoThumb{ display:block; width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; border:1px solid #dde1e8; background:#f3f4f6; }
+.qPhotoX{ position:absolute; top:4px; right:4px; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:rgba(23,34,57,.8); color:#fff; font:700 16px/26px system-ui,sans-serif; text-align:center; cursor:pointer; }
+.qPhotoX:hover,.qPhotoX:focus-visible{ background:#A6402F; }
 </style>
 </head>
 <body>
@@ -758,7 +765,6 @@ body{ background:var(--paper); }
                 <label for="qType">Property type</label>
                 <select id="qType" name="property_type">
                   <option selected>Residential</option>
-                  <option>Move-out deep clean</option>
                   <option>Commercial</option>
                 </select>
                 <span class="qerr" data-for="qType"></span>
@@ -1285,10 +1291,10 @@ window.kcQAddr = function(){
 
   //  Project settings
   const firebaseConfig = {
-    apiKey:            'AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg,',
+    apiKey:            'AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg',
     authDomain:        'khean-estimator-78f3e.firebaseapp.com',
     projectId:         'khean-estimator-78f3e',
-    storageBucket:     'khean-estimator-78f3e.appspot.com',
+    storageBucket:     'khean-estimator-78f3e.firebasestorage.app',
     messagingSenderId: '581692353222',
     appId:             '1:581692353222:web:21f62f057ac5506bbb45c7'
   };
@@ -1379,25 +1385,52 @@ window.kcQAddr = function(){
   /* Short push-style subject: enough to triage without opening the email. */
   function kcNotifySubject(){
     var who = document.getElementById('qName').value.trim() || 'someone';
-    var input = document.getElementById('qPhotos');
-    var n = input && input.files ? input.files.length : 0;
+    var n = kcFiles.length;
     return 'New quote request from ' + who + (n ? ' (' + n + ' photo' + (n === 1 ? '' : 's') + ')' : '');
   }
 
-  /* Thumbnail preview so the customer sees what they attached. */
+  /* The photos the customer has actually chosen. A file input can't have one
+     file removed, so we keep our own list: picking adds to it, the X removes
+     from it, and the submit uploads from it. */
+  var kcFiles = [];
+
+  /* Thumbnail preview so the customer sees what they attached, each with an X. */
   (function(){
     var input = document.getElementById('qPhotos'),
         box   = document.getElementById('qPhotoPreview');
     if(!input || !box) return;
-    input.addEventListener('change', function(){
+    var urls = [];
+    function draw(){
+      urls.forEach(function(u){ URL.revokeObjectURL(u); });
+      urls = [];
       box.innerHTML = '';
-      Array.prototype.forEach.call(input.files, function(f){
+      kcFiles.forEach(function(f, i){
+        var tile = document.createElement('div');
+        tile.className = 'qPhotoTile';
         var img = document.createElement('img');
         img.className = 'qPhotoThumb';
         img.alt = f.name;
         img.src = URL.createObjectURL(f);
-        box.appendChild(img);
+        urls.push(img.src);
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'qPhotoX';
+        x.setAttribute('aria-label', 'Remove ' + f.name);
+        x.textContent = '×';
+        x.addEventListener('click', function(){ kcFiles.splice(i, 1); draw(); });
+        tile.appendChild(img);
+        tile.appendChild(x);
+        box.appendChild(tile);
       });
+    }
+    input.addEventListener('change', function(){
+      var max = window.KC_MAX_FILES || 10;
+      Array.prototype.forEach.call(input.files, function(f){
+        if (kcFiles.length < max) kcFiles.push(f);
+      });
+      /* Clear the input so the same photo can be picked again after removing it. */
+      input.value = '';
+      draw();
     });
   })();
   var statusEl = document.getElementById('qStatus'),
@@ -1508,15 +1541,19 @@ window.kcQAddr = function(){
 
     /* Photos upload to Firebase Storage first; the lead is written to
        Firestore so it appears in the CRM. Web3Forms is notification only. */
-    var photoInput = document.getElementById('qPhotos');
-    var files = photoInput && photoInput.files ? photoInput.files : [];
+    var files = kcFiles.slice();
     var leadKey = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 
     if (files.length) { submit.textContent = 'Uploading photos...'; }
 
     Promise.resolve()
       .then(function(){
-        return files.length ? window.kcUploadPhotos(files, leadKey) : [];
+        return files.length
+          ? window.kcUploadPhotos(files, leadKey).catch(function(err){
+              if (window.console) { console.error('Photo upload failed', err); }
+              return [];
+            })
+          : [];
       })
       .then(function(photoUrls){
         fd.append('photo_count', String(photoUrls.length));
@@ -1524,10 +1561,13 @@ window.kcQAddr = function(){
           name:          document.getElementById('qName').value.trim(),
           phone:         document.getElementById('qPhone').value.trim(),
           email:         document.getElementById('qEmail').value.trim(),
-          street:        document.getElementById('qAddr').value.trim(),
-          city:          document.getElementById('qCity').value.trim(),
-          zip:           document.getElementById('qZip').value.trim(),
-          property_type: document.getElementById('qType').value,
+          addresses: [{
+            street: document.getElementById('qAddr').value.trim(),
+            city:   document.getElementById('qCity').value.trim(),
+            state:  'CA',
+            zip:    document.getElementById('qZip').value.trim()
+          }],
+          type:          document.getElementById('qType').value.toLowerCase(),
           services:      services,
           message:       document.getElementById('qMsg').value.trim(),
           photoUrls:     photoUrls

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Leads &middot; Khean &amp; Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.col{display:grid;gap:10px;align-content:start;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:14px}
+.col .colhead{grid-column:1/-1}
+.colhead{font:700 13px "Archivo",system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 2px}
+.row{display:block;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 16px}
+.row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
+/* Card tint by lead source. Quick quote = blue. */
+.row.src-quick-quote{background:#e6eef9}
+.who{font-weight:700}
+.meta{color:var(--muted);font-size:14px}
+.msg{color:var(--muted);font-size:14px;padding:6px 2px}
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
+.panel h2{font:700 20px "Playfair Display",Georgia,serif;margin:24px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
+.panel h2:first-child{margin-top:0}
+.read{display:grid;gap:10px;margin-bottom:4px}
+.rrow{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline}
+@media(max-width:620px){.rrow{grid-template-columns:1fr;gap:2px}}
+.rlab{font-size:13px;font-weight:600;color:var(--muted)}
+.rval{font-size:16px;color:var(--ink);white-space:pre-wrap}
+.rval.empty{color:var(--muted)}
+.pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.pgrid a{display:block;border-radius:8px;overflow:hidden;background:#eef0f4}
+.pgrid img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.new:disabled,.ghost:disabled{opacity:.6;cursor:default}
+.note{font-size:14px;color:var(--muted)}
+.note.err{color:var(--red)}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./index.html" aria-label="Estimator home"><img src="../images/icon-180.png" alt=""></a>
+    <h1 id="title">Leads</h1>
+    <div style="display:flex;gap:10px;align-items:center;margin-left:auto">
+      <a class="ghost" href="./dashboard.html">Dashboard</a>
+      <a class="ghost" href="./customers.html">Customers</a>
+    </div>
+  </div>
+  <div id="view"><div class="msg">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+
+const view = document.getElementById("view"), titleEl = document.getElementById("title");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* Lead status. No status on file = new. */
+const STATUSES = [
+  { v: "new",       label: "New" },
+  { v: "contacted", label: "Contacted" },
+  { v: "closed",    label: "Closed" }
+];
+const statusOf = l => STATUSES.find(s => s.v === l.status) || STATUSES[0];
+
+/* Same field names as customers.html. Leads saved before the rename have
+   flat street/city/zip and property_type, so fall back to those. */
+const addrOf = l => (Array.isArray(l.addresses) && l.addresses[0]) ||
+  { street: l.street, city: l.city, state: l.street || l.city ? "CA" : "", zip: l.zip };
+const cityLine = a => [[a.city, a.state].filter(Boolean).join(", "), a.zip].filter(Boolean).join(" ");
+const typeLabel = l => {
+  const t = String(l.type || l.property_type || "residential").toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+const servicesOf = l => Array.isArray(l.services) ? l.services.join(", ") : String(l.services || "");
+const ms = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
+const when = l => { const m = ms(l.createdAt); return m ? new Date(m).toLocaleString(undefined,
+  { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""; };
+/* Leads come from a public form, so only real https links are shown as photos. */
+const photosOf = l => (Array.isArray(l.photoUrls) ? l.photoUrls : []).filter(u => /^https:\/\//.test(String(u)));
+
+let all = null;
+async function load(){
+  const snap = await getDocs(collection(db, "leads"));
+  all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
+}
+
+/* ---- List: newest first, grouped by status ---- */
+async function showList(){
+  titleEl.textContent = "Leads";
+  document.title = "Leads · Khean & Clean";
+  if (!all) {
+    view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+    try { await load(); }
+    catch (e) {
+      console.error(e);
+      view.innerHTML = '<div class="msg">Could not load leads: ' + esc(e.message) + '</div>';
+      return;
+    }
+  }
+  const card = l => {
+    const n = photosOf(l).length;
+    const lines = [cityLine(addrOf(l)), l.phone, servicesOf(l),
+      [when(l), n ? n + (n === 1 ? " photo" : " photos") : ""].filter(Boolean).join(" · ")];
+    return '<a class="row src-' + esc(l.source || "other") + '" href="#' + encodeURIComponent(l.id) + '">' +
+      '<div class="who">' + esc(l.name || "No name") + '</div>' +
+      lines.filter(x => x && String(x).trim()).map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
+    '</a>';
+  };
+  view.innerHTML = all.length
+    ? STATUSES.map(s => {
+        const inS = all.filter(l => statusOf(l).v === s.v);
+        return inS.length ? '<section class="col"><h3 class="colhead">' + s.label + ' (' + inS.length + ')</h3>' +
+          inS.map(card).join("") + '</section>' : "";
+      }).join("")
+    : '<div class="msg">No leads yet. Quick quotes from the website land here.</div>';
+}
+
+/* ---- One lead: details, photos, status ---- */
+const rrow = (lab, val) =>
+  '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval' +
+  (val ? '' : ' empty') + '">' + (val ? esc(val) : "—") + '</div></div>';
+
+async function showLead(id){
+  let l = all && all.find(x => x.id === id);
+  if (!l) {
+    view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+    try {
+      const s = await getDoc(doc(db, "leads", id));
+      if (!s.exists()) { view.innerHTML = '<div class="msg">That lead isn’t on file. <a href="#">Back to leads</a></div>'; return; }
+      l = { id, ...s.data() };
+    } catch (e) {
+      console.error(e);
+      view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>';
+      return;
+    }
+  }
+  titleEl.textContent = l.name || "Lead";
+  document.title = titleEl.textContent + " · Khean & Clean";
+
+  const a = addrOf(l), photos = photosOf(l);
+  const tel = String(l.phone || "").replace(/[^\d+]/g, "");
+  const cur = statusOf(l).v;
+  view.innerHTML =
+    '<div class="panel">' +
+      '<h2>Lead</h2>' +
+      '<div class="read">' +
+        rrow("Name", l.name) + rrow("Phone", l.phone) + rrow("Email", l.email) +
+        rrow("Type", typeLabel(l)) +
+        rrow("Address", [a.street, cityLine(a)].filter(Boolean).join("\n")) +
+        rrow("Services", servicesOf(l)) + rrow("Message", l.message) +
+        rrow("Received", when(l)) + rrow("Source", l.source) +
+      '</div>' +
+      '<div class="actions">' +
+        (tel ? '<a class="ghost" href="tel:' + esc(tel) + '">Call</a><a class="ghost" href="sms:' + esc(tel) + '">Text</a>' : '') +
+        (l.email ? '<a class="ghost" href="mailto:' + encodeURIComponent(l.email) + '">Email</a>' : '') +
+      '</div>' +
+      '<h2>Photos</h2>' +
+      (photos.length
+        ? '<div class="pgrid">' + photos.map(u =>
+            '<a href="' + esc(u) + '" target="_blank" rel="noopener"><img src="' + esc(u) + '" alt="" loading="lazy"></a>').join("") + '</div>'
+        : '<div class="msg">No photos with this lead.</div>') +
+      '<h2>Status</h2>' +
+      '<div class="actions">' +
+        STATUSES.map(s => '<button type="button" class="' + (s.v === cur ? "new" : "ghost") + '" data-status="' + s.v + '">' + s.label + '</button>').join("") +
+        '<a class="ghost" href="#">Back to leads</a>' +
+        '<span class="note" id="note"></span>' +
+      '</div>' +
+    '</div>';
+
+  const note = document.getElementById("note");
+  view.querySelectorAll("[data-status]").forEach(b => b.addEventListener("click", async () => {
+    const v = b.dataset.status;
+    if (v === cur) return;
+    view.querySelectorAll("[data-status]").forEach(x => { x.disabled = true; });
+    note.classList.remove("err"); note.textContent = "Saving…";
+    try {
+      await updateDoc(doc(db, "leads", id), { status: v, updatedAt: serverTimestamp() });
+      if (all) all = all.map(x => x.id === id ? Object.assign({}, x, { status: v }) : x);
+      else l = Object.assign({}, l, { status: v });
+      showLead(id);
+    } catch (e) {
+      console.error(e);
+      note.classList.add("err"); note.textContent = "Could not save: " + e.message;
+      view.querySelectorAll("[data-status]").forEach(x => { x.disabled = false; });
+    }
+  }));
+}
+
+/* #<id> = one lead, nothing = list */
+const route = () => {
+  const h = decodeURIComponent(location.hash.slice(1));
+  window.scrollTo(0, 0);
+  if (h) showLead(h); else showList();
+};
+
+/* Page lock. Not signed in -> login page, then back here. */
+let started = false;
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=leads.html"); return; }
+  document.getElementById("authwait")?.remove();
+  if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
+});
+</script>
+</body>
+</html>
