@@ -207,6 +207,10 @@
         <p class="est__min" id="minNote"></p>
 
 
+        <div class="estField est__leadmsg" id="eLeadMsgField" hidden>
+          <label for="eLeadMsg">Lead message</label>
+          <textarea id="eLeadMsg" rows="3"></textarea>
+        </div>
         <div class="estField est__notes">
           <label for="eNotes">Anything else we should know <span class="opt">(optional)</span></label>
           <textarea id="eNotes" rows="4" placeholder="Parking and access, stairs up to the unit, furniture to move, pets at home, preferred days or times"></textarea>
@@ -327,6 +331,10 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
     set("eCity", data.city);
     set("eState", data.state);
     set("eZip", data.zip);
+    /* Lead message: editable copy of the lead's message, shown only when the lead had one. */
+    const lm = document.getElementById("eLeadMsg");
+    const lmf = document.getElementById("eLeadMsgField");
+    if (lm && lmf && data.message) { lm.value = data.message; lmf.hidden = false; }
   };
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", fill);
