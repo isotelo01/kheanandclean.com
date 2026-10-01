@@ -529,6 +529,9 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qCollapsedSummary .row .est{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.86em; }
 
 .qCollapsedSummary .row--full{ grid-template-columns:1fr; }
+.qCollapsedSummary .row + .chips{ margin-top:.55rem; }
+.qSumPhotos{ display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:6px; }
+.qSumPhotos img{ display:block; width:100%; aspect-ratio:1; object-fit:cover; border-radius:6px; }
 
 
 /* ---- frozen snapshot bubbles ---- */
@@ -896,18 +899,19 @@ window.kcQAddr = function(){
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  var sumUrls = [];
   function renderSummary(){
     if(!qSummary) return;
     var chips = [];
+    if(window.kcQAddr()){
+      chips.push('<div class="row"><b>Address</b><span>' + escapeHtml(window.kcQAddr()) + '</span></div>');
+    }
     var services = Array.prototype.map.call(
       document.querySelectorAll('input[name="services"]:checked'),
       function(el){ return el.value; }
     );
     if(services.length){
       chips.push('<div class="chips">' + services.map(function(s){ return '<span class="chip">' + escapeHtml(s) + '</span>'; }).join('') + '</div>');
-    }
-    if(window.kcQAddr()){
-      chips.push('<div class="row"><b>Address</b><span>' + escapeHtml(window.kcQAddr()) + '</span></div>');
     }
     if(qMsg && qMsg.value.trim()){
       var m = qMsg.value.trim(), isEst = /^ESTIMATE FROM YOUR ONLINE ESTIMATOR/.test(m), notes = '';
@@ -934,6 +938,16 @@ window.kcQAddr = function(){
         chips.push('<div class="row"><b>' + (isEst ? 'Estimate' : 'Rooms/areas') + '</b><span' + (isEst ? ' class="est"' : '') + '>' + escapeHtml(m) + '</span></div>');
       }
       if(notes) chips.push('<div class="row"><b>Notes</b><span>' + escapeHtml(notes) + '</span></div>');
+    }
+    /* Photos the customer attached, as small square thumbnails. */
+    sumUrls.forEach(function(u){ URL.revokeObjectURL(u); });
+    sumUrls = [];
+    var pics = window.kcFiles || [];
+    if(pics.length){
+      chips.push('<div class="row"><b>Photos</b><div class="qSumPhotos">' + pics.map(function(f){
+        var u = URL.createObjectURL(f); sumUrls.push(u);
+        return '<img src="' + u + '" alt="">';
+      }).join('') + '</div></div>');
     }
     if(chips.length){
       qSummary.innerHTML = chips.join('');
@@ -1176,7 +1190,6 @@ window.kcQAddr = function(){
   }
 
   function summarize(scroll){
-    addBubbles();
     qExpand.classList.remove('is-open');
     renderSummary();
     syncTools();
@@ -1345,9 +1358,11 @@ window.kcQAddr = function(){
     });
   }
 
-  // Uploads the chosen files, returns an array of download URLs.
+  // Uploads the chosen files, returns an array of storage paths.
+  // No download links here: reading a link back needs a staff login, which a
+  // customer doesn't have. The Leads page turns the paths into links instead.
   window.kcUploadPhotos = async function(files, leadKey){
-    const urls = [];
+    const paths = [];
     const list = Array.prototype.slice.call(files, 0, MAX_FILES);
     for (let i = 0; i < list.length; i++){
       const f = list[i];
@@ -1357,10 +1372,15 @@ window.kcQAddr = function(){
       if (shrunk.size > MAX_BYTES) { continue; }
       const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]+$/, '') + '.jpg';
       const path = 'quick-quote-photos/' + leadKey + '/' + Date.now() + '_' + i + '_' + safe;
-      const snap = await uploadBytes(ref(storage, path), shrunk, { contentType: 'image/jpeg' });
-      urls.push(await getDownloadURL(snap.ref));
+      // One failed photo is skipped; the ones that made it are still kept.
+      try {
+        const snap = await uploadBytes(ref(storage, path), shrunk, { contentType: 'image/jpeg' });
+        paths.push(snap.ref.fullPath);
+      } catch (err) {
+        if (window.console) { console.error('Photo upload failed: ' + f.name, err); }
+      }
     }
-    return urls;
+    return paths;
   };
 
   // Writes the lead into Firestore so it shows up in the CRM Leads section.
@@ -1393,6 +1413,7 @@ window.kcQAddr = function(){
      file removed, so we keep our own list: picking adds to it, the X removes
      from it, and the submit uploads from it. */
   var kcFiles = [];
+  window.kcFiles = kcFiles;
 
   /* Thumbnail preview so the customer sees what they attached, each with an X. */
   (function(){
@@ -1555,8 +1576,8 @@ window.kcQAddr = function(){
             })
           : [];
       })
-      .then(function(photoUrls){
-        fd.append('photo_count', String(photoUrls.length));
+      .then(function(photoPaths){
+        fd.append('photo_count', String(photoPaths.length));
         return window.kcSaveLead({
           name:          document.getElementById('qName').value.trim(),
           phone:         document.getElementById('qPhone').value.trim(),
@@ -1570,7 +1591,7 @@ window.kcQAddr = function(){
           type:          document.getElementById('qType').value.toLowerCase(),
           services:      services,
           message:       document.getElementById('qMsg').value.trim(),
-          photoUrls:     photoUrls
+          photoPaths:    photoPaths
         });
       })
       .catch(function(err){

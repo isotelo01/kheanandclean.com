@@ -66,6 +66,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -76,6 +77,7 @@ const app = initializeApp({
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 });
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 const view = document.getElementById("view"), titleEl = document.getElementById("title");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -103,6 +105,10 @@ const when = l => { const m = ms(l.createdAt); return m ? new Date(m).toLocaleSt
   { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""; };
 /* Leads come from a public form, so only real https links are shown as photos. */
 const photosOf = l => (Array.isArray(l.photoUrls) ? l.photoUrls : []).filter(u => /^https:\/\//.test(String(u)));
+/* Newer leads store where each photo sits in Storage. Only quick-quote paths are accepted. */
+const pathsOf = l => (Array.isArray(l.photoPaths) ? l.photoPaths : [])
+  .filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes(".."));
+const photoCount = l => photosOf(l).length + pathsOf(l).length;
 
 let all = null;
 async function load(){
@@ -124,7 +130,7 @@ async function showList(){
     }
   }
   const card = l => {
-    const n = photosOf(l).length;
+    const n = photoCount(l);
     const lines = [cityLine(addrOf(l)), l.phone, servicesOf(l),
       [when(l), n ? n + (n === 1 ? " photo" : " photos") : ""].filter(Boolean).join(" · ")];
     return '<a class="row src-' + esc(l.source || "other") + '" href="#' + encodeURIComponent(l.id) + '">' +
@@ -181,10 +187,7 @@ async function showLead(id){
         (l.email ? '<a class="ghost" href="mailto:' + encodeURIComponent(l.email) + '">Email</a>' : '') +
       '</div>' +
       '<h2>Photos</h2>' +
-      (photos.length
-        ? '<div class="pgrid">' + photos.map(u =>
-            '<a href="' + esc(u) + '" target="_blank" rel="noopener"><img src="' + esc(u) + '" alt="" loading="lazy"></a>').join("") + '</div>'
-        : '<div class="msg">No photos with this lead.</div>') +
+      '<div id="photos"><div class="msg">' + (photoCount(l) ? 'Loading photos&hellip;' : 'No photos with this lead.') + '</div></div>' +
       '<h2>Status</h2>' +
       '<div class="actions">' +
         STATUSES.map(s => '<button type="button" class="' + (s.v === cur ? "new" : "ghost") + '" data-status="' + s.v + '">' + s.label + '</button>').join("") +
@@ -192,6 +195,20 @@ async function showLead(id){
         '<span class="note" id="note"></span>' +
       '</div>' +
     '</div>';
+
+  /* Photos. Older leads carry links; newer ones carry storage paths, which only
+     a signed-in staff member can turn into links. */
+  if (photoCount(l)) (async () => {
+    const fromPaths = await Promise.all(pathsOf(l).map(p =>
+      getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
+    const urls = photos.concat(fromPaths.filter(Boolean));
+    const box = document.getElementById("photos");
+    if (!box || !box.isConnected) return;
+    box.innerHTML = urls.length
+      ? '<div class="pgrid">' + urls.map(u =>
+          '<a href="' + esc(u) + '" target="_blank" rel="noopener"><img src="' + esc(u) + '" alt="" loading="lazy"></a>').join("") + '</div>'
+      : '<div class="msg">The photos for this lead could not be loaded.</div>';
+  })();
 
   const note = document.getElementById("note");
   view.querySelectorAll("[data-status]").forEach(b => b.addEventListener("click", async () => {
