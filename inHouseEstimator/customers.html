@@ -74,6 +74,16 @@ textarea{min-height:90px;resize:vertical}
 .rval{font-size:16px;color:var(--ink);white-space:pre-wrap}
 .rval.empty{color:var(--muted)}
 .photos{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:14px}
+/* Photo grid + tap-to-enlarge viewer. Same look as the Leads page. */
+.pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.pgrid a{display:block;border-radius:8px;overflow:hidden;background:#eef0f4}
+.pgrid img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.lbox{position:fixed;inset:0;z-index:1000;background:rgba(10,14,22,.92);display:none;align-items:center;justify-content:center;padding:24px}
+.lbox.on{display:flex}
+.lbox__fig{position:relative;display:inline-flex;max-width:95vw;max-height:90vh}
+.lbox img{display:block;max-width:95vw;max-height:90vh;object-fit:contain;border-radius:6px}
+.lbox__x{position:absolute;top:-14px;right:-14px;width:40px;height:40px;border:2px solid #fff;border-radius:50%;background:#1c2230;color:#fff;font-size:24px;line-height:1;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.lbox__x:hover{background:#333a4d}
 .jobs{color:var(--muted);font-size:14px}
 .job{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;text-decoration:none;color:inherit}
 .job:hover{border-color:var(--gold);background:#fbfaf7}
@@ -116,6 +126,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, deleteDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -126,6 +137,13 @@ const app = initializeApp({
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 });
 const db = getFirestore(app);
+const storage = getStorage(app);
+
+/* Photos carried over from a lead. Same rules as leads.html: only real https
+   links, and only storage paths under quick-quote-photos/. */
+const photosOf = c => (Array.isArray(c.photoUrls) ? c.photoUrls : []).filter(u => /^https:\/\//.test(String(u)));
+const pathsOf = c => (Array.isArray(c.photoPaths) ? c.photoPaths : [])
+  .filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes(".."));
 
 const view = document.getElementById("view"), titleEl = document.getElementById("title");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -439,7 +457,9 @@ async function showProfile(id){
       '<h2>Job history</h2>' +
       '<div id="jobs" class="jobs">' + (isNew ? "Job history appears once this customer has a paid invoice." : "Loading\u2026") + '</div>' +
       '<h2>Photos</h2>' +
-      '<div class="photos">Photos are coming later.</div>' +
+      '<div id="photos">' + (!isNew && (photosOf(c).length || pathsOf(c).length)
+        ? '<div class="msg">Loading photos&hellip;</div>'
+        : '<div class="photos">No photos on file.</div>') + '</div>' +
       '<div class="actions">' +
         (isNew ? '' : '<button type="button" class="new" id="editBtn">Edit</button>') +
         '<button type="button" class="new" id="saveBtn">' + (isNew ? "Add customer" : "Save changes") + '</button>' +
@@ -540,6 +560,24 @@ async function showProfile(id){
   }
   loadJobs();
 
+  /* Photos: older records carry links; newer ones carry storage paths,
+     which only a signed-in staff member can turn into links. */
+  async function loadPhotos(){
+    if (isNew) return;
+    const urls = photosOf(c), paths = pathsOf(c);
+    if (!urls.length && !paths.length) return;
+    const fromPaths = await Promise.all(paths.map(p =>
+      getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
+    const all = urls.concat(fromPaths.filter(Boolean));
+    const box = $("photos");
+    if (!box || !box.isConnected) return;   /* left the page while loading */
+    box.innerHTML = all.length
+      ? '<div class="pgrid">' + all.map(u =>
+          '<a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) + '"><img src="' + esc(u) + '" alt="" loading="lazy"></a>').join("") + '</div>'
+      : '<div class="photos">The photos for this customer could not be loaded.</div>';
+  }
+  loadPhotos();
+
   $("delBtn")?.addEventListener("click", () => setTrashed(true));
   $("restoreBtn")?.addEventListener("click", () => setTrashed(false));
 
@@ -602,6 +640,25 @@ async function showProfile(id){
     }
   });
 }
+
+/* ---- Photo viewer: tap a photo to open over the page, tap backdrop, X or Esc to close ---- */
+(function () {
+  const lb = document.createElement("div");
+  lb.className = "lbox";
+  lb.innerHTML = '<div class="lbox__fig"><button type="button" class="lbox__x" aria-label="Close">\u00d7</button><img alt=""></div>';
+  document.body.appendChild(lb);
+  const img = lb.querySelector("img");
+  const close = () => { lb.classList.remove("on"); img.src = ""; };
+  lb.addEventListener("click", e => { if (e.target === lb || e.target.closest(".lbox__x")) close(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && lb.classList.contains("on")) close(); });
+  document.addEventListener("click", e => {
+    const a = e.target.closest(".pshot");
+    if (!a) return;
+    e.preventDefault();
+    img.src = a.dataset.full;
+    lb.classList.add("on");
+  });
+})();
 
 /* #new = add, #trash = trash, #<id> = profile, nothing = list */
 const route = () => {
