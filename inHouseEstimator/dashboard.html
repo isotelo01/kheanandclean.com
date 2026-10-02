@@ -84,7 +84,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, query, orderBy, limit, getDocs,
+import { getFirestore, collection, query, orderBy, limit, getDocs, where,
          doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -223,6 +223,103 @@ async function load(){
   }
 }
 
+/* ---- Invoiced = the job is done = they're a customer now ----
+   Same match keys, photo rules and account counter as customers.html and
+   approved-leads.html, so every record lines up. */
+const phoneKey = s => { const d = String(s || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
+const emailKey = s => String(s || "").trim().toLowerCase();
+/* The estimate saves the type as its label ("Property management"). */
+const TYPE_OF = { "residential": "residential", "property management": "pm", "pm": "pm", "realtor": "realtor", "commercial": "commercial" };
+const okUrls = x => (Array.isArray(x && x.photoUrls) ? x.photoUrls : []).filter(u => /^https:\/\//.test(String(u)));
+const okPaths = x => (Array.isArray(x && x.photoPaths) ? x.photoPaths : [])
+  .filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes(".."));
+
+function randomId(){
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  return Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join("");
+}
+
+const ACCT_START = 1001;
+async function nextAcctNo(){
+  const r = doc(db, "meta", "customerCounter");
+  return await runTransaction(db, async tx => {
+    const snap = await tx.get(r);
+    const last = snap.exists() ? Number(snap.data().last) || 0 : 0;
+    const n = Math.max(last + 1, ACCT_START);
+    tx.set(r, { last: n, updatedAt: serverTimestamp() }, { merge: true });
+    return n;
+  });
+}
+
+/* Already a customer? The one picked in the estimate first, then phone and email. */
+async function findCustomer(d){
+  if (d.customerId) {
+    const s = await getDoc(doc(db, "customers", d.customerId));
+    if (s.exists()) return { id: s.id, ...s.data() };
+  }
+  const c = d.customer || {}, pk = phoneKey(c.phone), ek = emailKey(c.email);
+  for (const [f, op, v] of [["phoneKeys", "array-contains", pk], ["phoneKey", "==", pk],
+                            ["emailKeys", "array-contains", ek], ["emailKey", "==", ek]]) {
+    if (!v) continue;
+    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(1)));
+    if (!s.empty) return { id: s.docs[0].id, ...s.docs[0].data() };
+  }
+  return null;
+}
+
+/* Files the invoiced job under a customer.
+   Existing customer: linked, keeps their KC number, gets the lead's photos added.
+   New: a profile is made with the KC number from Approved Leads (or the next one),
+   plus contact, address, the lead's message and notes, the quote notes and photos. */
+async function fileCustomer(id, d){
+  const c = d.customer || {};
+  let lead = null;
+  if (d.leadId) {
+    try { const s = await getDoc(doc(db, "leads", d.leadId)); if (s.exists()) lead = s.data(); }
+    catch (e) { console.error("lead", e); }
+  }
+  const cust = await findCustomer(d);
+  let custId, acctNo;
+  if (cust) {
+    custId = cust.id;
+    acctNo = cust.acctNo || d.acctNo || await nextAcctNo();
+    const patch = { updatedAt: serverTimestamp() };
+    if (!cust.acctNo) patch.acctNo = acctNo;
+    const haveU = Array.isArray(cust.photoUrls) ? cust.photoUrls : [], haveP = Array.isArray(cust.photoPaths) ? cust.photoPaths : [];
+    const addU = okUrls(lead).filter(u => !haveU.includes(u)), addP = okPaths(lead).filter(p => !haveP.includes(p));
+    if (addU.length) patch.photoUrls = haveU.concat(addU);
+    if (addP.length) patch.photoPaths = haveP.concat(addP);
+    await setDoc(doc(db, "customers", custId), patch, { merge: true });
+  } else {
+    const phone = String(c.phone || "").trim(), email = String(c.email || "").trim();
+    const phones = phone ? [phone] : [], emails = email ? [email] : [];
+    const t = TYPE_OF[String(c.type || "").trim().toLowerCase()] || "residential";
+    const addresses = (c.street || c.city || c.zip)
+      ? [{ street: c.street || "", city: c.city || "", state: c.state || "CA", zip: c.zip || "" }] : [];
+    const notes = [
+      lead && lead.message ? "Lead message: " + String(lead.message).trim() : "",
+      lead && lead.staffNotes ? "Lead notes: " + String(lead.staffNotes).trim() : "",
+      d.notes ? "Quote notes: " + String(d.notes).trim() : ""
+    ].filter(Boolean).join("\n\n");
+    acctNo = d.acctNo || await nextAcctNo();
+    custId = randomId();
+    await setDoc(doc(db, "customers", custId), {
+      type: t, business: t === "residential" ? "" : String(c.business || "").trim(),
+      name: String(c.name || "").trim(), phone, email, notes, addresses, acctNo,
+      phones, emails, phoneKeys: phones.map(phoneKey).filter(Boolean), emailKeys: emails.map(emailKey).filter(Boolean),
+      phoneKey: phoneKey(phone), emailKey: emailKey(email),
+      photoUrls: okUrls(lead), photoPaths: okPaths(lead),
+      source: "invoice", quoteId: id, ...(d.leadId ? { leadId: d.leadId } : {}),
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    });
+  }
+  /* The invoice remembers who it belongs to, so it shows in their job history. */
+  await setDoc(doc(db, "invoices", id), { customerId: custId, acctNo }, { merge: true });
+  if (lead) await setDoc(doc(db, "leads", d.leadId),
+    { converted: true, convertedAt: serverTimestamp(), customerId: custId, updatedAt: serverTimestamp() }, { merge: true });
+  return custId;
+}
+
 /* Accepted estimate -> invoice. Its own I- number from meta/counters.invoice,
    copied into "invoices" under a fresh id, then removed from "acceptedQuotes".
    Copy first, delete second: a failure mid-way can never lose the record. */
@@ -249,6 +346,14 @@ async function toInvoice(id, btn){
   /* Same id as the quote, so a link already sent keeps resolving. */
   await setDoc(doc(db, "invoices", id), inv);
   await deleteDoc(doc(db, "acceptedQuotes", id));
+
+  /* Invoiced means the job is done, so they're a customer now. The invoice is
+     already saved; if this part fails it says so instead of undoing anything. */
+  try { await fileCustomer(id, inv); }
+  catch (e) {
+    console.error("customer", e);
+    alert("Invoice I-" + num + " was made, but the customer profile could not be filed: " + e.message);
+  }
   return "I-" + num;
 }
 
@@ -312,7 +417,7 @@ boardEl.addEventListener("click", async e => {
   e.stopPropagation();
   const id = btn.getAttribute("data-inv");
   const row = (data.acceptedQuotes || []).find(r => r.id === id);
-  if (!confirm("Turn " + (row ? row.number : "this estimate") + " into an invoice?\n\nIt moves out of Accepted Estimates.")) return;
+  if (!confirm("Turn " + (row ? row.number : "this estimate") + " into an invoice?\n\nIt moves out of Accepted Estimates and they're filed as a customer.")) return;
   btn.disabled = true; btn.textContent = "Working\u2026";
   try {
     await toInvoice(id, btn);

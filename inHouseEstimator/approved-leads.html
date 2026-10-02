@@ -114,11 +114,10 @@ const shortDate = m => m ? new Date(m).toLocaleDateString(undefined, { year: "nu
 const phoneKey = s => { const d = String(s || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
 const emailKey = s => String(s || "").trim().toLowerCase();
 
-/* Approved = the customer accepted the quote and it isn't paid yet.
-   Accepted quotes, then invoices waiting on payment. Paid ones move on to Paid Invoices. */
+/* Approved = the customer said yes and the job isn't done yet: the jobs to put
+   on the calendar. Invoicing one (= job done) makes them a customer and it leaves here. */
 const SOURCES = [
-  { key: "acceptedQuotes", label: "Approved, not invoiced" },
-  { key: "invoices",       label: "Invoiced, waiting on payment" }
+  { key: "acceptedQuotes", label: "Approved, to schedule" }
 ];
 
 /* The estimate stores the property type as its label ("Property management"). */

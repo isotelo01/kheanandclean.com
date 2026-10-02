@@ -456,7 +456,7 @@ async function showProfile(id){
       '<label>Anything worth remembering<textarea id="cNotes">' + esc(c.notes) + '</textarea></label>' +
       '</div>' +
       '<h2>Job history</h2>' +
-      '<div id="jobs" class="jobs">' + (isNew ? "Job history appears once this customer has a paid invoice." : "Loading\u2026") + '</div>' +
+      '<div id="jobs" class="jobs">' + (isNew ? "Job history appears once this customer has an invoice." : "Loading\u2026") + '</div>' +
       '<h2>Photos</h2>' +
       '<div id="photos">' + (!isNew && (photosOf(c).length || pathsOf(c).length)
         ? '<div class="msg">Loading photos&hellip;</div>'
@@ -534,24 +534,24 @@ async function showProfile(id){
       btn.disabled = false;
     }
   }
-  /* Job history: paid invoices whose customer phone matches this one. */
+  /* Job history: every invoiced job (invoiced = the job was done), paid or not.
+     Matched by the customer link, or by phone for older records. */
   async function loadJobs(){
     const box = $("jobs");
     if (!box || isNew) return;
     const pks = phonesOf(c).map(phoneKey).filter(Boolean);
-    if (!pks.length) { box.textContent = "Add a phone number to match up past jobs."; return; }
     try {
-      const snap = await getDocs(collection(db, "paidInvoices"));
-      const rows = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(r => pks.includes(phoneKey(r.customer && r.customer.phone)))
-        .map(r => ({ ...r, ms: anyMs(r.paidAt) }))
+      const snaps = await Promise.all(["invoices", "paidInvoices"].map(k => getDocs(collection(db, k))));
+      const rows = snaps
+        .flatMap((snap, i) => snap.docs.map(d => ({ id: d.id, ...d.data(), paid: i === 1 })))
+        .filter(r => r.customerId === c.id || pks.includes(phoneKey(r.customer && r.customer.phone)))
+        .map(r => ({ ...r, ms: (r.paid && anyMs(r.paidAt)) || anyMs(r.invoicedAt) }))
         .sort((a, b) => (b.ms || 0) - (a.ms || 0));
-      if (!rows.length) { box.textContent = "No paid jobs yet."; return; }
+      if (!rows.length) { box.textContent = "No jobs yet."; return; }
       box.innerHTML = rows.map(r =>
         '<a class="job" href="./quote.html?id=' + encodeURIComponent(r.id) + '" target="_blank" rel="noopener">' +
           '<span class="job__date">' + esc(shortDate(r.ms) || "\u2014") + '</span>' +
-          '<span class="job__no">' + esc(r.number || "") + '</span>' +
+          '<span class="job__no">' + esc((r.number || "") + (r.paid ? "" : " \u00b7 Unpaid")) + '</span>' +
           '<span class="job__total">' + esc(money(r.total)) + '</span>' +
         '</a>').join("");
     } catch (e) {
