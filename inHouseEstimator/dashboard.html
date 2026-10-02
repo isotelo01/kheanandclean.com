@@ -279,7 +279,6 @@ async function fileCustomer(id, d){
     catch (e) { console.error("lead", e); }
   }
   const cust = await findCustomer(d);
-  console.log("[KC] fileCustomer:", id, "name:", c.name, "phone:", c.phone, "quote.customerId:", d.customerId, "matched:", cust ? (cust.id + " " + (cust.name || "") + " " + (cust.acctNo || "")) : "none");
   let custId, acctNo;
   if (cust) {
     custId = cust.id;
@@ -298,7 +297,6 @@ async function fileCustomer(id, d){
     const notes = lead && lead.staffNotes ? String(lead.staffNotes).trim() : "";
     acctNo = d.acctNo || await nextAcctNo();
     custId = randomId();
-    console.log("[KC] creating customer", custId, acctNo);
     await setDoc(doc(db, "customers", custId), {
       type: t, business: t === "residential" ? "" : String(c.business || "").trim(),
       name: String(c.name || "").trim(), phone, email, notes, addresses, acctNo,
@@ -312,7 +310,6 @@ async function fileCustomer(id, d){
   await setDoc(doc(db, "invoices", id), { customerId: custId, acctNo }, { merge: true });
   if (lead) await setDoc(doc(db, "leads", d.leadId),
     { converted: true, convertedAt: serverTimestamp(), customerId: custId, updatedAt: serverTimestamp() }, { merge: true });
-  console.log("[KC] fileCustomer done", custId);
   return custId;
 }
 
@@ -345,7 +342,6 @@ async function toInvoice(id, btn){
 
   /* Invoiced means the job is done, so they're a customer now. The invoice is
      already saved; if this part fails it says so instead of undoing anything. */
-  console.log("[KC] toInvoice calling fileCustomer", id, "I-" + num);
   try { await fileCustomer(id, inv); }
   catch (e) {
     console.error("customer", e);
