@@ -83,7 +83,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
       <a class="ghost" href="./dashboard.html">Dashboard</a>
       <a class="ghost" href="./approved-leads.html">Approved</a>
       <a class="ghost" href="./customers.html">Customers</a>
-      <a class="ghost" href="#trash">Trash</a>
+      <a class="ghost" id="navSwap" href="#trash">Trash</a>
     </div>
   </div>
   <div id="view"><div class="msg">Loading&hellip;</div></div>
@@ -384,7 +384,7 @@ async function showLead(id){
     try {
       await updateDoc(doc(db, "leads", id), { trashed: true, trashedAt: serverTimestamp(), updatedAt: serverTimestamp() });
       patchLocal({ trashed: true, trashedAt: new Date().toISOString() });
-      location.hash = "#trash";
+      location.hash = "#";
     } catch (e) { console.error(e); say("Could not delete: " + esc(e.message), true); delBtn.disabled = false; }
   });
   if (restoreBtn) restoreBtn.addEventListener("click", async () => {
@@ -561,6 +561,9 @@ async function showLead(id){
 const route = () => {
   const h = decodeURIComponent(location.hash.slice(1));
   window.scrollTo(0, 0);
+  /* Header button: Trash on the list; Leads everywhere else. */
+  const sw = document.getElementById("navSwap");
+  if (sw) { sw.textContent = h ? "Leads" : "Trash"; sw.setAttribute("href", h ? "#" : "#trash"); }
   if (h === "trash") showTrash(); else if (h) showLead(h); else showList();
 };
 

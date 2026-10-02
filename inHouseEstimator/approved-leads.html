@@ -94,7 +94,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, serverTimestamp, runTransaction }
+import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
@@ -193,6 +193,21 @@ async function assignNumbers(rows){
   }
 }
 
+/* Approved = the lead's info now lives on the quote, job sheet and customer.
+   Send the lead to Trash (30 days, then erased). leadTrashed on the quote
+   means it only happens once. updateDoc fails on a missing lead, so no ghost. */
+async function trashLeads(rows){
+  for (const q of rows.filter(r => r.leadId && !r.leadTrashed)) {
+    try {
+      await updateDoc(doc(db, "leads", q.leadId), { trashed: true, trashedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    } catch (e) { if (e.code !== "not-found") { console.error("Trash lead " + q.leadId, e); continue; } }
+    try {
+      await setDoc(doc(db, q.source, q.id), { leadTrashed: true }, { merge: true });
+      q.leadTrashed = true;
+    } catch (e) { console.error("Mark lead trashed on " + q.id, e); }
+  }
+}
+
 let all = null;
 async function load(){
   const got = await Promise.all(SOURCES.map(s =>
@@ -201,6 +216,7 @@ async function load(){
       .catch(e => { console.error(s.key, e); return []; })));
   all = got.flat().sort((a, b) => (ms(b.acceptedAt) || ms(b.createdAt)) - (ms(a.acceptedAt) || ms(a.createdAt)));
   await assignNumbers(all);
+  await trashLeads(all);
 }
 
 /* ---- List ---- */
