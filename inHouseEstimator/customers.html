@@ -78,6 +78,12 @@ textarea{min-height:90px;resize:vertical}
 .pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
 .pgrid a{display:block;border-radius:8px;overflow:hidden;background:#eef0f4}
 .pgrid img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+/* Photos added on the profile: a red X in the corner removes one. */
+.pcell{position:relative}
+.pdel{position:absolute;top:6px;right:6px;width:32px;height:32px;border:2px solid #fff;border-radius:50%;background:#b42318;color:#fff;font-size:20px;line-height:1;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.35)}
+.pdel:hover{background:#912018}
+.pdel:disabled{opacity:.5;cursor:default}
+.padd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
 .lbox{position:fixed;inset:0;z-index:1000;background:rgba(10,14,22,.92);display:none;align-items:center;justify-content:center;padding:24px}
 .lbox.on{display:flex}
 .lbox__fig{position:relative;display:inline-flex;max-width:95vw;max-height:90vh}
@@ -127,7 +133,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, deleteDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getStorage, ref, getDownloadURL, uploadBytes, deleteObject } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -145,6 +151,11 @@ const storage = getStorage(app);
 const photosOf = c => (Array.isArray(c.photoUrls) ? c.photoUrls : []).filter(u => /^https:\/\//.test(String(u)));
 const pathsOf = c => (Array.isArray(c.photoPaths) ? c.photoPaths : [])
   .filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes(".."));
+/* Photos added by hand on the profile. Each one is {path, url}; path must sit in
+   this customer's own folder under customer-photos/. */
+const ownOf = c => (Array.isArray(c.ownPhotos) ? c.ownPhotos : []).filter(p =>
+  p && typeof p.path === "string" && p.path.startsWith("customer-photos/" + c.id + "/") && !p.path.includes("..") &&
+  /^https:\/\//.test(String(p.url)));
 
 const view = document.getElementById("view"), titleEl = document.getElementById("title");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -458,9 +469,15 @@ async function showProfile(id){
       '<h2>Job history</h2>' +
       '<div id="jobs" class="jobs">' + (isNew ? "Job history appears once this customer has an invoice." : "Loading\u2026") + '</div>' +
       '<h2>Photos</h2>' +
-      '<div id="photos">' + (!isNew && (photosOf(c).length || pathsOf(c).length)
+      '<div id="photos">' + (!isNew && (photosOf(c).length || pathsOf(c).length || ownOf(c).length)
         ? '<div class="msg">Loading photos&hellip;</div>'
         : '<div class="photos">No photos on file.</div>') + '</div>' +
+      (isNew ? "" :
+        '<div class="padd">' +
+          '<button type="button" class="ghost" id="addPhotoBtn">Add photos</button>' +
+          '<input type="file" id="photoInput" accept="image/*" multiple hidden>' +
+          '<span class="note" id="photoNote"></span>' +
+        '</div>') +
       '<div class="actions">' +
         (isNew ? '' : '<button type="button" class="new" id="editBtn">Edit</button>') +
         '<button type="button" class="new" id="saveBtn">' + (isNew ? "Add customer" : "Save changes") + '</button>' +
@@ -565,19 +582,93 @@ async function showProfile(id){
      which only a signed-in staff member can turn into links. */
   async function loadPhotos(){
     if (isNew) return;
-    const urls = photosOf(c), paths = pathsOf(c);
-    if (!urls.length && !paths.length) return;
+    const urls = photosOf(c), paths = pathsOf(c), own = ownOf(c);
+    const box = $("photos");
+    if (!urls.length && !paths.length && !own.length) {
+      if (box) box.innerHTML = '<div class="photos">No photos on file.</div>';
+      return;
+    }
     const fromPaths = await Promise.all(paths.map(p =>
       getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
-    const all = urls.concat(fromPaths.filter(Boolean));
-    const box = $("photos");
+    const older = urls.concat(fromPaths.filter(Boolean));
     if (!box || !box.isConnected) return;   /* left the page while loading */
-    box.innerHTML = all.length
-      ? '<div class="pgrid">' + all.map(u =>
-          '<a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) + '"><img src="' + esc(u) + '" alt="" loading="lazy"></a>').join("") + '</div>'
+    const shot = u => '<a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) + '"><img src="' + esc(u) + '" alt="" loading="lazy"></a>';
+    /* Added photos first (newest on top), each with its X; older carried-over ones after, no X. */
+    const cells = own.slice().reverse().map(p =>
+        '<div class="pcell">' + shot(p.url) +
+        '<button type="button" class="pdel" data-path="' + esc(p.path) + '" aria-label="Delete photo">\u00d7</button></div>')
+      .concat(older.map(u => '<div class="pcell">' + shot(u) + '</div>'));
+    box.innerHTML = cells.length
+      ? '<div class="pgrid">' + cells.join("") + '</div>'
       : '<div class="photos">The photos for this customer could not be loaded.</div>';
   }
   loadPhotos();
+
+  /* Save the added-photo list onto the customer, here and in the cached list. */
+  async function saveOwn(list){
+    await setDoc(doc(db, "customers", id), { ownPhotos: list }, { merge: true });
+    c.ownPhotos = list;
+    if (all) all = all.map(x => x.id === id ? Object.assign({}, x, { ownPhotos: list }) : x);
+  }
+  const photoSay = (t, isErr) => { const n = $("photoNote"); if (n) { n.textContent = t; n.classList.toggle("err", !!isErr); } };
+
+  $("addPhotoBtn")?.addEventListener("click", () => $("photoInput").click());
+  $("photoInput")?.addEventListener("change", async e => {
+    const files = [...e.target.files].filter(f => /^image\//.test(f.type));
+    e.target.value = "";
+    if (!files.length) return;
+    const btn = $("addPhotoBtn");
+    btn.disabled = true;
+    const added = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        photoSay("Uploading " + (i + 1) + " of " + files.length + "\u2026");
+        const f = files[i];
+        const ext = (f.type.split("/")[1] || "jpg").replace(/[^a-z0-9]/gi, "").slice(0, 5) || "jpg";
+        const path = "customer-photos/" + id + "/" + Date.now() + "-" + randomId() + "." + ext;
+        const r = ref(storage, path);
+        await uploadBytes(r, f, { contentType: f.type });
+        added.push({ path, url: await getDownloadURL(r) });
+      }
+    } catch (err) {
+      console.error(err);
+      photoSay("Upload stopped: " + err.message, true);
+    }
+    if (added.length) {
+      try {
+        await saveOwn(ownOf(c).concat(added));
+        if (!$("photoNote")?.classList.contains("err")) photoSay(added.length === 1 ? "Photo added." : added.length + " photos added.");
+        await loadPhotos();
+      } catch (err) {
+        console.error(err);
+        photoSay("Photos uploaded but could not be saved to the profile: " + err.message, true);
+      }
+    }
+    btn.disabled = false;
+  });
+
+  $("photos")?.addEventListener("click", async e => {
+    const x = e.target.closest(".pdel");
+    if (!x) return;
+    e.preventDefault();
+    const path = x.dataset.path;
+    if (!confirm("Delete this photo? This can't be undone.")) return;
+    x.disabled = true;
+    photoSay("Deleting\u2026");
+    try {
+      await deleteObject(ref(storage, path)).catch(err => {
+        /* Already gone from storage is fine; anything else stops here. */
+        if (err.code !== "storage/object-not-found") throw err;
+      });
+      await saveOwn(ownOf(c).filter(p => p.path !== path));
+      photoSay("Photo deleted.");
+      await loadPhotos();
+    } catch (err) {
+      console.error(err);
+      photoSay("Could not delete: " + err.message, true);
+      x.disabled = false;
+    }
+  });
 
   $("delBtn")?.addEventListener("click", () => setTrashed(true));
   $("restoreBtn")?.addEventListener("click", () => setTrashed(false));

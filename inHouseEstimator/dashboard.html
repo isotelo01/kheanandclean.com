@@ -285,10 +285,7 @@ async function fileCustomer(id, d){
     acctNo = cust.acctNo || d.acctNo || await nextAcctNo();
     const patch = { updatedAt: serverTimestamp() };
     if (!cust.acctNo) patch.acctNo = acctNo;
-    const haveU = Array.isArray(cust.photoUrls) ? cust.photoUrls : [], haveP = Array.isArray(cust.photoPaths) ? cust.photoPaths : [];
-    const addU = okUrls(lead).filter(u => !haveU.includes(u)), addP = okPaths(lead).filter(p => !haveP.includes(p));
-    if (addU.length) patch.photoUrls = haveU.concat(addU);
-    if (addP.length) patch.photoPaths = haveP.concat(addP);
+    /* Quote photos stay with the job (job sheet); they are not copied onto the profile. */
     await setDoc(doc(db, "customers", custId), patch, { merge: true });
   } else {
     const phone = String(c.phone || "").trim(), email = String(c.email || "").trim();
@@ -296,11 +293,8 @@ async function fileCustomer(id, d){
     const t = TYPE_OF[String(c.type || "").trim().toLowerCase()] || "residential";
     const addresses = (c.street || c.city || c.zip)
       ? [{ street: c.street || "", city: c.city || "", state: c.state || "CA", zip: c.zip || "" }] : [];
-    const notes = [
-      lead && lead.message ? "Lead message: " + String(lead.message).trim() : "",
-      lead && lead.staffNotes ? "Lead notes: " + String(lead.staffNotes).trim() : "",
-      d.notes ? "Quote notes: " + String(d.notes).trim() : ""
-    ].filter(Boolean).join("\n\n");
+    /* Notes start with the lead staff notes only. Lead message and quote notes stay with the job. */
+    const notes = lead && lead.staffNotes ? String(lead.staffNotes).trim() : "";
     acctNo = d.acctNo || await nextAcctNo();
     custId = randomId();
     await setDoc(doc(db, "customers", custId), {
@@ -308,7 +302,6 @@ async function fileCustomer(id, d){
       name: String(c.name || "").trim(), phone, email, notes, addresses, acctNo,
       phones, emails, phoneKeys: phones.map(phoneKey).filter(Boolean), emailKeys: emails.map(emailKey).filter(Boolean),
       phoneKey: phoneKey(phone), emailKey: emailKey(email),
-      photoUrls: okUrls(lead), photoPaths: okPaths(lead),
       source: "invoice", quoteId: id, ...(d.leadId ? { leadId: d.leadId } : {}),
       createdAt: serverTimestamp(), updatedAt: serverTimestamp()
     });
