@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Approved Leads &middot; Khean &amp; Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Same look as customers.html. */
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.ghost:disabled{opacity:.6;cursor:default}
+.count{color:var(--muted);font-size:14px;margin-bottom:10px}
+.col{display:grid;gap:10px;align-content:start;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:14px}
+.col .colhead{grid-column:1/-1}
+.colhead{font:700 13px "Archivo",system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 2px}
+.row{display:block;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 16px}
+.row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
+.row.bg-residential{background:#e6eef9}
+.row.bg-pm{background:#e3f1ea}
+.row.bg-realtor{background:#fbf1d8}
+.row.bg-commercial{background:#f4e4e1}
+.row .acct{text-align:right;margin-bottom:2px}
+.acct{font:600 12px/1.3 ui-monospace,Menlo,Consolas,monospace;color:#6b7280;letter-spacing:.04em}
+.who{font-weight:700}
+.meta{color:var(--muted);font-size:14px}
+.msg{color:var(--muted);font-size:14px;padding:6px 2px}
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
+.panel h2{font:700 20px "Playfair Display",Georgia,serif;margin:24px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
+.panel h2:first-child{margin-top:0}
+.leadhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.leadtime{color:var(--muted);font-size:13px;white-space:nowrap}
+.read{display:grid;gap:10px;margin-bottom:4px}
+.read .cacct{font-size:14px;color:var(--muted);margin-bottom:8px;font-variant-numeric:tabular-nums}
+.read .contact{margin-bottom:12px}
+.read .contact .prow{font-size:17px;line-height:1.45}
+.read .contact .cname{font-weight:600}
+.read .contact .cnamerow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rrow{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline}
+@media(max-width:620px){.rrow{grid-template-columns:1fr;gap:2px}}
+.rlab{font-size:13px;font-weight:600;color:var(--muted)}
+.rval{font-size:16px;color:var(--ink);white-space:pre-wrap}
+.rval.empty{color:var(--muted)}
+.rval a{color:var(--navy);font-weight:600}
+.badge{font:600 12px "Archivo";border-radius:999px;padding:2px 9px;white-space:nowrap}
+.t-residential{background:#e6eef9;color:#1f4f8f}
+.t-pm{background:#e3f1ea;color:var(--green)}
+.t-realtor{background:#fbf1d8;color:#8a6412}
+.t-commercial{background:#f4e4e1;color:var(--red)}
+.photos{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:14px}
+.pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.pgrid a{display:block;border-radius:8px;overflow:hidden;background:#eef0f4}
+.pgrid img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.lbox{position:fixed;inset:0;z-index:1000;background:rgba(10,14,22,.92);display:none;align-items:center;justify-content:center;padding:24px}
+.lbox.on{display:flex}
+.lbox__fig{position:relative;display:inline-flex;max-width:95vw;max-height:90vh}
+.lbox img{display:block;max-width:95vw;max-height:90vh;object-fit:contain;border-radius:6px}
+.lbox__x{position:absolute;top:-14px;right:-14px;width:40px;height:40px;border:2px solid #fff;border-radius:50%;background:#1c2230;color:#fff;font-size:24px;line-height:1;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./index.html" aria-label="Estimator home"><img src="../images/icon-180.png" alt=""></a>
+    <h1 id="title">Approved Leads</h1>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
+      <button type="button" class="ghost" id="refreshBtn">Refresh</button>
+      <a class="ghost" href="./dashboard.html">Dashboard</a>
+      <a class="ghost" href="./leads.html">Leads</a>
+      <a class="ghost" href="./customers.html">Customers</a>
+    </div>
+  </div>
+  <div id="view"><div class="msg">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, serverTimestamp, runTransaction }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+const view = document.getElementById("view"), titleEl = document.getElementById("title");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const ms = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
+const shortDate = m => m ? new Date(m).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
+
+/* Same match keys as customers.html and send.js. */
+const phoneKey = s => { const d = String(s || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
+const emailKey = s => String(s || "").trim().toLowerCase();
+
+/* Approved = the customer accepted the quote and it isn't paid yet.
+   Accepted quotes, then invoices waiting on payment. Paid ones move on to Paid Invoices. */
+const SOURCES = [
+  { key: "acceptedQuotes", label: "Approved, not invoiced" },
+  { key: "invoices",       label: "Invoiced, waiting on payment" }
+];
+
+/* The estimate stores the property type as its label ("Property management"). */
+const TYPES = [
+  { v: "residential", label: "Residential",         cls: "t-residential" },
+  { v: "pm",          label: "Property management", cls: "t-pm" },
+  { v: "realtor",     label: "Realtor",             cls: "t-realtor" },
+  { v: "commercial",  label: "Commercial",          cls: "t-commercial" }
+];
+const typeOf = c => { const t = String(c.type || "").toLowerCase();
+  return TYPES.find(x => x.v === t || x.label.toLowerCase() === t) || TYPES[0]; };
+const badge = c => { const t = typeOf(c); return '<span class="badge ' + t.cls + '">' + t.label + '</span>'; };
+const displayName = c => (typeOf(c).v !== "residential" && c.business ? c.business : c.name) || c.business || "No name";
+const acctLabel = n => n ? "KC-" + n : "";
+const cityLine = c => [[c.city, c.state].filter(Boolean).join(", "), c.zip].filter(Boolean).join(" ");
+
+/* Photos: same rules as leads.html. */
+const photosOf = x => (Array.isArray(x && x.photoUrls) ? x.photoUrls : []).filter(u => /^https:\/\//.test(String(u)));
+const pathsOf = x => (Array.isArray(x && x.photoPaths) ? x.photoPaths : [])
+  .filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes(".."));
+
+/* ---- Customer numbers ----
+   Same counter as customers.html (meta/customerCounter), handed out in a
+   transaction, so a number is never given twice. */
+const ACCT_START = 1001;
+async function nextAcctNo(){
+  const r = doc(db, "meta", "customerCounter");
+  return await runTransaction(db, async tx => {
+    const snap = await tx.get(r);
+    const last = snap.exists() ? Number(snap.data().last) || 0 : 0;
+    const n = Math.max(last + 1, ACCT_START);
+    tx.set(r, { last: n, updatedAt: serverTimestamp() }, { merge: true });
+    return n;
+  });
+}
+
+/* Already a customer? Checks the picked customer first, then phone and email. */
+async function findCustomer(q){
+  if (q.customerId) {
+    const s = await getDoc(doc(db, "customers", q.customerId));
+    if (s.exists()) return { id: s.id, ...s.data() };
+  }
+  const c = q.customer || {}, pk = phoneKey(c.phone), ek = emailKey(c.email);
+  for (const [f, op, v] of [["phoneKeys", "array-contains", pk], ["phoneKey", "==", pk],
+                            ["emailKeys", "array-contains", ek], ["emailKey", "==", ek]]) {
+    if (!v) continue;
+    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(1)));
+    if (!s.empty) return { id: s.docs[0].id, ...s.docs[0].data() };
+  }
+  return null;
+}
+
+/* Every approved quote gets a customer number. An existing customer keeps theirs;
+   anyone new gets the next one. The number is saved onto the quote, so it rides
+   along when the quote becomes an invoice. */
+async function assignNumbers(rows){
+  for (const q of rows.filter(r => !r.acctNo)) {
+    try {
+      const cust = await findCustomer(q);
+      const patch = {};
+      if (cust) { patch.customerId = cust.id; if (cust.acctNo) patch.acctNo = cust.acctNo; }
+      else patch.acctNo = await nextAcctNo();
+      if (!Object.keys(patch).length) continue;
+      await setDoc(doc(db, q.source, q.id), patch, { merge: true });
+      Object.assign(q, patch);
+    } catch (e) { console.error("Customer number for " + q.id, e); }
+  }
+}
+
+let all = null;
+async function load(){
+  const got = await Promise.all(SOURCES.map(s =>
+    getDocs(collection(db, s.key))
+      .then(snap => snap.docs.map(d => ({ id: d.id, source: s.key, ...d.data() })))
+      .catch(e => { console.error(s.key, e); return []; })));
+  all = got.flat().sort((a, b) => (ms(b.acceptedAt) || ms(b.createdAt)) - (ms(a.acceptedAt) || ms(a.createdAt)));
+  await assignNumbers(all);
+}
+
+/* ---- List ---- */
+async function showList(){
+  titleEl.textContent = "Approved Leads";
+  document.title = "Approved Leads \u00b7 Khean & Clean";
+  if (!all) {
+    view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+    try { await load(); }
+    catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
+  }
+  const card = q => {
+    const c = q.customer || {};
+    const lines = [cityLine(c), c.phone, [q.number, money(q.total)].filter(Boolean).join(" \u00b7 "),
+      ms(q.acceptedAt) ? "Approved " + shortDate(ms(q.acceptedAt)) : ""].filter(x => x && String(x).trim());
+    return '<a class="row bg-' + typeOf(c).v + '" href="#' + encodeURIComponent(q.id) + '">' +
+      (acctLabel(q.acctNo) ? '<div class="acct">' + esc(acctLabel(q.acctNo)) + '</div>' : "") +
+      '<div class="who">' + esc(displayName(c)) + '</div>' +
+      lines.map(l => '<div class="meta">' + esc(l) + '</div>').join("") +
+    '</a>';
+  };
+  view.innerHTML = all.length
+    ? '<div class="count">' + all.length + (all.length === 1 ? " approved lead" : " approved leads") + '</div>' +
+      SOURCES.map(s => {
+        const rows = all.filter(q => q.source === s.key);
+        return rows.length ? '<section class="col"><h3 class="colhead">' + s.label + ' (' + rows.length + ')</h3>' +
+          rows.map(card).join("") + '</section>' : "";
+      }).join("")
+    : '<div class="msg">No approved leads yet. When a customer approves a quote, they show up here. Press Refresh to check.</div>';
+}
+
+/* ---- Profile: same layout as a customer profile ---- */
+const rrow = (lab, html) => '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval' +
+  (html ? '' : ' empty') + '">' + (html || "\u2014") + '</div></div>';
+const prow = (val, cls) => val ? '<div class="prow' + (cls ? ' ' + cls : '') + '">' + esc(val).replace(/\n/g, "<br>") + '</div>' : '';
+
+async function showProfile(id){
+  if (!all) {
+    view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+    try { await load(); }
+    catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
+  }
+  const q = all.find(x => x.id === id);
+  if (!q) { view.innerHTML = '<div class="msg">That one isn\u2019t on the approved list. It may have been paid or moved. <a href="#">Back to the list</a></div>'; return; }
+  const c = q.customer || {};
+  titleEl.textContent = displayName(c);
+  document.title = titleEl.textContent + " \u00b7 Khean & Clean";
+
+  const quoteLink = '<a href="./quote.html?id=' + encodeURIComponent(q.id) + '" target="_blank" rel="noopener">' +
+    esc(q.number || "Open quote") + '</a> \u00b7 ' + esc(money(q.total)) +
+    ' \u00b7 ' + (q.source === "invoices" ? "Invoiced, waiting on payment" : "Approved");
+  const approvedBy = q.acceptedName ? esc(q.acceptedName) + (ms(q.acceptedAt) ? " on " + esc(shortDate(ms(q.acceptedAt))) : "") : "";
+
+  view.innerHTML =
+    '<div class="panel">' +
+      '<div class="leadhead"><h2>Contact</h2>' +
+        (ms(q.acceptedAt) ? '<span class="leadtime">' + esc(shortDate(ms(q.acceptedAt))) + '</span>' : '') +
+      '</div>' +
+      '<div class="read">' +
+        (acctLabel(q.acctNo) ? prow(acctLabel(q.acctNo), "cacct") : "") +
+        '<div class="contact">' +
+          '<div class="prow cname cnamerow">' + esc(displayName(c)) + ' ' + badge(c) + '</div>' +
+          (typeOf(c).v !== "residential" && c.business && c.name ? prow(c.name) : "") +
+          prow([c.street, cityLine(c)].filter(Boolean).join("\n")) +
+          prow(c.phone) + prow(c.email) +
+        '</div>' +
+        rrow("Quote", quoteLink) +
+        rrow("Approved by", approvedBy) +
+        rrow("Quote notes", q.notes ? esc(q.notes) : "") +
+        '<div id="leadInfo"></div>' +
+      '</div>' +
+      '<h2>Photos</h2>' +
+      '<div id="photos"><div class="msg">Loading photos&hellip;</div></div>' +
+      '<div class="actions">' +
+        '<a class="new" href="./quote.html?id=' + encodeURIComponent(q.id) + '" target="_blank" rel="noopener">Open quote</a>' +
+        (q.customerId ? '<a class="ghost" href="./customers.html#' + encodeURIComponent(q.customerId) + '">Customer record</a>' : '') +
+        '<a class="ghost" href="#">Back to list</a>' +
+      '</div>' +
+    '</div>';
+
+  /* The lead and/or customer this quote came from: their message, notes and photos. */
+  let lead = null, cust = null;
+  try { if (q.leadId) { const s = await getDoc(doc(db, "leads", q.leadId)); if (s.exists()) lead = s.data(); } }
+  catch (e) { console.error("lead", e); }
+  try { if (q.customerId) { const s = await getDoc(doc(db, "customers", q.customerId)); if (s.exists()) cust = s.data(); } }
+  catch (e) { console.error("customer", e); }
+
+  const info = document.getElementById("leadInfo");
+  if (info && info.isConnected) info.innerHTML =
+    (lead ? rrow("Lead message", lead.message ? esc(lead.message) : "") + rrow("Lead notes", lead.staffNotes ? esc(lead.staffNotes) : "") : "") +
+    (cust ? rrow("Customer notes", cust.notes ? esc(cust.notes) : "") : "");
+
+  const urls = photosOf(lead).concat(photosOf(cust));
+  const paths = pathsOf(lead).concat(pathsOf(cust));
+  const fromPaths = await Promise.all([...new Set(paths)].map(p =>
+    getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
+  const shots = [...new Set(urls.concat(fromPaths.filter(Boolean)))];
+  const box = document.getElementById("photos");
+  if (!box || !box.isConnected) return;
+  box.innerHTML = shots.length
+    ? '<div class="pgrid">' + shots.map(u =>
+        '<a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) + '"><img src="' + esc(u) + '" alt="" loading="lazy"></a>').join("") + '</div>'
+    : '<div class="photos">No photos on file.</div>';
+}
+
+/* ---- Photo viewer: tap a photo to open, tap backdrop, X or Esc to close ---- */
+(function () {
+  const lb = document.createElement("div");
+  lb.className = "lbox";
+  lb.innerHTML = '<div class="lbox__fig"><button type="button" class="lbox__x" aria-label="Close">\u00d7</button><img alt=""></div>';
+  document.body.appendChild(lb);
+  const img = lb.querySelector("img");
+  const close = () => { lb.classList.remove("on"); img.src = ""; };
+  lb.addEventListener("click", e => { if (e.target === lb || e.target.closest(".lbox__x")) close(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && lb.classList.contains("on")) close(); });
+  document.addEventListener("click", e => {
+    const a = e.target.closest(".pshot");
+    if (!a) return;
+    e.preventDefault();
+    img.src = a.dataset.full;
+    lb.classList.add("on");
+  });
+})();
+
+/* #<id> = one profile, nothing = list */
+const route = () => {
+  const h = decodeURIComponent(location.hash.slice(1));
+  window.scrollTo(0, 0);
+  return h ? showProfile(h) : showList();
+};
+
+/* Refresh: pull the latest from the database. */
+document.getElementById("refreshBtn").addEventListener("click", async e => {
+  const b = e.currentTarget;
+  b.disabled = true; b.textContent = "Refreshing\u2026";
+  all = null;
+  try { await route(); } finally { b.disabled = false; b.textContent = "Refresh"; }
+});
+
+/* Page lock. Not signed in -> login page, then back here. */
+let started = false;
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=approved-leads.html"); return; }
+  document.getElementById("authwait")?.remove();
+  if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
+});
+</script>
+</body>
+</html>
