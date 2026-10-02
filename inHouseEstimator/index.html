@@ -49,6 +49,9 @@
             <div class="estField">
               <label for="eName">Name</label>
               <input id="eName" name="name" type="text" autocomplete="off" placeholder="Customer name">
+              <p id="eCustTag" hidden style="margin:.35rem 0 0;font-size:.8rem;font-weight:600;color:#0F5C3E"></p>
+              <input type="hidden" id="eCustId">
+              <input type="hidden" id="eLeadId">
             </div>
             <div class="estField">
               <label for="ePhone">Phone</label>
@@ -335,6 +338,9 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
     const lm = document.getElementById("eLeadMsg");
     const lmf = document.getElementById("eLeadMsgField");
     if (lm && lmf && data.message) { lm.value = data.message; lmf.hidden = false; }
+    /* Remember the lead, so Send marks this lead quoted instead of making a new one. */
+    const lid = document.getElementById("eLeadId");
+    if (lid && data.leadId) lid.value = data.leadId;
   };
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", fill);
@@ -393,10 +399,12 @@ function load() {
   if (CUSTOMERS) return Promise.resolve(CUSTOMERS);
   if (loading) return loading;
   loading = getDocs(collection(db, 'customers')).then(snap => {
-    CUSTOMERS = snap.docs.map(d => d.data() || {}).filter(c => !c.trashed).map(c => {
+    CUSTOMERS = snap.docs.map(d => Object.assign({ _id: d.id }, d.data() || {})).filter(c => !c.trashed).map(c => {
       const addrs = Array.isArray(c.addresses) ? c.addresses : [];
       const last = addrs.length ? addrs[addrs.length - 1] : {};
       return {
+        id: c._id,
+        acctNo: c.acctNo || null,
         name: c.name || '',
         phone: c.phone || '',
         email: c.email || '',
@@ -420,6 +428,11 @@ function set(id, v) {
 function fill(c) {
   set('eName', c.name); set('ePhone', c.phone); set('eEmail', c.email);
   set('eAddr', c.street); set('eCity', c.city); set('eZip', c.zip);
+  /* Picked from the list: this estimate belongs to an existing customer.
+     Set last, after the input events above. */
+  const cid = document.getElementById('eCustId'), tag = document.getElementById('eCustTag');
+  if (cid) cid.value = c.id || '';
+  if (tag) { tag.textContent = c.acctNo ? 'Customer KC-' + c.acctNo : 'Existing customer'; tag.hidden = !c.id; }
 }
 
 function attach(inputId, field) {
@@ -472,6 +485,13 @@ function attach(inputId, field) {
   input.addEventListener('blur', () => setTimeout(hide, 120));
 }
 attach('eName', 'name');
+/* Typing a name by hand (not picking from the list) drops the customer link,
+   so a new person is never filed under someone else's record. */
+document.getElementById('eName')?.addEventListener('input', e => {
+  if (!e.isTrusted) return;
+  const cid = document.getElementById('eCustId'), tag = document.getElementById('eCustTag');
+  if (cid && cid.value) { cid.value = ''; if (tag) tag.hidden = true; }
+});
 </script>
 <script>
 if ('serviceWorker' in navigator) {

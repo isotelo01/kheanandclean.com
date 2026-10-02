@@ -1,7 +1,7 @@
 /* Send Estimate — stage one: save the quote to Firestore and hand back a link.
    The link opens quote.html (stage two). Unapproved quotes expire after 30 days. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp,
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp,
          collection, query, where, limit, getDocs }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged }
@@ -95,9 +95,10 @@ function askHowToSend(number, link, body){
   dlg.showModal();
 }
 
-/* ---- Customers: every saved estimate files its customer. ----
-   Matched on phone or email (same keys as customers.html). A new address is added to
-   their list; anything already on file stays as it is, except blanks get filled. */
+/* ---- Who the estimate is filed under ----
+   Customer picked from the name list (Customer ID set): that customer's record is topped up.
+   A new address, phone or email is added; blanks get filled; nothing on file is overwritten.
+   No Customer ID: the estimate files as a quoted lead. Estimates never create customers. */
 const phoneKey = s => { const d = String(s || '').replace(/\D/g, '').slice(-10); return d.length === 10 ? d : ''; };
 const emailKey = s => String(s || '').trim().toLowerCase();
 const sameAddr = (a, b) => ['street', 'city', 'zip'].every(k =>
@@ -113,21 +114,15 @@ const TYPE_MAP = {
   'Commercial': 'commercial'
 };
 
-async function fileCustomer(){
+async function fileCustomer(custId){
   const name = val('eName'), phone = val('ePhone'), email = val('eEmail');
   const pk = phoneKey(phone), ek = emailKey(email);
-  if (!pk && !ek) return;   /* nothing to match on, so don't risk a duplicate */
   const addr = { street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip') };
   const hasAddr = !!(addr.street || addr.city || addr.zip);
   try {
-    let hit = null;
-    /* New key lists first, then the old single keys for records not yet migrated. */
-    for (const [f, op, v] of [['phoneKeys', 'array-contains', pk], ['phoneKey', '==', pk],
-                              ['emailKeys', 'array-contains', ek], ['emailKey', '==', ek]]) {
-      if (!v || hit) continue;
-      const s = await getDocs(query(collection(db, 'customers'), where(f, op, v), limit(1)));
-      if (!s.empty) hit = s.docs[0];
-    }
+    /* Only the customer picked from the name list. */
+    const snap = await getDoc(doc(db, 'customers', custId));
+    const hit = snap.exists() ? snap : null;
     if (hit) {
       const d = hit.data(), addresses = (d.addresses || []).slice(), patch = {};
       if (hasAddr && !addresses.some(a => sameAddr(a, addr))) { addresses.push(addr); patch.addresses = addresses; }
@@ -144,18 +139,48 @@ async function fileCustomer(){
           phoneKey: phoneKey(phones[0]), emailKey: emailKey(emails[0]) });
       if (d.trashed) Object.assign(patch, { trashed: false, trashedAt: null });   /* estimating for them again means they're active */
       if (Object.keys(patch).length) await setDoc(hit.ref, Object.assign(patch, { updatedAt: serverTimestamp() }), { merge: true });
-    } else {
-      await setDoc(doc(db, 'customers', randomId()), {
-        type: TYPE_MAP[val('eType')] || 'residential', business: val('eBiz'),
-        name, phone, email, notes: '', addresses: hasAddr ? [addr] : [],
-        phones: phone ? [phone] : [], emails: email ? [email] : [],
-        phoneKeys: pk ? [pk] : [], emailKeys: ek ? [ek] : [],
-        phoneKey: pk, emailKey: ek, source: 'estimate',
-        createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-      });
     }
   } catch (e) {
     console.error('Customer not filed:', e);   /* the quote is already saved; don't fail the send */
+  }
+}
+
+/* No Customer ID: file as a quoted lead. Quote started from a lead (New quote on
+   the Leads page): that same lead is marked quoted. Otherwise a new lead is made,
+   already marked quoted, so it shows under Quoted on the Leads page. */
+async function fileLead(quoteId, number){
+  const link = { status: 'quoted', quoteId, quoteNumber: number, updatedAt: serverTimestamp() };
+  const leadId = val('eLeadId');
+  if (leadId) {
+    try { await updateDoc(doc(db, 'leads', leadId), link); return leadId; }
+    catch (e) { if (e.code !== 'not-found') throw e; }   /* lead was erased: make a fresh one */
+  }
+  const addr = { street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip') };
+  const id = randomId();
+  await setDoc(doc(db, 'leads', id), Object.assign({
+    name: val('eName'), phone: val('ePhone'), email: val('eEmail'),
+    type: val('eType').toLowerCase(), business: val('eBiz'),
+    addresses: (addr.street || addr.city || addr.zip) ? [addr] : [],
+    message: '', services: [], source: 'estimate', createdAt: serverTimestamp()
+  }, link));
+  if ($('eLeadId')) $('eLeadId').value = id;
+  return id;
+}
+
+/* File the estimate under its customer or its quoted lead, and note which on the quote.
+   Never fails the send: the quote is already saved by the time this runs. */
+async function fileContact(quoteId, from, number){
+  const custId = val('eCustId');
+  try {
+    if (custId) {
+      await fileCustomer(custId);
+      await setDoc(doc(db, from, quoteId), { customerId: custId, leadId: null }, { merge: true });
+    } else {
+      const leadId = await fileLead(quoteId, number);
+      await setDoc(doc(db, from, quoteId), { leadId, customerId: null }, { merge: true });
+    }
+  } catch (e) {
+    console.error('Contact not filed:', e);
   }
 }
 
@@ -192,6 +217,10 @@ async function loadForEdit(id, from){
 
     if (d.form) window.KC_restore(d.form);
     edit = { id, from, data: d };
+    /* Keep the estimate filed under the same customer or lead as before. */
+    if ($('eCustId')) $('eCustId').value = d.customerId || '';
+    if ($('eLeadId')) $('eLeadId').value = d.leadId || '';
+    if ($('eCustTag')) { $('eCustTag').textContent = 'Existing customer'; $('eCustTag').hidden = !d.customerId; }
 
     let note = 'Editing ' + (d.number || 'this estimate') + '.';
     if (!d.form) {
@@ -227,7 +256,7 @@ async function saveEdit(q){
 
   await setDoc(doc(db, target, edit.id), merged);           /* copy first ... */
   if (target !== edit.from) await deleteDoc(doc(db, edit.from, edit.id));   /* ... then remove */
-  await fileCustomer();
+  await fileContact(edit.id, target, merged.number);
   edit.from = target; edit.data = merged;
   showLink(edit.id, merged.number, text);
 }
@@ -269,7 +298,7 @@ btn.addEventListener('click', async () => {
       createdAt: serverTimestamp(),
       expiresAt: Timestamp.fromMillis(Date.now() + 30 * 864e5)
     }, fromForm(q)));
-    await fileCustomer();
+    await fileContact(id, 'quotes', number);
 
     const sent = showLink(id, number, 'Saved as ' + number + '. Link is good for 30 days unless approved.');
     askHowToSend(number, sent.link, sent.body);
@@ -293,6 +322,10 @@ $('qLinkCopy').addEventListener('click', async () => {
 document.addEventListener('click', (e) => {
   if(e.target.closest('[data-clear="all"]')){
     box.hidden = true; url.value = '';
+    /* A new estimate starts with no customer or lead attached. */
+    if ($('eCustId')) $('eCustId').value = '';
+    if ($('eLeadId')) $('eLeadId').value = '';
+    if ($('eCustTag')) $('eCustTag').hidden = true;
     /* New while editing leaves edit mode, so the next Send makes a fresh quote. */
     if(edit){ edit = null; history.replaceState(null, '', location.pathname); btn.textContent = 'Send Estimate'; }
     if(banner){ banner.remove(); banner = null; }
