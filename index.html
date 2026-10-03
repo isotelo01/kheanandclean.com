@@ -1942,6 +1942,47 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
           <textarea id="eNotes" rows="4" placeholder="Parking and access, stairs up to the unit, furniture to move, pets at home, preferred days or times"></textarea>
         </div>
 
+        <!-- When, same as the Quick Quote form: ASAP, a picked date, or blank (optional). -->
+        <style>
+          .estWhen .qWhen__asap{ border-color:#E3B64A; color:#E3B64A; background:transparent; }
+          .estWhen .qWhen__asap:hover{ background:rgba(227,182,74,.12); }
+          .estWhen .qWhen__asap[aria-pressed="true"]{ background:#E3B64A; color:#172239; }
+          .estWhen .qWhen input[type="date"]{ background-color:#000; color:#fff; border:1.5px solid #3A3A3A; border-radius:12px; }
+          .estWhen .qWhen input[type="date"]:focus{ border-color:#E3B64A; box-shadow:0 0 0 3px rgba(227,182,74,.35); outline:none; }
+          .estWhen .qWhen input[type="date"]::-webkit-calendar-picker-indicator{ filter:invert(1); opacity:.8; }
+        </style>
+        <div class="estField estWhen">
+          <label for="eWhen">When would you like this done? <span class="opt">(optional)</span></label>
+          <div class="qWhen">
+            <button type="button" id="eAsapBtn" class="qWhen__asap" aria-pressed="false">ASAP</button>
+            <input id="eWhen" type="date" autocomplete="off" aria-label="Preferred date">
+          </div>
+        </div>
+        <script>
+        (function(){
+          var when = document.getElementById('eWhen'), asap = document.getElementById('eAsapBtn');
+          if(!when || !asap) return;
+          /* no past dates: min = today, local time */
+          var t = new Date();
+          when.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+          function picked(){ if(when.value) asap.setAttribute('aria-pressed', 'false'); }
+          when.addEventListener('input', picked);
+          when.addEventListener('change', picked);
+          asap.addEventListener('click', function(){
+            var on = asap.getAttribute('aria-pressed') !== 'true';
+            asap.setAttribute('aria-pressed', on ? 'true' : 'false');
+            if(on) when.value = '';
+          });
+          /* MM/DD/YY or ASAP for the email and the lead, same as the Quick Quote form. */
+          window.kcEstWhen = function(){
+            if(asap.getAttribute('aria-pressed') === 'true') return 'ASAP';
+            var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value);
+            return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) : '';
+          };
+          window.kcEstWhenClear = function(){ when.value = ''; asap.setAttribute('aria-pressed', 'false'); };
+        })();
+        </script>
+
         <!-- Photos, same block as the Quick Quote form. Picked photos are held in
              window.kcEstFiles; Request Appointment uploads them and files them on
              the Leads page with the estimate. -->
@@ -4068,6 +4109,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       fd.append('property_type', eType ? eType.value : '');
       fd.append('estimate', eSummary());
       fd.append('notes',    eNotes ? eNotes.value.trim() : '');
+      var eWhenVal = window.kcEstWhen ? window.kcEstWhen() : '';
+      fd.append('when',     eWhenVal);
       if (eSend.querySelector('input.esthp').checked) { fd.append('botcheck', 'true'); }
 
       eSubmit.disabled = true;
@@ -4099,6 +4142,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
           source:     'estimator',
           page:       'homepage-estimator',
           photoPaths: photoPaths,
+          when:       eWhenVal,
           name:       eName.value.trim(),
           phone:      ePhone.value.trim(),
           email:      eEmail.value.trim(),
@@ -4128,6 +4172,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
           if(typeof gtag === 'function'){ gtag('event', 'generate_lead', { form_name: 'estimator_appointment' }); }
           if(eNotes) eNotes.value = '';
           if(window.kcEstFilesClear) window.kcEstFilesClear();
+          if(window.kcEstWhenClear) window.kcEstWhenClear();
           eSend.hidden = true;
           eDone.hidden = false;
         } else {
