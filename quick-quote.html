@@ -338,6 +338,43 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 
 .qform__photos{ margin:.6rem 0 1.1rem; }
 
+/* Photo plate — a framed card for the photo step, in the Specimen Book style. */
+.qPhotoZone{ border:1.5px dashed rgba(27,79,160,.32); border-radius:var(--r-md); background:linear-gradient(180deg, rgba(255,255,255,.6), rgba(239,233,217,.6)); padding:1rem; }
+.qPhotoZone__hint{ margin:0 0 .8rem; text-align:center; font-family:"Playfair Display", Georgia, serif; font-style:italic; font-size:var(--fs-sm); color:var(--slate); }
+.qPhotoBtns{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+.qPhotoBtns .btn{ display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; padding:.8rem .75rem; border-radius:12px; font-size:var(--fs-sm); box-shadow:none; transition:transform .15s ease, box-shadow .15s ease, background .15s ease; }
+.qPhotoBtns .btn svg{ width:18px; height:18px; flex:none; }
+.qPhotoBtns #qCameraBtn{ background:var(--jade); color:#fff; border:1.5px solid var(--jade); }
+.qPhotoBtns #qPickBtn{ background:transparent; color:var(--jade); border:1.5px solid var(--jade); }
+.qPhotoBtns .btn:hover{ transform:translateY(-1px); box-shadow:0 8px 18px -10px rgba(27,79,160,.7); }
+.qPhotoBtns #qPickBtn:hover{ background:rgba(27,79,160,.06); }
+
+/* Text us photos — a quiet link, not a button. */
+.qform__photos--small{ display:flex; justify-content:center; margin:.75rem 0 1.4rem; }
+.qform__photos--small .photo--sms{ display:inline-flex; align-items:center; gap:.4rem; width:auto; padding:.15rem 0; background:none; border:0; border-radius:0; box-shadow:none; color:var(--jade); font-size:var(--fs-xs); border-bottom:1px solid rgba(27,79,160,.35); }
+.qform__photos--small .photo--sms svg{ width:15px; height:15px; }
+.qform__photos--small .photo--sms .btn__sub{ display:inline; margin:0 0 0 .3rem; font-size:inherit; opacity:.75; }
+
+/* Send — gold leaf with a slow shimmer on hover. */
+.qform #qSubmit, #qSubmit{ background:var(--gold-grad); background-size:220% 100%; background-position:0 0; color:var(--ink); border:0; border-radius:12px; letter-spacing:.1em; text-transform:uppercase; box-shadow:0 12px 26px -16px rgba(138,99,26,.95), inset 0 1px 0 rgba(255,255,255,.55); transition:background-position .7s ease, transform .15s ease; }
+#qSubmit:hover{ background-position:100% 0; transform:translateY(-1px); }
+
+/* Summarize — subtle small-caps text button under Send. */
+#qSummarizeBtn{ background:transparent; border:0; box-shadow:none; color:var(--slate); font-size:var(--fs-xs); letter-spacing:.16em; text-transform:uppercase; padding:.6rem; }
+#qSummarizeBtn:hover{ color:var(--ink); text-decoration:underline; text-underline-offset:4px; }
+/* When would you like this done? — ASAP toggle beside a short MM/DD/YY write-in. */
+.qWhen{ display:grid; grid-template-columns:auto 1fr; gap:.75rem; align-items:stretch; }
+.qWhen__asap{ font:inherit; font-family:"Archivo Narrow",sans-serif; font-weight:700; letter-spacing:.1em; font-size:1.05rem; padding:.85rem 1.6rem; border-radius:12px; border:1.5px solid var(--jade); background:transparent; color:var(--jade); cursor:pointer; transition:background .15s ease, color .15s ease; }
+.qWhen__asap:hover{ background:rgba(27,79,160,.06); }
+.qWhen__asap[aria-pressed="true"]{ background:var(--jade); color:#fff; }
+.qWhen input{ min-width:0; letter-spacing:.06em; }
+.qWhen input[type="date"]{ width:100%; text-align:center; font-family:"Archivo",sans-serif; font-size:1.15rem; font-weight:500; color:var(--ink); background:#fff; padding:.85rem 1rem; border:1.5px solid var(--line); border-radius:12px; box-sizing:border-box; }
+.qWhen input[type="date"]::-webkit-calendar-picker-indicator{ width:22px; height:22px; cursor:pointer; opacity:.7; }
+.qWhen input[type="date"]::-webkit-date-and-time-value{ text-align:center; }
+
+/* Summarize sits under Send now; keep it hidden while the form is collapsed, same as before. */
+#qExpand:not(.is-open) ~ #qSummarizeBtn{ display:none; }
+
 .btn--text{ display:flex; align-items:center; justify-content:center; gap:.7rem; width:100%; padding:1.15rem 1rem; font-size:var(--fs-sm); line-height:1.2; }
 
 .btn--text svg{ width:22px; height:22px; flex:none; }
@@ -403,6 +440,9 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 /* Brand mark above the form title. Mirrors .heroMark on index.html but
    narrower, since this card is much tighter than the homepage band. */
 .qqMark{ display:block; width:30%; max-width:150px; height:auto; margin:0 auto .9rem; }
+/* Logo doubles as the home link. The link takes the logo's size and centring; the image fills it. */
+.qqMarkLink{ display:block; width:30%; max-width:150px; margin:0 auto .9rem; }
+.qqMarkLink .qqMark{ width:100%; max-width:none; margin:0; }
 
 .qform__sub{ font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--jade); margin:.5rem 0 1.9rem; text-align:center; }
 
@@ -421,6 +461,10 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 }
 
 .kcq__tool[hidden]{ display:none; }
+/* This page has no edit pencil; the script still toggles it, so hide it for good. */
+#qEditBtn{ display:none !important; }
+/* Trash button dropped from this page too; hidden for the same reason. */
+#qClearBtn{ display:none !important; }
 
 .kcq__tool svg{ width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
 
@@ -428,11 +472,18 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 
 .kcq__tool:focus-visible{ outline:2px solid #1b4fa0; outline-offset:2px; }
 
+/* Globe link: mirror of the pencil, top-left. Labels sit under each icon. */
+.kcq__site{ position:absolute; top:14px; left:0; z-index:2; text-decoration:none; }
+.kcq__tools .kcq__tool[data-label]{ position:relative; overflow:visible; }
+.kcq__tool[data-label]::after{ content:attr(data-label); position:absolute; top:calc(100% + 4px); right:0; white-space:nowrap; font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--slate); pointer-events:none; }
+.kcq__site[data-label]::after{ right:auto; left:0; }
+
 /* Touch devices: pull the tools out of the card's inner padding so the pencil
    sits in the true top-right corner. Keyed to pointer:coarse rather than a
    width breakpoint so rotating the phone does not move the button. */
 @media (pointer:coarse){
   .kcq__tools{ right:calc(-1 * clamp(1.6rem,2.8vw,2.5rem) + 10px); }
+  .kcq__site{ left:calc(-1 * clamp(1.6rem,2.8vw,2.5rem) + 10px); }
 }
 
 
@@ -626,7 +677,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qcheck:has(input:checked){ border-color:var(--jade); background:rgba(27,79,160,.06); }
 
 
-.qhp{ position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
+.qhp{ position:absolute; left:-9999px; top:0; width:1px; height:1px; opacity:0; }
 
 .qform__submit{ width:100%; margin-top:.5rem; }
 
@@ -703,10 +754,56 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 
 /* standalone page shell — this page has no header, hero or sticky bar */
 body{ background:var(--paper); }
-.qqPage{ max-width:760px; margin:0 auto; padding:2rem 1.25rem 4rem; }
+.qqPage{ max-width:760px; margin:0 auto; padding:2rem 1.25rem 4rem; box-sizing:border-box; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; justify-content:center; }
+.qqPage > .qqHome{ align-self:flex-start; }
 .qqHome{ display:inline-block; margin-bottom:1.5rem; font-family:"Archivo",sans-serif;
   font-size:.875rem; color:var(--emerald); text-decoration:none; }
 .qqHome:hover{ text-decoration:underline; }
+/* Navy page look: page + card in the header's navy, white card outline,
+   white and gold lettering, light-emerald input boxes. Delete this block to undo. */
+body{ background:#172239; }
+.qqPage .qform{ background:#172239; color:#fff; border:1.5px solid #fff; border-radius:var(--r-lg); }
+.qqPage .qform__ttl{ color:#fff; }
+.qqPage .qform__sub{ color:#E3B64A; }
+.qqPage .qform label, .qqPage .qform legend{ color:#E3B64A; }
+.qqPage .qform p, .qqPage .qform small{ color:rgba(255,255,255,.82); }
+.qqPage .qform p a{ color:#E3B64A; }
+/* Black boxes with white text inside. */
+.qqPage .qfield input[type=text], .qqPage .qfield input[type=tel], .qqPage .qfield input[type=email],
+.qqPage .qfield select, .qqPage .qfield textarea, .qqPage .qWhen input[type="date"]{
+  background-color:#000; color:#fff; border:1.5px solid #3A3A3A; border-radius:12px; }
+.qqPage .qfield :is(input,textarea)::placeholder{ color:rgba(255,255,255,.45); }
+.qqPage .qfield :is(input,select,textarea):focus{ border-color:#E3B64A; box-shadow:0 0 0 3px rgba(227,182,74,.35); outline:none; }
+.qqPage .qfield select option{ background:#000; color:#fff; }
+.qqPage .qWhen input[type="date"]::-webkit-calendar-picker-indicator{ filter:invert(1); opacity:.8; }
+.qqPage .qfield input:-webkit-autofill, .qqPage .qfield input:-webkit-autofill:hover,
+.qqPage .qfield input:-webkit-autofill:focus, .qqPage .qfield select:-webkit-autofill{
+  -webkit-box-shadow:0 0 0 1000px #000 inset; box-shadow:0 0 0 1000px #000 inset; -webkit-text-fill-color:#fff; caret-color:#fff; }
+/* Services needed: black tiles, gold lettering; a checked one goes solid gold. */
+.qqPage .qcheck{ background:#000; color:#E3B64A; border:1.5px solid #3A3A3A; border-radius:10px; padding:.55rem .75rem; transition:background .15s ease, color .15s ease, border-color .15s ease; }
+.qqPage .qcheck:hover{ border-color:#E3B64A; }
+/* Round checkboxes: black circle, gold ring. On a checked (gold) tile the circle goes black with a gold tick. */
+.qqPage .qcheck input{ -webkit-appearance:none; appearance:none; width:18px; height:18px; margin:0; border-radius:50%; border:1.5px solid #E3B64A; background:#000; cursor:pointer; position:relative; flex:none; }
+.qqPage .qcheck input:checked{ border-color:#000; }
+.qqPage .qcheck input:checked::after{ content:""; position:absolute; left:5px; top:2px; width:4px; height:8px; border:solid #E3B64A; border-width:0 2px 2px 0; transform:rotate(45deg); }
+.qqPage .qcheck input:focus-visible{ outline:2px solid #E3B64A; outline-offset:2px; }
+.qqPage .qcheck:has(input:checked){ background:#E3B64A; color:#000; border-color:#E3B64A; }
+/* Buttons and links that were blue: blue on navy disappears, so they go gold. */
+.qqPage .qWhen__asap{ border-color:#E3B64A; color:#E3B64A; }
+.qqPage .qWhen__asap:hover{ background:rgba(227,182,74,.12); }
+.qqPage .qWhen__asap[aria-pressed="true"]{ background:#E3B64A; color:#172239; }
+.qqPage .qPhotoZone{ border-color:rgba(227,182,74,.5); background:rgba(255,255,255,.04); }
+.qqPage .qPhotoZone__hint{ color:rgba(255,255,255,.8); }
+.qqPage .qPhotoBtns #qCameraBtn{ background:#E3B64A; color:#172239; border-color:#E3B64A; }
+.qqPage .qPhotoBtns #qPickBtn{ color:#E3B64A; border-color:#E3B64A; }
+.qqPage .qPhotoBtns #qPickBtn:hover{ background:rgba(227,182,74,.12); }
+.qqPage .qform__photos--small .photo--sms{ color:#E3B64A; border-bottom-color:rgba(227,182,74,.5); }
+.qqPage #qSummarizeBtn{ color:rgba(255,255,255,.7); }
+.qqPage #qSummarizeBtn:hover{ color:#fff; }
+/* Summarize dropped from this page; the script still references it, so hide rather than delete. */
+#qSummarizeBtn{ display:none !important; }
+.qqPage .kcq__tool{ color:#fff; border-color:rgba(255,255,255,.45); }
+.qqPage .kcq__tool:hover{ color:#E3B64A; border-color:#E3B64A; background:rgba(227,182,74,.1); }
 /* Photo previews: even square tiles with an X to remove one. */
 .qPhotoPreview{ display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px; margin-top:10px; }
 .qPhotoPreview:empty{ display:none; }
@@ -719,8 +816,6 @@ body{ background:var(--paper); }
 <body>
 
 <main class="qqPage">
-  <a class="qqHome" href="index.html">&larr; Back to home</a>
-
   <div class="qform">
         <div id="quoteWrap" style="position:relative; scroll-margin-top:calc(var(--bar-h) + 16px)">
           <span id="quote" class="quoteAnchor" aria-hidden="true"></span>
@@ -728,7 +823,7 @@ body{ background:var(--paper); }
                pencil while the form is collapsed into its summary, the bin
                while it is open. Same pair as the service pages. -->
           <div class="kcq__tools">
-            <button type="button" class="kcq__tool" id="qEditBtn" title="Edit your answers" aria-label="Edit your answers" hidden>
+            <button type="button" class="kcq__tool" id="qEditBtn" data-label="Edit" title="Edit your answers" aria-label="Edit your answers" hidden>
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3z"/><path d="M13.5 6.5l4 4"/>
               </svg>
@@ -740,7 +835,7 @@ body{ background:var(--paper); }
               </svg>
             </button>
           </div>
-          <img class="qqMark" src="images/logo.png" alt="Khean &amp; Clean logo">
+          <a class="qqMarkLink" href="index.html" aria-label="Khean &amp; Clean home page"><img class="qqMark" src="images/logo.png" alt="Khean &amp; Clean logo"></a>
           <p class="qform__ttl">Quick Online Quote</p>
           <p class="qform__sub">Free &middot; No obligation</p>
 
@@ -815,20 +910,34 @@ body{ background:var(--paper); }
                 </fieldset>
 
                 <div class="qfield">
+                  <label for="qWhen">When would you like this done? (optional)</label>
+                  <div class="qWhen">
+                    <button type="button" id="qAsapBtn" class="qWhen__asap" aria-pressed="false">ASAP</button>
+                    <input id="qWhen" name="when" type="date" autocomplete="off" aria-label="Preferred date">
+                  </div>
+                </div>
+
+                <div class="qfield">
                   <label for="qMsg">Rooms or areas needing service</label>
-                  <textarea id="qMsg" name="message" rows="4" placeholder="e.g. three bedrooms and a hallway, one pet stain in the living room"></textarea>
+                  <textarea id="qMsg" name="message" rows="4" placeholder="Example: three bedrooms, a hallway, and a pet stain in the living room.&#10;Also mention pets, parking, gate codes, or anything else we should know."></textarea>
                 </div>
 
                 <div class="qfield">
                   <label for="qPhotos">Add photos (optional)</label>
-                  <input id="qPhotos" name="photos" type="file" accept="image/*" multiple>
+                  <input id="qPhotos" name="photos" type="file" accept="image/*" multiple hidden>
                   <input id="qCamera" type="file" accept="image/*" capture="environment" hidden>
-                  <button type="button" id="qCameraBtn" class="btn btn--jade btn--text">Take photo</button>
+                  <div class="qPhotoZone">
+                    <p class="qPhotoZone__hint">A quick photo helps us quote it right.</p>
+                    <div class="qPhotoBtns">
+                      <button type="button" id="qCameraBtn" class="btn btn--jade btn--text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take photo</button>
+                      <button type="button" id="qPickBtn" class="btn btn--jade btn--text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Choose photo</button>
+                    </div>
+                  </div>
                   <span class="qerr" data-for="qPhotos"></span>
                   <div id="qPhotoPreview" class="qPhotoPreview"></div>
                 </div>
 
-                <p class="qform__photos">
+                <p class="qform__photos qform__photos--small">
                   <a class="btn btn--jade btn--text photo--sms" href="sms:+19167672520?&amp;body=Photos%20for%20my%20Khean%20%26%20Clean%20estimate" aria-label="Text us photos at (916) 767-2520">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                     <span>Text us photos<span class="btn__sub">(916) 767-2520</span></span>
@@ -840,12 +949,11 @@ body{ background:var(--paper); }
                 </p>
 
                 <input type="checkbox" name="botcheck" class="qhp" tabindex="-1" autocomplete="off" aria-hidden="true">
-
-                <button type="button" class="btn btn--wireDark" id="qSummarizeBtn" style="width:100%; margin-bottom:.85rem;">Summarize</button>
               </div>
             </div>
 
             <button class="btn btn--call qform__submit" type="submit" id="qSubmit">Send quote request</button>
+            <button type="button" class="btn btn--wireDark" id="qSummarizeBtn" style="width:100%; margin-top:.85rem;">Summarize</button>
             <p class="qform__fine">We reply during business hours, 9am&ndash;9pm daily. For emergency water removal, call <a href="tel:+19167672520">(916) 767-2520</a> any time, day or night.</p>
             <p class="qstatus" id="qStatus" role="status" aria-live="polite"></p>
           </form>
@@ -914,6 +1022,10 @@ window.kcQAddr = function(){
     );
     if(services.length){
       chips.push('<div class="chips">' + services.map(function(s){ return '<span class="chip">' + escapeHtml(s) + '</span>'; }).join('') + '</div>');
+    }
+    var whenVal = window.kcWhen ? window.kcWhen() : '';
+    if(whenVal){
+      chips.push('<div class="row"><b>When</b><span>' + escapeHtml(whenVal) + '</span></div>');
     }
     if(qMsg && qMsg.value.trim()){
       var m = qMsg.value.trim(), isEst = /^ESTIMATE FROM YOUR ONLINE ESTIMATOR/.test(m), notes = '';
@@ -1018,6 +1130,7 @@ window.kcQAddr = function(){
     add('Email',       qEmail ? qEmail.value : '');
     add('Property',    qType  ? qType.value  : '');
     add('Address',     window.kcQAddr());
+    add('When',        window.kcWhen ? window.kcWhen() : '');
     add('Rooms/areas', qMsg   ? ownNotes(qMsg.value) : '');
     var services = Array.prototype.map.call(
       document.querySelectorAll('input[name="services"]:checked'),
@@ -1221,9 +1334,11 @@ window.kcQAddr = function(){
     /* The clearing work, lifted out of the old inline confirm so the dialog's
        Yes button can call it. Every step is unchanged. */
     function doClear(){
-      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg'].forEach(function(id){
+      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg','qWhen'].forEach(function(id){
         var el = document.getElementById(id); if(el) el.value = '';
       });
+      var asapBtn = document.getElementById('qAsapBtn');
+      if(asapBtn) asapBtn.setAttribute('aria-pressed', 'false');
       var qf = document.getElementById('quoteForm');
       if(qf){
         qf.querySelectorAll('input[name="services"]').forEach(function(c){ c.checked = false; });
@@ -1296,6 +1411,29 @@ window.kcQAddr = function(){
     if(!el) return;
     el.addEventListener('input', function(){ el.value = fmtPhone(el.value); });
   });
+
+  /* When would you like this done? Optional. ASAP, a calendar-picked date, or blank. */
+  (function(){
+    var when = document.getElementById('qWhen'), asap = document.getElementById('qAsapBtn');
+    if(!when || !asap) return;
+    /* no past dates: min = today, local time */
+    var t = new Date();
+    when.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    function picked(){ if(when.value) asap.setAttribute('aria-pressed', 'false'); }
+    when.addEventListener('input', picked);
+    when.addEventListener('change', picked);
+    asap.addEventListener('click', function(){
+      var on = asap.getAttribute('aria-pressed') !== 'true';
+      asap.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if(on) when.value = '';
+    });
+    /* The picker holds YYYY-MM-DD; hand back MM/DD/YY for the email, lead and summary. */
+    window.kcWhen = function(){
+      if(asap.getAttribute('aria-pressed') === 'true') return 'ASAP';
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value);
+      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) : '';
+    };
+  })();
 })();
 </script>
 
@@ -1456,6 +1594,8 @@ window.kcQAddr = function(){
       draw();
     }
     input.addEventListener('change', function(){ addFrom(input); });
+    var pick = document.getElementById('qPickBtn');
+    if (pick) pick.addEventListener('click', function(){ input.click(); });
     var cam = document.getElementById('qCamera'),
         camBtn = document.getElementById('qCameraBtn');
     if (cam && camBtn) {
@@ -1562,6 +1702,7 @@ window.kcQAddr = function(){
     fd.append('zip',      document.getElementById('qZip').value.trim());
     fd.append('property_type', document.getElementById('qType').value);
     fd.append('services', services);
+    fd.append('when',     window.kcWhen ? window.kcWhen() : '');
     fd.append('message',  document.getElementById('qMsg').value.trim());
     if (form.querySelector('.qhp').checked) { fd.append('botcheck', 'true'); }
 
@@ -1599,6 +1740,7 @@ window.kcQAddr = function(){
           }],
           type:          document.getElementById('qType').value.toLowerCase(),
           services:      services,
+          when:          window.kcWhen ? window.kcWhen() : '',
           message:       document.getElementById('qMsg').value.trim(),
           photoPaths:    photoPaths
         });
@@ -1624,6 +1766,7 @@ window.kcQAddr = function(){
         submit.textContent = 'Request sent';
         submit.classList.add('is-sent');
         showDone();
+        if(window.kcQuoteSave) window.kcQuoteSave();
         /* Let the confirmation read for a moment, then go to the home page.
            The saved kcQuote entry means the form there arrives already filled. */
         window.setTimeout(function(){ window.location.href = 'index.html?sent=1'; }, 2000);
@@ -1638,6 +1781,29 @@ window.kcQAddr = function(){
       submit.textContent = 'Send quote request';
     });
   });
+})();
+
+/* ---- Hand the quote to the home page ----
+   Saves the form under the shared "kcQuote" key (same format index.html and the
+   service pages use). After sending we go to index.html?sent=1, which reads this
+   entry back and shows it as the collapsed summary. */
+(function(){
+  var KEY = 'kcQuote';
+  var form = document.getElementById('quoteForm'); if(!form) return;
+  var fields = ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg'];
+  function store(){ try{ return window.localStorage; }catch(e){ return null; } }
+  function save(){
+    var st = store(); if(!st) return;
+    var d = { services:[] };
+    fields.forEach(function(id){ var el = document.getElementById(id); if(el) d[id.slice(1).toLowerCase()] = el.value; });
+    d.services = Array.prototype.map.call(form.querySelectorAll('input[name="services"]:checked'), function(c){ return c.value; });
+    if(window.quoteEstimateData) d.est = window.quoteEstimateData;
+    d.ts = Date.now();
+    try{ st.setItem(KEY, JSON.stringify(d)); }catch(e){}
+  }
+  form.addEventListener('input', save);
+  form.addEventListener('change', save);
+  window.kcQuoteSave = save;
 })();
 </script>
 <script src="places.js" defer></script>
