@@ -4030,6 +4030,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         /* Also put a lead on the estimator's Leads page. Bots are skipped.
            A failed save never blocks the email or opening the estimator. */
         if (!eSend.querySelector('input.esthp').checked && typeof window.kcSaveLead === 'function') {
+          window.kcSoftLeadId = null;
           window.kcSaveLead({
             source:    'estimator',
             name:      eName.value.trim(),
@@ -4044,7 +4045,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
             type:      eType ? eType.value.toLowerCase() : '',
             message:   'Opened the estimator (details only, no estimate yet)',
             page:      'homepage-estimator'
-          }).catch(function(err){
+          }).then(function(id){ window.kcSoftLeadId = id; })
+          .catch(function(err){
             if(window.console) console.error('Estimator lead save failed', err);
           });
         }
@@ -4140,6 +4142,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         var noteTxt = eNotes ? eNotes.value.trim() : '';
         return window.kcSaveLead({
           source:     'estimator',
+          softLeadId: window.kcSoftLeadId || '',
           page:       'homepage-estimator',
           photoPaths: photoPaths,
           when:       eWhenVal,

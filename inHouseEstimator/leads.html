@@ -182,6 +182,14 @@ async function load(){
     try { await deleteDoc(doc(db, "leads", l.id)); all = all.filter(x => x.id !== l.id); purged++; }
     catch (e) { console.error("Could not erase lead " + l.id, e); }
   }
+  /* A Request Appointment lead replaces the "details only" lead it came from.
+     Only removed if nobody has worked the soft one yet. */
+  for (const hard of all.filter(x => x.softLeadId)) {
+    const soft = all.find(x => x.id === hard.softLeadId);
+    if (!soft || soft.status !== "new" || soft.staffNotes || soft.converted || soft.quoteId) continue;
+    try { await deleteDoc(doc(db, "leads", soft.id)); all = all.filter(x => x.id !== soft.id); }
+    catch (e) { console.error("Could not merge lead " + soft.id, e); }
+  }
 }
 
 /* ---- List: newest first, grouped by status ---- */
