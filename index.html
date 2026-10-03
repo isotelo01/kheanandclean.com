@@ -1940,7 +1940,32 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
         <div class="estField est__notes">
           <label for="eNotes">Anything else we should know <span class="opt">(optional)</span></label>
           <textarea id="eNotes" rows="4" placeholder="Parking and access, stairs up to the unit, furniture to move, pets at home, preferred days or times"></textarea>
-          <p class="est__photos">
+        </div>
+
+        <!-- Photos, same block as the Quick Quote form. Picked photos are held in
+             window.kcEstFiles; Request Appointment uploads them and files them on
+             the Leads page with the estimate. -->
+        <style>
+          .estPhotos .qPhotoZone{ border-color:rgba(227,182,74,.5); background:rgba(255,255,255,.04); }
+          .estPhotos .qPhotoZone__hint{ color:rgba(255,255,255,.8); }
+          .estPhotos #eCameraBtn{ background:#E3B64A; color:#172239; border:1.5px solid #E3B64A; }
+          .estPhotos #ePickBtn{ background:transparent; color:#E3B64A; border:1.5px solid #E3B64A; }
+          .estPhotos #ePickBtn:hover{ background:rgba(227,182,74,.12); }
+          .estPhotos .qform__photos--small .photo--sms, .estPhotos .qform__photos--small .photo--mail{ color:#E3B64A; border-bottom-color:rgba(227,182,74,.5); }
+        </style>
+        <div class="estField estPhotos">
+          <label for="ePhotos">Add photos <span class="opt">(optional)</span></label>
+          <input id="ePhotos" type="file" accept="image/*" multiple hidden>
+          <input id="eCamera" type="file" accept="image/*" capture="environment" hidden>
+          <div class="qPhotoZone">
+            <p class="qPhotoZone__hint">A quick photo helps us quote it right.</p>
+            <div class="qPhotoBtns">
+              <button type="button" id="eCameraBtn" class="btn btn--text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take photo</button>
+              <button type="button" id="ePickBtn" class="btn btn--text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Choose photo</button>
+            </div>
+          </div>
+          <div id="ePhotoPreview" class="qPhotoPreview"></div>
+          <p class="qform__photos qform__photos--small">
             <a class="btn btn--jade btn--text photo--sms" href="sms:+19167672520?&amp;body=Photos%20for%20my%20Khean%20%26%20Clean%20estimate" aria-label="Text us photos at (916) 767-2520">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
               <span>Text us photos<span class="btn__sub">(916) 767-2520</span></span>
@@ -1951,6 +1976,41 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
             </a>
           </p>
         </div>
+
+        <script>
+        /* Estimator photo picker: thumbnails with an X, up to 10. Same as the Quick Quote form. */
+        (function(){
+          var MAX = 10, files = [], urls = [];
+          var box = document.getElementById('ePhotoPreview'),
+              pick = document.getElementById('ePhotos'),
+              cam = document.getElementById('eCamera');
+          if(!box || !pick || !cam) return;
+          window.kcEstFiles = files;
+          function draw(){
+            urls.forEach(function(u){ URL.revokeObjectURL(u); });
+            urls = []; box.innerHTML = '';
+            files.forEach(function(f, i){
+              var tile = document.createElement('div'); tile.className = 'qPhotoTile';
+              var img = document.createElement('img'); img.className = 'qPhotoThumb'; img.alt = f.name;
+              img.src = URL.createObjectURL(f); urls.push(img.src);
+              var x = document.createElement('button'); x.type = 'button'; x.className = 'qPhotoX';
+              x.setAttribute('aria-label', 'Remove ' + f.name); x.textContent = '×';
+              x.addEventListener('click', function(){ files.splice(i, 1); draw(); });
+              tile.appendChild(img); tile.appendChild(x); box.appendChild(tile);
+            });
+          }
+          function addFrom(el){
+            Array.prototype.forEach.call(el.files, function(f){ if(files.length < MAX) files.push(f); });
+            el.value = '';   /* so the same photo can be picked again after removing it */
+            draw();
+          }
+          pick.addEventListener('change', function(){ addFrom(pick); });
+          cam.addEventListener('change', function(){ addFrom(cam); });
+          document.getElementById('ePickBtn').addEventListener('click', function(){ pick.click(); });
+          document.getElementById('eCameraBtn').addEventListener('click', function(){ cam.click(); });
+          window.kcEstFilesClear = function(){ files.length = 0; draw(); };
+        })();
+        </script>
 
         <div class="estActions">
           <button type="button" class="btn btn--call estSubmit" id="eSubmit">Request Appointment</button>
@@ -4013,14 +4073,61 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       eSubmit.disabled = true;
       eSubmit.textContent = 'Sending...';
 
-      fetch(EST_ENDPOINT, {
-        method:'POST', headers:{ 'Accept':'application/json' }, body: fd
+      /* Photos upload first, then the request goes on the Leads page with the
+         estimate and the photos. Same pipeline as the Quick Quote form. A failed
+         upload or save never blocks the email below. Bots are skipped. */
+      var eIsBot = eSend.querySelector('input.esthp').checked;
+      var ePics = (window.kcEstFiles || []).slice();
+      var eLeadKey = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      if(ePics.length && !eIsBot){ eSubmit.textContent = 'Uploading photos...'; }
+
+      Promise.resolve()
+      .then(function(){
+        return (ePics.length && !eIsBot && typeof window.kcUploadPhotos === 'function')
+          ? window.kcUploadPhotos(ePics, eLeadKey).catch(function(err){
+              if(window.console) console.error('Estimator photo upload failed', err);
+              return [];
+            })
+          : [];
+      })
+      .then(function(photoPaths){
+        fd.append('photo_count', String(photoPaths.length));
+        eSubmit.textContent = 'Sending...';
+        if(eIsBot || typeof window.kcSaveLead !== 'function') return null;
+        var noteTxt = eNotes ? eNotes.value.trim() : '';
+        return window.kcSaveLead({
+          source:     'estimator',
+          page:       'homepage-estimator',
+          photoPaths: photoPaths,
+          name:       eName.value.trim(),
+          phone:      ePhone.value.trim(),
+          email:      eEmail.value.trim(),
+          addresses:  [{
+            street: eAddr.value.trim(),
+            city:   eCity(),
+            state:  'CA',
+            zip:    eZipEl ? eZipEl.value.trim() : ''
+          }],
+          type:       eType ? eType.value.toLowerCase() : '',
+          message:    'Requested an appointment.\n\n' + eSummary() + (noteTxt ? '\n\nNotes: ' + noteTxt : ''),
+          estimate:   eSummary(),
+          notes:      noteTxt
+        }).catch(function(err){
+          if(window.console) console.error('Estimator lead save failed', err);
+          return null;
+        });
+      })
+      .then(function(){
+        return fetch(EST_ENDPOINT, {
+          method:'POST', headers:{ 'Accept':'application/json' }, body: fd
+        });
       })
       .then(function(r){ return r.json().catch(function(){ return { success:r.ok }; }); })
       .then(function(res){
         if(res && res.success){
           if(typeof gtag === 'function'){ gtag('event', 'generate_lead', { form_name: 'estimator_appointment' }); }
           if(eNotes) eNotes.value = '';
+          if(window.kcEstFilesClear) window.kcEstFilesClear();
           eSend.hidden = true;
           eDone.hidden = false;
         } else {
