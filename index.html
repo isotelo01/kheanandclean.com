@@ -4159,7 +4159,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
           estimateData: (typeof STATE !== 'undefined')
             ? JSON.stringify({ v:1, active: activeSvc, state: STATE, discAmt:'', discPct:'', waiveMin:false })
             : '',
-          message:    'Requested an appointment.\n\n' + eSummary() + (noteTxt ? '\n\nNotes: ' + noteTxt : '')
+          message:    noteTxt   /* just "Anything else we should know"; the estimate travels in estimateData */
         }).catch(function(err){
           if(window.console) console.error('Estimator lead save failed', err);
           return null;

@@ -337,10 +337,10 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
     set("eCity", data.city);
     set("eState", data.state);
     set("eZip", data.zip);
-    /* Lead message: editable copy of the lead's message, shown only when the lead had one. */
-    const lm = document.getElementById("eLeadMsg");
-    const lmf = document.getElementById("eLeadMsgField");
-    if (lm && lmf && data.message) { lm.value = data.message; lmf.hidden = false; }
+    /* The lead's message goes into "Anything else we should know" (no separate
+       Lead message box). Only fills it when that box is still empty. */
+    const notes = document.getElementById("eNotes");
+    if (notes && data.message && !notes.value.trim()) notes.value = data.message;
     /* Remember the lead, so Send marks this lead quoted instead of making a new one. */
     const lid = document.getElementById("eLeadId");
     if (lid && data.leadId) lid.value = data.leadId;
