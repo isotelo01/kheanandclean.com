@@ -182,13 +182,23 @@ async function load(){
     try { await deleteDoc(doc(db, "leads", l.id)); all = all.filter(x => x.id !== l.id); purged++; }
     catch (e) { console.error("Could not erase lead " + l.id, e); }
   }
-  /* A Request Appointment lead replaces the "details only" lead it came from.
-     Only removed if nobody has worked the soft one yet. */
-  for (const hard of all.filter(x => x.softLeadId)) {
-    const soft = all.find(x => x.id === hard.softLeadId);
-    if (!soft || soft.status !== "new" || soft.staffNotes || soft.converted || soft.quoteId) continue;
-    try { await deleteDoc(doc(db, "leads", soft.id)); all = all.filter(x => x.id !== soft.id); }
-    catch (e) { console.error("Could not merge lead " + soft.id, e); }
+  /* A newer lead from the same person (same phone or email, or tagged with the
+     soft lead's id) replaces an older one nobody has worked yet. The older one
+     goes to Trash, so it can still be restored for 30 days. */
+  const untouched = x => !x.trashed && !x.converted && (x.status || "new") === "new" && !x.staffNotes && !x.quoteId;
+  for (const newer of all.filter(x => !x.trashed && !x.converted)) {
+    const pk = phoneKey(newer.phone), ek = emailKey(newer.email);
+    for (const older of all) {
+      if (older.id === newer.id || !untouched(older)) continue;
+      if (ms(older.createdAt) >= ms(newer.createdAt)) continue;
+      const same = older.id === newer.softLeadId ||
+        (pk && phoneKey(older.phone) === pk) || (ek && emailKey(older.email) === ek);
+      if (!same) continue;
+      try {
+        await updateDoc(doc(db, "leads", older.id), { trashed: true, trashedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        older.trashed = true; older.trashedAt = new Date().toISOString();
+      } catch (e) { console.error("Could not trash duplicate lead " + older.id, e); }
+    }
   }
 }
 
