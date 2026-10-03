@@ -1296,7 +1296,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 
 /* Navy card */
 .qform.qqLook{ background:#172239; color:#fff; border:1.5px solid #fff; border-radius:var(--r-lg); }
-.qqLook .qform__ttl{ color:#fff; }
+.qqLook .qform__ttl{ color:#E3B64A; font-family:"Dancing Script",cursive; font-weight:600; letter-spacing:.01em; }
 .qqLook .qform__sub{ color:#E3B64A; }
 .qqLook label, .qqLook legend{ color:#E3B64A; }
 .qqLook p, .qqLook small{ color:rgba(255,255,255,.82); }
@@ -1376,7 +1376,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
       <a href="#areas">Areas</a>
       <a href="property-managers.html">PM &amp; Realtors</a>
     </nav>
-    <a class="masthead__quote" href="#quote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M15 9h-4.25a1.75 1.75 0 0 0 0 3.5h2.5a1.75 1.75 0 0 1 0 3.5H9"/><path d="M12 7.2v1.8"/><path d="M12 16v1.8"/></svg><span>Quick Quote</span></a>
+    <a class="masthead__quote" href="#quote"><span>Quick Quote</span></a>
     <button type="button" class="navBtn" id="navBtn" aria-label="Open menu" aria-expanded="false" aria-controls="navMenu">
       <span class="navBtn__bar"></span><span class="navBtn__bar"></span><span class="navBtn__bar"></span>
     </button>
@@ -1391,7 +1391,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
     <a href="#method">Method</a>
     <a href="#areas">Areas</a>
     <a href="reviews.html">Leave us a review</a>
-    <a href="#quote">Quick online quote</a>
+    <a href="#quote">Quick quote</a>
     <a href="tel:+19167672520">(916) 767&#8211;2520</a>
     <a href="khean-clean.vcf" download="khean-clean.vcf">Save contact</a>
   </nav>
@@ -1430,7 +1430,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
               </svg>
             </button>
           </div>
-          <p class="qform__ttl">Quick Online Quote</p>
+          <p class="qform__ttl">Quick Quote</p>
           <p class="qform__sub">Free &middot; No obligation</p>
 
           <form id="quoteForm" novalidate>
@@ -3827,6 +3827,28 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         fd.append('stage',   'Opened the estimator (details only, no estimate yet)');
         if (eSend.querySelector('input.esthp').checked) { fd.append('botcheck', 'true'); }
 
+        /* Also put a lead on the estimator's Leads page. Bots are skipped.
+           A failed save never blocks the email or opening the estimator. */
+        if (!eSend.querySelector('input.esthp').checked && typeof window.kcSaveLead === 'function') {
+          window.kcSaveLead({
+            source:    'estimator',
+            name:      eName.value.trim(),
+            phone:     ePhone.value.trim(),
+            email:     eEmail.value.trim(),
+            addresses: [{
+              street: eAddr.value.trim(),
+              city:   eCity(),
+              state:  'CA',
+              zip:    eZipEl ? eZipEl.value.trim() : ''
+            }],
+            type:      eType ? eType.value.toLowerCase() : '',
+            message:   'Opened the estimator (details only, no estimate yet)',
+            page:      'homepage-estimator'
+          }).catch(function(err){
+            if(window.console) console.error('Estimator lead save failed', err);
+          });
+        }
+
         eEnter.disabled = true;
         eEnter.textContent = 'One moment...';
 
@@ -4608,7 +4630,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   window.kcSaveLead = async function(lead){
     const docRef = await addDoc(collection(db, 'leads'), Object.assign({}, lead, {
       status: 'new',
-      source: 'quick-quote',
+      source: lead.source || 'quick-quote',
       createdAt: serverTimestamp()
     }));
     return docRef.id;
