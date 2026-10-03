@@ -82,6 +82,38 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 /* phone letterhead: logo spans the full text block (name to phone line); "Invoice #I-1005" becomes one row under a thin rule */
 @media (max-width:560px){.idblock{gap:12px}.idblock img{width:88px;height:88px;border-radius:6px}.contact{font-size:13px}.kind{width:100%;display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid rgba(255,255,255,.18);padding-top:12px}.kind .t{font-size:24px}.kind .n{margin-top:0}}
 @media print{body{background:#fff}.sheet{box-shadow:none;margin:0}.accept,.foot button{display:none}.top{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+/* ===== Estimator look: dark sheet, gold accents, serif itemized lines, big gold total.
+   Everything below overrides the styles above; delete this block to go back. ===== */
+:root{--ink:#e9ecf2;--muted:#9aa2b2;--line:#222a3a}
+body{background:#05070c}
+.sheet{background:#0b0f17;color:var(--ink);border:1px solid #1d2433;box-shadow:0 2px 24px rgba(0,0,0,.5)}
+.top{background:#0b0f17;border-bottom:1px solid rgba(227,182,74,.45)}
+.brand{color:var(--gold);border-bottom:0;font-size:30px}
+.legal{color:#c9d0de}
+.meta h3,th{color:var(--gold);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+.meta strong{font-weight:500;font-size:19px}
+th,td{border-bottom:0}
+thead th{border-bottom:1px solid var(--line)}
+tr.head td{font:700 17px/1.4 "Playfair Display",Georgia,serif;color:#fff;padding-top:18px;border-top:1px solid var(--line)}
+tbody tr.head:first-child td{border-top:0}
+tr.sub td{font:15px/1.45 "Playfair Display",Georgia,serif;color:#b6bdcb;padding-top:6px;padding-bottom:6px}
+tr.room td{font:13.5px "Playfair Display",Georgia,serif;color:#8a92a3;padding:3px 8px 3px 40px}
+tr.room td.r{padding-left:8px}
+.totalrow{border-top:1px solid rgba(227,182,74,.45);padding-top:12px}
+.grand{border-top:0;color:var(--gold);align-items:baseline}
+.grand span:first-child{font:600 13px "Archivo",sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.grand span:last-child{font:700 40px/1 "Playfair Display",Georgia,serif}
+.notes{background:#121826}
+.sig .name{color:var(--gold)}
+.sig .line{border-bottom-color:#c9d0de}
+.accept{border-color:var(--gold);background:#0f1420}
+.terms a,.paybox.go .pname{color:var(--gold)}
+.terms input{accent-color:var(--gold)}
+.pico{color:var(--gold)}
+input{background:#05070c;color:var(--ink);border-color:#2c3446}
+button{background:var(--gold);color:#0b0f17}
+button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
+@media print{:root{--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}body,.sheet,.top{background:#fff;color:var(--ink)}tr.head td{color:var(--ink)}tr.sub td,tr.room td{color:var(--muted)}}
 </style>
 </head>
 <body>
@@ -122,6 +154,8 @@ const PICO = {
 const sheet = document.getElementById("sheet");
 const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* Same as the estimator: the size after the first " — " drops to its own line. */
+const twoLine = t => esc(t).replace(" \u2014 ", "<br>");
 const fmtDate = s => s ? new Date(s + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "";
 
 const id = new URLSearchParams(location.search).get("id");
@@ -189,8 +223,9 @@ function render(d){
       </div>
       <table>
         <thead><tr><th>Service</th><th class="r">Amount</th></tr></thead>
-        <tbody>${(d.lines || []).map(l => `<tr><td><strong>${esc(l.label)}</strong></td><td class="r"><strong>${money(l.cost)}</strong></td></tr>` +
-          (l.items || []).map(it => `<tr class="sub"><td>${esc(it.label)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>`).join("")).join("")}</tbody>
+        <tbody>${(d.lines || []).map(l => `<tr class="head"><td>${twoLine(l.label)}</td><td class="r">${money(l.cost)}</td></tr>` +
+          (l.items || []).map(it => `<tr class="sub"><td>${twoLine(it.label)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>` +
+            (it.rooms || []).map(rm => `<tr class="room"><td>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)}</td><td class="r">${(Number(rm.sqft) || 0).toLocaleString()} sq ft</td></tr>`).join("")).join("")).join("")}</tbody>
       </table>
       <div class="totalrow">
         <div class="totals">
