@@ -344,6 +344,12 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
     /* Remember the lead, so Send marks this lead quoted instead of making a new one. */
     const lid = document.getElementById("eLeadId");
     if (lid && data.leadId) lid.value = data.leadId;
+    /* Lead from the homepage estimator: put the customer's rooms, service,
+       package and add-ons back on screen and reprice. */
+    if (data.estimateData && window.KC_restore) {
+      try { window.KC_restore(JSON.parse(data.estimateData)); }
+      catch (e) { console.error("Could not rebuild the homepage estimate", e); }
+    }
   };
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", fill);

@@ -415,7 +415,9 @@ async function showLead(id){
       state: a.state || "",
       zip: a.zip || "",
       message: l.message || "",
-      leadId: l.id
+      leadId: l.id,
+      /* Homepage estimator choices, so the estimate rebuilds itself. */
+      estimateData: typeof l.estimateData === "string" ? l.estimateData : ""
     };
     try { sessionStorage.setItem("kc_prefill", JSON.stringify(prefill)); } catch (e) {}
     /* Mark the lead quoted before handing off. Wait for the write so a fast

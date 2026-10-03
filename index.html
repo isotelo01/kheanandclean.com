@@ -4153,6 +4153,12 @@ document.getElementById('yr').textContent = new Date().getFullYear();
             zip:    eZipEl ? eZipEl.value.trim() : ''
           }],
           type:       eType ? eType.value.toLowerCase() : '',
+          /* Every choice behind the estimate, in the in-house estimator's own
+             snapshot format, so New quote on the Leads page can rebuild it.
+             Saved as text so Firestore takes any shape. */
+          estimateData: (typeof STATE !== 'undefined')
+            ? JSON.stringify({ v:1, active: activeSvc, state: STATE, discAmt:'', discPct:'', waiveMin:false })
+            : '',
           message:    'Requested an appointment.\n\n' + eSummary() + (noteTxt ? '\n\nNotes: ' + noteTxt : '')
         }).catch(function(err){
           if(window.console) console.error('Estimator lead save failed', err);
