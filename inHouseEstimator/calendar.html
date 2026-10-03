@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Calendar &middot; Khean &amp; Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Same look as approved-leads.html and customers.html. */
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:1200px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.links{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.new:disabled,.ghost:disabled{opacity:.6;cursor:default}
+.msg{color:var(--muted);font-size:14px;padding:6px 2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:where(a,button,input):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* Sticky bar: month arrows on desktop; Today and Needs a date on both. */
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:10px;padding:8px 0 10px}
+.mnav{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.mnav h2{font:700 24px "Playfair Display",Georgia,serif;margin:0 6px;white-space:nowrap}
+.arrow{width:40px;height:40px;flex:none;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--navy);font:600 22px/1 "Archivo";cursor:pointer}
+.need.has{background:var(--gold);border-color:var(--gold);color:var(--navy)}
+
+/* Job chips, coloured by customer type (same colours as the contact types). */
+.job{display:block;width:100%;text-align:left;border:0;border-left:4px solid;border-radius:6px;padding:4px 7px;font:500 13px/1.3 "Archivo",sans-serif;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.job .tm{font-weight:700;margin-right:5px}
+.job .ck{font-weight:700;margin-right:4px}
+.job .sub{display:block;font-weight:400;font-size:13px;opacity:.85}
+.job .amt{float:right;font-weight:700;margin-left:8px}
+.job.done{opacity:.62}
+.job:hover{filter:brightness(.97)}
+.k-residential{background:#e6eef9;border-color:#1f4f8f;color:#163a6b}
+.k-pm{background:#e3f1ea;border-color:var(--green);color:#0b4430}
+.k-realtor{background:#fbf1d8;border-color:#8a6412;color:#5e430b}
+.k-commercial{background:#f4e4e1;border-color:var(--red);color:#7a2c20}
+
+/* Desktop: month grid */
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.dow{background:var(--navy);color:#fff;font:600 13px "Archivo";text-align:center;padding:8px 0}
+.cell{background:#fff;min-height:120px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.cell.out{background:#f6f7f9}
+.cell.out .dnum{color:#9aa1ad}
+.chead{display:flex;align-items:center;justify-content:space-between;min-height:26px}
+.dnum{font:600 14px "Archivo";width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%}
+.cell.today .dnum{background:var(--gold);color:var(--navy)}
+.add{width:28px;height:28px;flex:none;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--navy);font:600 18px/1 "Archivo";cursor:pointer;padding:0}
+.cell .add{opacity:0}
+.cell:hover .add,.cell .add:focus-visible{opacity:1}
+@media (hover:none){.cell .add{opacity:1}}
+
+/* Phone: one day per row, opens on today */
+.days{display:flex;flex-direction:column;gap:6px}
+.mon{font:700 20px "Playfair Display",Georgia,serif;margin:14px 2px 2px}
+.day{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:10px 12px;scroll-margin-top:62px}
+.day.empty{background:transparent;box-shadow:none;padding:4px 12px;border-bottom:1px solid var(--line);border-radius:0}
+.day.today{background:#fff;box-shadow:0 0 0 2px var(--gold),0 1px 6px rgba(23,34,57,.08);padding:10px 12px;border-radius:10px;border-bottom:0}
+.day.past{opacity:.7}
+.dhead{display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:600}
+.day.empty .dhead{color:var(--muted);font-weight:500;font-size:14px}
+.tag{background:var(--gold);color:var(--navy);font:700 12px "Archivo";border-radius:999px;padding:1px 8px;margin-left:6px}
+.day .job{white-space:normal;font-size:15px;padding:8px 10px;margin-top:6px}
+.more{width:100%;margin:6px 0}
+
+/* Pop-ups */
+dialog{border:0;border-radius:12px;padding:0;width:min(520px,calc(100% - 24px));max-height:calc(100vh - 40px);color:var(--ink);box-shadow:0 20px 60px rgba(10,14,22,.35)}
+dialog::backdrop{background:rgba(10,14,22,.55)}
+.dlg{padding:18px 18px 16px}
+.dlg h3{font:700 22px "Playfair Display",Georgia,serif;margin:0 0 4px;padding-right:40px}
+.x{position:absolute;top:10px;right:10px;width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
+.when{font-weight:600;margin:0 0 2px}
+.state{font-size:14px;color:var(--muted);margin:0 0 12px}
+.badge{font:600 12px "Archivo";border-radius:999px;padding:2px 9px;white-space:nowrap;vertical-align:middle}
+.t-residential{background:#e6eef9;color:#1f4f8f}
+.t-pm{background:#e3f1ea;color:var(--green)}
+.t-realtor{background:#fbf1d8;color:#8a6412}
+.t-commercial{background:#f4e4e1;color:var(--red)}
+.rrow{display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:baseline;padding:4px 0}
+.rlab{font-size:13px;font-weight:600;color:var(--muted)}
+.rval{white-space:pre-wrap;min-width:0;overflow-wrap:anywhere}
+.rval a{color:var(--navy);font-weight:600}
+.work{list-style:none;margin:10px 0 0;padding:0;border-top:1px solid var(--line)}
+.work > li{padding:8px 0;border-bottom:1px solid var(--line)}
+.lrow{display:flex;justify-content:space-between;gap:12px;font-weight:600}
+.lrow span:last-child{white-space:nowrap;font-variant-numeric:tabular-nums}
+.areas{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:14px}
+.tot{display:flex;justify-content:space-between;font-weight:700;padding:10px 0 0;font-size:17px}
+.acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.pick{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.pick .job{white-space:normal;font-size:15px;padding:10px 12px}
+.fld{display:block;margin:12px 0 0}
+.fld span{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.fld input{width:100%;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+.err{color:var(--red);font-size:14px;min-height:1.2em;margin:10px 0 0}
+.ghost.danger{color:var(--red)}
+
+@media (max-width:759px){
+  .mnav{display:none}
+  .bar{justify-content:space-between}
+  h1{font-size:26px}
+}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Calendar</h1>
+    <div class="links">
+      <button type="button" class="ghost" id="refreshBtn">Refresh</button>
+      <a class="ghost" href="./approved-leads.html">Approved Leads</a>
+      <a class="ghost" href="./dashboard.html">Dashboard</a>
+    </div>
+  </div>
+  <div class="bar">
+    <div class="mnav">
+      <button type="button" class="arrow" id="prevBtn" aria-label="Previous month">&lsaquo;</button>
+      <h2 id="mlabel"></h2>
+      <button type="button" class="arrow" id="nextBtn" aria-label="Next month">&rsaquo;</button>
+    </div>
+    <button type="button" class="ghost" id="todayBtn">Today</button>
+    <button type="button" class="ghost need" id="needBtn">Needs a date (0)</button>
+  </div>
+  <div id="note" class="msg" hidden></div>
+  <div id="view"><div class="msg">Loading&hellip;</div></div>
+</div>
+<dialog id="dlg"><button type="button" class="x" data-close aria-label="Close">&times;</button><div class="dlg" id="dlgBody"></div></dialog>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, updateDoc, deleteField, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+
+const view = document.getElementById("view"), note = document.getElementById("note");
+const needBtn = document.getElementById("needBtn");
+const dlg = document.getElementById("dlg"), dlgBody = document.getElementById("dlgBody");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const ms = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
+
+/* Same type rules and colours as approved-leads.html. */
+const TYPES = [
+  { v: "residential", label: "Residential",         cls: "t-residential" },
+  { v: "pm",          label: "Property management", cls: "t-pm" },
+  { v: "realtor",     label: "Realtor",             cls: "t-realtor" },
+  { v: "commercial",  label: "Commercial",          cls: "t-commercial" }
+];
+const typeOf = c => { const t = String(c.type || "").toLowerCase();
+  return TYPES.find(x => x.v === t || x.label.toLowerCase() === t) || TYPES[0]; };
+const badge = c => { const t = typeOf(c); return '<span class="badge ' + t.cls + '">' + t.label + '</span>'; };
+const displayName = c => (typeOf(c).v !== "residential" && c.business ? c.business : c.name) || c.business || "No name";
+const cityLine = c => [[c.city, c.state].filter(Boolean).join(", "), c.zip].filter(Boolean).join(" ");
+
+/* Where a job can be. Approved = still to do. Invoiced or paid = done, shown faded
+   with a check. Invoicing copies every field off the approved quote, so the date
+   rides along to invoices and paid. */
+const PLACES = [
+  { key: "acceptedQuotes", state: "approved", label: "Approved, not done yet" },
+  { key: "invoices",       state: "invoiced", label: "Done, invoiced, waiting on payment" },
+  { key: "paidInvoices",   state: "paid",     label: "Done and paid" }
+];
+
+/* The job date is saved on the quote as plain text, scheduledDate "2026-10-08"
+   and scheduledTime "09:30" (time is optional), so it never shifts with time zones. */
+const pad = n => String(n).padStart(2, "0");
+const keyOf = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const fromKey = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const isKey = k => /^\d{4}-\d{2}-\d{2}$/.test(String(k || ""));
+const isTime = t => /^\d{2}:\d{2}$/.test(String(t || ""));
+const time12 = t => { if (!isTime(t)) return ""; let [h, m] = t.split(":").map(Number);
+  const ap = h < 12 ? "AM" : "PM"; h = h % 12 || 12; return h + (m ? ":" + pad(m) : "") + " " + ap; };
+const shortDay = d => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+const longDay = k => fromKey(k).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+const whenText = j => longDay(j.scheduledDate) + (time12(j.scheduledTime) ? " at " + time12(j.scheduledTime) : ", no start time set");
+const todayKey = () => keyOf(new Date());
+
+let jobs = [];          // every job with a date, from all three places
+let needDate = [];      // approved jobs that don't have a date yet
+let byDay = new Map();  // "2026-10-08" -> that day's jobs, earliest first
+
+async function load(){
+  const failed = [];
+  const got = await Promise.all(PLACES.map(p =>
+    getDocs(collection(db, p.key))
+      .then(s => s.docs.map(d => ({ ...d.data(), id: d.id, _place: p.key, _state: p.state })))
+      .catch(e => { console.error(p.key, e); failed.push(p.key + " (" + (e.code || e.message) + ")"); return []; })));
+  const all = got.flat();
+  jobs = all.filter(j => isKey(j.scheduledDate));
+  needDate = all.filter(j => j._place === "acceptedQuotes" && !isKey(j.scheduledDate))
+    .sort((a, b) => ms(a.acceptedAt) - ms(b.acceptedAt));
+  note.hidden = !failed.length;
+  note.textContent = failed.length ? "Could not load " + failed.join(", ") + ". Those jobs are missing below." : "";
+  index();
+}
+
+function index(){
+  byDay = new Map();
+  for (const j of jobs) {
+    if (!byDay.has(j.scheduledDate)) byDay.set(j.scheduledDate, []);
+    byDay.get(j.scheduledDate).push(j);
+  }
+  const t = j => isTime(j.scheduledTime) ? j.scheduledTime : "99";
+  for (const list of byDay.values()) list.sort((a, b) => t(a).localeCompare(t(b)));
+  needBtn.textContent = "Needs a date (" + needDate.length + ")";
+  needBtn.classList.toggle("has", needDate.length > 0);
+}
+
+const jobKey = j => j._place + "/" + j.id;
+const findJob = k => jobs.concat(needDate).find(j => jobKey(j) === k);
+
+/* One job on the calendar. Phone rows also show the street and city. */
+function chip(j, full){
+  const c = j.customer || {}, done = j._state !== "approved";
+  const sub = [[c.street, c.city].filter(Boolean).join(", "),
+               done ? (j._state === "paid" ? "Paid" : "Invoiced") : ""].filter(Boolean).join(" \u2013 ");
+  return '<button type="button" class="job k-' + typeOf(c).v + (done ? ' done' : '') + '" data-job="' + esc(jobKey(j)) + '">' +
+    (done ? '<span class="ck" aria-hidden="true">\u2713</span><span class="sr">Done: </span>' : '') +
+    (time12(j.scheduledTime) ? '<span class="tm">' + time12(j.scheduledTime) + '</span>' : '') +
+    esc(displayName(c)) +
+    (full && sub ? '<span class="sub">' + esc(sub) + '</span>' : '') +
+  '</button>';
+}
+const addBtn = d => '<button type="button" class="add" data-add="' + keyOf(d) +
+  '" aria-label="Schedule a job on ' + esc(shortDay(d)) + '">+</button>';
+
+/* ---- Desktop: month grid ---- */
+let month = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); })();
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function renderMonth(){
+  const y = month.getFullYear(), m = month.getMonth(), tk = todayKey();
+  document.getElementById("mlabel").textContent = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const first = new Date(y, m, 1), last = new Date(y, m + 1, 0);
+  const start = addDays(first, -first.getDay()), end = addDays(last, 6 - last.getDay());
+  let html = DOW.map(d => '<div class="dow">' + d + '</div>').join("");
+  for (let d = start; d <= end; d = addDays(d, 1)) {
+    const k = keyOf(d), list = byDay.get(k) || [];
+    html += '<div class="cell' + (d.getMonth() !== m ? ' out' : '') + (k === tk ? ' today' : '') + '">' +
+      '<div class="chead"><span class="dnum">' + d.getDate() + '</span>' + addBtn(d) + '</div>' +
+      list.map(j => chip(j, false)).join("") + '</div>';
+  }
+  view.innerHTML = '<div class="grid">' + html + '</div>';
+}
+
+/* ---- Phone: one row per day, today at the top, scroll up for earlier days ---- */
+let from = null, to = null;
+
+function renderDays(){
+  const tk = todayKey();
+  if (!from) { const t = fromKey(tk); from = addDays(t, -14); to = addDays(t, 60); }
+  let html = '<button type="button" class="ghost more" id="earlierBtn">Show earlier days</button><div class="days">';
+  let lastMon = -1;
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    if (d.getMonth() !== lastMon) {
+      lastMon = d.getMonth();
+      html += '<h2 class="mon">' + esc(d.toLocaleDateString(undefined, { month: "long", year: "numeric" })) + '</h2>';
+    }
+    const k = keyOf(d), list = byDay.get(k) || [];
+    html += '<section class="day' + (list.length ? '' : ' empty') + (k === tk ? ' today' : '') + (k < tk ? ' past' : '') + '" id="d-' + k + '">' +
+      '<div class="dhead"><span>' + esc(shortDay(d)) + (k === tk ? '<span class="tag">Today</span>' : '') + '</span>' + addBtn(d) + '</div>' +
+      list.map(j => chip(j, true)).join("") + '</section>';
+  }
+  view.innerHTML = html + '</div><button type="button" class="ghost more" id="laterBtn">Show later days</button>';
+}
+
+/* Adds 30 days above or below without the screen jumping. */
+function moreDays(dir){
+  const keep = keyOf(from), a0 = document.getElementById("d-" + keep);
+  const before = a0 ? a0.getBoundingClientRect().top : 0;
+  if (dir < 0) from = addDays(from, -30); else to = addDays(to, 30);
+  renderDays();
+  const a1 = document.getElementById("d-" + keep);
+  if (a1) window.scrollBy(0, a1.getBoundingClientRect().top - before);
+}
+
+const mq = window.matchMedia("(max-width: 759px)");
+const phone = () => mq.matches;
+const render = () => phone() ? renderDays() : renderMonth();
+
+function goToday(){
+  if (phone()) {
+    const tk = todayKey();
+    if (!document.getElementById("d-" + tk)) { from = null; renderDays(); }
+    const el = document.getElementById("d-" + tk);
+    if (el) el.scrollIntoView({ block: "start" });
+  } else {
+    const n = new Date(); month = new Date(n.getFullYear(), n.getMonth(), 1);
+    renderMonth();
+  }
+}
+
+/* ---- Pop-ups ---- */
+const openDlg = html => { dlgBody.innerHTML = html; if (!dlg.open) dlg.showModal(); dlgBody.scrollTop = 0; };
+const rrow = (lab, html) => html ? '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval">' + html + '</div></div>' : '';
+
+function showJob(j){
+  const c = j.customer || {}, addr = [c.street, cityLine(c)].filter(Boolean).join(", ");
+  const tel = String(c.phone || "").replace(/\D/g, "");
+  const lines = Array.isArray(j.lines) ? j.lines : [];
+  const place = PLACES.find(p => p.key === j._place);
+  openDlg(
+    '<h3>' + esc(displayName(c)) + ' ' + badge(c) + '</h3>' +
+    '<p class="when">' + esc(whenText(j)) + '</p>' +
+    '<p class="state">' + esc(place.label) + (j.number ? ', ' + esc(j.number) : '') + '</p>' +
+    rrow("Address", addr ? '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr) +
+      '" target="_blank" rel="noopener">' + esc(addr) + '</a>' : "") +
+    rrow("Phone", c.phone ? '<a href="tel:' + esc(tel) + '">' + esc(c.phone) + '</a>' : "") +
+    rrow("Contact", typeOf(c).v !== "residential" && c.business && c.name ? esc(c.name) : "") +
+    rrow("Notes", j.notes ? esc(j.notes) : "") +
+    (lines.length
+      ? '<ul class="work">' + lines.map(l => {
+          const items = Array.isArray(l.items) ? l.items : [];
+          return '<li><div class="lrow"><span>' + esc(l.label || "Service") + '</span><span>' + esc(money(l.cost)) + '</span></div>' +
+            (items.length ? '<ul class="areas">' + items.map(it => '<li>' + esc(it.label || "Area") + '</li>').join("") + '</ul>' : '') + '</li>';
+        }).join("") + '</ul>'
+      : '<p class="msg">No line items on this quote.</p>') +
+    '<div class="tot"><span>Total</span><span>' + esc(money(j.total)) + '</span></div>' +
+    '<div class="acts">' +
+      '<a class="new" href="./job-sheet.html?id=' + encodeURIComponent(j.id) + '">Job sheet</a>' +
+      '<a class="ghost" href="./quote.html?id=' + encodeURIComponent(j.id) + '" target="_blank" rel="noopener">Open quote</a>' +
+      (j._place === "acceptedQuotes" ? '<button type="button" class="ghost" data-sched="' + esc(jobKey(j)) + '">Change date</button>' : '') +
+    '</div>');
+}
+
+/* Approved jobs with no date. From a day's + button the date is filled in already. */
+function showPicker(k){
+  openDlg('<h3>' + esc(k ? "Schedule a job on " + shortDay(fromKey(k)) : "Needs a date") + '</h3>' +
+    (needDate.length
+      ? '<p class="state">Approved jobs that aren\u2019t on the calendar yet. Pick one.</p><div class="pick">' +
+        needDate.map(j => { const c = j.customer || {};
+          return '<button type="button" class="job k-' + typeOf(c).v + '" data-pick="' + esc(jobKey(j)) + '" data-day="' + (k || "") + '">' +
+            '<span class="amt">' + esc(money(j.total)) + '</span>' + esc(displayName(c)) +
+            '<span class="sub">' + esc([c.street, c.city].filter(Boolean).join(", ") || "No address") + '</span></button>';
+        }).join("") + '</div>'
+      : '<p class="msg">Every approved job already has a date. New approvals show up here.</p>'));
+}
+
+function showSchedule(j, k){
+  const c = j.customer || {}, has = isKey(j.scheduledDate);
+  openDlg('<h3>' + esc(displayName(c)) + '</h3>' +
+    '<p class="state">' + esc(has ? "Now: " + whenText(j) : "Not on the calendar yet") + '</p>' +
+    '<form id="schedForm" novalidate>' +
+      '<label class="fld"><span>Date</span><input type="date" id="sDate" value="' + esc(k || j.scheduledDate || "") + '"></label>' +
+      '<label class="fld"><span>Start time (optional)</span><input type="time" id="sTime" step="900" value="' +
+        esc(isTime(j.scheduledTime) ? j.scheduledTime : "") + '"></label>' +
+      '<p class="err" id="sErr" role="alert"></p>' +
+      '<div class="acts"><button type="submit" class="new">Save to calendar</button>' +
+        (has ? '<button type="button" class="ghost danger" data-unsched="' + esc(jobKey(j)) + '">Take off calendar</button>' : '') +
+        '<button type="button" class="ghost" data-close>Cancel</button></div>' +
+    '</form>');
+  document.getElementById("schedForm").addEventListener("submit", e => { e.preventDefault(); saveDate(j, false); });
+}
+
+/* Writes the date onto the approved quote. updateDoc fails if the quote has moved
+   on (invoiced), so it can never leave a stray copy behind in acceptedQuotes. */
+async function saveDate(j, clear){
+  const err = document.getElementById("sErr");
+  const date = clear ? "" : document.getElementById("sDate").value;
+  const time = clear ? "" : document.getElementById("sTime").value;
+  if (!clear && !isKey(date)) { err.textContent = "Pick a date first."; return; }
+  const btns = dlgBody.querySelectorAll("button");
+  btns.forEach(b => b.disabled = true);
+  try {
+    await updateDoc(doc(db, "acceptedQuotes", j.id), clear
+      ? { scheduledDate: deleteField(), scheduledTime: deleteField(), scheduledUpdatedAt: serverTimestamp() }
+      : { scheduledDate: date, scheduledTime: isTime(time) ? time : "", scheduledUpdatedAt: serverTimestamp() });
+  } catch (e) {
+    console.error(e);
+    err.textContent = e.code === "not-found"
+      ? "This job isn\u2019t in Approved any more. It may have been invoiced. Press Refresh."
+      : "Could not save: " + e.message;
+    btns.forEach(b => b.disabled = false);
+    return;
+  }
+  if (clear) { delete j.scheduledDate; delete j.scheduledTime; }
+  else { j.scheduledDate = date; j.scheduledTime = isTime(time) ? time : ""; }
+  jobs = jobs.filter(x => x !== j); needDate = needDate.filter(x => x !== j);
+  (isKey(j.scheduledDate) ? jobs : needDate).push(j);
+  index();
+  dlg.close();
+  if (clear) { render(); return; }
+  if (phone()) {
+    const d = fromKey(date);
+    if (d < from) from = d;
+    if (d > to) to = d;
+    renderDays();
+    const el = document.getElementById("d-" + date);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  } else {
+    const d = fromKey(date); month = new Date(d.getFullYear(), d.getMonth(), 1);
+    renderMonth();
+  }
+}
+
+/* ---- Taps ---- */
+document.addEventListener("click", e => {
+  const t = e.target;
+  if (t === dlg || t.closest("[data-close]")) { dlg.close(); return; }
+  const add = t.closest("[data-add]");
+  if (add) { showPicker(add.dataset.add); return; }
+  const pick = t.closest("[data-pick]");
+  if (pick) { const j = findJob(pick.dataset.pick); if (j) showSchedule(j, pick.dataset.day); return; }
+  const sched = t.closest("[data-sched]");
+  if (sched) { const j = findJob(sched.dataset.sched); if (j) showSchedule(j, j.scheduledDate); return; }
+  const un = t.closest("[data-unsched]");
+  if (un) { const j = findJob(un.dataset.unsched); if (j) saveDate(j, true); return; }
+  const jb = t.closest("[data-job]");
+  if (jb) { const j = findJob(jb.dataset.job); if (j) showJob(j); return; }
+  if (t.closest("#earlierBtn")) { moreDays(-1); return; }
+  if (t.closest("#laterBtn")) { moreDays(1); return; }
+});
+document.getElementById("prevBtn").addEventListener("click", () => { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); renderMonth(); });
+document.getElementById("nextBtn").addEventListener("click", () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); renderMonth(); });
+document.getElementById("todayBtn").addEventListener("click", goToday);
+needBtn.addEventListener("click", () => showPicker(""));
+mq.addEventListener("change", () => { render(); if (phone()) goToday(); });
+
+/* Refresh: pull the latest from the database. */
+document.getElementById("refreshBtn").addEventListener("click", async e => {
+  const b = e.currentTarget;
+  b.disabled = true; b.textContent = "Refreshing\u2026";
+  try { await load(); render(); }
+  catch (err) { console.error(err); note.hidden = false; note.textContent = "Could not refresh: " + err.message; }
+  finally { b.disabled = false; b.textContent = "Refresh"; }
+});
+
+/* Page lock. Not signed in -> login page, then back here. */
+let started = false;
+onAuthStateChanged(getAuth(app), async user => {
+  if (!user) { location.replace("./login.html?next=calendar.html"); return; }
+  document.getElementById("authwait")?.remove();
+  if (started) return;
+  started = true;
+  try { await load(); }
+  catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
+  render();
+  if (phone()) goToday();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Hub &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Same look as approved-leads.html and customers.html. */
+:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.top img{display:block;width:46px;height:46px;border-radius:8px;flex:none}
+h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.date{color:var(--muted);font-size:15px;margin:6px 0 0}
+:where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* The two pages used most get the big navy tiles; everything else sits below. */
+.main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.rest{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.tile{display:flex;flex-direction:column;justify-content:flex-end;gap:2px;min-height:96px;padding:16px 18px;
+  text-decoration:none;color:var(--ink);background:#fff;border-left:4px solid var(--gold);border-radius:10px;
+  box-shadow:0 1px 6px rgba(23,34,57,.08)}
+.tile:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
+.tname{font:700 20px/1.2 "Playfair Display",Georgia,serif}
+.tdesc{color:var(--muted);font-size:14px;line-height:1.4}
+.main .tile{background:var(--navy);min-height:132px}
+.main .tile:hover{background:#24345a}
+.main .tname{font-size:28px;color:var(--gold)}
+.main .tdesc{color:rgba(255,255,255,.78);font-size:15px}
+
+.foot{display:flex;justify-content:flex-end;margin-top:30px}
+.signout{background:none;border:0;color:var(--muted);font:500 14px "Archivo",sans-serif;text-decoration:underline;cursor:pointer;padding:4px}
+
+@media (max-width:540px){
+  .main{grid-template-columns:1fr}
+  .main .tile{min-height:104px}
+  .rest{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tile{padding:14px}
+  .tname{font-size:18px}
+}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <img src="../images/icon-180.png" alt="">
+    <div>
+      <h1>Khean &amp; Clean</h1>
+      <p class="date" id="date"></p>
+    </div>
+  </div>
+
+  <nav aria-label="App pages">
+    <div class="main">
+      <a class="tile" href="./index.html"><span class="tname">Estimator</span><span class="tdesc">Build an estimate and send it</span></a>
+      <a class="tile" href="./calendar.html"><span class="tname">Calendar</span><span class="tdesc">Scheduled jobs by month, or day by day on the phone</span></a>
+    </div>
+    <div class="rest">
+      <a class="tile" href="./leads.html"><span class="tname">Leads</span><span class="tdesc">Quick quotes from the website</span></a>
+      <a class="tile" href="./approved-leads.html"><span class="tname">Approved Leads</span><span class="tdesc">Approved jobs waiting to be done</span></a>
+      <a class="tile" href="./dashboard.html"><span class="tname">Dashboard</span><span class="tdesc">Estimates, invoices and payments</span></a>
+      <a class="tile" href="./customers.html"><span class="tname">Customers</span><span class="tdesc">Customer records and job history</span></a>
+      <a class="tile" href="./expenses.html"><span class="tname">Expenses</span><span class="tdesc">Bills and supplier invoices you paid</span></a>
+    </div>
+  </nav>
+
+  <div class="foot"><button type="button" class="signout" id="signOutBtn">Sign out</button></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const auth = getAuth(initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+}));
+
+document.getElementById("date").textContent =
+  new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+
+/* Page lock. Not signed in -> login page, then back here. */
+onAuthStateChanged(auth, user => {
+  if (!user) { location.replace("./login.html?next=hub.html"); return; }
+  document.getElementById("authwait")?.remove();
+});
+
+/* Signing out trips the lock above, which sends you to the login page. */
+const out = document.getElementById("signOutBtn");
+out.addEventListener("click", async () => {
+  out.disabled = true; out.textContent = "Signing out\u2026";
+  try { await signOut(auth); }
+  catch (e) { console.error(e); out.disabled = false; out.textContent = "Sign out"; alert("Could not sign out: " + e.message); }
+});
+</script>
+</body>
+</html>
