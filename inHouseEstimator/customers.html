@@ -480,7 +480,9 @@ async function showProfile(id){
       (isNew ? "" :
         '<div class="padd">' +
           '<button type="button" class="ghost" id="addPhotoBtn">Add photos</button>' +
+          '<button type="button" class="ghost" id="takePhotoBtn">Take photo</button>' +
           '<input type="file" id="photoInput" accept="image/*" multiple hidden>' +
+          '<input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>' +
           '<span class="note" id="photoNote"></span>' +
         '</div>') +
       '<div class="actions">' +
@@ -621,7 +623,8 @@ async function showProfile(id){
   const photoSay = (t, isErr) => { const n = $("photoNote"); if (n) { n.textContent = t; n.classList.toggle("err", !!isErr); } };
 
   $("addPhotoBtn")?.addEventListener("click", () => $("photoInput").click());
-  $("photoInput")?.addEventListener("change", async e => {
+  $("takePhotoBtn")?.addEventListener("click", () => $("cameraInput").click());
+  const onPhotoPick = async e => {
     const files = [...e.target.files].filter(f => /^image\//.test(f.type));
     e.target.value = "";
     if (!files.length) return;
@@ -653,7 +656,9 @@ async function showProfile(id){
       }
     }
     btn.disabled = false;
-  });
+  };
+  $("photoInput")?.addEventListener("change", onPhotoPick);
+  $("cameraInput")?.addEventListener("change", onPhotoPick);
 
   $("photos")?.addEventListener("click", async e => {
     const x = e.target.closest(".pdel");

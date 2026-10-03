@@ -76,6 +76,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
       <a class="custbtn" href="./leads.html">Leads</a>
       <a class="custbtn" href="./approved-leads.html">Approved</a>
       <a class="custbtn" href="./customers.html">Customers</a>
+      <a class="custbtn" href="./expenses.html">Income &amp; Expenses</a>
       <a class="new" href="./index.html">New estimate</a>
     </div>
   </div>
@@ -122,7 +123,7 @@ const SECTIONS = [
   { key: "quotes",         title: "Estimates",          empty: "No estimates yet. Build one and hit Send Estimate &mdash; it will show up here." },
   { key: "acceptedQuotes", title: "Accepted Estimates", empty: "Nothing accepted yet." },
   { key: "invoices",       title: "Invoices",           empty: "No invoices yet." },
-  { key: "paidInvoices",   title: "Paid Invoices",      empty: "No paid invoices yet." }
+  { key: "paidInvoices",   title: "Paid Invoices",      empty: "No paid invoices this month yet." }
 ];
 
 const TRASH_SECTION = [{ key: "trash", title: "Trash", empty: "Trash is empty." }];
@@ -169,6 +170,12 @@ const card = r =>
     : '') +
   '</div>';
 
+/* Paid Invoices shows only this month; older ones stay in Firestore, customer history, and Income & Expenses. */
+const tsMs = t => t && typeof t.toMillis === "function" ? t.toMillis() : (t ? new Date(t).getTime() : 0);
+const NOW = new Date();
+const MONTH_NAME = NOW.toLocaleString("en-US", { month: "long" });
+const thisMonth = r => { const d = new Date(tsMs(r.paidAt) || tsMs(r.createdAt)); return d.getFullYear() === NOW.getFullYear() && d.getMonth() === NOW.getMonth(); };
+
 function render(){
   if (!loaded) return;
   const term = (qEl ? qEl.value : "").trim().toLowerCase();
@@ -177,7 +184,8 @@ function render(){
   let grand = 0, anyRows = 0, anyShown = 0;
 
   boardEl.innerHTML = viewSections().map(s => {
-    const all = data[s.key] || [], shown = all.filter(match);
+    const all = s.key === "paidInvoices" ? (data[s.key] || []).filter(thisMonth) : (data[s.key] || []), shown = all.filter(match);
+    const title = s.key === "paidInvoices" ? MONTH_NAME + "'s Paid Invoices" : s.title;
     const sum = shown.reduce((a, r) => a + (Number(r.total) || 0), 0);
     grand += sum; anyRows += all.length; anyShown += shown.length;
 
@@ -187,7 +195,7 @@ function render(){
                : shown.map(card).join("");
 
     return '<div class="block">' +
-      '<div class="blockhead"><h2>' + s.title + '</h2><span class="count">' + count + '</span>' +
+      '<div class="blockhead"><h2>' + title + '</h2><span class="count">' + count + '</span>' +
       (shown.length ? '<span class="tot">' + money(sum) + '</span>' : '') + '</div>' +
       body + '</div>';
   }).join("");
@@ -203,7 +211,7 @@ async function grab(name){
     const d = docSnap.data(), c = d.customer || {};
     return { id: docSnap.id, source: name, createdAt: d.createdAt,
              number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",
-             total: d.total, date: when(d.createdAt), state: stateOf(d) };
+             total: d.total, paidAt: d.paidAt, date: when(d.createdAt), state: stateOf(d) };
   });
 }
 

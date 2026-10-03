@@ -822,6 +822,8 @@ body{ background:var(--paper); }
                 <div class="qfield">
                   <label for="qPhotos">Add photos (optional)</label>
                   <input id="qPhotos" name="photos" type="file" accept="image/*" multiple>
+                  <input id="qCamera" type="file" accept="image/*" capture="environment" hidden>
+                  <button type="button" id="qCameraBtn" class="btn btn--jade btn--text">Take photo</button>
                   <span class="qerr" data-for="qPhotos"></span>
                   <div id="qPhotoPreview" class="qPhotoPreview"></div>
                 </div>
@@ -1444,15 +1446,22 @@ window.kcQAddr = function(){
         box.appendChild(tile);
       });
     }
-    input.addEventListener('change', function(){
+    function addFrom(el){
       var max = window.KC_MAX_FILES || 10;
-      Array.prototype.forEach.call(input.files, function(f){
+      Array.prototype.forEach.call(el.files, function(f){
         if (kcFiles.length < max) kcFiles.push(f);
       });
       /* Clear the input so the same photo can be picked again after removing it. */
-      input.value = '';
+      el.value = '';
       draw();
-    });
+    }
+    input.addEventListener('change', function(){ addFrom(input); });
+    var cam = document.getElementById('qCamera'),
+        camBtn = document.getElementById('qCameraBtn');
+    if (cam && camBtn) {
+      camBtn.addEventListener('click', function(){ cam.click(); });
+      cam.addEventListener('change', function(){ addFrom(cam); });
+    }
   })();
   var statusEl = document.getElementById('qStatus'),
       submit   = document.getElementById('qSubmit'),

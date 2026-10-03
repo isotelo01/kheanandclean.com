@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Income &amp; Expenses &middot; Khean &amp; Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Same look as approved-leads.html. */
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.new:disabled{opacity:.6;cursor:default}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px;margin-bottom:16px}
+.panel h2{font:700 20px "Playfair Display",Georgia,serif;margin:0 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
+.monthbar{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px}
+.monthbar .lab{font:700 20px "Playfair Display",Georgia,serif;min-width:190px;text-align:center}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted)}
+input,select,textarea{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+textarea{min-height:60px;resize:vertical}
+.full{grid-column:1/-1}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.msg{color:var(--muted);font-size:14px;padding:6px 2px}
+.err{color:var(--red)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+td.amt,th.amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tfoot td{font-weight:700;border-bottom:none}
+.del{font:600 13px "Archivo";background:none;border:none;color:var(--red);cursor:pointer;padding:0}
+.note{color:var(--muted);font-size:13px}
+.sides{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.sides .panel{margin-bottom:0;min-width:0}
+.pl{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center}
+.pl .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.pl .big{font:700 24px "Archivo",system-ui,sans-serif;font-variant-numeric:tabular-nums lining-nums}
+.pl .pos{color:var(--green)}
+.pl .neg{color:var(--red)}
+@media (max-width:760px){.sides{grid-template-columns:1fr}.pl .big{font-size:19px}}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./index.html" aria-label="Estimator home"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Income &amp; Expenses</h1>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
+      <a class="ghost" href="./dashboard.html">Dashboard</a>
+      <a class="ghost" href="./customers.html">Customers</a>
+    </div>
+  </div>
+
+  <div class="monthbar">
+    <button type="button" class="ghost" id="prevM" aria-label="Previous month">&lsaquo;</button>
+    <div class="lab" id="monthLab"></div>
+    <button type="button" class="ghost" id="nextM" aria-label="Next month">&rsaquo;</button>
+  </div>
+
+  <div class="panel">
+    <button type="button" class="new" id="toggleForm" aria-expanded="false">+ Add a payment</button>
+    <div id="formWrap" hidden>
+    <h2 style="margin-top:16px">Add a paid invoice</h2>
+    <div class="grid">
+      <label>Date paid<input type="date" id="fDate"></label>
+      <label>Vendor<input type="text" id="fVendor" placeholder="Who you paid"></label>
+      <label>Amount ($)<input type="number" id="fAmount" step="0.01" min="0" inputmode="decimal"></label>
+      <label>Category<select id="fCat"></select></label>
+      <label>Paid with<select id="fPaid"></select></label>
+      <label>Invoice / receipt #<input type="text" id="fRef" placeholder="Optional"></label>
+      <label class="full">Notes<textarea id="fNotes" placeholder="Optional"></textarea></label>
+    </div>
+    <div class="actions">
+      <button type="button" class="new" id="saveBtn">Save</button>
+      <span class="msg" id="formMsg"></span>
+    </div>
+    </div>
+  </div>
+
+  <div class="sides">
+  <div class="panel">
+    <h2 id="incHead">Income</h2>
+    <div id="incList"><div class="msg">Loading&hellip;</div></div>
+  </div>
+  <div class="panel">
+    <h2 id="listHead">Expenses</h2>
+    <div id="list"><div class="msg">Loading&hellip;</div></div>
+    <div class="actions">
+      <button type="button" class="ghost" id="csvBtn">Export month (CSV)</button>
+    </div>
+  </div>
+  </div>
+  <div class="panel" id="profitBox" style="margin-top:16px"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+/* Accountant-friendly fields. Each expense stores month "YYYY-MM" so a month loads with one simple query. */
+const CATEGORIES = ["Supplies", "Chemicals", "Equipment", "Fuel", "Vehicle", "Insurance", "Marketing", "Software / subscriptions", "Repairs", "Other"];
+const PAID_WITH = ["Card", "Cash", "Check", "Bank transfer", "Other"];
+$("fCat").innerHTML = CATEGORIES.map(c => '<option>' + esc(c) + '</option>').join("");
+$("fPaid").innerHTML = PAID_WITH.map(c => '<option>' + esc(c) + '</option>').join("");
+
+const pad = n => String(n).padStart(2, "0");
+const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const now = new Date();
+let cur = { y: now.getFullYear(), m: now.getMonth() + 1 };
+const monthKey = () => cur.y + "-" + pad(cur.m);
+const monthName = () => new Date(cur.y, cur.m - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+$("fDate").value = todayStr();
+
+let rows = [];
+let income = [];
+
+/* Income = customer invoices marked Paid, placed in the month of their paidAt. */
+async function loadIncome(){
+  $("incHead").textContent = "Income \u2014 " + monthName();
+  $("incList").innerHTML = '<div class="msg">Loading&hellip;</div>';
+  const start = new Date(cur.y, cur.m - 1, 1), end = new Date(cur.y, cur.m, 1);
+  try {
+    const snap = await getDocs(query(collection(db, "paidInvoices"), where("paidAt", ">=", start), where("paidAt", "<", end)));
+    income = snap.docs.map(d => {
+      const x = d.data(), p = x.paidAt && x.paidAt.toDate ? x.paidAt.toDate() : null;
+      return { id: d.id, number: x.number || "", name: (x.customer && x.customer.name) || "", total: Number(x.total) || 0,
+               paid: p, date: p ? p.getFullYear() + "-" + pad(p.getMonth() + 1) + "-" + pad(p.getDate()) : "" };
+    }).sort((a, b) => (a.paid || 0) - (b.paid || 0));
+    renderIncome();
+  } catch (e) {
+    console.error(e);
+    income = [];
+    $("incList").innerHTML = '<div class="msg err">Could not load income: ' + esc(e.message) + '</div>';
+  }
+  renderProfit();
+}
+
+function renderIncome(){
+  if (!income.length) { $("incList").innerHTML = '<div class="msg">No paid invoices in ' + esc(monthName()) + '.</div>'; return; }
+  const total = income.reduce((s, r) => s + r.total, 0);
+  $("incList").innerHTML = '<div class="tablewrap"><table><thead><tr><th>Date</th><th>Customer</th><th>Invoice</th><th class="amt">Amount</th></tr></thead><tbody>' +
+    income.map(r => '<tr><td>' + esc(r.date) + '</td><td>' + esc(r.name || "No name") + '</td><td>' +
+      '<a href="./quote.html?id=' + encodeURIComponent(r.id) + '">' + esc(r.number) + '</a></td><td class="amt">' + money(r.total) + '</td></tr>').join("") +
+    '</tbody><tfoot><tr><td colspan="3">Total (' + income.length + ')</td><td class="amt">' + money(total) + '</td></tr></tfoot></table></div>';
+}
+
+function renderProfit(){
+  const inc = income.reduce((s, r) => s + r.total, 0);
+  const exp = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const net = inc - exp;
+  $("profitBox").innerHTML = '<div class="pl">' +
+    '<div><div class="lbl">Income</div><div class="big">' + money(inc) + '</div></div>' +
+    '<div><div class="lbl">Expenses</div><div class="big">' + money(exp) + '</div></div>' +
+    '<div><div class="lbl">Profit</div><div class="big ' + (net < 0 ? "neg" : "pos") + '">' + (net < 0 ? "-" : "") + money(Math.abs(net)) + '</div></div>' +
+    '</div>';
+}
+
+async function loadMonth(){
+  $("monthLab").textContent = monthName();
+  $("listHead").textContent = "Expenses \u2014 " + monthName();
+  $("list").innerHTML = '<div class="msg">Loading&hellip;</div>';
+  const inc = loadIncome();
+  try {
+    const snap = await getDocs(query(collection(db, "expenses"), where("month", "==", monthKey())));
+    rows = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    render();
+  } catch (e) {
+    console.error(e);
+    rows = [];
+    $("list").innerHTML = '<div class="msg err">Could not load: ' + esc(e.message) + '</div>';
+  }
+  await inc;
+  renderProfit();
+}
+
+function render(){
+  if (!rows.length) { $("list").innerHTML = '<div class="msg">Nothing logged for ' + esc(monthName()) + ' yet.</div>'; return; }
+  const total = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  $("list").innerHTML = '<div class="tablewrap"><table><thead><tr>' +
+    '<th>Date</th><th>Vendor</th><th>Category</th><th>Paid with</th><th>Ref #</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td>' + esc(r.date) + '</td><td>' + esc(r.vendor) +
+      (r.notes ? '<div class="note">' + esc(r.notes) + '</div>' : '') + '</td><td>' + esc(r.category) +
+      '</td><td>' + esc(r.paidWith) + '</td><td>' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
+      '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '">Delete</button></td></tr>').join("") +
+    '</tbody><tfoot><tr><td colspan="5">Total (' + rows.length + ')</td><td class="amt">' + money(total) + '</td><td></td></tr></tfoot></table></div>';
+}
+
+$("toggleForm").addEventListener("click", () => {
+  const open = $("formWrap").hidden;
+  $("formWrap").hidden = !open;
+  $("toggleForm").setAttribute("aria-expanded", String(open));
+  $("toggleForm").textContent = open ? "Close" : "+ Add a payment";
+});
+
+$("saveBtn").addEventListener("click", async () => {
+  const date = $("fDate").value, vendor = $("fVendor").value.trim(), amount = Math.round(parseFloat($("fAmount").value) * 100) / 100;
+  const msg = $("formMsg");
+  if (!date || !vendor || !(amount > 0)) { msg.className = "msg err"; msg.textContent = "Date, vendor and amount are required."; return; }
+  const btn = $("saveBtn"); btn.disabled = true; msg.className = "msg"; msg.textContent = "Saving\u2026";
+  try {
+    await addDoc(collection(db, "expenses"), {
+      date, month: date.slice(0, 7), vendor, amount,
+      category: $("fCat").value, paidWith: $("fPaid").value,
+      ref: $("fRef").value.trim(), notes: $("fNotes").value.trim(),
+      createdBy: auth.currentUser ? auth.currentUser.email || auth.currentUser.uid : "",
+      createdAt: serverTimestamp()
+    });
+    $("fVendor").value = ""; $("fAmount").value = ""; $("fRef").value = ""; $("fNotes").value = "";
+    msg.textContent = "Saved.";
+    const [y, m] = date.split("-").map(Number);
+    cur = { y, m };
+    await loadMonth();
+  } catch (e) {
+    console.error(e);
+    msg.className = "msg err"; msg.textContent = "Could not save: " + e.message;
+  } finally { btn.disabled = false; }
+});
+
+$("list").addEventListener("click", async e => {
+  const b = e.target.closest(".del");
+  if (!b) return;
+  const r = rows.find(x => x.id === b.dataset.id);
+  if (!r || !confirm("Delete " + r.vendor + " " + money(r.amount) + " on " + r.date + "?")) return;
+  try { await deleteDoc(doc(db, "expenses", r.id)); await loadMonth(); }
+  catch (err) { console.error(err); alert("Could not delete: " + err.message); }
+});
+
+/* CSV for the accountant: one row per expense, plain columns. */
+$("csvBtn").addEventListener("click", () => {
+  if (!rows.length) { alert("Nothing to export for " + monthName() + "."); return; }
+  const cell = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const lines = [["Date", "Vendor", "Category", "Paid with", "Invoice/receipt #", "Amount", "Notes"].map(cell).join(",")]
+    .concat(rows.map(r => [r.date, r.vendor, r.category, r.paidWith, r.ref, (Number(r.amount) || 0).toFixed(2), r.notes].map(cell).join(",")));
+  const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "khean-expenses-" + monthKey() + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+$("prevM").addEventListener("click", () => { cur.m--; if (cur.m < 1) { cur.m = 12; cur.y--; } loadMonth(); });
+$("nextM").addEventListener("click", () => { cur.m++; if (cur.m > 12) { cur.m = 1; cur.y++; } loadMonth(); });
+
+/* Page lock. Not signed in -> login page, then back here. */
+let started = false;
+onAuthStateChanged(auth, user => {
+  if (!user) { location.replace("./login.html?next=expenses.html"); return; }
+  document.getElementById("authwait")?.remove();
+  if (!started) { started = true; loadMonth(); }
+});
+</script>
+</body>
+</html>
