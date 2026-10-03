@@ -2,10 +2,12 @@
    The link opens quote.html (stage two). Unapproved quotes expire after 30 days. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp,
-         collection, query, where, limit, getDocs }
+         collection, query, where, limit, getDocs, arrayUnion }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage, ref, uploadBytes }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -16,6 +18,50 @@ const app = initializeApp({
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 });
 const db = getFirestore(app);
+const storage = getStorage(app);
+
+/* ---- Photos (picked in the "Add photos" block on index.html) ----
+   Same shrink-and-upload as the Quick Quote page. Saved under quick-quote-photos/
+   because that is the folder the Leads page already reads photos from. */
+const MAX_EDGE = 2400, JPEG_QUALITY = 0.85, MAX_BYTES = 10 * 1024 * 1024, MAX_FILES = 10;
+const pickedPhotos = () => (Array.isArray(window.KC_photos) ? window.KC_photos.slice(0, MAX_FILES) : []);
+
+function shrink(file){
+  return new Promise((resolve) => {
+    if (!/^image\//.test(file.type) || file.size < 400 * 1024) { resolve(file); return; }
+    const img = new Image(), src = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(src);
+      let w = img.width, h = img.height;
+      if (Math.max(w, h) > MAX_EDGE) { const k = MAX_EDGE / Math.max(w, h); w = Math.round(w * k); h = Math.round(h * k); }
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      c.toBlob((b) => resolve(b && b.size < file.size ? b : file), 'image/jpeg', JPEG_QUALITY);
+    };
+    img.onerror = () => { URL.revokeObjectURL(src); resolve(file); };
+    img.src = src;
+  });
+}
+
+/* Uploads the picked photos for one estimate; returns their storage paths.
+   A photo that fails is skipped, never the whole save. */
+async function uploadPhotos(quoteId){
+  const list = pickedPhotos(), paths = [];
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    try {
+      const small = await shrink(f);
+      if (small.size > MAX_BYTES) continue;
+      const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]+$/, '') + '.jpg';
+      const path = 'quick-quote-photos/estimate-' + quoteId + '/' + Date.now() + '_' + i + '_' + safe;
+      const snap = await uploadBytes(ref(storage, path), small, { contentType: 'image/jpeg' });
+      paths.push(snap.ref.fullPath);
+    } catch (e) {
+      console.error('Photo upload failed: ' + f.name, e);
+    }
+  }
+  return paths;
+}
 
 const $ = (id) => document.getElementById(id);
 const val = (id) => ($(id) ? $(id).value.trim() : '');
@@ -148,11 +194,12 @@ async function fileCustomer(custId){
 /* No Customer ID: file as a quoted lead. Quote started from a lead (New quote on
    the Leads page): that same lead is marked quoted. Otherwise a new lead is made,
    already marked quoted, so it shows under Quoted on the Leads page. */
-async function fileLead(quoteId, number){
+async function fileLead(quoteId, number, photoPaths){
   const link = { status: 'quoted', quoteId, quoteNumber: number, updatedAt: serverTimestamp() };
   const leadId = val('eLeadId');
   if (leadId) {
-    try { await updateDoc(doc(db, 'leads', leadId), link); return leadId; }
+    const upd = (photoPaths && photoPaths.length) ? Object.assign({ photoPaths: arrayUnion(...photoPaths) }, link) : link;
+    try { await updateDoc(doc(db, 'leads', leadId), upd); return leadId; }
     catch (e) { if (e.code !== 'not-found') throw e; }   /* lead was erased: make a fresh one */
   }
   const addr = { street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip') };
@@ -161,7 +208,8 @@ async function fileLead(quoteId, number){
     name: val('eName'), phone: val('ePhone'), email: val('eEmail'),
     type: val('eType').toLowerCase(), business: val('eBiz'),
     addresses: (addr.street || addr.city || addr.zip) ? [addr] : [],
-    message: '', services: [], source: 'estimate', createdAt: serverTimestamp()
+    message: '', services: [], source: 'estimate', createdAt: serverTimestamp(),
+    photoPaths: photoPaths || []
   }, link));
   if ($('eLeadId')) $('eLeadId').value = id;
   return id;
@@ -169,14 +217,14 @@ async function fileLead(quoteId, number){
 
 /* File the estimate under its customer or its quoted lead, and note which on the quote.
    Never fails the send: the quote is already saved by the time this runs. */
-async function fileContact(quoteId, from, number){
+async function fileContact(quoteId, from, number, photoPaths){
   const custId = val('eCustId');
   try {
     if (custId) {
       await fileCustomer(custId);
       await setDoc(doc(db, from, quoteId), { customerId: custId, leadId: null }, { merge: true });
     } else {
-      const leadId = await fileLead(quoteId, number);
+      const leadId = await fileLead(quoteId, number, photoPaths);
       await setDoc(doc(db, from, quoteId), { leadId, customerId: null }, { merge: true });
     }
   } catch (e) {
@@ -242,7 +290,9 @@ async function loadForEdit(id, from){
 /* Save over the same document: same id, same number, so links already sent keep working.
    An accepted estimate whose price changed goes back to Estimates for a fresh approval. */
 async function saveEdit(q){
+  const newPaths = await uploadPhotos(edit.id);
   const merged = Object.assign({}, edit.data, fromForm(q), { updatedAt: serverTimestamp() });
+  merged.photoPaths = (Array.isArray(edit.data.photoPaths) ? edit.data.photoPaths : []).concat(newPaths);
   const priceChanged = Math.abs(Number(q.total) - (Number(edit.data.total) || 0)) >= 0.01;
   let target = edit.from, text = 'Saved changes to ' + merged.number + '. Same link as before.';
 
@@ -256,7 +306,8 @@ async function saveEdit(q){
 
   await setDoc(doc(db, target, edit.id), merged);           /* copy first ... */
   if (target !== edit.from) await deleteDoc(doc(db, edit.from, edit.id));   /* ... then remove */
-  await fileContact(edit.id, target, merged.number);
+  await fileContact(edit.id, target, merged.number, newPaths);
+  if (window.KC_photosClear) window.KC_photosClear();
   edit.from = target; edit.data = merged;
   showLink(edit.id, merged.number, text);
 }
@@ -279,7 +330,7 @@ btn.addEventListener('click', async () => {
     return;
   }
 
-  btn.disabled = true; btn.textContent = 'Saving…';
+  btn.disabled = true; btn.textContent = pickedPhotos().length ? 'Uploading photos…' : 'Saving…';
   try {
     if (edit) { await saveEdit(q); return; }
 
@@ -298,7 +349,11 @@ btn.addEventListener('click', async () => {
       createdAt: serverTimestamp(),
       expiresAt: Timestamp.fromMillis(Date.now() + 30 * 864e5)
     }, fromForm(q)));
-    await fileContact(id, 'quotes', number);
+    /* Quote is saved first, so a photo problem can never lose the estimate. */
+    const photoPaths = await uploadPhotos(id);
+    if (photoPaths.length) await setDoc(doc(db, 'quotes', id), { photoPaths }, { merge: true });
+    if (window.KC_photosClear) window.KC_photosClear();
+    await fileContact(id, 'quotes', number, photoPaths);
 
     const sent = showLink(id, number, 'Saved as ' + number + '. Link is good for 30 days unless approved.');
     askHowToSend(number, sent.link, sent.body);

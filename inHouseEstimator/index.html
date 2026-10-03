@@ -222,6 +222,73 @@
           <textarea id="eNotes" rows="4" placeholder="Parking and access, stairs up to the unit, furniture to move, pets at home, preferred days or times"></textarea>
         </div>
 
+        <!-- Photos, same block as the Quick Quote page. Picked photos are held in
+             window.KC_photos; send.js uploads them when the estimate is saved. -->
+        <style>
+          .ePhotos .qPhotoZone{ border:1.5px dashed rgba(227,182,74,.5); border-radius:14px; background:rgba(255,255,255,.04); padding:1rem; }
+          .ePhotos .qPhotoZone__hint{ margin:0 0 .8rem; text-align:center; font-family:"Playfair Display", Georgia, serif; font-style:italic; font-size:var(--fs-sm); color:rgba(255,255,255,.8); }
+          .ePhotos .qPhotoBtns{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+          .ePhotos .qPhotoBtns .btn{ display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; padding:.8rem .75rem; border-radius:12px; font-size:var(--fs-sm); box-shadow:none; transition:transform .15s ease, box-shadow .15s ease, background .15s ease; }
+          .ePhotos .qPhotoBtns .btn svg{ width:18px; height:18px; flex:none; }
+          .ePhotos #eCameraBtn{ background:#E3B64A; color:#172239; border:1.5px solid #E3B64A; }
+          .ePhotos #ePickBtn{ background:transparent; color:#E3B64A; border:1.5px solid #E3B64A; }
+          .ePhotos .qPhotoBtns .btn:hover{ transform:translateY(-1px); }
+          .ePhotos #ePickBtn:hover{ background:rgba(227,182,74,.12); }
+          .ePhotos .qPhotoPreview{ display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px; margin-top:10px; }
+          .ePhotos .qPhotoPreview:empty{ display:none; }
+          .ePhotos .qPhotoTile{ position:relative; }
+          .ePhotos .qPhotoThumb{ display:block; width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; border:1px solid #dde1e8; background:#f3f4f6; }
+          .ePhotos .qPhotoX{ position:absolute; top:4px; right:4px; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:rgba(23,34,57,.8); color:#fff; font:700 16px/26px system-ui,sans-serif; text-align:center; cursor:pointer; }
+          .ePhotos .qPhotoX:hover, .ePhotos .qPhotoX:focus-visible{ background:#A6402F; }
+        </style>
+        <div class="estField ePhotos">
+          <label for="ePhotos">Add photos <span class="opt">(optional)</span></label>
+          <input id="ePhotos" type="file" accept="image/*" multiple hidden>
+          <input id="eCamera" type="file" accept="image/*" capture="environment" hidden>
+          <div class="qPhotoZone">
+            <p class="qPhotoZone__hint">A quick photo helps us quote it right.</p>
+            <div class="qPhotoBtns">
+              <button type="button" id="eCameraBtn" class="btn btn--text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take photo</button>
+              <button type="button" id="ePickBtn" class="btn btn--text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Choose photo</button>
+            </div>
+          </div>
+          <div id="ePhotoPreview" class="qPhotoPreview"></div>
+        </div>
+        <script>
+        (function(){
+          var MAX = 10, files = [], urls = [];
+          var box = document.getElementById('ePhotoPreview'),
+              pick = document.getElementById('ePhotos'),
+              cam = document.getElementById('eCamera');
+          window.KC_photos = files;
+          function draw(){
+            urls.forEach(function(u){ URL.revokeObjectURL(u); });
+            urls = []; box.innerHTML = '';
+            files.forEach(function(f, i){
+              var tile = document.createElement('div'); tile.className = 'qPhotoTile';
+              var img = document.createElement('img'); img.className = 'qPhotoThumb'; img.alt = f.name;
+              img.src = URL.createObjectURL(f); urls.push(img.src);
+              var x = document.createElement('button'); x.type = 'button'; x.className = 'qPhotoX';
+              x.setAttribute('aria-label', 'Remove ' + f.name); x.textContent = '×';
+              x.addEventListener('click', function(){ files.splice(i, 1); draw(); });
+              tile.appendChild(img); tile.appendChild(x); box.appendChild(tile);
+            });
+          }
+          function addFrom(el){
+            Array.prototype.forEach.call(el.files, function(f){ if (files.length < MAX) files.push(f); });
+            el.value = '';   /* so the same photo can be picked again after removing it */
+            draw();
+          }
+          pick.addEventListener('change', function(){ addFrom(pick); });
+          cam.addEventListener('change', function(){ addFrom(cam); });
+          document.getElementById('ePickBtn').addEventListener('click', function(){ pick.click(); });
+          document.getElementById('eCameraBtn').addEventListener('click', function(){ cam.click(); });
+          /* Emptied after a save, and by "Yes, clear everything". */
+          window.KC_photosClear = function(){ files.length = 0; draw(); };
+          document.addEventListener('click', function(e){ if (e.target.closest('[data-clear="all"]')) window.KC_photosClear(); });
+        })();
+        </script>
+
         <!-- Customer approval block. Layout only for now: everything is disabled
              until the customer-link build wires it up. -->
         <div class="qterms">
