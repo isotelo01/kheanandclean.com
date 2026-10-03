@@ -1113,6 +1113,15 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qcheck input{ width:17px; height:17px; flex:none; accent-color:var(--jade); cursor:pointer; }
 .qcheck:has(input:checked){ border-color:var(--jade); background:rgba(27,79,160,.06); }
 
+/* When would you like this done? — ASAP toggle beside a date picker. Same as quick-quote.html. */
+.qWhen{ display:grid; grid-template-columns:auto 1fr; gap:.75rem; align-items:stretch; }
+.qWhen__asap{ font:inherit; font-family:"Archivo Narrow",sans-serif; font-weight:700; letter-spacing:.1em; font-size:1.05rem; padding:.85rem 1.6rem; border-radius:12px; border:1.5px solid var(--jade); background:transparent; color:var(--jade); cursor:pointer; transition:background .15s ease, color .15s ease; }
+.qWhen__asap:hover{ background:rgba(27,79,160,.06); }
+.qWhen__asap[aria-pressed="true"]{ background:var(--jade); color:#fff; }
+.qWhen input{ min-width:0; letter-spacing:.06em; }
+.qWhen input[type="date"]{ width:100%; text-align:center; font-family:"Archivo",sans-serif; font-size:1.15rem; font-weight:500; color:var(--ink); background:#fff; padding:.85rem 1rem; border:1.5px solid var(--line); border-radius:12px; box-sizing:border-box; }
+.qWhen input[type="date"]::-webkit-calendar-picker-indicator{ width:22px; height:22px; cursor:pointer; opacity:.7; }
+.qWhen input[type="date"]::-webkit-date-and-time-value{ text-align:center; }
 .qhp{ position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
 .qform__submit{ width:100%; margin-top:.5rem; }
 .qform__submit[disabled]{ opacity:.6; cursor:progress; }
@@ -1252,6 +1261,90 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 /* pills & rows */
 .areas span{ border-radius:var(--r-pill); }
 .band--paper .entry:hover, .band--paper2 .entry:hover{ border-radius:var(--r-sm); }
+
+/* ============================================================================
+   QUICK QUOTE — standalone (quick-quote.html) look, copied over.
+   Navy card, white outline, white and gold lettering, black input boxes,
+   round gold service checkboxes, photo box. Scoped to .qqLook on the card,
+   so remove that class from the card to undo the whole look.
+   ============================================================================ */
+/* Photo box (base) */
+.qPhotoZone{ border:1.5px dashed rgba(27,79,160,.32); border-radius:var(--r-md); background:linear-gradient(180deg, rgba(255,255,255,.6), rgba(239,233,217,.6)); padding:1rem; }
+.qPhotoZone__hint{ margin:0 0 .8rem; text-align:center; font-family:"Playfair Display", Georgia, serif; font-style:italic; font-size:var(--fs-sm); color:var(--slate); }
+.qPhotoBtns{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+.qPhotoBtns .btn{ display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; padding:.8rem .75rem; border-radius:12px; font-size:var(--fs-sm); box-shadow:none; transition:transform .15s ease, box-shadow .15s ease, background .15s ease; }
+.qPhotoBtns .btn svg{ width:18px; height:18px; flex:none; }
+.qPhotoBtns #qCameraBtn{ background:var(--jade); color:#fff; border:1.5px solid var(--jade); }
+.qPhotoBtns #qPickBtn{ background:transparent; color:var(--jade); border:1.5px solid var(--jade); }
+.qPhotoBtns .btn:hover{ transform:translateY(-1px); box-shadow:0 8px 18px -10px rgba(27,79,160,.7); }
+.qPhotoBtns #qPickBtn:hover{ background:rgba(27,79,160,.06); }
+.qPhotoPreview{ display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px; margin-top:10px; }
+.qPhotoPreview:empty{ display:none; }
+.qPhotoTile{ position:relative; }
+.qPhotoThumb{ display:block; width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; border:1px solid #dde1e8; background:#f3f4f6; }
+.qPhotoX{ position:absolute; top:4px; right:4px; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:rgba(23,34,57,.8); color:#fff; font:700 16px/26px system-ui,sans-serif; text-align:center; cursor:pointer; }
+.qPhotoX:hover,.qPhotoX:focus-visible{ background:#A6402F; }
+.qSumPhotos{ display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:6px; }
+.qSumPhotos img{ display:block; width:100%; aspect-ratio:1; object-fit:cover; border-radius:6px; }
+/* "Text us photos" as a small link under the photo box */
+.qform__photos--small{ display:flex; justify-content:center; gap:1.2rem; margin:.75rem 0 1.4rem; }
+.qform__photos--small .photo--sms, .qform__photos--small .photo--mail{ display:inline-flex; align-items:center; gap:.4rem; width:auto; padding:.15rem 0; background:none; border:0; border-radius:0; box-shadow:none; color:var(--jade); font-size:var(--fs-xs); border-bottom:1px solid rgba(27,79,160,.35); }
+.qform__photos--small .photo--sms svg, .qform__photos--small .photo--mail svg{ width:15px; height:15px; }
+.qform__photos--small .btn__sub{ display:inline; margin:0 0 0 .3rem; font-size:inherit; opacity:.75; }
+@media (min-width:901px){ .qform__photos--small .photo--sms{ display:none; } .qform__photos--small .photo--mail{ display:inline-flex; } }
+@media (max-width:900px){ .qform__photos--small .photo--mail{ display:none; } }
+
+/* Navy card */
+.qform.qqLook{ background:#172239; color:#fff; border:1.5px solid #fff; border-radius:var(--r-lg); }
+.qqLook .qform__ttl{ color:#fff; }
+.qqLook .qform__sub{ color:#E3B64A; }
+.qqLook label, .qqLook legend{ color:#E3B64A; }
+.qqLook p, .qqLook small{ color:rgba(255,255,255,.82); }
+.qqLook p a{ color:#E3B64A; }
+/* Black boxes with white text inside. */
+.qqLook .qfield input[type=text], .qqLook .qfield input[type=tel], .qqLook .qfield input[type=email],
+.qqLook .qfield select, .qqLook .qfield textarea, .qqLook .qWhen input[type="date"]{
+  background-color:#000; color:#fff; border:1.5px solid #3A3A3A; border-radius:12px; }
+.qqLook .qfield :is(input,textarea)::placeholder{ color:rgba(255,255,255,.45); }
+.qqLook .qfield :is(input,select,textarea):focus{ border-color:#E3B64A; box-shadow:0 0 0 3px rgba(227,182,74,.35); outline:none; }
+.qqLook .qfield select option{ background:#000; color:#fff; }
+.qqLook .qfield select{ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23E3B64A' stroke-width='1.6'/%3E%3C/svg%3E"); }
+.qqLook .qWhen input[type="date"]::-webkit-calendar-picker-indicator{ filter:invert(1); opacity:.8; }
+.qqLook .qfield input:-webkit-autofill, .qqLook .qfield input:-webkit-autofill:hover,
+.qqLook .qfield input:-webkit-autofill:focus, .qqLook .qfield select:-webkit-autofill{
+  -webkit-box-shadow:0 0 0 1000px #000 inset; box-shadow:0 0 0 1000px #000 inset; -webkit-text-fill-color:#fff; caret-color:#fff; }
+/* Services needed: black tiles, gold lettering; a checked one goes solid gold. */
+.qqLook .qcheck{ background:#000; color:#E3B64A; border:1.5px solid #3A3A3A; border-radius:10px; padding:.55rem .75rem; transition:background .15s ease, color .15s ease, border-color .15s ease; }
+.qqLook .qcheck:hover{ border-color:#E3B64A; }
+/* Round checkboxes: black circle, gold ring. On a checked (gold) tile the circle goes black with a gold tick. */
+.qqLook .qcheck input{ -webkit-appearance:none; appearance:none; width:18px; height:18px; margin:0; border-radius:50%; border:1.5px solid #E3B64A; background:#000; cursor:pointer; position:relative; flex:none; }
+.qqLook .qcheck input:checked{ border-color:#000; }
+.qqLook .qcheck input:checked::after{ content:""; position:absolute; left:5px; top:2px; width:4px; height:8px; border:solid #E3B64A; border-width:0 2px 2px 0; transform:rotate(45deg); }
+.qqLook .qcheck input:focus-visible{ outline:2px solid #E3B64A; outline-offset:2px; }
+.qqLook .qcheck:has(input:checked){ background:#E3B64A; color:#000; border-color:#E3B64A; }
+/* Buttons and links that were blue: blue on navy disappears, so they go gold. */
+.qqLook .qWhen__asap{ border-color:#E3B64A; color:#E3B64A; }
+.qqLook .qWhen__asap:hover{ background:rgba(227,182,74,.12); }
+.qqLook .qWhen__asap[aria-pressed="true"]{ background:#E3B64A; color:#172239; }
+.qqLook .qPhotoZone{ border-color:rgba(227,182,74,.5); background:rgba(255,255,255,.04); }
+.qqLook .qPhotoZone__hint{ color:rgba(255,255,255,.8); }
+.qqLook .qPhotoBtns #qCameraBtn{ background:#E3B64A; color:#172239; border-color:#E3B64A; }
+.qqLook .qPhotoBtns #qPickBtn{ color:#E3B64A; border-color:#E3B64A; }
+.qqLook .qPhotoBtns #qPickBtn:hover{ background:rgba(227,182,74,.12); }
+.qqLook .qform__photos--small .photo--sms, .qqLook .qform__photos--small .photo--mail{ color:#E3B64A; border-bottom-color:rgba(227,182,74,.5); }
+.qqLook #qSummarizeBtn{ color:rgba(255,255,255,.85); border-color:rgba(255,255,255,.35); }
+.qqLook #qSummarizeBtn:hover{ color:#fff; border-color:#fff; background:rgba(255,255,255,.06); }
+.qqLook .kcq__tool{ color:#fff; border-color:rgba(255,255,255,.45); }
+.qqLook .kcq__tool:hover{ color:#E3B64A; border-color:#E3B64A; background:rgba(227,182,74,.1); }
+.qqLook .qerr{ color:#F08C7A; }
+/* The homepage keeps its Summarize card, which the standalone page does not
+   use, so it gets its own navy treatment to stay readable. */
+.qCollapsedSummary[hidden]{ display:none; }
+.qqLook .qCollapsedSummary{ background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.18); }
+.qqLook .qCollapsedSummary .row{ color:#fff; border-top-color:rgba(255,255,255,.14); }
+.qqLook .qCollapsedSummary .chips + .row{ border-top-color:rgba(255,255,255,.14); }
+.qqLook .qCollapsedSummary .row b{ color:#E3B64A; }
+.qqLook .qCollapsedSummary .chip{ background:rgba(227,182,74,.12); border-color:rgba(227,182,74,.5); color:#E3B64A; }
 </style>
 </head>
 <body>
@@ -1318,7 +1411,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
         <a class="pmBand__btn" href="property-managers.html">Property Managers &amp; Realtors</a>
       </div>
 
-      <div class="qform rise" style="--d:200ms">
+      <div class="qform qqLook rise" style="--d:200ms">
         <div id="quoteWrap" style="position:relative; scroll-margin-top:calc(var(--bar-h) + 16px)">
           <span id="quote" class="quoteAnchor" aria-hidden="true"></span>
           <!-- Icon-only controls, top-right. Exactly one shows at a time: the
@@ -1364,7 +1457,6 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
                 <label for="qType">Property type</label>
                 <select id="qType" name="property_type">
                   <option selected>Residential</option>
-                  <option>Move-out deep clean</option>
                   <option>Commercial</option>
                 </select>
                 <span class="qerr" data-for="qType"></span>
@@ -1412,11 +1504,34 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
                 </fieldset>
 
                 <div class="qfield">
-                  <label for="qMsg">Rooms or areas needing service</label>
-                  <textarea id="qMsg" name="message" rows="4" placeholder="e.g. three bedrooms and a hallway, one pet stain in the living room"></textarea>
+                  <label for="qWhen">When would you like this done? (optional)</label>
+                  <div class="qWhen">
+                    <button type="button" id="qAsapBtn" class="qWhen__asap" aria-pressed="false">ASAP</button>
+                    <input id="qWhen" name="when" type="date" autocomplete="off" aria-label="Preferred date">
+                  </div>
                 </div>
 
-                <p class="qform__photos">
+                <div class="qfield">
+                  <label for="qMsg">Rooms or areas needing service</label>
+                  <textarea id="qMsg" name="message" rows="4" placeholder="Example: three bedrooms, a hallway, and a pet stain in the living room.&#10;Also mention pets, parking, gate codes, or anything else we should know."></textarea>
+                </div>
+
+                <div class="qfield">
+                  <label for="qPhotos">Add photos (optional)</label>
+                  <input id="qPhotos" name="photos" type="file" accept="image/*" multiple hidden>
+                  <input id="qCamera" type="file" accept="image/*" capture="environment" hidden>
+                  <div class="qPhotoZone">
+                    <p class="qPhotoZone__hint">A quick photo helps us quote it right.</p>
+                    <div class="qPhotoBtns">
+                      <button type="button" id="qCameraBtn" class="btn btn--jade btn--text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take photo</button>
+                      <button type="button" id="qPickBtn" class="btn btn--jade btn--text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Choose photo</button>
+                    </div>
+                  </div>
+                  <span class="qerr" data-for="qPhotos"></span>
+                  <div id="qPhotoPreview" class="qPhotoPreview"></div>
+                </div>
+
+                <p class="qform__photos qform__photos--small">
                   <a class="btn btn--jade btn--text photo--sms" href="sms:+19167672520?&amp;body=Photos%20for%20my%20Khean%20%26%20Clean%20estimate" aria-label="Text us photos at (916) 767-2520">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                     <span>Text us photos<span class="btn__sub">(916) 767-2520</span></span>
@@ -2120,6 +2235,10 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     if(window.kcQAddr()){
       chips.push('<div class="row"><b>Address</b><span>' + escapeHtml(window.kcQAddr()) + '</span></div>');
     }
+    var whenVal = window.kcWhen ? window.kcWhen() : '';
+    if(whenVal){
+      chips.push('<div class="row"><b>When</b><span>' + escapeHtml(whenVal) + '</span></div>');
+    }
     if(qMsg && qMsg.value.trim()){
       var m = qMsg.value.trim(), isEst = /^ESTIMATE FROM YOUR ONLINE ESTIMATOR/.test(m), notes = '';
       if(isEst){
@@ -2145,6 +2264,16 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         chips.push('<div class="row"><b>' + (isEst ? 'Estimate' : 'Rooms/areas') + '</b><span' + (isEst ? ' class="est"' : '') + '>' + escapeHtml(m) + '</span></div>');
       }
       if(notes) chips.push('<div class="row"><b>Notes</b><span>' + escapeHtml(notes) + '</span></div>');
+    }
+    /* Photos the customer attached, as small square thumbnails. Same as quick-quote.html. */
+    (window.kcSumUrls || []).forEach(function(u){ URL.revokeObjectURL(u); });
+    window.kcSumUrls = [];
+    var pics = window.kcFiles || [];
+    if(pics.length){
+      chips.push('<div class="row"><b>Photos</b><div class="qSumPhotos">' + pics.map(function(f){
+        var u = URL.createObjectURL(f); window.kcSumUrls.push(u);
+        return '<img src="' + u + '" alt="">';
+      }).join('') + '</div></div>');
     }
     if(chips.length){
       qSummary.innerHTML = chips.join('');
@@ -2208,11 +2337,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     var rows = [];
     function add(label, val){ if(val && val.trim()) rows.push({ label:label, value:val.trim() }); }
     var qType = document.getElementById('qType');
-    add('Name',        qName  ? qName.value  : '');
-    add('Phone',       qPhone ? qPhone.value : '');
-    add('Email',       qEmail ? qEmail.value : '');
     add('Property',    qType  ? qType.value  : '');
     add('Address',     window.kcQAddr());
+    add('When',        window.kcWhen ? window.kcWhen() : '');
     add('Rooms/areas', qMsg   ? ownNotes(qMsg.value) : '');
     var services = Array.prototype.map.call(
       document.querySelectorAll('input[name="services"]:checked'),
@@ -2263,19 +2390,19 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         + '<button type="button" class="qBub__x" data-bub-del="' + b.id + '" aria-label="Remove this snapshot">&times;</button>'
         + '<p class="qBub__ttl">' + (b.kind === 'estimate' ? 'Estimate' : 'Quote details') + '</p>'
         + '<div class="qBub__body">' + bubbleBody(b) + '</div>'
-        + '<button type="button" class="qBub__print" data-bub-print="' + b.id + '">'
-        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>'
-        + '<span>Print / PDF</span></button>'
         + '</div>';
     }).join('');
     qBubbles.hidden = false;
   }
 
   function addBubbles(){
+    /* Quote Details box removed: the summary chips above already show the
+       same information. The old body is kept here, commented out, to undo.
     var q = snapshotQuote();    if(q) bubbleList.push(q);
     var e = snapshotEstimate(); if(e) bubbleList.push(e);
     while(bubbleList.length > MAX_BUBBLES) bubbleList.shift();
     renderBubbles();
+    */
   }
 
   /* Opens one snapshot on its own page as a branded quote document, then calls
@@ -2417,9 +2544,12 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     /* The clearing work, lifted out of the old inline confirm so the dialog's
        Yes button can call it. Every step is unchanged. */
     function doClear(){
-      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg'].forEach(function(id){
+      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg','qWhen'].forEach(function(id){
         var el = document.getElementById(id); if(el) el.value = '';
       });
+      var asapBtn = document.getElementById('qAsapBtn');
+      if(asapBtn) asapBtn.setAttribute('aria-pressed', 'false');
+      if(window.kcFiles){ window.kcFiles.length = 0; if(window.kcPhotosRedraw) window.kcPhotosRedraw(); }
       var qf = document.getElementById('quoteForm');
       if(qf){
         qf.querySelectorAll('input[name="services"]').forEach(function(c){ c.checked = false; });
@@ -2492,6 +2622,30 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     if(!el) return;
     el.addEventListener('input', function(){ el.value = fmtPhone(el.value); });
   });
+
+  /* When would you like this done? Optional. ASAP, a calendar-picked date, or blank.
+     Same as quick-quote.html. */
+  (function(){
+    var when = document.getElementById('qWhen'), asap = document.getElementById('qAsapBtn');
+    if(!when || !asap) return;
+    /* no past dates: min = today, local time */
+    var t = new Date();
+    when.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    function picked(){ if(when.value) asap.setAttribute('aria-pressed', 'false'); }
+    when.addEventListener('input', picked);
+    when.addEventListener('change', picked);
+    asap.addEventListener('click', function(){
+      var on = asap.getAttribute('aria-pressed') !== 'true';
+      asap.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if(on) when.value = '';
+    });
+    /* The picker holds YYYY-MM-DD; hand back MM/DD/YY for the email, lead and summary. */
+    window.kcWhen = function(){
+      if(asap.getAttribute('aria-pressed') === 'true') return 'ASAP';
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value);
+      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) : '';
+    };
+  })();
 })();
 
 /* hero photo + tagline carousel — cycles through the before/after tile shots,
@@ -3882,6 +4036,63 @@ document.getElementById('yr').textContent = new Date().getFullYear();
 
   var form = document.getElementById('quoteForm');
   if(!form) return;
+
+  /* The photos the customer has actually chosen. A file input can't have one
+     file removed, so we keep our own list: picking adds to it, the X removes
+     from it, and the submit uploads from it. Same as quick-quote.html. */
+  var kcFiles = [];
+  window.kcFiles = kcFiles;
+
+  /* Thumbnail preview so the customer sees what they attached, each with an X. */
+  (function(){
+    var input = document.getElementById('qPhotos'),
+        box   = document.getElementById('qPhotoPreview');
+    if(!input || !box) return;
+    var urls = [];
+    function draw(){
+      urls.forEach(function(u){ URL.revokeObjectURL(u); });
+      urls = [];
+      box.innerHTML = '';
+      kcFiles.forEach(function(f, i){
+        var tile = document.createElement('div');
+        tile.className = 'qPhotoTile';
+        var img = document.createElement('img');
+        img.className = 'qPhotoThumb';
+        img.alt = f.name;
+        img.src = URL.createObjectURL(f);
+        urls.push(img.src);
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'qPhotoX';
+        x.setAttribute('aria-label', 'Remove ' + f.name);
+        x.textContent = '×';
+        x.addEventListener('click', function(){ kcFiles.splice(i, 1); draw(); });
+        tile.appendChild(img);
+        tile.appendChild(x);
+        box.appendChild(tile);
+      });
+    }
+    window.kcPhotosRedraw = draw;
+    function addFrom(el){
+      var max = window.KC_MAX_FILES || 10;
+      Array.prototype.forEach.call(el.files, function(f){
+        if (kcFiles.length < max) kcFiles.push(f);
+      });
+      /* Clear the input so the same photo can be picked again after removing it. */
+      el.value = '';
+      draw();
+    }
+    input.addEventListener('change', function(){ addFrom(input); });
+    var pick = document.getElementById('qPickBtn');
+    if (pick) pick.addEventListener('click', function(){ input.click(); });
+    var cam = document.getElementById('qCamera'),
+        camBtn = document.getElementById('qCameraBtn');
+    if (cam && camBtn) {
+      camBtn.addEventListener('click', function(){ cam.click(); });
+      cam.addEventListener('change', function(){ addFrom(cam); });
+    }
+  })();
+
   var statusEl = document.getElementById('qStatus'),
       submit   = document.getElementById('qSubmit'),
       wrap     = document.getElementById('quoteWrap'),
@@ -3981,6 +4192,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     fd.append('zip',      document.getElementById('qZip').value.trim());
     fd.append('property_type', document.getElementById('qType').value);
     fd.append('services', services);
+    fd.append('when',     window.kcWhen ? window.kcWhen() : '');
     fd.append('message',  document.getElementById('qMsg').value.trim());
     if (form.querySelector('.qhp').checked) { fd.append('botcheck', 'true'); }
 
@@ -3992,10 +4204,32 @@ document.getElementById('yr').textContent = new Date().getFullYear();
        same as the standalone quick-quote page. If that fails, the email below
        still goes out so the lead is not lost. Bot submissions are skipped. */
     var isBot = form.querySelector('.qhp').checked;
+    /* Photos upload to Firebase Storage first, then go on the lead as paths
+       (the Leads page turns them into links). Same as quick-quote.html. */
+    var files = kcFiles.slice();
+    var leadKey = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    if(files.length && !isBot){ submit.textContent = 'Uploading photos...'; }
     Promise.resolve()
     .then(function(){
+      return (files.length && !isBot && typeof window.kcUploadPhotos === 'function')
+        ? window.kcUploadPhotos(files, leadKey).catch(function(err){
+            if(window.console) console.error('Photo upload failed', err);
+            return [];
+          })
+        : [];
+    })
+    .then(function(photoPaths){
+      fd.append('photo_count', String(photoPaths.length));
+      if(photoPaths.length){
+        fd.set('subject', 'Quote request from ' + document.getElementById('qName').value.trim()
+          + ' (' + photoPaths.length + ' photo' + (photoPaths.length === 1 ? '' : 's') + ')');
+      }
+      submit.textContent = 'Sending...';
       if(isBot || typeof window.kcSaveLead !== 'function') return null;
+      var whenVal = window.kcWhen ? window.kcWhen() : '';
       return window.kcSaveLead({
+        photoPaths: photoPaths,
+        when:      whenVal,
         name:      document.getElementById('qName').value.trim(),
         phone:     document.getElementById('qPhone').value.trim(),
         email:     document.getElementById('qEmail').value.trim(),
@@ -4294,6 +4528,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
      quick-quote.html; page:'homepage' tells you which form it came from. */
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+  import { getStorage, ref, uploadBytes } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
   const firebaseConfig = {
     apiKey:            'AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg',
@@ -4304,7 +4539,71 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     appId:             '1:581692353222:web:21f62f057ac5506bbb45c7'
   };
 
-  const db = getFirestore(initializeApp(firebaseConfig));
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
+
+  // Shrinks a phone photo to MAX_EDGE on its long side and re-encodes as JPEG.
+  // Copied from quick-quote.html so both forms upload the same way.
+  const MAX_EDGE = 2400;
+  const JPEG_QUALITY = 0.85;
+  const MAX_BYTES = 10 * 1024 * 1024;   // hard per-file cap
+  const MAX_FILES = 10;                 // per submission
+  window.KC_MAX_BYTES = MAX_BYTES;
+  window.KC_MAX_FILES = MAX_FILES;
+
+  function kcResize(file){
+    return new Promise(function(resolve){
+      // Anything that is not an image, or is already small, passes through.
+      if (!/^image\//.test(file.type) || file.size < 400 * 1024) { resolve(file); return; }
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = function(){
+        URL.revokeObjectURL(url);
+        let { width: w, height: h } = img;
+        if (Math.max(w, h) > MAX_EDGE){
+          const scale = MAX_EDGE / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob){
+          // If the re-encode somehow got bigger, keep the original.
+          resolve(blob && blob.size < file.size ? blob : file);
+        }, 'image/jpeg', JPEG_QUALITY);
+      };
+      // Corrupt or unreadable image: upload what we were given.
+      img.onerror = function(){ URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
+  // Uploads the chosen files, returns an array of storage paths.
+  // Same folder as quick-quote.html; the Leads page turns the paths into links.
+  window.kcUploadPhotos = async function(files, leadKey){
+    const paths = [];
+    const list = Array.prototype.slice.call(files, 0, MAX_FILES);
+    for (let i = 0; i < list.length; i++){
+      const f = list[i];
+      const shrunk = await kcResize(f);
+      // Anything still oversized after resizing is skipped rather than
+      // failing the whole submission.
+      if (shrunk.size > MAX_BYTES) { continue; }
+      const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]+$/, '') + '.jpg';
+      const path = 'quick-quote-photos/' + leadKey + '/' + Date.now() + '_' + i + '_' + safe;
+      // One failed photo is skipped; the ones that made it are still kept.
+      try {
+        const snap = await uploadBytes(ref(storage, path), shrunk, { contentType: 'image/jpeg' });
+        paths.push(snap.ref.fullPath);
+      } catch (err) {
+        if (window.console) { console.error('Photo upload failed: ' + f.name, err); }
+      }
+    }
+    return paths;
+  };
 
   window.kcSaveLead = async function(lead){
     const docRef = await addDoc(collection(db, 'leads'), Object.assign({}, lead, {

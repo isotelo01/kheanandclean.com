@@ -1125,9 +1125,6 @@ window.kcQAddr = function(){
     var rows = [];
     function add(label, val){ if(val && val.trim()) rows.push({ label:label, value:val.trim() }); }
     var qType = document.getElementById('qType');
-    add('Name',        qName  ? qName.value  : '');
-    add('Phone',       qPhone ? qPhone.value : '');
-    add('Email',       qEmail ? qEmail.value : '');
     add('Property',    qType  ? qType.value  : '');
     add('Address',     window.kcQAddr());
     add('When',        window.kcWhen ? window.kcWhen() : '');
@@ -1181,19 +1178,19 @@ window.kcQAddr = function(){
         + '<button type="button" class="qBub__x" data-bub-del="' + b.id + '" aria-label="Remove this snapshot">&times;</button>'
         + '<p class="qBub__ttl">' + (b.kind === 'estimate' ? 'Estimate' : 'Quote details') + '</p>'
         + '<div class="qBub__body">' + bubbleBody(b) + '</div>'
-        + '<button type="button" class="qBub__print" data-bub-print="' + b.id + '">'
-        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>'
-        + '<span>Print / PDF</span></button>'
         + '</div>';
     }).join('');
     qBubbles.hidden = false;
   }
 
   function addBubbles(){
+    /* Quote Details box removed: the summary chips above already show the
+       same information. The old body is kept here, commented out, to undo.
     var q = snapshotQuote();    if(q) bubbleList.push(q);
     var e = snapshotEstimate(); if(e) bubbleList.push(e);
     while(bubbleList.length > MAX_BUBBLES) bubbleList.shift();
     renderBubbles();
+    */
   }
 
   /* Opens one snapshot on its own page as a branded quote document, then calls

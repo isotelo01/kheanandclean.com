@@ -334,6 +334,18 @@ img{ max-width:100%; display:block; }
   .navMenu a:last-child{ border-bottom:0; }
   .navBtn{ border-radius:var(--r-pill); }
   .masthead__in{ padding:0 20px; } .masthead__quote{ display:inline-flex; } .navBtn{ display:block; margin-left:6px; } .nav, .masthead__tel, .masthead__cta, .masthead__seal, .masthead__spacer{ display:none; } .navMenu:not([hidden]){ display:flex; } }
+/* Mobile: header floats over the page instead of taking up space, so it can start
+   hidden at the top without leaving an empty gap. It slides in on scroll up. */
+@media (max-width:940px){
+  .masthead{ position:fixed; left:0; right:0; margin:0 12px; }
+  .masthead.is-hidden{ transform:translateY(calc(-100% - 20px)); }
+}
+/* Phone held sideways: a plain header at the top of the page that scrolls away
+   with everything else. No sticking, no hide-on-scroll. */
+@media (orientation:landscape) and (max-height:500px){
+  .masthead{ position:relative; top:auto; margin:10px 12px 0; }
+  .masthead.is-hidden{ transform:none; }
+}
 .quoteAnchor{ display:block; height:0; scroll-margin-top:calc(var(--bar-h) + 30px); }
 
 /* ---------------------------------- HERO ---------------------------------- */
@@ -976,7 +988,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
   .qform__ttl{ padding:0 76px; }
 }
 
-.ctaRow{ display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch; gap:1.25rem; margin-bottom:1.5rem; }
+.ctaRow{ display:grid; grid-template-columns:1fr 1fr; align-items:stretch; gap:1.25rem; margin-bottom:1.5rem; }
 .ctaRow__or{ display:flex; align-items:center; justify-content:center; font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-xs); font-weight:700; letter-spacing:.18em; color:var(--dust); }
 @media (max-width:760px){
   .ctaRow{ grid-template-columns:1fr; }
@@ -1101,6 +1113,15 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qcheck input{ width:17px; height:17px; flex:none; accent-color:var(--jade); cursor:pointer; }
 .qcheck:has(input:checked){ border-color:var(--jade); background:rgba(27,79,160,.06); }
 
+/* When would you like this done? — ASAP toggle beside a date picker. Same as quick-quote.html. */
+.qWhen{ display:grid; grid-template-columns:auto 1fr; gap:.75rem; align-items:stretch; }
+.qWhen__asap{ font:inherit; font-family:"Archivo Narrow",sans-serif; font-weight:700; letter-spacing:.1em; font-size:1.05rem; padding:.85rem 1.6rem; border-radius:12px; border:1.5px solid var(--jade); background:transparent; color:var(--jade); cursor:pointer; transition:background .15s ease, color .15s ease; }
+.qWhen__asap:hover{ background:rgba(27,79,160,.06); }
+.qWhen__asap[aria-pressed="true"]{ background:var(--jade); color:#fff; }
+.qWhen input{ min-width:0; letter-spacing:.06em; }
+.qWhen input[type="date"]{ width:100%; text-align:center; font-family:"Archivo",sans-serif; font-size:1.15rem; font-weight:500; color:var(--ink); background:#fff; padding:.85rem 1rem; border:1.5px solid var(--line); border-radius:12px; box-sizing:border-box; }
+.qWhen input[type="date"]::-webkit-calendar-picker-indicator{ width:22px; height:22px; cursor:pointer; opacity:.7; }
+.qWhen input[type="date"]::-webkit-date-and-time-value{ text-align:center; }
 .qhp{ position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
 .qform__submit{ width:100%; margin-top:.5rem; }
 .qform__submit[disabled]{ opacity:.6; cursor:progress; }
@@ -1189,6 +1210,14 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
   .callbar{ display:block; bottom:calc(10px + env(safe-area-inset-bottom)); }
   .callbar.is-hidden{ opacity:0; visibility:hidden; transform:translateY(12px); pointer-events:none; }
   .foot{ padding-bottom:calc(7rem + 80px); }
+}
+/* Phone held sideways: a small Call / Text bar tucked into the bottom-right
+   corner instead of a full-width bar covering the short screen. */
+@media (max-width:940px) and (orientation:landscape) and (max-height:500px){
+  .callbar{ left:auto; right:calc(12px + env(safe-area-inset-right)); margin:0; height:44px; padding:0 4px; }
+  .callbar__in{ gap:2px; }
+  .callbar__btn{ flex:none; flex-direction:row; gap:6px; padding:0 12px; font-size:12px; }
+  .callbar__btn svg{ width:18px; height:18px; }
 }
 .foot__legal{ padding-top:1.6rem; color:var(--dust); font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); letter-spacing:.14em; text-transform:uppercase; display:flex; flex-wrap:wrap; gap:.6rem 2rem; }
 
@@ -1294,15 +1323,11 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
       <span class="hero__photobox"><span class="hero__photo hero__photo--before" aria-hidden="true"></span><span class="hero__photo hero__photo--after" aria-hidden="true"></span><span class="hero__photo hero__photo--carpetBefore" aria-hidden="true"></span><span class="hero__photo hero__photo--carpetAfter" aria-hidden="true"></span><span class="hero__photo hero__photo--couch" aria-hidden="true"></span><span class="hero__photo hero__photo--van is-active" aria-hidden="true"></span><span class="hero__scrim" aria-hidden="true"></span><span class="hero__watermark hero__watermark--before" aria-hidden="true"></span><span class="hero__watermark hero__watermark--after is-active" aria-hidden="true"></span><span id="heroTagline" class="hero__tagline"><span class="lit">bring Folsom &amp; El Dorado Hills floors back to life</span> with our tile, carpet and upholstery cleaning services.</span></span>
     </h1>
 
-      <div class="reviewInline rise" style="--d:120ms">
-        <a class="reviewInline__btn" href="reviews.html"><span class="reviewInline__stars"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg></span><span>Leave Us a Review</span></a>
-      </div>
-
       <div class="pmBand rise" style="--d:130ms">
         <a class="pmBand__btn" href="property-managers.html">Property Managers &amp; Realtors</a>
       </div>
 
-      <div class="qform rise" style="--d:150ms">
+      <div class="qform rise" style="--d:200ms">
         <div id="quoteWrap" style="position:relative; scroll-margin-top:calc(var(--bar-h) + 16px)">
           <span id="quote" class="quoteAnchor" aria-hidden="true"></span>
           <!-- Icon-only controls, top-right. Exactly one shows at a time: the
@@ -1396,6 +1421,14 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
                 </fieldset>
 
                 <div class="qfield">
+                  <label for="qWhen">When would you like this done? (optional)</label>
+                  <div class="qWhen">
+                    <button type="button" id="qAsapBtn" class="qWhen__asap" aria-pressed="false">ASAP</button>
+                    <input id="qWhen" name="when" type="date" autocomplete="off" aria-label="Preferred date">
+                  </div>
+                </div>
+
+                <div class="qfield">
                   <label for="qMsg">Rooms or areas needing service</label>
                   <textarea id="qMsg" name="message" rows="4" placeholder="e.g. three bedrooms and a hallway, one pet stain in the living room"></textarea>
                 </div>
@@ -1436,9 +1469,11 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 
       </div>
 
-      <p class="orGetA rise" style="--d:190ms">Or</p>
+      <div class="reviewInline rise" style="--d:120ms">
+        <a class="reviewInline__btn" href="reviews.html"><span class="reviewInline__stars"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.65l-5.81 3.05 1.11-6.47-4.7-4.58 6.5-.95L12 2.8z"/></svg></span><span>Leave Us a Review</span></a>
+      </div>
 
-      <div class="ctaRow rise" style="--d:200ms">
+      <div class="ctaRow rise" style="--d:150ms">
         <div class="callBox">
           <a class="callBox__link" href="tel:+19167672520">
             <span class="callBox__txt">Call us for a quick and easy quote</span>
@@ -1449,8 +1484,6 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
             <span>Add us to your contacts</span>
           </a>
         </div>
-
-        <div class="ctaRow__or" aria-hidden="true">OR</div>
 
         <div class="estCallout">
           <p class="estCallout__txt">Prefer to work it out yourself? Pick your service, package and add-ons for a real number.</p>
@@ -2104,6 +2137,10 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     if(window.kcQAddr()){
       chips.push('<div class="row"><b>Address</b><span>' + escapeHtml(window.kcQAddr()) + '</span></div>');
     }
+    var whenVal = window.kcWhen ? window.kcWhen() : '';
+    if(whenVal){
+      chips.push('<div class="row"><b>When</b><span>' + escapeHtml(whenVal) + '</span></div>');
+    }
     if(qMsg && qMsg.value.trim()){
       var m = qMsg.value.trim(), isEst = /^ESTIMATE FROM YOUR ONLINE ESTIMATOR/.test(m), notes = '';
       if(isEst){
@@ -2197,6 +2234,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     add('Email',       qEmail ? qEmail.value : '');
     add('Property',    qType  ? qType.value  : '');
     add('Address',     window.kcQAddr());
+    add('When',        window.kcWhen ? window.kcWhen() : '');
     add('Rooms/areas', qMsg   ? ownNotes(qMsg.value) : '');
     var services = Array.prototype.map.call(
       document.querySelectorAll('input[name="services"]:checked'),
@@ -2401,9 +2439,11 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     /* The clearing work, lifted out of the old inline confirm so the dialog's
        Yes button can call it. Every step is unchanged. */
     function doClear(){
-      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg'].forEach(function(id){
+      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg','qWhen'].forEach(function(id){
         var el = document.getElementById(id); if(el) el.value = '';
       });
+      var asapBtn = document.getElementById('qAsapBtn');
+      if(asapBtn) asapBtn.setAttribute('aria-pressed', 'false');
       var qf = document.getElementById('quoteForm');
       if(qf){
         qf.querySelectorAll('input[name="services"]').forEach(function(c){ c.checked = false; });
@@ -2476,6 +2516,30 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     if(!el) return;
     el.addEventListener('input', function(){ el.value = fmtPhone(el.value); });
   });
+
+  /* When would you like this done? Optional. ASAP, a calendar-picked date, or blank.
+     Same as quick-quote.html. */
+  (function(){
+    var when = document.getElementById('qWhen'), asap = document.getElementById('qAsapBtn');
+    if(!when || !asap) return;
+    /* no past dates: min = today, local time */
+    var t = new Date();
+    when.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    function picked(){ if(when.value) asap.setAttribute('aria-pressed', 'false'); }
+    when.addEventListener('input', picked);
+    when.addEventListener('change', picked);
+    asap.addEventListener('click', function(){
+      var on = asap.getAttribute('aria-pressed') !== 'true';
+      asap.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if(on) when.value = '';
+    });
+    /* The picker holds YYYY-MM-DD; hand back MM/DD/YY for the email, lead and summary. */
+    window.kcWhen = function(){
+      if(asap.getAttribute('aria-pressed') === 'true') return 'ASAP';
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value);
+      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) : '';
+    };
+  })();
 })();
 
 /* hero photo + tagline carousel — cycles through the before/after tile shots,
@@ -3965,6 +4029,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     fd.append('zip',      document.getElementById('qZip').value.trim());
     fd.append('property_type', document.getElementById('qType').value);
     fd.append('services', services);
+    fd.append('when',     window.kcWhen ? window.kcWhen() : '');
     fd.append('message',  document.getElementById('qMsg').value.trim());
     if (form.querySelector('.qhp').checked) { fd.append('botcheck', 'true'); }
 
@@ -3972,10 +4037,41 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     submit.textContent = 'Sending...';
     submit.classList.remove('is-sent');
 
-    fetch(FORM_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Accept':'application/json' },
-      body: fd
+    /* Save the lead to Firestore first so it shows up in the CRM Leads page,
+       same as the standalone quick-quote page. If that fails, the email below
+       still goes out so the lead is not lost. Bot submissions are skipped. */
+    var isBot = form.querySelector('.qhp').checked;
+    Promise.resolve()
+    .then(function(){
+      if(isBot || typeof window.kcSaveLead !== 'function') return null;
+      var whenVal = window.kcWhen ? window.kcWhen() : '';
+      return window.kcSaveLead({
+        when:      whenVal,
+        name:      document.getElementById('qName').value.trim(),
+        phone:     document.getElementById('qPhone').value.trim(),
+        email:     document.getElementById('qEmail').value.trim(),
+        addresses: [{
+          street: document.getElementById('qAddr').value.trim(),
+          city:   document.getElementById('qCity').value.trim(),
+          state:  'CA',
+          zip:    document.getElementById('qZip').value.trim()
+        }],
+        type:      document.getElementById('qType').value.toLowerCase(),
+        services:  services,
+        message:   document.getElementById('qMsg').value.trim(),
+        page:      'homepage'
+      });
+    })
+    .catch(function(err){
+      if(window.console) console.error('Lead save failed', err);
+      return null;
+    })
+    .then(function(){
+      return fetch(FORM_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Accept':'application/json' },
+        body: fd
+      });
     })
     .then(function(r){ return r.json().catch(function(){ return { success:r.ok }; }); })
     .then(function(res){
@@ -4193,16 +4289,47 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   if(!bar) return;
   var THRESHOLD = 8;
   var last = window.pageYOffset || 0, ticking = false;
+  // Mobile: header starts hidden and only appears once the person scrolls up.
+  var mobile = window.matchMedia('(max-width:940px)');
+  // Phone held sideways: plain header at the top of the page, never hidden.
+  var landscape = window.matchMedia('(orientation:landscape) and (max-height:500px)');
+  if(mobile.matches && !landscape.matches) bar.classList.add('is-hidden');
+  function onRotate(){ if(landscape.matches) bar.classList.remove('is-hidden'); }
+  if(landscape.addEventListener) landscape.addEventListener('change', onRotate);
+  else if(landscape.addListener) landscape.addListener(onRotate);
   function menuOpen(){
     var b = bar.querySelector('[aria-expanded]');
     return !!b && b.getAttribute('aria-expanded') === 'true';
   }
+  /* Mobile: keep the header hidden while the quick quote or the in-depth
+     estimator is on screen or being typed in, same as the bottom call bar. */
+  var zones = ['quoteWrap','estimate'].map(function(id){ return document.getElementById(id); }).filter(Boolean);
+  var zoneOnScreen = new WeakMap(), zoneFocused = false;
+  function inZone(){
+    return mobile.matches && !landscape.matches && (zoneFocused || zones.some(function(z){ return zoneOnScreen.get(z); }));
+  }
+  if('IntersectionObserver' in window){
+    var zio = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ zoneOnScreen.set(e.target, e.isIntersecting); });
+      if(inZone()) bar.classList.add('is-hidden');
+    }, { threshold:0 });
+    zones.forEach(function(z){ zio.observe(z); });
+  }
+  document.addEventListener('focusin', function(e){
+    if(e.target.closest && e.target.closest('#quoteWrap, #estimate')){
+      zoneFocused = true;
+      if(inZone()) bar.classList.add('is-hidden');
+    }
+  });
+  document.addEventListener('focusout', function(){ zoneFocused = false; });
   function update(){
     ticking = false;
     var y = Math.max(0, window.pageYOffset || 0);
     var d = y - last;
     if(Math.abs(d) < THRESHOLD) return;
-    if(menuOpen() || y <= bar.offsetHeight) bar.classList.remove('is-hidden');
+    if(landscape.matches){ bar.classList.remove('is-hidden'); last = y; return; }
+    if(inZone()) bar.classList.add('is-hidden');
+    else if(menuOpen() || (!mobile.matches && y <= bar.offsetHeight)) bar.classList.remove('is-hidden');
     else if(d > 0) bar.classList.add('is-hidden');
     else bar.classList.remove('is-hidden');
     last = y;
@@ -4211,6 +4338,33 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     if(!ticking){ ticking = true; requestAnimationFrame(update); }
   }, { passive:true });
 })();
+</script>
+<script type="module">
+  /* Writes homepage quick-quote leads into Firestore so they show up in the
+     CRM Leads section. Same project and same "leads" collection as
+     quick-quote.html; page:'homepage' tells you which form it came from. */
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey:            'AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg',
+    authDomain:        'khean-estimator-78f3e.firebaseapp.com',
+    projectId:         'khean-estimator-78f3e',
+    storageBucket:     'khean-estimator-78f3e.firebasestorage.app',
+    messagingSenderId: '581692353222',
+    appId:             '1:581692353222:web:21f62f057ac5506bbb45c7'
+  };
+
+  const db = getFirestore(initializeApp(firebaseConfig));
+
+  window.kcSaveLead = async function(lead){
+    const docRef = await addDoc(collection(db, 'leads'), Object.assign({}, lead, {
+      status: 'new',
+      source: 'quick-quote',
+      createdAt: serverTimestamp()
+    }));
+    return docRef.id;
+  };
 </script>
 <script src="places.js" defer></script>
 </body>
