@@ -190,7 +190,7 @@ function render(d){
       <table>
         <thead><tr><th>Service</th><th class="r">Amount</th></tr></thead>
         <tbody>${(d.lines || []).map(l => `<tr><td><strong>${esc(l.label)}</strong></td><td class="r"><strong>${money(l.cost)}</strong></td></tr>` +
-          (l.items || []).map(it => `<tr class="sub"><td>${esc(it.label)}</td><td class="r">${money(it.cost)}</td></tr>`).join("")).join("")}</tbody>
+          (l.items || []).map(it => `<tr class="sub"><td>${esc(it.label)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>`).join("")).join("")}</tbody>
       </table>
       <div class="totalrow">
         <div class="totals">

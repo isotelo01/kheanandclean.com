@@ -1039,7 +1039,7 @@ window.kcQAddr = function(){
         var html = d.services.map(function(sv){
           return '<div class="qEst__svc"><div class="qEst__head"><span>' + escapeHtml(sv.label) + '</span><span class="qEst__price">$' + sv.cost + '</span></div>'
             + (sv.measure ? '<div class="qEst__meta">' + escapeHtml(sv.measure) + '</div>' : '')
-            + (sv.items.length ? '<ul class="qEst__items">' + sv.items.map(function(it){ return '<li><span>' + escapeHtml(it.label) + '</span><span>$' + it.cost + '</span></li>'; }).join('') + '</ul>' : '')
+            + (sv.items.length ? '<ul class="qEst__items">' + sv.items.map(function(it){ return '<li><span>' + escapeHtml(it.label) + '</span><span>' + (it.included ? 'Included' : '$' + it.cost) + '</span></li>'; }).join('') + '</ul>' : '')
             + '</div>';
         }).join('');
         html += '<div class="qEst__total"><span>Estimated total</span><span class="qEst__price">$' + d.total + '</span></div>';
@@ -1159,7 +1159,7 @@ window.kcQAddr = function(){
       return '<div class="qEst__svc"><div class="qEst__head"><span>' + escapeHtml(sv.label) + '</span><span class="qEst__price">$' + sv.cost + '</span></div>'
         + (sv.measure ? '<div class="qEst__meta">' + escapeHtml(sv.measure) + '</div>' : '')
         + (sv.items && sv.items.length ? '<ul class="qEst__items">' + sv.items.map(function(it){
-            return '<li><span>' + escapeHtml(it.label) + '</span><span>$' + it.cost + '</span></li>'; }).join('') + '</ul>' : '')
+            return '<li><span>' + escapeHtml(it.label) + '</span><span>' + (it.included ? 'Included' : '$' + it.cost) + '</span></li>'; }).join('') + '</ul>' : '')
         + '</div>';
     }).join('');
     out2 += '<div class="qEst__total"><span>Estimated total</span><span class="qEst__price">$' + d.total + '</span></div>';

@@ -37,7 +37,7 @@
       mode: 'area',
       tiers: {
         essential: { name:'Essential Cleaning', sqft:0.37 },
-        deep:      { name:'Deep Cleaning',      sqft:0.47 },
+        deep:      { name:'Deep Cleaning',      sqft:0.50 },
         signature: { name:'Signature Cleaning', sqft:0.65 },
         quickdry:  { name:'Quick Dry Encapsulation', sqft:0.37 }
       },
@@ -460,14 +460,14 @@
     if(dryInput){
       var dryLabel = dryInput.closest('label'),
           dryCaption = dryLabel ? dryLabel.querySelector('.add__c') : null;
-      if(t === 'signature' || t === 'quickdry'){
+      if(t === 'signature' || t === 'quickdry' || t === 'deep'){
         STATE.carpet.addons.dry = STATE.carpet.addons.dry || {};
         STATE.carpet.addons.dry.on = true;
         dryInput.checked = true;
         dryInput.disabled = true;
         if(dryLabel) dryLabel.style.opacity = '.7';
         if(dryCaption) dryCaption.textContent = (t === 'quickdry')
-          ? 'Included in Quick Dry' : 'Required for Signature';
+          ? 'Included in Quick Dry' : (t === 'deep') ? 'Included in this package' : 'Required for Signature';
       } else if(protChecked){
         STATE.carpet.addons.dry = STATE.carpet.addons.dry || {};
         STATE.carpet.addons.dry.on = true;
@@ -942,6 +942,8 @@
         // Quick Dry bakes express drying into its $0.37 flat rate, and stain
         // protector isn't offered with encapsulation.
         if(svcKey==='carpet' && st.tier==='quickdry' && ['dry','prot'].indexOf(k) > -1) return;
+        // Deep bakes drying into its $0.50 rate: listed as "Included", never billed.
+        if(svcKey==='carpet' && st.tier==='deep' && k==='dry'){ items.push({ label: a.name, cost: 0, included: true }); return; }
         if(!ast || !ast.on) return;
         // Area Rugs: one line per size with a count, e.g. "Area Rugs — Medium (5×8) × 2".
         if(a.sizes){
@@ -1068,7 +1070,7 @@
     linesEl.innerHTML = b.breakdown.map(function(r){
       var head = '<li class="lineItem"><span>'+twoLine(r.label)+'</span><span>$'+money(r.cost)+'</span></li>';
       var subs = r.items.map(function(it){
-        var line = '<li class="lineItem__sub"><span>'+twoLine(it.label)+'</span><span>$'+money(it.cost)+'</span></li>';
+        var line = '<li class="lineItem__sub"><span>'+twoLine(it.label)+'</span><span>'+(it.included ? 'Included' : '$'+money(it.cost))+'</span></li>';
         /* Rooms that produced the footage above. No dollar figure — the money is
            on the line they sit under. Only room-mode items carry this. */
         if(it.rooms && it.rooms.length){

@@ -427,7 +427,7 @@
                  (sv.measure ? '<div class="qEst__meta">' + esc(sv.measure) + '</div>' : '') +
                  (sv.items && sv.items.length
                     ? '<ul class="qEst__items">' + sv.items.map(function (it) {
-                        return '<li><span>' + esc(it.label) + '</span><span>$' + esc(it.cost) + '</span></li>';
+                        return '<li><span>' + esc(it.label) + '</span><span>' + (it.included ? 'Included' : '$' + esc(it.cost)) + '</span></li>';
                       }).join('') + '</ul>'
                     : '') +
                  '</div>';
