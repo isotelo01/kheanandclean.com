@@ -67,6 +67,26 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 /* Red tile: the customer left a message on their quote page that hasn't been handled on Leads yet. */
 .card.flag{background:#f8d7d2;box-shadow:0 0 0 2px var(--red)}
 .flagnote{display:inline-block;margin-top:6px;background:var(--red);color:#fff;border:0;border-radius:6px;padding:4px 10px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;max-width:100%;text-align:left;white-space:normal}
+.flagnote.mine{background:#eef1f6;color:var(--navy)}
+/* Note editor (opens from the chip on a tile). */
+.nmodal{position:fixed;inset:0;z-index:50;background:rgba(10,14,22,.55);display:flex;align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto}
+.nbox{background:#fff;border-radius:12px;max-width:560px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.nhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}
+.nhead strong{font-size:17px}
+.nx{flex:none;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#fff;font:700 18px/1 "Archivo",system-ui,sans-serif;cursor:pointer;padding:0}
+.nwho{color:var(--muted);font-size:14px;margin:0 0 10px}
+.nbox textarea{display:block;width:100%;min-height:130px;resize:vertical;font:16px/1.45 "Archivo",system-ui,sans-serif;padding:10px 12px;border:1px solid var(--line);border-radius:8px;color:var(--ink)}
+.ngrid{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.ngrid:empty{display:none}
+.nshot{position:relative;width:88px;height:88px}
+.nshot a,.nshot img{display:block;width:100%;height:100%;object-fit:cover;border-radius:6px;background:#eef0f4}
+.nshot button{position:absolute;top:-7px;right:-7px;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:#fff;font:700 14px/1 "Archivo",system-ui,sans-serif;cursor:pointer;padding:0}
+.nact{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.nsave{font:600 15px "Archivo";background:var(--navy);color:#fff;border:0;border-radius:6px;padding:9px 18px;cursor:pointer}
+.nclear{font:600 15px "Archivo";background:#fff;color:var(--red);border:1px solid var(--line);border-radius:6px;padding:9px 14px;cursor:pointer}
+.nsave[disabled],.nclear[disabled]{opacity:.6;cursor:default}
+.nstat{font-size:14px;color:var(--muted)}
+.nhint{font-size:13px;color:var(--muted);margin:10px 0 0}
 </style>
 <style id="authwait">body{visibility:hidden}</style>
 </head>
@@ -91,6 +111,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getFirestore, collection, query, orderBy, limit, getDocs, where,
          doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getStorage, ref as sRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const db = getFirestore(initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -136,20 +157,23 @@ const viewSections = () => showTrash ? TRASH_SECTION : SECTIONS;
 /* All four lists are on screen at once; data[key] holds each one's rows. */
 const data = {};
 let loaded = false;
-/* quoteId -> newest unhandled customer message (a "quote-page" lead still marked new). */
+/* quoteId -> the shared note on that quote (quoteNotes). Red when the customer changed it last. */
 const flags = {};
+const storage = getStorage(db.app);
+const notePreview = n => { const t = String(n.text || "").trim(), k = (n.photoPaths || []).length;
+  return t ? (t.length > 90 ? t.slice(0, 90) + "\u2026" : t) : k + " photo" + (k === 1 ? "" : "s"); };
 
 const kindOf = r => (r.source === "invoices" || r.source === "paidInvoices") ? "invoice" : "estimate";
 
 const card = r =>
   '<div class="cardrow">' +
-  '<a class="card' + (r.source !== "trash" && flags[r.id] ? ' flag' : '') + '" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
+  '<a class="card' + (r.source !== "trash" && flags[r.id] && flags[r.id].by === "customer" ? ' flag' : '') + '" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
     '<div>' +
       '<div class="who">' + esc(r.name || "No name") + '</div>' +
       '<div class="meta">' + esc(r.number) + (r.phone ? " &middot; " + esc(r.phone) : "") + (r.date ? " &middot; " + esc(r.date) : "") + '</div>' +
       (r.source !== "trash" && flags[r.id]
-        ? '<button type="button" class="flagnote" data-lead="' + esc(flags[r.id].leadId) + '" title="Open on Leads">&#128172; ' +
-            esc(flags[r.id].text.length > 90 ? flags[r.id].text.slice(0, 90) + "…" : flags[r.id].text) + '</button>'
+        ? '<button type="button" class="flagnote' + (flags[r.id].by === "customer" ? '' : ' mine') + '" data-note="' + esc(r.id) + '" title="Open note">&#128172; ' +
+            esc(notePreview(flags[r.id])) + '</button>'
         : '') +
     '</div>' +
     '<div class="right">' +
@@ -230,21 +254,14 @@ async function load(){
     const all = SECTIONS.concat(TRASH_SECTION);
     const got = await Promise.all(all.map(s => grab(s.key).catch(e => { console.error(s.key, e); return []; })));
     all.forEach((s, i) => { data[s.key] = got[i]; });
-    /* Customer messages from quote pages. Only the source filter goes to Firestore (no extra
-       index needed); still-new, untrashed ones turn their quote's tile red. A failure here
-       just means no red flags, never a blank dashboard. */
+    /* Shared notes on quotes (quoteNotes, keyed by quote id). A failure here just means
+       no notes on the tiles, never a blank dashboard. */
     Object.keys(flags).forEach(k => delete flags[k]);
     try {
-      const ms = await getDocs(query(collection(db, "leads"), where("source", "==", "quote-page"), limit(300)));
-      ms.docs.map(x => ({ id: x.id, ...x.data() }))
-        .filter(l => l.quoteId && !l.trashed && !l.converted && (l.status || "new") === "new")
-        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
-        .forEach(l => {
-          if (flags[l.quoteId]) return;   // newest one wins
-          const n = (l.photoPaths || []).length;
-          flags[l.quoteId] = { leadId: l.id, text: (l.message || "").trim() || (n ? "Sent " + n + " photo" + (n === 1 ? "" : "s") : "New message") };
-        });
-    } catch (e) { console.error("quote messages", e); }
+      const ns = await getDocs(collection(db, "quoteNotes"));
+      ns.docs.forEach(x => { const n = x.data();
+        if (String(n.text || "").trim() || (n.photoPaths || []).length) flags[x.id] = n; });
+    } catch (e) { console.error("quote notes", e); }
     const tc = document.getElementById("trashCount");
     if (tc) tc.textContent = (data.trash || []).length || "";
     loaded = true;
@@ -500,13 +517,64 @@ boardEl.addEventListener("click", async e => {
   }
 });
 
-/* Red message chip on a tile: open that message on the Leads page instead of the quote. */
+/* Note chip on a tile: open the shared note to read, edit or clear it. */
 boardEl.addEventListener("click", e => {
   const f = e.target.closest(".flagnote");
   if (!f) return;
   e.preventDefault(); e.stopPropagation();
-  location.href = "./leads.html#" + encodeURIComponent(f.dataset.lead);
+  openNote(f.dataset.note);
 });
+
+/* One note per quote, no history. Whatever is saved here is what the customer sees in the box on
+   their quote. Saving marks it handled (tile back to normal) until the customer changes it again. */
+function openNote(qid){
+  const n = flags[qid] || {}, row = SECTIONS.flatMap(s => data[s.key] || []).find(r => r.id === qid) || {};
+  let paths = Array.isArray(n.photoPaths) ? n.photoPaths.slice() : [];
+  const m = document.createElement("div");
+  m.className = "nmodal";
+  m.innerHTML = '<div class="nbox" role="dialog" aria-modal="true" aria-label="Note on quote">' +
+    '<div class="nhead"><strong>Note on ' + esc(row.number || "quote") + (row.name ? ' &middot; ' + esc(row.name) : '') + '</strong>' +
+    '<button type="button" class="nx" aria-label="Close">&times;</button></div>' +
+    '<p class="nwho">' + (n.by === "customer" ? "The customer changed this last." : "You changed this last.") +
+    ' They see whatever is in here on their quote.</p>' +
+    '<textarea id="nText"></textarea><div class="ngrid" id="nPhotos"></div>' +
+    '<div class="nact"><button type="button" class="nsave" id="nSave">Save</button>' +
+    '<button type="button" class="nclear" id="nClear">Clear note</button><span class="nstat" id="nStat"></span></div>' +
+    '<p class="nhint">Saving marks it handled, so the tile goes back to normal until the customer changes it again.</p></div>';
+  document.body.appendChild(m);
+  const ta = m.querySelector("#nText"), grid = m.querySelector("#nPhotos"), stat = m.querySelector("#nStat");
+  ta.value = n.text || "";
+  const close = () => m.remove();
+  m.addEventListener("click", e => { if (e.target === m || e.target.closest(".nx")) close(); });
+  const drawPhotos = () => {
+    grid.innerHTML = paths.map((p, i) => '<div class="nshot" data-i="' + i + '"><a target="_blank" rel="noopener"><img alt=""></a>' +
+      '<button type="button" aria-label="Remove photo">&times;</button></div>').join("");
+    grid.querySelectorAll(".nshot").forEach(el => {
+      const p = paths[+el.dataset.i];
+      getDownloadURL(sRef(storage, p)).then(u => { el.querySelector("img").src = u; el.querySelector("a").href = u; })
+        .catch(err => console.error("Photo " + p, err));
+      el.querySelector("button").onclick = () => { paths.splice(+el.dataset.i, 1); drawPhotos(); };
+    });
+  };
+  drawPhotos();
+  const save = async (text, list) => {
+    m.querySelectorAll(".nsave,.nclear").forEach(b => { b.disabled = true; });
+    stat.textContent = "Saving\u2026";
+    try {
+      await setDoc(doc(db, "quoteNotes", qid), { text, photoPaths: list, by: "staff",
+        quoteNumber: String(n.quoteNumber || row.number || ""), name: String(n.name || row.name || ""), updatedAt: serverTimestamp() });
+      close(); await load();
+    } catch (err) {
+      console.error(err); stat.textContent = "Could not save: " + err.message;
+      m.querySelectorAll(".nsave,.nclear").forEach(b => { b.disabled = false; });
+    }
+  };
+  m.querySelector("#nSave").onclick = () => save(ta.value.trim(), paths);
+  m.querySelector("#nClear").onclick = () => {
+    if (confirm("Clear this note and its photos? The customer will see an empty box.")) save("", []);
+  };
+  ta.focus();
+}
 
 /* Edit reopens the estimate in the estimator, which saves back over the same record. */
 boardEl.addEventListener("click", e => {

@@ -134,6 +134,12 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 .pstatus{font-size:14px;color:var(--muted);margin:10px 0 0}
 .pstatus.ok{color:var(--gold)}
 .pstatus:empty{display:none}
+.pwho{font-size:13px;color:var(--gold);margin:0 0 6px}
+.pwho:empty{display:none}
+.pph{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:6px;border:1px solid #2c3446;background:#121826;color:var(--muted)}
+.pph svg{width:26px;height:26px}
+.pprint{display:none}
+@media print{.pprint{display:block;background:#f7f8fa}}
 @media print{.photos{display:none}}
 @media print{:root{--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}body,.sheet,.top{background:#fff;color:var(--ink)}tr.head td{color:var(--ink)}tr.sub td,tr.room td{color:var(--muted)}}
 </style>
@@ -143,7 +149,7 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp, addDoc, collection } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const db = getFirestore(initializeApp({
@@ -183,14 +189,17 @@ const fmtDate = s => s ? new Date(s + "T12:00:00").toLocaleDateString("en-US", {
 
 const id = new URLSearchParams(location.search).get("id");
 
-/* ===== Customer photos: mirrors the quick quote. Up to 10 photos, 10 MB each,
-   resized to 2400px long edge, uploaded to Storage under quick-quote-photos/,
-   then written to "leads" so they show (with photos) on the CRM Leads page.
-   Web3Forms sends a short push-style notification. ===== */
+/* ===== Shared note on the quote =====
+   One note per quote in quoteNotes/{quote id}: only the text that's in it right now (no history)
+   plus any photos. The customer edits it here; Khean & Clean edits it from the Dashboard, and it
+   shows on the job sheet. Photos get the quick quote's handling: up to 10, 10 MB each, resized to
+   2400px, uploaded under quick-quote-photos/. Each customer send also emails a short heads-up. ===== */
 const storage = getStorage(db.app);
 const WEB3_ENDPOINT = "https://api.web3forms.com/submit", WEB3_KEY = "2e49144b-d36b-4e13-bec4-aad215f7abc6";
 const MAX_EDGE = 2400, JPEG_QUALITY = 0.85, MAX_BYTES = 10 * 1024 * 1024, MAX_FILES = 10;
 const PIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+let note = null;     // this quote's saved note, or null
+const seen = {};     // photo path -> preview made on this visit (customers can't load saved photos back)
 
 function shrinkPhoto(file){
   return new Promise(resolve => {
@@ -209,94 +218,104 @@ function shrinkPhoto(file){
   });
 }
 
-function wirePhotos(d, isQuote, num){
-  const files = [];
+function wireNote(d, isQuote, num){
   const $ = s => document.getElementById(s);
-  const box = $("photoBox"), pick = $("photoPick"), thumbs = $("photoThumbs"),
+  const box = $("photoBox"), pick = $("photoPick"), thumbs = $("photoThumbs"), who = $("noteWho"),
         msg = $("photoMsg"), send = $("photoSend"), status = $("photoStatus");
-  /* Small one-line box until tapped; then it opens with Add photos + Send.
-     It folds back only if they leave it empty with no photos. */
-  msg.addEventListener("focus", () => box.classList.add("open"));
-  msg.addEventListener("blur", () => setTimeout(() => {
-    if (!msg.value.trim() && !files.length && !box.contains(document.activeElement)) box.classList.remove("open");
-  }, 200));
+  let savedText = (note && note.text) || "";
+  let paths = note && Array.isArray(note.photoPaths) ? note.photoPaths.slice() : [];   // photos already on the note
+  let savedCount = paths.length;
+  const files = [];    // photos picked but not sent yet
   let urls = [];
+  msg.value = savedText;
+  const filled = () => !!(msg.value.trim() || paths.length || files.length);
+  const changed = () => msg.value.trim() !== savedText.trim() || files.length > 0 || paths.length !== savedCount;
   const say = (t, ok) => { status.textContent = t; status.classList.toggle("ok", !!ok); };
-  const sync = () => { send.disabled = !(files.length || msg.value.trim()); };
+  const sync = () => { send.disabled = !changed(); };
+  const label = () => {
+    who.textContent = !note || !(note.text || (note.photoPaths || []).length) ? ""
+      : note.by === "staff" ? "Note from Khean & Clean. Add anything below and send." : "Saved on your quote. You can change it anytime.";
+  };
   const draw = () => {
     urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
     thumbs.innerHTML = "";
-    files.forEach((f, i) => {
-      const u = URL.createObjectURL(f); urls.push(u);
+    const tile = (src, drop) => {
       const t = document.createElement("div"); t.className = "pthumb";
-      t.innerHTML = `<img src="${u}" alt=""><button type="button" aria-label="Remove photo">&times;</button>`;
-      t.querySelector("button").onclick = () => { files.splice(i, 1); draw(); sync(); };
+      t.innerHTML = (src ? `<img src="${src}" alt="">` : `<span class="pph">${PIC_SVG}</span>`) +
+        `<button type="button" aria-label="Remove photo">&times;</button>`;
+      t.querySelector("button").onclick = () => { drop(); draw(); sync(); };
       thumbs.appendChild(t);
-    });
-    say(files.length ? `${files.length} of ${MAX_FILES} photos` : "");
+    };
+    paths.forEach((p, i) => tile(seen[p] || "", () => paths.splice(i, 1)));
+    files.forEach((f, i) => { const u = URL.createObjectURL(f); urls.push(u); tile(u, () => files.splice(i, 1)); });
+    const n = paths.length + files.length;
+    say(n ? `${n} of ${MAX_FILES} photos` : "");
   };
   const add = list => {
     let capped = false;
     for (const f of Array.from(list || [])) {
       if (!/^image\//.test(f.type)) continue;
-      if (files.length >= MAX_FILES) { capped = true; break; }
+      if (paths.length + files.length >= MAX_FILES) { capped = true; break; }
       files.push(f);
     }
     box.classList.add("open"); draw(); sync();
     if (capped) say(`${MAX_FILES} photos max — the extra ones weren't added.`);
   };
+  /* Small box until tapped (or while it holds a note); folds back only when empty. */
+  if (filled()) box.classList.add("open");
+  msg.addEventListener("focus", () => box.classList.add("open"));
+  msg.addEventListener("blur", () => setTimeout(() => {
+    if (!filled() && !box.contains(document.activeElement)) box.classList.remove("open");
+  }, 200));
   $("photoPickBtn").onclick = () => pick.click();
   pick.onchange = () => { add(pick.files); pick.value = ""; };
   msg.oninput = sync;
+  label(); draw(); sync();
 
   send.onclick = async () => {
     send.disabled = true;
-    send.textContent = files.length ? "Uploading photos…" : "Sending…";
+    send.textContent = files.length ? "Uploading photos…" : "Saving…";
     const c = d.customer || {};
     const key = "quote_" + id + "_" + Date.now();
-    const paths = [];
+    const added = [];
+    let failed = 0;
     for (let i = 0; i < files.length; i++) {
       const f = files[i], shrunk = await shrinkPhoto(f);
-      if (shrunk.size > MAX_BYTES) continue;   // still too big after resizing: skip it, keep the rest
+      if (shrunk.size > MAX_BYTES) { failed++; continue; }
       const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, "") + ".jpg";
       const path = "quick-quote-photos/" + key + "/" + Date.now() + "_" + i + "_" + safe;
-      try { const snap = await uploadBytes(sRef(storage, path), shrunk, { contentType: "image/jpeg" }); paths.push(snap.ref.fullPath); }
-      catch (err) { console.error("Photo upload failed: " + f.name, err); }
+      try {
+        const snap = await uploadBytes(sRef(storage, path), shrunk, { contentType: "image/jpeg" });
+        added.push(snap.ref.fullPath); seen[snap.ref.fullPath] = URL.createObjectURL(shrunk);
+      } catch (err) { failed++; console.error("Photo upload failed: " + f.name, err); }
     }
-    const note = msg.value.trim();
-    let saved = false;
-    try {
-      send.textContent = "Sending…";
-      await addDoc(collection(db, "leads"), {
-        name: c.name || c.business || "", phone: c.phone || "", email: c.email || "",
-        addresses: [{ street: c.street || "", city: c.city || "", state: c.state || "CA", zip: c.zip || "" }],
-        type: String(c.type || "residential").toLowerCase(),
-        services: `Message on ${isQuote ? "quote" : "invoice"} ${num}`,
-        message: note, photoPaths: paths,
-        quoteId: id, quoteNumber: d.number || "",
-        status: "new", source: "quote-page", createdAt: serverTimestamp()
-      });
-      saved = true;
-    } catch (err) { console.error("Lead save failed", err); }
-    /* Notification goes out either way, so nothing is lost if the save failed. */
-    try {
-      const fd = new FormData();
-      fd.append("access_key", WEB3_KEY);
-      fd.append("subject", `Message from ${c.name || c.business || "a customer"} on ${num}` + (paths.length ? ` (${paths.length} photo${paths.length === 1 ? "" : "s"})` : ""));
-      fd.append("from_name", "Khean & Clean estimator");
-      fd.append("name", c.name || c.business || ""); fd.append("phone", c.phone || "");
-      fd.append("quote", String(num)); fd.append("message", note);
-      fd.append("photo_count", String(paths.length)); fd.append("quote_link", location.href);
-      await fetch(WEB3_ENDPOINT, { method: "POST", headers: { Accept: "application/json" }, body: fd });
-    } catch (err) { console.error("Notification failed", err); }
-    if (saved && (paths.length || !files.length)) {
-      files.length = 0; msg.value = ""; draw();
-      box.classList.remove("open");
-      send.textContent = "Send";
-      say("Thanks — we got your message. We'll get back to you soon.", true);
+    const text = msg.value.trim();
+    const next = { text, photoPaths: paths.concat(added), by: "customer",
+                   quoteNumber: String(d.number || ""), name: String(c.name || c.business || ""), updatedAt: serverTimestamp() };
+    let ok = false;
+    try { send.textContent = "Saving…"; await setDoc(doc(db, "quoteNotes", id), next); ok = true; }
+    catch (err) { console.error("Note save failed", err); }
+    /* Heads-up email. Goes out even if the save failed, so nothing is lost. */
+    if (text || added.length) {
+      try {
+        const fd = new FormData();
+        fd.append("access_key", WEB3_KEY);
+        fd.append("subject", `Message from ${c.name || c.business || "a customer"} on ${num}` + (added.length ? ` (${added.length} photo${added.length === 1 ? "" : "s"})` : ""));
+        fd.append("from_name", "Khean & Clean estimator");
+        fd.append("name", c.name || c.business || ""); fd.append("phone", c.phone || "");
+        fd.append("quote", String(num)); fd.append("message", text);
+        fd.append("photo_count", String(next.photoPaths.length)); fd.append("quote_link", location.href);
+        await fetch(WEB3_ENDPOINT, { method: "POST", headers: { Accept: "application/json" }, body: fd });
+      } catch (err) { console.error("Notification failed", err); }
+    }
+    send.textContent = "Send";
+    if (ok) {
+      note = next; savedText = text; paths = next.photoPaths.slice(); savedCount = paths.length; files.length = 0;
+      label(); draw(); sync();
+      say(failed ? `Saved, but ${failed} photo${failed === 1 ? "" : "s"} didn't upload. Add ${failed === 1 ? "it" : "them"} again.`
+                 : "Sent. We'll take a look — you can change this anytime.", true);
     } else {
-      send.disabled = false; send.textContent = "Send";
-      say(`That didn't go through. Try again, or text photos to ${PHONE}.`);
+      sync(); say(`That didn't go through. Try again, or text us at ${PHONE}.`);
     }
   };
 }
@@ -314,6 +333,9 @@ async function load(){
   }
   catch (e) { sheet.innerHTML = `<div class="msg">This page couldn't load. Check your connection and refresh, or call ${PHONE}.</div>`; console.error(e); return; }
   if (!snap.exists()) { sheet.innerHTML = `<div class="msg">This link doesn't match a quote or invoice. Call ${PHONE} and we'll sort it out.</div>`; return; }
+  /* The shared note on this quote, if any. Missing or blocked just means an empty box. */
+  try { const ns = await getDoc(doc(db, "quoteNotes", id)); note = ns.exists() ? ns.data() : null; }
+  catch (e) { console.error("note", e); }
   render(snap.data());
 }
 
@@ -381,6 +403,7 @@ function render(d){
       ${d.notes ? `<div class="notes">${esc(d.notes)}</div>` : ""}
       ${d.status !== "paid" ? `
       <div class="photos" id="photoBox">
+        <p class="pwho" id="noteWho"></p>
         <textarea id="photoMsg" aria-label="Message to Khean &amp; Clean" placeholder="Did we leave anything off? Questions or concerns? Leave them here."></textarea>
         <div class="pmore">
           <input id="photoPick" type="file" accept="image/*" multiple hidden>
@@ -392,6 +415,7 @@ function render(d){
         </div>
         <p class="pstatus" id="photoStatus" aria-live="polite"></p>
       </div>` : ""}
+      ${note && note.text ? `<div class="notes pprint">${esc(note.text)}</div>` : ""}
       ${canAccept ? `
       <div class="accept">
         <h2>Ready to book?</h2>
@@ -437,7 +461,7 @@ function render(d){
     </div>
     <div class="foot"><span>Thank you for choosing Khean &amp; Clean.</span><button class="ghost" onclick="print()">Print or save as PDF</button></div>`;
 
-  if (document.getElementById("photoBox")) wirePhotos(d, isQuote, num);
+  if (document.getElementById("photoBox")) wireNote(d, isQuote, num);
 
   const cardPay = document.getElementById("cardPay");
   if (cardPay) cardPay.addEventListener("click", async e => {

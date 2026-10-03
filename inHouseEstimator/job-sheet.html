@@ -212,10 +212,15 @@ async function show(){
   catch (e) { console.error("lead", e); }
   try { if (q.customerId) { const s = await getDoc(doc(db, "customers", q.customerId)); if (s.exists()) cust = s.data(); } }
   catch (e) { console.error("customer", e); }
+  /* The shared note on the quote (customer and us), if there is one. */
+  let qnote = null;
+  try { const s = await getDoc(doc(db, "quoteNotes", id)); if (s.exists()) qnote = s.data(); }
+  catch (e) { console.error("quote note", e); }
 
   const notesEl = document.getElementById("notes");
   if (notesEl && notesEl.isConnected) {
     const html =
+      rrow("Note on the quote", qnote && qnote.text) +
       rrow("From the customer", lead && lead.message) +
       rrow("Lead notes", lead && lead.staffNotes) +
       rrow("Customer notes", cust && cust.notes) +
@@ -224,7 +229,7 @@ async function show(){
   }
 
   /* Quick-quote photos: links, or storage paths turned into links. */
-  const paths = [...new Set(pathsOf(lead).concat(pathsOf(cust)))];
+  const paths = [...new Set(pathsOf(lead).concat(pathsOf(cust), pathsOf(qnote)))];
   const fromPaths = await Promise.all(paths.map(p =>
     getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
   const shots = [...new Set(photosOf(lead).concat(photosOf(cust), fromPaths.filter(Boolean)))];
