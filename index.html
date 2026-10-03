@@ -3321,8 +3321,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   function renderUphItems(){
     var st = STATE.upholstery;
     uphList.innerHTML = SERVICES.upholstery.items.map(function(it){
-      return '<div class="add" style="cursor:default">'+
-             '<span style="flex:1">'+it.name+' <span class="add__c">'+it.ft+' ft</span></span>'+
+      return '<div class="add" data-uphrow style="cursor:pointer;background:#172239;border:1px solid var(--brass,#C9982D);border-radius:12px;padding:12px 14px;margin-bottom:8px">'+
+             '<span style="flex:1"><span style="color:var(--brass,#C9982D)">'+it.name+'</span> <span class="add__c" style="display:block">'+it.ft+' linear ft &times; $'+SERVICES.upholstery.rate+'</span></span>'+
              '<div class="step step--sm">'+
                '<button type="button" data-uphminus="'+it.key+'" aria-label="Decrease">&minus;</button>'+
                '<input type="number" data-uph="'+it.key+'" value="0" min="0" step="1">'+
@@ -3344,6 +3344,13 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       el.addEventListener('click', function(){
         var k = el.dataset.uphplus, inp = uphList.querySelector('[data-uph="'+k+'"]');
         inp.value = (+inp.value||0) + 1; st.items[k] = +inp.value; st.touched = true; calc();
+      });
+    });
+    uphList.querySelectorAll('[data-uphrow]').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('.step')) return;
+        var plus = row.querySelector('[data-uphplus]');
+        if(plus) plus.click();
       });
     });
   }
