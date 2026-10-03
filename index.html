@@ -747,6 +747,27 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 #addsList .add{ font-size:1.4rem; padding:.45rem 0; border-bottom:0; line-height:1.15; }
 #addsList .add__c{ font-size:1.2rem; }
 #addsList .roomDisclaimer{ font-size:1.031rem; margin-top:.1rem; }
+/* Phone width: keep the counter on the same line as the item name and drop
+   the price caption onto its own line underneath. */
+@media (max-width:640px){
+  #addsList .addQty{ flex-wrap:nowrap; align-items:flex-start; }
+  #addsList .addQty__toggle{ align-items:flex-start; }
+  #addsList .addQty .add__c{ display:block; margin-left:0; margin-top:.2rem; }
+  /* Simple checkbox rows: long names wrap; price stays top-right on the checkbox line. */
+  #addsList label.add{ flex-wrap:nowrap; align-items:flex-start; }
+  #addsList label.add .add__c{ flex:none; white-space:nowrap; }
+  /* Accelerated drying: name on one line, status caption underneath. */
+  #addsList label.add:has([data-add="dry"]){ flex-wrap:wrap; row-gap:.15rem; }
+  #addsList label.add:has([data-add="dry"]) .add__c{ flex-basis:100%; margin-left:calc(20px + .85rem); white-space:normal; }
+  /* Stretching / pet odor / stain: counter pinned top-right; price + disclaimer run full width underneath. */
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]){ position:relative; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__actions{ position:absolute; top:.45rem; right:0; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle{ flex:1 1 100%; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle > span::before{ content:''; float:right; width:144px; height:44px; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .add__c{ clear:right; white-space:nowrap; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle br{ display:none; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .roomDisclaimer{ display:block; }
+}
 
 .est__k{ font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--dust); margin-bottom:.7rem; }
 .est__fig{ display:flex; justify-content:flex-end; align-items:flex-start; gap:.2rem; font-family:"Playfair Display",serif; color:var(--jade-lit); line-height:.85; margin:.6rem 0 .4rem; }
@@ -2874,10 +2895,10 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         prot:   { name:'Stain protector',      sqft:0.10 },
         dry:    { name:'Accelerated drying',    sqft:0.03 },
         filter: { name:'Filter line cleaning',  linear:0.45, needsQty:true, qtyDefault:0, qtyStep:10 },
-        stretch:{ name:'Carpet Stretching',      linear:100,  needsQty:true, qtyDefault:0, qtyStep:1, qtyDropdown:true,
+        stretch:{ name:'Carpet Stretching',      linear:100,  needsQty:true, qtyDefault:0, qtyStep:1,
                    text:'$100 starting per room', disclaimer:'All furniture must be removed and carpet must be in good condition.' },
-        pet:    { name:'Pet odor treatment',    linear:50, needsQty:true, qtyDefault:0, qtyStep:1, qtyDropdown:true, text:'$50 starting per spot' },
-        stain:  { name:'Stain treatment',       linear:15, needsQty:true, qtyDefault:0, qtyStep:1, qtyDropdown:true, text:'$15 starting per spot' }
+        pet:    { name:'Pet odor treatment',    linear:50, needsQty:true, qtyDefault:0, qtyStep:1, text:'$50 starting per spot' },
+        stain:  { name:'Stain treatment',       linear:15, needsQty:true, qtyDefault:0, qtyStep:1, text:'$15 starting per spot' }
       },
       quoteValue: 'Carpet cleaning'
     },
@@ -3014,10 +3035,11 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       }
       if(a.needsQty){
         var disclaimer = a.disclaimer ? '<br><span class="roomDisclaimer">'+a.disclaimer+'</span>' : '';
+        var tap = (k==='filter'||k==='stretch'||k==='pet'||k==='stain') ? ' data-addrow="'+k+'" style="cursor:pointer"' : '';
         if(a.qtyDropdown){
           var opts = '';
           for(var n=0; n<=10; n++){ opts += '<option value="'+n+'"'+(n===0?' selected':'')+'>'+n+'</option>'; }
-          return '<div class="add addQty">'+
+          return '<div class="add addQty"'+tap+'>'+
                  '<label class="addQty__toggle">'+
                    '<input type="checkbox" data-add="'+k+'">'+
                    '<span>'+a.name+' <span class="add__c">'+price+'</span>'+disclaimer+'</span>'+
@@ -3028,7 +3050,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         var allTileBtn = a.allTileLabel
           ? '<button type="button" class="allTileBtn" data-alltile="'+k+'">'+a.allTileLabel+'</button>'
           : '';
-        return '<div class="add addQty">'+
+        return '<div class="add addQty"'+tap+'>'+
                '<label class="addQty__toggle">'+
                  '<input type="checkbox" data-add="'+k+'">'+
                  '<span>'+a.name+' <span class="add__c">'+price+'</span>'+disclaimer+'</span>'+
@@ -3153,6 +3175,24 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         var step = +inp.step || 1;
         inp.value = (+inp.value||0) + step;
         inp.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+    });
+    /* Tap-to-add rows (Filter line, Carpet Stretching, Pet odor, Stain treatment):
+       tapping the row adds one step (10 linear ft for Filter, 1 for the dropdowns).
+       The checkbox, dropdown and -/+ buttons keep their own behavior. */
+    addsList.querySelectorAll('[data-addrow]').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('input, select, button, .step')) return;
+        var k = row.dataset.addrow, cb = addsList.querySelector('[data-add="'+k+'"]');
+        e.preventDefault();
+        if(cb && cb.disabled) return;
+        var plus = row.querySelector('[data-addqtyplus]');
+        if(plus){ plus.click(); return; }
+        var sel = row.querySelector('select[data-addqty]');
+        if(sel && sel.selectedIndex < sel.options.length - 1){
+          sel.selectedIndex++;
+          sel.dispatchEvent(new Event('change', {bubbles:true}));
+        }
       });
     });
     /* Area Rug size tickers: each size keeps its own count; the add-on is "on" while any count is above 0. */

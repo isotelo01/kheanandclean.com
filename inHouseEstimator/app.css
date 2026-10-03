@@ -924,6 +924,24 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
   .lockNote{ display:none; }
   .addQty__actions{ flex-direction:column-reverse; align-items:stretch; gap:.45rem; }
   .addQty__actions .allTileBtn{ width:100%; text-align:center; }
+  /* Keep the counter on the item-name line; price caption drops underneath. */
+  #addsList .addQty{ flex-wrap:nowrap; align-items:flex-start; }
+  #addsList .addQty__toggle{ align-items:flex-start; }
+  #addsList .addQty .add__c{ display:block; margin-left:0; margin-top:.2rem; }
+  /* Simple checkbox rows: long names wrap; price stays top-right on the checkbox line. */
+  #addsList label.add{ flex-wrap:nowrap; align-items:flex-start; }
+  #addsList label.add .add__c{ flex:none; white-space:nowrap; }
+  /* Accelerated drying: name on one line, status caption underneath. */
+  #addsList label.add:has([data-add="dry"]){ flex-wrap:wrap; row-gap:.15rem; }
+  #addsList label.add:has([data-add="dry"]) .add__c{ flex-basis:100%; margin-left:calc(20px + .85rem); white-space:normal; }
+  /* Stretching / pet odor / stain: counter pinned top-right; price + disclaimer run full width underneath. */
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]){ position:relative; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__actions{ position:absolute; top:.45rem; right:0; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle{ flex:1 1 100%; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle > span::before{ content:''; float:right; width:144px; height:44px; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .add__c{ clear:right; white-space:nowrap; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle br{ display:none; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .roomDisclaimer{ display:block; }
 }
 
 /* ---- restored from site index.html: phone-width layout ---- */

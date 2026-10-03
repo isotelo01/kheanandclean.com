@@ -52,10 +52,10 @@
         prot:   { name:'Stain protector',      sqft:0.10 },
         dry:    { name:'Accelerated drying',    sqft:0.03 },
         filter: { name:'Filter line cleaning',  linear:0.45, needsQty:true, qtyDefault:0, qtyStep:10 },
-        stretch:{ name:'Carpet Stretching',      linear:100,  needsQty:true, qtyDefault:0, qtyStep:1, qtyDropdown:true,
+        stretch:{ name:'Carpet Stretching',      linear:100,  needsQty:true, qtyDefault:0, qtyStep:1,
                    text:'$100 starting per room', disclaimer:'All furniture must be removed and carpet must be in good condition.' },
-        pet:    { name:'Pet odor treatment',    linear:50, needsQty:true, qtyDefault:0, qtyStep:1, qtyDropdown:true, text:'$50 starting per spot' },
-        stain:  { name:'Stain treatment',       linear:15, needsQty:true, qtyDefault:0, qtyStep:1, qtyDropdown:true, text:'$15 starting per spot' }
+        pet:    { name:'Pet odor treatment',    linear:50, needsQty:true, qtyDefault:0, qtyStep:1, text:'$50 starting per spot' },
+        stain:  { name:'Stain treatment',       linear:15, needsQty:true, qtyDefault:0, qtyStep:1, text:'$15 starting per spot' }
       },
       quoteValue: 'Carpet cleaning'
     },
@@ -220,10 +220,11 @@
       }
       if(a.needsQty){
         var disclaimer = a.disclaimer ? '<br><span class="roomDisclaimer">'+a.disclaimer+'</span>' : '';
+        var tap = (k==='filter'||k==='stretch'||k==='pet'||k==='stain') ? ' data-addrow="'+k+'" style="cursor:pointer"' : '';
         if(a.qtyDropdown){
           var opts = '';
           for(var n=0; n<=10; n++){ opts += '<option value="'+n+'"'+(n===0?' selected':'')+'>'+n+'</option>'; }
-          return '<div class="add addQty">'+
+          return '<div class="add addQty"'+tap+'>'+
                  '<label class="addQty__toggle">'+
                    '<input type="checkbox" data-add="'+k+'">'+
                    '<span>'+a.name+' <span class="add__c">'+price+'</span>'+disclaimer+'</span>'+
@@ -234,7 +235,7 @@
         var allTileBtn = a.allTileLabel
           ? '<button type="button" class="allTileBtn" data-alltile="'+k+'">'+a.allTileLabel+'</button>'
           : '';
-        return '<div class="add addQty">'+
+        return '<div class="add addQty"'+tap+'>'+
                '<label class="addQty__toggle">'+
                  '<input type="checkbox" data-add="'+k+'">'+
                  '<span>'+a.name+' <span class="add__c">'+price+'</span>'+disclaimer+'</span>'+
@@ -359,6 +360,24 @@
         var step = +inp.step || 1;
         inp.value = (+inp.value||0) + step;
         inp.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+    });
+    /* Tap-to-add rows (Filter line, Carpet Stretching, Pet odor, Stain treatment):
+       tapping the row adds one step (10 linear ft for Filter, 1 for the dropdowns).
+       The checkbox, dropdown and -/+ buttons keep their own behavior. */
+    addsList.querySelectorAll('[data-addrow]').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('input, select, button, .step')) return;
+        var k = row.dataset.addrow, cb = addsList.querySelector('[data-add="'+k+'"]');
+        e.preventDefault();
+        if(cb && cb.disabled) return;
+        var plus = row.querySelector('[data-addqtyplus]');
+        if(plus){ plus.click(); return; }
+        var sel = row.querySelector('select[data-addqty]');
+        if(sel && sel.selectedIndex < sel.options.length - 1){
+          sel.selectedIndex++;
+          sel.dispatchEvent(new Event('change', {bubbles:true}));
+        }
       });
     });
     /* Area Rug size tickers: each size keeps its own count; the add-on is "on" while any count is above 0. */
