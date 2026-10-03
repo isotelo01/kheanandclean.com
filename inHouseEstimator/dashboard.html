@@ -64,6 +64,9 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .msg{background:#fff;border-radius:10px;padding:50px 20px;text-align:center;color:var(--muted)}
 button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @media (max-width:520px){.right{text-align:left;margin-left:0;width:100%}.cardrow{flex-wrap:wrap}.cardrow .card{flex:1 1 100%}.invbtn,.paidbtn{flex:1 1 100%;padding:13px}}
+/* Red tile: the customer left a message on their quote page that hasn't been handled on Leads yet. */
+.card.flag{background:#f8d7d2;box-shadow:0 0 0 2px var(--red)}
+.flagnote{display:inline-block;margin-top:6px;background:var(--red);color:#fff;border:0;border-radius:6px;padding:4px 10px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;max-width:100%;text-align:left;white-space:normal}
 </style>
 <style id="authwait">body{visibility:hidden}</style>
 </head>
@@ -133,15 +136,21 @@ const viewSections = () => showTrash ? TRASH_SECTION : SECTIONS;
 /* All four lists are on screen at once; data[key] holds each one's rows. */
 const data = {};
 let loaded = false;
+/* quoteId -> newest unhandled customer message (a "quote-page" lead still marked new). */
+const flags = {};
 
 const kindOf = r => (r.source === "invoices" || r.source === "paidInvoices") ? "invoice" : "estimate";
 
 const card = r =>
   '<div class="cardrow">' +
-  '<a class="card" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
+  '<a class="card' + (r.source !== "trash" && flags[r.id] ? ' flag' : '') + '" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
     '<div>' +
       '<div class="who">' + esc(r.name || "No name") + '</div>' +
       '<div class="meta">' + esc(r.number) + (r.phone ? " &middot; " + esc(r.phone) : "") + (r.date ? " &middot; " + esc(r.date) : "") + '</div>' +
+      (r.source !== "trash" && flags[r.id]
+        ? '<button type="button" class="flagnote" data-lead="' + esc(flags[r.id].leadId) + '" title="Open on Leads">&#128172; ' +
+            esc(flags[r.id].text.length > 90 ? flags[r.id].text.slice(0, 90) + "…" : flags[r.id].text) + '</button>'
+        : '') +
     '</div>' +
     '<div class="right">' +
       '<div class="amt">' + money(r.total) + '</div>' +
@@ -221,6 +230,21 @@ async function load(){
     const all = SECTIONS.concat(TRASH_SECTION);
     const got = await Promise.all(all.map(s => grab(s.key).catch(e => { console.error(s.key, e); return []; })));
     all.forEach((s, i) => { data[s.key] = got[i]; });
+    /* Customer messages from quote pages. Only the source filter goes to Firestore (no extra
+       index needed); still-new, untrashed ones turn their quote's tile red. A failure here
+       just means no red flags, never a blank dashboard. */
+    Object.keys(flags).forEach(k => delete flags[k]);
+    try {
+      const ms = await getDocs(query(collection(db, "leads"), where("source", "==", "quote-page"), limit(300)));
+      ms.docs.map(x => ({ id: x.id, ...x.data() }))
+        .filter(l => l.quoteId && !l.trashed && !l.converted && (l.status || "new") === "new")
+        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))
+        .forEach(l => {
+          if (flags[l.quoteId]) return;   // newest one wins
+          const n = (l.photoPaths || []).length;
+          flags[l.quoteId] = { leadId: l.id, text: (l.message || "").trim() || (n ? "Sent " + n + " photo" + (n === 1 ? "" : "s") : "New message") };
+        });
+    } catch (e) { console.error("quote messages", e); }
     const tc = document.getElementById("trashCount");
     if (tc) tc.textContent = (data.trash || []).length || "";
     loaded = true;
@@ -474,6 +498,14 @@ boardEl.addEventListener("click", async e => {
     btn.disabled = false;
     alert("That didn't go through. If it keeps failing, check the Firestore Rules \u2014 writes to \"trash\" or deletes may be blocked.");
   }
+});
+
+/* Red message chip on a tile: open that message on the Leads page instead of the quote. */
+boardEl.addEventListener("click", e => {
+  const f = e.target.closest(".flagnote");
+  if (!f) return;
+  e.preventDefault(); e.stopPropagation();
+  location.href = "./leads.html#" + encodeURIComponent(f.dataset.lead);
 });
 
 /* Edit reopens the estimate in the estimator, which saves back over the same record. */

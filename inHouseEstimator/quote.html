@@ -113,6 +113,28 @@ tr.room td.r{padding-left:8px}
 input{background:#05070c;color:var(--ink);border-color:#2c3446}
 button{background:var(--gold);color:#0b0f17}
 button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
+/* Customer message box: one small line until tapped, then it opens with an optional photo link. */
+.photos{margin-top:22px}
+.photos textarea{display:block;width:100%;height:44px;padding:11px 12px;border:1px solid #2c3446;border-radius:8px;background:#05070c;color:var(--ink);font:15px/1.4 "Archivo",sans-serif;resize:none;overflow:hidden;transition:height .15s}
+.photos textarea::placeholder{color:var(--muted)}
+.photos.open textarea{height:110px;overflow:auto;border-color:rgba(227,182,74,.6)}
+@media (max-width:560px){.photos textarea{height:64px}}
+.pmore{display:none}
+.photos.open .pmore{display:block}
+.pbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
+.paddlink{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:4px 0;color:var(--gold);font:600 14px "Archivo",sans-serif;cursor:pointer}
+.paddlink svg{width:16px;height:16px}
+#photoSend{padding:8px 22px;font-size:15px}
+.pthumbs{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 0}
+.pthumbs:empty{display:none}
+.pthumb{position:relative;width:72px;height:72px}
+.pthumb img{width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #2c3446}
+.pthumb button{position:absolute;top:-7px;right:-7px;width:24px;height:24px;padding:0;border-radius:50%;font:700 14px/1 "Archivo",sans-serif;background:#05070c;color:#fff;border:1px solid #2c3446}
+#photoSend[disabled]{opacity:.5;cursor:not-allowed}
+.pstatus{font-size:14px;color:var(--muted);margin:10px 0 0}
+.pstatus.ok{color:var(--gold)}
+.pstatus:empty{display:none}
+@media print{.photos{display:none}}
 @media print{:root{--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}body,.sheet,.top{background:#fff;color:var(--ink)}tr.head td{color:var(--ink)}tr.sub td,tr.room td{color:var(--muted)}}
 </style>
 </head>
@@ -121,7 +143,8 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp, addDoc, collection } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const db = getFirestore(initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -159,6 +182,124 @@ const twoLine = t => esc(t).replace(" \u2014 ", "<br>");
 const fmtDate = s => s ? new Date(s + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "";
 
 const id = new URLSearchParams(location.search).get("id");
+
+/* ===== Customer photos: mirrors the quick quote. Up to 10 photos, 10 MB each,
+   resized to 2400px long edge, uploaded to Storage under quick-quote-photos/,
+   then written to "leads" so they show (with photos) on the CRM Leads page.
+   Web3Forms sends a short push-style notification. ===== */
+const storage = getStorage(db.app);
+const WEB3_ENDPOINT = "https://api.web3forms.com/submit", WEB3_KEY = "2e49144b-d36b-4e13-bec4-aad215f7abc6";
+const MAX_EDGE = 2400, JPEG_QUALITY = 0.85, MAX_BYTES = 10 * 1024 * 1024, MAX_FILES = 10;
+const PIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+
+function shrinkPhoto(file){
+  return new Promise(resolve => {
+    if (!/^image\//.test(file.type) || file.size < 400 * 1024) { resolve(file); return; }
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.width, h = img.height;
+      if (Math.max(w, h) > MAX_EDGE) { const s = MAX_EDGE / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      cv.toBlob(b => resolve(b && b.size < file.size ? b : file), "image/jpeg", JPEG_QUALITY);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+function wirePhotos(d, isQuote, num){
+  const files = [];
+  const $ = s => document.getElementById(s);
+  const box = $("photoBox"), pick = $("photoPick"), thumbs = $("photoThumbs"),
+        msg = $("photoMsg"), send = $("photoSend"), status = $("photoStatus");
+  /* Small one-line box until tapped; then it opens with Add photos + Send.
+     It folds back only if they leave it empty with no photos. */
+  msg.addEventListener("focus", () => box.classList.add("open"));
+  msg.addEventListener("blur", () => setTimeout(() => {
+    if (!msg.value.trim() && !files.length && !box.contains(document.activeElement)) box.classList.remove("open");
+  }, 200));
+  let urls = [];
+  const say = (t, ok) => { status.textContent = t; status.classList.toggle("ok", !!ok); };
+  const sync = () => { send.disabled = !(files.length || msg.value.trim()); };
+  const draw = () => {
+    urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
+    thumbs.innerHTML = "";
+    files.forEach((f, i) => {
+      const u = URL.createObjectURL(f); urls.push(u);
+      const t = document.createElement("div"); t.className = "pthumb";
+      t.innerHTML = `<img src="${u}" alt=""><button type="button" aria-label="Remove photo">&times;</button>`;
+      t.querySelector("button").onclick = () => { files.splice(i, 1); draw(); sync(); };
+      thumbs.appendChild(t);
+    });
+    say(files.length ? `${files.length} of ${MAX_FILES} photos` : "");
+  };
+  const add = list => {
+    let capped = false;
+    for (const f of Array.from(list || [])) {
+      if (!/^image\//.test(f.type)) continue;
+      if (files.length >= MAX_FILES) { capped = true; break; }
+      files.push(f);
+    }
+    box.classList.add("open"); draw(); sync();
+    if (capped) say(`${MAX_FILES} photos max — the extra ones weren't added.`);
+  };
+  $("photoPickBtn").onclick = () => pick.click();
+  pick.onchange = () => { add(pick.files); pick.value = ""; };
+  msg.oninput = sync;
+
+  send.onclick = async () => {
+    send.disabled = true;
+    send.textContent = files.length ? "Uploading photos…" : "Sending…";
+    const c = d.customer || {};
+    const key = "quote_" + id + "_" + Date.now();
+    const paths = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i], shrunk = await shrinkPhoto(f);
+      if (shrunk.size > MAX_BYTES) continue;   // still too big after resizing: skip it, keep the rest
+      const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, "") + ".jpg";
+      const path = "quick-quote-photos/" + key + "/" + Date.now() + "_" + i + "_" + safe;
+      try { const snap = await uploadBytes(sRef(storage, path), shrunk, { contentType: "image/jpeg" }); paths.push(snap.ref.fullPath); }
+      catch (err) { console.error("Photo upload failed: " + f.name, err); }
+    }
+    const note = msg.value.trim();
+    let saved = false;
+    try {
+      send.textContent = "Sending…";
+      await addDoc(collection(db, "leads"), {
+        name: c.name || c.business || "", phone: c.phone || "", email: c.email || "",
+        addresses: [{ street: c.street || "", city: c.city || "", state: c.state || "CA", zip: c.zip || "" }],
+        type: String(c.type || "residential").toLowerCase(),
+        services: `Message on ${isQuote ? "quote" : "invoice"} ${num}`,
+        message: note, photoPaths: paths,
+        quoteId: id, quoteNumber: d.number || "",
+        status: "new", source: "quote-page", createdAt: serverTimestamp()
+      });
+      saved = true;
+    } catch (err) { console.error("Lead save failed", err); }
+    /* Notification goes out either way, so nothing is lost if the save failed. */
+    try {
+      const fd = new FormData();
+      fd.append("access_key", WEB3_KEY);
+      fd.append("subject", `Message from ${c.name || c.business || "a customer"} on ${num}` + (paths.length ? ` (${paths.length} photo${paths.length === 1 ? "" : "s"})` : ""));
+      fd.append("from_name", "Khean & Clean estimator");
+      fd.append("name", c.name || c.business || ""); fd.append("phone", c.phone || "");
+      fd.append("quote", String(num)); fd.append("message", note);
+      fd.append("photo_count", String(paths.length)); fd.append("quote_link", location.href);
+      await fetch(WEB3_ENDPOINT, { method: "POST", headers: { Accept: "application/json" }, body: fd });
+    } catch (err) { console.error("Notification failed", err); }
+    if (saved && (paths.length || !files.length)) {
+      files.length = 0; msg.value = ""; draw();
+      box.classList.remove("open");
+      send.textContent = "Send";
+      say("Thanks — we got your message. We'll get back to you soon.", true);
+    } else {
+      send.disabled = false; send.textContent = "Send";
+      say(`That didn't go through. Try again, or text photos to ${PHONE}.`);
+    }
+  };
+}
 
 async function load(){
   if (!id) { sheet.innerHTML = `<div class="msg">This link is missing its code. Ask Khean &amp; Clean to resend it, or call ${PHONE}.</div>`; return; }
@@ -208,10 +349,10 @@ function render(d){
     <div class="top">
       <div class="idblock">
         <img src="../images/logo.png" alt="Khean &amp; Clean">
-        <div>
-          <div class="legal">Folsom, CA</div>
+        <div style="position:relative">
           <div class="contact"><a href="tel:${TEL}">${PHONE}</a> · <a href="${SITE_URL}" target="_blank" rel="noopener">${SITE}</a></div>
           <div class="brand">Khean &amp; Clean LLC</div>
+          <div class="legal" style="position:absolute;right:0;top:100%;margin-top:4px;white-space:nowrap">Folsom, CA</div>
         </div>
       </div>
       <div class="kind"><div class="t">${isQuote ? "Quote" : "Invoice"}</div><div class="n">${num}</div></div>
@@ -238,6 +379,19 @@ function render(d){
       ${d.minApplied ? `<p style="text-align:right;color:var(--muted);font-size:14px;margin:6px 0 0">Minimum service charge applied.</p>` : ""}
       ${sigHtml}
       ${d.notes ? `<div class="notes">${esc(d.notes)}</div>` : ""}
+      ${d.status !== "paid" ? `
+      <div class="photos" id="photoBox">
+        <textarea id="photoMsg" aria-label="Message to Khean &amp; Clean" placeholder="Did we leave anything off? Questions or concerns? Leave them here."></textarea>
+        <div class="pmore">
+          <input id="photoPick" type="file" accept="image/*" multiple hidden>
+          <div class="pthumbs" id="photoThumbs"></div>
+          <div class="pbar">
+            <button type="button" class="paddlink" id="photoPickBtn">${PIC_SVG}Add photos</button>
+            <button type="button" id="photoSend" disabled>Send</button>
+          </div>
+        </div>
+        <p class="pstatus" id="photoStatus" aria-live="polite"></p>
+      </div>` : ""}
       ${canAccept ? `
       <div class="accept">
         <h2>Ready to book?</h2>
@@ -282,6 +436,8 @@ function render(d){
       </div>` : ""}
     </div>
     <div class="foot"><span>Thank you for choosing Khean &amp; Clean.</span><button class="ghost" onclick="print()">Print or save as PDF</button></div>`;
+
+  if (document.getElementById("photoBox")) wirePhotos(d, isQuote, num);
 
   const cardPay = document.getElementById("cardPay");
   if (cardPay) cardPay.addEventListener("click", async e => {
