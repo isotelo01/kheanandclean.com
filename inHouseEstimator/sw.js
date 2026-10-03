@@ -1,6 +1,6 @@
 /* K&C Estimator service worker — offline-first.
    Bump CACHE when you upload new files, or phones keep the old copy. */
-var CACHE = 'kc-estimator-v22';
+var CACHE = 'kc-estimator-v26';
 var ASSETS = ['./','./index.html','./app.css','./app.js','./manifest.webmanifest',
               '../images/icon-180.png','../images/icon-192.png','../images/icon-512.png'];
 

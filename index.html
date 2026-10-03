@@ -764,6 +764,8 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .est__lines li.lineItem__sub{ padding:.4rem 0 .4rem 1.1rem; border-bottom:0; font-size:var(--fs-xs); color:rgba(231,233,227,.6); }
 .est__lines li.lineItem__sub span:last-child{ color:var(--dust); }
 .est__lines li.lineItem__sub:last-of-type{ border-bottom:1px solid var(--line-d); padding-bottom:.6rem; }
+.est__lines li.lineItem__room{ padding:.15rem 0 .15rem 2.2rem; border-bottom:0; font-size:var(--fs-2xs); color:rgba(231,233,227,.45); }
+.est__lines li.lineItem__room span:last-child{ color:var(--dust); }
 .est__fine{ font-size:var(--fs-2xs); color:var(--dust); margin-top:1rem; line-height:1.6; letter-spacing:.02em; }
 /* Estimator contact fields — left input column, matches .fld / .lgnd conventions */
 .estSend{ padding-top:0; }
@@ -2726,24 +2728,24 @@ document.getElementById('yr').textContent = new Date().getFullYear();
        Within each group, larger rooms first. */
 
     /* --- most likely carpet (upstairs / soft floors) --- */
-    { key:'masterBed',  name:'Master / Primary Bedroom',  sqft:250, dims:'12\' 6" \u00d7 20\'' },
+    { key:'masterBed',  name:'Master Bedroom',            sqft:250, dims:'12\' 6" \u00d7 20\'' },
     { key:'den',        name:'Large Den / Office',        sqft:180, dims:'15\' \u00d7 12\'' },
-    { key:'smallBed',   name:'Small / Guest Bedroom',     sqft:110, dims:'10\' \u00d7 11\'' },
+    { key:'smallBed',   name:'Bedroom',                   sqft:110, dims:'10\' \u00d7 11\'' },
     { key:'closet',     name:'Walk-In Closet (Master)',   sqft:80,  dims:'8\' \u00d7 10\'' },
+    { key:'hallway',    name:'Hallway',                   sqft:40,  dims:'4\' \u00d7 10\'' },
 
     /* --- most likely tile & grout (wet rooms) --- */
     { key:'kitchen',    name:'Kitchen',                   sqft:200, dims:'10\' \u00d7 20\'' },
-    { key:'masterBath', name:'Master / Ensuite Bath',     sqft:150, dims:'10\' \u00d7 15\'' },
-    { key:'fullBath',   name:'Standard Full Bathroom',    sqft:50,  dims:'5\' \u00d7 10\'' },
+    { key:'masterBath', name:'Master Bath',               sqft:150, dims:'10\' \u00d7 15\'' },
+    { key:'fullBath',   name:'Full Bath',                 sqft:50,  dims:'5\' \u00d7 10\'' },
     { key:'laundry',    name:'Laundry Room',              sqft:45,  dims:'5\' \u00d7 9\'' },
     { key:'halfBath',   name:'Half Bath / Powder Room',   sqft:21,  dims:'3\' \u00d7 7\'' },
 
     /* --- most likely hard floor (downstairs living space) --- */
-    { key:'greatRoom',  name:'Open Floor Plan (Great Room)', sqft:375, dims:'combined living, dining & kitchen' },
+    { key:'greatRoom',  name:'Great Room', sqft:375, dims:'combined living, dining & kitchen' },
     { key:'living',     name:'Living / Family Room',      sqft:350, dims:'17\' 6" \u00d7 20\'' },
-    { key:'loft',       name:'Loft / Formal Dining Room', sqft:275, dims:'11\' \u00d7 25\'' },
-    { key:'dining',     name:'Dining Room',               sqft:215, dims:'10\' \u00d7 21\' 6"' },
-    { key:'hallway',    name:'Hallway',                   sqft:40,  dims:'4\' \u00d7 10\'' },
+    { key:'loft',       name:'Large Loft',               sqft:275, dims:'11\' \u00d7 25\'' },
+    { key:'dining',     name:'Dining Room',               sqft:245, dims:'12\' \u00d7 20\' 6"' },
 
     /* --- always last --- */
     { key:'stairs',     name:'Flights of Stairs',         flat:100, step:0.5 },
@@ -2763,6 +2765,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       addons: {
         stairs: { name:'Flights of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
                    text:'$100 per flight' },
+        rug:    { name:'Area Rugs', text:'$50 / $75 per rug',
+                   sizes:[ { key:'med', label:'Medium (5\u00d78)', price:50 },
+                           { key:'lg',  label:'Large (9\u00d712)', price:75 } ] },
         hair:   { name:'Hair & debris removal', sqft:0.12 },
         deo:    { name:'Deodorizer',            sqft:0.05 },
         prot:   { name:'Stain protector',      sqft:0.10 },
@@ -2852,6 +2857,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     Object.keys(defs).forEach(function(k){
       o[k] = { on:false };
       if(defs[k].needsQty) o[k].qty = defs[k].qtyDefault;
+      if(defs[k].sizes){ o[k].sizes = {}; defs[k].sizes.forEach(function(z){ o[k].sizes[z.key] = 0; }); }
     });
     return o;
   }
@@ -2888,6 +2894,23 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     addonsField.style.display = '';
     addsList.innerHTML = keys.map(function(k){
       var a = s.addons[k], price = addonPriceTxt(a);
+      /* Area Rugs: a heading, then one line per size, each with its own -/+ ticker. */
+      if(a.sizes){
+        return '<div class="add" style="flex-direction:column;align-items:stretch;gap:.35rem;cursor:default">'+
+               '<span>'+a.name+'</span>'+
+               a.sizes.map(function(z){
+                 var id = k+'.'+z.key;
+                 return '<div data-sizerow="'+id+'" style="display:flex;align-items:center;gap:.85rem;margin-left:1.1rem;padding:.45rem .6rem .45rem 1rem;border:1px solid var(--line-d);border-radius:var(--r-md);cursor:pointer">'+
+                        '<span>'+z.label+' <span class="add__c">$'+z.price+'</span></span>'+
+                        '<div class="step step--sm" style="margin-left:auto">'+
+                          '<button type="button" data-sizeminus="'+id+'" aria-label="Decrease">&minus;</button>'+
+                          '<input type="number" data-size="'+id+'" value="0" min="0" step="1" aria-label="'+a.name+' '+z.label+' quantity">'+
+                          '<button type="button" data-sizeplus="'+id+'" aria-label="Increase">+</button>'+
+                        '</div>'+
+                      '</div>';
+               }).join('')+
+             '</div>';
+      }
       if(a.needsQty){
         var disclaimer = a.disclaimer ? '<br><span class="roomDisclaimer">'+a.disclaimer+'</span>' : '';
         if(a.qtyDropdown){
@@ -3029,6 +3052,39 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         var step = +inp.step || 1;
         inp.value = (+inp.value||0) + step;
         inp.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+    });
+    /* Area Rug size tickers: each size keeps its own count; the add-on is "on" while any count is above 0. */
+    addsList.querySelectorAll('[data-size]').forEach(function(el){
+      var p = el.dataset.size.split('.'), k = p[0], z = p[1];
+      st.addons[k] = st.addons[k] || { on:false };
+      st.addons[k].sizes = st.addons[k].sizes || {};
+      el.value = st.addons[k].sizes[z] || 0;
+      el.addEventListener('input', function(){
+        var v = Math.max(0, Math.floor(+el.value || 0)), ast = st.addons[k];
+        ast.sizes[z] = v;
+        ast.on = Object.keys(ast.sizes).some(function(x){ return ast.sizes[x] > 0; });
+        st.touched = true;
+        calc();
+      });
+    });
+    addsList.querySelectorAll('[data-sizeminus],[data-sizeplus]').forEach(function(el){
+      el.addEventListener('click', function(){
+        var id = el.dataset.sizeminus || el.dataset.sizeplus,
+            inp = addsList.querySelector('[data-size="'+id+'"]');
+        if(!inp) return;
+        var cur = +inp.value || 0;
+        inp.value = el.dataset.sizeminus ? Math.max(0, cur - 1) : cur + 1;
+        inp.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+    });
+    /* Tap anywhere on a size bubble to add one, same as pressing +.
+       Taps on the -/+ ticker or the number box are skipped so they don't count twice. */
+    addsList.querySelectorAll('[data-sizerow]').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('.step')) return;
+        var plus = row.querySelector('[data-sizeplus]');
+        if(plus) plus.click();
       });
     });
     addsList.querySelectorAll('[data-alltile]').forEach(function(el){
@@ -3203,7 +3259,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       }
       var disclaimer = rt.disclaimer ? '<br><span class="roomDisclaimer">'+rt.disclaimer+'</span>' : '';
       var step = rt.step || 1;
-      return '<div class="add" style="cursor:default">'+
+      return '<div class="add" data-roomrow="'+rt.key+'" style="cursor:pointer">'+
              '<span>'+rt.name+' <span class="add__c">'+caption+'</span>'+disclaimer+'</span>'+
              '<div class="step step--sm" style="margin-left:auto">'+
                '<button type="button" data-roomminus="'+rt.key+'" aria-label="Decrease">&minus;</button>'+
@@ -3239,6 +3295,15 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         STATE[activeSvc].rooms[k] = +inp.value; STATE[activeSvc].touched = true;
         if(k === 'addSqft'){ STATE[activeSvc].sqft = +inp.value; qty.value = inp.value; }
         calc();
+      });
+    });
+    /* Click anywhere on a room row to add one, same as pressing +.
+       Clicks on the -/+/number controls are left alone so they don't count twice. */
+    roomList.querySelectorAll('[data-roomrow]').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('.step')) return;
+        var plus = row.querySelector('[data-roomplus]');
+        if(plus) plus.click();
       });
     });
   }
@@ -3429,11 +3494,15 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     var s = SERVICES[svcKey], st = STATE[svcKey], items = [];
 
     if(s.mode === 'area'){
-      var sqft = 0, flatRooms = 0;
+      var sqft = 0, flatRooms = 0, roomList = [];
       if(st.mode === 'room'){
         ROOM_TYPES.forEach(function(rt){
           var q = st.rooms[rt.key] || 0;
           if(rt.flat != null) flatRooms += q * rt.flat; else sqft += q * rt.sqft;
+          /* Keep the rooms that were actually picked so the estimate can show
+             what produced the square footage. Stairs price flat and print their
+             own line, so they're excluded here. */
+          if(q > 0 && rt.flat == null) roomList.push({ name:rt.name, qty:q, sqft:q * rt.sqft });
         });
       } else {
         sqft = st.sqft || 0;
@@ -3444,7 +3513,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       if(sqft > 0){
         items.push({
           label: tierName + ' \u2014 ' + sqft.toLocaleString() + ' sq ft @ $' + rate.toFixed(2) + '/sq ft',
-          cost: sqft * rate
+          cost: sqft * rate,
+          rooms: roomList
         });
       }
       // If the stairs add-on is checked it prints its own line below; don't print twice.
@@ -3464,6 +3534,14 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         // protector isn't offered with encapsulation.
         if(svcKey==='carpet' && st.tier==='quickdry' && ['dry','prot'].indexOf(k) > -1) return;
         if(!ast || !ast.on) return;
+        // Area Rugs: one line per size with a count, e.g. "Area Rugs — Medium (5×8) × 2".
+        if(a.sizes){
+          a.sizes.forEach(function(z){
+            var n = (ast.sizes && ast.sizes[z.key]) || 0;
+            if(n > 0) items.push({ label: a.name + ' \u2014 ' + z.label + ' \u00d7 ' + n, cost: n * z.price });
+          });
+          return;
+        }
         var cost;
         // Stairs is entered in two places (this add-on and the room picker) but is one
         // number: both read/write st.rooms.stairs, so it can never double-charge.
@@ -3561,7 +3639,16 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     linesEl.innerHTML = b.breakdown.map(function(r){
       var head = '<li class="lineItem"><span>'+twoLine(r.label)+'</span><span>$'+money(r.cost)+'</span></li>';
       var subs = r.items.map(function(it){
-        return '<li class="lineItem__sub"><span>'+twoLine(it.label)+'</span><span>$'+money(it.cost)+'</span></li>';
+        var line = '<li class="lineItem__sub"><span>'+twoLine(it.label)+'</span><span>$'+money(it.cost)+'</span></li>';
+        /* Rooms that produced the footage above. No dollar figure — the money is
+           on the line they sit under. Only room-mode items carry this. */
+        if(it.rooms && it.rooms.length){
+          line += it.rooms.map(function(rm){
+            var nm = rm.qty > 1 ? rm.name + ' \u00d7 ' + rm.qty : rm.name;
+            return '<li class="lineItem__room"><span>'+nm+'</span><span>'+rm.sqft.toLocaleString()+' sq ft</span></li>';
+          }).join('');
+        }
+        return line;
       }).join('');
       return head + subs;
     }).join('');
@@ -3661,6 +3748,18 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   renderRoomList();
   syncMode();
   syncService();
+
+  /* Estimator number boxes: clicking into one that reads 0 empties it, so typing 8
+     gives 8, not 08. Leaving it empty puts the 0 back. Scoped to #estimate so the
+     quote form's fields are untouched; delegated so boxes drawn later are covered. */
+  document.addEventListener('focusin', function(e){
+    var t = e.target;
+    if(t.matches && t.matches('#estimate input[type="number"]') && t.value === '0') t.value = '';
+  });
+  document.addEventListener('focusout', function(e){
+    var t = e.target;
+    if(t.matches && t.matches('#estimate input[type="number"]') && t.value === '' && !t.placeholder) t.value = '0';
+  });
 
   /* Hand the estimate to the quote form when the button is used — summarizes every
      service the person actually entered numbers for. */

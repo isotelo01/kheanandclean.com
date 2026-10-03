@@ -44,6 +44,9 @@
       addons: {
         stairs: { name:'Flights of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
                    text:'$100 per flight' },
+        rug:    { name:'Area Rugs', text:'$50 / $75 per rug',
+                   sizes:[ { key:'med', label:'Medium (5\u00d78)', price:50 },
+                           { key:'lg',  label:'Large (9\u00d712)', price:75 } ] },
         hair:   { name:'Hair & debris removal', sqft:0.12 },
         deo:    { name:'Deodorizer',            sqft:0.05 },
         prot:   { name:'Stain protector',      sqft:0.10 },
@@ -150,6 +153,7 @@
     Object.keys(defs).forEach(function(k){
       o[k] = { on:false };
       if(defs[k].needsQty) o[k].qty = defs[k].qtyDefault;
+      if(defs[k].sizes){ o[k].sizes = {}; defs[k].sizes.forEach(function(z){ o[k].sizes[z.key] = 0; }); }
     });
     return o;
   }
@@ -197,6 +201,23 @@
     addonsField.style.display = '';
     addsList.innerHTML = keys.map(function(k){
       var a = s.addons[k], price = addonPriceTxt(a);
+      /* Area Rugs: a heading, then one line per size, each with its own -/+ ticker. */
+      if(a.sizes){
+        return '<div class="add" style="flex-direction:column;align-items:stretch;gap:.35rem;cursor:default">'+
+               '<span>'+a.name+'</span>'+
+               a.sizes.map(function(z){
+                 var id = k+'.'+z.key;
+                 return '<div data-sizerow="'+id+'" style="display:flex;align-items:center;gap:.85rem;margin-left:1.1rem;padding:.45rem .6rem .45rem 1rem;border:1px solid var(--line-d);border-radius:var(--r-md);cursor:pointer">'+
+                        '<span>'+z.label+' <span class="add__c">$'+z.price+'</span></span>'+
+                        '<div class="step step--sm" style="margin-left:auto">'+
+                          '<button type="button" data-sizeminus="'+id+'" aria-label="Decrease">&minus;</button>'+
+                          '<input type="number" data-size="'+id+'" value="0" min="0" step="1" aria-label="'+a.name+' '+z.label+' quantity">'+
+                          '<button type="button" data-sizeplus="'+id+'" aria-label="Increase">+</button>'+
+                        '</div>'+
+                      '</div>';
+               }).join('')+
+             '</div>';
+      }
       if(a.needsQty){
         var disclaimer = a.disclaimer ? '<br><span class="roomDisclaimer">'+a.disclaimer+'</span>' : '';
         if(a.qtyDropdown){
@@ -338,6 +359,39 @@
         var step = +inp.step || 1;
         inp.value = (+inp.value||0) + step;
         inp.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+    });
+    /* Area Rug size tickers: each size keeps its own count; the add-on is "on" while any count is above 0. */
+    addsList.querySelectorAll('[data-size]').forEach(function(el){
+      var p = el.dataset.size.split('.'), k = p[0], z = p[1];
+      st.addons[k] = st.addons[k] || { on:false };
+      st.addons[k].sizes = st.addons[k].sizes || {};
+      el.value = st.addons[k].sizes[z] || 0;
+      el.addEventListener('input', function(){
+        var v = Math.max(0, Math.floor(+el.value || 0)), ast = st.addons[k];
+        ast.sizes[z] = v;
+        ast.on = Object.keys(ast.sizes).some(function(x){ return ast.sizes[x] > 0; });
+        st.touched = true;
+        calc();
+      });
+    });
+    addsList.querySelectorAll('[data-sizeminus],[data-sizeplus]').forEach(function(el){
+      el.addEventListener('click', function(){
+        var id = el.dataset.sizeminus || el.dataset.sizeplus,
+            inp = addsList.querySelector('[data-size="'+id+'"]');
+        if(!inp) return;
+        var cur = +inp.value || 0;
+        inp.value = el.dataset.sizeminus ? Math.max(0, cur - 1) : cur + 1;
+        inp.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+    });
+    /* Tap anywhere on a size bubble to add one, same as pressing +.
+       Taps on the -/+ ticker or the number box are skipped so they don't count twice. */
+    addsList.querySelectorAll('[data-sizerow]').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('.step')) return;
+        var plus = row.querySelector('[data-sizeplus]');
+        if(plus) plus.click();
       });
     });
     addsList.querySelectorAll('[data-alltile]').forEach(function(el){
@@ -863,6 +917,14 @@
         // protector isn't offered with encapsulation.
         if(svcKey==='carpet' && st.tier==='quickdry' && ['dry','prot'].indexOf(k) > -1) return;
         if(!ast || !ast.on) return;
+        // Area Rugs: one line per size with a count, e.g. "Area Rugs — Medium (5×8) × 2".
+        if(a.sizes){
+          a.sizes.forEach(function(z){
+            var n = (ast.sizes && ast.sizes[z.key]) || 0;
+            if(n > 0) items.push({ label: a.name + ' \u2014 ' + z.label + ' \u00d7 ' + n, cost: n * z.price });
+          });
+          return;
+        }
         var cost;
         // Stairs is entered in two places (this add-on and the room picker) but is one
         // number: both read/write st.rooms.stairs, so it can never double-charge.
@@ -962,7 +1024,8 @@
     var dPct = dPctEl ? Math.min(100, Math.max(0, +dPctEl.value || 0)) : 0;
     var wanted = Math.round(dAmt > 0 ? dAmt : b.sum * dPct / 100);
     var disc = Math.min(wanted, b.sum);
-    var applied = disc > 0 ? b.sum - disc : Math.max(b.sum, MIN_JOB);
+    var waiveEl = document.getElementById('waiveMin'), waived = !!(waiveEl && waiveEl.checked);
+    var applied = disc > 0 ? b.sum - disc : (waived ? b.sum : Math.max(b.sum, MIN_JOB));
     var discEl = document.getElementById('discLines');
     if(discEl){
       if(disc > 0){
@@ -1013,6 +1076,8 @@
     if(!el) return;
     el.addEventListener('input', function(){ if(el.value !== '' && other) other.value = ''; calc(); });
   });
+  /* Waive minimum: checked = no $150 floor on this estimate. */
+  (function(){ var w = document.getElementById('waiveMin'); if(w) w.addEventListener('change', calc); })();
 
   document.getElementById('plus').addEventListener('click', function(){
     qty.value = (+qty.value||0) + (+qty.step||1);
@@ -1120,6 +1185,7 @@
       var notes = document.getElementById('eNotes');
       if(notes) notes.value = '';
       ['discAmt','discPct'].forEach(function(id){ var d = document.getElementById(id); if(d) d.value = ''; });
+      var wm = document.getElementById('waiveMin'); if(wm) wm.checked = false;
       syncService();
       calc();
       window.scrollTo({ top:0, behavior:'smooth' });
@@ -1148,7 +1214,8 @@
     var dA = document.getElementById('discAmt'), dP = document.getElementById('discPct');
     return JSON.parse(JSON.stringify({
       v:1, active: activeSvc, state: STATE,
-      discAmt: dA ? dA.value : '', discPct: dP ? dP.value : ''
+      discAmt: dA ? dA.value : '', discPct: dP ? dP.value : '',
+      waiveMin: !!(document.getElementById('waiveMin') || {}).checked
     }));
   };
 
@@ -1167,6 +1234,7 @@
     var dA = document.getElementById('discAmt'), dP = document.getElementById('discPct');
     if(dA) dA.value = form.discAmt || '';
     if(dP) dP.value = form.discPct || '';
+    var wm = document.getElementById('waiveMin'); if(wm) wm.checked = !!form.waiveMin;
     var t = STATE.carpet.tier, tid = t==='signature' ? 'tSig' : (t==='quickdry' ? 'tQuick' : (t==='essential' ? 'tEss' : 'tDeep'));
     document.getElementById(tid).checked = true;
     var radio = document.querySelector('input[name="svc"][value="' + (form.active || 'carpet') + '"]');
@@ -1180,6 +1248,18 @@
     syncService();
     return true;
   };
+
+  /* Number boxes: clicking into one that reads 0 empties it, so typing 8 gives 8, not 08.
+     Leaving it empty puts the 0 back. Delegated, so boxes drawn later are covered too.
+     Boxes that start empty (the discount boxes) are left alone. */
+  document.addEventListener('focusin', function(e){
+    var t = e.target;
+    if(t.matches && t.matches('input[type="number"]') && t.value === '0') t.value = '';
+  });
+  document.addEventListener('focusout', function(e){
+    var t = e.target;
+    if(t.matches && t.matches('input[type="number"]') && t.value === '' && !t.placeholder) t.value = '0';
+  });
 
   /* Phase 2 hook: a "Text this estimate" button would call buildBreakdown()
      and calc() here. Nothing sends anything today. */
