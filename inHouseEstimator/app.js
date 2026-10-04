@@ -1293,88 +1293,187 @@
     if(t.matches && t.matches('input[type="number"]') && t.value === '' && !t.placeholder) t.value = '0';
   });
 
-  /* Job date: open days from the booking calendar (getOpenSlots), as a strip under the date box.
-     Under $450: AM or PM. Tapping one sets the date and the start time (9:00 or 1:00), so once
-     the customer approves, the job takes only that half of the day.
-     $450 or more takes the whole day, so only days with nothing booked show, as "All day".
-     The date box stays: any date can still be picked there, booked or not (the override).
-     Picking in the box clears the start time, and a dated job with no time holds the whole day.
-     A red line warns when the date clashes with something already booked; it still saves.
+  /* Job date: a month calendar that opens from the date box, drawn from the booking
+     calendar (getOpenSlots). Each day shows AM and PM: white = open, grey = booked.
+     Under $450: tap AM (starts 9:00) or PM (starts 1:00). That sets the date and the
+     start time, so once the customer approves, the job takes only that half of the day.
+     Both grey = the day is full and can't be picked.
+     $450 or more takes the whole day: only days with nothing booked can be picked
+     (tap the day); every other day is greyed out.
+     Past days and days past the 60-day booking window are grey too.
+     Tap the picked one again, or Clear, to un-pick. A dated job with no time holds the whole day.
+     An estimate reopened with a date that has since been booked keeps it, with a red
+     heads-up line under the box; it still saves.
      Nothing is held while the estimate is out; the slot is taken once the customer approves.
-     If the open days can't load, the strip stays hidden and the date box works as before. */
+     If the open days can't load, the plain date box stays and works as before. */
   (function(){
     var when = document.getElementById('eWhen'), time = document.getElementById('eWhenTime'),
         box  = document.getElementById('eOpen');
     if(!when || !time || !box || !window.fetch) return;
+    var URL = 'https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots';
     var WHOLE_DAY_AT = 450, SLOT = { am:'09:00', pm:'13:00' };
-    var days = null, big = null;   // every day getOpenSlots sent; whether the strip on screen is the $450+ kind
+    var MONTHS = ['January','February','March','April','May','June','July',
+                  'August','September','October','November','December'];
+    var byDate = null, first = '', last = '';   // the days getOpenSlots sent, by date; the first and last of them
+    var big = null, shown = '', loadedAt = 0;   // $450+ month on screen?; month on screen ("2026-10"); when the days came in
+    var lab = document.querySelector('label[for="eWhen"]');
     function isBig(){ return !!(window.KC_quote && Number(window.KC_quote.total) >= WHOLE_DAY_AT); }
+    function isDay(s){ return /^\d{4}-\d{2}-\d{2}$/.test(s); }
+    function hasTime(){ return /^\d\d:\d\d$/.test(time.value); }
+    function pad(n){ return ('0' + n).slice(-2); }
     function label(day){
       var p = day.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
       return dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
     }
+    function clock(t){ var h = +t.slice(0, 2); return (h % 12 || 12) + ':' + t.slice(3, 5); }
+
+    /* The box you tap: shows the pick and opens the month. It takes the plain date
+       box's place once the days load. The heads-up line sits under the month. */
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.id = 'eWhenBtn'; btn.className = 'jobPick is-empty'; btn.hidden = true;
+    btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', 'eOpen');
+    btn.innerHTML = '<span class="jobPick__txt">Pick a day</span>' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V2Zm-2 8v10h14V10H5Z"/></svg>';
+    when.parentNode.insertBefore(btn, when.nextSibling);
+    var warn = document.createElement('p');
+    warn.className = 'jobOpen__warn'; warn.hidden = true;
+    box.parentNode.insertBefore(warn, box.nextSibling);
+
+    function slotBtn(day, d, s, txt){
+      return '<button type="button" class="jobCal__slot" data-day="' + day + '" data-slot="' + s + '" aria-pressed="false"' +
+        (d[s] ? '' : ' disabled') + ' aria-label="' + label(day) + ' ' + txt + (d[s] ? '' : ', booked') + '">' + txt + '</button>';
+    }
     function draw(){
       big = isBig();
-      var list = days.filter(function(d){ return big ? (d.am && d.pm) : (d.am || d.pm); });
-      box.innerHTML = '<p class="jobOpen__hint">' + (big
-          ? 'Open days. This job is $' + WHOLE_DAY_AT + ' or more, so it takes the whole day: only days with nothing booked show.'
-          : 'Open days. Tap AM (starts 9:00) or PM (starts 1:00).') +
-        ' Or pick any date in the box above.</p>' +
-        (list.length ? '<div class="jobOpen__list">' + list.map(function(d){
-          var p = d.date.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
-          var b = function(s, txt){
-            return '<button type="button" class="jobOpen__slot" data-day="' + d.date + '" data-slot="' + s +
-              '" aria-pressed="false">' + txt + '</button>';
-          };
-          return '<div class="jobOpen__day"><span class="jobOpen__date"><small>' +
-            dt.toLocaleDateString('en-US', { weekday:'short' }) + '</small>' +
-            dt.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '</span>' +
-            '<span class="jobOpen__slots">' + (big ? b('all', 'All day')
-              : (d.am ? b('am', 'AM') : '') + (d.pm ? b('pm', 'PM') : '')) + '</span></div>';
-        }).join('') + '</div>' : '<p class="jobOpen__hint">No open days on the calendar right now.</p>') +
-        '<p class="jobOpen__warn" hidden></p>';
-      box.hidden = false;
+      var y = +shown.slice(0, 4), m = +shown.slice(5, 7) - 1;
+      var lead = new Date(y, m, 1).getDay(), count = new Date(y, m + 1, 0).getDate();
+      var now = new Date(), today = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+      var cells = '';
+      for(var i = 0; i < lead; i++) cells += '<span class="jobCal__cell is-blank" aria-hidden="true"></span>';
+      for(var n = 1; n <= count; n++){
+        var day = shown + '-' + pad(n), d = byDate[day];
+        var cls = 'jobCal__cell' + (day === today ? ' is-today' : ''), at = ' data-cell="' + day + '"';
+        var num = '<b>' + n + '</b>';
+        if(!d){ cells += '<span class="' + cls + ' is-off"' + at + '>' + num + '</span>'; continue; }   // past, or past the window
+        if(big){   // whole-day job: a day with anything booked isn't an option
+          cells += (d.am && d.pm)
+            ? '<button type="button" class="' + cls + ' is-open"' + at + ' data-day="' + day + '" data-slot="all" aria-pressed="false"' +
+              ' aria-label="' + label(day) + ', all day">' + num + '<span class="jobCal__all">All day</span></button>'
+            : '<span class="' + cls + ' is-full"' + at + ' aria-label="' + label(day) + ', booked">' + num + '</span>';
+          continue;
+        }
+        cells += '<div class="' + cls + (d.am || d.pm ? '' : ' is-full') + '"' + at + '>' + num +
+          slotBtn(day, d, 'am', 'AM') + slotBtn(day, d, 'pm', 'PM') + '</div>';
+      }
+      box.innerHTML =
+        '<div class="jobCal__head">' +
+          '<button type="button" class="jobCal__nav" data-nav="-1" aria-label="Previous month"' +
+            (shown <= first.slice(0, 7) ? ' disabled' : '') + '>&lsaquo;</button>' +
+          '<strong class="jobCal__month">' + MONTHS[m] + ' ' + y + '</strong>' +
+          '<button type="button" class="jobCal__nav" data-nav="1" aria-label="Next month"' +
+            (shown >= last.slice(0, 7) ? ' disabled' : '') + '>&rsaquo;</button>' +
+        '</div>' +
+        '<p class="jobCal__hint">' + (big
+          ? 'This job is $' + WHOLE_DAY_AT + ' or more, so it takes the whole day. Tap an open day; grey days have something booked.'
+          : 'Tap AM (starts 9:00) or PM (starts 1:00). Grey is booked.') + '</p>' +
+        '<div class="jobCal__grid">' +
+          ['Su','Mo','Tu','We','Th','Fr','Sa'].map(function(w){ return '<span class="jobCal__dow">' + w + '</span>'; }).join('') +
+          cells +
+        '</div>' +
+        '<div class="jobCal__foot">' +
+          '<button type="button" class="jobCal__link" data-clear>Clear</button>' +
+          '<button type="button" class="jobCal__link" data-close>Close</button>' +
+        '</div>';
       paint();
     }
-    /* Light up the picked button, and warn when the date clashes with something booked. */
+    /* Show the pick: in the box you tap, and lit up in the month. Warn when a date
+       (say, on a reopened estimate) clashes with something booked. */
     function paint(){
-      if(!days) return;
+      if(!byDate) return;
+      var day = isDay(when.value) ? when.value : '', whole = isBig() || !hasTime();
+      var txt = !day ? 'Pick a day' : label(day) + ' \u00b7 ' +
+        (whole ? 'All day' : (time.value < '13:00' ? 'AM' : 'PM') + ' (starts ' + clock(time.value) + ')');
+      var t = btn.firstChild;
+      if(t.textContent !== txt) t.textContent = txt;
+      btn.classList.toggle('is-empty', !day);
+      box.querySelectorAll('[data-cell]').forEach(function(c){
+        c.classList.toggle('is-picked', c.getAttribute('data-cell') === day);
+      });
       box.querySelectorAll('[data-slot]').forEach(function(b){
         var s = b.getAttribute('data-slot');
-        var on = b.getAttribute('data-day') === when.value && (s === 'all' || time.value === SLOT[s]);
+        var on = b.getAttribute('data-day') === day && (s === 'all' || time.value === SLOT[s]);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
-      var warn = box.querySelector('.jobOpen__warn'), d = null;
-      if(!warn) return;
-      days.forEach(function(x){ if(x.date === when.value) d = x; });
-      var need = !d ? [] : (big || !/^\d\d:\d\d$/.test(time.value)) ? ['am', 'pm'] : [time.value < '13:00' ? 'am' : 'pm'];
+      var d = byDate[day] || null;
+      var need = !d ? [] : whole ? ['am', 'pm'] : [time.value < '13:00' ? 'am' : 'pm'];
       var clash = need.some(function(s){ return !d[s]; });
+      var w = !clash ? '' : 'Heads up: ' + label(day) + (need.length > 1
+        ? ' already has something booked, and this job would hold the whole day.'
+        : need[0] === 'am' ? ' morning isn\u2019t open.' : ' afternoon isn\u2019t open.') + ' It will still save.';
       warn.hidden = !clash;
-      warn.textContent = !clash ? '' : 'Heads up: ' + label(when.value) +
-        (need.length > 1 ? ' already has something booked, and this job would hold the whole day.'
-          : need[0] === 'am' ? ' morning isn\u2019t open.' : ' afternoon isn\u2019t open.') + ' It will still save.';
+      if(warn.textContent !== w) warn.textContent = w;
     }
+    function open(){
+      var mo = isDay(when.value) ? when.value.slice(0, 7) : '';
+      shown = (mo && mo >= first.slice(0, 7) && mo <= last.slice(0, 7)) ? mo : first.slice(0, 7);
+      draw();
+      box.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      if(Date.now() - loadedAt > 60000) load();   // fresh days each time it opens, once a minute at most
+    }
+    function close(){ box.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    btn.addEventListener('click', function(){ if(box.hidden) open(); else close(); });
     box.addEventListener('click', function(e){
-      var b = e.target.closest('[data-slot]');
-      if(!b) return;
-      if(b.getAttribute('aria-pressed') === 'true'){ when.value = ''; time.value = ''; }   // tap the picked one again to un-pick
-      else { when.value = b.getAttribute('data-day'); time.value = b.getAttribute('data-slot') === 'pm' ? SLOT.pm : SLOT.am; }
-      paint();
+      var b = e.target.closest('button');
+      if(!b || b.disabled) return;
+      if(b.hasAttribute('data-nav')){
+        var nx = new Date(+shown.slice(0, 4), +shown.slice(5, 7) - 1 + (+b.getAttribute('data-nav')), 1);
+        shown = nx.getFullYear() + '-' + pad(nx.getMonth() + 1);
+        draw();
+      } else if(b.hasAttribute('data-clear')){ when.value = ''; time.value = ''; paint(); }
+      else if(b.hasAttribute('data-close')) close();
+      else if(b.hasAttribute('data-slot')){
+        if(b.getAttribute('aria-pressed') === 'true'){ when.value = ''; time.value = ''; paint(); return; }   // tap the picked one again to un-pick
+        when.value = b.getAttribute('data-day');
+        time.value = b.getAttribute('data-slot') === 'pm' ? SLOT.pm : SLOT.am;
+        paint();
+        close();
+      }
     });
-    when.addEventListener('change', function(){ time.value = ''; paint(); });   // picked in the box: no start time
-    /* Price crossed $450? Redraw. Otherwise repaint, since New and Edit change the picks. */
-    function check(){ if(days) (isBig() !== big ? draw : paint)(); }
+    /* Tap anywhere else, or Esc, and the month folds away. */
+    document.addEventListener('click', function(e){
+      if(box.hidden) return;
+      var path = e.composedPath ? e.composedPath() : [e.target];
+      if(path.indexOf(box) < 0 && path.indexOf(btn) < 0 && (!lab || path.indexOf(lab) < 0)) close();
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && !box.hidden){ close(); btn.focus(); }
+    });
+    when.addEventListener('change', function(){ time.value = ''; paint(); });   // plain date box (days didn't load): no start time
+    /* Price crossed $450 with the month open? Redraw. Otherwise repaint, since New and Edit change the pick. */
+    function check(){ if(!byDate) return; if(!box.hidden && isBig() !== big) draw(); else paint(); }
     ['input', 'change', 'click'].forEach(function(t){
       document.addEventListener(t, function(){ setTimeout(check, 0); });
     });
     setInterval(check, 1500);   // catches changes made without an event, like Edit restoring a saved estimate
-    fetch('https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots')
-      .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
-      .then(function(data){
-        var all = ((data && data.days) || []).filter(function(d){ return /^\d{4}-\d{2}-\d{2}$/.test(d.date); });
-        if(all.length){ days = all; draw(); }
-      })
-      .catch(function(){ /* keep the plain date box */ });
+    function load(){
+      loadedAt = Date.now();
+      fetch(URL)
+        .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(data){
+          var all = ((data && data.days) || []).filter(function(d){ return d && isDay(d.date); });
+          if(!all.length) return;
+          var map = {}, dates = [];
+          all.forEach(function(d){ map[d.date] = { am: !!d.am, pm: !!d.pm }; dates.push(d.date); });
+          dates.sort();
+          byDate = map; first = dates[0]; last = dates[dates.length - 1];
+          if(btn.hidden){ when.hidden = true; btn.hidden = false; if(lab) lab.htmlFor = 'eWhenBtn'; }   // swap in the calendar box
+          if(box.hidden) paint();
+          else { if(shown < first.slice(0, 7)) shown = first.slice(0, 7); draw(); }
+        })
+        .catch(function(){ loadedAt = 0; });   // first time: the plain date box stays; later: the days already shown stay
+    }
+    load();
   })();
 
   /* Phase 2 hook: a "Text this estimate" button would call buildBreakdown()
