@@ -9,29 +9,58 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <style>
 /* Same look as approved-leads.html and customers.html. */
-:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#172239}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
 #authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
 .wrap{max-width:1200px;margin:0 auto;padding:22px 18px 60px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px}
-.home{display:flex;flex:none;border-radius:6px}
-.home img{display:block;width:34px;height:34px;border-radius:6px}
-h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.home{display:flex;flex:none;border-radius:8px}
+.home img{display:block;width:48px;height:48px;border:2px solid var(--gold);border-radius:8px}
+h1{font:700 30px "Playfair Display",Georgia,serif;color:#fff;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
 .links{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto}
 .new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
 .ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
 .new:disabled,.ghost:disabled{opacity:.6;cursor:default}
+/* Icon-only button (Refresh); spins while loading */
+.icon{width:40px;height:40px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.icon.spin svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.icon.spin svg{animation:none}}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
+#note,#view > .msg{color:#bccbdd}   /* messages sitting on the navy page, not in a pop-up */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 :where(a,button,input):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
-/* Sticky bar: month arrows on desktop; Today and Needs a date on both. */
+/* Sticky bar: the ‹ date › row (month on desktop, week on phone). */
 .bar{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:10px;padding:8px 0 10px}
 .mnav{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
-.mnav h2{font:700 24px "Playfair Display",Georgia,serif;margin:0 6px;white-space:nowrap}
+.mnav h2{font:700 24px "Playfair Display",Georgia,serif;font-variant-numeric:lining-nums;color:#fff;margin:0 6px;white-space:nowrap}
 .arrow{width:40px;height:40px;flex:none;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--navy);font:600 22px/1 "Archivo";cursor:pointer}
+/* Buttons sitting on the navy page are black with white text (Needs Date still turns gold below) */
+.top .ghost,.arrow,.tools .ghost{background:#000;color:#fff;border-color:#000}
+/* Row under the header: just ‹ Week, and only while a day is open */
+.tools{display:flex;align-items:center;gap:10px;margin-top:12px}
+body:not(.dayMode) .tools{display:none}
+#backBtn{display:none}
+body.dayMode #backBtn{display:inline-block}
 .need.has{background:var(--gold);border-color:var(--gold);color:var(--navy)}
+.nd-num{display:none}   /* the number-only version is for phones (see the phone rules at the bottom) */
+/* Phone: the week label doubles as a date picker; Week/Month switch */
+.jump{position:relative;display:flex;align-items:center;min-width:0}
+.jump input{display:none;position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
+#viewBtn{display:none}
+/* Phone month view: dates and job counts only, tap a date to show its week */
+.grid.mini .cell{min-height:52px;padding:4px 0;align-items:center;gap:3px;border:0;border-radius:0;font:inherit;color:#fff}
+.grid.mini .dow{font-size:12px;padding:6px 0}
+.grid.mini .cell.sel{background:#4a3d1c}
+.cnt{font:700 11px/16px "Archivo";background:var(--gold);color:var(--navy);border-radius:999px;min-width:18px;padding:0 5px;text-align:center}
+/* US holidays: icon + name on the day (just the icon, in the corner, in the phone month view). They don't block any time. */
+.hol{display:block;font:600 12px/1.35 "Archivo";color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.days.week .day .hol{color:#fff;font-size:14px;margin-top:2px}
+.dvhead .hol{color:#fff;font-size:15px}
+.grid.mini .cell{position:relative}
+.hicon{position:absolute;top:3px;right:3px;font-size:11px;line-height:1}
 
 /* Job chips, coloured by customer type (same colours as the contact types). */
 .job{display:block;width:100%;text-align:left;border:0;border-left:4px solid;border-radius:6px;padding:4px 7px;font:500 13px/1.3 "Archivo",sans-serif;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -45,20 +74,26 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .k-pm{background:#e3f1ea;border-color:var(--green);color:#0b4430}
 .k-realtor{background:#fbf1d8;border-color:#8a6412;color:#5e430b}
 .k-commercial{background:#f4e4e1;border-color:var(--red);color:#7a2c20}
+/* His own entries: pale blue = Miscellaneous, green = Job (added by hand), gold = EDH. Dashed = morning taken by a late EDH shift the night before. */
+.b-misc{background:#eaf4ff;border-color:#3d8fe0;color:#1b4a7a}
+.b-job{background:#e4f5e8;border-color:#2e9e4f;color:#17603a}
+.b-edh{background:#fcf0c8;border-color:var(--gold);color:#6b4e0e}
+.blk.carry,.dview .dcard.carry{border-left-style:dashed}
 
 /* Desktop: month grid */
-.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--gold);border:2px solid var(--gold);border-radius:10px;overflow:hidden}
 .dow{background:var(--navy);color:#fff;font:600 13px "Archivo";text-align:center;padding:8px 0}
-.cell{background:#fff;min-height:120px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:0}
-.cell.out{background:#f6f7f9}
-.cell.out .dnum{color:#9aa1ad}
+.cell{background:#000;color:#fff;min-height:120px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.cell.out{background:#3b3e45}   /* days from the month before / after: lighter gray */
+.cell.out .dnum{color:#b9bec8}
 .chead{display:flex;align-items:center;justify-content:space-between;min-height:26px}
 .dnum{font:600 14px "Archivo";width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%}
 .cell.today .dnum{background:var(--gold);color:var(--navy)}
-.add{width:28px;height:28px;flex:none;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--navy);font:600 18px/1 "Archivo";cursor:pointer;padding:0}
-.cell .add{opacity:0}
-.cell:hover .add,.cell .add:focus-visible{opacity:1}
-@media (hover:none){.cell .add{opacity:1}}
+/* Click a day box (or its date) to open that day */
+.cell{cursor:pointer}
+.cell:hover{background:#17181b}
+.cell.out:hover{background:#45484f}
+button.dnum{border:0;background:none;padding:0;color:inherit;cursor:pointer}
 
 /* Phone: one day per row, opens on today */
 .days{display:flex;flex-direction:column;gap:6px}
@@ -72,12 +107,53 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .tag{background:var(--gold);color:var(--navy);font:700 12px "Archivo";border-radius:999px;padding:1px 8px;margin-left:6px}
 .day .job{white-space:normal;font-size:15px;padding:8px 10px;margin-top:6px}
 .more{width:100%;margin:6px 0}
+.day{cursor:pointer}
+.dlink{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.dlink .chev{color:var(--muted);margin-left:6px}
+/* Phone week view: black day boxes that stretch to fill the screen (height set in fitWeek) */
+.days.week .day{flex:1 0 auto;min-height:64px;background:#000;color:#fff;box-shadow:none;padding:10px 12px;border-bottom:0;border-radius:10px}
+.days.week .day.today{box-shadow:0 0 0 2px var(--gold)}
+.days.week .day .dhead{color:#fff}
+.days.week .day .chev{color:#bccbdd}
+
+/* Day view: one day's jobs in time order */
+.dview{display:flex;flex-direction:column;gap:10px}
+.dvhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dvsum{color:#bccbdd;font-size:15px}
+.dview .dcard{display:grid;grid-template-columns:92px 1fr;gap:12px;background:#fff;color:var(--ink);border-left-width:5px;border-left-style:solid;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:12px 14px}
+.dview .dcard.done{opacity:.62}
+.dctime{font-weight:700;color:var(--navy)}
+.dctime.none{font-weight:500;color:var(--muted);font-size:14px}
+.dcname{border:0;background:none;padding:0;font:700 18px "Archivo",sans-serif;color:var(--navy);cursor:pointer;text-align:left}
+.dcname:hover{text-decoration:underline}
+.dcstate{font-size:13px;font-weight:600;color:var(--muted);margin-left:6px}
+.dcrow{margin-top:3px;overflow-wrap:anywhere}
+.dcrow a{color:var(--navy)}
+.dcsvc{margin-top:4px;color:var(--muted);font-size:14px}
+.dcfoot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.dctot{font-weight:700;margin-right:auto;font-variant-numeric:tabular-nums}
+.sm{padding:6px 12px;font-size:14px}
+.dempty{background:#fff;border-radius:10px;padding:18px;color:var(--muted);text-align:center}
+/* Day view hours: 1 AM to 11 PM in their own scroll box (height set in fitHours, opens on 7 AM).
+   Tap an hour to add something. Rows are dark gray with white text; shaded rows (hours a Misc / Job / EDH
+   entry runs through) are a lighter gray and keep the entry's coloured stripe on the left. */
+.hours{position:relative;background:#1e2026;border-radius:10px;overflow-y:auto;overscroll-behavior:contain;box-shadow:0 1px 6px rgba(23,34,57,.08)}
+.hrow{display:grid;grid-template-columns:56px minmax(0,1fr);align-items:start;gap:8px;min-height:52px;padding:6px 12px;border-top:1px solid #34373e;color:#fff;cursor:pointer}
+.hrow:first-child{border-top:0}
+.hrow.over{border-left-width:5px;border-left-style:solid;padding-left:7px;border-top-color:transparent;background:#3a3e47;color:#fff}
+.hlab{border:0;background:none;padding:8px 0 0;font:700 16px "Archivo";color:#fff;text-align:left;cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hbody{display:flex;flex-direction:column;gap:8px;min-width:0}
+.hcont{border:0;background:none;padding:8px 0 0;font:600 14px "Archivo";color:inherit;text-align:left;cursor:pointer;opacity:.85}
+.hours .dcard{box-shadow:0 0 0 1px var(--line)}
+.dview .dcard.b-misc{background:#eaf4ff}   /* his own entries keep their colour in the day view (customer cards stay white) */
+.dview .dcard.b-job{background:#e4f5e8}
+.dview .dcard.b-edh{background:#fcf0c8}
 
 /* Pop-ups */
 dialog{border:0;border-radius:12px;padding:0;width:min(520px,calc(100% - 24px));max-height:calc(100vh - 40px);color:var(--ink);box-shadow:0 20px 60px rgba(10,14,22,.35)}
 dialog::backdrop{background:rgba(10,14,22,.55)}
 .dlg{padding:18px 18px 16px}
-.dlg h3{font:700 22px "Playfair Display",Georgia,serif;margin:0 0 4px;padding-right:40px}
+.dlg h3{font:700 22px "Archivo",system-ui,sans-serif;margin:0 0 4px;padding-right:40px}
 .x{position:absolute;top:10px;right:10px;width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:#fff;color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
 .when{font-weight:600;margin:0 0 2px}
 .state{font-size:14px;color:var(--muted);margin:0 0 12px}
@@ -103,12 +179,50 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 .fld span{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:4px}
 .fld input{width:100%;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
 .err{color:var(--red);font-size:14px;min-height:1.2em;margin:10px 0 0}
+/* Misc / EDH start times: the odd hours 1 AM-11 PM as tappable bubbles, 3 across.
+   12 bubbles = 4 rows, which fits the box exactly (row = 42px + 8px gap). */
+.hrs{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:192px;overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain}
+.hrs .hr{position:relative;display:block;cursor:pointer;scroll-snap-align:start}
+.hrs .hr input{position:absolute;opacity:0;width:1px;height:1px;margin:0;padding:0}
+.hrs .hr span{display:block;margin:0;padding:10px 0;line-height:20px;text-align:center;border:1px solid var(--line);border-radius:8px;background:#fff;font:600 15px/20px "Archivo";color:var(--navy)}
+.hrs .hr input:checked + span{background:var(--navy);border-color:var(--navy);color:#fff}
+.hrs .hr input:focus-visible + span{outline:2px solid var(--gold);outline-offset:-4px}
+/* Misc / Job hours are buttons: the start and last hour go dark, the hours between go light */
+.hrs button.hr{width:100%;border:0;background:none;padding:0;font:inherit;text-align:inherit}
+.hrs button.hr:focus-visible{outline:none}
+.hrs button.hr:focus-visible span{outline:2px solid var(--gold);outline-offset:-4px}
+.hrs .hr.on span{background:var(--navy);border-color:var(--navy);color:#fff}
+.hrs .hr.mid span{background:#dfe5f0;border-color:#b9c3d6}
+/* EDH: only 11 AM, 1, 3, 5, 7 and 9 PM can be picked; the other hours show blocked off */
+.hrs .hr input:disabled + span{background:#f1f2f5;border-style:dashed;color:#b0b6c1;cursor:not-allowed}
+/* Hours already taken that day: same blocked-off look, can't be tapped (no double booking) */
+.hrs button.hr:disabled{cursor:not-allowed}
+.hrs button.hr:disabled span{background:#f1f2f5;border-style:dashed;color:#b0b6c1}
+/* Miscellaneous / Job choice: two bubbles, no scrolling */
+.hrs.two{grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible;scroll-snap-type:none}
+#bRule{margin:10px 0 0;font-weight:600;color:var(--navy);min-height:1.2em}
 .ghost.danger{color:var(--red)}
 
 @media (max-width:759px){
-  .mnav{display:none}
-  .bar{justify-content:space-between}
-  h1{font-size:26px}
+  .bar{flex-wrap:wrap;justify-content:space-between}
+  body:not(.dayMode) .mnav{flex-basis:100%;order:1}
+  .jump{flex:1;justify-content:center}
+  h1{font-size:34px;margin:0 auto}   /* bigger, centered between the logo and the buttons */
+  .top{gap:10px}
+  .links{gap:8px}
+  .top .links{margin-left:0}         /* let the title's centering decide the spacing */
+  .home img{width:56px;height:56px}  /* logo a little bigger (was 48) */
+  /* Needs Date on phone: a square next to Refresh; hidden at 0, a red number when jobs need a date */
+  #needBtn{width:40px;height:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;font:700 17px "Archivo"}
+  .nd-full{display:none}
+  .nd-num{display:inline}
+  .need.has{background:#d93025;border-color:#d93025;color:#fff}
+  #needBtn:not(.has){display:none}   /* nothing needs a date: hide the square */
+  body.dayMode #viewBtn{display:none}
+  body:not(.dayMode) .jump input{display:block}
+  body:not(.dayMode) .jump h2::after{content:"\25BE";font-size:14px;margin-left:6px;color:#bccbdd}
+  .mnav h2{font-size:19px;margin:0 2px}
+  .dview .dcard{grid-template-columns:1fr;gap:4px}
 }
 </style>
 </head>
@@ -119,19 +233,20 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <h1>Calendar</h1>
     <div class="links">
-      <button type="button" class="ghost" id="refreshBtn">Refresh</button>
-      <a class="ghost" href="./approved-leads.html">Approved Leads</a>
-      <a class="ghost" href="./dashboard.html">Dashboard</a>
+      <button type="button" class="ghost need" id="needBtn" aria-label="0 jobs need a date"><span class="nd-full">Needs Date (0)</span><span class="nd-num"></span></button>
+      <button type="button" class="ghost icon" id="refreshBtn" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>
     </div>
+  </div>
+  <div class="tools">
+    <button type="button" class="ghost" id="backBtn">&lsaquo; Week</button>
   </div>
   <div class="bar">
     <div class="mnav">
       <button type="button" class="arrow" id="prevBtn" aria-label="Previous month">&lsaquo;</button>
-      <h2 id="mlabel"></h2>
+      <div class="jump"><h2 id="mlabel"></h2><input type="date" id="jumpDate" aria-label="Pick a week"></div>
       <button type="button" class="arrow" id="nextBtn" aria-label="Next month">&rsaquo;</button>
     </div>
-    <button type="button" class="ghost" id="todayBtn">Today</button>
-    <button type="button" class="ghost need" id="needBtn">Needs a date (0)</button>
+    <button type="button" class="ghost" id="viewBtn">Month</button>
   </div>
   <div id="note" class="msg" hidden></div>
   <div id="view"><div class="msg">Loading&hellip;</div></div>
@@ -140,7 +255,7 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, updateDoc, deleteField, serverTimestamp }
+import { getFirestore, collection, getDocs, doc, updateDoc, deleteField, serverTimestamp, addDoc, deleteDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
@@ -189,6 +304,52 @@ const pad = n => String(n).padStart(2, "0");
 const keyOf = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
 const fromKey = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+/* ---- US holidays: worked out from the year, nothing stored. Shown with an icon; they don't block any time. ---- */
+const nthDow = (y, m, dow, n) => { const f = new Date(y, m, 1); return new Date(y, m, 1 + (dow - f.getDay() + 7) % 7 + (n - 1) * 7); };   // e.g. 4th Thursday
+const lastDow = (y, m, dow) => { const l = new Date(y, m + 1, 0); return new Date(y, m, l.getDate() - (l.getDay() - dow + 7) % 7); };     // e.g. last Monday
+function easter(y){   // Easter Sunday (standard Gregorian calculation)
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4,
+    f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30,
+    i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  return new Date(y, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+}
+const holCache = new Map();
+function holidaysOf(y){   // date key -> [{ icon, name }] (Juneteenth and Father's Day can land on the same day)
+  if (!holCache.has(y)) {
+    const byKey = new Map();
+    [
+      [new Date(y, 0, 1), "\u{1F389}", "New Year's Day"],
+      [nthDow(y, 0, 1, 3), "\u{1F54A}\uFE0F", "Martin Luther King Jr. Day"],
+      [new Date(y, 1, 14), "\u{1F49D}", "Valentine's Day"],
+      [nthDow(y, 1, 1, 3), "\u{1F3A9}", "Presidents' Day"],
+      [new Date(y, 2, 17), "\u2618\uFE0F", "St. Patrick's Day"],
+      [easter(y), "\u{1F423}", "Easter"],
+      [nthDow(y, 4, 0, 2), "\u{1F490}", "Mother's Day"],
+      [lastDow(y, 4, 1), "\u{1F397}\uFE0F", "Memorial Day"],
+      [nthDow(y, 5, 0, 3), "\u{1F454}", "Father's Day"],
+      [new Date(y, 5, 19), "\u2B50", "Juneteenth"],
+      [new Date(y, 6, 4), "\u{1F386}", "Independence Day"],
+      [nthDow(y, 8, 1, 1), "\u{1F6E0}\uFE0F", "Labor Day"],
+      [nthDow(y, 9, 1, 2), "\u26F5", "Columbus Day"],
+      [new Date(y, 9, 31), "\u{1F383}", "Halloween"],
+      [new Date(y, 10, 11), "\u{1F396}\uFE0F", "Veterans Day"],
+      [nthDow(y, 10, 4, 4), "\u{1F983}", "Thanksgiving"],
+      [new Date(y, 11, 24), "\u{1F56F}\uFE0F", "Christmas Eve"],
+      [new Date(y, 11, 25), "\u{1F384}", "Christmas"],
+      [new Date(y, 11, 31), "\u{1F942}", "New Year's Eve"]
+    ].forEach(([d, icon, name]) => {
+      const k = keyOf(d);
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push({ icon, name });
+    });
+    holCache.set(y, byKey);
+  }
+  return holCache.get(y);
+}
+const holidayOn = k => holidaysOf(Number(k.slice(0, 4))).get(k) || [];
+const holTag = k => holidayOn(k).map(h =>
+  '<span class="hol" title="' + esc(h.name) + '"><span aria-hidden="true">' + h.icon + '</span> ' + esc(h.name) + '</span>').join("");
 const isKey = k => /^\d{4}-\d{2}-\d{2}$/.test(String(k || ""));
 const isTime = t => /^\d{2}:\d{2}$/.test(String(t || ""));
 const time12 = t => { if (!isTime(t)) return ""; let [h, m] = t.split(":").map(Number);
@@ -202,13 +363,72 @@ let jobs = [];          // every job with a date, from all three places
 let needDate = [];      // approved jobs that don't have a date yet
 let byDay = new Map();  // "2026-10-08" -> that day's jobs, earliest first
 
+/* ---- Miscellaneous, Job and EDH: his own time on the calendar, saved in calendarBlocks as
+   { kind: "misc", "job" or "edh", date: "2026-10-08", time: "09:00", end: "12:00", note }.
+   Misc: tap the first hour, then the last hour, from the odd hours. Each tapped hour is a
+   2-hour block, so 9 AM alone is time "09:00", end "11:00"; 9 AM then 1 PM is 9 AM - 3 PM
+   (end "15:00"). Hours already taken that day can't be picked, and a range can't run across
+   one (no double booking). Older entries with no end count as one hour.
+   EDH has a start only.
+   What each one takes:
+     Misc / Job: any hour before 1 PM takes the AM slot; any hour from 1 PM on takes the PM slot.
+     EDH (starts 11 AM, 1, 3, 5, 7 or 9 PM): 3 PM or earlier takes the whole day; 5 PM takes PM
+           (morning stays open); 7 or 9 PM takes PM plus the next day's AM.
+   Day view shading only: an EDH shift shades the 8 hours it runs (a 7 or 9 PM shift spills into
+   the next morning's first rows). Jobs are Morning 9 AM - 1 PM or Evening 1 PM - 6 PM. ---- */
+const HOURS = Array.from({ length: 12 }, (_, i) => pad(i * 2 + 1) + ":00"); // odd hours only: "01:00", "03:00" ... "23:00"
+const plus2 = t => Number(t.slice(0, 2)) >= 22 ? "24:00" : pad(Number(t.slice(0, 2)) + 2) + ":00";   // one tap = 2 hours, never past midnight
+const EDH_HOURS = ["11:00", "13:00", "15:00", "17:00", "19:00", "21:00"];
+const KINDS = { misc: "Miscellaneous", job: "Job", edh: "EDH shift" };
+const nextHour = t => pad(Number(t.slice(0, 2)) + 1) + ":00";   // "11:00" -> "12:00", "23:00" -> "24:00"
+const EDH_LEN = 8;   // an EDH shift runs 8 hours; a late one ends past midnight ("19:00" -> "27:00" = 3 AM next day)
+const endOf = b => b.kind === "edh" ? pad(Number(b.time.slice(0, 2)) + EDH_LEN) + ":00"
+  : isTime(b.end) && b.end > b.time ? b.end : nextHour(b.time);
+const JOB_SPANS = [["09:00", "13:00", "Morning"], ["13:00", "18:00", "Evening"]];   // Job = one of these
+const endText = e => e === "24:00" ? "12 AM" : time12(e);
+const spanText = b => b.kind === "edh" ? time12(b.time) : time12(b.time) + " \u2013 " + endText(endOf(b));
+const blockRule = (kind, t, end) => {
+  if (kind === "edh") return t <= "15:00" ? "Blocks the whole day" : t < "19:00" ? "Blocks PM" : "Blocks PM + next day\u2019s AM";
+  const am = t < "13:00", pm = (end || nextHour(t)) > "13:00";
+  return am && pm ? "Blocks the whole day" : am ? "Blocks AM" : "Blocks PM";
+};
+const ruleOf = b => blockRule(b.kind, b.time, endOf(b));
+const carries = b => b.kind === "edh" && b.time >= "19:00";   // late shift also takes the next morning
+/* No double booking: the rows a span runs through, the rows already taken on a day by his own
+   entries (the same rows the day view shades, plus a late EDH shift from the night before), and
+   whether a new span would land on any of them, including a late EDH spilling into the next morning. */
+const rowsOf = (t, e) => HOURS.filter(h => h >= hourOf(t) && h < e);
+const after24 = (h, e) => pad(Number(h.slice(0, 2)) + 24) + ":00" < e;   // next-morning row h is still inside a span ending at e
+function takenOn(k){
+  const set = new Set();
+  if (!isKey(k)) return set;
+  for (const b of blocksByDay.get(k) || []) rowsOf(b.time, endOf(b)).forEach(h => set.add(h));
+  for (const b of blocksByDay.get(keyOf(addDays(fromKey(k), -1))) || [])
+    HOURS.forEach(h => { if (after24(h, endOf(b))) set.add(h); });
+  return set;
+}
+const clashes = (k, t, e) => {
+  const today = takenOn(k);
+  if (rowsOf(t, e).some(h => today.has(h))) return true;
+  if (e <= "24:00") return false;
+  const next = takenOn(keyOf(addDays(fromKey(k), 1)));
+  return HOURS.some(h => next.has(h) && after24(h, e));
+};
+let blocks = [];             // every Misc / EDH entry
+let blocksByDay = new Map(); // "2026-10-08" -> entries starting that day
+let carryByDay = new Map();  // "2026-10-09" -> late EDH shifts from the night before
+
 async function load(){
   const failed = [];
+  const gotBlocks = getDocs(collection(db, "calendarBlocks"))
+    .then(s => s.docs.map(d => ({ ...d.data(), id: d.id })).filter(b => KINDS[b.kind] && isKey(b.date) && isTime(b.time)))
+    .catch(e => { console.error("calendarBlocks", e); failed.push("Misc/EDH entries (" + (e.code || e.message) + ")"); return []; });
   const got = await Promise.all(PLACES.map(p =>
     getDocs(collection(db, p.key))
       .then(s => s.docs.map(d => ({ ...d.data(), id: d.id, _place: p.key, _state: p.state })))
       .catch(e => { console.error(p.key, e); failed.push(p.key + " (" + (e.code || e.message) + ")"); return []; })));
   const all = got.flat();
+  blocks = await gotBlocks;
   jobs = all.filter(j => isKey(j.scheduledDate));
   needDate = all.filter(j => j._place === "acceptedQuotes" && !isKey(j.scheduledDate))
     .sort((a, b) => ms(a.acceptedAt) - ms(b.acceptedAt));
@@ -225,8 +445,20 @@ function index(){
   }
   const t = j => isTime(j.scheduledTime) ? j.scheduledTime : "99";
   for (const list of byDay.values()) list.sort((a, b) => t(a).localeCompare(t(b)));
-  needBtn.textContent = "Needs a date (" + needDate.length + ")";
-  needBtn.classList.toggle("has", needDate.length > 0);
+  blocksByDay = new Map(); carryByDay = new Map();
+  for (const b of blocks) {
+    if (!blocksByDay.has(b.date)) blocksByDay.set(b.date, []);
+    blocksByDay.get(b.date).push(b);
+    if (carries(b)) {
+      const n = keyOf(addDays(fromKey(b.date), 1));
+      if (!carryByDay.has(n)) carryByDay.set(n, []);
+      carryByDay.get(n).push(b);
+    }
+  }
+  const needCount = needDate.length;   // phone shows just the number, red; empty when nothing needs a date
+  needBtn.innerHTML = '<span class="nd-full">Needs Date (' + needCount + ')</span><span class="nd-num">' + (needCount || "") + '</span>';
+  needBtn.setAttribute("aria-label", needCount + (needCount === 1 ? " job needs" : " jobs need") + " a date");
+  needBtn.classList.toggle("has", needCount > 0);
 }
 
 const jobKey = j => j._place + "/" + j.id;
@@ -244,8 +476,21 @@ function chip(j, full){
     (full && sub ? '<span class="sub">' + esc(sub) + '</span>' : '') +
   '</button>';
 }
-const addBtn = d => '<button type="button" class="add" data-add="' + keyOf(d) +
-  '" aria-label="Schedule a job on ' + esc(shortDay(d)) + '">+</button>';
+
+/* Misc / Job / EDH on the calendar. A late EDH shift also shows on the next morning (dashed). */
+const blkChip = (b, full) => '<button type="button" class="job blk b-' + b.kind + '" data-blk="' + esc(b.id) + '">' +
+  '<span class="tm">' + spanText(b) + '</span>' + (b.kind === "edh" ? "EDH" : esc(b.note || (b.kind === "job" ? "Job" : "Misc"))) +
+  (full ? '<span class="sub">' + esc(ruleOf(b)) + '</span>' : '') + '</button>';
+const carryChip = (b, full) => '<button type="button" class="job blk b-edh carry" data-blk="' + esc(b.id) + '">' +
+  '<span class="tm">AM</span>Blocked' + (full ? '<span class="sub">EDH ' + time12(b.time) + ' shift the night before</span>' : '') + '</button>';
+/* Everything on one day in time order: the carried-over morning first, then entries and jobs by start time. */
+function dayItems(k, full){
+  return [
+    ...(carryByDay.get(k) || []).map(b => ["00:00", carryChip(b, full)]),
+    ...(blocksByDay.get(k) || []).map(b => [b.time, blkChip(b, full)]),
+    ...(byDay.get(k) || []).map(j => [isTime(j.scheduledTime) ? j.scheduledTime : "99", chip(j, full)])
+  ].sort((a, b) => a[0].localeCompare(b[0])).map(x => x[1]).join("");
+}
 
 /* ---- Desktop: month grid ---- */
 let month = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); })();
@@ -256,57 +501,207 @@ function renderMonth(){
   document.getElementById("mlabel").textContent = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   const first = new Date(y, m, 1), last = new Date(y, m + 1, 0);
   const start = addDays(first, -first.getDay()), end = addDays(last, 6 - last.getDay());
+  const mini = phone();   // phone month view: dates and job counts only, tap a date to show its week
+  if (mini) jumpDate.value = keyOf(month);
   let html = DOW.map(d => '<div class="dow">' + d + '</div>').join("");
   for (let d = start; d <= end; d = addDays(d, 1)) {
     const k = keyOf(d), list = byDay.get(k) || [];
-    html += '<div class="cell' + (d.getMonth() !== m ? ' out' : '') + (k === tk ? ' today' : '') + '">' +
-      '<div class="chead"><span class="dnum">' + d.getDate() + '</span>' + addBtn(d) + '</div>' +
-      list.map(j => chip(j, false)).join("") + '</div>';
-  }
-  view.innerHTML = '<div class="grid">' + html + '</div>';
-}
-
-/* ---- Phone: one row per day, today at the top, scroll up for earlier days ---- */
-let from = null, to = null;
-
-function renderDays(){
-  const tk = todayKey();
-  if (!from) { const t = fromKey(tk); from = addDays(t, -14); to = addDays(t, 60); }
-  let html = '<button type="button" class="ghost more" id="earlierBtn">Show earlier days</button><div class="days">';
-  let lastMon = -1;
-  for (let d = from; d <= to; d = addDays(d, 1)) {
-    if (d.getMonth() !== lastMon) {
-      lastMon = d.getMonth();
-      html += '<h2 class="mon">' + esc(d.toLocaleDateString(undefined, { month: "long", year: "numeric" })) + '</h2>';
+    if (mini) {
+      const sel = d >= weekStart && d < addDays(weekStart, 7), n = list.length + (blocksByDay.get(k) || []).length;
+      html += '<button type="button" class="cell' + (d.getMonth() !== m ? ' out' : '') + (k === tk ? ' today' : '') + (sel ? ' sel' : '') +
+        '" data-week="' + k + '" aria-label="Show the week of ' + esc(shortDay(d)) + '"><span class="dnum">' + d.getDate() + '</span>' +
+        (n ? '<span class="cnt">' + n + '</span>' : '') +
+        (holidayOn(k).length ? '<span class="hicon" aria-hidden="true">' + holidayOn(k).map(h => h.icon).join("") + '</span>' : '') + '</button>';
+      continue;
     }
-    const k = keyOf(d), list = byDay.get(k) || [];
-    html += '<section class="day' + (list.length ? '' : ' empty') + (k === tk ? ' today' : '') + (k < tk ? ' past' : '') + '" id="d-' + k + '">' +
-      '<div class="dhead"><span>' + esc(shortDay(d)) + (k === tk ? '<span class="tag">Today</span>' : '') + '</span>' + addBtn(d) + '</div>' +
-      list.map(j => chip(j, true)).join("") + '</section>';
+    html += '<div class="cell' + (d.getMonth() !== m ? ' out' : '') + (k === tk ? ' today' : '') + '" data-open="' + k + '">' +
+      '<div class="chead"><button type="button" class="dnum" data-open="' + k + '" aria-label="Open ' + esc(shortDay(d)) + '">' +
+        d.getDate() + '</button></div>' +
+      holTag(k) + dayItems(k, false) + '</div>';
   }
-  view.innerHTML = html + '</div><button type="button" class="ghost more" id="laterBtn">Show later days</button>';
+  view.innerHTML = '<div class="grid' + (mini ? ' mini' : '') + '">' + html + '</div>';
 }
 
-/* Adds 30 days above or below without the screen jumping. */
-function moreDays(dir){
-  const keep = keyOf(from), a0 = document.getElementById("d-" + keep);
-  const before = a0 ? a0.getBoundingClientRect().top : 0;
-  if (dir < 0) from = addDays(from, -30); else to = addDays(to, 30);
-  renderDays();
-  const a1 = document.getElementById("d-" + keep);
-  if (a1) window.scrollBy(0, a1.getBoundingClientRect().top - before);
+/* ---- Phone: one week at a time, Sun to Sat. Arrows step a week, tapping the
+   date label opens a picker to jump to any week, Month shows the whole month
+   (tap a date there to jump to its week). Tap a day to open it. ---- */
+const jumpDate = document.getElementById("jumpDate"), viewBtn = document.getElementById("viewBtn");
+const weekOf = d => addDays(d, -d.getDay());
+let weekStart = weekOf(fromKey(todayKey()));
+let pview = "week";   // phone only: "week" or "month"
+
+function weekLabel(){
+  const end = addDays(weekStart, 6), md = { month: "short", day: "numeric" };
+  return weekStart.toLocaleDateString(undefined, md) + " \u2013 " +
+    (end.getMonth() === weekStart.getMonth() ? end.getDate() : end.toLocaleDateString(undefined, md));
 }
+
+function renderWeek(){
+  const tk = todayKey();
+  document.getElementById("mlabel").textContent = weekLabel();
+  jumpDate.value = keyOf(weekStart);
+  let html = '<div class="days week">';
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(weekStart, i), k = keyOf(d), items = dayItems(k, true);
+    html += '<section class="day' + (items ? '' : ' empty') + (k === tk ? ' today' : '') + (k < tk ? ' past' : '') + '" id="d-' + k + '" data-open="' + k + '">' +
+      '<div class="dhead"><button type="button" class="dlink" data-open="' + k + '">' + esc(shortDay(d)) +
+        (k === tk ? '<span class="tag">Today</span>' : '') + '<span class="chev" aria-hidden="true">\u203a</span></button></div>' +
+      holTag(k) + items + '</section>';
+  }
+  view.innerHTML = html + '</div>';
+  fitWeek();
+}
+
+/* Stretch the week from where it starts down to the bottom of the screen. */
+function fitWeek(){
+  const box = view.querySelector(".days.week");
+  if (!box) return;
+  const top = box.getBoundingClientRect().top + window.scrollY;
+  box.style.minHeight = Math.max(0, window.innerHeight - top - 16) + "px";
+}
+
+function showWeek(k){
+  weekStart = weekOf(fromKey(k)); pview = "week";
+  render();
+  window.scrollTo(0, 0);
+}
+
+/* ---- Day view: tap a day to open it, arrows go day to day ---- */
+let dayKey = null;   // the open day, or null when showing the month / day list
+let lastDay = null;  // last day opened, so going back lands on it
+let pushed = false;  // opening the day added a browser Back step
+{ const h = location.hash.match(/^#day-(\d{4}-\d{2}-\d{2})$/); if (h) dayKey = lastDay = h[1]; }
+
+function dayCard(j){
+  const c = j.customer || {}, addr = [c.street, cityLine(c)].filter(Boolean).join(", ");
+  const tel = String(c.phone || "").replace(/\D/g, "");
+  const lines = Array.isArray(j.lines) ? j.lines : [];
+  const done = j._state !== "approved", tm = time12(j.scheduledTime);
+  return '<article class="dcard k-' + typeOf(c).v + (done ? ' done' : '') + '">' +
+    '<div class="dctime' + (tm ? '' : ' none') + '">' + (tm || 'No start time') + '</div>' +
+    '<div>' +
+      '<button type="button" class="dcname" data-job="' + esc(jobKey(j)) + '">' + esc(displayName(c)) + '</button> ' + badge(c) +
+      (done ? '<span class="dcstate">\u2713 ' + (j._state === "paid" ? "Paid" : "Invoiced") + '</span>' : '') +
+      (addr ? '<div class="dcrow"><a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr) +
+        '" target="_blank" rel="noopener">' + esc(addr) + '</a></div>' : '') +
+      (c.phone ? '<div class="dcrow"><a href="tel:' + esc(tel) + '">' + esc(c.phone) + '</a></div>' : '') +
+      (lines.length ? '<div class="dcsvc">' + esc(lines.map(l => l.label || "Service").join(", ")) + '</div>' : '') +
+      '<div class="dcfoot"><span class="dctot">' + esc(money(j.total)) + '</span>' +
+        '<button type="button" class="ghost sm" data-job="' + esc(jobKey(j)) + '">Details</button>' +
+        '<a class="new sm" href="./job-sheet.html?id=' + encodeURIComponent(j.id) + '">Job sheet</a></div>' +
+    '</div></article>';
+}
+
+/* Misc / Job / EDH entry in the day view; tap the name for Delete. */
+const blkCard = b => '<article class="dcard blk b-' + b.kind + '">' +
+  '<div class="dctime">' + spanText(b) + '</div>' +
+  '<div><button type="button" class="dcname" data-blk="' + esc(b.id) + '">' + KINDS[b.kind] + '</button>' +
+    (b.note ? '<div class="dcrow">' + esc(b.note) + '</div>' : '') +
+    '<div class="dcsvc">' + esc(ruleOf(b)) + '</div></div></article>';
+const carryCard = b => '<article class="dcard blk b-edh carry">' +
+  '<div class="dctime">AM slot</div>' +
+  '<div><button type="button" class="dcname" data-blk="' + esc(b.id) + '">Blocked</button>' +
+    '<div class="dcsvc">EDH ' + time12(b.time) + ' shift on ' + esc(shortDay(fromKey(b.date))) + '</div></div></article>';
+
+/* Day view: the odd hours 1 AM to 11 PM in their own scroll box, opening on 7 AM (or on the
+   hour just saved). Jobs and entries sit on the odd hour they start in (a 10:00 job shows on
+   the 9 AM row); the hours a Misc / Job entry runs through are shaded. Tap an hour
+   to add something starting then. The carried-over EDH morning and jobs with no start time
+   sit above the hours. */
+const hourOf = t => { if (!isTime(t)) return ""; const h = Number(t.slice(0, 2)); return h < 1 ? "" : pad(h % 2 ? h : h - 1) + ":00"; };
+let landHour = "";   // hour to scroll to on the next day render (set after saving)
+function fitHours(){
+  const box = document.getElementById("hours");
+  if (!box) return;
+  const top = box.getBoundingClientRect().top + window.scrollY;
+  box.style.maxHeight = Math.max(320, window.innerHeight - top - 16) + "px";
+}
+
+function renderDay(){
+  const list = byDay.get(dayKey) || [], own = blocksByDay.get(dayKey) || [];
+  const sum = list.reduce((s, j) => s + (Number(j.total) || 0), 0);
+  const top = [
+    ...(carryByDay.get(dayKey) || []).map(carryCard),
+    ...list.filter(j => !hourOf(j.scheduledTime)).map(dayCard)
+  ].join("");
+  const lastNight = (blocksByDay.get(keyOf(addDays(fromKey(dayKey), -1))) || [])
+    .filter(b => b.kind === "edh" && endOf(b) > "24:00");   // late EDH shifts still running after midnight
+  const rows = HOURS.map(h => {
+    const here = [
+      ...own.filter(b => hourOf(b.time) === h).map(b => [b.time, blkCard(b)]),
+      ...list.filter(j => hourOf(j.scheduledTime) === h).map(j => [j.scheduledTime, dayCard(j)])
+    ].sort((a, b) => a[0].localeCompare(b[0])).map(x => x[1]).join("");
+    const over = own.find(b => hourOf(b.time) <= h && endOf(b) > h) ||
+      lastNight.find(b => pad(Number(h.slice(0, 2)) + 24) + ":00" < endOf(b));
+    return '<div class="hrow' + (over ? ' over b-' + over.kind : '') + '" data-hour="' + h + '">' +
+      '<button type="button" class="hlab" data-hour="' + h + '" aria-label="Add something at ' + time12(h) + '">' + time12(h) + '</button>' +
+      '<div class="hbody">' + here +
+        (over && !here ? '<button type="button" class="hcont" data-blk="' + esc(over.id) + '">' +
+          esc(over.note || KINDS[over.kind]) + '</button>' : '') + '</div></div>';
+  }).join("");
+  document.getElementById("mlabel").textContent = fromKey(dayKey).toLocaleDateString(undefined, phone()
+    ? { weekday: "short", month: "short", day: "numeric" }
+    : { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  document.getElementById("backBtn").textContent = "\u2039 " + (phone() ? "Week" : "Month");
+  view.innerHTML = '<div class="dview"><div class="dvhead">' +
+      '<span class="dvsum">' + (list.length ? list.length + (list.length === 1 ? " job" : " jobs") + " \u00b7 " + esc(money(sum)) : "No jobs") +
+        (dayKey === todayKey() ? '<span class="tag">Today</span>' : '') + '</span>' + holTag(dayKey) +
+    '</div>' +
+    top + '<div class="hours" id="hours">' + rows + '</div>' +
+  '</div>';
+  fitHours();
+  const box = document.getElementById("hours");
+  const land = box.querySelector('.hrow[data-hour="' + (landHour || "07:00") + '"]');
+  landHour = "";
+  if (land) box.scrollTop = land.offsetTop;
+}
+
+/* Opening a day from the list adds a Back step, so the phone's Back button
+   returns to the list instead of leaving the page. Arrows just swap the day. */
+function setDay(k, fromList){
+  if (fromList && !dayKey) { history.pushState({ day: k }, "", "#day-" + k); pushed = true; }
+  else history.replaceState({ day: k }, "", "#day-" + k);
+  dayKey = lastDay = k;
+  render();
+  window.scrollTo(0, 0);
+}
+
+function showList(){
+  dayKey = null;
+  const d = fromKey(lastDay || todayKey());
+  weekStart = weekOf(d); pview = "week";
+  month = new Date(d.getFullYear(), d.getMonth(), 1);
+  render();
+}
+
+function closeDay(){
+  if (pushed) { history.back(); return; }   // popstate below finishes it
+  history.replaceState(null, "", location.pathname + location.search);
+  showList();
+}
+
+window.addEventListener("popstate", e => {
+  const k = e.state && e.state.day;
+  if (k) { dayKey = lastDay = k; pushed = true; render(); return; }
+  pushed = false;
+  if (dayKey) showList();
+});
 
 const mq = window.matchMedia("(max-width: 759px)");
 const phone = () => mq.matches;
-const render = () => phone() ? renderDays() : renderMonth();
+const render = () => {
+  document.body.classList.toggle("dayMode", !!dayKey);
+  const unit = dayKey ? "day" : phone() && pview === "week" ? "week" : "month";
+  document.getElementById("prevBtn").setAttribute("aria-label", "Previous " + unit);
+  document.getElementById("nextBtn").setAttribute("aria-label", "Next " + unit);
+  viewBtn.textContent = pview === "week" ? "Month" : "Week";
+  if (dayKey) renderDay(); else if (unit === "week") renderWeek(); else renderMonth();
+};
 
 function goToday(){
+  if (dayKey) { setDay(todayKey()); return; }
   if (phone()) {
-    const tk = todayKey();
-    if (!document.getElementById("d-" + tk)) { from = null; renderDays(); }
-    const el = document.getElementById("d-" + tk);
-    if (el) el.scrollIntoView({ block: "start" });
+    showWeek(todayKey());
   } else {
     const n = new Date(); month = new Date(n.getFullYear(), n.getMonth(), 1);
     renderMonth();
@@ -348,7 +743,7 @@ function showJob(j){
 
 /* Approved jobs with no date. From a day's + button the date is filled in already. */
 function showPicker(k){
-  openDlg('<h3>' + esc(k ? "Schedule a job on " + shortDay(fromKey(k)) : "Needs a date") + '</h3>' +
+  openDlg('<h3>' + esc(k ? "Schedule a job on " + shortDay(fromKey(k)) : "Needs Date") + '</h3>' +
     (needDate.length
       ? '<p class="state">Approved jobs that aren\u2019t on the calendar yet. Pick one.</p><div class="pick">' +
         needDate.map(j => { const c = j.customer || {};
@@ -403,17 +798,179 @@ async function saveDate(j, clear){
   index();
   dlg.close();
   if (clear) { render(); return; }
+  if (dayKey) { setDay(date); return; }
   if (phone()) {
-    const d = fromKey(date);
-    if (d < from) from = d;
-    if (d > to) to = d;
-    renderDays();
-    const el = document.getElementById("d-" + date);
-    if (el) el.scrollIntoView({ block: "nearest" });
+    showWeek(date);
   } else {
     const d = fromKey(date); month = new Date(d.getFullYear(), d.getMonth(), 1);
     renderMonth();
   }
+}
+
+/* ---- Misc / Job / EDH pop-ups. Tapping an hour in the day view offers Misc / Job or EDH
+   starting then. Tap an entry to see or delete it. ---- */
+function showHourMenu(h){
+  openDlg('<h3>' + time12(h) + '</h3>' +
+    '<p class="state">' + esc(longDay(dayKey)) + '</p>' +
+    '<div class="pick">' +
+      '<button type="button" class="job blk b-misc" data-addblk="misc" data-h="' + h + '">Miscellaneous / Job' +
+        '<span class="sub">Misc: tap the first hour, then the last hour. Job: morning 9\u20131 or evening 1\u20136.</span></button>' +
+      '<button type="button" class="job blk b-edh" data-addblk="edh" data-h="' + h + '">EDH shift' +
+        '<span class="sub">Starts 11 AM, 1, 3, 5, 7 or 9 PM. Keeps its blocking rules.</span></button>' +
+    '</div>');
+}
+
+function showBlockForm(kind, pre = {}){
+  const edh = kind === "edh", start = HOURS.includes(pre.start) ? pre.start : "";
+  openDlg('<h3>Add ' + (edh ? "EDH shift" : "Miscellaneous / Job") + '</h3>' +
+    '<form id="blkForm" novalidate>' +
+      '<label class="fld"><span>Date</span><input type="date" id="bDate" value="' + esc(pre.date || dayKey || todayKey()) + '"></label>' +
+      (edh ? '' : '<div class="fld"><span>What it is</span><div class="hrs two" role="radiogroup" aria-label="What it is">' +
+        '<label class="hr"><input type="radio" name="bType" value="misc" checked><span>Miscellaneous</span></label>' +
+        '<label class="hr"><input type="radio" name="bType" value="job"><span>Job</span></label></div></div>' +
+        '<div class="fld" id="bJobF" style="display:none"><span>When</span><div class="hrs two" role="radiogroup" aria-label="When">' +
+        JOB_SPANS.map(([s, e, name], i) => '<label class="hr"><input type="radio" name="bJob" value="' + s + '-' + e + '"' +
+          ((start >= "13:00" ? i === 1 : i === 0) ? ' checked' : '') + '><span>' + name + '<br>' + time12(s) + ' \u2013 ' + time12(e) +
+          '</span></label>').join("") + '</div></div>') +
+      '<div class="fld" id="bHrsF"><span>' + (edh ? "Start time" : "Tap the first hour, then the last hour") + '</span>' +
+        '<div class="hrs" id="bHrs"' + (edh ? ' role="radiogroup" aria-label="Start time"' : '') + '>' +
+        HOURS.map(h => edh
+          ? '<label class="hr"><input type="radio" name="bTime" value="' + h + '"' +
+              (EDH_HOURS.includes(h) ? (h === start ? ' checked' : '') : ' disabled') + '><span>' + time12(h) + '</span></label>'
+          : '<button type="button" class="hr" data-pickh="' + h + '" aria-pressed="false"><span>' + time12(h) + '</span></button>').join("") +
+      '</div></div>' +
+      '<p class="state" id="bRule"></p>' +
+      '<label class="fld"><span>Note (optional)</span><input type="text" id="bNote" maxlength="80"></label>' +
+      '<p class="err" id="sErr" role="alert"></p>' +
+      '<div class="acts"><button type="submit" class="new">Save to calendar</button>' +
+        '<button type="button" class="ghost" data-close>Cancel</button></div>' +
+    '</form>');
+  const form = document.getElementById("blkForm"), box = document.getElementById("bHrs"), rule = document.getElementById("bRule");
+  let a = edh ? "" : start, z = "";   // Misc / Job: start time and end time tapped
+  const day = () => document.getElementById("bDate").value;
+  const hits = (taken, s, last) => rowsOf(s, plus2(last)).some(h => taken.has(h));   // Misc s..last runs into a taken hour
+  const show = () => {
+    const k = day(), taken = takenOn(k);
+    if (edh) {
+      form.querySelectorAll('input[name="bTime"]').forEach(x => {
+        x.disabled = !EDH_HOURS.includes(x.value) || clashes(k, x.value, endOf({ kind: "edh", time: x.value }));
+        if (x.disabled) x.checked = false;
+      });
+      const t = form.querySelector('input[name="bTime"]:checked');
+      rule.textContent = t ? blockRule("edh", t.value) : "";
+      return;
+    }
+    const isJob = form.querySelector('input[name="bType"]:checked')?.value === "job";
+    document.getElementById("bJobF").style.display = isJob ? "" : "none";
+    document.getElementById("bHrsF").style.display = isJob ? "none" : "";
+    if (isJob) {
+      const spans = [...form.querySelectorAll('input[name="bJob"]')];
+      spans.forEach(x => { const [s, e] = x.value.split("-"); x.disabled = clashes(k, s, e); if (x.disabled) x.checked = false; });
+      const j = form.querySelector('input[name="bJob"]:checked');
+      const [s, e] = j ? j.value.split("-") : [];
+      rule.textContent = j ? time12(s) + " \u2013 " + time12(e) + " \u00b7 " + blockRule("job", s, e)
+        : spans.every(x => x.disabled) ? "Morning and evening are both taken that day." : "";
+      return;
+    }
+    if (a && hits(taken, a, z || a)) { a = ""; z = ""; }   // the date changed and those hours are taken there
+    const end = a ? plus2(z || a) : "";   // the last hour tapped is taken too
+    box.querySelectorAll("[data-pickh]").forEach(x => {
+      const h = x.dataset.pickh;
+      x.disabled = taken.has(h);
+      x.classList.toggle("on", !!a && (h === a || h === z));
+      x.classList.toggle("mid", !!z && h > a && h < z);
+      x.setAttribute("aria-pressed", a && h >= a && h <= (z || a) ? "true" : "false");
+    });
+    form.dataset.a = a; form.dataset.z = z;
+    rule.textContent = a ? time12(a) + " \u2013 " + endText(end) + " \u00b7 " + blockRule("misc", a, end) : "";
+  };
+  if (!edh) box.addEventListener("click", e => {
+    const x = e.target.closest("[data-pickh]");
+    if (!x || x.disabled) return;   // taken that day
+    const h = x.dataset.pickh;
+    if (!a || z || h < a || hits(takenOn(day()), a, h)) { a = h; z = ""; }   // first tap, starting over, an earlier time, or past a taken hour: that's the start
+    else if (h === a) z = "";                  // the start again: just that 2-hour block
+    else z = h;                                // a later time: the last hour it takes
+    show();
+  });
+  form.addEventListener("change", show);
+  form.addEventListener("submit", e => { e.preventDefault(); saveBlock(kind); });
+  show();
+  // All 12 odd hours fit without scrolling; this only matters if the box ever gets shorter
+  const land = start && (!edh || EDH_HOURS.includes(start)) ? start : edh ? "11:00" : "07:00";
+  const el = box.querySelector('[value="' + land + '"], [data-pickh="' + land + '"]');
+  if (el) box.scrollTop = el.closest(".hr").offsetTop;
+}
+
+async function saveBlock(kind){
+  const err = document.getElementById("sErr"), form = document.getElementById("blkForm");
+  const date = document.getElementById("bDate").value;
+  let time = "", end = "";
+  if (kind === "edh") {
+    const t = form.querySelector('input[name="bTime"]:checked');
+    time = t ? t.value : "";
+  } else {
+    kind = form.querySelector('input[name="bType"]:checked')?.value === "job" ? "job" : "misc";
+    if (kind === "job") {
+      const j = form.querySelector('input[name="bJob"]:checked');
+      if (j) [time, end] = j.value.split("-");
+    } else {
+      time = form.dataset.a || "";
+      if (time) end = plus2(form.dataset.z || time);   // the last hour tapped is taken too
+    }
+  }
+  if (!isKey(date)) { err.textContent = "Pick a date first."; return; }
+  if (!time) { err.textContent = kind === "edh" ? "Pick a start time." : kind === "job" ? "Pick morning or evening." : "Tap the start time."; return; }
+  if (clashes(date, time, kind === "edh" ? endOf({ kind, time }) : end)) {   // backup: never save on top of something
+    err.textContent = "That overlaps something already on the calendar. Pick open hours."; return; }
+  const b = { kind, date, time, note: document.getElementById("bNote").value.trim() };
+  if (end) b.end = end;
+  const btns = dlgBody.querySelectorAll("button");
+  btns.forEach(x => x.disabled = true);
+  try {
+    const ref = await addDoc(collection(db, "calendarBlocks"), { ...b, createdAt: serverTimestamp() });
+    b.id = ref.id;
+  } catch (e) {
+    console.error(e);
+    err.textContent = "Could not save: " + (e.code === "permission-denied" ? "the database isn\u2019t allowing it (permission denied)." : e.message);
+    btns.forEach(x => x.disabled = false);
+    return;
+  }
+  blocks.push(b);
+  index();
+  dlg.close();
+  if (dayKey) { landHour = time; setDay(date); return; }
+  if (phone()) showWeek(date);
+  else { const d = fromKey(date); month = new Date(d.getFullYear(), d.getMonth(), 1); renderMonth(); }
+}
+
+function showBlock(b){
+  const next = carries(b) ? " (" + shortDay(addDays(fromKey(b.date), 1)) + ")" : "";
+  openDlg('<h3>' + KINDS[b.kind] + '</h3>' +
+    '<p class="when">' + esc(longDay(b.date)) + (b.kind === "edh" ? ' at ' + time12(b.time) : ', ' + spanText(b)) + '</p>' +
+    '<p class="state">' + esc(ruleOf(b) + next) + '</p>' +
+    rrow("Note", b.note ? esc(b.note) : "") +
+    '<p class="err" id="sErr" role="alert"></p>' +
+    '<div class="acts"><button type="button" class="ghost danger" data-delblk="' + esc(b.id) + '">Delete</button>' +
+      '<button type="button" class="ghost" data-close>Close</button></div>');
+}
+
+async function deleteBlock(id){
+  const b = blocks.find(x => x.id === id);
+  if (!b) return;
+  const btns = dlgBody.querySelectorAll("button");
+  btns.forEach(x => x.disabled = true);
+  try { await deleteDoc(doc(db, "calendarBlocks", id)); }
+  catch (e) {
+    console.error(e);
+    document.getElementById("sErr").textContent = "Could not delete: " + e.message;
+    btns.forEach(x => x.disabled = false);
+    return;
+  }
+  blocks = blocks.filter(x => x !== b);
+  index();
+  dlg.close();
+  render();
 }
 
 /* ---- Taps ---- */
@@ -430,22 +987,47 @@ document.addEventListener("click", e => {
   if (un) { const j = findJob(un.dataset.unsched); if (j) saveDate(j, true); return; }
   const jb = t.closest("[data-job]");
   if (jb) { const j = findJob(jb.dataset.job); if (j) showJob(j); return; }
-  if (t.closest("#earlierBtn")) { moreDays(-1); return; }
-  if (t.closest("#laterBtn")) { moreDays(1); return; }
+  const bl = t.closest("[data-blk]");
+  if (bl) { const b = blocks.find(x => x.id === bl.dataset.blk); if (b) showBlock(b); return; }
+  const del = t.closest("[data-delblk]");
+  if (del) { deleteBlock(del.dataset.delblk); return; }
+  const ab = t.closest("[data-addblk]");
+  if (ab) { showBlockForm(ab.dataset.addblk, { date: dayKey, start: ab.dataset.h }); return; }
+  const hr = t.closest("[data-hour]");   // an hour in the day view (not a link or a job card in it)
+  if (hr && !t.closest("a, .dcard")) { showHourMenu(hr.dataset.hour); return; }
+  if (t.closest("#backBtn")) { closeDay(); return; }
+  const wk = t.closest("[data-week]");
+  if (wk) { showWeek(wk.dataset.week); return; }
+  const op = t.closest("[data-open]");
+  if (op) { setDay(op.dataset.open, true); return; }
 });
-document.getElementById("prevBtn").addEventListener("click", () => { month = new Date(month.getFullYear(), month.getMonth() - 1, 1); renderMonth(); });
-document.getElementById("nextBtn").addEventListener("click", () => { month = new Date(month.getFullYear(), month.getMonth() + 1, 1); renderMonth(); });
-document.getElementById("todayBtn").addEventListener("click", goToday);
+document.getElementById("prevBtn").addEventListener("click", () => {
+  if (dayKey) { setDay(keyOf(addDays(fromKey(dayKey), -1))); return; }
+  if (phone() && pview === "week") { weekStart = addDays(weekStart, -7); renderWeek(); return; }
+  month = new Date(month.getFullYear(), month.getMonth() - 1, 1); renderMonth(); });
+document.getElementById("nextBtn").addEventListener("click", () => {
+  if (dayKey) { setDay(keyOf(addDays(fromKey(dayKey), 1))); return; }
+  if (phone() && pview === "week") { weekStart = addDays(weekStart, 7); renderWeek(); return; }
+  month = new Date(month.getFullYear(), month.getMonth() + 1, 1); renderMonth(); });
 needBtn.addEventListener("click", () => showPicker(""));
-mq.addEventListener("change", () => { render(); if (phone()) goToday(); });
+/* Phone: Month/Week switch, and the date label's picker jumps to that week. */
+viewBtn.addEventListener("click", () => {
+  if (pview === "week") { const mid = addDays(weekStart, 3); pview = "month"; month = new Date(mid.getFullYear(), mid.getMonth(), 1); }
+  else pview = "week";
+  render();
+  window.scrollTo(0, 0);
+});
+jumpDate.addEventListener("change", () => { if (isKey(jumpDate.value)) showWeek(jumpDate.value); });
+mq.addEventListener("change", () => { render(); if (phone() && !dayKey) goToday(); });
+window.addEventListener("resize", () => { fitWeek(); fitHours(); });
 
 /* Refresh: pull the latest from the database. */
 document.getElementById("refreshBtn").addEventListener("click", async e => {
   const b = e.currentTarget;
-  b.disabled = true; b.textContent = "Refreshing\u2026";
+  b.disabled = true; b.classList.add("spin");
   try { await load(); render(); }
   catch (err) { console.error(err); note.hidden = false; note.textContent = "Could not refresh: " + err.message; }
-  finally { b.disabled = false; b.textContent = "Refresh"; }
+  finally { b.disabled = false; b.classList.remove("spin"); }
 });
 
 /* Page lock. Not signed in -> login page, then back here. */
@@ -458,7 +1040,7 @@ onAuthStateChanged(getAuth(app), async user => {
   try { await load(); }
   catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
   render();
-  if (phone()) goToday();
+  if (phone() && !dayKey) goToday();
 });
 </script>
 </body>
