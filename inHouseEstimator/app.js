@@ -1212,6 +1212,8 @@
       initState();
       var notes = document.getElementById('eNotes');
       if(notes) notes.value = '';
+      var jobDate = document.getElementById('eWhen');   // Job date clears with everything else
+      if(jobDate) jobDate.value = '';
       ['discAmt','discPct'].forEach(function(id){ var d = document.getElementById(id); if(d) d.value = ''; });
       var wm = document.getElementById('waiveMin'); if(wm) wm.checked = false;
       syncService();

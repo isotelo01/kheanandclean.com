@@ -47,6 +47,7 @@ function fromForm(q){
     subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel,
     total: q.total, minApplied: q.minApplied, sqftTotal: q.sqftTotal,
     notes: val('eNotes'),
+    scheduledDate: val('eWhen'),   /* Job date, "2026-10-08". Same field the calendar's Change date writes; blank = no date. */
     form: window.KC_snapshot ? window.KC_snapshot() : null
   };
 }
@@ -205,7 +206,7 @@ async function loadForEdit(id, from){
     if (!snap.exists()) { banner.textContent = 'That estimate is no longer there. Go back to the Dashboard and refresh.'; return; }
     const d = snap.data(), c = d.customer || {};
     [['eName', c.name], ['ePhone', c.phone], ['eEmail', c.email], ['eAddr', c.street],
-     ['eCity', c.city], ['eZip', c.zip], ['eNotes', d.notes]].forEach(([fid, v]) => {
+     ['eCity', c.city], ['eZip', c.zip], ['eNotes', d.notes], ['eWhen', d.scheduledDate]].forEach(([fid, v]) => {
       const el = $(fid); if (!el) return;
       el.value = v || '';
       el.dispatchEvent(new Event('input', { bubbles: true }));   /* keeps the letterhead in sync */
