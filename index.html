@@ -1145,6 +1145,16 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qWhen input[type="date"]{ width:100%; text-align:center; font-family:"Archivo",sans-serif; font-size:1.15rem; font-weight:500; color:var(--ink); background:#fff; padding:.85rem 1rem; border:1.5px solid var(--line); border-radius:12px; box-sizing:border-box; }
 .qWhen input[type="date"]::-webkit-calendar-picker-indicator{ width:22px; height:22px; cursor:pointer; opacity:.7; }
 .qWhen input[type="date"]::-webkit-date-and-time-value{ text-align:center; }
+/* Open days from the booking calendar, shown in place of the date picker once they load.
+   Only a suggestion: the quick quote never books or holds a slot. Same as quick-quote.html. */
+.qOpen{ margin-top:.75rem; }
+.qOpen__hint{ margin:0 0 .5rem; font-size:.9rem; opacity:.85; }
+.qOpen__list{ display:flex; gap:.6rem; overflow-x:auto; padding-bottom:.5rem; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
+.qOpen__day{ flex:0 0 auto; scroll-snap-align:start; display:grid; gap:.4rem; justify-items:center; text-align:center; padding:.6rem .55rem; border:1px solid rgba(128,128,128,.4); border-radius:12px; }
+.qOpen__date{ font-family:"Archivo Narrow",sans-serif; font-weight:700; letter-spacing:.04em; line-height:1.2; font-size:.95rem; }
+.qOpen__date small{ display:block; font-weight:500; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; opacity:.8; }
+.qOpen__slots{ display:flex; gap:.35rem; }
+.qOpen .qWhen__asap{ padding:.4rem .7rem; font-size:.85rem; border-radius:9px; }
 .qhp{ position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
 .qform__submit{ width:100%; margin-top:.5rem; }
 .qform__submit[disabled]{ opacity:.6; cursor:progress; }
@@ -1532,6 +1542,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
                     <button type="button" id="qAsapBtn" class="qWhen__asap" aria-pressed="false">ASAP</button>
                     <input id="qWhen" name="when" type="date" autocomplete="off" aria-label="Preferred date">
                   </div>
+                  <div id="qOpen" class="qOpen" hidden></div>
                 </div>
 
                 <div class="qfield">
@@ -2673,6 +2684,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       });
       var asapBtn = document.getElementById('qAsapBtn');
       if(asapBtn) asapBtn.setAttribute('aria-pressed', 'false');
+      if(window.kcOpenClear) window.kcOpenClear();   // un-pick an open day too
       if(window.kcFiles){ window.kcFiles.length = 0; if(window.kcPhotosRedraw) window.kcPhotosRedraw(); }
       var qf = document.getElementById('quoteForm');
       if(qf){
@@ -2755,20 +2767,70 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     /* no past dates: min = today, local time */
     var t = new Date();
     when.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    var openSlot = '', openDay = '';   // AM or PM tapped in the open days, and the day it belongs to
+    function clearOpen(){
+      openSlot = ''; openDay = '';
+      var box = document.getElementById('qOpen');
+      if(box) box.querySelectorAll('[data-slot]').forEach(function(b){ b.setAttribute('aria-pressed', 'false'); });
+    }
+    window.kcOpenClear = clearOpen;
     function picked(){ if(when.value) asap.setAttribute('aria-pressed', 'false'); }
     when.addEventListener('input', picked);
     when.addEventListener('change', picked);
     asap.addEventListener('click', function(){
       var on = asap.getAttribute('aria-pressed') !== 'true';
       asap.setAttribute('aria-pressed', on ? 'true' : 'false');
-      if(on) when.value = '';
+      if(on){ when.value = ''; clearOpen(); }
     });
-    /* The picker holds YYYY-MM-DD; hand back MM/DD/YY for the email, lead and summary. */
+    /* The picker holds YYYY-MM-DD; hand back MM/DD/YY for the email, lead and summary,
+       plus AM or PM when the day was tapped from the open days. */
     window.kcWhen = function(){
       if(asap.getAttribute('aria-pressed') === 'true') return 'ASAP';
       var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value);
-      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) : '';
+      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2)
+        + (openSlot && openDay === when.value ? ' ' + openSlot.toUpperCase() : '') : '';
     };
+    /* Open days from the booking calendar (getOpenSlots). Only a suggestion: nothing is booked
+       or held from the quick quote. Any day with the morning or the afternoon open shows.
+       If they can't load, the plain date picker above stays exactly as it was. */
+    var box = document.getElementById('qOpen');
+    if(box && window.fetch){
+      fetch('https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots')
+        .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(data){
+          var days = ((data && data.days) || []).filter(function(d){
+            return /^\d{4}-\d{2}-\d{2}$/.test(d.date) && (d.am || d.pm);
+          });
+          if(!days.length || when.value) return;   // nothing open, or they already picked a date
+          box.innerHTML = '<p class="qOpen__hint">Our open days. Pick one and we\u2019ll confirm it with you.</p>' +
+            '<div class="qOpen__list">' + days.map(function(d){
+              var p = d.date.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+              var wd = dt.toLocaleDateString('en-US', { weekday: 'short' });
+              var md = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              var btn = function(s, txt, name){
+                return '<button type="button" class="qWhen__asap" data-day="' + d.date + '" data-slot="' + s +
+                  '" aria-pressed="false" aria-label="' + name + ', ' + wd + ' ' + md + '">' + txt + '</button>';
+              };
+              return '<div class="qOpen__day"><span class="qOpen__date"><small>' + wd + '</small>' + md + '</span>' +
+                '<span class="qOpen__slots">' + (d.am ? btn('am', 'AM', 'Morning') : '') +
+                (d.pm ? btn('pm', 'PM', 'Afternoon') : '') + '</span></div>';
+            }).join('') + '</div>';
+          when.style.display = 'none';   // the open days take the date picker's place
+          box.hidden = false;
+        })
+        .catch(function(){ /* keep the plain date picker */ });
+      box.addEventListener('click', function(e){
+        var b = e.target.closest('[data-slot]');
+        if(!b) return;
+        var again = b.getAttribute('aria-pressed') === 'true';
+        clearOpen();
+        if(again){ when.value = ''; return; }   // tapping the picked one again un-picks it
+        openDay = b.getAttribute('data-day'); openSlot = b.getAttribute('data-slot');
+        b.setAttribute('aria-pressed', 'true');
+        when.value = openDay;
+        asap.setAttribute('aria-pressed', 'false');
+      });
+    }
   })();
 })();
 
