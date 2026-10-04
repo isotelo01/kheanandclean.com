@@ -1214,6 +1214,8 @@
       if(notes) notes.value = '';
       var jobDate = document.getElementById('eWhen');   // Job date clears with everything else
       if(jobDate) jobDate.value = '';
+      var jobTime = document.getElementById('eWhenTime');   // and its AM/PM start time
+      if(jobTime) jobTime.value = '';
       ['discAmt','discPct'].forEach(function(id){ var d = document.getElementById(id); if(d) d.value = ''; });
       var wm = document.getElementById('waiveMin'); if(wm) wm.checked = false;
       syncService();
@@ -1290,6 +1292,90 @@
     var t = e.target;
     if(t.matches && t.matches('input[type="number"]') && t.value === '' && !t.placeholder) t.value = '0';
   });
+
+  /* Job date: open days from the booking calendar (getOpenSlots), as a strip under the date box.
+     Under $450: AM or PM. Tapping one sets the date and the start time (9:00 or 1:00), so once
+     the customer approves, the job takes only that half of the day.
+     $450 or more takes the whole day, so only days with nothing booked show, as "All day".
+     The date box stays: any date can still be picked there, booked or not (the override).
+     Picking in the box clears the start time, and a dated job with no time holds the whole day.
+     A red line warns when the date clashes with something already booked; it still saves.
+     Nothing is held while the estimate is out; the slot is taken once the customer approves.
+     If the open days can't load, the strip stays hidden and the date box works as before. */
+  (function(){
+    var when = document.getElementById('eWhen'), time = document.getElementById('eWhenTime'),
+        box  = document.getElementById('eOpen');
+    if(!when || !time || !box || !window.fetch) return;
+    var WHOLE_DAY_AT = 450, SLOT = { am:'09:00', pm:'13:00' };
+    var days = null, big = null;   // every day getOpenSlots sent; whether the strip on screen is the $450+ kind
+    function isBig(){ return !!(window.KC_quote && Number(window.KC_quote.total) >= WHOLE_DAY_AT); }
+    function label(day){
+      var p = day.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+      return dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    }
+    function draw(){
+      big = isBig();
+      var list = days.filter(function(d){ return big ? (d.am && d.pm) : (d.am || d.pm); });
+      box.innerHTML = '<p class="jobOpen__hint">' + (big
+          ? 'Open days. This job is $' + WHOLE_DAY_AT + ' or more, so it takes the whole day: only days with nothing booked show.'
+          : 'Open days. Tap AM (starts 9:00) or PM (starts 1:00).') +
+        ' Or pick any date in the box above.</p>' +
+        (list.length ? '<div class="jobOpen__list">' + list.map(function(d){
+          var p = d.date.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+          var b = function(s, txt){
+            return '<button type="button" class="jobOpen__slot" data-day="' + d.date + '" data-slot="' + s +
+              '" aria-pressed="false">' + txt + '</button>';
+          };
+          return '<div class="jobOpen__day"><span class="jobOpen__date"><small>' +
+            dt.toLocaleDateString('en-US', { weekday:'short' }) + '</small>' +
+            dt.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '</span>' +
+            '<span class="jobOpen__slots">' + (big ? b('all', 'All day')
+              : (d.am ? b('am', 'AM') : '') + (d.pm ? b('pm', 'PM') : '')) + '</span></div>';
+        }).join('') + '</div>' : '<p class="jobOpen__hint">No open days on the calendar right now.</p>') +
+        '<p class="jobOpen__warn" hidden></p>';
+      box.hidden = false;
+      paint();
+    }
+    /* Light up the picked button, and warn when the date clashes with something booked. */
+    function paint(){
+      if(!days) return;
+      box.querySelectorAll('[data-slot]').forEach(function(b){
+        var s = b.getAttribute('data-slot');
+        var on = b.getAttribute('data-day') === when.value && (s === 'all' || time.value === SLOT[s]);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      var warn = box.querySelector('.jobOpen__warn'), d = null;
+      if(!warn) return;
+      days.forEach(function(x){ if(x.date === when.value) d = x; });
+      var need = !d ? [] : (big || !/^\d\d:\d\d$/.test(time.value)) ? ['am', 'pm'] : [time.value < '13:00' ? 'am' : 'pm'];
+      var clash = need.some(function(s){ return !d[s]; });
+      warn.hidden = !clash;
+      warn.textContent = !clash ? '' : 'Heads up: ' + label(when.value) +
+        (need.length > 1 ? ' already has something booked, and this job would hold the whole day.'
+          : need[0] === 'am' ? ' morning isn\u2019t open.' : ' afternoon isn\u2019t open.') + ' It will still save.';
+    }
+    box.addEventListener('click', function(e){
+      var b = e.target.closest('[data-slot]');
+      if(!b) return;
+      if(b.getAttribute('aria-pressed') === 'true'){ when.value = ''; time.value = ''; }   // tap the picked one again to un-pick
+      else { when.value = b.getAttribute('data-day'); time.value = b.getAttribute('data-slot') === 'pm' ? SLOT.pm : SLOT.am; }
+      paint();
+    });
+    when.addEventListener('change', function(){ time.value = ''; paint(); });   // picked in the box: no start time
+    /* Price crossed $450? Redraw. Otherwise repaint, since New and Edit change the picks. */
+    function check(){ if(days) (isBig() !== big ? draw : paint)(); }
+    ['input', 'change', 'click'].forEach(function(t){
+      document.addEventListener(t, function(){ setTimeout(check, 0); });
+    });
+    setInterval(check, 1500);   // catches changes made without an event, like Edit restoring a saved estimate
+    fetch('https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots')
+      .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(data){
+        var all = ((data && data.days) || []).filter(function(d){ return /^\d{4}-\d{2}-\d{2}$/.test(d.date); });
+        if(all.length){ days = all; draw(); }
+      })
+      .catch(function(){ /* keep the plain date box */ });
+  })();
 
   /* Phase 2 hook: a "Text this estimate" button would call buildBreakdown()
      and calc() here. Nothing sends anything today. */

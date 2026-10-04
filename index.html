@@ -1982,6 +1982,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
           .estWhen .qWhen input[type="date"]{ background-color:#000; color:#fff; border:1.5px solid #3A3A3A; border-radius:12px; }
           .estWhen .qWhen input[type="date"]:focus{ border-color:#E3B64A; box-shadow:0 0 0 3px rgba(227,182,74,.35); outline:none; }
           .estWhen .qWhen input[type="date"]::-webkit-calendar-picker-indicator{ filter:invert(1); opacity:.8; }
+          .estWhen .qOpen__day{ background:#000; color:#fff; border-color:#3A3A3A; }
         </style>
         <div class="estField estWhen">
           <label for="eWhen">When would you like this done? <span class="opt">(optional)</span></label>
@@ -1989,6 +1990,8 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
             <button type="button" id="eAsapBtn" class="qWhen__asap" aria-pressed="false">ASAP</button>
             <input id="eWhen" type="date" autocomplete="off" aria-label="Preferred date">
           </div>
+          <!-- Open days from the booking calendar; a time tapped here is booked when they send. -->
+          <div id="eOpen" class="qOpen" hidden></div>
         </div>
         <script>
         (function(){
@@ -2003,15 +2006,93 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
           asap.addEventListener('click', function(){
             var on = asap.getAttribute('aria-pressed') !== 'true';
             asap.setAttribute('aria-pressed', on ? 'true' : 'false');
-            if(on) when.value = '';
+            if(on){ when.value = ''; clearPick(); }
           });
-          /* MM/DD/YY or ASAP for the email and the lead, same as the Quick Quote form. */
+          /* MM/DD/YY or ASAP for the email and the lead, same as the Quick Quote form,
+             plus AM, PM or All day when the time was tapped from the open days. */
           window.kcEstWhen = function(){
             if(asap.getAttribute('aria-pressed') === 'true') return 'ASAP';
             var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value);
-            return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) : '';
+            return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2)
+              + (pickSlot && pickDay === when.value ? ' ' + SLOT_TXT[pickSlot] : '') : '';
           };
-          window.kcEstWhenClear = function(){ when.value = ''; asap.setAttribute('aria-pressed', 'false'); };
+          window.kcEstWhenClear = function(){ when.value = ''; asap.setAttribute('aria-pressed', 'false'); clearPick(); };
+
+          /* Open days from the booking calendar (getOpenSlots). Unlike the quick quote, the time
+             tapped here is BOOKED when they send the request (bookWebSlot, called from the submit
+             further down). Under $450: AM or PM on any open half-day. $450 or more takes the whole
+             day: one "All day" button, fully open days only. If the open days can't load, the plain
+             date box stays and a date there is only a request, same as before. */
+          var WHOLE_DAY_AT = 450, SLOT_TXT = { am:'AM', pm:'PM', day:'All day' };
+          var box = document.getElementById('eOpen'), days = null, big = false, pickDay = '', pickSlot = '';
+          function total(){ return window.kcEstTotal ? Number(window.kcEstTotal()) || 0 : 0; }
+          function clearPick(){
+            pickDay = ''; pickSlot = '';
+            if(box) box.querySelectorAll('[data-slot]').forEach(function(b){ b.setAttribute('aria-pressed', 'false'); });
+          }
+          function draw(){
+            big = total() >= WHOLE_DAY_AT;
+            if(pickDay){ when.value = ''; clearPick(); }   // a pick from the other price tier no longer fits
+            var list = days.filter(function(d){ return big ? d.am && d.pm : d.am || d.pm; });
+            if(!list.length){ box.hidden = true; box.innerHTML = ''; when.style.display = ''; return; }
+            box.innerHTML = '<p class="qOpen__hint">' + (big
+                ? 'Your job takes the whole day. Pick an open day'
+                : 'Pick an open morning (9\u20131) or afternoon (1\u20136)') +
+              ' and it\u2019s booked when you send your request.</p>' +
+              '<div class="qOpen__list">' + list.map(function(d){
+                var p = d.date.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+                var wd = dt.toLocaleDateString('en-US', { weekday: 'short' });
+                var md = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                var btn = function(s, name){
+                  return '<button type="button" class="qWhen__asap" data-day="' + d.date + '" data-slot="' + s +
+                    '" aria-pressed="false" aria-label="' + name + ', ' + wd + ' ' + md + '">' + SLOT_TXT[s] + '</button>';
+                };
+                return '<div class="qOpen__day"><span class="qOpen__date"><small>' + wd + '</small>' + md + '</span>' +
+                  '<span class="qOpen__slots">' + (big ? btn('day', 'All day') :
+                    (d.am ? btn('am', 'Morning') : '') + (d.pm ? btn('pm', 'Afternoon') : '')) + '</span></div>';
+              }).join('') + '</div>';
+            when.style.display = 'none';   // the open days take the date box's place
+            box.hidden = false;
+          }
+          /* What the submit books: {date, slot, total, label}, or null when nothing was tapped
+             (ASAP, blank, a typed date) or the price moved to the other tier since. */
+          window.kcEstBooking = function(){
+            if(!pickDay || !pickSlot || pickDay !== when.value || asap.getAttribute('aria-pressed') === 'true') return null;
+            var t = total();
+            if(!t || (t >= WHOLE_DAY_AT) !== (pickSlot === 'day')) return null;
+            var p = pickDay.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+            return { date: pickDay, slot: pickSlot === 'day' ? 'am' : pickSlot, total: t,
+              label: dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) +
+                { am:', morning (9 AM\u20131 PM)', pm:', afternoon (1\u20136 PM)', day:', all day' }[pickSlot] };
+          };
+          if(box && window.fetch){
+            fetch('https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots')
+              .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+              .then(function(data){
+                var list = ((data && data.days) || []).filter(function(d){ return /^\d{4}-\d{2}-\d{2}$/.test(d.date); });
+                if(!list.length || when.value) return;   // nothing came back, or they already typed a date
+                days = list;
+                draw();
+                /* Redraw when the price crosses $450 either way. */
+                var check = function(){ if(days && (total() >= WHOLE_DAY_AT) !== big) draw(); };
+                ['input', 'change', 'click'].forEach(function(ev){
+                  document.addEventListener(ev, function(){ setTimeout(check, 0); });
+                });
+                setInterval(check, 1500);
+              })
+              .catch(function(){ /* keep the plain date box */ });
+            box.addEventListener('click', function(e){
+              var b = e.target.closest('[data-slot]');
+              if(!b) return;
+              var again = b.getAttribute('aria-pressed') === 'true';
+              clearPick();
+              if(again){ when.value = ''; return; }   // tapping the picked one again un-picks it
+              pickDay = b.getAttribute('data-day'); pickSlot = b.getAttribute('data-slot');
+              b.setAttribute('aria-pressed', 'true');
+              when.value = pickDay;
+              asap.setAttribute('aria-pressed', 'false');
+            });
+          }
         })();
         </script>
 
@@ -3830,6 +3911,10 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     return total;
   }
 
+  /* The estimate total as shown (minimum applied), 0 when nothing is entered.
+     The open-days box reads it: $450 or more books the whole day. */
+  window.kcEstTotal = function(){ var b = buildBreakdown(); return b.breakdown.length ? Math.max(b.sum, MIN_JOB) : 0; };
+
   function calc(){
     var b = buildBreakdown();
 
@@ -4235,6 +4320,18 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       var eIsBot = eSend.querySelector('input.esthp').checked;
       var ePics = (window.kcEstFiles || []).slice();
       var eLeadKey = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      var eBooked = null, eBookErr = '';   // set by the booking step below
+      /* The thank-you line under the form: booked, or why the tapped time didn't book.
+         Nothing tapped: the original wording stays. */
+      function eDoneMsg(){
+        var p = eDone.querySelector('p');
+        if(!p || (!eBooked && !eBookErr)) return;
+        var call = '<a href="tel:+19167672520">(916)&nbsp;767-2520</a>';
+        p.innerHTML = eBooked
+          ? '<strong>You\u2019re booked</strong> for ' + eBooked.label + '. We will call to confirm the details. To change it, call ' + call + '.'
+          : '<strong>Got it.</strong> ' + ({ taken:'That time was just taken, so we', phone:'Your number already has a booking with us, so we' }[eBookErr]
+              || 'We couldn\u2019t lock in that time online, so we') + ' will call you shortly to set a day. If it is urgent, call ' + call + '.';
+      }
       if(ePics.length && !eIsBot){ eSubmit.textContent = 'Uploading photos...'; }
 
       Promise.resolve()
@@ -4279,7 +4376,28 @@ document.getElementById('yr').textContent = new Date().getFullYear();
           return null;
         });
       })
+      .then(function(leadId){
+        /* A time tapped from the open days is booked now, against the lead just saved
+           (bookWebSlot). If it can't book, the request still goes through as before. */
+        var pick = window.kcEstBooking ? window.kcEstBooking() : null;
+        if(!pick) return null;
+        if(!leadId){ eBookErr = 'error'; return null; }
+        eSubmit.textContent = 'Booking...';
+        return fetch('https://us-central1-khean-estimator-78f3e.cloudfunctions.net/bookWebSlot', {
+          method:'POST', headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ leadId: leadId, date: pick.date, slot: pick.slot, total: pick.total })
+        })
+        .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){
+          if(r.ok) eBooked = pick; else eBookErr = (j && j.code) || 'error';
+        }); })
+        .catch(function(){ eBookErr = 'error'; });
+      })
       .then(function(){
+        /* The email says whether the time was booked. */
+        if(eBooked) fd.set('when', eWhenVal + ' (BOOKED on the calendar)');
+        else if(eBookErr) fd.set('when', eWhenVal + ' (NOT booked: ' + ({ taken:'slot was just taken',
+          phone:'this phone already has a booking', done:'already booked' }[eBookErr] || 'booking failed') + ', call to set a day)');
+        eSubmit.textContent = 'Sending...';
         return fetch(EST_ENDPOINT, {
           method:'POST', headers:{ 'Accept':'application/json' }, body: fd
         });
@@ -4291,6 +4409,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
           if(eNotes) eNotes.value = '';
           if(window.kcEstFilesClear) window.kcEstFilesClear();
           if(window.kcEstWhenClear) window.kcEstWhenClear();
+          eDoneMsg();
           eSend.hidden = true;
           eDone.hidden = false;
         } else {
@@ -4298,6 +4417,12 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         }
       })
       .catch(function(){
+        /* Booked already: it's on the calendar and the Leads page, so don't invite a resend. */
+        if(eBooked){
+          if(window.kcEstWhenClear) window.kcEstWhenClear();
+          eDoneMsg(); eSend.hidden = true; eDone.hidden = false;
+          return;
+        }
         eStatus.innerHTML = 'Something went wrong sending that. Please call <a href="tel:+19167672520">(916) 767-2520</a> and we will sort it out.';
         eStatus.classList.add('err');
         eSubmit.disabled = false;

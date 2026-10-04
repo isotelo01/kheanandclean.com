@@ -544,6 +544,18 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 
 .estField input::placeholder, .estField textarea::placeholder{ color:rgba(255,255,255,.45); }
 .estField input[type="date"]{ color-scheme:dark; }   /* Job date: white calendar icon and a dark picker on the black box */
+/* Job date: open days from the booking calendar, a sideways-scrolling strip under the date box */
+.jobOpen{ margin-top:.75rem; }
+.jobOpen__hint{ margin:0 0 .5rem; font-size:var(--fs-sm); line-height:1.45; color:var(--dust); }
+.jobOpen__list{ display:flex; gap:.6rem; overflow-x:auto; padding-bottom:.5rem; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
+.jobOpen__day{ flex:0 0 auto; scroll-snap-align:start; display:grid; gap:.45rem; justify-items:center; text-align:center; padding:.6rem .55rem; background:#000; border:1px solid var(--line-d); border-radius:12px; }
+.jobOpen__date{ font-family:"Archivo Narrow",sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.04em; line-height:1.2; color:#fff; }
+.jobOpen__date small{ display:block; font-weight:500; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; color:var(--dust); }
+.jobOpen__slots{ display:flex; gap:.35rem; }
+.jobOpen__slot{ font:600 .82rem/1 "Archivo Narrow",sans-serif; letter-spacing:.06em; padding:.5rem .7rem; color:#fff; background:transparent; border:1px solid var(--line-d); border-radius:9px; cursor:pointer; white-space:nowrap; }
+.jobOpen__slot:hover{ border-color:var(--jade-lit); }
+.jobOpen__slot[aria-pressed="true"]{ background:var(--jade); border-color:var(--jade-lit); }
+.jobOpen__warn{ margin:.35rem 0 0; font-size:var(--fs-sm); line-height:1.45; color:#E0806F; }
 
 /* Autofill: browsers paint their own pale tint over filled boxes; keep ours black/white. */
 .estField input:-webkit-autofill, .estField input:-webkit-autofill:hover, .estField input:-webkit-autofill:focus,
