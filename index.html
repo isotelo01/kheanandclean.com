@@ -847,6 +847,12 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .estSend .estEnter{ width:auto; min-width:9rem; margin-top:0; }
 .estSend .estEnter[disabled]{ opacity:.45; cursor:not-allowed; }
 .estGateHint{ display:block; width:100%; font-size:var(--fs-2xs); color:var(--dust); margin:0 0 .45rem; text-align:left; line-height:1.5; }
+/* Optional text consent in the estimator's details (A2P 10DLC) */
+.estConsent{ margin:0 0 1.1rem; }
+.estConsent__box{ display:flex; align-items:flex-start; gap:.6rem; font-size:var(--fs-sm); line-height:1.45; color:var(--bone); cursor:pointer; }
+.estConsent__box input{ width:18px; height:18px; flex:none; margin:.12rem 0 0; accent-color:var(--jade); cursor:pointer; }
+.estConsent__fine{ font-size:var(--fs-2xs); color:var(--dust); margin:.5rem 0 0; line-height:1.6; }
+.estConsent__fine a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
 @media (max-width:560px){ .estSend .estEnter{ width:100%; } }
 .est--locked .est__form > :not(.estSend){ display:none; }
 .est--locked .est__out{ display:none; }
@@ -1890,6 +1896,12 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
               <label for="eZip">ZIP</label>
               <input id="eZip" name="zip" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="95630">
             </div>
+          </div>
+          <!-- Optional text consent (A2P 10DLC): never pre-checked, not needed to use the estimator.
+               Sits above Enter and stays on screen through Request Appointment. -->
+          <div class="estConsent">
+            <label class="estConsent__box" for="eSms"><input type="checkbox" id="eSms" name="sms_consent" value="Yes"> Yes, text me about my estimate and appointments from Khean &amp; Clean (quote links, appointment confirmations and reminders).</label>
+            <p class="estConsent__fine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn't required to get an estimate. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>
           </div>
           <div class="estRow estRow--gate">
             <div class="estField">
@@ -4197,6 +4209,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         var el = document.getElementById(id);
         if(el){ el.value = ''; el.removeAttribute('aria-invalid'); }
       });
+      var eSmsBox = document.getElementById('eSms');
+      if(eSmsBox) eSmsBox.checked = false;
       if(eSend) eSend.querySelectorAll('.estErr').forEach(function(el){ el.textContent = ''; });
       if(eStatus){ eStatus.textContent = ''; eStatus.classList.remove('err'); }
     }
@@ -4257,6 +4271,11 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     function eCity(){
       return eCityEl ? eCityEl.value.trim() : '';
     }
+    /* The optional "text me" box in their details. */
+    function eSmsOk(){
+      var b = document.getElementById('eSms');
+      return !!(b && b.checked);
+    }
     /* Street, city and ZIP joined into one line for the email. */
     function eFullAddr(){
       var z = eZipEl ? eZipEl.value.trim() : '';
@@ -4316,6 +4335,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         fd.append('zip',     eZipEl ? eZipEl.value.trim() : '');
         fd.append('property_type', eType ? eType.value : '');
         fd.append('stage',   'Opened the estimator (details only, no estimate yet)');
+        var eSmsYes = eSmsOk();   /* read once, at the click */
+        fd.append('sms_consent', eSmsYes ? 'Yes' : 'No');
         if (eSend.querySelector('input.esthp').checked) { fd.append('botcheck', 'true'); }
 
         /* Also put a lead on the estimator's Leads page. Bots are skipped.
@@ -4334,6 +4355,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
               zip:    eZipEl ? eZipEl.value.trim() : ''
             }],
             type:      eType ? eType.value.toLowerCase() : '',
+            smsConsent: eSmsYes,
             message:   'Opened the estimator (details only, no estimate yet)',
             page:      'homepage-estimator'
           }).then(function(id){ window.kcSoftLeadId = id; })
@@ -4404,6 +4426,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       fd.append('notes',    eNotes ? eNotes.value.trim() : '');
       var eWhenVal = window.kcEstWhen ? window.kcEstWhen() : '';
       fd.append('when',     eWhenVal);
+      var eSmsYes = eSmsOk();   /* read once, at the click */
+      fd.append('sms_consent', eSmsYes ? 'Yes' : 'No');
       if (eSend.querySelector('input.esthp').checked) { fd.append('botcheck', 'true'); }
 
       eSubmit.disabled = true;
@@ -4459,6 +4483,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
             zip:    eZipEl ? eZipEl.value.trim() : ''
           }],
           type:       eType ? eType.value.toLowerCase() : '',
+          smsConsent: eSmsYes,
           /* Every choice behind the estimate, in the in-house estimator's own
              snapshot format, so New quote on the Leads page can rebuild it.
              Saved as text so Firestore takes any shape. */
