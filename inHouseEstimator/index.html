@@ -361,6 +361,24 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
       try { window.KC_restore(JSON.parse(data.estimateData)); }
       catch (e) { console.error("Could not rebuild the homepage estimate", e); }
     }
+    /* The day the customer asked for on the website ("10/05/26 AM", "PM",
+       "All day" or just the date) goes into Job date with its 9:00 or 1:00 start;
+       All day or no time = whole day. Past days and anything else ("ASAP") stay
+       blank. Set the way send.js reopens an estimate: an input event only, since a
+       change event on the date box clears the start time. */
+    const wm = /^(\d{2})\/(\d{2})\/(\d{2})(?:\s+(AM|PM|All day))?$/i.exec(String(data.when || "").trim());
+    const jd = document.getElementById("eWhen"), jt = document.getElementById("eWhenTime");
+    if (wm && jd && jt) {
+      const day = "20" + wm[3] + "-" + wm[1] + "-" + wm[2];
+      const now = new Date(), two = n => ("0" + n).slice(-2);
+      const today = now.getFullYear() + "-" + two(now.getMonth() + 1) + "-" + two(now.getDate());
+      const s = (wm[4] || "").toLowerCase();
+      if (day >= today) {
+        jd.value = day;
+        jt.value = s === "am" ? "09:00" : s === "pm" ? "13:00" : "";
+        jd.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
   };
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", fill);

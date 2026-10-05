@@ -131,6 +131,15 @@ const servicesOf = l => Array.isArray(l.services) ? l.services.join(", ") : Stri
 const ms = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
 const when = l => { const m = ms(l.createdAt); return m ? new Date(m).toLocaleString(undefined,
   { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""; };
+/* The day the customer asked for on the website, saved as "10/05/26 AM" (or "PM",
+   "All day", or just the date). Shown as "Mon, Oct 5 · AM"; anything else (like "ASAP") as typed. */
+const wantsDay = l => {
+  const s = String(l.when || "").trim();
+  const m = /^(\d{2})\/(\d{2})\/(\d{2})(?:\s+(AM|PM|All day))?$/i.exec(s);
+  if (!m) return s;
+  const d = new Date(2000 + +m[3], +m[1] - 1, +m[2]);
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + (m[4] ? " \u00b7 " + m[4] : "");
+};
 /* Leads come from a public form, so only real https links are shown as photos. */
 const photosOf = l => (Array.isArray(l.photoUrls) ? l.photoUrls : []).filter(u => /^https:\/\//.test(String(u)));
 /* Newer leads store where each photo sits in Storage. Only quick-quote paths are accepted. */
@@ -307,6 +316,7 @@ async function showLead(id){
           prow(l.phone) + prow(l.email) +
         '</div>' +
         rrow("Type", typeLabel(l)) +
+        (String(l.when || "").trim() ? rrow("Wants", wantsDay(l)) : "") +
         rrow("Services", servicesOf(l)) +
         '<div class="rrow msgrow"><div class="msghead"><div class="rlab">Message</div>' +
           '<button type="button" class="ghost tiny" id="editMsg">Edit</button></div>' +
@@ -434,6 +444,8 @@ async function showLead(id){
       zip: a.zip || "",
       message: l.message || "",
       leadId: l.id,
+      /* The day the customer asked for ("10/05/26 AM"), so Job date fills in. */
+      when: typeof l.when === "string" ? l.when : "",
       /* Homepage estimator choices, so the estimate rebuilds itself. */
       estimateData: typeof l.estimateData === "string" ? l.estimateData : ""
     };
