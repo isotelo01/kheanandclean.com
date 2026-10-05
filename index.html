@@ -847,10 +847,21 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .estSend .estEnter{ width:auto; min-width:9rem; margin-top:0; }
 .estSend .estEnter[disabled]{ opacity:.45; cursor:not-allowed; }
 .estGateHint{ display:block; width:100%; font-size:var(--fs-2xs); color:var(--dust); margin:0 0 .45rem; text-align:left; line-height:1.5; }
-/* Optional text consent in the estimator's details (A2P 10DLC) */
-.estConsent{ margin:0 0 1.1rem; }
-.estConsent__box{ display:flex; align-items:flex-start; gap:.6rem; font-size:var(--fs-sm); line-height:1.45; color:var(--bone); cursor:pointer; }
-.estConsent__box input{ width:18px; height:18px; flex:none; margin:.12rem 0 0; accent-color:var(--jade); cursor:pointer; }
+/* Text consent in the estimator's details (A2P 10DLC): a lit panel with a Yes / No choice.
+   One must be picked to continue; either answer opens the estimator. */
+.estConsent{ margin:0 0 1.1rem; padding:1rem 1rem .85rem; border:1.5px solid var(--jade-lit); border-radius:12px; background:rgba(62,127,214,.10); }
+.estConsent:has([aria-invalid="true"]){ border-color:#E0806F; background:rgba(224,128,111,.08); }
+.estConsent__q{ font-size:1.05rem; font-weight:700; color:#fff; line-height:1.35; margin:0; }
+.estConsent__what{ font-size:var(--fs-sm); color:var(--bone); line-height:1.5; margin:.35rem 0 .75rem; }
+.estConsent__opts{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+.estConsent__opt{ display:flex; align-items:center; gap:.6rem; padding:.75rem .9rem; border:1.5px solid rgba(236,228,208,.35); border-radius:10px; background:#000; color:var(--bone); font-size:var(--fs-body); font-weight:600; cursor:pointer; transition:background .15s ease, border-color .15s ease, color .15s ease; }
+.estConsent__opt:hover{ border-color:var(--jade-lit); }
+.estConsent__opt input{ -webkit-appearance:none; appearance:none; width:20px; height:20px; flex:none; margin:0; color:inherit; border:2px solid currentColor; border-radius:50%; background:transparent; display:grid; place-content:center; cursor:pointer; }
+.estConsent__opt input::before{ content:""; width:10px; height:10px; border-radius:50%; background:currentColor; transform:scale(0); transition:transform .12s ease; }
+.estConsent__opt input:checked::before{ transform:scale(1); }
+.estConsent__opt input:focus-visible{ outline:2px solid var(--jade-lit); outline-offset:3px; }
+.estConsent__opt:has(input:checked){ background:var(--jade); border-color:var(--jade-lit); color:#fff; }
+.estConsent .estErr{ margin-top:.45rem; }
 .estConsent__fine{ font-size:var(--fs-2xs); color:var(--dust); margin:.5rem 0 0; line-height:1.6; }
 .estConsent__fine a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
 @media (max-width:560px){ .estSend .estEnter{ width:100%; } }
@@ -1194,10 +1205,16 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qform__submit[disabled]{ opacity:.6; cursor:progress; }
 .qform__submit.is-sent{ opacity:1; cursor:default; background:var(--emerald); border-color:var(--emerald); color:var(--on-em); }
 .qform__fine{ font-size:var(--fs-2xs); color:var(--slate); margin-top:.9rem; line-height:1.6; }
-/* Optional text-message consent (A2P 10DLC): one box, never pre-checked, never required. */
-.qconsent{ margin-top:1rem; }
-.qconsent .qcheck{ align-items:flex-start; line-height:1.45; }
-.qconsent .qcheck input{ margin-top:.15rem; }
+/* Text-message consent (A2P 10DLC): a lit panel with a Yes / No choice, neither picked to start.
+   One must be picked to send; either answer sends the quote, so consent itself is never required. */
+.qconsent{ margin-top:1rem; padding:1rem 1rem .85rem; border:1.5px solid var(--jade); border-radius:12px; background:rgba(27,79,160,.05); }
+.qconsent:has([aria-invalid="true"]){ border-color:#A6402F; }
+.qconsent__q{ font-size:1.05rem; font-weight:700; line-height:1.35; margin:0; }
+.qconsent__what{ font-size:var(--fs-sm); line-height:1.5; margin:.35rem 0 .75rem; }
+.qconsent__opts{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+.qconsent .qerr{ margin-top:.45rem; }
+.qconsent .qcheck{ align-items:center; line-height:1.3; font-weight:600; }
+.qconsent .qcheck input{ margin-top:0; }
 .qconsent__fine{ font-size:var(--fs-2xs); color:var(--slate); margin-top:.5rem; line-height:1.6; }
 .qconsent__fine a{ color:inherit; text-decoration:underline; }
 .qstatus{ font-size:var(--fs-sm); margin-top:.9rem; }
@@ -1397,8 +1414,12 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qqLook .qcheck input:checked::after{ content:""; position:absolute; left:5px; top:2px; width:4px; height:8px; border:solid #E3B64A; border-width:0 2px 2px 0; transform:rotate(45deg); }
 .qqLook .qcheck input:focus-visible{ outline:2px solid #E3B64A; outline-offset:2px; }
 .qqLook .qcheck:has(input:checked){ background:#E3B64A; color:#000; border-color:#E3B64A; }
-.qqLook .qconsent .qcheck input{ margin-top:.1rem; }
+.qqLook .qconsent .qcheck input{ margin-top:0; }
 .qqLook .qconsent__fine{ color:rgba(255,255,255,.8); }
+.qqLook .qconsent{ border-color:#E3B64A; background:rgba(227,182,74,.10); }
+.qqLook .qconsent:has([aria-invalid="true"]){ border-color:#F08C7A; background:rgba(240,140,122,.08); }
+.qqLook .qconsent__q{ color:#fff; }
+.qqLook .qconsent__what{ color:rgba(255,255,255,.9); }
 /* Buttons and links that were blue: blue on navy disappears, so they go gold. */
 .qqLook .qWhen__asap{ border-color:#E3B64A; color:#E3B64A; }
 .qqLook .qWhen__asap:hover{ background:rgba(227,182,74,.12); }
@@ -1626,10 +1647,17 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
               </div>
             </div>
 
-            <!-- Optional text consent (A2P 10DLC): never pre-checked, not needed to send the form.
+            <!-- Text consent (A2P 10DLC): a Yes / No choice, neither picked to start. One must be picked
+                 to send, but "No thanks" still sends the quote, so consent itself is never required.
                  Outside #qExpand so it always shows next to the button. -->
-            <div class="qconsent">
-              <label class="qcheck" for="qSms"><input type="checkbox" id="qSms" name="sms_consent" value="Yes"> Yes, text me about my quote and appointments from Khean &amp; Clean (quote links, appointment confirmations and reminders).</label>
+            <div class="qconsent" role="radiogroup" aria-labelledby="qSmsQ" aria-describedby="qSmsWhat" aria-required="true">
+              <p class="qconsent__q" id="qSmsQ">Can we text you about your quote?</p>
+              <p class="qconsent__what" id="qSmsWhat">If you say yes, Khean &amp; Clean will text you quote links, appointment confirmations and reminders. Choose Yes or No to send. Either way, you get your quote.</p>
+              <div class="qconsent__opts">
+                <label class="qcheck" for="qSms"><input type="radio" id="qSms" name="sms_consent" value="Yes" autocomplete="off"> Yes, text me</label>
+                <label class="qcheck" for="qSmsNo"><input type="radio" id="qSmsNo" name="sms_consent" value="No" autocomplete="off"> No thanks</label>
+              </div>
+              <span class="qerr" data-for="qSms"></span>
               <p class="qconsent__fine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn't required to get a quote. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>
             </div>
 
@@ -1897,10 +1925,17 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
               <input id="eZip" name="zip" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="95630">
             </div>
           </div>
-          <!-- Optional text consent (A2P 10DLC): never pre-checked, not needed to use the estimator.
-               Sits above Enter and stays on screen through Request Appointment. -->
-          <div class="estConsent">
-            <label class="estConsent__box" for="eSms"><input type="checkbox" id="eSms" name="sms_consent" value="Yes"> Yes, text me about my estimate and appointments from Khean &amp; Clean (quote links, appointment confirmations and reminders).</label>
+          <!-- Text consent (A2P 10DLC): a Yes / No choice, neither picked to start. One must be picked to
+               continue, but "No thanks" still opens the estimator, so consent itself is never required.
+               Sits right above Enter and stays on screen through Request Appointment. -->
+          <div class="estConsent" role="radiogroup" aria-labelledby="eSmsQ" aria-describedby="eSmsWhat" aria-required="true">
+            <p class="estConsent__q" id="eSmsQ">Can we text you about your estimate?</p>
+            <p class="estConsent__what" id="eSmsWhat">If you say yes, Khean &amp; Clean will text you quote links, appointment confirmations and reminders. Choose Yes or No to continue. Either way, you get your estimate.</p>
+            <div class="estConsent__opts">
+              <label class="estConsent__opt" for="eSms"><input type="radio" id="eSms" name="sms_consent" value="Yes" autocomplete="off"> Yes, text me</label>
+              <label class="estConsent__opt" for="eSmsNo"><input type="radio" id="eSmsNo" name="sms_consent" value="No" autocomplete="off"> No thanks</label>
+            </div>
+            <span class="estErr" data-for="eSms"></span>
             <p class="estConsent__fine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn't required to get an estimate. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>
           </div>
           <div class="estRow estRow--gate">
@@ -2924,6 +2959,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       if(qf){
         qf.querySelectorAll('input[name="services"]').forEach(function(c){ c.checked = false; });
         var qSms = qf.querySelector('#qSms'); if(qSms) qSms.checked = false;   // text consent starts unticked again
+        var qSmsNo = qf.querySelector('#qSmsNo'); if(qSmsNo) qSmsNo.checked = false; if(qSms) qSms.removeAttribute('aria-invalid');   // neither Yes nor No picked
         qf.querySelectorAll('.qerr').forEach(function(s){ s.textContent = ''; });
       }
       // the estimator's structured copy is no longer valid once the text is gone
@@ -4211,6 +4247,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       });
       var eSmsBox = document.getElementById('eSms');
       if(eSmsBox) eSmsBox.checked = false;
+      var eSmsNoBox = document.getElementById('eSmsNo');
+      if(eSmsNoBox) eSmsNoBox.checked = false;            // neither Yes nor No picked
+      if(eSmsBox) eSmsBox.removeAttribute('aria-invalid');
       if(eSend) eSend.querySelectorAll('.estErr').forEach(function(el){ el.textContent = ''; });
       if(eStatus){ eStatus.textContent = ''; eStatus.classList.remove('err'); }
     }
@@ -4235,6 +4274,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   if(eSubmit){
     function eClear(){
       [eName,ePhone,eEmail,eAddr].forEach(function(el){ el.removeAttribute('aria-invalid'); });
+      var smsYesEl = document.getElementById('eSms'); if(smsYesEl) smsYesEl.removeAttribute('aria-invalid');
       eSend.querySelectorAll('.estErr').forEach(function(el){ el.textContent = ''; });
       eStatus.textContent = ''; eStatus.classList.remove('err');
     }
@@ -4258,6 +4298,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         ok = false;
       }
       if(!eAddr.value.trim()){ eErr(eAddr,'We need the service address.'); ok = false; }
+      /* Text: Yes or No must be picked. Either answer goes through; only skipping the choice blocks it. */
+      var smsYes = document.getElementById('eSms');
+      if(smsYes && !eSend.querySelector('input[name="sms_consent"]:checked')){ eErr(smsYes,'Please choose Yes or No.'); ok = false; }
       return ok;
     }
     /* Same rules, but quiet — used to enable the Enter button as they type. */
@@ -4298,6 +4341,14 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       el.addEventListener('input', eSyncGate);
       el.addEventListener('change', eSyncGate);
     });
+    /* Picking Yes or No clears its "please choose" message. */
+    eSend.querySelectorAll('input[name="sms_consent"]').forEach(function(r){
+      r.addEventListener('change', function(){
+        var y = document.getElementById('eSms'); if(y) y.removeAttribute('aria-invalid');
+        var sp = eSend.querySelector('.estErr[data-for="eSms"]'); if(sp) sp.textContent = '';
+        if(eGateOk()){ eStatus.textContent = ''; eStatus.classList.remove('err'); }
+      });
+    });
 
     function eOpen(){
       if(!eGrid) return;
@@ -4319,7 +4370,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
           eStatus.textContent = 'Please fix the highlighted fields.';
           eStatus.classList.add('err');
           var bad = eSend.querySelector('[aria-invalid="true"]');
-          if(bad) bad.focus();
+          if(bad){ bad.focus(); if(bad.name === 'sms_consent') bad.closest('[role="radiogroup"]').scrollIntoView({ block:'center' }); }   // a missed Yes / No: bring its panel to the middle of the screen
           return;
         }
         var fd = new FormData();
@@ -4404,7 +4455,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         eStatus.textContent = 'Please fix the highlighted fields.';
         eStatus.classList.add('err');
         var bad = eSend.querySelector('[aria-invalid="true"]');
-        if(bad) bad.focus();
+        if(bad){ bad.focus(); if(bad.name === 'sms_consent') bad.closest('[role="radiogroup"]').scrollIntoView({ block:'center' }); }   // a missed Yes / No: bring its panel to the middle of the screen
         return;
       }
 
@@ -4746,6 +4797,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     var ok = true;
     ['qName','qPhone','qAddr','qType'].forEach(function(id){ setErr(id,''); });
     setErr('qEmail','');
+    setErr('qSms','');
     var slot = document.querySelector('.qerr[data-for="services"]');
     if(slot) slot.textContent = '';
 
@@ -4776,8 +4828,17 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       if(slot) slot.textContent = 'Choose at least one service.';
       ok = false;
     }
+    /* Text: Yes or No must be picked. Either answer sends; only skipping the choice blocks it. */
+    if(document.getElementById('qSms') && !form.querySelector('input[name="sms_consent"]:checked')){
+      setErr('qSms','Please choose Yes or No.');
+      ok = false;
+    }
     return ok;
   }
+  /* Picking Yes or No clears its "please choose" message. */
+  form.querySelectorAll('input[name="sms_consent"]').forEach(function(r){
+    r.addEventListener('change', function(){ setErr('qSms',''); });
+  });
 
   form.addEventListener('input', function(){
     if(submit.classList.contains('is-sent')){
@@ -4808,7 +4869,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       statusEl.textContent = 'Please fix the highlighted fields.';
       statusEl.classList.add('err');
       var bad = form.querySelector('[aria-invalid="true"]');
-      if(bad) bad.focus();
+      if(bad){ bad.focus(); if(bad.name === 'sms_consent') bad.closest('[role="radiogroup"]').scrollIntoView({ block:'center' }); }   // a missed Yes / No: bring its panel to the middle of the screen
       return;
     }
 
