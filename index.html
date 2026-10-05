@@ -1136,8 +1136,9 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qcheck input{ width:17px; height:17px; flex:none; accent-color:var(--jade); cursor:pointer; }
 .qcheck:has(input:checked){ border-color:var(--jade); background:rgba(27,79,160,.06); }
 
-/* When would you like this done? — ASAP toggle beside a date picker. Same as quick-quote.html. */
-.qWhen{ display:grid; grid-template-columns:auto 1fr; gap:.75rem; align-items:stretch; }
+/* When would you like this done? — the question above a "See available days" button (styles below), or above the plain date
+   picker if the open days can't load. The ASAP toggle that sat beside it is gone. */
+.qWhen{ display:grid; grid-template-columns:1fr; gap:.75rem; align-items:stretch; }
 .qWhen__asap{ font:inherit; font-family:"Archivo Narrow",sans-serif; font-weight:700; letter-spacing:.1em; font-size:1.05rem; padding:.85rem 1.6rem; border-radius:12px; border:1.5px solid var(--jade); background:transparent; color:var(--jade); cursor:pointer; transition:background .15s ease, color .15s ease; }
 .qWhen__asap:hover{ background:rgba(27,79,160,.06); }
 .qWhen__asap[aria-pressed="true"]{ background:var(--jade); color:#fff; }
@@ -1145,16 +1146,43 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qWhen input[type="date"]{ width:100%; text-align:center; font-family:"Archivo",sans-serif; font-size:1.15rem; font-weight:500; color:var(--ink); background:#fff; padding:.85rem 1rem; border:1.5px solid var(--line); border-radius:12px; box-sizing:border-box; }
 .qWhen input[type="date"]::-webkit-calendar-picker-indicator{ width:22px; height:22px; cursor:pointer; opacity:.7; }
 .qWhen input[type="date"]::-webkit-date-and-time-value{ text-align:center; }
-/* Open days from the booking calendar, shown in place of the date picker once they load.
-   Only a suggestion: the quick quote never books or holds a slot. Same as quick-quote.html. */
-.qOpen{ margin-top:.75rem; }
-.qOpen__hint{ margin:0 0 .5rem; font-size:.9rem; opacity:.85; }
-.qOpen__list{ display:flex; gap:.6rem; overflow-x:auto; padding-bottom:.5rem; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
-.qOpen__day{ flex:0 0 auto; scroll-snap-align:start; display:grid; gap:.4rem; justify-items:center; text-align:center; padding:.6rem .55rem; border:1px solid rgba(128,128,128,.4); border-radius:12px; }
-.qOpen__date{ font-family:"Archivo Narrow",sans-serif; font-weight:700; letter-spacing:.04em; line-height:1.2; font-size:.95rem; }
-.qOpen__date small{ display:block; font-weight:500; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; opacity:.8; }
-.qOpen__slots{ display:flex; gap:.35rem; }
-.qOpen .qWhen__asap{ padding:.4rem .7rem; font-size:.85rem; border-radius:9px; }
+/* "See available days": the button that opens a month calendar of open days (kcDayPicker draws it).
+   Copied from the in-house estimator's Job date. Each day shows AM and PM: white = open,
+   grey = booked. Blue = picked; the quick quote uses gold instead (its overrides are last). */
+.qWhen input[hidden]{ display:none; }
+.jobPick{ width:100%; display:flex; align-items:center; justify-content:center; gap:.75rem; text-align:center; cursor:pointer; font-family:"Archivo",sans-serif; font-size:var(--fs-body); font-weight:700; letter-spacing:.02em; color:#fff; background:#000; border:1px solid var(--line-d); border-radius:2px; padding:.82rem .9rem; transition:border-color .2s ease; }
+.jobPick[hidden], .jobCal[hidden]{ display:none; }
+.jobPick:hover, .jobPick[aria-expanded="true"]{ border-color:var(--jade-lit); }
+.jobPick.is-empty .jobPick__txt{ color:#fff; }
+.jobCal{ max-width:30rem; margin-top:.5rem; padding:.75rem; background:#000; border:1px solid var(--line-d); border-radius:12px; }
+.jobCal__head{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.jobCal__month{ font:700 1rem/1.2 "Archivo Narrow",sans-serif; letter-spacing:.04em; color:#fff; }
+.jobCal__nav{ width:42px; height:38px; font-size:1.4rem; line-height:1; color:#fff; background:transparent; border:1px solid var(--line-d); border-radius:9px; cursor:pointer; }
+.jobCal__nav:disabled{ opacity:.25; cursor:default; }
+.jobCal__hint{ margin:.55rem 0 .65rem; font-size:var(--fs-xs); line-height:1.4; color:var(--dust); }
+.jobCal__grid{ display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:4px; }
+.jobCal__dow{ padding:.15rem 0 .3rem; text-align:center; font:600 .68rem/1 "Archivo Narrow",sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--dust); }
+.jobCal__cell{ display:flex; flex-direction:column; gap:3px; min-width:0; min-height:62px; padding:4px 3px; font:inherit; color:#fff; text-align:center; background:transparent; border:1px solid var(--line-d); border-radius:8px; }
+.jobCal__cell b{ display:block; padding:1px 0 2px; font:700 .9rem/1.1 "Archivo Narrow",sans-serif; }
+.jobCal__cell.is-today b{ color:var(--brass-lit); }
+.jobCal__cell.is-blank, .jobCal__cell.is-off{ border-color:transparent; }
+.jobCal__cell.is-off{ color:rgba(255,255,255,.22); }
+.jobCal__cell.is-full{ color:rgba(255,255,255,.3); background:rgba(255,255,255,.05); border-color:transparent; }
+.jobCal__cell.is-open{ cursor:pointer; border-color:rgba(255,255,255,.5); }
+.jobCal__cell.is-picked{ border-color:var(--jade-lit); }
+.jobCal__slot{ width:100%; padding:.36rem 0; font:600 .7rem/1 "Archivo Narrow",sans-serif; letter-spacing:.05em; color:#fff; background:transparent; border:1px solid rgba(255,255,255,.5); border-radius:6px; cursor:pointer; }
+.jobCal__slot:disabled{ color:rgba(255,255,255,.2); background:rgba(255,255,255,.04); border-color:transparent; cursor:default; }
+.jobCal__all{ margin-top:auto; padding:.3rem 0; font:600 .6rem/1.1 "Archivo Narrow",sans-serif; letter-spacing:.04em; text-transform:uppercase; }
+.jobCal__slot:hover:not(:disabled), .jobCal__cell.is-open:hover{ border-color:var(--jade-lit); }
+.jobCal__slot[aria-pressed="true"], .jobCal__cell[aria-pressed="true"]{ background:var(--jade); border-color:var(--jade-lit); }
+.jobCal__foot{ display:flex; justify-content:space-between; margin-top:.5rem; }
+.jobCal__link{ padding:.45rem .25rem; font:600 .85rem/1 "Archivo Narrow",sans-serif; letter-spacing:.06em; color:var(--jade-lit); background:none; border:0; cursor:pointer; }
+/* Quick quote: a rounder box with a gold edge, and gold picks, since blue disappears on navy. */
+.qqLook .jobPick{ border:1.5px solid #E3B64A; border-radius:12px; }
+.qqLook .jobPick:hover, .qqLook .jobPick[aria-expanded="true"]{ border-color:#E3B64A; }
+.qqLook .jobCal__cell.is-picked, .qqLook .jobCal__slot:hover:not(:disabled), .qqLook .jobCal__cell.is-open:hover{ border-color:#E3B64A; }
+.qqLook .jobCal__slot[aria-pressed="true"], .qqLook .jobCal__cell[aria-pressed="true"]{ background:#E3B64A; border-color:#E3B64A; color:#172239; }
+.qqLook .jobCal__link{ color:#E3B64A; }
 .qhp{ position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
 .qform__submit{ width:100%; margin-top:.5rem; }
 .qform__submit[disabled]{ opacity:.6; cursor:progress; }
@@ -1343,6 +1371,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qqLook .qfield select option{ background:#000; color:#fff; }
 .qqLook .qfield select{ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23E3B64A' stroke-width='1.6'/%3E%3C/svg%3E"); }
 .qqLook .qWhen input[type="date"]::-webkit-calendar-picker-indicator{ filter:invert(1); opacity:.8; }
+.qqLook .qWhen input[type="date"]{ border-color:#E3B64A; }   /* gold edge on the plain date box too (shown if the days can't load) */
 .qqLook .qfield input:-webkit-autofill, .qqLook .qfield input:-webkit-autofill:hover,
 .qqLook .qfield input:-webkit-autofill:focus, .qqLook .qfield select:-webkit-autofill{
   -webkit-box-shadow:0 0 0 1000px #000 inset; box-shadow:0 0 0 1000px #000 inset; -webkit-text-fill-color:#fff; caret-color:#fff; }
@@ -1537,12 +1566,12 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
                 </fieldset>
 
                 <div class="qfield">
-                  <label for="qWhen">When would you like this done? (optional)</label>
+                  <label for="qWhen">When would you like this done?</label>
                   <div class="qWhen">
-                    <button type="button" id="qAsapBtn" class="qWhen__asap" aria-pressed="false">ASAP</button>
                     <input id="qWhen" name="when" type="date" autocomplete="off" aria-label="Preferred date">
                   </div>
-                  <div id="qOpen" class="qOpen" hidden></div>
+                  <!-- Month calendar of open days, opened from the "See available days" button (kcDayPicker). -->
+                  <div id="qOpen" class="jobCal" hidden></div>
                 </div>
 
                 <div class="qfield">
@@ -1974,125 +2003,217 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
           <textarea id="eNotes" rows="4" placeholder="Parking and access, stairs up to the unit, furniture to move, pets at home, preferred days or times"></textarea>
         </div>
 
-        <!-- When, same as the Quick Quote form: ASAP, a picked date, or blank (optional). -->
+        <!-- When, same as the Quick Quote form: the question above a "See available days" button that opens the month calendar of open days, or blank (optional). A request only. -->
         <style>
-          .estWhen .qWhen__asap{ border-color:#E3B64A; color:#E3B64A; background:transparent; }
-          .estWhen .qWhen__asap:hover{ background:rgba(227,182,74,.12); }
-          .estWhen .qWhen__asap[aria-pressed="true"]{ background:#E3B64A; color:#172239; }
-          .estWhen .qWhen input[type="date"]{ background-color:#000; color:#fff; border:1.5px solid #3A3A3A; border-radius:12px; }
+          .estWhen .qWhen input[type="date"]{ background-color:#000; color:#fff; border:1.5px solid #E3B64A; border-radius:12px; }
           .estWhen .qWhen input[type="date"]:focus{ border-color:#E3B64A; box-shadow:0 0 0 3px rgba(227,182,74,.35); outline:none; }
           .estWhen .qWhen input[type="date"]::-webkit-calendar-picker-indicator{ filter:invert(1); opacity:.8; }
-          .estWhen .qOpen__day{ background:#000; color:#fff; border-color:#3A3A3A; }
+          .estWhen .jobPick, .estWhen .jobPick:hover, .estWhen .jobPick[aria-expanded="true"]{ border:1.5px solid #E3B64A; border-radius:12px; }
         </style>
         <div class="estField estWhen">
-          <label for="eWhen">When would you like this done? <span class="opt">(optional)</span></label>
+          <label for="eWhen">When would you like this done?</label>
           <div class="qWhen">
-            <button type="button" id="eAsapBtn" class="qWhen__asap" aria-pressed="false">ASAP</button>
             <input id="eWhen" type="date" autocomplete="off" aria-label="Preferred date">
           </div>
-          <!-- Open days from the booking calendar; a time tapped here is booked when they send. -->
-          <div id="eOpen" class="qOpen" hidden></div>
+          <!-- Month calendar of open days, opened from the "See available days" button; a time tapped here is sent as a request, nothing is booked. -->
+          <div id="eOpen" class="jobCal" hidden></div>
         </div>
         <script>
-        (function(){
-          var when = document.getElementById('eWhen'), asap = document.getElementById('eAsapBtn');
-          if(!when || !asap) return;
-          /* no past dates: min = today, local time */
-          var t = new Date();
-          when.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
-          function picked(){ if(when.value) asap.setAttribute('aria-pressed', 'false'); }
-          when.addEventListener('input', picked);
-          when.addEventListener('change', picked);
-          asap.addEventListener('click', function(){
-            var on = asap.getAttribute('aria-pressed') !== 'true';
-            asap.setAttribute('aria-pressed', on ? 'true' : 'false');
-            if(on){ when.value = ''; clearPick(); }
-          });
-          /* MM/DD/YY or ASAP for the email and the lead, same as the Quick Quote form,
-             plus AM, PM or All day when the time was tapped from the open days. */
-          window.kcEstWhen = function(){
-            if(asap.getAttribute('aria-pressed') === 'true') return 'ASAP';
-            var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value);
-            return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2)
-              + (pickSlot && pickDay === when.value ? ' ' + SLOT_TXT[pickSlot] : '') : '';
-          };
-          window.kcEstWhenClear = function(){ when.value = ''; asap.setAttribute('aria-pressed', 'false'); clearPick(); };
+        /* "See available days": the button that opens a month calendar of open days. Copied from the
+           in-house estimator's Job date. Days come from the booking calendar (getOpenSlots):
+           each day shows AM (9-1) and PM (1-6), white = open, grey = booked. A whole-day job
+           ($450+ in the estimate builder) taps the day itself, and only days with nothing
+           booked can be picked. Tap the picked one again, or Clear, to un-pick. Past days and
+           days past the 60-day window are grey. If the days can't load, the plain date box
+           stays and works as before. Used by the estimate builder just below and by the
+           quick quote further down.
+           o = { when, box, label, id, hint(big), big() }; hands back { slot(), clear() }. */
+        window.kcDayPicker = function(o){
+          var when = o.when, box = o.box, lab = o.label;
+          if(!when || !box || !window.fetch) return null;
+          var URL = 'https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots';
+          var MONTHS = ['January','February','March','April','May','June','July',
+                        'August','September','October','November','December'];
+          var SHOW = { am:'AM (9\u20131)', pm:'PM (1\u20136)', all:'All day' };
+          var byDate = null, first = '', last = '', big = false, shown = '', loadedAt = 0;
+          var slot = '', slotDay = '';   // what was tapped (am, pm or all) and the day it belongs to
+          function isBig(){ return !!(o.big && o.big()); }
+          function isDay(s){ return /^\d{4}-\d{2}-\d{2}$/.test(s); }
+          function pad(n){ return ('0' + n).slice(-2); }
+          function label(day){
+            var p = day.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+            return dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+          }
+          function cur(){ return slotDay && slotDay === when.value ? slot : ''; }   // the tapped time, while its day is still the date
 
-          /* Open days from the booking calendar (getOpenSlots). Unlike the quick quote, the time
-             tapped here is BOOKED when they send the request (bookWebSlot, called from the submit
-             further down). Under $450: AM or PM on any open half-day. $450 or more takes the whole
-             day: one "All day" button, fully open days only. If the open days can't load, the plain
-             date box stays and a date there is only a request, same as before. */
-          var WHOLE_DAY_AT = 450, SLOT_TXT = { am:'AM', pm:'PM', day:'All day' };
-          var box = document.getElementById('eOpen'), days = null, big = false, pickDay = '', pickSlot = '';
-          function total(){ return window.kcEstTotal ? Number(window.kcEstTotal()) || 0 : 0; }
-          function clearPick(){
-            pickDay = ''; pickSlot = '';
-            if(box) box.querySelectorAll('[data-slot]').forEach(function(b){ b.setAttribute('aria-pressed', 'false'); });
+          /* The box you tap: shows the pick and opens the month. It takes the plain date box's place once the days load. */
+          var btn = document.createElement('button');
+          btn.type = 'button'; btn.id = o.id; btn.className = 'jobPick is-empty'; btn.hidden = true;
+          btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-controls', box.id);
+          btn.innerHTML = '<span class="jobPick__txt">See available days</span>';
+          when.parentNode.insertBefore(btn, when.nextSibling);
+
+          function slotBtn(day, d, s, txt){
+            return '<button type="button" class="jobCal__slot" data-day="' + day + '" data-slot="' + s + '" aria-pressed="false"' +
+              (d[s] ? '' : ' disabled') + ' aria-label="' + label(day) + ' ' + txt + (d[s] ? '' : ', booked') + '">' + txt + '</button>';
           }
           function draw(){
-            big = total() >= WHOLE_DAY_AT;
-            if(pickDay){ when.value = ''; clearPick(); }   // a pick from the other price tier no longer fits
-            var list = days.filter(function(d){ return big ? d.am && d.pm : d.am || d.pm; });
-            if(!list.length){ box.hidden = true; box.innerHTML = ''; when.style.display = ''; return; }
-            box.innerHTML = '<p class="qOpen__hint">' + (big
-                ? 'Your job takes the whole day. Pick an open day'
-                : 'Pick an open morning (9\u20131) or afternoon (1\u20136)') +
-              ' and it\u2019s booked when you send your request.</p>' +
-              '<div class="qOpen__list">' + list.map(function(d){
-                var p = d.date.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
-                var wd = dt.toLocaleDateString('en-US', { weekday: 'short' });
-                var md = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                var btn = function(s, name){
-                  return '<button type="button" class="qWhen__asap" data-day="' + d.date + '" data-slot="' + s +
-                    '" aria-pressed="false" aria-label="' + name + ', ' + wd + ' ' + md + '">' + SLOT_TXT[s] + '</button>';
-                };
-                return '<div class="qOpen__day"><span class="qOpen__date"><small>' + wd + '</small>' + md + '</span>' +
-                  '<span class="qOpen__slots">' + (big ? btn('day', 'All day') :
-                    (d.am ? btn('am', 'Morning') : '') + (d.pm ? btn('pm', 'Afternoon') : '')) + '</span></div>';
-              }).join('') + '</div>';
-            when.style.display = 'none';   // the open days take the date box's place
-            box.hidden = false;
+            big = isBig();
+            var y = +shown.slice(0, 4), m = +shown.slice(5, 7) - 1;
+            var lead = new Date(y, m, 1).getDay(), count = new Date(y, m + 1, 0).getDate();
+            var now = new Date(), today = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+            var cells = '';
+            for(var i = 0; i < lead; i++) cells += '<span class="jobCal__cell is-blank" aria-hidden="true"></span>';
+            for(var n = 1; n <= count; n++){
+              var day = shown + '-' + pad(n), d = byDate[day];
+              var cls = 'jobCal__cell' + (day === today ? ' is-today' : ''), at = ' data-cell="' + day + '"';
+              var num = '<b>' + n + '</b>';
+              if(!d){ cells += '<span class="' + cls + ' is-off"' + at + '>' + num + '</span>'; continue; }   // past, or past the window
+              if(big){   // whole-day job: a day with anything booked isn't an option
+                cells += (d.am && d.pm)
+                  ? '<button type="button" class="' + cls + ' is-open"' + at + ' data-day="' + day + '" data-slot="all" aria-pressed="false"' +
+                    ' aria-label="' + label(day) + ', all day">' + num + '<span class="jobCal__all">All day</span></button>'
+                  : '<span class="' + cls + ' is-full"' + at + ' aria-label="' + label(day) + ', booked">' + num + '</span>';
+                continue;
+              }
+              cells += '<div class="' + cls + (d.am || d.pm ? '' : ' is-full') + '"' + at + '>' + num +
+                slotBtn(day, d, 'am', 'AM') + slotBtn(day, d, 'pm', 'PM') + '</div>';
+            }
+            box.innerHTML =
+              '<div class="jobCal__head">' +
+                '<button type="button" class="jobCal__nav" data-nav="-1" aria-label="Previous month"' +
+                  (shown <= first.slice(0, 7) ? ' disabled' : '') + '>&lsaquo;</button>' +
+                '<strong class="jobCal__month">' + MONTHS[m] + ' ' + y + '</strong>' +
+                '<button type="button" class="jobCal__nav" data-nav="1" aria-label="Next month"' +
+                  (shown >= last.slice(0, 7) ? ' disabled' : '') + '>&rsaquo;</button>' +
+              '</div>' +
+              '<p class="jobCal__hint">' + o.hint(big) + '</p>' +
+              '<div class="jobCal__grid">' +
+                ['Su','Mo','Tu','We','Th','Fr','Sa'].map(function(w){ return '<span class="jobCal__dow">' + w + '</span>'; }).join('') +
+                cells +
+              '</div>' +
+              '<div class="jobCal__foot">' +
+                '<button type="button" class="jobCal__link" data-clear>Clear</button>' +
+                '<button type="button" class="jobCal__link" data-close>Close</button>' +
+              '</div>';
+            paint();
           }
-          /* What the submit books: {date, slot, total, label}, or null when nothing was tapped
-             (ASAP, blank, a typed date) or the price moved to the other tier since. */
-          window.kcEstBooking = function(){
-            if(!pickDay || !pickSlot || pickDay !== when.value || asap.getAttribute('aria-pressed') === 'true') return null;
-            var t = total();
-            if(!t || (t >= WHOLE_DAY_AT) !== (pickSlot === 'day')) return null;
-            var p = pickDay.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
-            return { date: pickDay, slot: pickSlot === 'day' ? 'am' : pickSlot, total: t,
-              label: dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) +
-                { am:', morning (9 AM\u20131 PM)', pm:', afternoon (1\u20136 PM)', day:', all day' }[pickSlot] };
-          };
-          if(box && window.fetch){
-            fetch('https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots')
-              .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
-              .then(function(data){
-                var list = ((data && data.days) || []).filter(function(d){ return /^\d{4}-\d{2}-\d{2}$/.test(d.date); });
-                if(!list.length || when.value) return;   // nothing came back, or they already typed a date
-                days = list;
-                draw();
-                /* Redraw when the price crosses $450 either way. */
-                var check = function(){ if(days && (total() >= WHOLE_DAY_AT) !== big) draw(); };
-                ['input', 'change', 'click'].forEach(function(ev){
-                  document.addEventListener(ev, function(){ setTimeout(check, 0); });
-                });
-                setInterval(check, 1500);
-              })
-              .catch(function(){ /* keep the plain date box */ });
-            box.addEventListener('click', function(e){
-              var b = e.target.closest('[data-slot]');
-              if(!b) return;
-              var again = b.getAttribute('aria-pressed') === 'true';
-              clearPick();
-              if(again){ when.value = ''; return; }   // tapping the picked one again un-picks it
-              pickDay = b.getAttribute('data-day'); pickSlot = b.getAttribute('data-slot');
-              b.setAttribute('aria-pressed', 'true');
-              when.value = pickDay;
-              asap.setAttribute('aria-pressed', 'false');
+          /* Show the pick: in the box you tap, and lit up in the month. */
+          function paint(){
+            if(!byDate) return;
+            var day = isDay(when.value) ? when.value : '', s = cur();
+            var txt = !day ? 'See available days' : label(day) + (s ? ' \u00b7 ' + SHOW[s] : '');
+            var t = btn.firstChild;
+            if(t.textContent !== txt) t.textContent = txt;
+            btn.classList.toggle('is-empty', !day);
+            box.querySelectorAll('[data-cell]').forEach(function(c){
+              c.classList.toggle('is-picked', c.getAttribute('data-cell') === day);
+            });
+            box.querySelectorAll('[data-slot]').forEach(function(b){
+              var on = b.getAttribute('data-day') === day && b.getAttribute('data-slot') === s;
+              b.setAttribute('aria-pressed', on ? 'true' : 'false');
             });
           }
+          function clear(){ when.value = ''; slot = ''; slotDay = ''; paint(); }
+          function open(){
+            var mo = isDay(when.value) ? when.value.slice(0, 7) : '';
+            shown = (mo && mo >= first.slice(0, 7) && mo <= last.slice(0, 7)) ? mo : first.slice(0, 7);
+            draw();
+            box.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            if(Date.now() - loadedAt > 60000) load();   // fresh days each time it opens, once a minute at most
+          }
+          function close(){ box.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+          btn.addEventListener('click', function(){ if(box.hidden) open(); else close(); });
+          box.addEventListener('click', function(e){
+            var b = e.target.closest('button');
+            if(!b || b.disabled) return;
+            if(b.hasAttribute('data-nav')){
+              var nx = new Date(+shown.slice(0, 4), +shown.slice(5, 7) - 1 + (+b.getAttribute('data-nav')), 1);
+              shown = nx.getFullYear() + '-' + pad(nx.getMonth() + 1);
+              draw();
+            } else if(b.hasAttribute('data-clear')) clear();
+            else if(b.hasAttribute('data-close')) close();
+            else if(b.hasAttribute('data-slot')){
+              if(b.getAttribute('aria-pressed') === 'true'){ clear(); return; }   // tap the picked one again to un-pick
+              when.value = slotDay = b.getAttribute('data-day');
+              slot = b.getAttribute('data-slot');
+              paint();
+              close();
+            }
+          });
+          /* Tap anywhere else, or Esc, and the month folds away. */
+          document.addEventListener('click', function(e){
+            if(box.hidden) return;
+            var path = e.composedPath ? e.composedPath() : [e.target];
+            if(path.indexOf(box) < 0 && path.indexOf(btn) < 0 && (!lab || path.indexOf(lab) < 0)) close();
+          });
+          document.addEventListener('keydown', function(e){
+            if(e.key === 'Escape' && !box.hidden){ close(); btn.focus(); }
+          });
+          when.addEventListener('change', paint);   // plain date box (days didn't load): a date, no time
+          /* Price crossed $450 (estimate builder)? A time picked for the other tier no longer
+             fits, so it's cleared, and an open month redraws. Otherwise just repaint. */
+          function check(){
+            if(!byDate) return;
+            var b = isBig();
+            if(b !== big){ big = b; if(cur()) clear(); if(!box.hidden) draw(); }
+            paint();
+          }
+          ['input', 'change', 'click'].forEach(function(t){
+            document.addEventListener(t, function(){ setTimeout(check, 0); });
+          });
+          setInterval(check, 1500);   // catches price changes made without an event
+          function load(){
+            loadedAt = Date.now();
+            fetch(URL)
+              .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+              .then(function(data){
+                var all = ((data && data.days) || []).filter(function(d){ return d && isDay(d.date); });
+                if(!all.length) return;
+                var map = {}, dates = [];
+                all.forEach(function(d){ map[d.date] = { am: !!d.am, pm: !!d.pm }; dates.push(d.date); });
+                dates.sort();
+                byDate = map; first = dates[0]; last = dates[dates.length - 1];
+                if(btn.hidden){ when.hidden = true; btn.hidden = false; big = isBig(); if(lab) lab.htmlFor = btn.id; }   // swap in the button; the question stays above it and now points at it
+                if(box.hidden) paint();
+                else { if(shown < first.slice(0, 7)) shown = first.slice(0, 7); draw(); }
+              })
+              .catch(function(){ loadedAt = 0; });   // first time: the plain date box stays; later: the days already shown stay
+          }
+          load();
+          return { slot: cur, clear: clear };
+        };
+
+        /* The estimate builder's When. Whatever's tapped is sent as a request only; nothing is
+           booked (the booking step in the submit further down only runs when window.kcEstBooking
+           hands back a pick, and nothing defines it now). Under $450: AM or PM. $450 or more takes
+           the whole day. If the open days can't load, the plain date box stays. */
+        (function(){
+          var when = document.getElementById('eWhen');
+          if(!when) return;
+          /* no past dates in the plain date box: min = today, local time */
+          var t = new Date();
+          when.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+          var WHOLE_DAY_AT = 450, TXT = { am:'AM', pm:'PM', all:'All day' };
+          function total(){ return window.kcEstTotal ? Number(window.kcEstTotal()) || 0 : 0; }
+          var pick = window.kcDayPicker({
+            when: when, box: document.getElementById('eOpen'), id: 'eWhenBtn',
+            label: document.querySelector('label[for="eWhen"]'),
+            big: function(){ return total() >= WHOLE_DAY_AT; },
+            hint: function(big){ return (big
+              ? 'Your job takes the whole day. Tap an open day; grey days are booked.'
+              : 'Tap a morning (9\u20131) or afternoon (1\u20136). Grey is booked.') +
+              ' We\u2019ll confirm the day with you.'; }
+          });
+          function slot(){ return pick ? pick.slot() : ''; }
+          /* MM/DD/YY for the email and the lead, same as the Quick Quote form,
+             plus AM, PM or All day when the time was tapped from the calendar. */
+          window.kcEstWhen = function(){
+            var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value), s = slot();
+            return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) + (s ? ' ' + TXT[s] : '') : '';
+          };
+          window.kcEstWhenClear = function(){ if(pick) pick.clear(); else when.value = ''; };
         })();
         </script>
 
@@ -2840,78 +2961,28 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     el.addEventListener('input', function(){ el.value = fmtPhone(el.value); });
   });
 
-  /* When would you like this done? Optional. ASAP, a calendar-picked date, or blank.
-     Same as quick-quote.html. */
+  /* When would you like this done? Optional. The "See available days" button under it opens the month calendar
+     (kcDayPicker, up in the estimate builder), or blank. Only a suggestion: nothing is
+     booked or held from the quick quote. If the open days can't load, the plain date
+     picker stays and works as before. */
   (function(){
-    var when = document.getElementById('qWhen'), asap = document.getElementById('qAsapBtn');
-    if(!when || !asap) return;
-    /* no past dates: min = today, local time */
+    var when = document.getElementById('qWhen');
+    if(!when) return;
+    /* no past dates in the plain date picker: min = today, local time */
     var t = new Date();
     when.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
-    var openSlot = '', openDay = '';   // AM or PM tapped in the open days, and the day it belongs to
-    function clearOpen(){
-      openSlot = ''; openDay = '';
-      var box = document.getElementById('qOpen');
-      if(box) box.querySelectorAll('[data-slot]').forEach(function(b){ b.setAttribute('aria-pressed', 'false'); });
-    }
-    window.kcOpenClear = clearOpen;
-    function picked(){ if(when.value) asap.setAttribute('aria-pressed', 'false'); }
-    when.addEventListener('input', picked);
-    when.addEventListener('change', picked);
-    asap.addEventListener('click', function(){
-      var on = asap.getAttribute('aria-pressed') !== 'true';
-      asap.setAttribute('aria-pressed', on ? 'true' : 'false');
-      if(on){ when.value = ''; clearOpen(); }
-    });
+    var pick = window.kcDayPicker ? window.kcDayPicker({
+      when: when, box: document.getElementById('qOpen'), id: 'qWhenBtn',
+      label: document.querySelector('label[for="qWhen"]'),
+      hint: function(){ return 'Tap a morning (9\u20131) or afternoon (1\u20136). Grey is booked. We\u2019ll confirm the day with you.'; }
+    }) : null;
+    window.kcOpenClear = function(){ if(pick) pick.clear(); };   // the form's Clear un-picks the day too
     /* The picker holds YYYY-MM-DD; hand back MM/DD/YY for the email, lead and summary,
-       plus AM or PM when the day was tapped from the open days. */
+       plus AM or PM when it was tapped from the calendar. */
     window.kcWhen = function(){
-      if(asap.getAttribute('aria-pressed') === 'true') return 'ASAP';
-      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value);
-      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2)
-        + (openSlot && openDay === when.value ? ' ' + openSlot.toUpperCase() : '') : '';
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value), s = pick ? pick.slot() : '';
+      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) + (s ? ' ' + s.toUpperCase() : '') : '';
     };
-    /* Open days from the booking calendar (getOpenSlots). Only a suggestion: nothing is booked
-       or held from the quick quote. Any day with the morning or the afternoon open shows.
-       If they can't load, the plain date picker above stays exactly as it was. */
-    var box = document.getElementById('qOpen');
-    if(box && window.fetch){
-      fetch('https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots')
-        .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
-        .then(function(data){
-          var days = ((data && data.days) || []).filter(function(d){
-            return /^\d{4}-\d{2}-\d{2}$/.test(d.date) && (d.am || d.pm);
-          });
-          if(!days.length || when.value) return;   // nothing open, or they already picked a date
-          box.innerHTML = '<p class="qOpen__hint">Our open days. Pick one and we\u2019ll confirm it with you.</p>' +
-            '<div class="qOpen__list">' + days.map(function(d){
-              var p = d.date.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
-              var wd = dt.toLocaleDateString('en-US', { weekday: 'short' });
-              var md = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              var btn = function(s, txt, name){
-                return '<button type="button" class="qWhen__asap" data-day="' + d.date + '" data-slot="' + s +
-                  '" aria-pressed="false" aria-label="' + name + ', ' + wd + ' ' + md + '">' + txt + '</button>';
-              };
-              return '<div class="qOpen__day"><span class="qOpen__date"><small>' + wd + '</small>' + md + '</span>' +
-                '<span class="qOpen__slots">' + (d.am ? btn('am', 'AM', 'Morning') : '') +
-                (d.pm ? btn('pm', 'PM', 'Afternoon') : '') + '</span></div>';
-            }).join('') + '</div>';
-          when.style.display = 'none';   // the open days take the date picker's place
-          box.hidden = false;
-        })
-        .catch(function(){ /* keep the plain date picker */ });
-      box.addEventListener('click', function(e){
-        var b = e.target.closest('[data-slot]');
-        if(!b) return;
-        var again = b.getAttribute('aria-pressed') === 'true';
-        clearOpen();
-        if(again){ when.value = ''; return; }   // tapping the picked one again un-picks it
-        openDay = b.getAttribute('data-day'); openSlot = b.getAttribute('data-slot');
-        b.setAttribute('aria-pressed', 'true');
-        when.value = openDay;
-        asap.setAttribute('aria-pressed', 'false');
-      });
-    }
   })();
 })();
 
