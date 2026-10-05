@@ -24,8 +24,9 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .colhead{font:700 13px "Archivo",system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 2px}
 .row{display:block;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 16px}
 .row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
-/* Card tint by lead source. Quick quote = blue. */
-.row.src-quick-quote{background:#e6eef9}
+/* Card tint by lead source. Quick quote = blue. So is "in-depth-estimator": an
+   estimate that also has the photo form's photos or services merged onto it. */
+.row.src-quick-quote,.row.src-in-depth-estimator{background:#e6eef9}
 .who{font-weight:700}
 .meta{color:var(--muted);font-size:14px}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
@@ -147,6 +148,31 @@ const pathsOf = l => (Array.isArray(l.photoPaths) ? l.photoPaths : [])
   .filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes(".."));
 const photoCount = l => photosOf(l).length + pathsOf(l).length;
 
+/* An older duplicate of a lead can hold what the newer one lacks: photos,
+   services, the day wanted, the estimate, a typed message. carryOver() returns
+   just those (or null). A lead that ends up with photos or services, plus an
+   estimate or an estimator origin, becomes "in-depth-estimator", which tints
+   its tile blue. The estimator's canned details-only line is never carried. */
+const SOFT_MSG = "Opened the estimator (details only, no estimate yet)";
+const blank = v => !String(Array.isArray(v) ? v.join("") : (v || "")).trim();
+const carryOver = (older, newer) => {
+  const out = {};
+  const nPaths = Array.isArray(newer.photoPaths) ? newer.photoPaths : [];
+  const addPaths = pathsOf(older).filter(p => !nPaths.includes(p));
+  if (addPaths.length) out.photoPaths = nPaths.concat(addPaths);
+  const nUrls = Array.isArray(newer.photoUrls) ? newer.photoUrls : [];
+  const addUrls = photosOf(older).filter(u => !nUrls.includes(u));
+  if (addUrls.length) out.photoUrls = nUrls.concat(addUrls);
+  for (const f of ["services", "when", "estimateData"]) if (blank(newer[f]) && !blank(older[f])) out[f] = older[f];
+  const om = String(older.message || "").trim(), nm = String(newer.message || "").trim();
+  if (om && om !== SOFT_MSG && !nm.includes(om)) out.message = (nm && nm !== SOFT_MSG) ? nm + "\n\n" + om : om;
+  if (!Object.keys(out).length) return null;
+  const m = Object.assign({}, newer, out);
+  const rich = photoCount(m) || !blank(m.services);
+  if (rich && (!blank(m.estimateData) || m.source === "estimator") && m.source !== "in-depth-estimator") out.source = "in-depth-estimator";
+  return out;
+};
+
 /* ---- History: converted and trashed leads stay 30 days, then are erased.
    Same rule as the customers Trash. A browser page can only erase while it is
    open, so the sweep runs each time the leads list loads. ---- */
@@ -196,6 +222,7 @@ async function load(){
      goes to Trash, so it can still be restored for 30 days. */
   const untouched = x => !x.trashed && !x.converted && (x.status || "new") === "new" && !x.staffNotes && !x.quoteId;
   for (const newer of all.filter(x => !x.trashed && !x.converted)) {
+    if (newer.trashed) continue;   /* went to Trash earlier in this same pass */
     const pk = phoneKey(newer.phone), ek = emailKey(newer.email);
     for (const older of all) {
       if (older.id === newer.id || !untouched(older)) continue;
@@ -203,6 +230,15 @@ async function load(){
       const same = older.id === newer.softLeadId ||
         (pk && phoneKey(older.phone) === pk) || (ek && emailKey(older.email) === ek);
       if (!same) continue;
+      /* Anything the older lead has that the newer one lacks moves over first.
+         If that save fails, the older lead is left alone so nothing is lost. */
+      const carry = carryOver(older, newer);
+      if (carry) {
+        try {
+          await updateDoc(doc(db, "leads", newer.id), Object.assign({}, carry, { updatedAt: serverTimestamp() }));
+          Object.assign(newer, carry);
+        } catch (e) { console.error("Could not copy lead " + older.id + " onto " + newer.id, e); continue; }
+      }
       try {
         await updateDoc(doc(db, "leads", older.id), { trashed: true, trashedAt: serverTimestamp(), updatedAt: serverTimestamp() });
         older.trashed = true; older.trashedAt = new Date().toISOString();
