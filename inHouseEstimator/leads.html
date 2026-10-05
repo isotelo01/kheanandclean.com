@@ -36,6 +36,8 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .row .star+.who{padding-right:24px}
 .who{font-weight:700}
 .meta{color:var(--muted);font-size:14px}
+/* A customer's change to a quote they were sent ("Edit date or message"): needs approving. */
+.meta.chg{color:var(--ink);font-weight:700}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
 .panel h2{font:700 20px "Playfair Display",Georgia,serif;margin:24px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
@@ -177,7 +179,7 @@ const carryOver = (older, newer) => {
   const nUrls = Array.isArray(newer.photoUrls) ? newer.photoUrls : [];
   const addUrls = photosOf(older).filter(u => !nUrls.includes(u));
   if (addUrls.length) out.photoUrls = nUrls.concat(addUrls);
-  for (const f of ["services", "when", "estimateData"]) if (blank(newer[f]) && !blank(older[f])) out[f] = older[f];
+  for (const f of ["services", "when", "estimateData", "editOf", "editOfNumber"]) if (blank(newer[f]) && !blank(older[f])) out[f] = older[f];
   const om = String(older.message || "").trim(), nm = String(newer.message || "").trim();
   if (om && om !== SOFT_MSG && !nm.includes(om)) out.message = (nm && nm !== SOFT_MSG) ? nm + "\n\n" + om : om;
   if (!Object.keys(out).length) return null;
@@ -278,6 +280,7 @@ async function showList(){
     return '<a class="row ' + (inHistory(l) ? "done" : tintOf(l)) + '" href="#' + encodeURIComponent(l.id) + '">' +
       (String(l.when || "").trim() ? '<span class="star" title="Wants ' + esc(wantsDay(l)) + '" aria-label="Wants ' + esc(wantsDay(l)) + '">\u2605</span>' : '') +
       '<div class="who">' + esc(l.name || "No name") + '</div>' +
+      (l.editOfNumber ? '<div class="meta chg">Change request \u00b7 ' + esc(l.editOfNumber) + '</div>' : '') +
       lines.filter(x => x && String(x).trim()).map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
       (inHistory(l) ? '<div class="exp">' + esc(leftLabel(l)) + '</div>' : '') +
     '</a>';
@@ -363,6 +366,9 @@ async function showLead(id){
           })() +
           prow(l.phone) + prow(l.email) +
         '</div>' +
+        /* A change to a quote already sent: approve it by updating that quote and resending it. */
+        (l.editOf ? '<div class="rrow"><div class="rlab">Changes</div><div class="rval">Quote ' + esc(l.editOfNumber || "") +
+          ' \u00b7 <a href="./index.html?edit=' + encodeURIComponent(l.editOf) + '&amp;from=quotes">Open it to update and resend</a></div></div>' : "") +
         rrow("Type", typeLabel(l)) +
         (String(l.when || "").trim() ? rrow("Wants", wantsDay(l)) : "") +
         rrow("Services", servicesOf(l)) +

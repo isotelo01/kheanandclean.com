@@ -171,6 +171,12 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 .jobCal__link{padding:7px 4px;font:600 14px/1 "Archivo",sans-serif;color:var(--gold);background:none;border:0}
 .booked{margin:16px 0 0;font-size:15px}
 .booked span{display:block;font-size:12px;color:var(--gold);font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px}
+/* The day sent with the quote, and "Edit date or message": opens the homepage form with
+   this quote filled in, and the change comes to us to approve. */
+.when .whenDay{margin:0;font:700 17px "Archivo",sans-serif;color:#fff}   /* .when first, so .accept p doesn't turn it grey */
+.whenDay:empty{display:none}
+.whenEdit{display:block;box-sizing:border-box;width:100%;margin:0 0 16px;padding:11px 14px;text-align:center;font:600 15px "Archivo",sans-serif;color:var(--gold);text-decoration:none;background:transparent;border:1px solid var(--gold);border-radius:12px}
+.whenEdit:hover{background:rgba(255,255,255,.05)}
 .pprint{display:none}
 @media print{.pprint{display:block;background:#f7f8fa}}
 @media print{.photos{display:none}}
@@ -355,11 +361,12 @@ function wireNote(d, isQuote, num){
 
 /* ===== The job day in "Ready to book?" =====
    The day sent with the quote (scheduledDate "2026-10-08", scheduledTime "09:00" or "13:00",
-   blank = whole day) shows already picked, and the customer can change it. The days come from
-   the booking calendar (getOpenSlots), in the homepage's month view: AM (9-1) and PM (1-6), grey
-   = booked; a $450+ job takes the whole day, so only days with nothing booked can be picked.
-   Accept saves the quote, then bookSlot re-checks the slot and books it, so two customers can't
-   land on one slot. If the days can't load, the quote keeps its day as sent, like before. ===== */
+   blank = whole day) shows as plain text. The customer can't change it here: a different day
+   goes through "Edit date or message" (the homepage form), so we approve it first. The open
+   days (getOpenSlots) say whether the sent day is still free. Accept saves the quote, then
+   bookSlot re-checks the slot and books it, so two customers can't land on one slot. A day sent
+   with no time is kept as sent. If the days can't load, the quote keeps its day as sent, like
+   before. The month view below is kept but never shown. ===== */
 const OPEN_URL = "https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots";
 const BOOK_URL = "https://us-central1-khean-estimator-78f3e.cloudfunctions.net/bookSlot";
 const WHOLE_DAY_AT = 450;   // same line as the backend
@@ -373,13 +380,13 @@ const dayText = (k, time, total) => { const s = slotOf(time, total), t = s ? SLO
 
 function wireDay(d){
   const $ = s => document.getElementById(s);
-  const wrap = $("whenWrap"), btn = $("jobPick"), box = $("jobCal"), noteEl = $("whenNote"), lead = $("acceptLead");
+  const wrap = $("whenWrap"), btn = $("jobPick"), box = $("jobCal"), noteEl = $("whenNote"), lead = $("acceptLead"), dayEl = $("whenDay");
   const big = Number(d.total) >= WHOLE_DAY_AT;
   const asked = isDay(d.scheduledDate) ? d.scheduledDate : "", askedSlot = asked ? slotOf(d.scheduledTime, d.total) : "";
-  let byDate = null, first = "", last = "", shown = "", day = "", slot = "";
+  let byDate = null, first = "", last = "", shown = "", day = "", slot = "", keep = false;
   const pad = n => String(n).padStart(2, "0");
   const say = t => { noteEl.textContent = t; };
-  if (asked) { wrap.hidden = false; say("Requested day: " + dayText(asked, d.scheduledTime, d.total)); }   // until the open days load
+  if (asked) { wrap.hidden = false; dayEl.textContent = dayText(asked, d.scheduledTime, d.total); }
 
   const slotBtn = (k, o, s, txt) => `<button type="button" class="jobCal__slot" data-day="${k}" data-slot="${s}" aria-pressed="false"` +
     `${o[s] ? "" : " disabled"} aria-label="${shortDay(k)} ${txt}${o[s] ? "" : ", booked"}">${txt}</button>`;
@@ -456,17 +463,17 @@ function wireDay(d){
       byDate = {};
       all.forEach(x => { byDate[x.date] = { am: !!x.am, pm: !!x.pm }; });
       const ks = Object.keys(byDate).sort(); first = ks[0]; last = ks[ks.length - 1];
-      /* The day sent with the quote stays picked only while it's still open. */
+      /* The day sent with the quote is booked on Accept only while it's still open. */
       const o = asked ? byDate[asked] : null;
       if (o && askedSlot && (askedSlot === "all" ? o.am && o.pm : o[askedSlot])) { day = asked; slot = askedSlot; say(""); }
-      else if (o && !askedSlot && (o.am || o.pm)) { day = asked; say("You asked for " + shortDay(asked) + ". Tap AM or PM on that day."); }
-      else if (asked) say(shortDay(asked) + " isn't open anymore. Please pick another day.");
-      lead.textContent = "Pick your day, read the terms, then type your name to accept this quote.";
-      wrap.hidden = false; btn.hidden = false;
-      paint();
+      else if (o && !askedSlot && (o.am || o.pm)) { keep = true; say("We'll confirm the time with you."); }   // a day with no time: kept as sent
+      else if (asked) { dayEl.textContent = ""; say(shortDay(asked) + " isn't open anymore. Tap Edit date or message to ask for another day, or accept and we'll call you to set one."); }
+      else say("No day set yet. Tap Edit date or message to ask for one, or accept and we'll call you to set it.");
+      lead.textContent = "Check your day, read the terms, then type your name to accept this quote.";
+      wrap.hidden = false;
     })
     .catch(err => console.warn("Open days didn't load; the quote keeps its day as sent.", err));
-  return { loaded: () => !!byDate, pick: () => (byDate && day && slot ? { date: day, slot } : null) };
+  return { loaded: () => !!byDate && !keep, pick: () => (byDate && day && slot ? { date: day, slot } : null) };
 }
 
 async function load(){
@@ -575,10 +582,12 @@ function render(d){
         <p id="acceptLead">Read the terms, then type your name to accept this quote. We'll reach out to schedule.</p>
         <div class="when" id="whenWrap" hidden>
           <div class="whenLab" id="whenLab">Your day</div>
+          <p class="whenDay" id="whenDay"></p>
           <button type="button" id="jobPick" class="jobPick is-empty" aria-describedby="whenLab" aria-expanded="false" aria-controls="jobCal" hidden><span>See available days</span></button>
           <div id="jobCal" class="jobCal" hidden></div>
           <p class="whenNote" id="whenNote" aria-live="polite"></p>
         </div>
+        <a class="whenEdit" id="whenEdit" href="${SITE_URL}/?edit=${encodeURIComponent(id)}#quote">Edit date or message</a>
         <form id="acceptForm">
           <label class="terms">
             <input type="checkbox" id="acceptTerms" disabled>
@@ -678,7 +687,7 @@ function render(d){
       const done = { ...d, status: "accepted", acceptedName: name };
       if (live) {
         done.scheduledDate = ""; done.scheduledTime = "";
-        done._whenMsg = "No day picked yet. We'll call you to set one.";
+        done._whenMsg = "No day set yet. We'll call you to set one.";
         if (p) {
           btn.textContent = "Booking your day\u2026";
           try {

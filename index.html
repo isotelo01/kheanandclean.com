@@ -1188,6 +1188,12 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qform__submit[disabled]{ opacity:.6; cursor:progress; }
 .qform__submit.is-sent{ opacity:1; cursor:default; background:var(--emerald); border-color:var(--emerald); color:var(--on-em); }
 .qform__fine{ font-size:var(--fs-2xs); color:var(--slate); margin-top:.9rem; line-height:1.6; }
+/* Optional text-message consent (A2P 10DLC): one box, never pre-checked, never required. */
+.qconsent{ margin-top:1rem; }
+.qconsent .qcheck{ align-items:flex-start; line-height:1.45; }
+.qconsent .qcheck input{ margin-top:.15rem; }
+.qconsent__fine{ font-size:var(--fs-2xs); color:var(--slate); margin-top:.5rem; line-height:1.6; }
+.qconsent__fine a{ color:inherit; text-decoration:underline; }
 .qstatus{ font-size:var(--fs-sm); margin-top:.9rem; }
 .qstatus.err{ color:#A6402F; }
 
@@ -1281,6 +1287,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
   .callbar__btn svg{ width:18px; height:18px; }
 }
 .foot__legal{ padding-top:1.6rem; color:var(--dust); font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); letter-spacing:.14em; text-transform:uppercase; display:flex; flex-wrap:wrap; gap:.6rem 2rem; }
+.foot__legal a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
 
 /* ---------------------------------- CALL BAR ---------------------------------- */
 @media (min-width:1001px){ .foot{ padding-bottom:clamp(3rem,5vw,4.5rem); } }
@@ -1384,6 +1391,8 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qqLook .qcheck input:checked::after{ content:""; position:absolute; left:5px; top:2px; width:4px; height:8px; border:solid #E3B64A; border-width:0 2px 2px 0; transform:rotate(45deg); }
 .qqLook .qcheck input:focus-visible{ outline:2px solid #E3B64A; outline-offset:2px; }
 .qqLook .qcheck:has(input:checked){ background:#E3B64A; color:#000; border-color:#E3B64A; }
+.qqLook .qconsent .qcheck input{ margin-top:.1rem; }
+.qqLook .qconsent__fine{ color:rgba(255,255,255,.8); }
 /* Buttons and links that were blue: blue on navy disappears, so they go gold. */
 .qqLook .qWhen__asap{ border-color:#E3B64A; color:#E3B64A; }
 .qqLook .qWhen__asap:hover{ background:rgba(227,182,74,.12); }
@@ -1609,6 +1618,13 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 
                 <button type="button" class="btn btn--wireDark" id="qSummarizeBtn" style="width:100%; margin-bottom:.85rem;">Summarize</button>
               </div>
+            </div>
+
+            <!-- Optional text consent (A2P 10DLC): never pre-checked, not needed to send the form.
+                 Outside #qExpand so it always shows next to the button. -->
+            <div class="qconsent">
+              <label class="qcheck" for="qSms"><input type="checkbox" id="qSms" name="sms_consent" value="Yes"> Yes, text me about my quote and appointments from Khean &amp; Clean (quote links, appointment confirmations and reminders).</label>
+              <p class="qconsent__fine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn't required to get a quote. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>
             </div>
 
             <button class="btn btn--call qform__submit" type="submit" id="qSubmit">Send quote request</button>
@@ -2182,7 +2198,10 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
               .catch(function(){ loadedAt = 0; });   // first time: the plain date box stays; later: the days already shown stay
           }
           load();
-          return { slot: cur, clear: clear };
+          /* set(): pre-pick a day and time (a quote opened for a change). The tier is read first,
+             so check() doesn't see it flip and clear the pick. */
+          function set(day, s){ if(!isDay(day)) return; big = isBig(); when.value = slotDay = day; slot = s || ''; paint(); }
+          return { slot: cur, clear: clear, set: set };
         };
 
         /* The estimate builder's When. Whatever's tapped is sent as a request only; nothing is
@@ -2462,6 +2481,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
       <span>&copy; <span id="yr">2026</span> Khean &amp; Clean llc</span>
       <span>Licensed &amp; insured</span>
       <span>Serving Folsom &amp; surrounding communities</span>
+      <span><a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></span>
     </div>
   </div>
 </footer>
@@ -2891,6 +2911,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       var qf = document.getElementById('quoteForm');
       if(qf){
         qf.querySelectorAll('input[name="services"]').forEach(function(c){ c.checked = false; });
+        var qSms = qf.querySelector('#qSms'); if(qSms) qSms.checked = false;   // text consent starts unticked again
         qf.querySelectorAll('.qerr').forEach(function(s){ s.textContent = ''; });
       }
       // the estimator's structured copy is no longer valid once the text is gone
@@ -2974,14 +2995,17 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     var pick = window.kcDayPicker ? window.kcDayPicker({
       when: when, box: document.getElementById('qOpen'), id: 'qWhenBtn',
       label: document.querySelector('label[for="qWhen"]'),
-      hint: function(){ return 'Tap a morning (9\u20131) or afternoon (1\u20136). Grey is booked. We\u2019ll confirm the day with you.'; }
+      big: function(){ return !!window.kcEditBig; },   // a $450+ quote opened for a change takes the whole day
+      hint: function(big){ return big ? 'This job takes the whole day. Tap an open day. We\u2019ll confirm the day with you.'
+        : 'Tap a morning (9\u20131) or afternoon (1\u20136). Grey is booked. We\u2019ll confirm the day with you.'; }
     }) : null;
     window.kcOpenClear = function(){ if(pick) pick.clear(); };   // the form's Clear un-picks the day too
+    window.kcOpenSet = function(day, s){ if(pick) pick.set(day, s); else when.value = day; };
     /* The picker holds YYYY-MM-DD; hand back MM/DD/YY for the email, lead and summary,
-       plus AM or PM when it was tapped from the calendar. */
+       plus AM, PM or All day when it was tapped from the calendar. */
     window.kcWhen = function(){
       var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value), s = pick ? pick.slot() : '';
-      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) + (s ? ' ' + s.toUpperCase() : '') : '';
+      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) + (s ? ' ' + (s === 'all' ? 'All day' : s.toUpperCase()) : '') : '';
     };
   })();
 })();
@@ -4722,7 +4746,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       ok = false;
     }
 
-    if(!document.querySelector('input[name="services"]:checked')){
+    /* A change to a quote already has its services on the quote, so none need ticking. */
+    if(!window.kcEditOf && !document.querySelector('input[name="services"]:checked')){
       if(slot) slot.textContent = 'Choose at least one service.';
       ok = false;
     }
@@ -4768,9 +4793,11 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     ).join(', ');
 
     var fd = new FormData();
+    var edit = window.kcEditOf || null;   // set when a quote was opened here with "Edit date or message"
     fd.append('access_key', ACCESS_KEY);
-    fd.append('subject', 'Quote request from ' + document.getElementById('qName').value.trim());
+    fd.append('subject', (edit ? 'Change to quote ' + edit.number + ' from ' : 'Quote request from ') + document.getElementById('qName').value.trim());
     fd.append('from_name', 'Khean & Clean website');
+    if (edit) { fd.append('quote', edit.number); }
     fd.append('name',     document.getElementById('qName').value.trim());
     fd.append('phone',    document.getElementById('qPhone').value.trim());
     fd.append('email',    document.getElementById('qEmail').value.trim());
@@ -4782,6 +4809,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     fd.append('services', services);
     fd.append('when',     window.kcWhen ? window.kcWhen() : '');
     fd.append('message',  document.getElementById('qMsg').value.trim());
+    var smsOk = !!(document.getElementById('qSms') && document.getElementById('qSms').checked);
+    fd.append('sms_consent', smsOk ? 'Yes' : 'No');
     if (form.querySelector('.qhp').checked) { fd.append('botcheck', 'true'); }
 
     submit.disabled = true;
@@ -4809,13 +4838,13 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     .then(function(photoPaths){
       fd.append('photo_count', String(photoPaths.length));
       if(photoPaths.length){
-        fd.set('subject', 'Quote request from ' + document.getElementById('qName').value.trim()
+        fd.set('subject', (edit ? 'Change to quote ' + edit.number + ' from ' : 'Quote request from ') + document.getElementById('qName').value.trim()
           + ' (' + photoPaths.length + ' photo' + (photoPaths.length === 1 ? '' : 's') + ')');
       }
       submit.textContent = 'Sending...';
       if(isBot || typeof window.kcSaveLead !== 'function') return null;
       var whenVal = window.kcWhen ? window.kcWhen() : '';
-      return window.kcSaveLead({
+      return window.kcSaveLead(Object.assign(edit ? { editOf: edit.id, editOfNumber: edit.number } : {}, {
         photoPaths: photoPaths,
         when:      whenVal,
         name:      document.getElementById('qName').value.trim(),
@@ -4830,8 +4859,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         type:      document.getElementById('qType').value.toLowerCase(),
         services:  services,
         message:   document.getElementById('qMsg').value.trim(),
+        smsConsent: smsOk,
         page:      'homepage'
-      });
+      }));
     })
     .catch(function(err){
       if(window.console) console.error('Lead save failed', err);
@@ -5115,7 +5145,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
      CRM Leads section. Same project and same "leads" collection as
      quick-quote.html; page:'homepage' tells you which form it came from. */
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-  import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+  import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
   import { getStorage, ref, uploadBytes } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
   const firebaseConfig = {
@@ -5194,13 +5224,70 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   };
 
   window.kcSaveLead = async function(lead){
-    const docRef = await addDoc(collection(db, 'leads'), Object.assign({}, lead, {
+    const row = Object.assign({}, lead, {
       status: 'new',
       source: lead.source || 'quick-quote',
       createdAt: serverTimestamp()
-    }));
-    return docRef.id;
+    });
+    try { return (await addDoc(collection(db, 'leads'), row)).id; }
+    catch (err) {
+      /* If the database won't take the quote link or the text consent, the lead still goes in,
+         with those written at the top of its message instead. */
+      if (err.code !== 'permission-denied' || (!lead.editOf && !('smsConsent' in lead))) throw err;
+      const plain = Object.assign({}, row);
+      delete plain.editOf; delete plain.editOfNumber; delete plain.smsConsent;
+      const top = [];
+      if (lead.editOf) top.push('Change to quote ' + lead.editOfNumber);
+      if (lead.smsConsent) top.push('OK to text: yes');
+      plain.message = top.join('\n') + (top.length && plain.message ? '\n\n' : '') + (plain.message || '');
+      return (await addDoc(collection(db, 'leads'), plain)).id;
+    }
   };
+
+  /* "Edit date or message" on a quote opens this page as /?edit=<quote id>. The quote's
+     contact details, day and the customer's note fill the quick quote, and what they send
+     comes into Leads marked as a change to that quote, for us to approve. Nothing on the
+     quote itself changes here. Only a quote not yet accepted can be opened this way. */
+  async function kcLoadEdit(){
+    let id = '';
+    try { id = new URLSearchParams(location.search).get('edit') || ''; } catch (e) {}
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return;
+    let snap;
+    try { snap = await getDoc(doc(db, 'quotes', id)); }
+    catch (err) { console.warn('The quote to change did not load', err); return; }
+    if (!snap.exists()) return;
+    const d = snap.data(), c = d.customer || {};
+    let noteText = '';
+    try { const ns = await getDoc(doc(db, 'quoteNotes', id)); if (ns.exists()) noteText = String(ns.data().text || ''); }
+    catch (err) { /* no note, or it can't be read: the message box starts empty */ }
+    const number = String(d.number || '');
+    window.kcEditOf = { id: id, number: number };
+    window.kcEditBig = Number(d.total) >= 450;   // same line as the backend: whole day
+    const put = (fid, v) => {
+      const el = document.getElementById(fid); if (!el) return;
+      el.value = String(v || '');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    put('qName', c.name || c.business); put('qPhone', c.phone); put('qEmail', c.email);
+    put('qAddr', c.street); put('qCity', c.city); put('qZip', c.zip); put('qMsg', noteText);
+    if (c.type === 'Residential' || c.type === 'Commercial') put('qType', c.type);
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(String(d.scheduledDate || '')) ? d.scheduledDate : '';
+    const t = String(d.scheduledTime || '');
+    const s = window.kcEditBig ? 'all' : t === '09:00' ? 'am' : t === '13:00' ? 'pm' : '';
+    if (day && window.kcOpenSet) window.kcOpenSet(day, s);
+    const form = document.getElementById('quoteForm');
+    if (form && !document.getElementById('qEditNote')) {
+      const p = document.createElement('p');
+      p.id = 'qEditNote';
+      p.setAttribute('role', 'status');
+      p.style.cssText = 'margin:0 0 1rem;padding:.75rem 1rem;border:1px solid #E3B64A;border-radius:12px;color:#E3B64A;font-weight:600;line-height:1.4';
+      p.textContent = 'Changing quote ' + number + '. Change the day or the message, then send. We\u2019ll confirm with you before anything changes.';
+      form.insertBefore(p, form.firstChild);
+    }
+    const ex = document.getElementById('qExpand'); if (ex) ex.classList.add('is-open');
+  }
+  kcLoadEdit();
 </script>
 <script src="places.js" defer></script>
 </body>
