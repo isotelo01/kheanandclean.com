@@ -415,6 +415,10 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qconsent .qcheck input{ margin-top:0; }
 .qconsent__fine{ font-size:var(--fs-2xs); color:var(--slate); margin-top:.5rem; line-height:1.6; }
 .qconsent__fine a{ color:inherit; text-decoration:underline; }
+/* Promo texts: one small checkbox line inside the text panel, not a second panel. */
+.qconsent__promo{ display:flex; align-items:center; gap:.5rem; margin:.75rem 0 0; font-size:var(--fs-sm); line-height:1.35; cursor:pointer; }
+.qconsent__promo input{ width:16px; height:16px; flex:none; margin:0; accent-color:var(--jade); cursor:pointer; }
+.qqPage .qconsent__promo input{ accent-color:#E3B64A; }
 
 /* Summarize sits under Send now; keep it hidden while the form is collapsed, same as before. */
 #qExpand:not(.is-open) ~ #qSummarizeBtn{ display:none; }
@@ -1021,6 +1025,8 @@ body{ background:#172239; }
                 <label class="qcheck" for="qSmsNo"><input type="radio" id="qSmsNo" name="sms_consent" value="No" autocomplete="off"> No thanks</label>
               </div>
               <span class="qerr" data-for="qSms"></span>
+              <!-- Promotional texts (Mixed campaign): its own small checkbox, unticked to start. Optional; unticked = No. -->
+              <label class="qconsent__promo" for="qPromo"><input type="checkbox" id="qPromo" name="marketing_consent" value="Yes" autocomplete="off"> Also text me occasional specials &amp; promotions (optional)</label>
               <p class="qconsent__fine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn't required to get a quote. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>
             </div>
 
@@ -1586,6 +1592,7 @@ window.kcQAddr = function(){
         qf.querySelectorAll('input[name="services"]').forEach(function(c){ c.checked = false; });
         var qSms = qf.querySelector('#qSms'); if(qSms) qSms.checked = false;   // text consent starts unpicked again
         var qSmsNo = qf.querySelector('#qSmsNo'); if(qSmsNo) qSmsNo.checked = false; if(qSms) qSms.removeAttribute('aria-invalid');   // neither Yes nor No picked
+        qf.querySelectorAll('input[name="marketing_consent"]').forEach(function(r){ r.checked = false; });   // promo texts start unpicked again too
         qf.querySelectorAll('.qerr').forEach(function(s){ s.textContent = ''; });
       }
       // the estimator's structured copy is no longer valid once the text is gone
@@ -1782,6 +1789,8 @@ window.kcQAddr = function(){
       if (err.code !== 'permission-denied' || !('smsConsent' in lead)) throw err;
       const plain = Object.assign({}, row);
       delete plain.smsConsent;
+      delete plain.marketingConsent;
+      if (lead.marketingConsent) plain.message = 'OK to text specials: yes' + (plain.message ? '\n\n' + plain.message : '');
       if (lead.smsConsent) plain.message = 'OK to text: yes' + (plain.message ? '\n\n' + plain.message : '');
       return (await addDoc(collection(db, 'leads'), plain)).id;
     }
@@ -1969,6 +1978,8 @@ window.kcQAddr = function(){
     fd.append('message',  document.getElementById('qMsg').value.trim());
     var smsOk = !!(document.getElementById('qSms') && document.getElementById('qSms').checked);
     fd.append('sms_consent', smsOk ? 'Yes' : 'No');
+    var promoOk = !!(document.getElementById('qPromo') && document.getElementById('qPromo').checked);
+    fd.append('marketing_consent', promoOk ? 'Yes' : 'No');
     if (form.querySelector('.qhp').checked) { fd.append('botcheck', 'true'); }
 
     submit.disabled = true;
@@ -2008,6 +2019,7 @@ window.kcQAddr = function(){
           when:          window.kcWhen ? window.kcWhen() : '',
           message:       document.getElementById('qMsg').value.trim(),
           smsConsent:    smsOk,
+          marketingConsent: promoOk,
           photoPaths:    photoPaths
         });
       })

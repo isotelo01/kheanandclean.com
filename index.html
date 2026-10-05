@@ -864,6 +864,9 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .estConsent .estErr{ margin-top:.45rem; }
 .estConsent__fine{ font-size:var(--fs-2xs); color:var(--dust); margin:.5rem 0 0; line-height:1.6; }
 .estConsent__fine a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
+/* Promo texts: one small checkbox line inside the estimator's text panel, not a second panel. */
+.estConsent__promo{ display:flex; align-items:center; gap:.5rem; margin:.75rem 0 0; font-size:var(--fs-sm); line-height:1.35; color:var(--bone); cursor:pointer; }
+.estConsent__promo input{ width:16px; height:16px; flex:none; margin:0; accent-color:var(--jade-lit); cursor:pointer; }
 @media (max-width:560px){ .estSend .estEnter{ width:100%; } }
 .est--locked .est__form > :not(.estSend){ display:none; }
 .est--locked .est__out{ display:none; }
@@ -1217,6 +1220,10 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qconsent .qcheck input{ margin-top:0; }
 .qconsent__fine{ font-size:var(--fs-2xs); color:var(--slate); margin-top:.5rem; line-height:1.6; }
 .qconsent__fine a{ color:inherit; text-decoration:underline; }
+/* Promo texts: one small checkbox line inside the text panel, not a second panel. */
+.qconsent__promo{ display:flex; align-items:center; gap:.5rem; margin:.75rem 0 0; font-size:var(--fs-sm); line-height:1.35; cursor:pointer; }
+.qconsent__promo input{ width:16px; height:16px; flex:none; margin:0; accent-color:var(--jade); cursor:pointer; }
+.qqLook .qconsent__promo input{ accent-color:#E3B64A; }
 .qstatus{ font-size:var(--fs-sm); margin-top:.9rem; }
 .qstatus.err{ color:#A6402F; }
 
@@ -1658,6 +1665,8 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
                 <label class="qcheck" for="qSmsNo"><input type="radio" id="qSmsNo" name="sms_consent" value="No" autocomplete="off"> No thanks</label>
               </div>
               <span class="qerr" data-for="qSms"></span>
+              <!-- Promotional texts (Mixed campaign): its own small checkbox, unticked to start. Optional; unticked = No. -->
+              <label class="qconsent__promo" for="qPromo"><input type="checkbox" id="qPromo" name="marketing_consent" value="Yes" autocomplete="off"> Also text me occasional specials &amp; promotions (optional)</label>
               <p class="qconsent__fine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn't required to get a quote. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>
             </div>
 
@@ -1936,6 +1945,8 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
               <label class="estConsent__opt" for="eSmsNo"><input type="radio" id="eSmsNo" name="sms_consent" value="No" autocomplete="off"> No thanks</label>
             </div>
             <span class="estErr" data-for="eSms"></span>
+            <!-- Promotional texts (Mixed campaign): its own small checkbox, unticked to start. Optional; unticked = No. -->
+            <label class="estConsent__promo" for="ePromo"><input type="checkbox" id="ePromo" name="marketing_consent" value="Yes" autocomplete="off"> Also text me occasional specials &amp; promotions (optional)</label>
             <p class="estConsent__fine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn't required to get an estimate. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>
           </div>
           <div class="estRow estRow--gate">
@@ -2960,6 +2971,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         qf.querySelectorAll('input[name="services"]').forEach(function(c){ c.checked = false; });
         var qSms = qf.querySelector('#qSms'); if(qSms) qSms.checked = false;   // text consent starts unticked again
         var qSmsNo = qf.querySelector('#qSmsNo'); if(qSmsNo) qSmsNo.checked = false; if(qSms) qSms.removeAttribute('aria-invalid');   // neither Yes nor No picked
+        qf.querySelectorAll('input[name="marketing_consent"]').forEach(function(r){ r.checked = false; });   // promo texts start unpicked again too
         qf.querySelectorAll('.qerr').forEach(function(s){ s.textContent = ''; });
       }
       // the estimator's structured copy is no longer valid once the text is gone
@@ -4250,6 +4262,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       var eSmsNoBox = document.getElementById('eSmsNo');
       if(eSmsNoBox) eSmsNoBox.checked = false;            // neither Yes nor No picked
       if(eSmsBox) eSmsBox.removeAttribute('aria-invalid');
+      var ePromoBox = document.getElementById('ePromo');
+      if(ePromoBox) ePromoBox.checked = false;            // promo texts start unticked again too
       if(eSend) eSend.querySelectorAll('.estErr').forEach(function(el){ el.textContent = ''; });
       if(eStatus){ eStatus.textContent = ''; eStatus.classList.remove('err'); }
     }
@@ -4317,6 +4331,11 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     /* The optional "text me" box in their details. */
     function eSmsOk(){
       var b = document.getElementById('eSms');
+      return !!(b && b.checked);
+    }
+    /* The optional promo-texts checkbox under it. */
+    function ePromoOk(){
+      var b = document.getElementById('ePromo');
       return !!(b && b.checked);
     }
     /* Street, city and ZIP joined into one line for the email. */
@@ -4388,6 +4407,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         fd.append('stage',   'Opened the estimator (details only, no estimate yet)');
         var eSmsYes = eSmsOk();   /* read once, at the click */
         fd.append('sms_consent', eSmsYes ? 'Yes' : 'No');
+        var ePromoYes = ePromoOk();
+        fd.append('marketing_consent', ePromoYes ? 'Yes' : 'No');
         if (eSend.querySelector('input.esthp').checked) { fd.append('botcheck', 'true'); }
 
         /* Also put a lead on the estimator's Leads page. Bots are skipped.
@@ -4407,6 +4428,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
             }],
             type:      eType ? eType.value.toLowerCase() : '',
             smsConsent: eSmsYes,
+            marketingConsent: ePromoYes,
             message:   'Opened the estimator (details only, no estimate yet)',
             page:      'homepage-estimator'
           }).then(function(id){ window.kcSoftLeadId = id; })
@@ -4479,6 +4501,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       fd.append('when',     eWhenVal);
       var eSmsYes = eSmsOk();   /* read once, at the click */
       fd.append('sms_consent', eSmsYes ? 'Yes' : 'No');
+      var ePromoYes = ePromoOk();
+      fd.append('marketing_consent', ePromoYes ? 'Yes' : 'No');
       if (eSend.querySelector('input.esthp').checked) { fd.append('botcheck', 'true'); }
 
       eSubmit.disabled = true;
@@ -4535,6 +4559,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
           }],
           type:       eType ? eType.value.toLowerCase() : '',
           smsConsent: eSmsYes,
+          marketingConsent: ePromoYes,
           /* Every choice behind the estimate, in the in-house estimator's own
              snapshot format, so New quote on the Leads page can rebuild it.
              Saved as text so Firestore takes any shape. */
@@ -4897,6 +4922,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     fd.append('message',  document.getElementById('qMsg').value.trim());
     var smsOk = !!(document.getElementById('qSms') && document.getElementById('qSms').checked);
     fd.append('sms_consent', smsOk ? 'Yes' : 'No');
+    var promoOk = !!(document.getElementById('qPromo') && document.getElementById('qPromo').checked);
+    fd.append('marketing_consent', promoOk ? 'Yes' : 'No');
     if (form.querySelector('.qhp').checked) { fd.append('botcheck', 'true'); }
 
     submit.disabled = true;
@@ -4946,6 +4973,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         services:  services,
         message:   document.getElementById('qMsg').value.trim(),
         smsConsent: smsOk,
+        marketingConsent: promoOk,
         page:      'homepage'
       }));
     })
@@ -5322,9 +5350,11 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       if (err.code !== 'permission-denied' || (!lead.editOf && !('smsConsent' in lead))) throw err;
       const plain = Object.assign({}, row);
       delete plain.editOf; delete plain.editOfNumber; delete plain.smsConsent;
+      delete plain.marketingConsent;
       const top = [];
       if (lead.editOf) top.push('Change to quote ' + lead.editOfNumber);
       if (lead.smsConsent) top.push('OK to text: yes');
+      if (lead.marketingConsent) top.push('OK to text specials: yes');
       plain.message = top.join('\n') + (top.length && plain.message ? '\n\n' : '') + (plain.message || '');
       return (await addDoc(collection(db, 'leads'), plain)).id;
     }

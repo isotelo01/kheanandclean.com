@@ -151,6 +151,12 @@ const servicesOf = l => Array.isArray(l.services) ? l.services.join(", ") : Stri
 const textOk = l => l.smsConsent === true || /^OK to text: yes/.test(String(l.message || "")) ? true
   : l.smsConsent === false ? false : null;
 const textingOf = l => { const t = textOk(l); return t === true ? "Yes, OK to text" : t === false ? "No, do not text" : "Not recorded"; };
+/* The website's optional "text me specials" checkbox (marketingConsent). Same idea: if the
+   database refused the field, a Yes survives as an "OK to text specials: yes" line at the top
+   of the message (second line when the texting Yes is there too). */
+const promoOk = l => l.marketingConsent === true || /^OK to text specials: yes/m.test(String(l.message || "")) ? true
+  : l.marketingConsent === false ? false : null;
+const promoOf = l => { const t = promoOk(l); return t === true ? "Yes, OK to text specials" : t === false ? "No, do not text specials" : "Not recorded"; };
 const ms = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
 const when = l => { const m = ms(l.createdAt); return m ? new Date(m).toLocaleString(undefined,
   { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""; };
@@ -379,6 +385,7 @@ async function showLead(id){
         (String(l.when || "").trim() ? rrow("Wants", wantsDay(l)) : "") +
         rrow("Services", servicesOf(l)) +
         rrow("Texting", textingOf(l)) +
+        rrow("Specials", promoOf(l)) +
         '<div class="rrow msgrow"><div class="msghead"><div class="rlab">Message</div>' +
           '<button type="button" class="ghost tiny" id="editMsg">Edit</button></div>' +
           '<div class="rval' + (l.message ? '' : ' empty') + '" id="msgView">' + (l.message ? esc(l.message) : "\u2014") + '</div>' +
