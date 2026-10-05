@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Texts &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Same look as leads.html. Texts to and from (916) 767-2520: the list of conversations,
+   one conversation with a reply box, and New text. Reading comes straight from Firestore
+   (smsThreads); sending goes through the smsSend function, which talks to Twilio. */
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:760px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.new:disabled{opacity:.6;cursor:default}
+[hidden]{display:none!important}
+.msg{color:var(--muted);font-size:15px;padding:6px 2px}
+.msg.err{color:var(--red)}
+:where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* The list: one row per phone number, newest first. Gold edge + count = unread. */
+.list{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;text-decoration:none;color:inherit;background:#fff;
+  border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:12px 16px;border-left:4px solid transparent}
+.row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
+.row.unread{border-left-color:var(--gold)}
+.who{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.unread .who{font-weight:700}
+.when{color:var(--muted);font-size:13px;white-space:nowrap;text-align:right}
+.last{color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.unread .last{color:var(--ink)}
+.badge{justify-self:end;min-width:22px;height:22px;border-radius:11px;background:var(--gold);color:var(--navy);font:700 12px/22px "Archivo";text-align:center;padding:0 6px}
+.stop{color:var(--red);font-size:12px;font-weight:700;margin-left:8px}
+
+/* One conversation: their texts on the left, yours on the right in navy. */
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:16px}
+.chead{display:flex;align-items:baseline;justify-content:space-between;gap:6px 12px;flex-wrap:wrap;border-bottom:2px solid var(--gold);padding-bottom:8px;margin-bottom:12px}
+.chead h2{font:700 22px "Playfair Display",Georgia,serif;margin:0}
+.chead a{color:var(--navy);font-weight:600;text-decoration:none}
+.banner{background:#f9e7e6;color:var(--red);border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;margin-bottom:12px}
+.thread{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto;padding:4px 2px 8px}
+.day{align-self:center;font-size:12px;color:var(--muted);font-weight:600;margin:8px 0 2px}
+.b{max-width:80%;padding:9px 12px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.45}
+.b.in{align-self:flex-start;background:var(--bg);border-bottom-left-radius:4px}
+.b.out{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}
+.b img{display:block;max-width:220px;max-height:220px;border-radius:8px;margin:2px 0 4px}
+.b a{color:inherit}
+.st{font-size:12px;color:var(--muted);margin:-2px 2px 4px}
+.st.in{align-self:flex-start}
+.st.out{align-self:flex-end;text-align:right}
+.st.bad{color:var(--red);font-weight:600}
+.reply{margin-top:12px;display:grid;gap:8px}
+textarea,.field input{width:100%;font:inherit;padding:10px 12px;border:1px solid #c9cedb;border-radius:8px;resize:vertical;background:#fff;color:var(--ink)}
+textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold)}
+.ractions{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.count{font-size:13px;color:var(--muted)}
+.field{display:grid;gap:4px;margin-bottom:10px}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+@media(max-width:540px){.b{max-width:88%}.thread{max-height:56vh}.top{gap:10px}}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Texts</h1>
+    <div class="nav">
+      <a class="ghost" id="allBtn" href="#" hidden>All texts</a>
+      <a class="ghost" href="./leads.html">Leads</a>
+      <a class="new" id="newBtn" href="#new">New text</a>
+    </div>
+  </div>
+  <div id="view"><div class="msg">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, limit, limitToLast, onSnapshot, doc, updateDoc }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
+
+const view = document.getElementById("view");
+const MAX = 1600;
+const ELLIPSIS = "…", DOT = " · ";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+// Same key the functions use: the last 10 digits.
+const key = p => { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
+const pretty = p => { const d = key(p); return d ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : String(p || ""); };
+const ms = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
+const sameDay = (a, b) => a.toDateString() === b.toDateString();
+const yesterday = () => { const y = new Date(); y.setDate(y.getDate() - 1); return y; };
+const timeOf = d => d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+function whenShort(t) {
+  const m = ms(t); if (!m) return "";
+  const d = new Date(m);
+  if (sameDay(d, new Date())) return timeOf(d);
+  if (sameDay(d, yesterday())) return "Yesterday";
+  return d.toLocaleDateString([], {month: "short", day: "numeric"});
+}
+const dayLabel = d => sameDay(d, new Date()) ? "Today" : sameDay(d, yesterday()) ? "Yesterday"
+  : d.toLocaleDateString([], {weekday: "short", month: "short", day: "numeric"});
+
+// What each Twilio delivery status shows under your text.
+const STATUS = {accepted: "Sending" + ELLIPSIS, scheduled: "Sending" + ELLIPSIS, queued: "Sending" + ELLIPSIS,
+  sending: "Sending" + ELLIPSIS, sent: "Sent", delivered: "Delivered", read: "Read",
+  undelivered: "Not delivered", failed: "Failed"};
+// The function's own words when it refuses; a generic line for anything unexpected.
+const friendly = err => {
+  const m = (err && err.message) || "";
+  return !m || /^internal$/i.test(m) ? "Couldn't send. Please try again." : m;
+};
+
+let stop = [];   // live listeners for the screen showing now
+const clearScreen = () => { stop.forEach(f => f()); stop = []; };
+
+/* ---------- all conversations ---------- */
+function showList() {
+  view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+  stop.push(onSnapshot(query(collection(db, "smsThreads"), orderBy("lastAt", "desc"), limit(200)), snap => {
+    if (snap.empty) {
+      view.innerHTML = '<div class="msg">No texts yet. When a customer texts (916) 767-2520, it shows up here. ' +
+        'Tap <b>New text</b> to start one.</div>';
+      return;
+    }
+    view.innerHTML = '<div class="list">' + snap.docs.map(d => {
+      const t = d.data(), n = Number(t.unread) || 0;
+      return '<a class="row' + (n ? ' unread' : '') + '" href="#' + esc(d.id) + '">' +
+        '<span class="who">' + esc(t.name || pretty(t.phone || d.id)) + (t.optedOut ? '<span class="stop">STOP</span>' : '') + '</span>' +
+        '<span class="when">' + esc(whenShort(t.lastAt)) + '</span>' +
+        '<span class="last">' + (t.lastDir === "out" ? "You: " : "") + esc(t.lastBody || "") + '</span>' +
+        (n ? '<span class="badge" title="' + n + ' unread">' + n + '</span>' : '<span></span>') +
+      '</a>';
+    }).join('') + '</div>';
+  }, err => { view.innerHTML = '<div class="msg err">Could not load texts: ' + esc(err.message) + '</div>'; }));
+}
+
+/* ---------- one conversation ---------- */
+function showThread(id) {
+  let t = {}, first = true, sending = false;
+  view.innerHTML =
+    '<div class="panel">' +
+      '<div class="chead"><h2 id="cname">' + esc(pretty(id)) + '</h2><a id="ctel" href="tel:+1' + esc(id) + '">' + esc(pretty(id)) + '</a></div>' +
+      '<div id="banner"></div>' +
+      '<div class="thread" id="thread"><div class="msg">Loading&hellip;</div></div>' +
+      '<form class="reply" id="replyForm">' +
+        '<textarea id="body" rows="3" maxlength="' + MAX + '" placeholder="Type a reply' + ELLIPSIS + '" aria-label="Reply"></textarea>' +
+        '<div class="ractions"><span class="count" id="count">0 / ' + MAX + '</span>' +
+          '<button class="new" type="submit" id="sendBtn">Send</button></div>' +
+        '<div class="msg" id="note" role="status"></div>' +
+      '</form>' +
+    '</div>';
+
+  // Name, phone link, STOP warning; opening the conversation marks it read.
+  stop.push(onSnapshot(doc(db, "smsThreads", id), s => {
+    t = s.exists() ? s.data() : {};
+    document.getElementById("cname").textContent = t.name || pretty(t.phone || id);
+    const tel = document.getElementById("ctel");
+    tel.textContent = pretty(t.phone || id);
+    tel.href = "tel:" + (t.phone || "+1" + id);
+    document.getElementById("banner").innerHTML = t.optedOut
+      ? '<div class="banner">They replied STOP. Texts to this number are blocked until they reply START.</div>' : '';
+    if (Number(t.unread) > 0) updateDoc(doc(db, "smsThreads", id), {unread: 0}).catch(e => console.warn("mark read failed", e));
+  }, err => console.warn("thread", err)));
+
+  // The texts, oldest at the top. Stays scrolled to the bottom unless you've scrolled up.
+  stop.push(onSnapshot(query(collection(db, "smsThreads", id, "messages"), orderBy("at"), limitToLast(300)), snap => {
+    const box = document.getElementById("thread");
+    if (!box) return;
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+    if (snap.empty) { box.innerHTML = '<div class="msg">No texts with this number yet.</div>'; return; }
+    let lastDay = "";
+    box.innerHTML = snap.docs.map(d => {
+      const m = d.data(), at = new Date(ms(m.at) || Date.now()), dir = m.dir === "out" ? "out" : "in";
+      let h = "";
+      const dl = dayLabel(at);
+      if (dl !== lastDay) { h += '<div class="day">' + esc(dl) + '</div>'; lastDay = dl; }
+      const pics = (Array.isArray(m.media) ? m.media : []).filter(x => /^https:\/\//.test(x && x.url)).map((x, i) =>
+        /^image\//.test(x.type)
+          ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener"><img src="' + esc(x.url) + '" alt="Photo ' + (i + 1) + '" loading="lazy"></a>'
+          : '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">Attachment ' + (i + 1) + '</a>').join('');
+      h += '<div class="b ' + dir + '">' + pics + esc(m.body || "") + '</div>';
+      if (dir === "out") {
+        const bad = m.status === "failed" || m.status === "undelivered";
+        h += '<div class="st out' + (bad ? ' bad' : '') + '">' + esc(timeOf(at) + DOT + (STATUS[m.status] || "Sent") +
+          (bad && m.error ? ": " + m.error : "")) + '</div>';
+      } else {
+        h += '<div class="st in">' + esc(timeOf(at)) + '</div>';
+      }
+      return h;
+    }).join('');
+    if (first || atBottom) box.scrollTop = box.scrollHeight;
+    first = false;
+  }, err => {
+    const box = document.getElementById("thread");
+    if (box) box.innerHTML = '<div class="msg err">Could not load this conversation: ' + esc(err.message) + '</div>';
+  }));
+
+  const form = document.getElementById("replyForm"), body = document.getElementById("body"),
+        btn = document.getElementById("sendBtn"), note = document.getElementById("note"), count = document.getElementById("count");
+  body.addEventListener("input", () => { count.textContent = body.value.length + " / " + MAX; });
+  body.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); } });
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const text = body.value.trim();
+    if (!text || sending) return;
+    if (t.optedOut) { note.className = "msg err"; note.textContent = "They replied STOP, so this can't be sent."; return; }
+    sending = true; btn.disabled = true; btn.textContent = "Sending" + ELLIPSIS;
+    note.className = "msg"; note.textContent = "";
+    try {
+      const r = await smsSend({to: t.phone || id, body: text});
+      body.value = ""; count.textContent = "0 / " + MAX;
+      if (r && r.data && r.data.saved === false) note.textContent = "Sent, but it didn't save here. Don't send it again.";
+    } catch (err) {
+      note.className = "msg err"; note.textContent = friendly(err);   // your text stays in the box
+    } finally {
+      sending = false; btn.disabled = false; btn.textContent = "Send";
+    }
+  });
+  body.focus({preventScroll: true});
+}
+
+/* ---------- new text ----------
+   #new, or #new/9165551234 to start with the number filled in. */
+function showNew(prefill) {
+  view.innerHTML =
+    '<div class="panel">' +
+      '<div class="chead"><h2>New text</h2></div>' +
+      '<form id="newForm">' +
+        '<div class="field"><label for="to">Phone number</label>' +
+          '<input id="to" type="tel" inputmode="tel" autocomplete="off" placeholder="(916) 555-1234" value="' + esc(pretty(prefill)) + '"></div>' +
+        '<div class="reply" style="margin-top:0">' +
+          '<textarea id="body" rows="4" maxlength="' + MAX + '" placeholder="Message" aria-label="Message"></textarea>' +
+          '<div class="ractions"><span class="count" id="count">0 / ' + MAX + '</span>' +
+            '<button class="new" type="submit" id="sendBtn">Send</button></div>' +
+          '<div class="msg" id="note" role="status"></div>' +
+        '</div>' +
+      '</form>' +
+    '</div>';
+  const form = document.getElementById("newForm"), to = document.getElementById("to"), body = document.getElementById("body"),
+        btn = document.getElementById("sendBtn"), note = document.getElementById("note"), count = document.getElementById("count");
+  body.addEventListener("input", () => { count.textContent = body.value.length + " / " + MAX; });
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const k = key(to.value), text = body.value.trim();
+    note.className = "msg err";
+    if (!k) { note.textContent = "Enter a 10-digit phone number."; to.focus(); return; }
+    if (!text) { note.textContent = "Type a message first."; body.focus(); return; }
+    btn.disabled = true; btn.textContent = "Sending" + ELLIPSIS; note.textContent = "";
+    try {
+      await smsSend({to: k, body: text});
+      location.hash = k;   // straight into the conversation
+    } catch (err) {
+      note.textContent = friendly(err);
+      btn.disabled = false; btn.textContent = "Send";
+    }
+  });
+  (prefill ? body : to).focus();
+}
+
+/* ---------- which screen ---------- */
+const route = () => {
+  clearScreen();
+  const h = decodeURIComponent(location.hash.slice(1));
+  const isNew = h === "new" || h.startsWith("new/");
+  document.getElementById("allBtn").hidden = !h;
+  document.getElementById("newBtn").hidden = isNew;
+  if (isNew) showNew(h.slice(4));
+  else if (/^\d{5,15}$/.test(h)) showThread(h);
+  else showList();
+};
+
+/* Page lock. Not signed in -> login page, then back here. */
+let started = false;
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=texts.html"); return; }
+  document.getElementById("authwait")?.remove();
+  if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
+});
+</script>
+</body>
+</html>
