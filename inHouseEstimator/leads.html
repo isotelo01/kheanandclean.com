@@ -24,13 +24,12 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .colhead{font:700 13px "Archivo",system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 2px}
 .row{display:block;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 16px}
 .row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
-/* Card tint by lead source; the open lead's panel gets the same tint.
-   Quick quote = soft red while still New (needs a callback), plain white once
-   Contacted or further. In-depth estimator ("estimator", or "in-depth-estimator"
-   when the photo form's photos or services were merged on) = soft blue, always. */
-.row.src-estimator,.row.src-in-depth-estimator,
-.panel.src-estimator,.panel.src-in-depth-estimator{background:#e6eef9}
-.row.src-quick-quote.st-new,.panel.src-quick-quote.st-new{background:#f9e7e6}
+/* Card tint; the open lead's panel gets the same tint (tintOf picks it).
+   Green = a finished estimate is on it, any status: ready to send, money.
+   Red = still New and needs a callback: photo quote form, or an estimator run
+   that never finished an estimate. Plain white once Contacted or Quoted. */
+.row.t-green,.panel.t-green{background:#e2f3e7}
+.row.t-red,.panel.t-red{background:#f9e7e6}
 /* Gold star in the tile's corner when the customer picked a day. */
 .row{position:relative}
 .row .star{position:absolute;top:9px;right:12px;color:var(--gold);font-size:19px;line-height:1;text-shadow:0 1px 1px rgba(23,34,57,.35)}
@@ -126,8 +125,13 @@ const STATUSES = [
   { v: "quoted",    label: "Quoted" }
 ];
 const statusOf = l => STATUSES.find(s => s.v === l.status) || STATUSES[0];
-/* Tint classes shared by the tile and the open lead; the CSS picks the color. */
-const tintOf = l => "src-" + esc(l.source || "other") + " st-" + statusOf(l).v;
+/* Tint shared by the tile and the open lead. Green: a finished estimate is on
+   it (only the website estimator's last step saves estimateData), any status.
+   Red: still New and needs a callback (photo quote form, or an estimator run
+   with no finished estimate). Anything else: plain white. */
+const CALLBACK = ["quick-quote", "estimator", "in-depth-estimator"];
+const tintOf = l => String(l.estimateData || "").trim() ? "t-green"
+  : statusOf(l).v === "new" && CALLBACK.includes(l.source) ? "t-red" : "";
 
 /* Same field names as customers.html. Leads saved before the rename have
    flat street/city/zip and property_type, so fall back to those. */
@@ -160,9 +164,9 @@ const photoCount = l => photosOf(l).length + pathsOf(l).length;
 
 /* An older duplicate of a lead can hold what the newer one lacks: photos,
    services, the day wanted, the estimate, a typed message. carryOver() returns
-   just those (or null). A lead that ends up with photos or services, plus an
-   estimate or an estimator origin, becomes "in-depth-estimator", which tints
-   its tile blue. The estimator's canned details-only line is never carried. */
+   just those (or null). The kept lead keeps its own source; its color comes
+   from what is on it (see tintOf). The estimator's canned details-only line
+   is never carried. */
 const SOFT_MSG = "Opened the estimator (details only, no estimate yet)";
 const blank = v => !String(Array.isArray(v) ? v.join("") : (v || "")).trim();
 const carryOver = (older, newer) => {
@@ -177,9 +181,6 @@ const carryOver = (older, newer) => {
   const om = String(older.message || "").trim(), nm = String(newer.message || "").trim();
   if (om && om !== SOFT_MSG && !nm.includes(om)) out.message = (nm && nm !== SOFT_MSG) ? nm + "\n\n" + om : om;
   if (!Object.keys(out).length) return null;
-  const m = Object.assign({}, newer, out);
-  const rich = photoCount(m) || !blank(m.services);
-  if (rich && (!blank(m.estimateData) || m.source === "estimator") && m.source !== "in-depth-estimator") out.source = "in-depth-estimator";
   return out;
 };
 
