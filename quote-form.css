@@ -441,3 +441,215 @@ html{ scroll-behavior:smooth; }
 .squote {
   padding-top: 3rem;
 }
+
+
+/* ============================================================================
+   NAVY LOOK, PHOTOS AND "SEE AVAILABLE DAYS"  (matches quick-quote.html)
+   ----------------------------------------------------------------------------
+   Navy card with a white outline, gold labels, black boxes with white text,
+   gold service tiles and a gold Send, the same look as the standalone Quick
+   Quote page (its .qqPage block). Everything here overrides the light card
+   above; delete this block to go back to it. The service pages do not define
+   the homepage's colour variables, so the colours are written out.
+   ============================================================================ */
+.kcq{ background:#172239; color:#fff; border:1.5px solid #fff; }
+.kcq__ttl{ color:#fff; }
+.kcq__sub{ color:#E3B64A; }
+.kcq__field > label,
+.kcq__field > legend{ color:#E3B64A; }
+
+/* black boxes, white text */
+.kcq__field input[type=text],
+.kcq__field input[type=tel],
+.kcq__field input[type=email],
+.kcq__field select,
+.kcq__field textarea,
+.kcq .qWhen input[type="date"]{
+  background-color:#000; color:#fff; border:1.5px solid #3A3A3A; border-radius:12px;
+}
+.kcq__field select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23E3B64A' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+.kcq__field select option{ background:#000; color:#fff; }
+.kcq__field :is(input,textarea)::placeholder{ color:rgba(255,255,255,.45); }
+.kcq__field :is(input,select,textarea):focus{
+  border-color:#E3B64A; box-shadow:0 0 0 3px rgba(227,182,74,.35); outline:none;
+}
+.kcq__field :is(input,select,textarea)[aria-invalid="true"]{ border-color:#F08C7A; }
+.kcq__field input:-webkit-autofill, .kcq__field input:-webkit-autofill:hover,
+.kcq__field input:-webkit-autofill:focus, .kcq__field select:-webkit-autofill{
+  -webkit-box-shadow:0 0 0 1000px #000 inset; box-shadow:0 0 0 1000px #000 inset;
+  -webkit-text-fill-color:#fff; caret-color:#fff;
+}
+/* the dark red error text is hard to read on navy, so it brightens here */
+.kcq__err, .kcq__status.err{ color:#F08C7A; }
+.kcq__status{ color:#fff; }
+
+/* services (and the texting Yes / No): black tiles, gold lettering, round gold
+   ticks; a picked one goes solid gold */
+.kcq__check{ background:#000; color:#E3B64A; border:1.5px solid #3A3A3A; border-radius:10px; }
+.kcq__check:hover{ border-color:#E3B64A; }
+.kcq__check input{
+  -webkit-appearance:none; appearance:none; width:18px; height:18px; margin:0;
+  border-radius:50%; border:1.5px solid #E3B64A; background:#000; cursor:pointer; position:relative; flex:none;
+}
+.kcq__check input:checked{ border-color:#000; }
+.kcq__check input:checked::after{
+  content:""; position:absolute; left:5px; top:2px; width:4px; height:8px;
+  border:solid #E3B64A; border-width:0 2px 2px 0; transform:rotate(45deg);
+}
+.kcq__check input:focus-visible{ outline:2px solid #E3B64A; outline-offset:2px; }
+.kcq__check:has(input:checked){ background:#E3B64A; color:#000; border-color:#E3B64A; }
+
+/* texting box: gold on navy, as on quick-quote.html */
+.kcq__consent{ border-color:#E3B64A; background:rgba(227,182,74,.10); }
+.kcq__consent:has([aria-invalid="true"]){ border-color:#F08C7A; background:rgba(240,140,122,.08); }
+.kcq__consentQ{ color:#fff; }
+.kcq__consentWhat{ color:rgba(255,255,255,.9); }
+.kcq__consentFine{ color:rgba(255,255,255,.8); }
+.kcq__promo{ color:#E3B64A; }
+.kcq__promo input{ accent-color:#E3B64A; }
+
+/* summary panel */
+.kcq__summary{ background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.2); }
+.kcq__sumRow{ border-top-color:rgba(255,255,255,.14); }
+.kcq__sumLabel{ color:#E3B64A; }
+.kcq__sumVal{ color:#fff; }
+.kcq__chip{ background:rgba(227,182,74,.12); border-color:rgba(227,182,74,.4); color:#E3B64A; }
+
+/* buttons */
+.kcq__summarize{ color:#fff; border-color:rgba(255,255,255,.45); }
+.kcq__summarize:hover{ border-color:#E3B64A; background:rgba(227,182,74,.1); }
+.kcq__submit,
+.kcq__submit:hover{
+  background:linear-gradient(115deg, #A67C1E 0%, #F0C670 28%, #FCE7AE 45%, #C9982D 62%, #8A631A 100%);
+  background-size:220% 100%; background-position:0 0;
+  color:#0A0A0B; border:0; border-radius:12px; letter-spacing:.1em; text-transform:uppercase;
+  box-shadow:0 12px 26px -16px rgba(138,99,26,.95), inset 0 1px 0 rgba(255,255,255,.55);
+  transition:background-position .7s ease, transform .15s ease;
+}
+.kcq__submit:hover{ background-position:100% 0; transform:translateY(-1px); }
+.kcq__submit:focus-visible, .kcq__summarize:focus-visible{ outline-color:#E3B64A; }
+.kcq__tool{ color:#fff; border-color:rgba(255,255,255,.45); }
+.kcq__tool:hover{ color:#E3B64A; border-color:#E3B64A; background:rgba(227,182,74,.1); }
+#kcq1_Clear:hover, .kcq__tool[id$="Clear"]:hover{ color:#F08C7A; border-color:#F08C7A; background:rgba(240,140,122,.1); }
+
+/* small print and links */
+.kcq__fine, .kcq__estLink{ color:rgba(255,255,255,.82); }
+.kcq__fine a, .kcq__estLink a{ color:#E3B64A; }
+
+/* sent */
+.kcq__done h3{ color:#fff; }
+.kcq__done p{ color:rgba(255,255,255,.82); }
+.kcq__doneTick{ background:#E3B64A; color:#172239; }
+.kcq__doneCall{ background:#E3B64A; border-color:#E3B64A; color:#172239; }
+.kcq__doneCall:hover{ background:#F0C670; border-color:#F0C670; color:#172239; }
+
+/* ---- Add photos: Take photo / Choose photo, previews with an X ---- */
+.kcq__photoZone{
+  border:1.5px dashed rgba(227,182,74,.5); border-radius:var(--r-md, 16px);
+  background:rgba(255,255,255,.04); padding:1rem;
+}
+.kcq__photoHint{
+  margin:0 0 .8rem; max-width:none; text-align:center;
+  font-family:"Playfair Display", Georgia, serif; font-style:italic; font-size:15px; line-height:1.4;
+  color:rgba(255,255,255,.8);
+}
+.kcq__photoBtns{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+.kcq__photoBtn{
+  display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%;
+  padding:.8rem .75rem; border-radius:12px; cursor:pointer;
+  font-family:"Inter", system-ui, sans-serif; font-size:14px; font-weight:700; letter-spacing:.02em;
+  transition:transform .15s ease, background .15s ease;
+}
+.kcq__photoBtn svg{ width:18px; height:18px; flex:none; }
+.kcq__photoBtn--cam{ background:#E3B64A; color:#172239; border:1.5px solid #E3B64A; }
+.kcq__photoBtn--pick{ background:transparent; color:#E3B64A; border:1.5px solid #E3B64A; }
+.kcq__photoBtn:hover{ transform:translateY(-1px); }
+.kcq__photoBtn--pick:hover{ background:rgba(227,182,74,.12); }
+.kcq__photoBtn:focus-visible{ outline:2px solid #E3B64A; outline-offset:2px; }
+.kcq__photoPreview{ display:grid; grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:8px; margin-top:10px; }
+.kcq__photoPreview:empty{ display:none; }
+.kcq__photoTile{ position:relative; }
+.kcq__photoThumb{
+  display:block; width:100%; aspect-ratio:1; object-fit:cover;
+  border-radius:8px; border:1px solid rgba(255,255,255,.2); background:#000;
+}
+.kcq__photoX{
+  position:absolute; top:4px; right:4px; width:26px; height:26px; padding:0; border:0;
+  border-radius:50%; background:rgba(23,34,57,.8); color:#fff;
+  font:700 16px/26px system-ui, sans-serif; text-align:center; cursor:pointer;
+}
+.kcq__photoX:hover, .kcq__photoX:focus-visible{ background:#A6402F; }
+
+/* the old "Text us photos / Email us photos" buttons become one quiet gold link
+   under the photo box, as on quick-quote.html (phones text, desktops email) */
+.kcq__photos{ display:flex; justify-content:center; margin:.75rem 0 1.4rem; }
+.kcq__photo{
+  width:auto; padding:.15rem 0; gap:.4rem;
+  background:none; border:0; border-bottom:1px solid rgba(227,182,74,.5); border-radius:0;
+  color:#E3B64A; font-family:"Inter", system-ui, sans-serif; font-size:12px; font-weight:600;
+}
+.kcq__photo:hover{ background:none; border-color:#E3B64A; color:#F0C670; }
+.kcq__photo svg{ width:15px; height:15px; }
+.kcq__photoSub{ display:inline; margin:0 0 0 .3rem; font-size:inherit; opacity:.75; }
+
+/* ---- "See available days" (day-picker.js), gold on navy as on quick-quote.html ---- */
+.kcq .qWhen{ display:grid; grid-template-columns:1fr; gap:.75rem; align-items:stretch; }
+.kcq .qWhen input[hidden]{ display:none; }
+.kcq .qWhen input[type="date"]{
+  width:100%; text-align:center; font-family:system-ui, sans-serif; font-size:16px;
+  padding:13px 14px; border-color:#E3B64A;
+}
+.kcq .qWhen input[type="date"]::-webkit-calendar-picker-indicator{ width:22px; height:22px; cursor:pointer; filter:invert(1); opacity:.8; }
+.kcq .jobPick{
+  width:100%; display:flex; align-items:center; justify-content:center; gap:.75rem;
+  text-align:center; cursor:pointer;
+  font-family:"Inter", system-ui, sans-serif; font-size:16px; font-weight:700; letter-spacing:.02em;
+  color:#fff; background:#000; border:1.5px solid #E3B64A; border-radius:12px; padding:13px 14px;
+  transition:border-color .2s ease;
+}
+.kcq .jobPick[hidden], .kcq .jobCal[hidden]{ display:none; }
+.kcq .jobCal{
+  max-width:30rem; margin-top:.5rem; padding:.75rem;
+  background:#000; border:1px solid rgba(236,228,210,.16); border-radius:12px;
+}
+.kcq .jobCal__head{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.kcq .jobCal__month{ font:700 16px/1.2 "Inter", system-ui, sans-serif; letter-spacing:.04em; color:#fff; }
+.kcq .jobCal__nav{
+  width:42px; height:38px; font-size:22px; line-height:1; color:#fff; background:transparent;
+  border:1px solid rgba(236,228,210,.16); border-radius:9px; cursor:pointer;
+}
+.kcq .jobCal__nav:disabled{ opacity:.25; cursor:default; }
+.kcq .jobCal__hint{ margin:.55rem 0 .65rem; max-width:none; font-family:system-ui, sans-serif; font-size:12px; line-height:1.4; color:#A89C8A; }
+.kcq .jobCal__grid{ display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:4px; }
+.kcq .jobCal__dow{
+  padding:.15rem 0 .3rem; text-align:center;
+  font:600 11px/1 "Inter", system-ui, sans-serif; letter-spacing:.1em; text-transform:uppercase; color:#A89C8A;
+}
+.kcq .jobCal__cell{
+  display:flex; flex-direction:column; gap:3px; min-width:0; min-height:62px; padding:4px 3px;
+  font:inherit; color:#fff; text-align:center; background:transparent;
+  border:1px solid rgba(236,228,210,.16); border-radius:8px;
+}
+.kcq .jobCal__cell b{ display:block; padding:1px 0 2px; font:700 14px/1.1 "Inter", system-ui, sans-serif; }
+.kcq .jobCal__cell.is-today b{ color:#F0C670; }
+.kcq .jobCal__cell.is-blank, .kcq .jobCal__cell.is-off{ border-color:transparent; }
+.kcq .jobCal__cell.is-off{ color:rgba(255,255,255,.22); }
+.kcq .jobCal__cell.is-full{ color:rgba(255,255,255,.3); background:rgba(255,255,255,.05); border-color:transparent; }
+.kcq .jobCal__cell.is-open{ cursor:pointer; border-color:rgba(255,255,255,.5); }
+.kcq .jobCal__slot{
+  width:100%; padding:.36rem 0; font:600 11px/1 "Inter", system-ui, sans-serif; letter-spacing:.05em;
+  color:#fff; background:transparent; border:1px solid rgba(255,255,255,.5); border-radius:6px; cursor:pointer;
+}
+.kcq .jobCal__slot:disabled{ color:rgba(255,255,255,.2); background:rgba(255,255,255,.04); border-color:transparent; cursor:default; }
+.kcq .jobCal__all{ margin-top:auto; padding:.3rem 0; font:600 10px/1.1 "Inter", system-ui, sans-serif; letter-spacing:.04em; text-transform:uppercase; }
+.kcq .jobPick:hover, .kcq .jobPick[aria-expanded="true"],
+.kcq .jobCal__cell.is-picked,
+.kcq .jobCal__slot:hover:not(:disabled), .kcq .jobCal__cell.is-open:hover{ border-color:#E3B64A; }
+.kcq .jobCal__slot[aria-pressed="true"], .kcq .jobCal__cell[aria-pressed="true"]{ background:#E3B64A; border-color:#E3B64A; color:#172239; }
+.kcq .jobCal__foot{ display:flex; justify-content:space-between; margin-top:.5rem; }
+.kcq .jobCal__link{
+  padding:.45rem .25rem; font:600 14px/1 "Inter", system-ui, sans-serif; letter-spacing:.06em;
+  color:#E3B64A; background:none; border:0; cursor:pointer;
+}
