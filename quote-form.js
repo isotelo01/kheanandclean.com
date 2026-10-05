@@ -159,7 +159,7 @@
 
             '<div class="kcq__field">' +
               '<label for="' + p + 'Msg">Rooms or areas needing service</label>' +
-              '<textarea id="' + p + 'Msg" name="message" rows="4" ' +
+              '<textarea id="' + p + 'Msg" name="message" rows="4" autocomplete="off" ' +
                 'placeholder="e.g. three bedrooms and a hallway, one pet stain in the living room"></textarea>' +
             '</div>' +
 
