@@ -37,6 +37,21 @@
   var SMS_HREF      = 'sms:+19167672520?&body=' + encodeURIComponent(PHOTO_SUBJECT);
   var MAIL_HREF     = 'mailto:' + EMAIL_DISPLAY + '?subject=' + encodeURIComponent(PHOTO_SUBJECT);
 
+  /* Firebase: the same project, SDK version and settings as quick-quote.html. Each request
+     goes on the Leads page, and its photos go to Storage under quick-quote-photos/ (the only
+     folder the Leads page shows photos from). Loaded only when someone presses Send. */
+  var FB_VERSION = '10.12.0';
+  var FB_CONFIG  = {
+    apiKey:            'AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg',
+    authDomain:        'khean-estimator-78f3e.firebaseapp.com',
+    projectId:         'khean-estimator-78f3e',
+    storageBucket:     'khean-estimator-78f3e.firebasestorage.app',
+    messagingSenderId: '581692353222',
+    appId:             '1:581692353222:web:21f62f057ac5506bbb45c7'
+  };
+  /* Photo limits, same as quick-quote.html. */
+  var MAX_FILES = 10, MAX_BYTES = 10 * 1024 * 1024, MAX_EDGE = 2400, JPEG_QUALITY = 0.85;
+
   /* The services checklist. Add or remove a line here and every page follows. */
   var SERVICES = [
     'Carpet cleaning',
@@ -147,10 +162,36 @@
               '<span class="kcq__err" data-for="' + p + 'Services"></span>' +
             '</fieldset>' +
 
+            /* When would you like this done? The plain date box becomes a "See available days"
+               button once the open days load (day-picker.js), same as quick-quote.html. */
+            '<div class="kcq__field">' +
+              '<label for="' + p + 'When">When would you like this done? (optional)</label>' +
+              '<div class="qWhen">' +
+                '<input id="' + p + 'When" name="when" type="date" autocomplete="off" aria-label="Preferred date">' +
+              '</div>' +
+              '<div id="' + p + 'Open" class="jobCal" hidden></div>' +
+            '</div>' +
+
             '<div class="kcq__field">' +
               '<label for="' + p + 'Msg">Total home square footage or rooms needing cleaning</label>' +
               '<textarea id="' + p + 'Msg" name="message" rows="4" ' +
                 'placeholder="e.g. three bedrooms and a hallway, one pet stain in the living room"></textarea>' +
+            '</div>' +
+
+            /* Add photos: Take photo / Choose photo, with a preview and an X on each,
+               same as quick-quote.html. They upload when the request is sent. */
+            '<div class="kcq__field">' +
+              '<label for="' + p + 'Photos">Add photos (optional)</label>' +
+              '<input id="' + p + 'Photos" type="file" accept="image/*" multiple hidden>' +
+              '<input id="' + p + 'Camera" type="file" accept="image/*" capture="environment" hidden>' +
+              '<div class="kcq__photoZone">' +
+                '<p class="kcq__photoHint">A quick photo helps us quote it right.</p>' +
+                '<div class="kcq__photoBtns">' +
+                  '<button type="button" id="' + p + 'CameraBtn" class="kcq__photoBtn kcq__photoBtn--cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take photo</button>' +
+                  '<button type="button" id="' + p + 'PickBtn" class="kcq__photoBtn kcq__photoBtn--pick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Choose photo</button>' +
+                '</div>' +
+              '</div>' +
+              '<div id="' + p + 'Preview" class="kcq__photoPreview"></div>' +
             '</div>' +
 
             /* Photo hand-off, mirroring the home page block. Phones get the sms
@@ -181,6 +222,21 @@
         '<input type="checkbox" name="botcheck" class="kcq__hp" tabindex="-1" autocomplete="off" aria-hidden="true">' +
         '<input type="hidden" name="service" value="' + esc(opts.service || '') + '">' +
         '<input type="hidden" name="page" value="' + esc(location.pathname.split('/').pop() || 'index.html') + '">' +
+
+        /* Text consent (A2P 10DLC): a Yes / No choice, neither picked to start. One must be picked
+           to send, but "No thanks" still sends the quote, so consent itself is never required.
+           The promo checkbox under it is optional; unticked = No. Same wording as the homepage. */
+        '<div class="kcq__consent" role="radiogroup" aria-labelledby="' + p + 'SmsQ" aria-describedby="' + p + 'SmsWhat" aria-required="true">' +
+          '<p class="kcq__consentQ" id="' + p + 'SmsQ">Can we text you about your quote?</p>' +
+          '<p class="kcq__consentWhat" id="' + p + 'SmsWhat">If you say yes, Khean &amp; Clean will text you quote links, appointment confirmations and reminders. Choose Yes or No to send. Either way, you get your quote.</p>' +
+          '<div class="kcq__consentOpts">' +
+            '<label class="kcq__check" for="' + p + 'Sms"><input type="radio" id="' + p + 'Sms" name="sms_consent" value="Yes" autocomplete="off"> Yes, text me</label>' +
+            '<label class="kcq__check" for="' + p + 'SmsNo"><input type="radio" id="' + p + 'SmsNo" name="sms_consent" value="No" autocomplete="off"> No thanks</label>' +
+          '</div>' +
+          '<span class="kcq__err" data-for="' + p + 'Sms"></span>' +
+          '<label class="kcq__promo" for="' + p + 'Promo"><input type="checkbox" id="' + p + 'Promo" name="marketing_consent" value="Yes" autocomplete="off"> Also text me occasional specials &amp; promotions (optional)</label>' +
+          '<p class="kcq__consentFine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn\'t required to get a quote. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>' +
+        '</div>' +
 
         '<button class="kcq__submit" type="submit" id="' + p + 'Submit">Send quote request</button>' +
         '<p class="kcq__fine">We reply during business hours, 9am&ndash;9pm daily. ' +
@@ -219,6 +275,94 @@
      WIRING — one instance.
      -------------------------------------------------------------------- */
   var seq = 0;
+
+  /* "See available days": day-picker.js holds the calendar (copied verbatim from the
+     homepage). Loaded once, from the same folder as this file, unless the page has it. */
+  var dpState = 0, dpWaiters = [];   // 0 not loaded, 1 loading, 2 done (loaded or failed)
+  function loadDayPicker(cb) {
+    if (window.kcDayPicker || dpState === 2) { cb(); return; }
+    dpWaiters.push(cb);
+    if (dpState === 1) return;
+    dpState = 1;
+    var s = document.createElement('script');
+    s.src = 'day-picker.js';
+    s.onload = s.onerror = function () { dpState = 2; var w = dpWaiters; dpWaiters = []; w.forEach(function (f) { f(); }); };
+    document.head.appendChild(s);
+  }
+
+  /* Firebase, loaded on the first Send. import() is wrapped so a very old browser that
+     cannot load it still gets a working form (the email still goes out). */
+  var fbReady = null;
+  function loadModule(u) {
+    try { return (new Function('u', 'return import(u)'))(u); }
+    catch (e) { return Promise.reject(e); }
+  }
+  function firebase() {
+    if (!fbReady) {
+      var base = 'https://www.gstatic.com/firebasejs/' + FB_VERSION + '/';
+      fbReady = Promise.all([
+        loadModule(base + 'firebase-app.js'),
+        loadModule(base + 'firebase-storage.js'),
+        loadModule(base + 'firebase-firestore.js')
+      ]).then(function (m) {
+        var app = m[0].getApps().length ? m[0].getApp() : m[0].initializeApp(FB_CONFIG);
+        return { st: m[1], fs: m[2], storage: m[1].getStorage(app), db: m[2].getFirestore(app) };
+      });
+      fbReady.catch(function () { fbReady = null; });   // a failed load is tried again on the next Send
+    }
+    return fbReady;
+  }
+
+  /* Shrinks a phone photo to MAX_EDGE on its long side and re-encodes it as JPEG, as on
+     quick-quote.html. Anything that is not an image, or is already small, passes through. */
+  function resizePhoto(file) {
+    return new Promise(function (resolve) {
+      if (!/^image\//.test(file.type) || file.size < 400 * 1024) { resolve(file); return; }
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var w = img.width, h = img.height;
+        if (Math.max(w, h) > MAX_EDGE) { var k = MAX_EDGE / Math.max(w, h); w = Math.round(w * k); h = Math.round(h * k); }
+        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        c.toBlob(function (blob) { resolve(blob && blob.size < file.size ? blob : file); }, 'image/jpeg', JPEG_QUALITY);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };   // unreadable: upload what we were given
+      img.src = url;
+    });
+  }
+
+  /* Uploads the photos one at a time and hands back their storage paths. One failed or
+     oversized photo is skipped; the rest are kept. Same folder and naming as quick-quote.html. */
+  function uploadPhotos(fb, list, leadKey) {
+    var paths = [];
+    return list.slice(0, MAX_FILES).reduce(function (chain, f, i) {
+      return chain.then(function () { return resizePhoto(f); }).then(function (shrunk) {
+        if (shrunk.size > MAX_BYTES) return;
+        var safe = f.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]+$/, '') + '.jpg';
+        var path = 'quick-quote-photos/' + leadKey + '/' + Date.now() + '_' + i + '_' + safe;
+        return fb.st.uploadBytes(fb.st.ref(fb.storage, path), shrunk, { contentType: 'image/jpeg' })
+          .then(function (snap) { paths.push(snap.ref.fullPath); })
+          .catch(function (err) { if (window.console) console.error('Photo upload failed: ' + f.name, err); });
+      });
+    }, Promise.resolve()).then(function () { return paths; });
+  }
+
+  /* Puts the request on the Leads page, as quick-quote.html does. If the database won't take
+     the texting answers, the lead still goes in, with any Yes written at the top of its
+     message instead (same wording the Leads page reads). */
+  function saveLead(fb, lead) {
+    var row = Object.assign({}, lead, { status: 'new', source: 'quick-quote', createdAt: fb.fs.serverTimestamp() });
+    var leads = fb.fs.collection(fb.db, 'leads');
+    return fb.fs.addDoc(leads, row).then(function (ref) { return ref.id; }, function (err) {
+      if (!err || err.code !== 'permission-denied' || !('smsConsent' in lead)) throw err;
+      var plain = Object.assign({}, row);
+      delete plain.smsConsent; delete plain.marketingConsent;
+      if (lead.marketingConsent) plain.message = 'OK to text specials: yes' + (plain.message ? '\n\n' + plain.message : '');
+      if (lead.smsConsent) plain.message = 'OK to text: yes' + (plain.message ? '\n\n' + plain.message : '');
+      return fb.fs.addDoc(leads, plain).then(function (ref) { return ref.id; });
+    });
+  }
 
   /* ---- remembered across pages ----
      Everything typed into the quick quote is kept in this browser under one
@@ -266,6 +410,22 @@
         editBtn   = $('Edit'),
         clearBtn  = $('Clear');
 
+    /* Photos, the preferred day and its calendar (same as quick-quote.html). */
+    var whenEl   = $('When'),
+        openBox  = $('Open'),
+        photosIn = $('Photos'),
+        cameraIn = $('Camera'),
+        preview  = $('Preview'),
+        files    = [],     // the photos chosen: picking adds, the X removes, Send uploads these
+        picker   = null;   // the "See available days" calendar, once day-picker.js has loaded
+
+    /* The calendar holds YYYY-MM-DD; this hands back MM/DD/YY for the email, lead and summary,
+       plus AM or PM when it was tapped from the calendar. Same as quick-quote.html. */
+    function whenText() {
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(whenEl.value), s = picker ? picker.slot() : '';
+      return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) + (s ? ' ' + (s === 'all' ? 'All day' : s.toUpperCase()) : '') : '';
+    }
+
     /* ---- error helpers ---- */
     function setErr(suffix, msg) {
       var el   = $(suffix),
@@ -274,7 +434,7 @@
       if (el) el.setAttribute('aria-invalid', msg ? 'true' : 'false');
     }
     function clearErrs() {
-      ['Name', 'Phone', 'Email', 'Addr', 'Type', 'Services']
+      ['Name', 'Phone', 'Email', 'Addr', 'Type', 'Services', 'Sms']
         .forEach(function (s) { setErr(s, ''); });
     }
 
@@ -378,6 +538,7 @@
       }
 
       addRow('Address',  addrEl ? addrEl.value.trim() : '');
+      addRow('When',     whenText());
 
       /* Rooms/areas — but if this text came from the homepage estimator, show
          the same itemised breakdown the homepage shows rather than the raw
@@ -421,6 +582,8 @@
         addRow(isEst ? 'Estimate' : 'Rooms/areas', msgVal);
       }
 
+      if (files.length) addRow('Photos', files.length + (files.length === 1 ? ' photo' : ' photos') + ' attached');
+
       if (rows.length) {
         summary.innerHTML = rows.join('');
         summary.hidden = false;
@@ -460,6 +623,12 @@
           form.querySelectorAll('input[name="services"]'),
           function (c) { c.checked = false; }
         );
+        Array.prototype.forEach.call(
+          form.querySelectorAll('input[name="sms_consent"], input[name="marketing_consent"]'),
+          function (c) { c.checked = false; }   // texting Yes / No and the promo box start unpicked again
+        );
+        if (picker) picker.clear(); else whenEl.value = '';   // un-pick the day too
+        files.length = 0; drawPhotos();                      // and drop the photos
         clearErrs();
         clearSaved();
         if (summary) { summary.innerHTML = ''; summary.hidden = true; }
@@ -489,6 +658,46 @@
     }
 
     syncTools();
+
+    /* ---- photos: Take photo / Choose photo, a preview with an X on each ---- */
+    var previewUrls = [];
+    function drawPhotos() {
+      previewUrls.forEach(function (u) { URL.revokeObjectURL(u); });
+      previewUrls = [];
+      preview.innerHTML = '';
+      files.forEach(function (f, i) {
+        var tile = document.createElement('div'); tile.className = 'kcq__photoTile';
+        var img = document.createElement('img'); img.className = 'kcq__photoThumb'; img.alt = f.name;
+        img.src = URL.createObjectURL(f); previewUrls.push(img.src);
+        var x = document.createElement('button'); x.type = 'button'; x.className = 'kcq__photoX';
+        x.setAttribute('aria-label', 'Remove ' + f.name); x.textContent = '\u00d7';
+        x.addEventListener('click', function () { files.splice(i, 1); drawPhotos(); });
+        tile.appendChild(img); tile.appendChild(x); preview.appendChild(tile);
+      });
+    }
+    function addPhotos(input) {
+      Array.prototype.forEach.call(input.files, function (f) { if (files.length < MAX_FILES) files.push(f); });
+      input.value = '';   // so the same photo can be picked again after removing it
+      drawPhotos();
+    }
+    photosIn.addEventListener('change', function () { addPhotos(photosIn); });
+    cameraIn.addEventListener('change', function () { addPhotos(cameraIn); });
+    $('PickBtn').addEventListener('click', function () { photosIn.click(); });
+    $('CameraBtn').addEventListener('click', function () { cameraIn.click(); });
+
+    /* ---- When would you like this done? Optional; only a suggestion, nothing is booked here. ---- */
+    (function () {
+      var t = new Date();   // no past dates in the plain date box
+      whenEl.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+      loadDayPicker(function () {
+        if (!window.kcDayPicker) return;   // calendar file didn't load: the plain date box stays and works
+        picker = window.kcDayPicker({
+          when: whenEl, box: openBox, id: p + 'WhenBtn',
+          label: mount.querySelector('label[for="' + p + 'When"]'),
+          hint: function () { return 'Tap a morning (9\u20131) or afternoon (1\u20136). Grey is booked. We\u2019ll confirm the day with you.'; }
+        });
+      });
+    })();
 
     /* ---- live field feedback ---- */
     var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -548,8 +757,17 @@
         setErr('Services', 'Choose at least one service.');
         ok = false;
       }
+      /* Text: Yes or No must be picked. Either answer sends; only skipping the choice blocks it. */
+      if (!form.querySelector('input[name="sms_consent"]:checked')) {
+        setErr('Sms', 'Please choose Yes or No.');
+        ok = false;
+      }
       return ok;
     }
+    /* Picking Yes or No clears its "please choose" message. */
+    Array.prototype.forEach.call(form.querySelectorAll('input[name="sms_consent"]'), function (r) {
+      r.addEventListener('change', function () { setErr('Sms', ''); });
+    });
 
     /* ---- submit ---- */
     form.addEventListener('submit', function (ev) {
@@ -563,7 +781,7 @@
         statusEl.textContent = 'Please fix the highlighted fields.';
         statusEl.classList.add('err');
         var bad = form.querySelector('[aria-invalid="true"]');
-        if (bad) bad.focus();
+        if (bad) { bad.focus(); if (bad.name === 'sms_consent') bad.closest('[role="radiogroup"]').scrollIntoView({ block: 'center' }); }   // a missed Yes / No: bring its panel to the middle of the screen
         return;
       }
 
@@ -584,15 +802,54 @@
       fd.append('services', services);
       fd.append('message', msgEl.value.trim());
       fd.append('service_page', opts.service || '');
+      var smsYes = !!($('Sms') && $('Sms').checked), promoYes = !!($('Promo') && $('Promo').checked);
+      fd.append('sms_consent', smsYes ? 'Yes' : 'No');
+      fd.append('marketing_consent', promoYes ? 'Yes' : 'No');
       if (form.querySelector('.kcq__hp').checked) { fd.append('botcheck', 'true'); }
 
-      submit.disabled = true;
-      submit.textContent = 'Sending...';
+      fd.append('when', whenText());
 
-      fetch(FORM_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Accept': 'application/json' },
-        body: fd
+      submit.disabled = true;
+      submit.textContent = files.length ? 'Uploading photos...' : 'Sending...';
+
+      /* Photos go to Firebase Storage first, then the request goes on the Leads page with the
+         photos, day and texting answers, then the email goes out. A failed upload or save never
+         blocks the email, so no request is lost. Bots are skipped. Same order as quick-quote.html. */
+      var isBot = form.querySelector('.kcq__hp').checked,
+          leadKey = Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+          sending = files.slice(),
+          whenVal = whenText();
+      (isBot ? Promise.resolve(null) : firebase().then(function (fb) {
+        return (sending.length ? uploadPhotos(fb, sending, leadKey) : Promise.resolve([])).then(function (photoPaths) {
+          fd.append('photo_count', String(photoPaths.length));
+          return saveLead(fb, {
+            name:      nameEl.value.trim(),
+            phone:     phoneEl.value.trim(),
+            email:     emailEl.value.trim(),
+            addresses: [{ street: addrEl.value.trim(), city: '', state: 'CA', zip: '' }],
+            type:      typeEl.value.toLowerCase(),
+            services:  services,
+            when:      whenVal,
+            message:   msgEl.value.trim(),
+            page:      'property-managers',
+            smsConsent:       smsYes,
+            marketingConsent: promoYes,
+            photoPaths: photoPaths
+          });
+        });
+      }))
+      .catch(function (err) {
+        if (window.console) console.error('Lead save failed', err);
+        if (sending.length && !fd.has('photo_count')) fd.append('photo_count', '0 of ' + sending.length + ' (upload failed)');
+        return null;
+      })
+      .then(function () {
+        submit.textContent = 'Sending...';
+        return fetch(FORM_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' },
+          body: fd
+        });
       })
       .then(function (r) {
         return r.json().catch(function () { return { success: r.ok }; });
