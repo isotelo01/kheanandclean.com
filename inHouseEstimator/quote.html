@@ -138,6 +138,39 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 .pwho:empty{display:none}
 .pph{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:6px;border:1px solid #2c3446;background:#121826;color:var(--muted)}
 .pph svg{width:26px;height:26px}
+/* "Your day" in Ready to book: the homepage's month of open days, in gold. */
+.when{margin:0 0 16px}
+.whenLab{font-size:12px;color:var(--gold);font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin:0 0 6px}
+.jobPick{width:100%;display:flex;align-items:center;justify-content:center;font:700 16px "Archivo",sans-serif;color:#fff;background:#05070c;border:1.5px solid var(--gold);border-radius:12px;padding:12px 14px}
+.jobPick[hidden],.jobCal[hidden]{display:none}
+.when .whenNote{margin:8px 0 0;font-size:14px;color:var(--muted)}
+.when .whenNote:empty{display:none}
+.jobCal{margin-top:8px;padding:12px;background:#05070c;border:1px solid #2c3446;border-radius:12px}
+.jobCal__head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.jobCal__month{font:700 16px/1.2 "Archivo",sans-serif;color:#fff}
+.jobCal__nav{width:42px;height:38px;padding:0;font:400 22px/1 "Archivo",sans-serif;color:#fff;background:transparent;border:1px solid #2c3446;border-radius:9px}
+.when .jobCal__hint{margin:9px 0 10px;font-size:13px;line-height:1.4;color:var(--muted)}
+.jobCal__grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.jobCal__dow{padding:2px 0 5px;text-align:center;font:600 11px/1 "Archivo",sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.jobCal__cell{display:flex;flex-direction:column;gap:3px;min-width:0;min-height:62px;padding:4px 3px;font:inherit;color:#fff;text-align:center;background:transparent;border:1px solid #2c3446;border-radius:8px}
+.jobCal__cell b{display:block;padding:1px 0 2px;font:700 14px/1.1 "Archivo",sans-serif}
+.jobCal__cell.is-today b{color:var(--gold)}
+.jobCal__cell.is-blank,.jobCal__cell.is-off{border-color:transparent}
+.jobCal__cell.is-off{color:rgba(255,255,255,.22)}
+.jobCal__cell.is-full{color:rgba(255,255,255,.3);background:rgba(255,255,255,.05);border-color:transparent}
+.jobCal__cell.is-open{cursor:pointer;border-color:rgba(255,255,255,.5)}
+.jobCal__cell.is-picked{border-color:var(--gold)}
+.jobCal__slot{width:100%;padding:6px 0;font:600 11px/1 "Archivo",sans-serif;letter-spacing:.05em;color:#fff;background:transparent;border:1px solid rgba(255,255,255,.5);border-radius:6px}
+.jobCal__slot:disabled{color:rgba(255,255,255,.2);background:rgba(255,255,255,.04);border-color:transparent}
+.jobCal__all{margin-top:auto;padding:5px 0;font:600 10px/1.1 "Archivo",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+.jobCal__slot:hover:not(:disabled),.jobCal__cell.is-open:hover{border-color:var(--gold)}
+.jobCal__slot[aria-pressed="true"],.jobCal__cell[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#0b0f17}
+.jobCal button[disabled]{opacity:1;cursor:default}
+.jobCal .jobCal__nav:disabled{opacity:.25}
+.jobCal__foot{display:flex;justify-content:space-between;margin-top:8px}
+.jobCal__link{padding:7px 4px;font:600 14px/1 "Archivo",sans-serif;color:var(--gold);background:none;border:0}
+.booked{margin:16px 0 0;font-size:15px}
+.booked span{display:block;font-size:12px;color:var(--gold);font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px}
 .pprint{display:none}
 @media print{.pprint{display:block;background:#f7f8fa}}
 @media print{.photos{display:none}}
@@ -320,6 +353,122 @@ function wireNote(d, isQuote, num){
   };
 }
 
+/* ===== The job day in "Ready to book?" =====
+   The day sent with the quote (scheduledDate "2026-10-08", scheduledTime "09:00" or "13:00",
+   blank = whole day) shows already picked, and the customer can change it. The days come from
+   the booking calendar (getOpenSlots), in the homepage's month view: AM (9-1) and PM (1-6), grey
+   = booked; a $450+ job takes the whole day, so only days with nothing booked can be picked.
+   Accept saves the quote, then bookSlot re-checks the slot and books it, so two customers can't
+   land on one slot. If the days can't load, the quote keeps its day as sent, like before. ===== */
+const OPEN_URL = "https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots";
+const BOOK_URL = "https://us-central1-khean-estimator-78f3e.cloudfunctions.net/bookSlot";
+const WHOLE_DAY_AT = 450;   // same line as the backend
+const SLOT_TXT = { am: "AM (9\u20131)", pm: "PM (1\u20136)", all: "All day" };
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const isDay = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+const shortDay = k => new Date(k + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+const slotOf = (time, total) => Number(total) >= WHOLE_DAY_AT ? "all" : time === "09:00" ? "am" : time === "13:00" ? "pm" : "";
+const time12 = t => { const m = /^(\d{2}):(\d{2})$/.exec(String(t || "")); if (!m) return ""; const h = +m[1]; return (h % 12 || 12) + ":" + m[2] + (h < 12 ? " AM" : " PM"); };
+const dayText = (k, time, total) => { const s = slotOf(time, total), t = s ? SLOT_TXT[s] : time12(time); return shortDay(k) + (t ? " \u00b7 " + t : ""); };
+
+function wireDay(d){
+  const $ = s => document.getElementById(s);
+  const wrap = $("whenWrap"), btn = $("jobPick"), box = $("jobCal"), noteEl = $("whenNote"), lead = $("acceptLead");
+  const big = Number(d.total) >= WHOLE_DAY_AT;
+  const asked = isDay(d.scheduledDate) ? d.scheduledDate : "", askedSlot = asked ? slotOf(d.scheduledTime, d.total) : "";
+  let byDate = null, first = "", last = "", shown = "", day = "", slot = "";
+  const pad = n => String(n).padStart(2, "0");
+  const say = t => { noteEl.textContent = t; };
+  if (asked) { wrap.hidden = false; say("Requested day: " + dayText(asked, d.scheduledTime, d.total)); }   // until the open days load
+
+  const slotBtn = (k, o, s, txt) => `<button type="button" class="jobCal__slot" data-day="${k}" data-slot="${s}" aria-pressed="false"` +
+    `${o[s] ? "" : " disabled"} aria-label="${shortDay(k)} ${txt}${o[s] ? "" : ", booked"}">${txt}</button>`;
+  function draw(){
+    const y = +shown.slice(0, 4), m = +shown.slice(5, 7) - 1;
+    const blanks = new Date(y, m, 1).getDay(), count = new Date(y, m + 1, 0).getDate();
+    let cells = "";
+    for (let i = 0; i < blanks; i++) cells += '<span class="jobCal__cell is-blank" aria-hidden="true"></span>';
+    for (let n = 1; n <= count; n++) {
+      const k = shown + "-" + pad(n), o = byDate[k], at = ` data-cell="${k}"`, num = `<b>${n}</b>`;
+      const cls = "jobCal__cell" + (k === first ? " is-today" : "");
+      if (!o) { cells += `<span class="${cls} is-off"${at}>${num}</span>`; continue; }   // past, or past the 60 days
+      if (big) {   // whole-day job: a day with anything booked isn't an option
+        cells += o.am && o.pm
+          ? `<button type="button" class="${cls} is-open"${at} data-day="${k}" data-slot="all" aria-pressed="false" aria-label="${shortDay(k)}, all day">${num}<span class="jobCal__all">All day</span></button>`
+          : `<span class="${cls} is-full"${at} aria-label="${shortDay(k)}, booked">${num}</span>`;
+        continue;
+      }
+      cells += `<div class="${cls}${o.am || o.pm ? "" : " is-full"}"${at}>${num}${slotBtn(k, o, "am", "AM")}${slotBtn(k, o, "pm", "PM")}</div>`;
+    }
+    box.innerHTML =
+      `<div class="jobCal__head"><button type="button" class="jobCal__nav" data-nav="-1" aria-label="Previous month"${shown <= first.slice(0, 7) ? " disabled" : ""}>&lsaquo;</button>` +
+      `<strong class="jobCal__month">${MONTHS[m]} ${y}</strong>` +
+      `<button type="button" class="jobCal__nav" data-nav="1" aria-label="Next month"${shown >= last.slice(0, 7) ? " disabled" : ""}>&rsaquo;</button></div>` +
+      `<p class="jobCal__hint">${big ? "This job takes the whole day. Tap an open day." : "Tap AM (9\u20131) or PM (1\u20136) on an open day. Grey times are booked."}</p>` +
+      `<div class="jobCal__grid">${["Su","Mo","Tu","We","Th","Fr","Sa"].map(w => `<span class="jobCal__dow">${w}</span>`).join("")}${cells}</div>` +
+      `<div class="jobCal__foot"><button type="button" class="jobCal__link" data-clear>Clear</button><button type="button" class="jobCal__link" data-close>Close</button></div>`;
+    paint();
+  }
+  /* Show the pick: on the button, and lit up in the month. */
+  function paint(){
+    btn.firstChild.textContent = day && slot ? shortDay(day) + " \u00b7 " + SLOT_TXT[slot] : "See available days";
+    btn.classList.toggle("is-empty", !(day && slot));
+    box.querySelectorAll("[data-cell]").forEach(c => c.classList.toggle("is-picked", c.getAttribute("data-cell") === day));
+    box.querySelectorAll("[data-slot]").forEach(b => b.setAttribute("aria-pressed",
+      b.getAttribute("data-day") === day && b.getAttribute("data-slot") === slot ? "true" : "false"));
+  }
+  function open(){
+    const mo = (day || asked).slice(0, 7);
+    shown = mo && mo >= first.slice(0, 7) && mo <= last.slice(0, 7) ? mo : first.slice(0, 7);
+    draw(); box.hidden = false; btn.setAttribute("aria-expanded", "true");
+  }
+  function close(){ box.hidden = true; btn.setAttribute("aria-expanded", "false"); }
+  function clear(){ day = ""; slot = ""; say(""); paint(); }
+  btn.addEventListener("click", () => { if (box.hidden) open(); else close(); });
+  box.addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b || b.disabled) return;
+    if (b.hasAttribute("data-nav")) {
+      const nx = new Date(+shown.slice(0, 4), +shown.slice(5, 7) - 1 + Number(b.getAttribute("data-nav")), 1);
+      shown = nx.getFullYear() + "-" + pad(nx.getMonth() + 1);
+      draw();
+    } else if (b.hasAttribute("data-clear")) clear();
+    else if (b.hasAttribute("data-close")) close();
+    else if (b.hasAttribute("data-slot")) {
+      if (b.getAttribute("aria-pressed") === "true") { clear(); return; }   // tap the picked one again to un-pick
+      day = b.getAttribute("data-day"); slot = b.getAttribute("data-slot");
+      say(""); paint(); close();
+    }
+  });
+  /* Tap anywhere else, or Esc, and the month folds away. */
+  document.addEventListener("click", e => {
+    if (box.hidden || !box.isConnected) return;
+    const path = e.composedPath ? e.composedPath() : [e.target];
+    if (!path.includes(box) && !path.includes(btn)) close();
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !box.hidden && box.isConnected) { close(); btn.focus(); } });
+
+  fetch(OPEN_URL)
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(data => {
+      const all = ((data && data.days) || []).filter(x => x && isDay(x.date));
+      if (!all.length || !box.isConnected) return;
+      byDate = {};
+      all.forEach(x => { byDate[x.date] = { am: !!x.am, pm: !!x.pm }; });
+      const ks = Object.keys(byDate).sort(); first = ks[0]; last = ks[ks.length - 1];
+      /* The day sent with the quote stays picked only while it's still open. */
+      const o = asked ? byDate[asked] : null;
+      if (o && askedSlot && (askedSlot === "all" ? o.am && o.pm : o[askedSlot])) { day = asked; slot = askedSlot; say(""); }
+      else if (o && !askedSlot && (o.am || o.pm)) { day = asked; say("You asked for " + shortDay(asked) + ". Tap AM or PM on that day."); }
+      else if (asked) say(shortDay(asked) + " isn't open anymore. Please pick another day.");
+      lead.textContent = "Pick your day, read the terms, then type your name to accept this quote.";
+      wrap.hidden = false; btn.hidden = false;
+      paint();
+    })
+    .catch(err => console.warn("Open days didn't load; the quote keeps its day as sent.", err));
+  return { loaded: () => !!byDate, pick: () => (byDate && day && slot ? { date: day, slot } : null) };
+}
+
 async function load(){
   if (!id) { sheet.innerHTML = `<div class="msg">This link is missing its code. Ask Khean &amp; Clean to resend it, or call ${PHONE}.</div>`; return; }
   /* Live quotes sit in "quotes". Once accepted they move to "acceptedQuotes"
@@ -360,6 +509,10 @@ function render(d){
           <div class="cap">Accepted by${acceptedOn ? " &middot; " + acceptedOn : ""}</div>
           ${d.termsAccepted ? `<div class="ok"><span class="box">&#10003;</span><span>Disclaimer approved</span></div>` : ""}
         </div>` : "";
+  /* Accepted quote: its booked day, or what happened when booking it didn't work out. */
+  const whenHtml = !isQuote || !d.acceptedName ? ""
+    : isDay(d.scheduledDate) ? `<p class="booked"><span>Scheduled</span>${esc(dayText(d.scheduledDate, d.scheduledTime, d.total))}</p>`
+    : d._whenMsg ? `<p class="booked">${esc(d._whenMsg)}</p>` : "";
   let statusHtml = "";
   if (isQuote && (d.status === "accepted" || d.status === "invoiced"))
     statusHtml = `<span class="status accepted">Accepted${d.acceptedName ? " by " + esc(d.acceptedName) : ""}</span>`;
@@ -399,7 +552,7 @@ function render(d){
         </div>
       </div>
       ${d.minApplied ? `<p style="text-align:right;color:var(--muted);font-size:14px;margin:6px 0 0">Minimum service charge applied.</p>` : ""}
-      ${sigHtml}
+      ${sigHtml}${whenHtml}
       ${d.notes ? `<div class="notes">${esc(d.notes)}</div>` : ""}
       ${d.status !== "paid" ? `
       <div class="photos" id="photoBox">
@@ -419,7 +572,13 @@ function render(d){
       ${canAccept ? `
       <div class="accept">
         <h2>Ready to book?</h2>
-        <p>Read the terms, then type your name to accept this quote. We'll reach out to schedule.</p>
+        <p id="acceptLead">Read the terms, then type your name to accept this quote. We'll reach out to schedule.</p>
+        <div class="when" id="whenWrap" hidden>
+          <div class="whenLab" id="whenLab">Your day</div>
+          <button type="button" id="jobPick" class="jobPick is-empty" aria-describedby="whenLab" aria-expanded="false" aria-controls="jobCal" hidden><span>See available days</span></button>
+          <div id="jobCal" class="jobCal" hidden></div>
+          <p class="whenNote" id="whenNote" aria-live="polite"></p>
+        </div>
         <form id="acceptForm">
           <label class="terms">
             <input type="checkbox" id="acceptTerms" disabled>
@@ -481,6 +640,7 @@ function render(d){
 
   const form = document.getElementById("acceptForm");
   if (form) {
+    const picker = wireDay(d);
     /* The button stays dead until the box is ticked and a name is typed. */
     const box = document.getElementById("acceptTerms"), nameEl = document.getElementById("acceptName"), go = document.getElementById("acceptBtn");
     const sync = () => { go.disabled = !(box.checked && nameEl.value.trim()); };
@@ -497,14 +657,43 @@ function render(d){
     const btn = form.querySelector("button"); btn.disabled = true; btn.textContent = "Accepting…";
     try {
       /* Copy into acceptedQuotes first, then remove the original. In that order a
-         failure leaves the quote where it was rather than losing it. */
+         failure leaves the quote where it was rather than losing it.
+         Once the open days have loaded, the day is booked by bookSlot afterwards (it re-checks the
+         slot, and only books a quote with no day yet), so the copy goes in without a day. */
       const accepted = {
         ...d, status: "accepted", acceptedName: name, acceptedAt: serverTimestamp(),
         termsAccepted: true, termsVersion: "service-terms-2026-09"
       };
-      await setDoc(doc(db, "acceptedQuotes", id), accepted);
+      let live = picker.loaded();
+      const p = picker.pick();
+      try { await setDoc(doc(db, "acceptedQuotes", id), live ? { ...accepted, scheduledDate: "", scheduledTime: "" } : accepted); }
+      catch (err) {
+        /* If the database won't take it without the day, save it as before: day as sent. */
+        if (!live || err.code !== "permission-denied") throw err;
+        console.warn("Accepted with the day as sent; it couldn't be saved without it.", err);
+        live = false;
+        await setDoc(doc(db, "acceptedQuotes", id), accepted);
+      }
       await deleteDoc(doc(db, "quotes", id));
-      render({ ...d, status: "accepted", acceptedName: name });
+      const done = { ...d, status: "accepted", acceptedName: name };
+      if (live) {
+        done.scheduledDate = ""; done.scheduledTime = "";
+        done._whenMsg = "No day picked yet. We'll call you to set one.";
+        if (p) {
+          btn.textContent = "Booking your day\u2026";
+          try {
+            const r = await fetch(BOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id, date: p.date, slot: p.slot === "all" ? "am" : p.slot }) });
+            const j = await r.json().catch(() => ({}));
+            if (r.ok && isDay(j.scheduledDate)) { done.scheduledDate = j.scheduledDate; done.scheduledTime = j.scheduledTime || ""; done._whenMsg = ""; }
+            else done._whenMsg = (r.status === 409 ? "That time was just taken, so your day isn't booked yet." : "Your day couldn't be booked online.") + " We'll call you to set it.";
+          } catch (err) {
+            console.warn("Booking the day failed", err);
+            done._whenMsg = "Your day couldn't be booked online. We'll call you to set it.";
+          }
+        }
+      }
+      render(done);
     } catch (err) {
       console.error(err); btn.disabled = false; btn.textContent = "Accept quote";
       alert(`That didn't go through. Try again, or call ${PHONE}.`);
