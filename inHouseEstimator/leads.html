@@ -24,9 +24,17 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .colhead{font:700 13px "Archivo",system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 0 2px}
 .row{display:block;text-decoration:none;color:inherit;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:14px 16px}
 .row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
-/* Card tint by lead source. Quick quote = blue. So is "in-depth-estimator": an
-   estimate that also has the photo form's photos or services merged onto it. */
-.row.src-quick-quote,.row.src-in-depth-estimator{background:#e6eef9}
+/* Card tint by lead source; the open lead's panel gets the same tint.
+   Quick quote = soft red while still New (needs a callback), plain white once
+   Contacted or further. In-depth estimator ("estimator", or "in-depth-estimator"
+   when the photo form's photos or services were merged on) = soft blue, always. */
+.row.src-estimator,.row.src-in-depth-estimator,
+.panel.src-estimator,.panel.src-in-depth-estimator{background:#e6eef9}
+.row.src-quick-quote.st-new,.panel.src-quick-quote.st-new{background:#f9e7e6}
+/* Gold star in the tile's corner when the customer picked a day. */
+.row{position:relative}
+.row .star{position:absolute;top:9px;right:12px;color:var(--gold);font-size:19px;line-height:1;text-shadow:0 1px 1px rgba(23,34,57,.35)}
+.row .star+.who{padding-right:24px}
 .who{font-weight:700}
 .meta{color:var(--muted);font-size:14px}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
@@ -118,6 +126,8 @@ const STATUSES = [
   { v: "quoted",    label: "Quoted" }
 ];
 const statusOf = l => STATUSES.find(s => s.v === l.status) || STATUSES[0];
+/* Tint classes shared by the tile and the open lead; the CSS picks the color. */
+const tintOf = l => "src-" + esc(l.source || "other") + " st-" + statusOf(l).v;
 
 /* Same field names as customers.html. Leads saved before the rename have
    flat street/city/zip and property_type, so fall back to those. */
@@ -264,7 +274,8 @@ async function showList(){
     const n = photoCount(l);
     const lines = [cityLine(addrOf(l)), l.phone, servicesOf(l),
       [when(l), n ? n + (n === 1 ? " photo" : " photos") : ""].filter(Boolean).join(" · ")];
-    return '<a class="row ' + (inHistory(l) ? "done" : "src-" + esc(l.source || "other")) + '" href="#' + encodeURIComponent(l.id) + '">' +
+    return '<a class="row ' + (inHistory(l) ? "done" : tintOf(l)) + '" href="#' + encodeURIComponent(l.id) + '">' +
+      (String(l.when || "").trim() ? '<span class="star" title="Wants ' + esc(wantsDay(l)) + '" aria-label="Wants ' + esc(wantsDay(l)) + '">\u2605</span>' : '') +
       '<div class="who">' + esc(l.name || "No name") + '</div>' +
       lines.filter(x => x && String(x).trim()).map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
       (inHistory(l) ? '<div class="exp">' + esc(leftLabel(l)) + '</div>' : '') +
@@ -334,7 +345,7 @@ async function showLead(id){
   const tel = String(l.phone || "").replace(/[^\d+]/g, "");
   const cur = statusOf(l).v;
   view.innerHTML =
-    '<div class="panel">' +
+    '<div class="panel' + (inHistory(l) ? '' : ' ' + tintOf(l)) + '">' +
       '<div class="leadhead"><h2>Lead</h2>' +
         (when(l) ? '<span class="leadtime">' + esc(when(l)) + '</span>' : '') +
       '</div>' +
