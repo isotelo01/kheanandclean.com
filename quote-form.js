@@ -192,6 +192,21 @@
         '<input type="hidden" name="service" value="' + esc(opts.service || '') + '">' +
         '<input type="hidden" name="page" value="' + esc(location.pathname.split('/').pop() || 'index.html') + '">' +
 
+        /* Text consent (A2P 10DLC): a Yes / No choice, neither picked to start. One must be picked
+           to send, but "No thanks" still sends the quote, so consent itself is never required.
+           The promo checkbox under it is optional; unticked = No. Same wording as the homepage. */
+        '<div class="kcq__consent" role="radiogroup" aria-labelledby="' + p + 'SmsQ" aria-describedby="' + p + 'SmsWhat" aria-required="true">' +
+          '<p class="kcq__consentQ" id="' + p + 'SmsQ">Can we text you about your quote?</p>' +
+          '<p class="kcq__consentWhat" id="' + p + 'SmsWhat">If you say yes, Khean &amp; Clean will text you quote links, appointment confirmations and reminders. Choose Yes or No to send. Either way, you get your quote.</p>' +
+          '<div class="kcq__consentOpts">' +
+            '<label class="kcq__check" for="' + p + 'Sms"><input type="radio" id="' + p + 'Sms" name="sms_consent" value="Yes" autocomplete="off"> Yes, text me</label>' +
+            '<label class="kcq__check" for="' + p + 'SmsNo"><input type="radio" id="' + p + 'SmsNo" name="sms_consent" value="No" autocomplete="off"> No thanks</label>' +
+          '</div>' +
+          '<span class="kcq__err" data-for="' + p + 'Sms"></span>' +
+          '<label class="kcq__promo" for="' + p + 'Promo"><input type="checkbox" id="' + p + 'Promo" name="marketing_consent" value="Yes" autocomplete="off"> Also text me occasional specials &amp; promotions (optional)</label>' +
+          '<p class="kcq__consentFine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn\'t required to get a quote. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>' +
+        '</div>' +
+
         '<button class="kcq__submit" type="submit" id="' + p + 'Submit">Send quote request</button>' +
         '<p class="kcq__fine">We reply during business hours, 9am&ndash;9pm daily. ' +
           'For emergency water removal, call <a href="' + PHONE_HREF + '">' + PHONE_DISPLAY + '</a> ' +
@@ -301,7 +316,7 @@
       if (el) el.setAttribute('aria-invalid', msg ? 'true' : 'false');
     }
     function clearErrs() {
-      ['Name', 'Phone', 'Email', 'Addr', 'Type', 'Services']
+      ['Name', 'Phone', 'Email', 'Addr', 'Type', 'Services', 'Sms']
         .forEach(function (s) { setErr(s, ''); });
     }
 
@@ -487,6 +502,10 @@
           form.querySelectorAll('input[name="services"]'),
           function (c) { c.checked = false; }
         );
+        Array.prototype.forEach.call(
+          form.querySelectorAll('input[name="sms_consent"], input[name="marketing_consent"]'),
+          function (c) { c.checked = false; }   // texting Yes / No and the promo box start unpicked again
+        );
         clearErrs();
         clearSaved();
         if (summary) { summary.innerHTML = ''; summary.hidden = true; }
@@ -575,8 +594,17 @@
         setErr('Services', 'Choose at least one service.');
         ok = false;
       }
+      /* Text: Yes or No must be picked. Either answer sends; only skipping the choice blocks it. */
+      if (!form.querySelector('input[name="sms_consent"]:checked')) {
+        setErr('Sms', 'Please choose Yes or No.');
+        ok = false;
+      }
       return ok;
     }
+    /* Picking Yes or No clears its "please choose" message. */
+    Array.prototype.forEach.call(form.querySelectorAll('input[name="sms_consent"]'), function (r) {
+      r.addEventListener('change', function () { setErr('Sms', ''); });
+    });
 
     /* ---- submit ---- */
     form.addEventListener('submit', function (ev) {
@@ -590,7 +618,7 @@
         statusEl.textContent = 'Please fix the highlighted fields.';
         statusEl.classList.add('err');
         var bad = form.querySelector('[aria-invalid="true"]');
-        if (bad) bad.focus();
+        if (bad) { bad.focus(); if (bad.name === 'sms_consent') bad.closest('[role="radiogroup"]').scrollIntoView({ block: 'center' }); }   // a missed Yes / No: bring its panel to the middle of the screen
         return;
       }
 
@@ -614,6 +642,9 @@
       fd.append('services', services);
       fd.append('message', msgEl.value.trim());
       fd.append('service_page', opts.service || '');
+      var smsYes = !!($('Sms') && $('Sms').checked), promoYes = !!($('Promo') && $('Promo').checked);
+      fd.append('sms_consent', smsYes ? 'Yes' : 'No');
+      fd.append('marketing_consent', promoYes ? 'Yes' : 'No');
       if (form.querySelector('.kcq__hp').checked) { fd.append('botcheck', 'true'); }
 
       submit.disabled = true;

@@ -196,6 +196,37 @@
 .kcq__status.err{ color:#A6402F; }
 .kcq__hp{ position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
 
+/* ---- text consent (A2P 10DLC) ----------------------------------------
+   Lit panel above Send: Yes / No for texting (one must be picked; either
+   answer sends) plus the optional specials checkbox and the disclosures.
+   The Yes / No tiles reuse .kcq__check, so they match the services list. */
+.kcq__consent{
+  margin:4px 0 16px; padding:16px 16px 14px;
+  border:1.5px solid #1B4FA0; border-radius:12px; background:rgba(27,79,160,.05);
+}
+.kcq__consent:has([aria-invalid="true"]){ border-color:#A6402F; }
+.kcq__consentQ{
+  font-family:system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size:17px; font-weight:700; line-height:1.35; color:#0A0A0B; margin:0;
+}
+.kcq__consentWhat{
+  font-family:system-ui, sans-serif; font-size:14px; line-height:1.5;
+  color:#3D372F; margin:6px 0 12px;
+}
+.kcq__consentOpts{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.kcq__consentOpts .kcq__check{ font-weight:600; }
+.kcq__promo{
+  display:flex; align-items:center; gap:8px; margin:12px 0 0;
+  font-family:system-ui, sans-serif; font-size:14px; line-height:1.35;
+  color:#0A0A0B; cursor:pointer;
+}
+.kcq__promo input{ width:16px; height:16px; flex:none; margin:0; accent-color:#2E5FB0; cursor:pointer; }
+.kcq__consentFine{
+  font-family:system-ui, sans-serif; font-size:12px; line-height:1.6;
+  color:#6B6155; margin:8px 0 0;
+}
+.kcq__consentFine a{ color:inherit; text-decoration:underline; }
+
 /* ---- success state ---------------------------------------------------- */
 .kcq__done{ text-align:center; padding:26px 0; }
 .kcq__doneTick{
