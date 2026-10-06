@@ -42,6 +42,8 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .chk:first-of-type{border-top:0}
 .chk input{width:24px;height:24px;flex:none;accent-color:var(--green)}
 .chk.done span{text-decoration:line-through;color:var(--muted)}
+.chk .open{margin-left:auto;flex:none;font:600 14px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:5px 12px;background:#fff}
+@media print{.chk .open{display:none}}
 .prog{font-size:14px;color:var(--muted);margin-bottom:10px}
 textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 .photos{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:14px}
@@ -146,14 +148,17 @@ async function show(){
      A service with no rooms listed is a single checkbox. */
   const lines = Array.isArray(q.lines) ? q.lines : [];
   let total = 0;
-  const box = (key, label) => { total++;
+  /* Every line opens its room page (job-room.html): the rooms one by one, no prices. */
+  const roomLink = (i, j) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j);
+  const box = (key, label, href) => { total++;
     return '<label class="chk' + (done.has(key) ? ' done' : '') + '"><input type="checkbox" data-k="' + esc(key) + '"' +
-      (done.has(key) ? ' checked' : '') + '><span>' + esc(label) + '</span></label>'; };
+      (done.has(key) ? ' checked' : '') + '><span>' + esc(label) + '</span>' +
+      (href ? '<a class="open" href="' + esc(href) + '">Open ›</a>' : '') + '</label>'; };
   const sections = lines.map((l, i) => {
     const items = Array.isArray(l.items) ? l.items : [];
     return '<div class="svc"><div class="svc__head"><span>' + esc(l.label || "Service") + '</span>' +
       '<span class="amt">' + esc(money(l.cost)) + '</span></div>' +
-      (items.length ? items.map((it, j) => box("i-" + i + "-" + j, it.label || "Area")).join("") : box("l-" + i, l.label || "Service")) +
+      (items.length ? items.map((it, j) => box("i-" + i + "-" + j, it.label || "Area", roomLink(i, j))).join("") : box("l-" + i, l.label || "Service", roomLink(i))) +
     '</div>';
   }).join("");
 

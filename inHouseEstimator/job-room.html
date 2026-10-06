@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Rooms &middot; Khean &amp; Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Room pages, opened from a line on the Job Sheet. Starter look only (same base as
+   job-sheet.html) — style freely. No prices anywhere on this page. */
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.msg{color:var(--muted);font-size:14px;padding:6px 2px}
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
+.cname{font-size:20px;font-weight:700}
+.meta{color:var(--muted);font-size:14px}
+.svcname{font:700 22px "Playfair Display",Georgia,serif;margin:18px 0 4px;border-bottom:2px solid var(--gold);padding-bottom:6px}
+.svcsub{color:var(--muted);font-size:15px;margin-bottom:14px}
+/* One card per room. Bedroom × 3 shows as Bedroom 1, Bedroom 2, Bedroom 3. */
+.rooms{display:grid;gap:12px}
+.room{border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.room__name{font-weight:700;font-size:18px}
+.room__size{color:var(--muted);font-size:15px}
+.room__body{margin-top:8px}   /* empty for now: room-by-room details go here */
+@media print{ body{background:#fff} .top>div{display:none!important} .panel{box-shadow:none;padding:0} }
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1 id="title">Rooms</h1>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
+      <button type="button" class="ghost" onclick="print()">Print</button>
+      <a class="ghost" id="backBtn" href="./job-sheet.html">Back to Job Sheet</a>
+    </div>
+  </div>
+  <div id="view"><div class="msg">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+
+const view = document.getElementById("view"), titleEl = document.getElementById("title");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* Labels like "Deep Cleaning — 800 sq ft @ $0.50/sq ft": keep the name and size, drop the price. */
+const noPrice = t => String(t || "").replace(/\s*@\s*\$[\d.,]+\s*\/\s*sq ft/i, "").replace(/\s*\$[\d.,]+/g, "").trim();
+const splitLabel = t => { const s = noPrice(t), k = s.indexOf(" — "); return k < 0 ? [s, ""] : [s.slice(0, k), s.slice(k + 3)]; };
+
+/* Which job and which line: ?id=<job>&line=<service #>&item=<item #> (item left off = the whole service).
+   Held in sessionStorage too, since login.html only takes a bare page name. */
+const PLACES = ["acceptedQuotes", "invoices", "paidInvoices"];
+const ss = { get: k => { try { return sessionStorage.getItem(k) || ""; } catch (e) { return ""; } },
+             set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} } };
+const qs = new URLSearchParams(location.search);
+const saved = (() => { try { return JSON.parse(ss.get("kcJobRoom") || "{}"); } catch (e) { return {}; } })();
+const id = qs.get("id") || saved.id || "";
+const lineNo = qs.has("line") ? Number(qs.get("line")) : Number(saved.line);
+const itemNo = qs.has("id") ? (qs.has("item") ? Number(qs.get("item")) : null) : (saved.item ?? null);
+if (id) ss.set("kcJobRoom", JSON.stringify({ id, line: lineNo, item: itemNo }));
+
+async function show(){
+  if (!id || !Number.isInteger(lineNo)) { view.innerHTML = '<div class="msg">No line picked. <a href="./approved-leads.html">Go to Approved Leads</a></div>'; return; }
+  document.getElementById("backBtn").href = "./job-sheet.html?id=" + encodeURIComponent(id);
+  let q = null;
+  try {
+    for (const p of PLACES) { const s = await getDoc(doc(db, p, id)); if (s.exists()) { q = s.data(); break; } }
+  } catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
+  if (!q) { view.innerHTML = '<div class="msg">That job isn’t on file.</div>'; return; }
+
+  const line = (Array.isArray(q.lines) ? q.lines : [])[lineNo];
+  if (!line) { view.innerHTML = '<div class="msg">That line isn’t on this job anymore.</div>'; return; }
+  const items = Array.isArray(line.items) ? line.items : [];
+  const picked = itemNo == null ? items : [items[itemNo]].filter(Boolean);
+
+  const c = q.customer || {};
+  const name = (c.business && c.name ? c.business + " — " + c.name : c.name || c.business) || "No name";
+  const [svc] = splitLabel(line.label || "Service");
+  titleEl.textContent = svc;
+  document.title = svc + " · " + name + " · Khean & Clean";
+
+  /* Every room on its own: a grouped room (qty 3, 330 sq ft) becomes three rooms of 110 sq ft. */
+  const rooms = [];
+  picked.forEach(it => (Array.isArray(it.rooms) ? it.rooms : []).forEach(rm => {
+    const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
+    for (let k = 1; k <= n; k++) rooms.push({ name: n > 1 ? rm.name + " " + k : rm.name, sqft: each });
+  }));
+
+  const sub = picked.map(it => { const [a, b] = splitLabel(it.label || ""); return b ? a + " · " + b : a; }).filter(Boolean).join("  |  ");
+  view.innerHTML =
+    '<div class="panel">' +
+      '<div class="cname">' + esc(name) + '</div>' +
+      '<div class="meta">' + esc(q.number || "") + '</div>' +
+      '<div class="svcname">' + esc(svc) + '</div>' +
+      (sub ? '<div class="svcsub">' + esc(sub) + '</div>' : '') +
+      (rooms.length
+        ? '<div class="rooms">' + rooms.map((r, k) =>
+            '<section class="room" id="room-' + (k + 1) + '">' +
+              '<div class="room__name">' + esc(r.name) + '</div>' +
+              (r.sqft ? '<div class="room__size">' + r.sqft.toLocaleString() + ' sq ft</div>' : '') +
+              '<div class="room__body"></div>' +
+            '</section>').join("") + '</div>'
+        : '<div class="msg">No room breakdown on this line (it was measured by square feet, or it’s an add-on).</div>') +
+    '</div>';
+}
+
+/* Page lock. Not signed in -> login page, then back here. */
+let started = false;
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=job-room.html"); return; }
+  document.getElementById("authwait")?.remove();
+  if (!started) { started = true; show(); }
+});
+</script>
+</body>
+</html>
