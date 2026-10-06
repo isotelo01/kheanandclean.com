@@ -157,6 +157,14 @@ const textingOf = l => { const t = textOk(l); return t === true ? "Yes, OK to te
 const promoOk = l => l.marketingConsent === true || /^OK to text specials: yes/m.test(String(l.message || "")) ? true
   : l.marketingConsent === false ? false : null;
 const promoOf = l => { const t = promoOk(l); return t === true ? "Yes, OK to text specials" : t === false ? "No, do not text specials" : "Not recorded"; };
+/* Those "OK to text..." lines already show as the Texting / Specials rows, so the Message box
+   hides them. They stay saved at the top of the message, since the rows read them from there. */
+const CONSENT_LINE = /^OK to text( specials)?: (yes|no)$/i;
+const msgParts = l => {
+  const lines = String(l.message || "").split("\n"), head = [];
+  while (lines.length && CONSENT_LINE.test(lines[0].trim())) head.push(lines.shift().trim());
+  return { head, body: lines.join("\n").trim() };
+};
 const ms = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
 const when = l => { const m = ms(l.createdAt); return m ? new Date(m).toLocaleString(undefined,
   { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""; };
@@ -388,8 +396,8 @@ async function showLead(id){
         rrow("Specials", promoOf(l)) +
         '<div class="rrow msgrow"><div class="msghead"><div class="rlab">Message</div>' +
           '<button type="button" class="ghost tiny" id="editMsg">Edit</button></div>' +
-          '<div class="rval' + (l.message ? '' : ' empty') + '" id="msgView">' + (l.message ? esc(l.message) : "\u2014") + '</div>' +
-          '<div id="msgEdit" hidden><textarea id="msgText" rows="3">' + esc(l.message || "") + '</textarea>' +
+          '<div class="rval' + (msgParts(l).body ? '' : ' empty') + '" id="msgView">' + (msgParts(l).body ? esc(msgParts(l).body) : "\u2014") + '</div>' +
+          '<div id="msgEdit" hidden><textarea id="msgText" rows="3">' + esc(msgParts(l).body) + '</textarea>' +
             '<div class="actions"><button type="button" class="new" id="saveMsg">Save</button>' +
             '<button type="button" class="ghost" id="cancelMsg">Cancel</button>' +
             '<span class="note" id="msgMsg"></span></div></div>' +
@@ -616,7 +624,9 @@ async function showLead(id){
   });
   const saveMsg = document.getElementById("saveMsg");
   if (saveMsg) saveMsg.addEventListener("click", async () => {
-    const text = document.getElementById("msgText").value.trim();
+    /* Put the hidden OK-to-text lines back on top so Texting / Specials don't lose them. */
+    const typed = document.getElementById("msgText").value.trim(), head = msgParts(l).head;
+    const text = head.length ? head.join("\n") + (typed ? "\n\n" + typed : "") : typed;
     const msg = document.getElementById("msgMsg");
     saveMsg.disabled = true; msg.classList.remove("err"); msg.textContent = "Saving\u2026";
     try {
