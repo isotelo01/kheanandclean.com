@@ -65,7 +65,7 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 /* Fiber type: label, dropdown and (for Other) the text box, side by side on one row. */
 .fibrow{display:flex;align-items:center;gap:8px;margin-top:14px}
 .fiblab{flex:none;font-size:15px;font-weight:700;color:var(--navy)}
-#fiberSel{flex:none;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
+#fiberSel,#materialSel{flex:none;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
 .fiberOther{flex:1;min-width:0;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 .fiberOther[hidden]{display:none}
 .fibnote{margin:8px 0 0;font-size:13px;color:var(--muted)}
@@ -95,7 +95,7 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .spot .actual input::placeholder{color:#aab2c3;opacity:1}
 @media (max-width:360px){ .spot .actual input{width:96px;font-size:15px} }
 /* Fiber type dropdown, its "Which fiber?" box and Notes: black with white text too. */
-.spot #fiberSel,.spot .fiberOther,.spot textarea{background:#000;color:#fff;border-color:rgba(255,255,255,.35);color-scheme:dark}
+.spot #fiberSel,.spot #materialSel,.spot .fiberOther,.spot textarea{background:#000;color:#fff;border-color:rgba(255,255,255,.35);color-scheme:dark}
 .spot .fiberOther::placeholder,.spot textarea::placeholder{color:#aab2c3;opacity:1}
 @media print{ .pbtns,.pcam,.px{display:none} }
 @media print{ body{background:#fff} .top>div{display:none!important} .panel{box-shadow:none;padding:0} }
@@ -209,6 +209,8 @@ async function show(){
      service key, or the package names when an older quote has no key. */
   const isCarpet = /carpet/i.test(String(line.key || "")) ||
     /carpet|essential cleaning|deep cleaning|signature cleaning|quick dry|encapsulation/i.test(String(line.label || ""));
+  /* Tile & grout line: Material type and Pre-Spray / Rinse on its pages. */
+  const isTile = line.key ? line.key === "tile" : /tile/i.test(String(line.label || ""));
   const extras = isCarpet ? items.filter(isExtra).map(it => splitLabel(it.label)[0]) : [];
   const checks = new Set(Array.isArray(q.roomChecks) ? q.roomChecks : []);
   const slug = s => s.toLowerCase().replace(/[^a-z]+/g, "-");
@@ -292,6 +294,10 @@ async function show(){
     const jobFibHere = spot.rug ? null : jobFib;
     const fib = st.fiber && st.fiber.type ? st.fiber : jobFibHere;
     const fibFromJob = !(st.fiber && st.fiber.type) && !!jobFibHere;
+    /* Tile: this room's material, otherwise the job's (set by the first tile room saved). */
+    const MATERIALS = ["Porcelain", "Ceramic"];
+    const mat = st.material || q.jobMaterial || "";
+    const matFromJob = !st.material && !!q.jobMaterial;
     titleEl.textContent = spot.name;
     document.title = spot.name + " · " + name + " · Khean & Clean";
     view.innerHTML =
@@ -314,9 +320,16 @@ async function show(){
             '<input type="text" id="fiberOther" class="fiberOther" placeholder="Which fiber?" aria-label="Other fiber" value="' + esc(fib && fib.type === "Other" ? fib.other || "" : "") + '"' + (fib && fib.type === "Other" ? '' : ' hidden') + '></div>' +
             (fibFromJob ? '<p class="fibnote">Filled in from the first room. Change it if this room is different.</p>' : '')
           : '') +
-        /* Pre-Spray and Rinse: every page on a carpet line (rooms, stairs, rugs and the add-ons
-           with their own photo page: hair & debris, filter lines, stretching, pet odor, stain treatment). */
-        (isCarpet
+        /* Material type, tile pages only. The first tile room saved sets it for the job. */
+        (isTile
+          ? '<div class="fibrow"><label for="materialSel" class="fiblab">Material type</label>' +
+            '<select id="materialSel"><option value="">Pick one</option>' +
+            MATERIALS.map(m => '<option value="' + m + '"' + (mat === m ? ' selected' : '') + '>' + m + '</option>').join("") + '</select></div>' +
+            (matFromJob ? '<p class="fibnote matnote">Filled in from the first room. Change it if this room is different.</p>' : '')
+          : '') +
+        /* Pre-Spray and Rinse: every page on a carpet or tile line (rooms, stairs, rugs and the
+           add-ons with their own photo page). */
+        (isCarpet || isTile
           ? '<div class="chemrow">' +
               '<label class="chem">Pre-Spray <input type="text" id="preSpray" value="' + esc(st.preSpray || "") + '"></label>' +
               '<label class="chem">Rinse <input type="text" id="rinse" value="' + esc(st.rinse || "") + '"></label>' +
@@ -349,6 +362,8 @@ async function show(){
       flag();
     });
     if (otherEl) otherEl.addEventListener("input", flag);
+    const matEl = document.getElementById("materialSel");
+    if (matEl) matEl.addEventListener("change", () => { const mn = view.querySelector(".matnote"); if (mn) mn.remove(); flag(); });
     const preEl = document.getElementById("preSpray"), rinseEl = document.getElementById("rinse");
     if (preEl) preEl.addEventListener("input", flag);
     if (rinseEl) rinseEl.addEventListener("input", flag);
@@ -408,6 +423,11 @@ async function show(){
         if (rinseEl) data.spots[spot.key].rinse = rinseEl.value.trim();
         /* Fiber type: saved on this room; the first one saved also becomes the job's, so the
            other carpet rooms open with it filled in. */
+        /* Material type (tile): saved on this room; the first one saved becomes the job's. */
+        if (matEl) {
+          data.spots[spot.key].material = matEl.value || null;
+          if (matEl.value && !q.jobMaterial) { data.jobMaterial = matEl.value; q.jobMaterial = matEl.value; }
+        }
         if (otherEl) {
           const pick = document.getElementById("fiberSel").value;
           const fiber = pick ? { type: pick, other: pick === "Other" ? otherEl.value.trim() : "" } : null;
