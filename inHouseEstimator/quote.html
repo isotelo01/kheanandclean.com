@@ -441,7 +441,7 @@ function wireDay(d){
     draw(); box.hidden = false; btn.setAttribute("aria-expanded", "true");
   }
   function close(){ box.hidden = true; btn.setAttribute("aria-expanded", "false"); }
-  function clear(){ day = ""; slot = ""; say(""); paint(); }
+  function clear(){ day = ""; slot = ""; keep = false; dayEl.textContent = ""; say(""); paint(); }
   btn.addEventListener("click", () => { if (box.hidden) open(); else close(); });
   box.addEventListener("click", e => {
     const b = e.target.closest("button");
@@ -455,6 +455,7 @@ function wireDay(d){
     else if (b.hasAttribute("data-slot")) {
       if (b.getAttribute("aria-pressed") === "true") { clear(); return; }   // tap the picked one again to un-pick
       day = b.getAttribute("data-day"); slot = b.getAttribute("data-slot");
+      keep = false; dayEl.textContent = "";   /* their pick replaces the day sent with the quote */
       say(""); paint(); close();
     }
   });
@@ -475,12 +476,17 @@ function wireDay(d){
       all.forEach(x => { byDate[x.date] = { am: !!x.am, pm: !!x.pm }; });
       const ks = Object.keys(byDate).sort(); first = ks[0]; last = ks[ks.length - 1];
       /* The day sent with the quote is booked on Accept only while it's still open. */
+      /* The customer picks their day right here (it replaced "Edit date or message", which sent
+         them to the homepage). Under $450: AM or PM; $450 and up: the whole day. Nothing is
+         saved until Accept, which books it onto the job and from there the calendar. */
       const o = asked ? byDate[asked] : null;
-      if (o && askedSlot && (askedSlot === "all" ? o.am && o.pm : o[askedSlot])) { day = asked; slot = askedSlot; say(""); }
-      else if (o && !askedSlot && (o.am || o.pm)) { keep = true; say("We'll confirm the time with you."); }   // a day with no time: kept as sent
-      else if (asked) { dayEl.textContent = ""; say(shortDay(asked) + " isn't open anymore. Tap Edit date or message to ask for another day, or accept and we'll call you to set one."); }
-      else say("No day set yet. Tap Edit date or message to ask for one, or accept and we'll call you to set it.");
-      lead.textContent = "Check your day, read the terms, then type your name to accept this quote.";
+      if (o && askedSlot && (askedSlot === "all" ? o.am && o.pm : o[askedSlot])) { day = asked; slot = askedSlot; dayEl.textContent = ""; say(""); }
+      else if (o && !askedSlot && (o.am || o.pm)) { keep = true; say("We'll confirm the time with you, or pick a time below."); }   // a day with no time: kept as sent unless they pick
+      else if (asked) { dayEl.textContent = ""; say(shortDay(asked) + " isn't open anymore. Pick another day below, or accept and we'll call you to set one."); }
+      else say("Pick a day below, or accept and we'll call you to set one.");
+      lead.textContent = "Pick your day, read the terms, then type your name to accept this quote.";
+      btn.hidden = false;
+      paint();
       wrap.hidden = false;
     })
     .catch(err => console.warn("Open days didn't load; the quote keeps its day as sent.", err));
@@ -598,7 +604,6 @@ function render(d){
           <div id="jobCal" class="jobCal" hidden></div>
           <p class="whenNote" id="whenNote" aria-live="polite"></p>
         </div>
-        <a class="whenEdit" id="whenEdit" href="${SITE_URL}/?edit=${encodeURIComponent(id)}#quote">Edit date or message</a>
         <form id="acceptForm">
           <label class="terms">
             <input type="checkbox" id="acceptTerms" disabled>
