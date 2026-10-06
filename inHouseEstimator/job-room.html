@@ -223,12 +223,16 @@ async function show(){
   const rug = pickedItem && roomNo != null && !(Array.isArray(pickedItem.rooms) && pickedItem.rooms.length) &&
     String(pickedItem.label || "").match(/Area Rugs\s*—\s*(.+?)\s*×\s*(\d+)\s*$/i);
   if (rug && roomNo < Number(rug[2])) {
-    spot = { name: "Area Rug " + (roomNo + 1) + " — " + rug[1], sqft: 0, key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false };
+    /* EST from the rug's size: Medium (5×8) = 40 sq ft, Large (9×12) = 108. */
+    const dm = rug[1].match(/(\d+)\s*[×x]\s*(\d+)/);
+    spot = { name: "Area Rug " + (roomNo + 1) + " — " + rug[1], sqft: dm ? Number(dm[1]) * Number(dm[2]) : 0,
+      key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false, rug: true };
   } else if (pickedItem && roomNo != null) {
     const rm = rooms.find(x => x.r === roomNo);
     if (rm) spot = { ...rm, isRoom: true };
   } else if (pickedItem && !(Array.isArray(pickedItem.rooms) && pickedItem.rooms.length)) {
-    spot = { name: splitLabel(pickedItem.label)[0] || "Area", sqft: 0, key: lineNo + "-" + itemNo, isRoom: false };
+    spot = { name: splitLabel(pickedItem.label)[0] || "Area", sqft: 0, key: lineNo + "-" + itemNo, isRoom: false,
+      stairs: /stair/i.test(String(pickedItem.label || "")) };
   } else if (itemNo == null && !items.length) {
     spot = { name: svc, sqft: 0, key: String(lineNo), isRoom: false };
   }
@@ -247,6 +251,10 @@ async function show(){
       aAdj: { field: "photosAfterAdjacent", label: "Threshold adjacent" },
       after: { field: "photosAfter", label: "More photos" }
     };
+    /* Not a room (stairs, area rugs, other add-ons): no Threshold spots, just Before,
+       Inspection and After. Its first After photo marks it Done and is its thumbnail. */
+    const SHOWN = spot.isRoom ? Object.keys(GROUPS) : ["before", "inspection", "after"];
+    if (!spot.isRoom) { GROUPS.before.label = ""; GROUPS.after.label = ""; }
     const legacy = Array.isArray(st.photoPaths) ? st.photoPaths : [];
     const hasGroups = Object.values(GROUPS).some(x => Array.isArray(st[x.field])) || Array.isArray(st.photosStains);
     const groups = {};
@@ -257,7 +265,8 @@ async function show(){
     groups.before = [...oldStains, ...groups.before];
     const allPaths = () => Object.keys(GROUPS).flatMap(g => groups[g]);
     const photoFields = () => { const o = { photoPaths: allPaths() }; if (oldStains.length) o.photosStains = []; Object.keys(GROUPS).forEach(g => { o[GROUPS[g].field] = groups[g]; });
-      o.done = groups.aThr.length > 0;   /* room is Done once an After Threshold photo is in */
+      /* Room: Done once an After Threshold photo is in. Not a room: once any After photo is in. */
+      o.done = spot.isRoom ? groups.aThr.length > 0 : groups.after.length > 0;
       return o; };
     /* One small camera button per spot, next to its label. The phone itself then offers
        Take Photo or Photo Library. */
@@ -271,8 +280,10 @@ async function show(){
     /* This room's fiber if it has one, otherwise the job's (set by the first room saved). */
     const FIBERS = ["Nylon", "Polyester", "Olefin", "Other"];
     const jobFib = q.jobFiber && q.jobFiber.type ? q.jobFiber : null;
-    const fib = st.fiber && st.fiber.type ? st.fiber : jobFib;
-    const fibFromJob = !(st.fiber && st.fiber.type) && !!jobFib;
+    /* Rugs are often a different fiber from the carpet: they don't fill in from the job's. */
+    const jobFibHere = spot.rug ? null : jobFib;
+    const fib = st.fiber && st.fiber.type ? st.fiber : jobFibHere;
+    const fibFromJob = !(st.fiber && st.fiber.type) && !!jobFibHere;
     titleEl.textContent = spot.name;
     document.title = spot.name + " · " + name + " · Khean & Clean";
     view.innerHTML =
@@ -281,14 +292,14 @@ async function show(){
         '<div class="meta">' + esc([q.number, svc].filter(Boolean).join(" · ")) + '</div>' +
         '<div class="svcname">' + esc(spot.name) + '</div>' +
         /* A room: the quoted size as Estimated, plus a box for what was actually measured on site. */
-        (spot.isRoom
+        (spot.isRoom || spot.rug   /* rugs too: EST from their size */
           ? '<div class="sqrow"><div class="svcsub">EST ' + (spot.sqft ? spot.sqft.toLocaleString() + ' sq ft' : '—') + '</div>' +
             '<label class="actual">Actual <input type="number" id="actualSqft" min="0" step="1" inputmode="numeric" placeholder="Measured"' +
             (Number(st.actualSqft) > 0 ? ' value="' + Number(st.actualSqft) + '"' : '') + '></label></div>'
           : (spot.sqft ? '<div class="svcsub">' + spot.sqft.toLocaleString() + ' sq ft</div>' : '')) +
         /* Fiber type, carpet rooms only. The first room saved sets it for the job, so the other
            rooms open with it filled in; any room can be switched on its own. */
-        (spot.isRoom && isCarpet
+        ((spot.isRoom || spot.rug || spot.stairs) && isCarpet   /* stairs and rugs get it too */
           ? '<div class="fibrow"><label for="fiberSel" class="fiblab">Fiber type</label>' +
             '<select id="fiberSel"><option value="">Pick one</option>' +
             FIBERS.map(f => '<option value="' + f + '"' + (fib && fib.type === f ? ' selected' : '') + '>' + f + '</option>').join("") + '</select>' +
@@ -301,11 +312,11 @@ async function show(){
           : '') +
         (roomExtras.length ? '<h3 class="h3">In this room</h3><div class="room__body">' + roomExtras.map(x => xbox(spot, x)).join("") + '</div>' : '') +
         /* Before and Inspection photos, then the one Notes box, then After photos. */
-        '<h3 class="ptitle">Before photos</h3>' + photoBlock("bThr") + photoBlock("bAdj") + photoBlock("before") +
+        '<h3 class="ptitle">Before photos</h3>' + (spot.isRoom ? photoBlock("bThr") + photoBlock("bAdj") : "") + photoBlock("before") +
         '<h3 class="ptitle">Inspection photos</h3>' + photoBlock("inspection") +
         '<h3 class="h3">Notes</h3>' +
         '<textarea id="spotNotes" placeholder="What you found, spots to watch, anything for next time">' + esc(st.notes || "") + '</textarea>' +
-        '<h3 class="ptitle">After photos</h3>' + photoBlock("aThr") + photoBlock("aAdj") + photoBlock("after") +
+        '<h3 class="ptitle">After photos</h3>' + (spot.isRoom ? photoBlock("aThr") + photoBlock("aAdj") : "") + photoBlock("after") +
         '<div class="saverow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
       '</div>';
 
@@ -338,7 +349,7 @@ async function show(){
           '<button type="button" class="px" data-k="' + k + '" aria-label="Remove photo">×</button></div>' : '').join("") ||
         '<div class="msg">No photos yet.</div>';
     };
-    Object.keys(GROUPS).forEach(draw);
+    SHOWN.forEach(draw);
     /* Photos are saved onto the job as soon as they upload, so none are lost if Save isn't pressed. */
     const savePhotos = () => setDoc(doc(db, place, id), { spots: { [spot.key]: { ...photoFields(), updatedAt: serverTimestamp() } } }, { merge: true });
     const upload = async (g, files) => {
@@ -359,7 +370,7 @@ async function show(){
       catch (e) { console.error(e); note.textContent = "Photos uploaded but not saved to the job: " + e.message; note.classList.add("err"); }
       draw(g);
     };
-    Object.keys(GROUPS).forEach(g => {
+    SHOWN.forEach(g => {
       const pickIn = document.getElementById("pick-" + g);
       view.querySelector('[data-pick="' + g + '"]').addEventListener("click", () => pickIn.click());
       pickIn.addEventListener("change", () => { upload(g, pickIn.files); pickIn.value = ""; });
@@ -389,7 +400,7 @@ async function show(){
           const pick = document.getElementById("fiberSel").value;
           const fiber = pick ? { type: pick, other: pick === "Other" ? otherEl.value.trim() : "" } : null;
           data.spots[spot.key].fiber = fiber;
-          if (fiber && !(q.jobFiber && q.jobFiber.type)) { data.jobFiber = fiber; q.jobFiber = fiber; }
+          if (fiber && !spot.rug && !(q.jobFiber && q.jobFiber.type)) {   /* a rug never sets the job's fiber */ data.jobFiber = fiber; q.jobFiber = fiber; }
         }
         let next = null;
         if (roomExtras.length) {

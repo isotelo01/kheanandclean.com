@@ -367,7 +367,8 @@ async function show(){
   const spotLink = (i, j, r) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j) + (r == null ? '' : '&room=' + r);
   const spotRow = (key, label, size, href) => { total++;
     const d = !!(spots[key] && spots[key].done); if (d) doneCount++;
-    const thr = d ? pathsOf({ photoPaths: (spots[key] && spots[key].photosAfterThreshold) || [] })[0] : "";
+    /* Thumbnail: a room's After Threshold photo; stairs / rugs (no Threshold) use their first After photo. */
+    const thr = d ? pathsOf({ photoPaths: [...((spots[key] && spots[key].photosAfterThreshold) || []), ...((spots[key] && spots[key].photosAfter) || [])] })[0] : "";
     return '<a class="spot' + (d ? ' done' : '') + '" href="' + esc(href) + '"><span class="spot__tick"' + (thr ? ' data-thumb="' + esc(thr) + '"' : '') + '>' + (d ? '✓' : '') + '</span>' +
       '<span class="spot__name">' + esc(label) + '</span>' + (size ? '<span class="spot__size">' + esc(size) + '</span>' : '') +
       '<span class="spot__go">›</span></a>'; };
@@ -423,7 +424,7 @@ async function show(){
       '<div class="head"><h2 style="margin:0;border:0">Customer</h2>' +
         (q.acctNo ? '<span class="acctno">KC-' + esc(q.acctNo) + '</span>' : '') + '</div>' +
       '<div class="cname">' + esc(name) + '</div>' +
-      (addr ? '<div class="prow"><a href="https://maps.google.com/?q=' + encodeURIComponent(addr) + '" target="_blank" rel="noopener">' + esc(addr) + '</a></div>' : '') +
+      (addr ? '<div class="prow"><a href="https://maps.google.com/?q=' + encodeURIComponent(addr) + '" target="_blank" rel="noopener">' + [c.street, cityLine(c)].filter(Boolean).map(esc).join('<br>') + '</a></div>' : '') +
       (tel ? '<div class="prow"><a href="tel:' + esc(tel) + '">' + esc(c.phone) + '</a></div>' : '') +
       (c.email ? '<div class="prow">' + esc(c.email) + '</div>' : '') +
       '<div class="meta" style="margin-top:6px">' + esc([q.number,
