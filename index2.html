@@ -667,9 +667,6 @@ fieldset{ border:0; margin:0 0 1.9rem; padding:0; min-width:0; }
 /* "Deep" stays gold in both states — a colour set on the span itself beats the
    white inherited from .seg input:checked + label. */
 .segGold{ color:#E3B64A; }
-/* .seg label sets display:flex, which beats the hidden attribute — without this
-   the commercial buttons stay visible in residential mode and vice versa. */
-.seg label[hidden]{ display:none; }
 
 /* Next-service hint: a visual nudge after the room picker closes. Hint only — never selected. */
 .seg label.seg__hint{ border-color:var(--brass-lit); color:var(--brass-lit); box-shadow:0 0 0 3px rgba(240,198,112,.28); animation:segHint 1.4s ease-in-out infinite; }
@@ -763,13 +760,13 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
   #addsList label.add:has([data-add="dry"]){ flex-wrap:wrap; row-gap:.15rem; }
   #addsList label.add:has([data-add="dry"]) .add__c{ flex-basis:100%; margin-left:calc(20px + .85rem); white-space:normal; }
   /* Stretching / pet odor / stain: counter pinned top-right; price + disclaimer run full width underneath. */
-  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"],[data-addrow="stairs"]){ position:relative; }
-  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"],[data-addrow="stairs"]) .addQty__actions{ position:absolute; top:.45rem; right:0; }
-  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"],[data-addrow="stairs"]) .addQty__toggle{ flex:1 1 100%; }
-  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"],[data-addrow="stairs"]) .addQty__toggle > span::before{ content:''; float:right; width:144px; height:44px; }
-  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"],[data-addrow="stairs"]) .add__c{ clear:right; white-space:nowrap; }
-  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"],[data-addrow="stairs"]) .addQty__toggle br{ display:none; }
-  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"],[data-addrow="stairs"]) .roomDisclaimer{ display:block; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]){ position:relative; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__actions{ position:absolute; top:.45rem; right:0; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle{ flex:1 1 100%; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle > span::before{ content:''; float:right; width:144px; height:44px; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .add__c{ clear:right; white-space:nowrap; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle br{ display:none; }
+  #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .roomDisclaimer{ display:block; }
 }
 
 .est__k{ font-family:"Archivo Narrow",sans-serif; font-size:var(--fs-2xs); font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--dust); margin-bottom:.7rem; }
@@ -865,12 +862,6 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .estConsent__opt input:focus-visible{ outline:2px solid var(--jade-lit); outline-offset:3px; }
 .estConsent__opt:has(input:checked){ background:var(--jade); border-color:var(--jade-lit); color:#fff; }
 .estConsent .estErr{ margin-top:.45rem; }
-/* Phones: the two side-by-side boxes were too narrow, so "Yes, text me" broke onto
-   three lines. Stack them as full-width rows so each label sits on one line. */
-@media (max-width:560px){
-  .estConsent__opts{ grid-template-columns:1fr; gap:.5rem; }
-  .estConsent__opt{ min-height:52px; padding:.8rem 1rem; gap:.75rem; white-space:nowrap; font-size:1.05rem; }
-}
 .estConsent__fine{ font-size:var(--fs-2xs); color:var(--dust); margin:.5rem 0 0; line-height:1.6; }
 .estConsent__fine a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
 /* Promo texts: one small checkbox line inside the estimator's text panel, not a second panel. */
@@ -1158,7 +1149,8 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qerr{ display:block; font-size:var(--fs-xs); color:#A6402F; margin-top:.35rem; min-height:0; }
 
 
-.qchecks{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.5rem; }
+.qchecks{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+@media (max-width:420px){ .qchecks{ grid-template-columns:1fr; } }
 .qcheck{ display:flex; align-items:center; gap:.6rem; padding:.72rem .85rem; font-size:var(--fs-sm); border:1px solid var(--line); border-radius:2px; background:#fff; cursor:pointer; transition:border-color .18s ease, background .18s ease; }
 .qcheck:hover{ border-color:var(--slate); }
 .qcheck input{ width:17px; height:17px; flex:none; accent-color:var(--jade); cursor:pointer; }
@@ -1957,18 +1949,12 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
             <label class="estConsent__promo" for="ePromo"><input type="checkbox" id="ePromo" name="marketing_consent" value="Yes" autocomplete="off"> Also text me occasional specials &amp; promotions (optional)</label>
             <p class="estConsent__fine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn't required to get an estimate. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>
           </div>
-          <div class="estField" id="eBizField" hidden>
-            <label for="eBiz">Business name</label>
-            <input id="eBiz" name="business" type="text" autocomplete="organization" placeholder="Business name">
-            <span class="estErr" data-for="eBiz"></span>
-          </div>
           <div class="estRow estRow--gate">
             <div class="estField">
               <label for="eType">Property type</label>
               <select id="eType" name="property_type">
                 <option selected>Residential</option>
-                <option>Property management</option>
-                <option>Realtor</option>
+                <option>Move-out deep clean</option>
                 <option>Commercial</option>
               </select>
               <span class="estErr" data-for="eType"></span>
@@ -1988,7 +1974,7 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
         </div>
 
         <fieldset id="svcField" style="scroll-margin-top:calc(var(--bar-h) + 16px)">
-          <legend class="lgnd" id="svcLegend">Cleaning Service</legend>
+          <legend class="lgnd">Cleaning Service</legend>
           <div class="seg seg--wrap" id="svcRow">
             <input type="radio" name="svc" id="svcCarpet" value="carpet" checked>
             <label for="svcCarpet">Carpet</label>
@@ -2000,10 +1986,6 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
             <label for="svcUph">Upholstery</label>
             <input type="radio" name="svc" id="svcStone" value="stone">
             <label for="svcStone">Natural Stone</label>
-            <input type="radio" name="svc" id="svcCommCarpet" value="commcarpet" hidden>
-            <label for="svcCommCarpet" hidden>Carpet</label>
-            <input type="radio" name="svc" id="svcCommHard" value="commhard" hidden>
-            <label for="svcCommHard" hidden>Hard Floor</label>
           </div>
         </fieldset>
 
@@ -2829,12 +2811,13 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   }
 
   function addBubbles(){
-    /* Quote Details box stays removed (the summary chips above show the same
-       information). Un-comment the q line to bring it back. The Estimate box stays. */
-    // var q = snapshotQuote();    if(q) bubbleList.push(q);
+    /* Quote Details box removed: the summary chips above already show the
+       same information. The old body is kept here, commented out, to undo.
+    var q = snapshotQuote();    if(q) bubbleList.push(q);
     var e = snapshotEstimate(); if(e) bubbleList.push(e);
     while(bubbleList.length > MAX_BUBBLES) bubbleList.shift();
     renderBubbles();
+    */
   }
 
   /* Opens one snapshot on its own page as a branded quote document, then calls
@@ -3185,7 +3168,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     { key:'dining',     name:'Dining Room',               sqft:245, dims:'12\' \u00d7 20\' 6"' },
 
     /* --- always last --- */
-    { key:'stairs',     name:'Flight of Stairs',          flat:100, step:1 },
+    { key:'stairs',     name:'Flights of Stairs',         flat:100, step:0.5 },
     { key:'addSqft',    name:'Additional Square Feet',    sqft:1,   step:10, captionText:'' }
   ];
 
@@ -3200,7 +3183,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         quickdry:  { name:'Quick Dry Encapsulation', sqft:0.37 }
       },
       addons: {
-        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:1,
+        stairs: { name:'Flights of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
                    text:'$100 per flight' },
         rug:    { name:'Area Rugs', text:'$50 / $75 per rug',
                    sizes:[ { key:'med', label:'Medium (5\u00d78)', price:50 },
@@ -3222,8 +3205,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       mode: 'area',
       rate: 0.85,
       addons: {
-        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:1,
-                   text:'$100 per flight' },
         seal: { name:'Grout color seal', linear:1.00, needsQty:true, qtyDefault:0, qtyStep:10, text:'$1.00 / sq ft',
                  allTileLabel:'All Grout' },
         acid: { name:'Acid treatment',  linear:1.00, needsQty:true, qtyDefault:0, qtyStep:10, text:'$1.00 / sq ft' }
@@ -3234,43 +3215,15 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       name: 'Natural Stone Cleaning',
       mode: 'area',
       rate: 2.00,
-      addons: {
-        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:1,
-                   text:'$100 per flight' }
-      },
+      addons: {},
       quoteValue: 'Natural stone'
     },
     lvp: {
       name: 'Hardwood/LVP Cleaning',
       mode: 'area',
       rate: 0.50,
-      addons: {
-        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:1,
-                   text:'$100 per flight' }
-      },
+      addons: {},
       quoteValue: 'Hardwood/LVP'
-    },
-    commcarpet: {
-      name: 'Commercial Carpet',
-      mode: 'area',
-      rate: 0.50,
-      addons: {
-        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:1,
-                   text:'$100 per flight' },
-        stain: { name:'Stain treatment', linear:15, needsQty:true, qtyDefault:0, qtyStep:1,
-                 text:'$15 starting per spot' }
-      },
-      quoteValue: 'Commercial carpet'
-    },
-    commhard: {
-      name: 'Commercial Hard Floor',
-      mode: 'area',
-      rate: 0.50,
-      addons: {
-        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:1,
-                   text:'$100 per flight' }
-      },
-      quoteValue: 'Commercial hard floor'
     },
     upholstery: {
       name: 'Upholstery Cleaning',
@@ -3329,7 +3282,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     return o;
   }
   function initState(){
-    ['carpet','tile','stone','lvp','commcarpet','commhard'].forEach(function(k){
+    ['carpet','tile','stone','lvp'].forEach(function(k){
       STATE[k] = { mode:'sqft', sqft:0, rooms:defaultRooms(), collapsed:false, addons:defaultAddons(k), touched:false };
     });
     STATE.carpet.tier = 'deep';
@@ -3343,17 +3296,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   initState();
 
   function svc(){ return document.querySelector('input[name="svc"]:checked').value; }
-  /* Residential and commercial can't share an invoice, so the service row shows
-     one group or the other, never both. Property type drives the swap, and the
-     hidden group's numbers are cleared so nothing invisible can price into the
-     estimate. */
-  var COMM_SVCS = ['commcarpet','commhard'];
-  var RES_SVCS  = ['carpet','tile','lvp','upholstery','stone'];
-  function isComm(k){ return COMM_SVCS.indexOf(k) > -1; }
-  function commercialMode(){
-    var sel = document.getElementById('eType');
-    return !!sel && sel.value === 'Commercial';
-  }
   function service(){ return SERVICES[svc()]; }
   function mode(){ return document.querySelector('input[name="mode"]:checked').value; }
   function tier(){ return document.querySelector('input[name="tier"]:checked').value; }
@@ -3391,7 +3333,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       }
       if(a.needsQty){
         var disclaimer = a.disclaimer ? '<br><span class="roomDisclaimer">'+a.disclaimer+'</span>' : '';
-        var tap = (k==='filter'||k==='stretch'||k==='pet'||k==='stain'||k==='stairs') ? ' data-addrow="'+k+'" style="cursor:pointer"' : '';
+        var tap = (k==='filter'||k==='stretch'||k==='pet'||k==='stain') ? ' data-addrow="'+k+'" style="cursor:pointer"' : '';
         if(a.qtyDropdown){
           var opts = '';
           for(var n=0; n<=10; n++){ opts += '<option value="'+n+'"'+(n===0?' selected':'')+'>'+n+'</option>'; }
@@ -3409,7 +3351,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         return '<div class="add addQty"'+tap+'>'+
                '<label class="addQty__toggle">'+
                  '<input type="checkbox" data-add="'+k+'">'+
-                 '<span><span data-addname="'+k+'">'+a.name+'</span> <span class="add__c">'+price+'</span>'+disclaimer+'</span>'+
+                 '<span>'+a.name+' <span class="add__c">'+price+'</span>'+disclaimer+'</span>'+
                '</label>'+
                '<div class="addQty__actions" style="margin-left:auto">'+
                  allTileBtn+
@@ -3764,7 +3706,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       var disclaimer = rt.disclaimer ? '<br><span class="roomDisclaimer">'+rt.disclaimer+'</span>' : '';
       var step = rt.step || 1;
       return '<div class="add" data-roomrow="'+rt.key+'" style="cursor:pointer">'+
-             '<span><span data-roomname="'+rt.key+'">'+rt.name+'</span> <span class="add__c">'+caption+'</span>'+disclaimer+'</span>'+
+             '<span>'+rt.name+' <span class="add__c">'+caption+'</span>'+disclaimer+'</span>'+
              '<div class="step step--sm" style="margin-left:auto">'+
                '<button type="button" data-roomminus="'+rt.key+'" aria-label="Decrease">&minus;</button>'+
                '<input type="number" data-room="'+rt.key+'" value="0" min="0" step="'+step+'">'+
@@ -3892,7 +3834,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
 
   /* Service order is read from the row's markup, so reordering the buttons reorders the hint. */
   function svcOrder(){
-    return Array.prototype.map.call(document.querySelectorAll('input[name="svc"]:not(:disabled)'), function(i){ return i.value; });
+    return Array.prototype.map.call(document.querySelectorAll('input[name="svc"]'), function(i){ return i.value; });
   }
   function clearSvcHint(){
     document.querySelectorAll('#svcRow label.seg__hint').forEach(function(l){ l.classList.remove('seg__hint'); });
@@ -3959,76 +3901,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     syncRoomsDone();
   }
 
-  /* Wipe a group's entries so a service that's off screen can never contribute
-     a charge. Uses initState's own defaults rather than a hand-written reset so
-     the two can't drift apart as services change. */
-  function clearGroup(keys){
-    keys.forEach(function(k){
-      if(k === 'upholstery'){
-        STATE.upholstery.touched = false;
-        Object.keys(STATE.upholstery.items).forEach(function(i){ STATE.upholstery.items[i] = 0; });
-        return;
-      }
-      var st = STATE[k];
-      if(!st) return;
-      st.mode = 'sqft'; st.sqft = 0; st.touched = false; st.collapsed = false;
-      st.rooms = defaultRooms();
-      st.addons = defaultAddons(k);
-      if(k === 'carpet'){
-        st.tier = 'deep';
-        st.addons.dry.on = true;
-        st.dryDefaultApplied = true;
-      }
-    });
-  }
-
-  /* Business name appears for every type except Residential. Hiding also clears it, so a type
-     switched back to Residential can't send a stale business name. */
-  function syncBizField(){
-    var sel = document.getElementById('eType'),
-        wrap = document.getElementById('eBizField'),
-        inp = document.getElementById('eBiz');
-    if(!sel || !wrap) return;
-    var need = sel.value !== 'Residential';
-    wrap.hidden = !need;
-    if(inp && !need){
-      inp.value = '';
-      inp.removeAttribute('aria-invalid');
-      var er = document.querySelector('.estErr[data-for="eBiz"]'); if(er) er.textContent = '';
-    }
-  }
-
-  /* Show one service group and hide the other. Called on load and whenever the
-     property type changes. */
-  function syncSvcGroup(){
-    syncBizField();
-    var comm = commercialMode();
-    var show = comm ? COMM_SVCS : RES_SVCS;
-    var hide = comm ? RES_SVCS  : COMM_SVCS;
-
-    clearGroup(hide);
-
-    document.querySelectorAll('input[name="svc"]').forEach(function(el){
-      var on = show.indexOf(el.value) > -1;
-      var lab = document.querySelector('label[for="' + el.id + '"]');
-      el.disabled = !on;
-      el.hidden = !on;
-      if(lab) lab.hidden = !on;
-    });
-
-    var lgnd = document.getElementById('svcLegend');
-    if(lgnd) lgnd.textContent = comm ? 'Commercial Cleaning Service' : 'Cleaning Service';
-
-    /* If the tab that was open belongs to the group being hidden, land on the
-       first tab of the group now showing. */
-    var cur = document.querySelector('input[name="svc"]:checked');
-    if(!cur || show.indexOf(cur.value) === -1){
-      var first = document.querySelector('input[name="svc"][value="' + show[0] + '"]');
-      if(first) first.checked = true;
-    }
-    syncService();
-  }
-
   function syncService(){
     activeSvc = svc();
     var s = SERVICES[activeSvc], isArea = s.mode === 'area', st = STATE[activeSvc];
@@ -4037,12 +3909,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     areaFields.style.display = isArea ? '' : 'none';
     uphFields.style.display  = isArea ? 'none' : '';
     tierField.style.display  = (activeSvc==='carpet') ? '' : 'none';
-    /* Commercial is priced straight off square footage, so the rooms/sq-ft
-       toggle is hidden — but the square-feet box itself lives in the same row
-       and must stay visible, so only the toggle is hidden, not the row. */
-    var mToggle = document.querySelector('.measureRow > .seg');
-    if(mToggle) mToggle.style.display = isComm(activeSvc) ? 'none' : '';
-    if(isComm(activeSvc)) STATE[activeSvc].mode = 'sqft';
 
     if(isArea){
       document.getElementById(st.mode==='room' ? 'mRoom' : 'mSqft').checked = true;
@@ -4099,7 +3965,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       }
       // If the stairs add-on is checked it prints its own line below; don't print twice.
       if(flatRooms > 0 && !(st.addons.stairs && st.addons.stairs.on)){
-        items.push({ label: ((st.rooms.stairs || 0) >= 2) ? 'Flights of Stairs' : 'Flight of Stairs', cost: flatRooms });
+        items.push({ label: 'Flights of Stairs', cost: flatRooms });
       }
 
       Object.keys(s.addons || {}).forEach(function(k){
@@ -4131,7 +3997,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         else if(a.needsQty)  cost = (ast.qty||0) * a.linear;
         else if(a.flat) cost = a.flat;
         else            cost = sqft * a.sqft;
-        if(cost > 0) items.push({ label: (k === 'stairs' && (st.rooms.stairs || 0) >= 2) ? 'Flights of Stairs' : a.name, cost: cost });
+        if(cost > 0) items.push({ label: a.name, cost: cost });
       });
 
       return items;
@@ -4205,13 +4071,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   window.kcEstTotal = function(){ var b = buildBreakdown(); return b.breakdown.length ? Math.max(b.sum, MIN_JOB) : 0; };
 
   function calc(){
-    /* Stairs add-on label: "Flight of Stairs" at 0 or 1, "Flights of Stairs" at 2 or more. */
-    var stairsName = addsList && addsList.querySelector('[data-addname="stairs"]');
-    var stairsSt = STATE[activeSvc] && STATE[activeSvc].rooms;
-    if(stairsName && stairsSt) stairsName.textContent = ((stairsSt.stairs || 0) >= 2) ? 'Flights of Stairs' : 'Flight of Stairs';
-    /* Same rule for the stairs row in the room picker, for whichever service is open. */
-    var roomStairsName = roomList && roomList.querySelector('[data-roomname="stairs"]');
-    if(roomStairsName && STATE[activeSvc] && STATE[activeSvc].rooms) roomStairsName.textContent = ((STATE[activeSvc].rooms.stairs || 0) >= 2) ? 'Flights of Stairs' : 'Flight of Stairs';
     var b = buildBreakdown();
 
     if(!b.breakdown.length){
@@ -4266,10 +4125,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     STATE[activeSvc].sqft = +qty.value || 0; STATE[activeSvc].touched = true; calc();
   });
   document.querySelectorAll('input[name="svc"]').forEach(function(el){ el.addEventListener('change', syncService); });
-  (function(){
-    var sel = document.getElementById('eType');
-    if(sel) sel.addEventListener('change', function(){ syncSvcGroup(); calc(); });
-  })();
   document.querySelectorAll('input[name="mode"]').forEach(function(el){
     el.addEventListener('change', function(){
       STATE[activeSvc].mode = mode();
@@ -4308,11 +4163,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   document.querySelectorAll('[data-select-tier]').forEach(function(a){
     a.addEventListener('click', function(e){
       e.preventDefault();
-      var typeSel = document.getElementById('eType');
-      if(typeSel && typeSel.value === 'Commercial'){
-        typeSel.value = 'Residential';
-        typeSel.dispatchEvent(new Event('change'));
-      }
       var svcCarpet = document.getElementById('svcCarpet');
       if(!svcCarpet.checked){
         svcCarpet.checked = true;
@@ -4349,9 +4199,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
 
   renderRoomList();
   syncMode();
-  /* Calls syncService() itself, after picking the right group for the property
-     type the form loaded with. */
-  syncSvcGroup();
+  syncService();
 
   /* Estimator number boxes: clicking into one that reads 0 empties it, so typing 8
      gives 8, not 08. Leaving it empty puts the 0 back. Scoped to #estimate so the
@@ -4439,7 +4287,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
 
   if(eSubmit){
     function eClear(){
-      [eName,ePhone,eEmail,eAddr,document.getElementById('eBiz')].filter(Boolean).forEach(function(el){ el.removeAttribute('aria-invalid'); });
+      [eName,ePhone,eEmail,eAddr].forEach(function(el){ el.removeAttribute('aria-invalid'); });
       var smsYesEl = document.getElementById('eSms'); if(smsYesEl) smsYesEl.removeAttribute('aria-invalid');
       eSend.querySelectorAll('.estErr').forEach(function(el){ el.textContent = ''; });
       eStatus.textContent = ''; eStatus.classList.remove('err');
@@ -4464,8 +4312,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         ok = false;
       }
       if(!eAddr.value.trim()){ eErr(eAddr,'We need the service address.'); ok = false; }
-      var eBizEl = document.getElementById('eBiz');
-      if(eBizEl && eType && eType.value !== 'Residential' && !eBizEl.value.trim()){ eErr(eBizEl,'We need the business name.'); ok = false; }
       /* Text: Yes or No must be picked. Either answer goes through; only skipping the choice blocks it. */
       var smsYes = document.getElementById('eSms');
       if(smsYes && !eSend.querySelector('input[name="sms_consent"]:checked')){ eErr(smsYes,'Please choose Yes or No.'); ok = false; }
@@ -4510,7 +4356,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       if(sp) sp.textContent = '';
       if(eGateOk()){ eStatus.textContent = ''; eStatus.classList.remove('err'); }
     }
-    [eName,ePhone,eEmail,eAddr,eCityEl,eZipEl,document.getElementById('eBiz')].filter(Boolean).forEach(function(el){
+    [eName,ePhone,eEmail,eAddr,eCityEl,eZipEl].filter(Boolean).forEach(function(el){
       el.addEventListener('input', eSyncGate);
       el.addEventListener('change', eSyncGate);
     });
@@ -4558,7 +4404,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         fd.append('city',    eCity());
         fd.append('zip',     eZipEl ? eZipEl.value.trim() : '');
         fd.append('property_type', eType ? eType.value : '');
-        fd.append('business', (document.getElementById('eBiz') ? document.getElementById('eBiz').value.trim() : ''));
         fd.append('stage',   'Opened the estimator (details only, no estimate yet)');
         var eSmsYes = eSmsOk();   /* read once, at the click */
         fd.append('sms_consent', eSmsYes ? 'Yes' : 'No');
@@ -4582,10 +4427,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
               zip:    eZipEl ? eZipEl.value.trim() : ''
             }],
             type:      eType ? eType.value.toLowerCase() : '',
-            business:  (document.getElementById('eBiz') ? document.getElementById('eBiz').value.trim() : ''),
             smsConsent: eSmsYes,
             marketingConsent: ePromoYes,
-            message:   '',
+            message:   'Opened the estimator (details only, no estimate yet)',
             page:      'homepage-estimator'
           }).then(function(id){ window.kcSoftLeadId = id; })
           .catch(function(err){
@@ -4651,7 +4495,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       fd.append('city',    eCity());
       fd.append('zip',     eZipEl ? eZipEl.value.trim() : '');
       fd.append('property_type', eType ? eType.value : '');
-      fd.append('business', (document.getElementById('eBiz') ? document.getElementById('eBiz').value.trim() : ''));
       fd.append('estimate', eSummary());
       fd.append('notes',    eNotes ? eNotes.value.trim() : '');
       var eWhenVal = window.kcEstWhen ? window.kcEstWhen() : '';
@@ -4715,7 +4558,6 @@ document.getElementById('yr').textContent = new Date().getFullYear();
             zip:    eZipEl ? eZipEl.value.trim() : ''
           }],
           type:       eType ? eType.value.toLowerCase() : '',
-          business:   (document.getElementById('eBiz') ? document.getElementById('eBiz').value.trim() : ''),
           smsConsent: eSmsYes,
           marketingConsent: ePromoYes,
           /* Every choice behind the estimate, in the in-house estimator's own
@@ -5505,12 +5347,11 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     catch (err) {
       /* If the database won't take the quote link or the text consent, the lead still goes in,
          with those written at the top of its message instead. */
-      if (err.code !== 'permission-denied' || (!lead.editOf && !('smsConsent' in lead) && !lead.business)) throw err;
+      if (err.code !== 'permission-denied' || (!lead.editOf && !('smsConsent' in lead))) throw err;
       const plain = Object.assign({}, row);
       delete plain.editOf; delete plain.editOfNumber; delete plain.smsConsent;
-      delete plain.marketingConsent; delete plain.business;
+      delete plain.marketingConsent;
       const top = [];
-      if (lead.business) top.push('Business: ' + lead.business);
       if (lead.editOf) top.push('Change to quote ' + lead.editOfNumber);
       if (lead.smsConsent) top.push('OK to text: yes');
       if (lead.marketingConsent) top.push('OK to text specials: yes');

@@ -240,7 +240,9 @@ async function show(){
     const oldStains = Array.isArray(st.photosStains) ? st.photosStains : [];
     groups.before = [...oldStains, ...groups.before];
     const allPaths = () => Object.keys(GROUPS).flatMap(g => groups[g]);
-    const photoFields = () => { const o = { photoPaths: allPaths() }; if (oldStains.length) o.photosStains = []; Object.keys(GROUPS).forEach(g => { o[GROUPS[g].field] = groups[g]; }); return o; };
+    const photoFields = () => { const o = { photoPaths: allPaths() }; if (oldStains.length) o.photosStains = []; Object.keys(GROUPS).forEach(g => { o[GROUPS[g].field] = groups[g]; });
+      o.done = groups.aThr.length > 0;   /* room is Done once an After Threshold photo is in */
+      return o; };
     /* One small camera button per spot, next to its label. The phone itself then offers
        Take Photo or Photo Library. */
     const CAM = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
@@ -284,7 +286,6 @@ async function show(){
         '<h3 class="h3">Notes</h3>' +
         '<textarea id="spotNotes" placeholder="What you found, spots to watch, anything for next time">' + esc(st.notes || "") + '</textarea>' +
         '<h3 class="ptitle">After photos</h3>' + photoBlock("aThr") + photoBlock("aAdj") + photoBlock("after") +
-        '<label class="xchk donebox"><input type="checkbox" id="doneBox"' + (st.done ? ' checked' : '') + '><span>Done</span></label>' +
         '<div class="saverow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
       '</div>';
 
@@ -353,7 +354,7 @@ async function show(){
       saveBtn.disabled = true; note.textContent = "Saving…"; note.classList.remove("err");
       try {
         const data = { spots: { [spot.key]: { notes: document.getElementById("spotNotes").value.trim(),
-          done: document.getElementById("doneBox").checked, ...photoFields(), updatedAt: serverTimestamp() } } };
+          ...photoFields(), updatedAt: serverTimestamp() } } };
         /* Actual sq ft measured on site (rooms only); blank clears it. */
         if (actualEl) { const n = Math.round(Number(actualEl.value)); data.spots[spot.key].actualSqft = n > 0 ? n : null; }
         /* Fiber type: saved on this room; the first one saved also becomes the job's, so the
