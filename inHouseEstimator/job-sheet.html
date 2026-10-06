@@ -44,6 +44,15 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .chk.done span{text-decoration:line-through;color:var(--muted)}
 .chk .open{margin-left:auto;flex:none;font:600 14px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:5px 12px;background:#fff}
 @media print{.chk .open{display:none}}
+/* One button per room / add-on; tap to open its page. A tick shows once it's marked done. */
+.spot{display:flex;align-items:center;gap:12px;padding:12px 6px;border-top:1px solid #eef0f4;color:var(--ink);text-decoration:none;font-size:16px}
+.svc__head + .spot{border-top:0}
+.spot:hover{background:#f6f7fa}
+.spot__tick{width:24px;height:24px;flex:none;border:2px solid var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
+.spot.done .spot__tick{background:var(--green);border-color:var(--green)}
+.spot__name{font-weight:600}
+.spot__size{color:var(--muted);font-size:14px}
+.spot__go{margin-left:auto;color:var(--muted);font-size:22px;line-height:1}
 .prog{font-size:14px;color:var(--muted);margin-bottom:10px}
 textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 .photos{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:14px}
@@ -163,13 +172,32 @@ async function show(){
   const isExtra = it => /accelerated drying|deodori[sz]er|stain (protector|guard|repellent)|scotch ?gard/i.test(String(it.label || ""));
   /* Labels carry prices ("800 sq ft + $100", "@ $0.50/sq ft"); the sheet shows them without. */
   const noPrice = t => String(t || "").replace(/\s*@\s*\$[\d.,]+\s*\/\s*sq ft/i, "").replace(/\s*\+\s*\$[\d.,]+/g, "").replace(/\s*\$[\d.,]+/g, "").trim();
+  /* Every room, and every add-on (stairs, pet odor, stain treatment), is its own button that
+     opens its own page on job-room.html: photos, notes and Done for that spot, saved on the
+     job under spots. Grouped rooms are split: Bedroom × 3 = Bedroom 1, 2 and 3. */
+  const spots = (q.spots && typeof q.spots === "object") ? q.spots : {};
+  let doneCount = 0;
+  const spotLink = (i, j, r) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j) + (r == null ? '' : '&room=' + r);
+  const spotRow = (key, label, size, href) => { total++;
+    const d = !!(spots[key] && spots[key].done); if (d) doneCount++;
+    return '<a class="spot' + (d ? ' done' : '') + '" href="' + esc(href) + '"><span class="spot__tick">' + (d ? '✓' : '') + '</span>' +
+      '<span class="spot__name">' + esc(label) + '</span>' + (size ? '<span class="spot__size">' + esc(size) + '</span>' : '') +
+      '<span class="spot__go">›</span></a>'; };
+  const itemRows = (it, i, j) => {
+    const rms = Array.isArray(it.rooms) ? it.rooms : [];
+    if (!rms.length) return spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j));
+    let r = 0;
+    return rms.map(rm => { const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
+      let out = ""; for (let k = 1; k <= n; k++, r++) out += spotRow(i + "-" + j + "-" + r, n > 1 ? rm.name + " " + k : rm.name, each ? each.toLocaleString() + " sq ft" : "", spotLink(i, j, r));
+      return out; }).join("");
+  };
   const sections = lines.map((l, i) => {
     const items = Array.isArray(l.items) ? l.items : [];
     const extras = isCarpet(l) ? items.filter(isExtra) : [];
     const shown = items.map((it, j) => [it, j]).filter(([it]) => !extras.includes(it));
     /* No prices on the Job Sheet: it's a work sheet for the crew. */
     return '<div class="svc"><div class="svc__head"><span>' + esc(noPrice(l.label) || "Service") + '</span></div>' +
-      (shown.length ? shown.map(([it, j]) => box("i-" + i + "-" + j, noPrice(it.label) || "Area", roomLink(i, j))).join("") : box("l-" + i, noPrice(l.label) || "Service", roomLink(i))) +
+      (shown.length ? shown.map(([it, j]) => itemRows(it, i, j)).join("") : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i))) +
       (extras.length ? '<div class="meta" style="padding:6px 4px 0">In every room: ' +
         esc(extras.map(it => String(it.label).split(" — ")[0]).join(", ")) + ' (check off on each room page)</div>' : '') +
     '</div>';
@@ -200,15 +228,8 @@ async function show(){
     '</div>';
 
   const prog = document.getElementById("prog"), note = document.getElementById("note");
-  const tally = () => { const n = view.querySelectorAll(".chk input:checked").length;
-    prog.textContent = total ? n + " of " + total + " done" : ""; };
-  tally();
-  view.addEventListener("change", e => {
-    const cb = e.target.closest(".chk input");
-    if (!cb) return;
-    cb.closest(".chk").classList.toggle("done", cb.checked);
-    tally(); note.textContent = "Not saved yet."; note.classList.remove("err");
-  });
+  /* Done is marked on each room's own page; this just counts them. */
+  prog.textContent = total ? doneCount + " of " + total + " done" : "";
   document.getElementById("crewNotes").addEventListener("input", () => { note.textContent = "Not saved yet."; note.classList.remove("err"); });
 
   /* Save: ticks and crew notes go onto the quote, so they follow it into the invoice. */
@@ -216,7 +237,7 @@ async function show(){
   saveBtn.addEventListener("click", async () => {
     saveBtn.disabled = true; note.textContent = "Saving\u2026"; note.classList.remove("err");
     try {
-      const keys = [...view.querySelectorAll(".chk input:checked")].map(x => x.dataset.k);
+      const keys = [...done];   /* old-style ticks kept as they were; Done now lives on each room page */
       await setDoc(doc(db, place, id), { jobSheet: { done: keys, crewNotes: document.getElementById("crewNotes").value.trim(),
         updatedAt: serverTimestamp() } }, { merge: true });
       note.textContent = "Saved.";
@@ -247,7 +268,8 @@ async function show(){
   }
 
   /* Quick-quote photos: links, or storage paths turned into links. */
-  const paths = [...new Set(pathsOf(lead).concat(pathsOf(cust), pathsOf(qnote)))];
+  /* Plus the photos taken on each room's page. */
+  const paths = [...new Set(pathsOf(lead).concat(pathsOf(cust), pathsOf(qnote), ...Object.values(spots).map(pathsOf)))];
   const fromPaths = await Promise.all(paths.map(p =>
     getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
   const shots = [...new Set(photosOf(lead).concat(photosOf(cust), fromPaths.filter(Boolean)))];

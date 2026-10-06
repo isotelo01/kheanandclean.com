@@ -42,6 +42,18 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .note{font-size:14px;color:var(--muted)}
 .note.err{color:var(--red)}
 @media print{ .saverow{display:none} }
+a.room__name{display:block;color:var(--ink);text-decoration:none}
+/* One room's own page: notes, photos, Done. */
+.h3{font:700 16px "Archivo";margin:18px 0 8px;color:var(--navy)}
+textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
+.pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+.pcell{position:relative;border-radius:8px;overflow:hidden;background:#eef0f4}
+.pcell img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.px{position:absolute;top:6px;right:6px;width:30px;height:30px;border:0;border-radius:50%;background:rgba(10,14,22,.75);color:#fff;font-size:20px;line-height:1;cursor:pointer}
+.pbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.donebox{margin-top:16px;border-top:1px solid var(--line);font-weight:700}
+.donebox.done span{text-decoration:none;color:var(--green)}
+@media print{ .pbtns,.px{display:none} }
 @media print{ body{background:#fff} .top>div{display:none!important} .panel{box-shadow:none;padding:0} }
 </style>
 </head>
@@ -63,6 +75,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -73,11 +86,27 @@ const app = initializeApp({
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 });
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 const view = document.getElementById("view"), titleEl = document.getElementById("title");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 /* Labels like "Deep Cleaning — 800 sq ft @ $0.50/sq ft": keep the name and size, drop the price. */
-const noPrice = t => String(t || "").replace(/\s*@\s*\$[\d.,]+\s*\/\s*sq ft/i, "").replace(/\s*\$[\d.,]+/g, "").trim();
+const noPrice = t => String(t || "").replace(/\s*@\s*\$[\d.,]+\s*\/\s*sq ft/i, "").replace(/\s*\+\s*\$[\d.,]+/g, "").replace(/\s*\$[\d.,]+/g, "").trim();
+/* Photos taken on a room's page: shrunk to 2400px on the long side and saved as JPEG, the
+   same way the website's quick quote does it. Anything that won't open as a picture is refused. */
+const shrink = file => new Promise((res, rej) => {
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    let w = img.naturalWidth, h = img.naturalHeight; const m = 2400 / Math.max(w, h);
+    if (m < 1) { w = Math.round(w * m); h = Math.round(h * m); }
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d").drawImage(img, 0, 0, w, h);
+    c.toBlob(b => b ? res(b) : rej(new Error("Could not read that photo")), "image/jpeg", 0.85);
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("That file isn't a photo")); };
+  img.src = url;
+});
 const splitLabel = t => { const s = noPrice(t), k = s.indexOf(" — "); return k < 0 ? [s, ""] : [s.slice(0, k), s.slice(k + 3)]; };
 
 /* Which job and which line: ?id=<job>&line=<service #>&item=<item #> (item left off = the whole service).
@@ -90,7 +119,9 @@ const saved = (() => { try { return JSON.parse(ss.get("kcJobRoom") || "{}"); } c
 const id = qs.get("id") || saved.id || "";
 const lineNo = qs.has("line") ? Number(qs.get("line")) : Number(saved.line);
 const itemNo = qs.has("id") ? (qs.has("item") ? Number(qs.get("item")) : null) : (saved.item ?? null);
-if (id) ss.set("kcJobRoom", JSON.stringify({ id, line: lineNo, item: itemNo }));
+/* &room=<n> opens one room on its own page (its photos, notes and Done). */
+const roomNo = qs.has("id") ? (qs.has("room") ? Number(qs.get("room")) : null) : (saved.room ?? null);
+if (id) ss.set("kcJobRoom", JSON.stringify({ id, line: lineNo, item: itemNo, room: roomNo }));
 
 async function show(){
   if (!id || !Number.isInteger(lineNo)) { view.innerHTML = '<div class="msg">No line picked. <a href="./approved-leads.html">Go to Approved Leads</a></div>'; return; }
@@ -119,7 +150,7 @@ async function show(){
     let r = 0;
     (Array.isArray(it.rooms) ? it.rooms : []).forEach(rm => {
       const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
-      for (let k = 1; k <= n; k++) rooms.push({ name: n > 1 ? rm.name + " " + k : rm.name, sqft: each, key: lineNo + "-" + j + "-" + (r++) });
+      for (let k = 1; k <= n; k++) rooms.push({ name: n > 1 ? rm.name + " " + k : rm.name, sqft: each, j, r, key: lineNo + "-" + j + "-" + (r++) });
     });
   });
 
@@ -136,6 +167,114 @@ async function show(){
   const xbox = (r, x) => { const k = r.key + "-" + slug(x), on = checks.has(k);
     return '<label class="xchk' + (on ? ' done' : '') + '"><input type="checkbox" data-k="' + esc(k) + '"' + (on ? ' checked' : '') + '><span>' + esc(x) + '</span></label>'; };
 
+  /* One room, or one add-on (stairs, pet odor, stain treatment...): its own page with notes,
+     photos and Done, saved on the job under spots.<key>. */
+  const pickedItem = itemNo == null ? null : items[itemNo];
+  let spot = null;
+  if (pickedItem && roomNo != null) {
+    const rm = rooms.find(x => x.r === roomNo);
+    if (rm) spot = { ...rm, isRoom: true };
+  } else if (pickedItem && !(Array.isArray(pickedItem.rooms) && pickedItem.rooms.length)) {
+    spot = { name: splitLabel(pickedItem.label)[0] || "Area", sqft: 0, key: lineNo + "-" + itemNo, isRoom: false };
+  } else if (itemNo == null && !items.length) {
+    spot = { name: svc, sqft: 0, key: String(lineNo), isRoom: false };
+  }
+  if (spot) { showSpot(spot); return; }
+
+  function showSpot(spot){
+    const st = (q.spots && q.spots[spot.key]) || {};
+    const paths = Array.isArray(st.photoPaths) ? st.photoPaths.slice() : [];
+    const roomExtras = spot.isRoom ? extras : [];
+    titleEl.textContent = spot.name;
+    document.title = spot.name + " · " + name + " · Khean & Clean";
+    view.innerHTML =
+      '<div class="panel">' +
+        '<div class="cname">' + esc(name) + '</div>' +
+        '<div class="meta">' + esc([q.number, svc].filter(Boolean).join(" · ")) + '</div>' +
+        '<div class="svcname">' + esc(spot.name) + '</div>' +
+        (spot.sqft ? '<div class="svcsub">' + spot.sqft.toLocaleString() + ' sq ft</div>' : '') +
+        (roomExtras.length ? '<h3 class="h3">In this room</h3><div class="room__body">' + roomExtras.map(x => xbox(spot, x)).join("") + '</div>' : '') +
+        '<h3 class="h3">Notes</h3>' +
+        '<textarea id="spotNotes" placeholder="What you found, spots to watch, anything for next time">' + esc(st.notes || "") + '</textarea>' +
+        '<h3 class="h3">Photos</h3>' +
+        '<div class="pgrid" id="pgrid"><div class="msg">Loading photos…</div></div>' +
+        '<div class="pbtns"><button type="button" class="ghost" id="camBtn">Take photo</button>' +
+          '<button type="button" class="ghost" id="pickBtn">Choose photos</button>' +
+          '<input type="file" id="camIn" accept="image/*" capture="environment" hidden>' +
+          '<input type="file" id="pickIn" accept="image/*" multiple hidden></div>' +
+        '<label class="xchk donebox"><input type="checkbox" id="doneBox"' + (st.done ? ' checked' : '') + '><span>Done</span></label>' +
+        '<div class="saverow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
+      '</div>';
+
+    const note = document.getElementById("note"), grid = document.getElementById("pgrid"), saveBtn = document.getElementById("saveBtn");
+    const flag = () => { note.textContent = "Not saved yet."; note.classList.remove("err"); };
+    view.addEventListener("change", e => {
+      const cb = e.target.closest(".xchk input"); if (!cb) return;
+      cb.closest(".xchk").classList.toggle("done", cb.checked); flag();
+    });
+    document.getElementById("spotNotes").addEventListener("input", flag);
+
+    const draw = async () => {
+      const urls = await Promise.all(paths.map(p => getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
+      grid.innerHTML = paths.map((p, k) => urls[k]
+        ? '<div class="pcell"><a href="' + esc(urls[k]) + '" target="_blank" rel="noopener"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
+          '<button type="button" class="px" data-k="' + k + '" aria-label="Remove photo">×</button></div>' : '').join("") ||
+        '<div class="msg">No photos yet.</div>';
+    };
+    draw();
+    /* Photos are saved onto the job as soon as they upload, so none are lost if Save isn't pressed. */
+    const savePhotos = () => setDoc(doc(db, place, id), { spots: { [spot.key]: { photoPaths: paths, updatedAt: serverTimestamp() } } }, { merge: true });
+    const upload = async files => {
+      const list = [...(files || [])]; if (!list.length) return;
+      note.classList.remove("err");
+      for (let k = 0; k < list.length; k++) {
+        note.textContent = "Uploading photo " + (k + 1) + " of " + list.length + "…";
+        try {
+          const blob = await shrink(list[k]);
+          /* Same folder as the website's photos (that's what the storage rules allow). */
+          const path = "quick-quote-photos/job_" + id + "_" + spot.key + "/" + Date.now() + "_" + k + ".jpg";
+          await uploadBytes(ref(storage, path), blob, { contentType: "image/jpeg" });
+          paths.push(path);
+        } catch (e) { console.error(e); note.textContent = "A photo didn’t upload: " + e.message; note.classList.add("err"); }
+      }
+      try { await savePhotos(); if (!note.classList.contains("err")) note.textContent = "Photos saved."; }
+      catch (e) { console.error(e); note.textContent = "Photos uploaded but not saved to the job: " + e.message; note.classList.add("err"); }
+      draw();
+    };
+    const camIn = document.getElementById("camIn"), pickIn = document.getElementById("pickIn");
+    document.getElementById("camBtn").addEventListener("click", () => camIn.click());
+    document.getElementById("pickBtn").addEventListener("click", () => pickIn.click());
+    camIn.addEventListener("change", () => { upload(camIn.files); camIn.value = ""; });
+    pickIn.addEventListener("change", () => { upload(pickIn.files); pickIn.value = ""; });
+    /* X takes a photo off this room (the file itself stays in storage). */
+    grid.addEventListener("click", async e => {
+      const b = e.target.closest(".px"); if (!b) return;
+      paths.splice(Number(b.dataset.k), 1);
+      try { await savePhotos(); note.textContent = "Photo removed."; note.classList.remove("err"); }
+      catch (err) { console.error(err); note.textContent = "Could not save: " + err.message; note.classList.add("err"); }
+      draw();
+    });
+
+    saveBtn.addEventListener("click", async () => {
+      saveBtn.disabled = true; note.textContent = "Saving…"; note.classList.remove("err");
+      try {
+        const data = { spots: { [spot.key]: { notes: document.getElementById("spotNotes").value.trim(),
+          done: document.getElementById("doneBox").checked, photoPaths: paths, updatedAt: serverTimestamp() } } };
+        let next = null;
+        if (roomExtras.length) {
+          const mine = new Set([...view.querySelectorAll(".room__body .xchk input")].map(x => x.dataset.k));
+          const now = [...view.querySelectorAll(".room__body .xchk input:checked")].map(x => x.dataset.k);
+          next = [...checks].filter(k => !mine.has(k)).concat(now);
+          data.roomChecks = next;
+        }
+        await setDoc(doc(db, place, id), data, { merge: true });
+        if (next) { checks.clear(); next.forEach(k => checks.add(k)); }
+        note.textContent = "Saved.";
+      } catch (e) { console.error(e); note.textContent = "Could not save: " + e.message; note.classList.add("err"); }
+      finally { saveBtn.disabled = false; }
+    });
+  }
+
   const sub = picked.map(it => { const [a, b] = splitLabel(it.label || ""); return b ? a + " · " + b : a; }).filter(Boolean).join("  |  ");
   view.innerHTML =
     '<div class="panel">' +
@@ -146,7 +285,7 @@ async function show(){
       (rooms.length
         ? '<div class="rooms">' + rooms.map((r, k) =>
             '<section class="room" id="room-' + (k + 1) + '">' +
-              '<div class="room__name">' + esc(r.name) + '</div>' +
+              '<a class="room__name" href="./job-room.html?id=' + encodeURIComponent(id) + '&line=' + lineNo + '&item=' + r.j + '&room=' + r.r + '">' + esc(r.name) + ' ›</a>' +
               (r.sqft ? '<div class="room__size">' + r.sqft.toLocaleString() + ' sq ft</div>' : '') +
               '<div class="room__body">' + extras.map(x => xbox(r, x)).join("") + '</div>' +
             '</section>').join("") + '</div>' +
