@@ -92,7 +92,14 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .svc__plus{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:var(--navy);color:#fff;font:600 22px/1 "Archivo";cursor:pointer}
 .addonbox .rpick{margin:10px 0 4px}
 .rpchk{width:26px;height:26px;accent-color:var(--green);cursor:pointer}
+.rpall{display:inline-block;margin-top:5px;font:600 13px "Archivo";padding:4px 10px;border:1px solid var(--navy);border-radius:6px;background:#fff;color:var(--navy);cursor:pointer}
 @media print{.svc__plus,.addonbox{display:none!important}}
+/* + Add service (above the On-site total) and Add furniture (upholstery line). */
+.addsvc{margin:4px 0 14px}
+.addsvc .rprow{cursor:pointer}
+.rpgo{flex:none;font-weight:600;font-size:14px;color:var(--navy)}
+.addfurn{margin:10px 0 6px}
+@media print{.addsvc,.addfurn{display:none!important}}
 .jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
 @media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
 .prog{font-size:14px;color:var(--muted);margin-bottom:10px}
@@ -243,15 +250,37 @@ view.addEventListener("click", e => {
    own add-on on the job. */
 const PRICING = window.KC_PRICING || { ROOM_TYPES: [], SERVICES: {} };
 const ROOM_TYPES = PRICING.ROOM_TYPES.filter(rt => rt.key !== "stairs");
-/* Carpet add-ons for the + on a carpet line (Stairs and Area Rugs are already on the job;
-   Accelerated drying is part of the package). Priced by sq ft of the line's carpet, or per
-   linear ft / room / spot with a count. */
-const CARPET_ADDONS = ["hair", "deo", "prot", "filter", "stretch", "pet", "stain"]
-  .map(k => ({ key: k, ...((PRICING.SERVICES.carpet || {}).addons || {})[k] })).filter(a => a.name);
-const addonUnit = a => a.key === "filter" ? "linear ft" : a.key === "stretch" ? "room" : "spot";
+/* Add-ons offered by the + on each service line, straight from the estimator's list in
+   pricing.js (Flight of Stairs and Area Rugs are already on the job). */
+const ADDON_KEYS = { carpet: ["hair", "deo", "prot", "filter", "stretch", "pet", "stain"], tile: ["seal", "acid"] };
+const addonsFor = svc => (ADDON_KEYS[svc] || [])
+  .map(k => ({ key: k, svc, ...(((PRICING.SERVICES[svc] || {}).addons || {})[k] || {}) })).filter(a => a.name);
+const CARPET_ADDONS = addonsFor("carpet");
+const ALL_ADDONS = Object.keys(ADDON_KEYS).flatMap(addonsFor);
+const addonUnit = a => a.key === "filter" ? "linear ft" : a.key === "stretch" ? "room"
+  : a.svc === "tile" ? "sq ft" : "spot";
 /* Counted add-ons split into one row and page per spot / room (Stain treatment 1, 2, 3...),
    each deletable on its own. Filter lines (linear ft) stay one row. */
 const SPLIT_ADDONS = ["stretch", "pet", "stain"];
+/* One row and page per piece / spot: the counted add-ons, and upholstery pieces added on site. */
+const isSplit = it => !!it.split || SPLIT_ADDONS.includes(it.addonKey);
+/* + Add service: the estimator's services (pricing.js), carpet in its four packages. Only the
+   ones not already on the job are offered. */
+const SVC_ORDER = ["carpet", "tile", "lvp", "stone", "upholstery"];
+const UPH = PRICING.SERVICES.upholstery || { items: [], rate: 0 };
+const svcChoices = () => {
+  const out = [];
+  SVC_ORDER.forEach(k => {
+    const s = PRICING.SERVICES[k]; if (!s) return;
+    if (k === "carpet") Object.keys(s.tiers || {}).forEach(t =>
+      out.push({ id: "carpet:" + t, svc: "carpet", name: "Carpet — " + s.tiers[t].name, rate: s.tiers[t].sqft, tierName: s.tiers[t].name }));
+    else if (s.mode === "items") out.push({ id: k, svc: k, name: s.name, items: true });
+    else out.push({ id: k, svc: k, name: s.name, rate: s.rate, tierName: s.name });
+  });
+  return out;
+};
+/* After a service is added, its Add room / Add furniture table opens on the next draw. */
+let pendingOpen = null;
 const addonCaption = a => a.sqft != null ? "$" + a.sqft.toFixed(2) + " / sq ft of carpet"
   : (a.text || "$" + a.linear + " per " + addonUnit(a));
 /* Tap anywhere outside an open room table: it closes and its counts clear (nothing is added). */
@@ -311,6 +340,13 @@ view.addEventListener("click", async e => {
   const box = e.target.closest(".addonbox"); if (!box || !cur) return;
   const pick = box.querySelector(".rpick");
   const row = e.target.closest(".rprow");
+  if (row && e.target.closest("[data-all]")) {
+    /* "All Grout": fill in the line's whole tile sq ft. */
+    const l0 = cur.lines[Number(box.dataset.line)];
+    row.querySelector("input").value = (l0.items || []).filter(it => Array.isArray(it.rooms) && !it.removed)
+      .reduce((s, it) => s + it.rooms.reduce((t, rm) => t + (Number(rm.sqft) || 0), 0), 0);
+    return;
+  }
   if (row && !e.target.closest("input")) {
     const chk = row.querySelector(".rpchk");
     if (chk) { chk.checked = !chk.checked; return; }
@@ -325,7 +361,7 @@ view.addEventListener("click", async e => {
   const lineSq = l.items.filter(it => Array.isArray(it.rooms)).reduce((s, it) => s + it.rooms.reduce((t, rm) => t + (Number(rm.sqft) || 0), 0), 0);
   let delta = 0, added = 0;
   pick.querySelectorAll(".rprow").forEach(r => {
-    const a = CARPET_ADDONS.find(x => x.key === r.dataset.ak); if (!a) return;
+    const a = ALL_ADDONS.find(x => x.key === r.dataset.ak); if (!a) return;
     const have = l.items.find(it => it.addonKey === a.key && !it.removed);
     if (a.sqft != null) {
       if (!r.querySelector(".rpchk").checked || have) return;   /* already on the job: nothing to add */
@@ -341,7 +377,67 @@ view.addEventListener("click", async e => {
     /* New spots get new numbers after the ones already there (deleted numbers aren't reused). */
     if (SPLIT_ADDONS.includes(a.key)) it.spotSlots = (Number(it.spotSlots) || prevQty) + n;
     it.cost = r2(it.qty * a.linear);
-    it.label = a.name + " — " + it.qty.toLocaleString("en-US") + " " + unit + (it.qty === 1 || unit === "linear ft" ? "" : "s");
+    it.label = a.name + " — " + it.qty.toLocaleString("en-US") + " " + unit + (it.qty === 1 || / ?ft$/.test(unit) ? "" : "s");
+    delta += it.cost - old; added++;
+  });
+  if (!added) { pick.hidden = true; return; }
+  l.cost = r2((Number(l.cost) || 0) + delta);
+  e.target.disabled = true;
+  try { await saveOnsite(); show(); } catch (err) { fail(err); e.target.disabled = false; }
+});
+/* Tap outside an open Add service / Add furniture table: it closes, counts clear. */
+document.addEventListener("click", e => {
+  document.querySelectorAll(".addsvc, .addfurn").forEach(box => {
+    const p = box.querySelector(".rpick");
+    if (!p || p.hidden || box.contains(e.target)) return;
+    p.hidden = true; p.querySelectorAll("input[type=number]").forEach(x => x.value = 0);
+  });
+});
+/* + Add service: tap a service to put its line on the job, then its Add room (or Add
+   furniture for upholstery) table opens. */
+view.addEventListener("click", async e => {
+  const opener = e.target.closest("[data-addsvc]");
+  if (opener) { const p = opener.parentElement.querySelector(".rpick"); p.hidden = !p.hidden; return; }
+  const row = e.target.closest(".addsvc .rprow"); if (!row || !cur || row.dataset.busy) return;
+  const c = svcChoices().find(x => x.id === row.dataset.svc); if (!c) return;
+  row.dataset.busy = "1";
+  const line = c.items
+    ? { key: c.svc, label: PRICING.SERVICES[c.svc].name, cost: 0, items: [], addedOnSite: true }
+    : { key: c.svc, label: c.tierName + " — 0 sq ft", cost: 0, addedOnSite: true,
+        items: [{ label: c.tierName + " — 0 sq ft @ $" + c.rate.toFixed(2) + "/sq ft", cost: 0, rooms: [], perSqft: c.rate }] };
+  cur.lines.push(line);
+  const idx = cur.lines.length - 1;
+  openLines.add(String(idx)); saveOpen();
+  pendingOpen = { line: idx, kind: c.items ? "furn" : "room" };
+  try { await saveOnsite(); show(); } catch (err) { fail(err); delete row.dataset.busy; }
+});
+/* Add furniture (upholstery): − / + counts per piece; each piece gets its own row and page. */
+view.addEventListener("click", async e => {
+  const box = e.target.closest(".addfurn"); if (!box || !cur) return;
+  const pick = box.querySelector(".rpick");
+  if (e.target.closest("[data-pickfurn]")) { pick.hidden = !pick.hidden; return; }
+  const row = e.target.closest(".rprow");
+  if (row && !e.target.closest("input")) {
+    const inp = row.querySelector("input"), st = Number(inp.step) || 1;
+    inp.value = Math.max(0, (Number(inp.value) || 0) + (e.target.closest("[data-rpminus]") ? -st : st));
+    return;
+  }
+  if (!e.target.closest("[data-furnadd]")) return;
+  const i = Number(box.dataset.line), l = cur.lines[i];
+  l.items = Array.isArray(l.items) ? l.items : [];
+  let delta = 0, added = 0;
+  pick.querySelectorAll(".rprow").forEach(r => {
+    const f = (UPH.items || []).find(x => x.key === r.dataset.fk);
+    const n = Math.max(0, Math.round(Number(r.querySelector("input").value) || 0));
+    if (!f || !n) return;
+    const each = r2(f.ft * UPH.rate), split = f.key !== "misc";   /* misc is per linear ft: one row */
+    let it = l.items.find(x => x.uphKey === f.key && !x.removed);
+    if (!it) { it = { label: f.name, cost: 0, uphKey: f.key, baseName: f.name, addonRate: each, qty: 0, split }; l.items.push(it); }
+    const old = Number(it.cost) || 0, prev = Number(it.qty) || 0;
+    it.qty = prev + n;
+    if (split) it.spotSlots = (Number(it.spotSlots) || prev) + n;
+    it.cost = r2(it.qty * each);
+    it.label = f.name + " × " + it.qty;
     delta += it.cost - old; added++;
   });
   if (!added) { pick.hidden = true; return; }
@@ -362,7 +458,7 @@ async function delRoom(row){
     l.cost = r2((Number(l.cost) || 0) - (Number(it.cost) || 0)); it.cost = 0; it.removed = true;
   } else if (kind === "spot") {
     /* One spot / room of a counted add-on: count and price drop by one; the last one removes it. */
-    const a = CARPET_ADDONS.find(x => x.key === it.addonKey);
+    const a = ALL_ADDONS.find(x => x.key === it.addonKey);
     const prev = Number(it.qty) || 1, old = Number(it.cost) || 0;
     const rate = Number(it.addonRate) || (a && a.linear) || old / prev;
     if (!it.spotSlots) it.spotSlots = prev;
@@ -372,7 +468,8 @@ async function delRoom(row){
     else {
       const unit = a ? addonUnit(a) : "spot";
       it.cost = r2(it.qty * rate);
-      it.label = String(it.label || "").split(" — ")[0] + " — " + it.qty + " " + unit + (it.qty === 1 ? "" : "s");
+      it.label = it.uphKey ? it.baseName + " × " + it.qty   /* upholstery: "Couch × 2", like the estimator */
+        : String(it.label || "").split(" — ")[0] + " — " + it.qty + " " + unit + (it.qty === 1 ? "" : "s");
     }
     l.cost = r2((Number(l.cost) || 0) - (old - it.cost));
   } else {
@@ -480,6 +577,20 @@ async function show(){
   const delWrap = (kind, i, j, r, inner) =>
     '<div class="srow" data-kind="' + kind + '" data-line="' + i + '" data-item="' + j + '" data-r="' + r + '">' +
       '<button type="button" class="sdel" data-del>Delete</button>' + inner + '</div>';
+  /* Upholstery line: Add furniture opens the estimator's furniture table. */
+  const furnBlock = i =>
+    '<div class="addfurn" data-line="' + i + '">' +
+      '<button type="button" class="new" data-pickfurn>Add furniture</button>' +
+      '<div class="rpick" hidden>' +
+        (UPH.items || []).map(f =>
+          '<div class="rprow" data-fk="' + f.key + '">' +
+            '<span class="rpname">' + esc(f.name) + ' <span class="rpcap">' + money(f.ft * UPH.rate) + (f.key === "misc" ? " per linear ft" : " each") + '</span></span>' +
+            '<span class="rpstep"><button type="button" data-rpminus aria-label="Fewer">&minus;</button>' +
+            '<input type="number" min="0" step="1" value="0" inputmode="numeric" aria-label="' + esc(f.name) + '">' +
+            '<button type="button" data-rpplus aria-label="More">+</button></span>' +
+          '</div>').join("") +
+        '<div class="rpfoot"><button type="button" class="new" data-furnadd>Add furniture</button></div>' +
+      '</div></div>';
   const itemRows = (it, i, j) => {
     const rms = Array.isArray(it.rooms) ? it.rooms : [];
     /* Area Rugs "Medium (5×8) × 2" = two rugs, each its own row and page. */
@@ -492,9 +603,9 @@ async function show(){
       for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("rug", i, j, r, spotRow(i + "-" + j + "-" + r, "Area Rug " + (++shownNo) + " — " + rug[1], "", spotLink(i, j, r)));
       return out; }
     /* Stain treatment — 6 spots = Stain treatment 1 … 6, each its own row and page. */
-    if (SPLIT_ADDONS.includes(it.addonKey) && Number(it.qty) > 0) {
+    if (isSplit(it) && Number(it.qty) > 0) {
       const n = Number(it.spotSlots) || Number(it.qty), gone = Array.isArray(it.spotGone) ? it.spotGone : [];
-      const base = String(it.label || "").split(" — ")[0]; let out = "";
+      const base = it.baseName || String(it.label || "").split(" — ")[0]; let out = "";
       /* Shown numbers count 1, 2, 3 with no gaps; photos stay with each spot's own slot. */
       let shownNo = 0;
       for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("spot", i, j, r, spotRow(i + "-" + j + "-" + r, base + " " + (++shownNo), "", spotLink(i, j, r)));
@@ -529,8 +640,9 @@ async function show(){
     /* Header: "Carpet Deep Cleaning — 540 sq ft" and the line's price; tap it to open or close its rooms. */
     const nm = noPrice(l.label) || "Service";
     const head = isCarpet(l) && !/carpet/i.test(nm) ? "Carpet " + nm : nm;
-    /* Residential carpet line: a + where the price was, opening the carpet add-ons table. */
-    const plus = (l.key ? l.key === "carpet" : isCarpet(l)) && CARPET_ADDONS.length;
+    /* Carpet and tile lines: a + where the price was, opening that service's add-ons table. */
+    const lineAddons = addonsFor(l.key || (isCarpet(l) ? "carpet" : ""));
+    const plus = lineAddons.length > 0;
     return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + '" data-line="' + i + '">' +
       '<div class="svc__headrow">' +
       '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
@@ -538,9 +650,10 @@ async function show(){
       (plus ? '<button type="button" class="svc__plus" data-addons="' + i + '" aria-label="Add-ons">+</button>' : '') +
       '</div>' +
       (plus ? '<div class="addonbox" data-line="' + i + '"><div class="rpick" hidden>' +
-        CARPET_ADDONS.map(a =>
+        lineAddons.map(a =>
           '<div class="rprow" data-ak="' + a.key + '">' +
-            '<span class="rpname">' + esc(a.name) + ' <span class="rpcap">' + esc(addonCaption(a)) + '</span></span>' +
+            '<span class="rpname">' + esc(a.name) + ' <span class="rpcap">' + esc(addonCaption(a)) + '</span>' +
+              (a.allTileLabel ? '<button type="button" class="rpall" data-all>' + esc(a.allTileLabel) + '</button>' : '') + '</span>' +
             (a.sqft != null
               ? '<span class="rpstep"><input type="checkbox" class="rpchk" aria-label="' + esc(a.name) + '"></span>'
               : '<span class="rpstep"><button type="button" data-rpminus aria-label="Fewer">&minus;</button>' +
@@ -550,11 +663,23 @@ async function show(){
         '<div class="rpfoot"><button type="button" class="new" data-adadd>Add</button></div>' +
       '</div></div>' : '') +
       '<div class="svc__body">' +
-      (shown.length ? shown.map(([it, j]) => itemRows(it, i, j)).join("") : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i))) +
+      (shown.length ? shown.map(([it, j]) => itemRows(it, i, j)).join("")
+        : (l.key === "upholstery" ? "" : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i)))) +
+      (l.key === "upholstery" ? furnBlock(i) : "") +
       (extras.length ? '<div class="meta" style="padding:6px 4px 0">In every room: ' +
         esc(extras.map(it => String(it.label).split(" — ")[0]).join(", ")) + ' (check off on each room page)</div>' : '') +
     '</div></div>';
   }).join("");
+  /* + Add service, above the On-site total: services from the estimator not on the job yet. */
+  const onJob = new Set(lines.map(l => l.key || (isCarpet(l) ? "carpet" : "")));
+  const choices = svcChoices().filter(c => !onJob.has(c.svc));
+  const addSvc = choices.length
+    ? '<div class="addsvc"><button type="button" class="new" data-addsvc>+ Add service</button><div class="rpick" hidden>' +
+        choices.map(c => '<div class="rprow" data-svc="' + c.id + '"><span class="rpname">' + esc(c.name) +
+          ' <span class="rpcap">' + esc(c.items ? "Priced per piece of furniture" : "$" + c.rate.toFixed(2) + " / sq ft") + '</span></span>' +
+          '<span class="rpgo">Add ›</span></div>').join("") +
+      '</div></div>'
+    : '';
   const sub = lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
   const jtotal = '<div class="jtotal"><span>On-site total</span><b>' + money(sub + cur.adj) + '</b></div>' +
     '<div class="meta" style="text-align:right">Quoted ' + money(cur.quoted) + '</div>';
@@ -574,7 +699,7 @@ async function show(){
 
       '<h2>The job</h2>' +
       '<div class="prog" id="prog"></div>' +
-      (sections || '<div class="msg">This quote has no line items.</div>') + (sections ? jtotal : '') +
+      (sections || '<div class="msg">This quote has no line items.</div>') + addSvc + (sections ? jtotal : '') +
 
       '<h2>Crew notes</h2>' +
       '<textarea id="crewNotes" placeholder="What you found on site, extra spots, anything for next time">' + esc(js.crewNotes || "") + '</textarea>' +
@@ -584,6 +709,12 @@ async function show(){
     '</div>';
 
   const prog = document.getElementById("prog"), note = document.getElementById("note");
+  /* A service was just added: open its Add room / Add furniture table and scroll to it. */
+  if (pendingOpen) {
+    const po = pendingOpen; pendingOpen = null;
+    const b = view.querySelector((po.kind === "furn" ? ".addfurn" : ".addroom") + '[data-line="' + po.line + '"]');
+    if (b) { const p = b.querySelector(".rpick"); if (p) p.hidden = false; b.scrollIntoView({ block: "start", behavior: "smooth" }); }
+  }
   /* Done is marked on each room's own page; this just counts them. */
   prog.textContent = total ? doneCount + " of " + total + " done" : "";
   /* Swap each done room's tick for its After Threshold photo; the tick stays if the photo won't load. */

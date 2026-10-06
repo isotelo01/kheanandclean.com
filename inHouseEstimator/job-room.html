@@ -232,10 +232,10 @@ async function show(){
     const dm = rug[1].match(/(\d+)\s*[×x]\s*(\d+)/);
     spot = { name: "Area Rug " + shownNo(pickedItem.rugGone) + " — " + rug[1], sqft: dm ? Number(dm[1]) * Number(dm[2]) : 0,
       key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false, rug: true };
-  } else if (pickedItem && roomNo != null && ["stretch", "pet", "stain"].includes(pickedItem.addonKey) &&
+  } else if (pickedItem && roomNo != null && (pickedItem.split || ["stretch", "pet", "stain"].includes(pickedItem.addonKey)) &&
              roomNo < (Number(pickedItem.spotSlots) || Number(pickedItem.qty) || 0)) {
-    /* One spot / room of a counted add-on (Stain treatment 3, Carpet Stretching 2...). */
-    spot = { name: String(pickedItem.label || "").split(" — ")[0] + " " + shownNo(pickedItem.spotGone), sqft: 0,
+    /* One spot / room / piece (Stain treatment 3, Carpet Stretching 2, Couch 1...). */
+    spot = { name: (pickedItem.baseName || String(pickedItem.label || "").split(" — ")[0]) + " " + shownNo(pickedItem.spotGone), sqft: 0,
       key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false };
   } else if (pickedItem && roomNo != null) {
     const rm = rooms.find(x => x.r === roomNo);
