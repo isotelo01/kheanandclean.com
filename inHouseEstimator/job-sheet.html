@@ -74,10 +74,18 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
   .srow .spot{flex:1;min-width:0;order:1}
   .sdel{position:static;order:2;width:auto;flex:none;padding:6px 12px;margin-left:8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--red)}
 }
-.addroom{display:flex;gap:8px;margin:10px 0 6px;flex-wrap:wrap}
-.addroom input{flex:1 1 140px;min-width:0;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
-.addroom input[name=sqft]{flex:0 1 100px}
-.addroom .new{flex:none}
+.addroom{margin:10px 0 6px}
+/* Room table, same rows as the estimator's room picker. */
+.rpick{margin-top:10px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.rpick[hidden]{display:none}
+.rprow{display:flex;align-items:center;gap:10px;padding:9px 10px;border-top:1px solid #eef0f4;cursor:pointer}
+.rprow:first-child{border-top:0}
+.rpname{flex:1;min-width:0;font-weight:600;font-size:15px}
+.rpcap{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+.rpstep{display:flex;align-items:center;gap:4px;flex:none}
+.rpstep button{width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:18px;line-height:1;cursor:pointer;color:var(--navy)}
+.rpstep input{width:52px;text-align:center;font:16px "Archivo";padding:6px 4px;border:1px solid var(--line);border-radius:6px}
+.rpfoot{display:flex;gap:10px;padding:10px;border-top:1px solid var(--line);background:#f6f7fa}
 .jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
 @media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
 .prog{font-size:14px;color:var(--muted);margin-bottom:10px}
@@ -211,16 +219,53 @@ view.addEventListener("click", e => {
   box.classList.toggle("open", on); h.setAttribute("aria-expanded", on);
   on ? openLines.add(k) : openLines.delete(k); saveOpen();
 });
-/* Add room: name and sq ft, priced at that line's rate. */
-view.addEventListener("submit", async e => {
-  const f = e.target.closest(".addroom"); if (!f || !cur) return; e.preventDefault();
-  const name = f.elements.name.value.trim(), sqft = Math.round(Number(f.elements.sqft.value));
-  if (!name || !(sqft > 0)) return;
-  const i = Number(f.dataset.line), j = Number(f.dataset.item), it = cur.lines[i].items[j];
+/* The estimator's rooms (inHouseEstimator/app.js ROOM_TYPES), minus Flight of Stairs, which is
+   its own add-on on the job. Keep in step with app.js if sizes change there. */
+const ROOM_TYPES = [
+  { key: "masterBed",  name: "Master Bedroom",          sqft: 250, dims: "12' 6\" × 20'" },
+  { key: "den",        name: "Large Den / Office",      sqft: 180, dims: "15' × 12'" },
+  { key: "smallBed",   name: "Bedroom",                 sqft: 110, dims: "10' × 11'" },
+  { key: "closet",     name: "Walk-In Closet (Master)", sqft: 80,  dims: "8' × 10'" },
+  { key: "hallway",    name: "Hallway",                 sqft: 40,  dims: "4' × 10'" },
+  { key: "kitchen",    name: "Kitchen",                 sqft: 200, dims: "10' × 20'" },
+  { key: "masterBath", name: "Master Bath",             sqft: 150, dims: "10' × 15'" },
+  { key: "fullBath",   name: "Full Bath",               sqft: 50,  dims: "5' × 10'" },
+  { key: "laundry",    name: "Laundry Room",            sqft: 45,  dims: "5' × 9'" },
+  { key: "halfBath",   name: "Half Bath / Powder Room", sqft: 21,  dims: "3' × 7'" },
+  { key: "greatRoom",  name: "Great Room",              sqft: 375, dims: "combined living, dining & kitchen" },
+  { key: "living",     name: "Living / Family Room",    sqft: 350, dims: "17' 6\" × 20'" },
+  { key: "loft",       name: "Large Loft",              sqft: 275, dims: "11' × 25'" },
+  { key: "dining",     name: "Dining Room",             sqft: 245, dims: "12' × 20' 6\"" },
+  { key: "addSqft",    name: "Additional Square Feet",  sqft: 1,   step: 10 }
+];
+/* Add room: open / close the room table; − / + or tap a row to count; Add to job saves. */
+view.addEventListener("click", async e => {
+  const box = e.target.closest(".addroom"); if (!box || !cur) return;
+  const pick = box.querySelector(".rpick");
+  if (e.target.closest("[data-pick]")) { pick.hidden = !pick.hidden; return; }
+  if (e.target.closest("[data-rpcancel]")) { pick.hidden = true; pick.querySelectorAll(".rprow input").forEach(x => x.value = 0); return; }
+  const row = e.target.closest(".rprow");
+  if (row && !e.target.closest("input")) {
+    const inp = row.querySelector("input"), st = Number(inp.step) || 1;
+    inp.value = Math.max(0, (Number(inp.value) || 0) + (e.target.closest("[data-rpminus]") ? -st : st));
+    return;
+  }
+  if (!e.target.closest("[data-rpadd]")) return;
+  const i = Number(box.dataset.line), j = Number(box.dataset.item), it = cur.lines[i].items[j];
   if (it.perSqft == null) it.perSqft = rateOf(it);
-  it.rooms.push({ id: i + "-" + j + "-n" + Date.now().toString(36), name, sqft, qty: 1, cost: 0 });
-  recalc(cur.lines[i]); f.querySelector("button").disabled = true;
-  try { await saveOnsite(); show(); } catch (err) { fail(err); f.querySelector("button").disabled = false; }
+  let added = 0;
+  pick.querySelectorAll(".rprow").forEach(r => {
+    const rt = ROOM_TYPES.find(x => x.key === r.dataset.rt), n = Math.max(0, Math.round(Number(r.querySelector("input").value) || 0));
+    if (!rt || !n) return;
+    const mk = (name, sqft) => { it.rooms.push({ id: i + "-" + j + "-n" + Date.now().toString(36) + (added++), name, sqft, qty: 1, cost: 0 }); };
+    if (rt.key === "addSqft") { mk(rt.name, n); return; }
+    /* Same room already on the job, or more than one: number them (Bedroom 2, Bedroom 3...). */
+    const have = it.rooms.filter(x => x.name === rt.name || String(x.name).startsWith(rt.name + " ")).length;
+    for (let k = 1; k <= n; k++) mk(have + n > 1 ? rt.name + " " + (have + k) : rt.name, rt.sqft);
+  });
+  if (!added) { pick.hidden = true; return; }
+  recalc(cur.lines[i]); e.target.disabled = true;
+  try { await saveOnsite(); show(); } catch (err) { fail(err); e.target.disabled = false; }
 });
 /* Delete a room (its photos stay saved on the job, just no longer listed). */
 async function delRoom(row){
@@ -330,11 +375,21 @@ async function show(){
         '<button type="button" class="sdel" data-del>Delete</button>' +
         spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r)) +
       '</div>').join("") +
-      '<form class="addroom" data-line="' + i + '" data-item="' + j + '">' +
-        '<input name="name" placeholder="Room name" aria-label="Room name" required>' +
-        '<input name="sqft" type="number" min="1" step="1" inputmode="numeric" placeholder="Sq ft" aria-label="Square feet" required>' +
-        '<button type="submit" class="new">Add room</button>' +
-      '</form>';
+      /* Add room: opens the estimator's room table (same rooms and sizes, − / + counts). */
+      '<div class="addroom" data-line="' + i + '" data-item="' + j + '">' +
+        '<button type="button" class="new" data-pick>Add room</button>' +
+        '<div class="rpick" hidden>' +
+          ROOM_TYPES.map(rt =>
+            '<div class="rprow" data-rt="' + rt.key + '">' +
+              '<span class="rpname">' + esc(rt.name) + ' <span class="rpcap">' + esc(rt.sqft === 1 ? "sq ft, in 10s" : rt.sqft + " sq ft" + (rt.dims ? " (" + rt.dims + ")" : "")) + '</span></span>' +
+              '<span class="rpstep"><button type="button" data-rpminus aria-label="Fewer">&minus;</button>' +
+              '<input type="number" min="0" step="' + (rt.step || 1) + '" value="0" inputmode="numeric" aria-label="' + esc(rt.name) + '">' +
+              '<button type="button" data-rpplus aria-label="More">+</button></span>' +
+            '</div>').join("") +
+          '<div class="rpfoot"><button type="button" class="new" data-rpadd>Add to job</button>' +
+          '<button type="button" class="ghost" data-rpcancel>Cancel</button></div>' +
+        '</div>' +
+      '</div>';
   };
   const sections = lines.map((l, i) => {
     const items = Array.isArray(l.items) ? l.items : [];
