@@ -932,6 +932,9 @@
       }
       var rate = (svcKey === 'carpet') ? s.tiers[st.tier || 'essential'].sqft : s.rate;
       var tierName = (svcKey==='carpet') ? s.tiers[st.tier||'essential'].name : s.name;
+      /* Each picked room's own price (its sq ft at this rate), so the estimate and the
+         customer's quote can show the rooms adding up. A grouped line (Bedroom × 3) gets one price. */
+      roomList.forEach(function(rm){ rm.cost = rm.sqft * rate; });
 
       if(sqft > 0){
         items.push({
@@ -1095,12 +1098,13 @@
       var head = '<li class="lineItem"><span>'+twoLine(r.label)+'</span><span>$'+money(r.cost)+'</span></li>';
       var subs = r.items.map(function(it){
         var line = '<li class="lineItem__sub"><span>'+twoLine(it.label)+'</span><span>'+(it.included ? 'Included' : '$'+money(it.cost))+'</span></li>';
-        /* Rooms that produced the footage above. No dollar figure — the money is
-           on the line they sit under. Only room-mode items carry this. */
+        /* Rooms that produced the footage above, each with its sq ft and its own price.
+           Only room-mode items carry this. */
         if(it.rooms && it.rooms.length){
           line += it.rooms.map(function(rm){
             var nm = rm.qty > 1 ? rm.name + ' \u00d7 ' + rm.qty : rm.name;
-            return '<li class="lineItem__room"><span>'+nm+'</span><span>'+rm.sqft.toLocaleString()+' sq ft</span></li>';
+            var price = rm.cost != null ? ' · $' + money(rm.cost) : '';   /* the room's own price */
+            return '<li class="lineItem__room"><span>'+nm+'</span><span>'+rm.sqft.toLocaleString()+' sq ft'+price+'</span></li>';
           }).join('');
         }
         return line;
