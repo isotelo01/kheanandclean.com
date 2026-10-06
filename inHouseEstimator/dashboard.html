@@ -378,7 +378,14 @@ async function toInvoice(id, btn){
     return next;
   });
 
-  const inv = Object.assign({}, d, {
+  /* Edited on site (Job Sheet)? The invoice is the on-site version, and the original
+     approved quote is parked on it under originalQuote. */
+  const on = d.onsite && Array.isArray(d.onsite.lines) ? d.onsite : null;
+  const inv = Object.assign({}, d, on ? {
+    lines: on.lines, subtotal: on.subtotal ?? null, total: on.total ?? null,
+    originalQuote: { number: d.number || "", status: d.status || "accepted", lines: d.lines || [],
+      subtotal: d.subtotal ?? null, total: d.total ?? null }
+  } : {}, {
     type: "invoice", status: "unpaid", number: "I-" + num,
     quoteNumber: d.number || "", quoteId: id,
     invoicedAt: serverTimestamp(), createdAt: d.createdAt || serverTimestamp()

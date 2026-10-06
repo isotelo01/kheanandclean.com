@@ -230,7 +230,9 @@ async function showList(){
   }
   const card = q => {
     const c = q.customer || {};
-    const lines = [cityLine(c), c.phone, [q.number, money(q.total)].filter(Boolean).join(" \u00b7 "),
+    /* Edited on site: the job sheet's total is the live one. */
+    const live = q.onsite && q.onsite.total != null && !q.originalQuote ? q.onsite.total : q.total;
+    const lines = [cityLine(c), c.phone, [q.number, money(live)].filter(Boolean).join(" \u00b7 "),
       ms(q.acceptedAt) ? "Approved " + shortDate(ms(q.acceptedAt)) : ""].filter(x => x && String(x).trim());
     return '<div class="row cardrow bg-' + typeOf(c).v + '">' +
       '<a class="cardlink" href="#' + encodeURIComponent(q.id) + '">' +
@@ -268,7 +270,19 @@ async function showProfile(id){
   titleEl.textContent = displayName(c);
   document.title = titleEl.textContent + " \u00b7 Khean & Clean";
 
-  const quoteLink = '<a href="./quote.html?id=' + encodeURIComponent(q.id) + '" target="_blank" rel="noopener">' +
+  /* Edited on site (Job Sheet): before invoicing, the job sheet is the active quote and the
+     approved one is parked as "Original quote". After invoicing, the invoice is the on-site
+     version and the original is kept on it (quote.html?original=1). */
+  const qid = encodeURIComponent(q.id);
+  const onsiteLive = !!(q.onsite && q.onsite.total != null && !q.originalQuote && q.source !== "invoices");
+  const origLink = onsiteLive
+    ? '<a href="./quote.html?id=' + qid + '" target="_blank" rel="noopener">' + esc(q.number || "Original quote") + '</a> &middot; ' + esc(money(q.total))
+    : q.originalQuote
+      ? '<a href="./quote.html?id=' + qid + '&original=1" target="_blank" rel="noopener">' + esc(q.originalQuote.number || "Original quote") + '</a> &middot; ' + esc(money(q.originalQuote.total))
+      : "";
+  const quoteLink = onsiteLive
+    ? '<a href="./job-sheet.html?id=' + qid + '">On-site job sheet</a> &middot; ' + esc(money(q.onsite.total)) + ' &middot; Active' :
+    '<a href="./quote.html?id=' + encodeURIComponent(q.id) + '" target="_blank" rel="noopener">' +
     esc(q.number || "Open quote") + '</a> \u00b7 ' + esc(money(q.total)) +
     ' \u00b7 ' + (q.source === "invoices" ? "Invoiced, waiting on payment" : "Approved");
   const approvedBy = q.acceptedName ? esc(q.acceptedName) + (ms(q.acceptedAt) ? " on " + esc(shortDate(ms(q.acceptedAt))) : "") : "";
@@ -287,6 +301,7 @@ async function showProfile(id){
           prow(c.phone) + prow(c.email) +
         '</div>' +
         rrow("Quote", quoteLink) +
+        (origLink ? rrow("Original quote", origLink) : "") +
         rrow("Approved by", approvedBy) +
         rrow("Quote notes", q.notes ? esc(q.notes) : "") +
         '<div id="leadInfo"></div>' +
@@ -309,8 +324,20 @@ async function showProfile(id){
   catch (e) { console.error("customer", e); }
 
   const info = document.getElementById("leadInfo");
+  /* Lead message: "OK to text" and "OK to marketing" once each, then only what the customer
+     typed. The website's automatic lines (repeated OK-to-text lines from merged visits,
+     "Opened the estimator...") are left out. */
+  let txt = lead && typeof lead.smsConsent === "boolean" ? lead.smsConsent : null;
+  let mkt = lead && typeof lead.marketingConsent === "boolean" ? lead.marketingConsent : null;
+  const typed = String((lead && lead.message) || "").split("\n").filter(line => {
+    const m = line.trim().match(/^OK to text( specials)?:\s*(yes|no)$/i);
+    if (m) { const y = m[2].toLowerCase() === "yes"; if (m[1]) { if (mkt == null) mkt = y; } else if (txt == null) txt = y; return false; }
+    return !/^\s*Opened the estimator \(details only, no estimate yet\)\s*$/i.test(line);
+  }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const yn = v => v == null ? "not recorded" : v ? "yes" : "no";
+  const leadMsg = lead ? esc("OK to text: " + yn(txt) + "\nOK to marketing: " + yn(mkt) + (typed ? "\n\n" + typed : "")) : "";
   if (info && info.isConnected) info.innerHTML =
-    (lead ? rrow("Lead message", lead.message ? esc(lead.message) : "") + rrow("Lead notes", lead.staffNotes ? esc(lead.staffNotes) : "") : "") +
+    (lead ? rrow("Lead message", leadMsg) + rrow("Lead notes", lead.staffNotes ? esc(lead.staffNotes) : "") : "") +
     (cust ? rrow("Customer notes", cust.notes ? esc(cust.notes) : "") : "");
 
   const urls = photosOf(lead).concat(photosOf(cust));

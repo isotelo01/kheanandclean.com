@@ -509,7 +509,11 @@ async function load(){
   /* The shared note on this quote, if any. Missing or blocked just means an empty box. */
   try { const ns = await getDoc(doc(db, "quoteNotes", id)); note = ns.exists() ? ns.data() : null; }
   catch (e) { console.error("note", e); }
-  render(snap.data());
+  /* ?original=1 on an invoice edited on site: show the original approved quote kept on it. */
+  let data = snap.data();
+  if (new URLSearchParams(location.search).has("original") && data.originalQuote)
+    data = { ...data, ...data.originalQuote, type: "quote" };
+  render(data);
 }
 
 function render(d){

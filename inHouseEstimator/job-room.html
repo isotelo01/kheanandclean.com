@@ -69,6 +69,12 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .fiberOther{flex:1;min-width:0;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 .fiberOther[hidden]{display:none}
 .fibnote{margin:8px 0 0;font-size:13px;color:var(--muted)}
+/* Pre-Spray and Rinse: two labeled boxes side by side under Fiber type. */
+.chemrow{display:flex;gap:10px;margin-top:10px}
+.chem{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:15px;font-weight:700;color:var(--navy)}
+.chem input{width:100%;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
+.spot .chem{color:#fff}
+.spot .chem input{background:#000;color:#fff;border-color:rgba(255,255,255,.35);color-scheme:dark}
 /* Before / Inspection / After photos: section titles, styled like the room name. */
 .ptitle{font:700 20px "Playfair Display",Georgia,serif;color:var(--navy);margin:26px 0 4px;border-bottom:2px solid var(--gold);padding-bottom:5px}
 /* Label over each photo spot (Threshold, Stains and more photos...). */
@@ -169,7 +175,8 @@ async function show(){
   } catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
   if (!q) { view.innerHTML = '<div class="msg">That job isn’t on file.</div>'; return; }
 
-  const line = (Array.isArray(q.lines) ? q.lines : [])[lineNo];
+  /* Rooms added or deleted on site (Job Sheet) live under onsite.lines; otherwise the quote's. */
+  const line = ((q.onsite && Array.isArray(q.onsite.lines)) ? q.onsite.lines : (Array.isArray(q.lines) ? q.lines : []))[lineNo];
   if (!line) { view.innerHTML = '<div class="msg">That line isn’t on this job anymore.</div>'; return; }
   const items = Array.isArray(line.items) ? line.items : [];
   const picked = itemNo == null ? items : [items[itemNo]].filter(Boolean);
@@ -187,7 +194,11 @@ async function show(){
     let r = 0;
     (Array.isArray(it.rooms) ? it.rooms : []).forEach(rm => {
       const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
-      for (let k = 1; k <= n; k++) rooms.push({ name: n > 1 ? rm.name + " " + k : rm.name, sqft: each, j, r, key: lineNo + "-" + j + "-" + (r++) });
+      for (let k = 1; k <= n; k++) {
+        /* On-site rooms carry their own id (kept when other rooms are added or deleted). */
+        const key = rm.id && n === 1 ? rm.id : lineNo + "-" + j + "-" + r;
+        rooms.push({ name: n > 1 ? rm.name + " " + k : rm.name, sqft: each, j, r: r++, key });
+      }
     });
   });
 
@@ -208,7 +219,12 @@ async function show(){
      photos and Done, saved on the job under spots.<key>. */
   const pickedItem = itemNo == null ? null : items[itemNo];
   let spot = null;
-  if (pickedItem && roomNo != null) {
+  /* One rug out of an Area Rugs line ("Medium (5×8) × 2" = two rugs, each its own page). */
+  const rug = pickedItem && roomNo != null && !(Array.isArray(pickedItem.rooms) && pickedItem.rooms.length) &&
+    String(pickedItem.label || "").match(/Area Rugs\s*—\s*(.+?)\s*×\s*(\d+)\s*$/i);
+  if (rug && roomNo < Number(rug[2])) {
+    spot = { name: "Area Rug " + (roomNo + 1) + " — " + rug[1], sqft: 0, key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false };
+  } else if (pickedItem && roomNo != null) {
     const rm = rooms.find(x => x.r === roomNo);
     if (rm) spot = { ...rm, isRoom: true };
   } else if (pickedItem && !(Array.isArray(pickedItem.rooms) && pickedItem.rooms.length)) {
@@ -277,7 +293,11 @@ async function show(){
             '<select id="fiberSel"><option value="">Pick one</option>' +
             FIBERS.map(f => '<option value="' + f + '"' + (fib && fib.type === f ? ' selected' : '') + '>' + f + '</option>').join("") + '</select>' +
             '<input type="text" id="fiberOther" class="fiberOther" placeholder="Which fiber?" aria-label="Other fiber" value="' + esc(fib && fib.type === "Other" ? fib.other || "" : "") + '"' + (fib && fib.type === "Other" ? '' : ' hidden') + '></div>' +
-            (fibFromJob ? '<p class="fibnote">Filled in from the first room. Change it if this room is different.</p>' : '')
+            (fibFromJob ? '<p class="fibnote">Filled in from the first room. Change it if this room is different.</p>' : '') +
+            '<div class="chemrow">' +
+              '<label class="chem">Pre-Spray <input type="text" id="preSpray" value="' + esc(st.preSpray || "") + '"></label>' +
+              '<label class="chem">Rinse <input type="text" id="rinse" value="' + esc(st.rinse || "") + '"></label>' +
+            '</div>'
           : '') +
         (roomExtras.length ? '<h3 class="h3">In this room</h3><div class="room__body">' + roomExtras.map(x => xbox(spot, x)).join("") + '</div>' : '') +
         /* Before and Inspection photos, then the one Notes box, then After photos. */
@@ -306,6 +326,9 @@ async function show(){
       flag();
     });
     if (otherEl) otherEl.addEventListener("input", flag);
+    const preEl = document.getElementById("preSpray"), rinseEl = document.getElementById("rinse");
+    if (preEl) preEl.addEventListener("input", flag);
+    if (rinseEl) rinseEl.addEventListener("input", flag);
 
     const draw = async g => {
       const grid = document.getElementById("pgrid-" + g), paths = groups[g];
@@ -357,6 +380,9 @@ async function show(){
           ...photoFields(), updatedAt: serverTimestamp() } } };
         /* Actual sq ft measured on site (rooms only); blank clears it. */
         if (actualEl) { const n = Math.round(Number(actualEl.value)); data.spots[spot.key].actualSqft = n > 0 ? n : null; }
+        /* Pre-Spray and Rinse used in this room (carpet rooms only). */
+        if (preEl) data.spots[spot.key].preSpray = preEl.value.trim();
+        if (rinseEl) data.spots[spot.key].rinse = rinseEl.value.trim();
         /* Fiber type: saved on this room; the first one saved also becomes the job's, so the
            other carpet rooms open with it filled in. */
         if (otherEl) {

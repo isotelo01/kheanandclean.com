@@ -50,9 +50,36 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .spot:hover{background:#f6f7fa}
 .spot__tick{width:24px;height:24px;flex:none;border:2px solid var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
 .spot.done .spot__tick{background:var(--green);border-color:var(--green)}
+/* Done room: the After Threshold photo shows in place of the tick. */
+.spot .spot__tick.thumb{width:44px;height:44px;border:0;border-radius:6px;background:#eef0f4 center/cover no-repeat}
 .spot__name{font-weight:600}
 .spot__size{color:var(--muted);font-size:14px}
 .spot__go{margin-left:auto;color:var(--muted);font-size:22px;line-height:1}
+/* On-site quote building: tap a line's header to open its rooms; add or delete rooms. */
+button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font:700 17px "Archivo";color:var(--ink);cursor:pointer;text-align:left;align-items:center}
+.svc__head .amt{white-space:nowrap}
+.svc__head .caret{display:inline-block;transition:transform .2s}
+.svc.open .svc__head .caret{transform:rotate(180deg)}
+.svc__body{display:none;margin-top:8px}
+.svc.open .svc__body{display:block}
+.srow{position:relative;overflow:hidden;border-top:1px solid #eef0f4;max-height:140px;transition:max-height .2s,opacity .2s}
+.srow .spot{border-top:0;background:#fff;position:relative;z-index:1;transition:transform .2s}
+.srow.swiped .spot{transform:translateX(-88px)}
+.srow.gone{max-height:0;opacity:0}
+.srow.gone .spot{transform:translateX(-100%)}
+.sdel{position:absolute;right:0;top:0;bottom:0;width:88px;border:0;background:var(--red);color:#fff;font:600 15px "Archivo";cursor:pointer}
+/* Desktop (mouse): a Delete button at the end of each room row instead of swiping. */
+@media (hover:hover) and (pointer:fine){
+  .srow{display:flex;align-items:center}
+  .srow .spot{flex:1;min-width:0;order:1}
+  .sdel{position:static;order:2;width:auto;flex:none;padding:6px 12px;margin-left:8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--red)}
+}
+.addroom{display:flex;gap:8px;margin:10px 0 6px;flex-wrap:wrap}
+.addroom input{flex:1 1 140px;min-width:0;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
+.addroom input[name=sqft]{flex:0 1 100px}
+.addroom .new{flex:none}
+.jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
+@media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
 .prog{font-size:14px;color:var(--muted);margin-bottom:10px}
 textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 .photos{border:2px dashed var(--line);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:14px}
@@ -130,6 +157,108 @@ const ss = { get: k => { try { return sessionStorage.getItem(k) || ""; } catch (
 const id = new URLSearchParams(location.search).get("id") || ss.get("kcJobSheetId");
 if (id) ss.set("kcJobSheetId", id);
 
+/* ---- On-site quote building: open a line, add or delete rooms, prices follow. ---- */
+let cur = null;   /* { place, lines, quoted, adj } for the job on screen */
+const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+/* Which lines are open; kept for this job while the tab is open. */
+const openKey = "kcOpenLines_" + id;
+const openLines = new Set((ss.get(openKey) || "").split(",").filter(Boolean));
+const saveOpen = () => ss.set(openKey, [...openLines].join(","));
+/* Price per sq ft of a room item: from its label ("@ $0.50/sq ft"), else from its rooms. */
+const rateOf = it => {
+  const m = String(it.label || "").match(/@\s*\$([\d.]+)\s*\/\s*sq\s*ft/i); if (m) return Number(m[1]);
+  const rm = (it.rooms || []).find(x => Number(x.sqft) > 0); return rm ? (Number(rm.cost) || 0) / Number(rm.sqft) : 0;
+};
+/* The quote's lines, copied for on-site use: grouped rooms split (Bedroom × 3 = Bedroom 1, 2, 3)
+   and each room given the same id its photos were already saved under. */
+function onsiteCopy(src){
+  return JSON.parse(JSON.stringify(Array.isArray(src) ? src : [])).map((l, i) => {
+    (Array.isArray(l.items) ? l.items : []).forEach((it, j) => {
+      if (!Array.isArray(it.rooms) || !it.rooms.length) return;
+      it.perSqft = rateOf(it);
+      let r = 0; const out = [];
+      it.rooms.forEach(rm => { const n = Math.max(1, Number(rm.qty) || 1);
+        for (let k = 1; k <= n; k++) out.push({ id: i + "-" + j + "-" + (r++), name: n > 1 ? rm.name + " " + k : String(rm.name || "Room"),
+          sqft: Math.round((Number(rm.sqft) || 0) / n), qty: 1, cost: r2((Number(rm.cost) || 0) / n) }); });
+      it.rooms = out;
+    });
+    return l;
+  });
+}
+/* Reprice one line after a room change: each room at the item's rate, then the item's and the
+   line's square feet and cost. Other parts of the line (stairs, rugs...) keep their price. */
+function recalc(l){
+  let delta = 0, lineSq = 0, any = false;
+  (l.items || []).forEach(it => {
+    if (it.perSqft == null) return; any = true;
+    const old = Number(it.cost) || 0; let sq = 0, c = 0;
+    it.rooms.forEach(rm => { rm.cost = r2((Number(rm.sqft) || 0) * it.perSqft); sq += Number(rm.sqft) || 0; c += rm.cost; });
+    it.cost = r2(c); delta += it.cost - old; lineSq += sq;
+    it.label = String(it.label || "").replace(/[\d,]+(\s*sq ft)/i, sq.toLocaleString("en-US") + "$1");
+  });
+  if (any) { l.cost = r2((Number(l.cost) || 0) + delta); l.label = String(l.label || "").replace(/[\d,]+(\s*sq ft)/i, lineSq.toLocaleString("en-US") + "$1"); }
+}
+async function saveOnsite(){
+  const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0));
+  await setDoc(doc(db, cur.place, id), { onsite: { lines: cur.lines, subtotal: sub, total: r2(sub + cur.adj), updatedAt: serverTimestamp() } }, { merge: true });
+}
+const fail = e => { console.error(e); const n = document.getElementById("note"); if (n) { n.textContent = "Could not save: " + e.message; n.classList.add("err"); } };
+
+/* Tap a line's header: open or close its rooms. */
+view.addEventListener("click", e => {
+  const h = e.target.closest("[data-toggle]"); if (!h) return;
+  const box = h.closest(".svc"), k = h.dataset.toggle, on = !box.classList.contains("open");
+  box.classList.toggle("open", on); h.setAttribute("aria-expanded", on);
+  on ? openLines.add(k) : openLines.delete(k); saveOpen();
+});
+/* Add room: name and sq ft, priced at that line's rate. */
+view.addEventListener("submit", async e => {
+  const f = e.target.closest(".addroom"); if (!f || !cur) return; e.preventDefault();
+  const name = f.elements.name.value.trim(), sqft = Math.round(Number(f.elements.sqft.value));
+  if (!name || !(sqft > 0)) return;
+  const i = Number(f.dataset.line), j = Number(f.dataset.item), it = cur.lines[i].items[j];
+  if (it.perSqft == null) it.perSqft = rateOf(it);
+  it.rooms.push({ id: i + "-" + j + "-n" + Date.now().toString(36), name, sqft, qty: 1, cost: 0 });
+  recalc(cur.lines[i]); f.querySelector("button").disabled = true;
+  try { await saveOnsite(); show(); } catch (err) { fail(err); f.querySelector("button").disabled = false; }
+});
+/* Delete a room (its photos stay saved on the job, just no longer listed). */
+async function delRoom(row){
+  if (!cur || row.dataset.busy) return; row.dataset.busy = "1";
+  const i = Number(row.dataset.line), j = Number(row.dataset.item), it = cur.lines[i].items[j];
+  it.rooms = it.rooms.filter(rm => rm.id !== row.dataset.room);
+  recalc(cur.lines[i]);
+  row.classList.add("gone");   /* slides out */
+  try { await saveOnsite(); setTimeout(show, 200); } catch (err) { fail(err); show(); }
+}
+view.addEventListener("click", e => { const b = e.target.closest("[data-del]"); if (b) { e.preventDefault(); delRoom(b.closest(".srow")); } });
+/* Phones: swipe a room left to show Delete; swipe it most of the way to delete it straight off. */
+let sw = null;
+view.addEventListener("touchstart", e => {
+  const row = e.target.closest(".srow"); if (!row || e.target.closest("[data-del]")) return;
+  view.querySelectorAll(".srow.swiped").forEach(x => { if (x !== row) x.classList.remove("swiped"); });
+  sw = { row, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, h: null, open: row.classList.contains("swiped") };
+}, { passive: true });
+view.addEventListener("touchmove", e => {
+  if (!sw) return; const dx = e.touches[0].clientX - sw.x, dy = e.touches[0].clientY - sw.y;
+  if (sw.h == null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) sw.h = Math.abs(dx) > Math.abs(dy);
+  if (!sw.h) return;
+  sw.dx = Math.min(0, dx + (sw.open ? -88 : 0));
+  const a = sw.row.querySelector(".spot"); a.style.transition = "none"; a.style.transform = "translateX(" + sw.dx + "px)";
+}, { passive: true });
+view.addEventListener("touchend", () => {
+  if (!sw) return; const { row, dx, h } = sw; sw = null; if (!h) return;
+  const a = row.querySelector(".spot"); a.style.transition = ""; a.style.transform = "";
+  if (dx < -row.offsetWidth * 0.6) delRoom(row);
+  else row.classList.toggle("swiped", dx < -44);
+  row.dataset.justSwiped = "1"; setTimeout(() => delete row.dataset.justSwiped, 350);
+});
+/* A tap right after a swipe, or on a row showing Delete, closes it instead of opening the room. */
+view.addEventListener("click", e => {
+  const a = e.target.closest(".srow .spot"); if (!a) return; const row = a.closest(".srow");
+  if (row.dataset.justSwiped || row.classList.contains("swiped")) { e.preventDefault(); row.classList.remove("swiped"); }
+});
+
 async function show(){
   if (!id) { view.innerHTML = '<div class="msg">No job picked. <a href="./approved-leads.html">Go to Approved Leads</a></div>'; return; }
   let q = null, place = "";
@@ -155,7 +284,12 @@ async function show(){
 
   /* One section per service on the quote; its rooms/areas are the checklist.
      A service with no rooms listed is a single checkbox. */
-  const lines = Array.isArray(q.lines) ? q.lines : [];
+  /* On-site edits (rooms added or deleted) live on the job under onsite.lines; the customer's
+     approved quote (lines) is left as it was. Until the first edit, the quote's lines are used,
+     with grouped rooms split one per room and each room given a fixed id, so photos and Done
+     stay with the right room when others are added or deleted. */
+  const lines = (q.onsite && Array.isArray(q.onsite.lines)) ? q.onsite.lines : onsiteCopy(q.lines);
+  cur = { place, lines, quoted: Number(q.total) || 0, adj: (Number(q.total) || 0) - (Number(q.subtotal) || Number(q.total) || 0) };
   let total = 0;
   /* Every line opens its room page (job-room.html): the rooms one by one, no prices. */
   const roomLink = (i, j) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j);
@@ -180,28 +314,47 @@ async function show(){
   const spotLink = (i, j, r) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j) + (r == null ? '' : '&room=' + r);
   const spotRow = (key, label, size, href) => { total++;
     const d = !!(spots[key] && spots[key].done); if (d) doneCount++;
-    return '<a class="spot' + (d ? ' done' : '') + '" href="' + esc(href) + '"><span class="spot__tick">' + (d ? '✓' : '') + '</span>' +
+    const thr = d ? pathsOf({ photoPaths: (spots[key] && spots[key].photosAfterThreshold) || [] })[0] : "";
+    return '<a class="spot' + (d ? ' done' : '') + '" href="' + esc(href) + '"><span class="spot__tick"' + (thr ? ' data-thumb="' + esc(thr) + '"' : '') + '>' + (d ? '✓' : '') + '</span>' +
       '<span class="spot__name">' + esc(label) + '</span>' + (size ? '<span class="spot__size">' + esc(size) + '</span>' : '') +
       '<span class="spot__go">›</span></a>'; };
   const itemRows = (it, i, j) => {
     const rms = Array.isArray(it.rooms) ? it.rooms : [];
-    if (!rms.length) return spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j));
-    let r = 0;
-    return rms.map(rm => { const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
-      let out = ""; for (let k = 1; k <= n; k++, r++) out += spotRow(i + "-" + j + "-" + r, n > 1 ? rm.name + " " + k : rm.name, each ? each.toLocaleString() + " sq ft" : "", spotLink(i, j, r));
-      return out; }).join("");
+    /* Area Rugs "Medium (5×8) × 2" = two rugs, each its own row and page. */
+    const rug = !rms.length && /^Area Rugs\b/i.test(String(it.label || "")) && String(noPrice(it.label)).match(/^Area Rugs\s*—\s*(.+?)\s*×\s*(\d+)$/i);
+    if (rug) { let out = ""; for (let r = 0; r < Number(rug[2]); r++) out += spotRow(i + "-" + j + "-" + r, "Area Rug " + (r + 1) + " — " + rug[1], "", spotLink(i, j, r)); return out; }
+    if (!rms.length && it.perSqft == null) return spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j));
+    /* Rooms: one row each, with Delete (a button on desktop, swipe left on phones), then Add room. */
+    return rms.map((rm, r) =>
+      '<div class="srow" data-line="' + i + '" data-item="' + j + '" data-room="' + esc(rm.id) + '">' +
+        '<button type="button" class="sdel" data-del>Delete</button>' +
+        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r)) +
+      '</div>').join("") +
+      '<form class="addroom" data-line="' + i + '" data-item="' + j + '">' +
+        '<input name="name" placeholder="Room name" aria-label="Room name" required>' +
+        '<input name="sqft" type="number" min="1" step="1" inputmode="numeric" placeholder="Sq ft" aria-label="Square feet" required>' +
+        '<button type="submit" class="new">Add room</button>' +
+      '</form>';
   };
   const sections = lines.map((l, i) => {
     const items = Array.isArray(l.items) ? l.items : [];
     const extras = isCarpet(l) ? items.filter(isExtra) : [];
     const shown = items.map((it, j) => [it, j]).filter(([it]) => !extras.includes(it));
-    /* No prices on the Job Sheet: it's a work sheet for the crew. */
-    return '<div class="svc"><div class="svc__head"><span>' + esc(noPrice(l.label) || "Service") + '</span></div>' +
+    /* Header: "Carpet Deep Cleaning — 540 sq ft" and the line's price; tap it to open or close its rooms. */
+    const nm = noPrice(l.label) || "Service";
+    const head = isCarpet(l) && !/carpet/i.test(nm) ? "Carpet " + nm : nm;
+    return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + '" data-line="' + i + '">' +
+      '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
+        '<span>' + esc(head) + '</span><span class="amt">' + money(l.cost) + ' <span class="caret">▾</span></span></button>' +
+      '<div class="svc__body">' +
       (shown.length ? shown.map(([it, j]) => itemRows(it, i, j)).join("") : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i))) +
       (extras.length ? '<div class="meta" style="padding:6px 4px 0">In every room: ' +
         esc(extras.map(it => String(it.label).split(" — ")[0]).join(", ")) + ' (check off on each room page)</div>' : '') +
-    '</div>';
+    '</div></div>';
   }).join("");
+  const sub = lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
+  const jtotal = '<div class="jtotal"><span>On-site total</span><b>' + money(sub + cur.adj) + '</b></div>' +
+    '<div class="meta" style="text-align:right">Quoted ' + money(cur.quoted) + '</div>';
 
   view.innerHTML =
     '<div class="panel">' +
@@ -218,7 +371,7 @@ async function show(){
 
       '<h2>The job</h2>' +
       '<div class="prog" id="prog"></div>' +
-      (sections || '<div class="msg">This quote has no line items.</div>') +
+      (sections || '<div class="msg">This quote has no line items.</div>') + (sections ? jtotal : '') +
 
       '<h2>Crew notes</h2>' +
       '<textarea id="crewNotes" placeholder="What you found on site, extra spots, anything for next time">' + esc(js.crewNotes || "") + '</textarea>' +
@@ -230,6 +383,11 @@ async function show(){
   const prog = document.getElementById("prog"), note = document.getElementById("note");
   /* Done is marked on each room's own page; this just counts them. */
   prog.textContent = total ? doneCount + " of " + total + " done" : "";
+  /* Swap each done room's tick for its After Threshold photo; the tick stays if the photo won't load. */
+  view.querySelectorAll(".spot__tick[data-thumb]").forEach(t =>
+    getDownloadURL(ref(storage, t.dataset.thumb)).then(u => {
+      t.textContent = ""; t.classList.add("thumb"); t.style.backgroundImage = 'url("' + u + '")';
+    }).catch(e => console.error("Thumb " + t.dataset.thumb, e)));
   document.getElementById("crewNotes").addEventListener("input", () => { note.textContent = "Not saved yet."; note.classList.remove("err"); });
 
   /* Save: ticks and crew notes go onto the quote, so they follow it into the invoice. */
