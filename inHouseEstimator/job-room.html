@@ -222,11 +222,19 @@ async function show(){
   /* One rug out of an Area Rugs line ("Medium (5×8) × 2" = two rugs, each its own page). */
   const rug = pickedItem && roomNo != null && !(Array.isArray(pickedItem.rooms) && pickedItem.rooms.length) &&
     String(pickedItem.label || "").match(/Area Rugs\s*—\s*(.+?)\s*×\s*(\d+)\s*$/i);
-  if (rug && roomNo < Number(rug[2])) {
+  /* After a rug is deleted on the Job Sheet the label says "× 1" but the others keep their numbers. */
+  /* The number shown matches the Job Sheet: 1, 2, 3 with deleted ones not counted. */
+  const shownNo = gone => roomNo + 1 - (Array.isArray(gone) ? gone.filter(g => g < roomNo).length : 0);
+  if (rug && roomNo < (Number(pickedItem.rugSlots) || Number(rug[2]))) {
     /* EST from the rug's size: Medium (5×8) = 40 sq ft, Large (9×12) = 108. */
     const dm = rug[1].match(/(\d+)\s*[×x]\s*(\d+)/);
-    spot = { name: "Area Rug " + (roomNo + 1) + " — " + rug[1], sqft: dm ? Number(dm[1]) * Number(dm[2]) : 0,
+    spot = { name: "Area Rug " + shownNo(pickedItem.rugGone) + " — " + rug[1], sqft: dm ? Number(dm[1]) * Number(dm[2]) : 0,
       key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false, rug: true };
+  } else if (pickedItem && roomNo != null && ["stretch", "pet", "stain"].includes(pickedItem.addonKey) &&
+             roomNo < (Number(pickedItem.spotSlots) || Number(pickedItem.qty) || 0)) {
+    /* One spot / room of a counted add-on (Stain treatment 3, Carpet Stretching 2...). */
+    spot = { name: String(pickedItem.label || "").split(" — ")[0] + " " + shownNo(pickedItem.spotGone), sqft: 0,
+      key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false };
   } else if (pickedItem && roomNo != null) {
     const rm = rooms.find(x => x.r === roomNo);
     if (rm) spot = { ...rm, isRoom: true };

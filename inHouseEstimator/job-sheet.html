@@ -219,7 +219,7 @@ function recalc(l){
   });
   /* Sq-ft add-ons (hair & debris, deodorizer, stain protector) follow the carpet's sq ft. */
   if (any) (l.items || []).forEach(it => {
-    if (it.addonPerSqft == null) return;
+    if (it.addonPerSqft == null || it.removed) return;
     const old = Number(it.cost) || 0; it.cost = r2(lineSq * it.addonPerSqft); delta += it.cost - old;
     it.label = String(it.label || "").replace(/[\d,]+(\s*sq ft)/i, lineSq.toLocaleString("en-US") + "$1");
   });
@@ -249,6 +249,9 @@ const ROOM_TYPES = PRICING.ROOM_TYPES.filter(rt => rt.key !== "stairs");
 const CARPET_ADDONS = ["hair", "deo", "prot", "filter", "stretch", "pet", "stain"]
   .map(k => ({ key: k, ...((PRICING.SERVICES.carpet || {}).addons || {})[k] })).filter(a => a.name);
 const addonUnit = a => a.key === "filter" ? "linear ft" : a.key === "stretch" ? "room" : "spot";
+/* Counted add-ons split into one row and page per spot / room (Stain treatment 1, 2, 3...),
+   each deletable on its own. Filter lines (linear ft) stay one row. */
+const SPLIT_ADDONS = ["stretch", "pet", "stain"];
 const addonCaption = a => a.sqft != null ? "$" + a.sqft.toFixed(2) + " / sq ft of carpet"
   : (a.text || "$" + a.linear + " per " + addonUnit(a));
 /* Tap anywhere outside an open room table: it closes and its counts clear (nothing is added). */
@@ -323,7 +326,7 @@ view.addEventListener("click", async e => {
   let delta = 0, added = 0;
   pick.querySelectorAll(".rprow").forEach(r => {
     const a = CARPET_ADDONS.find(x => x.key === r.dataset.ak); if (!a) return;
-    const have = l.items.find(it => it.addonKey === a.key);
+    const have = l.items.find(it => it.addonKey === a.key && !it.removed);
     if (a.sqft != null) {
       if (!r.querySelector(".rpchk").checked || have) return;   /* already on the job: nothing to add */
       const cost = r2(lineSq * a.sqft);
@@ -333,8 +336,10 @@ view.addEventListener("click", async e => {
     const n = Math.max(0, Number(r.querySelector("input").value) || 0); if (!n) return;
     const unit = addonUnit(a), it = have || { label: a.name, cost: 0, addonKey: a.key, addonRate: a.linear, qty: 0 };
     if (!have) l.items.push(it);
-    const old = Number(it.cost) || 0;
-    it.qty = (Number(it.qty) || 0) + n;
+    const old = Number(it.cost) || 0, prevQty = Number(it.qty) || 0;
+    it.qty = prevQty + n;
+    /* New spots get new numbers after the ones already there (deleted numbers aren't reused). */
+    if (SPLIT_ADDONS.includes(a.key)) it.spotSlots = (Number(it.spotSlots) || prevQty) + n;
     it.cost = r2(it.qty * a.linear);
     it.label = a.name + " — " + it.qty.toLocaleString("en-US") + " " + unit + (it.qty === 1 || unit === "linear ft" ? "" : "s");
     delta += it.cost - old; added++;
@@ -344,12 +349,42 @@ view.addEventListener("click", async e => {
   e.target.disabled = true;
   try { await saveOnsite(); show(); } catch (err) { fail(err); e.target.disabled = false; }
 });
-/* Delete a room (its photos stay saved on the job, just no longer listed). */
+/* Delete a room, stairs, one rug or an add-on (photos stay saved on the job, just no longer listed). */
 async function delRoom(row){
   if (!cur || row.dataset.busy) return; row.dataset.busy = "1";
-  const i = Number(row.dataset.line), j = Number(row.dataset.item), it = cur.lines[i].items[j];
-  it.rooms = it.rooms.filter(rm => rm.id !== row.dataset.room);
-  recalc(cur.lines[i]);
+  const i = Number(row.dataset.line), j = Number(row.dataset.item), l = cur.lines[i], it = l.items[j];
+  const kind = row.dataset.kind || "room";
+  if (kind === "room") {
+    it.rooms = it.rooms.filter(rm => rm.id !== row.dataset.room);
+    recalc(l);
+  } else if (kind === "item") {
+    /* Marked removed rather than cut out, so the rows after it keep their photos. */
+    l.cost = r2((Number(l.cost) || 0) - (Number(it.cost) || 0)); it.cost = 0; it.removed = true;
+  } else if (kind === "spot") {
+    /* One spot / room of a counted add-on: count and price drop by one; the last one removes it. */
+    const a = CARPET_ADDONS.find(x => x.key === it.addonKey);
+    const prev = Number(it.qty) || 1, old = Number(it.cost) || 0;
+    const rate = Number(it.addonRate) || (a && a.linear) || old / prev;
+    if (!it.spotSlots) it.spotSlots = prev;
+    it.spotGone = [...(Array.isArray(it.spotGone) ? it.spotGone : []), Number(row.dataset.r)];
+    it.qty = prev - 1;
+    if (it.qty <= 0) { it.cost = 0; it.removed = true; }
+    else {
+      const unit = a ? addonUnit(a) : "spot";
+      it.cost = r2(it.qty * rate);
+      it.label = String(it.label || "").split(" — ")[0] + " — " + it.qty + " " + unit + (it.qty === 1 ? "" : "s");
+    }
+    l.cost = r2((Number(l.cost) || 0) - (old - it.cost));
+  } else {
+    /* One rug: "× 2" becomes "× 1" at the same price per rug; the last one removes the item. */
+    const m = String(it.label || "").match(/^(Area Rugs\s*—\s*.+?)\s*×\s*(\d+)\s*$/i);
+    const left = m ? Number(m[2]) : 1, each = left ? (Number(it.cost) || 0) / left : 0;
+    if (!it.rugSlots) it.rugSlots = left;
+    it.rugGone = [...(Array.isArray(it.rugGone) ? it.rugGone : []), Number(row.dataset.r)];
+    l.cost = r2((Number(l.cost) || 0) - each);
+    if (left - 1 <= 0) { it.cost = 0; it.removed = true; }
+    else { it.cost = r2(each * (left - 1)); it.label = m[1] + " × " + (left - 1); }
+  }
   row.classList.add("gone");   /* slides out */
   try { await saveOnsite(); setTimeout(show, 200); } catch (err) { fail(err); show(); }
 }
@@ -441,12 +476,31 @@ async function show(){
     return '<a class="spot' + (d ? ' done' : '') + '" href="' + esc(href) + '"><span class="spot__tick"' + (thr ? ' data-thumb="' + esc(thr) + '"' : '') + '>' + (d ? '✓' : '') + '</span>' +
       '<span class="spot__name">' + esc(label) + '</span>' + (size ? '<span class="spot__size">' + esc(size) + '</span>' : '') +
       '<span class="spot__go">›</span></a>'; };
+  /* Stairs, a rug or an add-on row: same Delete as the rooms (button on desktop, swipe on phones). */
+  const delWrap = (kind, i, j, r, inner) =>
+    '<div class="srow" data-kind="' + kind + '" data-line="' + i + '" data-item="' + j + '" data-r="' + r + '">' +
+      '<button type="button" class="sdel" data-del>Delete</button>' + inner + '</div>';
   const itemRows = (it, i, j) => {
     const rms = Array.isArray(it.rooms) ? it.rooms : [];
     /* Area Rugs "Medium (5×8) × 2" = two rugs, each its own row and page. */
     const rug = !rms.length && /^Area Rugs\b/i.test(String(it.label || "")) && String(noPrice(it.label)).match(/^Area Rugs\s*—\s*(.+?)\s*×\s*(\d+)$/i);
-    if (rug) { let out = ""; for (let r = 0; r < Number(rug[2]); r++) out += spotRow(i + "-" + j + "-" + r, "Area Rug " + (r + 1) + " — " + rug[1], "", spotLink(i, j, r)); return out; }
-    if (!rms.length && it.perSqft == null) return spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j));
+    if (it.removed) return "";   /* deleted on site: kept in the list (so photos stay matched) but not shown */
+    /* Each rug keeps its number (Area Rug 2 stays Area Rug 2) when another is deleted. */
+    if (rug) { const n = Number(it.rugSlots) || Number(rug[2]), gone = Array.isArray(it.rugGone) ? it.rugGone : []; let out = "";
+      /* Shown numbers count 1, 2, 3 with no gaps; photos stay with each rug's own slot. */
+      let shownNo = 0;
+      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("rug", i, j, r, spotRow(i + "-" + j + "-" + r, "Area Rug " + (++shownNo) + " — " + rug[1], "", spotLink(i, j, r)));
+      return out; }
+    /* Stain treatment — 6 spots = Stain treatment 1 … 6, each its own row and page. */
+    if (SPLIT_ADDONS.includes(it.addonKey) && Number(it.qty) > 0) {
+      const n = Number(it.spotSlots) || Number(it.qty), gone = Array.isArray(it.spotGone) ? it.spotGone : [];
+      const base = String(it.label || "").split(" — ")[0]; let out = "";
+      /* Shown numbers count 1, 2, 3 with no gaps; photos stay with each spot's own slot. */
+      let shownNo = 0;
+      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("spot", i, j, r, spotRow(i + "-" + j + "-" + r, base + " " + (++shownNo), "", spotLink(i, j, r)));
+      return out;
+    }
+    if (!rms.length && it.perSqft == null) return delWrap("item", i, j, "", spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j)));
     /* Rooms: one row each, with Delete (a button on desktop, swipe left on phones), then Add room. */
     return rms.map((rm, r) =>
       '<div class="srow" data-line="' + i + '" data-item="' + j + '" data-room="' + esc(rm.id) + '">' +
@@ -470,7 +524,7 @@ async function show(){
   };
   const sections = lines.map((l, i) => {
     const items = Array.isArray(l.items) ? l.items : [];
-    const extras = isCarpet(l) ? items.filter(isExtra) : [];
+    const extras = isCarpet(l) ? items.filter(it => isExtra(it) && !it.removed) : [];
     const shown = items.map((it, j) => [it, j]).filter(([it]) => !extras.includes(it));
     /* Header: "Carpet Deep Cleaning — 540 sq ft" and the line's price; tap it to open or close its rooms. */
     const nm = noPrice(l.label) || "Service";

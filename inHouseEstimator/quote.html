@@ -568,7 +568,7 @@ function render(d){
       <table>
         <thead><tr><th>Service</th><th class="r">Amount</th></tr></thead>
         <tbody>${(d.lines || []).map(l => `<tr class="head"><td>${twoLine(l.label)}</td><td class="r">${money(l.cost)}</td></tr>` +
-          (l.items || []).map(it => `<tr class="sub"><td>${twoLine(it.label)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>` +
+          (l.items || []).filter(it => !it.removed).map(it => `<tr class="sub"><td>${twoLine(it.label)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>` +
             (it.rooms || []).map(rm => `<tr class="room"><td>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)}</td><td class="r">${(Number(rm.sqft) || 0).toLocaleString()} sq ft${roomPrice(rm, it)}</td></tr>`).join("")).join("")).join("")}</tbody>
       </table>
       <div class="totalrow">
