@@ -27,7 +27,7 @@
     { key:'dining',     name:'Dining Room',               sqft:245, dims:'12\' \u00d7 20\' 6"' },
 
     /* --- always last --- */
-    { key:'stairs',     name:'Flights of Stairs',         flat:100, step:0.5 },
+    { key:'stairs',     name:'Flight of Stairs',          flat:100, step:0.5 },
     { key:'addSqft',    name:'Additional Square Feet',    sqft:1,   step:10, captionText:'' }
   ];
 
@@ -42,7 +42,7 @@
         quickdry:  { name:'Quick Dry Encapsulation', sqft:0.37 }
       },
       addons: {
-        stairs: { name:'Flights of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
+        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
                    text:'$100 per flight' },
         rug:    { name:'Area Rugs', text:'$50 / $75 per rug',
                    sizes:[ { key:'med', label:'Medium (5\u00d78)', price:50 },
@@ -64,6 +64,8 @@
       mode: 'area',
       rate: 0.85,
       addons: {
+        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
+                   text:'$100 per flight' },
         seal: { name:'Grout color seal', linear:1.00, needsQty:true, qtyDefault:0, qtyStep:10, text:'$1.00 / sq ft',
                  allTileLabel:'All Grout' },
         acid: { name:'Acid treatment',  linear:1.00, needsQty:true, qtyDefault:0, qtyStep:10, text:'$1.00 / sq ft' }
@@ -74,14 +76,20 @@
       name: 'Natural Stone Cleaning',
       mode: 'area',
       rate: 2.00,
-      addons: {},
+      addons: {
+        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
+                   text:'$100 per flight' }
+      },
       quoteValue: 'Natural stone'
     },
     lvp: {
       name: 'Hardwood/LVP Cleaning',
       mode: 'area',
       rate: 0.50,
-      addons: {},
+      addons: {
+        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
+                   text:'$100 per flight' }
+      },
       quoteValue: 'Hardwood/LVP'
     },
     commcarpet: {
@@ -89,6 +97,8 @@
       mode: 'area',
       rate: 0.50,
       addons: {
+        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
+                   text:'$100 per flight' },
         stain: { name:'Stain treatment', linear:15, needsQty:true, qtyDefault:0, qtyStep:1,
                  text:'$15 starting per spot' }
       },
@@ -98,7 +108,10 @@
       name: 'Commercial Hard Floor',
       mode: 'area',
       rate: 0.50,
-      addons: {},
+      addons: {
+        stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
+                   text:'$100 per flight' }
+      },
       quoteValue: 'Commercial hard floor'
     },
     upholstery: {
@@ -238,7 +251,7 @@
         return '<div class="add addQty"'+tap+'>'+
                '<label class="addQty__toggle">'+
                  '<input type="checkbox" data-add="'+k+'">'+
-                 '<span>'+a.name+' <span class="add__c">'+price+'</span>'+disclaimer+'</span>'+
+                 '<span><span data-addname="'+k+'">'+a.name+'</span> <span class="add__c">'+price+'</span>'+disclaimer+'</span>'+
                '</label>'+
                '<div class="addQty__actions" style="margin-left:auto">'+
                  allTileBtn+
@@ -357,8 +370,9 @@
       el.addEventListener('click', function(){
         var k = el.dataset.addqtyplus, inp = addsList.querySelector('[data-addqty="'+k+'"]');
         if(!inp) return;
-        var step = +inp.step || 1;
-        inp.value = (+inp.value||0) + step;
+        var step = +inp.step || 1, cur = +inp.value || 0;
+        /* Stairs: first press goes straight to 1 flight (like the room picker), then half steps. */
+        inp.value = (k === 'stairs' && cur === 0) ? 1 : cur + step;
         inp.dispatchEvent(new Event('input', {bubbles:true}));
       });
     });
@@ -593,7 +607,7 @@
       var disclaimer = rt.disclaimer ? '<br><span class="roomDisclaimer">'+rt.disclaimer+'</span>' : '';
       var step = rt.step || 1;
       return '<div class="add" data-roomrow="'+rt.key+'" style="cursor:pointer">'+
-             '<span>'+rt.name+' <span class="add__c">'+caption+'</span>'+disclaimer+'</span>'+
+             '<span><span data-roomname="'+rt.key+'">'+rt.name+'</span> <span class="add__c">'+caption+'</span>'+disclaimer+'</span>'+
              '<div class="step step--sm" style="margin-left:auto">'+
                '<button type="button" data-roomminus="'+rt.key+'" aria-label="Decrease">&minus;</button>'+
                '<input type="number" data-room="'+rt.key+'" value="0" min="0" step="'+step+'">'+
@@ -928,7 +942,7 @@
       }
       // If the stairs add-on is checked it prints its own line below; don't print twice.
       if(flatRooms > 0 && !(st.addons.stairs && st.addons.stairs.on)){
-        items.push({ label: 'Flights of Stairs', cost: flatRooms });
+        items.push({ label: ((st.rooms.stairs || 0) > 1) ? 'Flights of Stairs' : 'Flight of Stairs', cost: flatRooms });
       }
 
       Object.keys(s.addons || {}).forEach(function(k){
@@ -960,7 +974,7 @@
         else if(a.needsQty)  cost = (ast.qty||0) * a.linear;
         else if(a.flat) cost = a.flat;
         else            cost = sqft * a.sqft;
-        if(cost > 0) items.push({ label: a.name, cost: cost });
+        if(cost > 0) items.push({ label: (k === 'stairs' && (st.rooms.stairs || 0) > 1) ? 'Flights of Stairs' : a.name, cost: cost });
       });
 
       return items;
@@ -1030,6 +1044,16 @@
   }
 
   function calc(){
+    /* Stairs label: "Flight of Stairs" up to 1, "Flights of Stairs" above 1 (1.5 counts as
+       plural), on both the add-on row and the room-picker row, for whichever service is open. */
+    var stairsSt = STATE[activeSvc] && STATE[activeSvc].rooms;
+    if(stairsSt){
+      var stairsTxt = ((stairsSt.stairs || 0) > 1) ? 'Flights of Stairs' : 'Flight of Stairs';
+      var stairsAdd  = addsList && addsList.querySelector('[data-addname="stairs"]');
+      var stairsRoom = roomList && roomList.querySelector('[data-roomname="stairs"]');
+      if(stairsAdd)  stairsAdd.textContent  = stairsTxt;
+      if(stairsRoom) stairsRoom.textContent = stairsTxt;
+    }
     var b = buildBreakdown();
 
     if(!b.breakdown.length){

@@ -974,6 +974,13 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
   #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .add__c{ clear:right; white-space:nowrap; }
   #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .addQty__toggle br{ display:none; }
   #addsList .addQty:is([data-addrow="stretch"],[data-addrow="pet"],[data-addrow="stain"]) .roomDisclaimer{ display:block; }
+  /* Flight of Stairs: same layout, so "$100 per flight" stays on one line. Targeted by
+     its checkbox, since the stairs row has no data-addrow here. */
+  #addsList .addQty:has([data-add="stairs"]){ position:relative; }
+  #addsList .addQty:has([data-add="stairs"]) .addQty__actions{ position:absolute; top:.45rem; right:0; }
+  #addsList .addQty:has([data-add="stairs"]) .addQty__toggle{ flex:1 1 100%; }
+  #addsList .addQty:has([data-add="stairs"]) .addQty__toggle > span::before{ content:''; float:right; width:144px; height:44px; }
+  #addsList .addQty:has([data-add="stairs"]) .add__c{ clear:right; white-space:nowrap; }
 }
 
 /* ---- restored from site index.html: phone-width layout ---- */
