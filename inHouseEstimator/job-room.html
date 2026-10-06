@@ -62,6 +62,15 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .actual{display:flex;align-items:center;gap:8px;flex:none;font-size:15px;font-weight:600;color:var(--navy);white-space:nowrap}
 .actual input{width:92px;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 @media (max-width:360px){ .actual input{width:76px} }
+/* Fiber type: label, dropdown and (for Other) the text box, side by side on one row. */
+.fibrow{display:flex;align-items:center;gap:8px;margin-top:14px}
+.fiblab{flex:none;font-size:15px;font-weight:700;color:var(--navy)}
+#fiberSel{flex:none;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
+.fiberOther{flex:1;min-width:0;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
+.fiberOther[hidden]{display:none}
+.fibnote{margin:8px 0 0;font-size:13px;color:var(--muted)}
+/* Label over each photo spot (Threshold, Stains, More photos...). */
+.plab{margin:14px 0 6px;font-size:15px;font-weight:700;color:var(--navy)}
 @media print{ .pbtns,.px{display:none} }
 @media print{ body{background:#fff} .top>div{display:none!important} .panel{box-shadow:none;padding:0} }
 </style>
@@ -191,8 +200,39 @@ async function show(){
 
   function showSpot(spot){
     const st = (q.spots && q.spots[spot.key]) || {};
-    const paths = Array.isArray(st.photoPaths) ? st.photoPaths.slice() : [];
+    /* Photo spots. Threshold and Threshold adjacent hold one photo each (a new one replaces it);
+       the rest are grids that take as many as needed. Older jobs only have photoPaths; those show
+       under Before, More photos. */
+    const GROUPS = {
+      bThr: { field: "photosBeforeThreshold", label: "Threshold", one: true },
+      bAdj: { field: "photosBeforeAdjacent", label: "Threshold adjacent", one: true },
+      stains: { field: "photosStains", label: "Stains" },
+      before: { field: "photosBefore", label: "More photos" },
+      inspection: { field: "photosInspection", label: "" },
+      aThr: { field: "photosAfterThreshold", label: "Threshold", one: true },
+      aAdj: { field: "photosAfterAdjacent", label: "Threshold adjacent", one: true },
+      after: { field: "photosAfter", label: "More photos" }
+    };
+    const legacy = Array.isArray(st.photoPaths) ? st.photoPaths : [];
+    const hasGroups = Object.values(GROUPS).some(x => Array.isArray(st[x.field]));
+    const groups = {};
+    Object.keys(GROUPS).forEach(g => { groups[g] = (Array.isArray(st[GROUPS[g].field]) ? st[GROUPS[g].field] : []).slice(); });
+    if (!hasGroups) groups.before = legacy.slice();
+    const allPaths = () => Object.keys(GROUPS).flatMap(g => groups[g]);
+    const photoFields = () => { const o = { photoPaths: allPaths() }; Object.keys(GROUPS).forEach(g => { o[GROUPS[g].field] = groups[g]; }); return o; };
+    const photoBlock = g => { const one = GROUPS[g].one;
+      return (GROUPS[g].label ? '<div class="plab">' + GROUPS[g].label + '</div>' : '') +
+      '<div class="pgrid" id="pgrid-' + g + '" data-g="' + g + '"><div class="msg">Loading photos…</div></div>' +
+      '<div class="pbtns"><button type="button" class="ghost" data-cam="' + g + '">Take photo</button>' +
+        '<button type="button" class="ghost" data-pick="' + g + '">Choose photo' + (one ? '' : 's') + '</button>' +
+        '<input type="file" id="cam-' + g + '" accept="image/*" capture="environment" hidden>' +
+        '<input type="file" id="pick-' + g + '" accept="image/*"' + (one ? '' : ' multiple') + ' hidden></div>'; };
     const roomExtras = spot.isRoom ? extras : [];
+    /* This room's fiber if it has one, otherwise the job's (set by the first room saved). */
+    const FIBERS = ["Nylon", "Polyester", "Olefin", "Other"];
+    const jobFib = q.jobFiber && q.jobFiber.type ? q.jobFiber : null;
+    const fib = st.fiber && st.fiber.type ? st.fiber : jobFib;
+    const fibFromJob = !(st.fiber && st.fiber.type) && !!jobFib;
     titleEl.textContent = spot.name;
     document.title = spot.name + " · " + name + " · Khean & Clean";
     view.innerHTML =
@@ -206,20 +246,27 @@ async function show(){
             '<label class="actual">Actual <input type="number" id="actualSqft" min="0" step="1" inputmode="numeric" placeholder="Measured"' +
             (Number(st.actualSqft) > 0 ? ' value="' + Number(st.actualSqft) + '"' : '') + '></label></div>'
           : (spot.sqft ? '<div class="svcsub">' + spot.sqft.toLocaleString() + ' sq ft</div>' : '')) +
+        /* Fiber type, carpet rooms only. The first room saved sets it for the job, so the other
+           rooms open with it filled in; any room can be switched on its own. */
+        (spot.isRoom && isCarpet
+          ? '<div class="fibrow"><label for="fiberSel" class="fiblab">Fiber type</label>' +
+            '<select id="fiberSel"><option value="">Pick one</option>' +
+            FIBERS.map(f => '<option value="' + f + '"' + (fib && fib.type === f ? ' selected' : '') + '>' + f + '</option>').join("") + '</select>' +
+            '<input type="text" id="fiberOther" class="fiberOther" placeholder="Which fiber?" aria-label="Other fiber" value="' + esc(fib && fib.type === "Other" ? fib.other || "" : "") + '"' + (fib && fib.type === "Other" ? '' : ' hidden') + '></div>' +
+            (fibFromJob ? '<p class="fibnote">Filled in from the first room. Change it if this room is different.</p>' : '')
+          : '') +
         (roomExtras.length ? '<h3 class="h3">In this room</h3><div class="room__body">' + roomExtras.map(x => xbox(spot, x)).join("") + '</div>' : '') +
+        /* Before photos, then the one Notes box, then Inspection and After photos. */
+        '<h3 class="h3">Before photos</h3>' + photoBlock("bThr") + photoBlock("bAdj") + photoBlock("stains") + photoBlock("before") +
         '<h3 class="h3">Notes</h3>' +
         '<textarea id="spotNotes" placeholder="What you found, spots to watch, anything for next time">' + esc(st.notes || "") + '</textarea>' +
-        '<h3 class="h3">Photos</h3>' +
-        '<div class="pgrid" id="pgrid"><div class="msg">Loading photos…</div></div>' +
-        '<div class="pbtns"><button type="button" class="ghost" id="camBtn">Take photo</button>' +
-          '<button type="button" class="ghost" id="pickBtn">Choose photos</button>' +
-          '<input type="file" id="camIn" accept="image/*" capture="environment" hidden>' +
-          '<input type="file" id="pickIn" accept="image/*" multiple hidden></div>' +
+        '<h3 class="h3">Inspection photos</h3>' + photoBlock("inspection") +
+        '<h3 class="h3">After photos</h3>' + photoBlock("aThr") + photoBlock("aAdj") + photoBlock("after") +
         '<label class="xchk donebox"><input type="checkbox" id="doneBox"' + (st.done ? ' checked' : '') + '><span>Done</span></label>' +
         '<div class="saverow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
       '</div>';
 
-    const note = document.getElementById("note"), grid = document.getElementById("pgrid"), saveBtn = document.getElementById("saveBtn");
+    const note = document.getElementById("note"), saveBtn = document.getElementById("saveBtn");
     const flag = () => { note.textContent = "Not saved yet."; note.classList.remove("err"); };
     view.addEventListener("change", e => {
       const cb = e.target.closest(".xchk input"); if (!cb) return;
@@ -228,55 +275,75 @@ async function show(){
     document.getElementById("spotNotes").addEventListener("input", flag);
     const actualEl = document.getElementById("actualSqft");
     if (actualEl) actualEl.addEventListener("input", flag);
+    const otherEl = document.getElementById("fiberOther");
+    view.addEventListener("change", e => {
+      const r = e.target.id === "fiberSel" ? e.target : null; if (!r) return;
+      otherEl.hidden = r.value !== "Other"; if (!otherEl.hidden) otherEl.focus();
+      const fn = view.querySelector(".fibnote"); if (fn) fn.remove();   /* this room now has its own pick */
+      flag();
+    });
+    if (otherEl) otherEl.addEventListener("input", flag);
 
-    const draw = async () => {
+    const draw = async g => {
+      const grid = document.getElementById("pgrid-" + g), paths = groups[g];
       const urls = await Promise.all(paths.map(p => getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
       grid.innerHTML = paths.map((p, k) => urls[k]
         ? '<div class="pcell"><a href="' + esc(urls[k]) + '" target="_blank" rel="noopener"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
           '<button type="button" class="px" data-k="' + k + '" aria-label="Remove photo">×</button></div>' : '').join("") ||
         '<div class="msg">No photos yet.</div>';
     };
-    draw();
+    Object.keys(GROUPS).forEach(draw);
     /* Photos are saved onto the job as soon as they upload, so none are lost if Save isn't pressed. */
-    const savePhotos = () => setDoc(doc(db, place, id), { spots: { [spot.key]: { photoPaths: paths, updatedAt: serverTimestamp() } } }, { merge: true });
-    const upload = async files => {
-      const list = [...(files || [])]; if (!list.length) return;
+    const savePhotos = () => setDoc(doc(db, place, id), { spots: { [spot.key]: { ...photoFields(), updatedAt: serverTimestamp() } } }, { merge: true });
+    const upload = async (g, files) => {
+      let list = [...(files || [])]; if (!list.length) return;
+      if (GROUPS[g].one) list = list.slice(0, 1);   /* one-photo spot: the new one replaces the old */
       note.classList.remove("err");
       for (let k = 0; k < list.length; k++) {
         note.textContent = "Uploading photo " + (k + 1) + " of " + list.length + "…";
         try {
           const blob = await shrink(list[k]);
           /* Same folder as the website's photos (that's what the storage rules allow). */
-          const path = "quick-quote-photos/job_" + id + "_" + spot.key + "/" + Date.now() + "_" + k + ".jpg";
+          const path = "quick-quote-photos/job_" + id + "_" + spot.key + "_" + g + "/" + Date.now() + "_" + k + ".jpg";
           await uploadBytes(ref(storage, path), blob, { contentType: "image/jpeg" });
-          paths.push(path);
+          if (GROUPS[g].one) groups[g] = [path]; else groups[g].push(path);
         } catch (e) { console.error(e); note.textContent = "A photo didn’t upload: " + e.message; note.classList.add("err"); }
       }
       try { await savePhotos(); if (!note.classList.contains("err")) note.textContent = "Photos saved."; }
       catch (e) { console.error(e); note.textContent = "Photos uploaded but not saved to the job: " + e.message; note.classList.add("err"); }
-      draw();
+      draw(g);
     };
-    const camIn = document.getElementById("camIn"), pickIn = document.getElementById("pickIn");
-    document.getElementById("camBtn").addEventListener("click", () => camIn.click());
-    document.getElementById("pickBtn").addEventListener("click", () => pickIn.click());
-    camIn.addEventListener("change", () => { upload(camIn.files); camIn.value = ""; });
-    pickIn.addEventListener("change", () => { upload(pickIn.files); pickIn.value = ""; });
-    /* X takes a photo off this room (the file itself stays in storage). */
-    grid.addEventListener("click", async e => {
-      const b = e.target.closest(".px"); if (!b) return;
-      paths.splice(Number(b.dataset.k), 1);
-      try { await savePhotos(); note.textContent = "Photo removed."; note.classList.remove("err"); }
-      catch (err) { console.error(err); note.textContent = "Could not save: " + err.message; note.classList.add("err"); }
-      draw();
+    Object.keys(GROUPS).forEach(g => {
+      const camIn = document.getElementById("cam-" + g), pickIn = document.getElementById("pick-" + g);
+      view.querySelector('[data-cam="' + g + '"]').addEventListener("click", () => camIn.click());
+      view.querySelector('[data-pick="' + g + '"]').addEventListener("click", () => pickIn.click());
+      camIn.addEventListener("change", () => { upload(g, camIn.files); camIn.value = ""; });
+      pickIn.addEventListener("change", () => { upload(g, pickIn.files); pickIn.value = ""; });
+      /* X takes a photo off this room (the file itself stays in storage). */
+      document.getElementById("pgrid-" + g).addEventListener("click", async e => {
+        const b = e.target.closest(".px"); if (!b) return;
+        groups[g].splice(Number(b.dataset.k), 1);
+        try { await savePhotos(); note.textContent = "Photo removed."; note.classList.remove("err"); }
+        catch (err) { console.error(err); note.textContent = "Could not save: " + err.message; note.classList.add("err"); }
+        draw(g);
+      });
     });
 
     const doSave = async () => {
       saveBtn.disabled = true; note.textContent = "Saving…"; note.classList.remove("err");
       try {
         const data = { spots: { [spot.key]: { notes: document.getElementById("spotNotes").value.trim(),
-          done: document.getElementById("doneBox").checked, photoPaths: paths, updatedAt: serverTimestamp() } } };
+          done: document.getElementById("doneBox").checked, ...photoFields(), updatedAt: serverTimestamp() } } };
         /* Actual sq ft measured on site (rooms only); blank clears it. */
         if (actualEl) { const n = Math.round(Number(actualEl.value)); data.spots[spot.key].actualSqft = n > 0 ? n : null; }
+        /* Fiber type: saved on this room; the first one saved also becomes the job's, so the
+           other carpet rooms open with it filled in. */
+        if (otherEl) {
+          const pick = document.getElementById("fiberSel").value;
+          const fiber = pick ? { type: pick, other: pick === "Other" ? otherEl.value.trim() : "" } : null;
+          data.spots[spot.key].fiber = fiber;
+          if (fiber && !(q.jobFiber && q.jobFiber.type)) { data.jobFiber = fiber; q.jobFiber = fiber; }
+        }
         let next = null;
         if (roomExtras.length) {
           const mine = new Set([...view.querySelectorAll(".room__body .xchk input")].map(x => x.dataset.k));
