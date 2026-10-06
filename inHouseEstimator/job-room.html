@@ -12,14 +12,14 @@
    job-sheet.html) — style freely. No prices anywhere on this page. */
 :root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
 *{box-sizing:border-box}
-body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
-#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+body{margin:0;background:#000;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}   /* black page behind the cards */
+#authwait{position:fixed;inset:0;background:#000;z-index:9}
 .wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
 .home{display:flex;flex:none;border-radius:6px}
 .home img{display:block;width:102px;height:102px;border-radius:12px;border:3px solid var(--gold);background:var(--navy);padding:4px}   /* K&C logo, 3x the old 34px, gold border on blue */
 /* Back to Job Sheet: bigger, it's the main way out (and it saves first). */
-#backBtn{font-size:18px;padding:14px 22px;border:2px solid var(--navy);border-radius:10px}
+#backBtn{font-size:18px;padding:14px 22px;border:2px solid var(--gold);border-radius:10px;background:var(--navy);color:var(--gold)}   /* navy, gold text and outline */
 h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
 #title{display:none}   /* the room name already shows in the card below; kept in the page because the script fills it */
 .ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
@@ -69,9 +69,29 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .fiberOther{flex:1;min-width:0;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 .fiberOther[hidden]{display:none}
 .fibnote{margin:8px 0 0;font-size:13px;color:var(--muted)}
-/* Label over each photo spot (Threshold, Stains, More photos...). */
-.plab{margin:14px 0 6px;font-size:15px;font-weight:700;color:var(--navy)}
-@media print{ .pbtns,.px{display:none} }
+/* Before / Inspection / After photos: section titles, styled like the room name. */
+.ptitle{font:700 20px "Playfair Display",Georgia,serif;color:var(--navy);margin:26px 0 4px;border-bottom:2px solid var(--gold);padding-bottom:5px}
+/* Label over each photo spot (Threshold, Stains and more photos...). */
+.plab{display:flex;align-items:center;gap:10px;margin:14px 0 6px;font-size:15px;font-weight:700;color:var(--navy)}
+.pcam{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+/* A room's own page: navy card, white text. Boxes stay white; Save goes gold so it shows. */
+.panel.spot{background:var(--navy);color:#fff}
+.spot .cname,.spot .svcname,.spot .ptitle,.spot .plab,.spot .fiblab,.spot .actual,.spot .h3,.spot .xchk{color:#fff}
+.spot .meta,.spot .svcsub,.spot .msg,.spot .fibnote,.spot .note,.spot .xchk.done span{color:#c9d0de}
+.spot .note.err{color:#ffb4a6}
+.spot .xchk{border-top-color:rgba(255,255,255,.15)}
+.spot .donebox{border-top-color:rgba(255,255,255,.25)}
+.spot .donebox.done span{color:#7fd8a8}
+.spot .new{background:var(--gold);border-color:var(--gold);color:var(--navy)}
+.spot .pcam{background:var(--navy);color:var(--gold);border:2px solid var(--gold)}   /* camera buttons: navy, gold border, gold camera */
+/* Actual sq ft box: black with white text, wide enough that "Measured" shows in full. */
+.spot .actual input{width:108px;padding:8px;background:#000;color:#fff;border-color:rgba(255,255,255,.35);color-scheme:dark}
+.spot .actual input::placeholder{color:#aab2c3;opacity:1}
+@media (max-width:360px){ .spot .actual input{width:96px;font-size:15px} }
+/* Fiber type dropdown, its "Which fiber?" box and Notes: black with white text too. */
+.spot #fiberSel,.spot .fiberOther,.spot textarea{background:#000;color:#fff;border-color:rgba(255,255,255,.35);color-scheme:dark}
+.spot .fiberOther::placeholder,.spot textarea::placeholder{color:#aab2c3;opacity:1}
+@media print{ .pbtns,.pcam,.px{display:none} }
 @media print{ body{background:#fff} .top>div{display:none!important} .panel{box-shadow:none;padding:0} }
 </style>
 </head>
@@ -200,33 +220,35 @@ async function show(){
 
   function showSpot(spot){
     const st = (q.spots && q.spots[spot.key]) || {};
-    /* Photo spots. Threshold and Threshold adjacent hold one photo each (a new one replaces it);
-       the rest are grids that take as many as needed. Older jobs only have photoPaths; those show
-       under Before, More photos. */
+    /* Photo spots; each takes as many photos as needed. Older jobs only have photoPaths; those
+       show under Before, Stains and more photos. */
     const GROUPS = {
-      bThr: { field: "photosBeforeThreshold", label: "Threshold", one: true },
-      bAdj: { field: "photosBeforeAdjacent", label: "Threshold adjacent", one: true },
-      stains: { field: "photosStains", label: "Stains" },
-      before: { field: "photosBefore", label: "More photos" },
+      bThr: { field: "photosBeforeThreshold", label: "Threshold" },
+      bAdj: { field: "photosBeforeAdjacent", label: "Threshold adjacent" },
+      before: { field: "photosBefore", label: "Stains and more photos" },
       inspection: { field: "photosInspection", label: "" },
-      aThr: { field: "photosAfterThreshold", label: "Threshold", one: true },
-      aAdj: { field: "photosAfterAdjacent", label: "Threshold adjacent", one: true },
+      aThr: { field: "photosAfterThreshold", label: "Threshold" },
+      aAdj: { field: "photosAfterAdjacent", label: "Threshold adjacent" },
       after: { field: "photosAfter", label: "More photos" }
     };
     const legacy = Array.isArray(st.photoPaths) ? st.photoPaths : [];
-    const hasGroups = Object.values(GROUPS).some(x => Array.isArray(st[x.field]));
+    const hasGroups = Object.values(GROUPS).some(x => Array.isArray(st[x.field])) || Array.isArray(st.photosStains);
     const groups = {};
     Object.keys(GROUPS).forEach(g => { groups[g] = (Array.isArray(st[GROUPS[g].field]) ? st[GROUPS[g].field] : []).slice(); });
     if (!hasGroups) groups.before = legacy.slice();
+    /* Stains used to be its own spot; its photos now sit in "Stains and more photos". */
+    const oldStains = Array.isArray(st.photosStains) ? st.photosStains : [];
+    groups.before = [...oldStains, ...groups.before];
     const allPaths = () => Object.keys(GROUPS).flatMap(g => groups[g]);
-    const photoFields = () => { const o = { photoPaths: allPaths() }; Object.keys(GROUPS).forEach(g => { o[GROUPS[g].field] = groups[g]; }); return o; };
+    const photoFields = () => { const o = { photoPaths: allPaths() }; if (oldStains.length) o.photosStains = []; Object.keys(GROUPS).forEach(g => { o[GROUPS[g].field] = groups[g]; }); return o; };
+    /* One small camera button per spot, next to its label. The phone itself then offers
+       Take Photo or Photo Library. */
+    const CAM = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
     const photoBlock = g => { const one = GROUPS[g].one;
-      return (GROUPS[g].label ? '<div class="plab">' + GROUPS[g].label + '</div>' : '') +
-      '<div class="pgrid" id="pgrid-' + g + '" data-g="' + g + '"><div class="msg">Loading photos…</div></div>' +
-      '<div class="pbtns"><button type="button" class="ghost" data-cam="' + g + '">Take photo</button>' +
-        '<button type="button" class="ghost" data-pick="' + g + '">Choose photo' + (one ? '' : 's') + '</button>' +
-        '<input type="file" id="cam-' + g + '" accept="image/*" capture="environment" hidden>' +
-        '<input type="file" id="pick-' + g + '" accept="image/*"' + (one ? '' : ' multiple') + ' hidden></div>'; };
+      return '<div class="plab"><span>' + GROUPS[g].label + '</span>' +
+        '<button type="button" class="pcam" data-pick="' + g + '" aria-label="Add photo' + (GROUPS[g].label ? ': ' + GROUPS[g].label : '') + '">' + CAM + '</button>' +
+        '<input type="file" id="pick-' + g + '" accept="image/*"' + (one ? '' : ' multiple') + ' hidden></div>' +
+      '<div class="pgrid" id="pgrid-' + g + '" data-g="' + g + '"><div class="msg">Loading photos…</div></div>'; };
     const roomExtras = spot.isRoom ? extras : [];
     /* This room's fiber if it has one, otherwise the job's (set by the first room saved). */
     const FIBERS = ["Nylon", "Polyester", "Olefin", "Other"];
@@ -236,7 +258,7 @@ async function show(){
     titleEl.textContent = spot.name;
     document.title = spot.name + " · " + name + " · Khean & Clean";
     view.innerHTML =
-      '<div class="panel">' +
+      '<div class="panel spot">' +
         '<div class="cname">' + esc(name) + '</div>' +
         '<div class="meta">' + esc([q.number, svc].filter(Boolean).join(" · ")) + '</div>' +
         '<div class="svcname">' + esc(spot.name) + '</div>' +
@@ -256,12 +278,12 @@ async function show(){
             (fibFromJob ? '<p class="fibnote">Filled in from the first room. Change it if this room is different.</p>' : '')
           : '') +
         (roomExtras.length ? '<h3 class="h3">In this room</h3><div class="room__body">' + roomExtras.map(x => xbox(spot, x)).join("") + '</div>' : '') +
-        /* Before photos, then the one Notes box, then Inspection and After photos. */
-        '<h3 class="h3">Before photos</h3>' + photoBlock("bThr") + photoBlock("bAdj") + photoBlock("stains") + photoBlock("before") +
+        /* Before and Inspection photos, then the one Notes box, then After photos. */
+        '<h3 class="ptitle">Before photos</h3>' + photoBlock("bThr") + photoBlock("bAdj") + photoBlock("before") +
+        '<h3 class="ptitle">Inspection photos</h3>' + photoBlock("inspection") +
         '<h3 class="h3">Notes</h3>' +
         '<textarea id="spotNotes" placeholder="What you found, spots to watch, anything for next time">' + esc(st.notes || "") + '</textarea>' +
-        '<h3 class="h3">Inspection photos</h3>' + photoBlock("inspection") +
-        '<h3 class="h3">After photos</h3>' + photoBlock("aThr") + photoBlock("aAdj") + photoBlock("after") +
+        '<h3 class="ptitle">After photos</h3>' + photoBlock("aThr") + photoBlock("aAdj") + photoBlock("after") +
         '<label class="xchk donebox"><input type="checkbox" id="doneBox"' + (st.done ? ' checked' : '') + '><span>Done</span></label>' +
         '<div class="saverow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
       '</div>';
@@ -314,10 +336,8 @@ async function show(){
       draw(g);
     };
     Object.keys(GROUPS).forEach(g => {
-      const camIn = document.getElementById("cam-" + g), pickIn = document.getElementById("pick-" + g);
-      view.querySelector('[data-cam="' + g + '"]').addEventListener("click", () => camIn.click());
+      const pickIn = document.getElementById("pick-" + g);
       view.querySelector('[data-pick="' + g + '"]').addEventListener("click", () => pickIn.click());
-      camIn.addEventListener("change", () => { upload(g, camIn.files); camIn.value = ""; });
       pickIn.addEventListener("change", () => { upload(g, pickIn.files); pickIn.value = ""; });
       /* X takes a photo off this room (the file itself stays in storage). */
       document.getElementById("pgrid-" + g).addEventListener("click", async e => {
