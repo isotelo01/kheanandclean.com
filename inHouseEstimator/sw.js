@@ -1,7 +1,7 @@
 /* K&C Estimator service worker — offline-first.
    Bump CACHE when you upload new files, or phones keep the old copy. */
-var CACHE = 'kc-estimator-v34';
-var ASSETS = ['./','./index.html','./app.css','./app.js','./manifest.webmanifest',
+var CACHE = 'kc-estimator-v35';
+var ASSETS = ['./','./index.html','./app.css','./pricing.js','./app.js','./manifest.webmanifest',
               '../images/icon-180.png','../images/icon-192.png','../images/icon-512.png'];
 
 self.addEventListener('install', function(e){

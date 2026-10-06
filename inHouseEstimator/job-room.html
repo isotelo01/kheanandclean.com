@@ -299,13 +299,17 @@ async function show(){
           : (spot.sqft ? '<div class="svcsub">' + spot.sqft.toLocaleString() + ' sq ft</div>' : '')) +
         /* Fiber type, carpet rooms only. The first room saved sets it for the job, so the other
            rooms open with it filled in; any room can be switched on its own. */
-        ((spot.isRoom || spot.rug || spot.stairs) && isCarpet   /* stairs and rugs get it too */
+        (isCarpet   /* every carpet page: rooms, stairs, rugs and the carpet add-on pages */
           ? '<div class="fibrow"><label for="fiberSel" class="fiblab">Fiber type</label>' +
             '<select id="fiberSel"><option value="">Pick one</option>' +
             FIBERS.map(f => '<option value="' + f + '"' + (fib && fib.type === f ? ' selected' : '') + '>' + f + '</option>').join("") + '</select>' +
             '<input type="text" id="fiberOther" class="fiberOther" placeholder="Which fiber?" aria-label="Other fiber" value="' + esc(fib && fib.type === "Other" ? fib.other || "" : "") + '"' + (fib && fib.type === "Other" ? '' : ' hidden') + '></div>' +
-            (fibFromJob ? '<p class="fibnote">Filled in from the first room. Change it if this room is different.</p>' : '') +
-            '<div class="chemrow">' +
+            (fibFromJob ? '<p class="fibnote">Filled in from the first room. Change it if this room is different.</p>' : '')
+          : '') +
+        /* Pre-Spray and Rinse: every page on a carpet line (rooms, stairs, rugs and the add-ons
+           with their own photo page: hair & debris, filter lines, stretching, pet odor, stain treatment). */
+        (isCarpet
+          ? '<div class="chemrow">' +
               '<label class="chem">Pre-Spray <input type="text" id="preSpray" value="' + esc(st.preSpray || "") + '"></label>' +
               '<label class="chem">Rinse <input type="text" id="rinse" value="' + esc(st.rinse || "") + '"></label>' +
             '</div>'

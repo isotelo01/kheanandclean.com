@@ -86,6 +86,13 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .rpstep button{width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:18px;line-height:1;cursor:pointer;color:var(--navy)}
 .rpstep input{width:52px;text-align:center;font:16px "Archivo";padding:6px 4px;border:1px solid var(--line);border-radius:6px}
 .rpfoot{display:flex;gap:10px;padding:10px;border-top:1px solid var(--line);background:#f6f7fa}
+/* Service header row: the header (tap to open) and, on carpet, the + for add-ons. */
+.svc__headrow{display:flex;align-items:center;gap:10px}
+.svc__headrow .svc__head{flex:1;min-width:0}
+.svc__plus{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:var(--navy);color:#fff;font:600 22px/1 "Archivo";cursor:pointer}
+.addonbox .rpick{margin:10px 0 4px}
+.rpchk{width:26px;height:26px;accent-color:var(--green);cursor:pointer}
+@media print{.svc__plus,.addonbox{display:none!important}}
 .jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
 @media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
 .prog{font-size:14px;color:var(--muted);margin-bottom:10px}
@@ -126,6 +133,7 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
   <div id="view"><div class="msg">Loading&hellip;</div></div>
 </div>
 
+<script src="pricing.js"></script><!-- room sizes and add-on prices, shared with the estimator -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
@@ -182,6 +190,11 @@ const rateOf = it => {
 function onsiteCopy(src){
   return JSON.parse(JSON.stringify(Array.isArray(src) ? src : [])).map((l, i) => {
     (Array.isArray(l.items) ? l.items : []).forEach((it, j) => {
+      /* A sq-ft add-on already on the quote (e.g. Hair & debris removal) follows room changes too. */
+      if (!Array.isArray(it.rooms) && it.addonPerSqft == null) {
+        const a = CARPET_ADDONS.find(x => x.sqft != null && String(it.label || "").startsWith(x.name));
+        if (a && (l.key || "carpet") === "carpet") { it.addonKey = a.key; it.addonPerSqft = a.sqft; }
+      }
       if (!Array.isArray(it.rooms) || !it.rooms.length) return;
       it.perSqft = rateOf(it);
       let r = 0; const out = [];
@@ -204,6 +217,12 @@ function recalc(l){
     it.cost = r2(c); delta += it.cost - old; lineSq += sq;
     it.label = String(it.label || "").replace(/[\d,]+(\s*sq ft)/i, sq.toLocaleString("en-US") + "$1");
   });
+  /* Sq-ft add-ons (hair & debris, deodorizer, stain protector) follow the carpet's sq ft. */
+  if (any) (l.items || []).forEach(it => {
+    if (it.addonPerSqft == null) return;
+    const old = Number(it.cost) || 0; it.cost = r2(lineSq * it.addonPerSqft); delta += it.cost - old;
+    it.label = String(it.label || "").replace(/[\d,]+(\s*sq ft)/i, lineSq.toLocaleString("en-US") + "$1");
+  });
   if (any) { l.cost = r2((Number(l.cost) || 0) + delta); l.label = String(l.label || "").replace(/[\d,]+(\s*sq ft)/i, lineSq.toLocaleString("en-US") + "$1"); }
 }
 async function saveOnsite(){
@@ -219,25 +238,19 @@ view.addEventListener("click", e => {
   box.classList.toggle("open", on); h.setAttribute("aria-expanded", on);
   on ? openLines.add(k) : openLines.delete(k); saveOpen();
 });
-/* The estimator's rooms (inHouseEstimator/app.js ROOM_TYPES), minus Flight of Stairs, which is
-   its own add-on on the job. Keep in step with app.js if sizes change there. */
-const ROOM_TYPES = [
-  { key: "masterBed",  name: "Master Bedroom",          sqft: 250, dims: "12' 6\" × 20'" },
-  { key: "den",        name: "Large Den / Office",      sqft: 180, dims: "15' × 12'" },
-  { key: "smallBed",   name: "Bedroom",                 sqft: 110, dims: "10' × 11'" },
-  { key: "closet",     name: "Walk-In Closet (Master)", sqft: 80,  dims: "8' × 10'" },
-  { key: "hallway",    name: "Hallway",                 sqft: 40,  dims: "4' × 10'" },
-  { key: "kitchen",    name: "Kitchen",                 sqft: 200, dims: "10' × 20'" },
-  { key: "masterBath", name: "Master Bath",             sqft: 150, dims: "10' × 15'" },
-  { key: "fullBath",   name: "Full Bath",               sqft: 50,  dims: "5' × 10'" },
-  { key: "laundry",    name: "Laundry Room",            sqft: 45,  dims: "5' × 9'" },
-  { key: "halfBath",   name: "Half Bath / Powder Room", sqft: 21,  dims: "3' × 7'" },
-  { key: "greatRoom",  name: "Great Room",              sqft: 375, dims: "combined living, dining & kitchen" },
-  { key: "living",     name: "Living / Family Room",    sqft: 350, dims: "17' 6\" × 20'" },
-  { key: "loft",       name: "Large Loft",              sqft: 275, dims: "11' × 25'" },
-  { key: "dining",     name: "Dining Room",             sqft: 245, dims: "12' × 20' 6\"" },
-  { key: "addSqft",    name: "Additional Square Feet",  sqft: 1,   step: 10 }
-];
+/* Rooms and prices come from pricing.js, the same file the estimator uses, so a size or price
+   changed there changes here too. Flight of Stairs is left out of the room table: it's its
+   own add-on on the job. */
+const PRICING = window.KC_PRICING || { ROOM_TYPES: [], SERVICES: {} };
+const ROOM_TYPES = PRICING.ROOM_TYPES.filter(rt => rt.key !== "stairs");
+/* Carpet add-ons for the + on a carpet line (Stairs and Area Rugs are already on the job;
+   Accelerated drying is part of the package). Priced by sq ft of the line's carpet, or per
+   linear ft / room / spot with a count. */
+const CARPET_ADDONS = ["hair", "deo", "prot", "filter", "stretch", "pet", "stain"]
+  .map(k => ({ key: k, ...((PRICING.SERVICES.carpet || {}).addons || {})[k] })).filter(a => a.name);
+const addonUnit = a => a.key === "filter" ? "linear ft" : a.key === "stretch" ? "room" : "spot";
+const addonCaption = a => a.sqft != null ? "$" + a.sqft.toFixed(2) + " / sq ft of carpet"
+  : (a.text || "$" + a.linear + " per " + addonUnit(a));
 /* Tap anywhere outside an open room table: it closes and its counts clear (nothing is added). */
 document.addEventListener("click", e => {
   document.querySelectorAll(".addroom").forEach(box => {
@@ -273,6 +286,62 @@ view.addEventListener("click", async e => {
   });
   if (!added) { pick.hidden = true; return; }
   recalc(cur.lines[i]); e.target.disabled = true;
+  try { await saveOnsite(); show(); } catch (err) { fail(err); e.target.disabled = false; }
+});
+/* Carpet add-ons: + opens the table (tap outside to cancel); tick a sq-ft one, or count
+   linear ft / rooms / spots; Add puts them on the line, priced from pricing.js. */
+document.addEventListener("click", e => {
+  document.querySelectorAll(".addonbox").forEach(box => {
+    const pick = box.querySelector(".rpick");
+    if (!pick || pick.hidden || box.contains(e.target) || e.target.closest('[data-addons="' + box.dataset.line + '"]')) return;
+    pick.hidden = true;
+    pick.querySelectorAll(".rprow input[type=number]").forEach(x => x.value = 0);
+    pick.querySelectorAll(".rpchk").forEach(x => x.checked = false);
+  });
+});
+view.addEventListener("click", async e => {
+  const plusBtn = e.target.closest("[data-addons]");
+  if (plusBtn) {
+    const p = view.querySelector('.addonbox[data-line="' + plusBtn.dataset.addons + '"] .rpick');
+    if (p) p.hidden = !p.hidden; return;
+  }
+  const box = e.target.closest(".addonbox"); if (!box || !cur) return;
+  const pick = box.querySelector(".rpick");
+  const row = e.target.closest(".rprow");
+  if (row && !e.target.closest("input")) {
+    const chk = row.querySelector(".rpchk");
+    if (chk) { chk.checked = !chk.checked; return; }
+    const inp = row.querySelector("input"), st = Number(inp.step) || 1;
+    inp.value = Math.max(0, (Number(inp.value) || 0) + (e.target.closest("[data-rpminus]") ? -st : st));
+    return;
+  }
+  if (!e.target.closest("[data-adadd]")) return;
+  const i = Number(box.dataset.line), l = cur.lines[i];
+  l.items = Array.isArray(l.items) ? l.items : [];
+  /* The line's carpet sq ft (its rooms), which the sq-ft add-ons are priced on. */
+  const lineSq = l.items.filter(it => Array.isArray(it.rooms)).reduce((s, it) => s + it.rooms.reduce((t, rm) => t + (Number(rm.sqft) || 0), 0), 0);
+  let delta = 0, added = 0;
+  pick.querySelectorAll(".rprow").forEach(r => {
+    const a = CARPET_ADDONS.find(x => x.key === r.dataset.ak); if (!a) return;
+    const have = l.items.find(it => it.addonKey === a.key);
+    if (a.sqft != null) {
+      if (!r.querySelector(".rpchk").checked || have) return;   /* already on the job: nothing to add */
+      const cost = r2(lineSq * a.sqft);
+      l.items.push({ label: a.name + " — " + lineSq.toLocaleString("en-US") + " sq ft", cost, addonKey: a.key, addonPerSqft: a.sqft });
+      delta += cost; added++; return;
+    }
+    const n = Math.max(0, Number(r.querySelector("input").value) || 0); if (!n) return;
+    const unit = addonUnit(a), it = have || { label: a.name, cost: 0, addonKey: a.key, addonRate: a.linear, qty: 0 };
+    if (!have) l.items.push(it);
+    const old = Number(it.cost) || 0;
+    it.qty = (Number(it.qty) || 0) + n;
+    it.cost = r2(it.qty * a.linear);
+    it.label = a.name + " — " + it.qty.toLocaleString("en-US") + " " + unit + (it.qty === 1 || unit === "linear ft" ? "" : "s");
+    delta += it.cost - old; added++;
+  });
+  if (!added) { pick.hidden = true; return; }
+  l.cost = r2((Number(l.cost) || 0) + delta);
+  e.target.disabled = true;
   try { await saveOnsite(); show(); } catch (err) { fail(err); e.target.disabled = false; }
 });
 /* Delete a room (its photos stay saved on the job, just no longer listed). */
@@ -406,9 +475,26 @@ async function show(){
     /* Header: "Carpet Deep Cleaning — 540 sq ft" and the line's price; tap it to open or close its rooms. */
     const nm = noPrice(l.label) || "Service";
     const head = isCarpet(l) && !/carpet/i.test(nm) ? "Carpet " + nm : nm;
+    /* Residential carpet line: a + where the price was, opening the carpet add-ons table. */
+    const plus = (l.key ? l.key === "carpet" : isCarpet(l)) && CARPET_ADDONS.length;
     return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + '" data-line="' + i + '">' +
+      '<div class="svc__headrow">' +
       '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
-        '<span>' + esc(head) + '</span><span class="amt">' + money(l.cost) + ' <span class="caret">▾</span></span></button>' +
+        '<span>' + esc(head) + '</span><span class="amt">' + (plus ? '' : money(l.cost) + ' ') + '<span class="caret">▾</span></span></button>' +
+      (plus ? '<button type="button" class="svc__plus" data-addons="' + i + '" aria-label="Add-ons">+</button>' : '') +
+      '</div>' +
+      (plus ? '<div class="addonbox" data-line="' + i + '"><div class="rpick" hidden>' +
+        CARPET_ADDONS.map(a =>
+          '<div class="rprow" data-ak="' + a.key + '">' +
+            '<span class="rpname">' + esc(a.name) + ' <span class="rpcap">' + esc(addonCaption(a)) + '</span></span>' +
+            (a.sqft != null
+              ? '<span class="rpstep"><input type="checkbox" class="rpchk" aria-label="' + esc(a.name) + '"></span>'
+              : '<span class="rpstep"><button type="button" data-rpminus aria-label="Fewer">&minus;</button>' +
+                '<input type="number" min="0" step="' + (a.qtyStep || 1) + '" value="0" inputmode="numeric" aria-label="' + esc(a.name) + '">' +
+                '<button type="button" data-rpplus aria-label="More">+</button></span>') +
+          '</div>').join("") +
+        '<div class="rpfoot"><button type="button" class="new" data-adadd>Add</button></div>' +
+      '</div></div>' : '') +
       '<div class="svc__body">' +
       (shown.length ? shown.map(([it, j]) => itemRows(it, i, j)).join("") : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i))) +
       (extras.length ? '<div class="meta" style="padding:6px 4px 0">In every room: ' +
