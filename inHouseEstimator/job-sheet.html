@@ -258,12 +258,20 @@ async function show(){
 
   const notesEl = document.getElementById("notes");
   if (notesEl && notesEl.isConnected) {
+    /* Only what a person typed: the "OK to text..." lines (kept saved in the background) and
+       the website's automatic "Opened the estimator..." line are left out, and a note that's
+       the same as one already shown (Quote notes copied from the customer's message) isn't repeated. */
+    const seen = new Set();
+    const clean = t => String(t || "").split("\n")
+      .filter(s => !/^\s*OK to text( specials)?: (yes|no)\s*$/i.test(s) && !/^\s*Opened the estimator \(details only, no estimate yet\)\s*$/i.test(s))
+      .join("\n").replace(/\n{3,}/g, "\n\n").trim();
+    const note1 = (lab, t) => { const c = clean(t); if (!c || seen.has(c)) return ""; seen.add(c); return rrow(lab, c); };
     const html =
-      rrow("Note on the quote", qnote && qnote.text) +
-      rrow("From the customer", lead && lead.message) +
-      rrow("Lead notes", lead && lead.staffNotes) +
-      rrow("Customer notes", cust && cust.notes) +
-      rrow("Quote notes", q.notes);
+      note1("Note on the quote", qnote && qnote.text) +
+      note1("From the customer", lead && lead.message) +
+      note1("Lead notes", lead && lead.staffNotes) +
+      note1("Customer notes", cust && cust.notes) +
+      note1("Quote notes", q.notes);
     notesEl.innerHTML = html || '<div class="msg">No notes on file.</div>';
   }
 

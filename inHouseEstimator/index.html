@@ -362,14 +362,19 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
        Lead message box). Only fills it when that box is still empty. */
     /* "OK to text: yes" / "OK to text specials: yes" lines at the top of the message
        come out of the box and show as Texting / Specials in Customer details instead. */
-    const msgLines = String(data.message || "").split("\n");
+    /* Every OK-to-text line comes out, wherever it sits (a lead merged from two visits can carry
+       them twice), and so does the website's automatic "Opened the estimator (details only, no
+       estimate yet)" line. Only what the customer actually typed goes into the box, and from
+       there into the quote's notes and the Job Sheet. */
     let txt = data.texting, spc = data.specials;
-    while (msgLines.length && /^OK to text( specials)?: (yes|no)$/i.test(msgLines[0].trim())) {
-      const m = /^OK to text( specials)?: (yes|no)$/i.exec(msgLines.shift().trim());
-      const yes = m[2].toLowerCase() === "yes";
-      if (m[1]) { if (spc == null) spc = yes; } else if (txt == null) txt = yes;
-    }
-    const msgBody = msgLines.join("\n").trim();
+    const msgBody = String(data.message || "").split("\n").filter(line => {
+      const s = line.trim();
+      const m = /^OK to text( specials)?: (yes|no)$/i.exec(s);
+      if (m) { const yes = m[2].toLowerCase() === "yes";
+        if (m[1]) { if (spc == null) spc = yes; } else if (txt == null) txt = yes;
+        return false; }
+      return !/^Opened the estimator \(details only, no estimate yet\)$/i.test(s);
+    }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
     if (txt != null || spc != null) {
       const label = v => v === true ? "OK" : v === false ? "No" : "Not recorded";
       set("eTextOk", label(txt));
