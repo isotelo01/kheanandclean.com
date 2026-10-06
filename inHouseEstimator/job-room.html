@@ -31,7 +31,17 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .room{border:1px solid var(--line);border-radius:8px;padding:14px 16px}
 .room__name{font-weight:700;font-size:18px}
 .room__size{color:var(--muted);font-size:15px}
-.room__body{margin-top:8px}   /* empty for now: room-by-room details go here */
+.room__body{margin-top:8px}   /* room-by-room details go here */
+/* Carpet package extras, one checkbox each per room. */
+.xchk{display:flex;align-items:center;gap:12px;padding:8px 2px;border-top:1px solid #eef0f4;cursor:pointer;font-size:16px}
+.xchk input{width:24px;height:24px;flex:none;accent-color:var(--green)}
+.xchk.done span{text-decoration:line-through;color:var(--muted)}
+.saverow{display:flex;gap:10px;align-items:center;margin-top:16px}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.new:disabled{opacity:.6;cursor:default}
+.note{font-size:14px;color:var(--muted)}
+.note.err{color:var(--red)}
+@media print{ .saverow{display:none} }
 @media print{ body{background:#fff} .top>div{display:none!important} .panel{box-shadow:none;padding:0} }
 </style>
 </head>
@@ -51,7 +61,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 const app = initializeApp({
@@ -85,9 +95,9 @@ if (id) ss.set("kcJobRoom", JSON.stringify({ id, line: lineNo, item: itemNo }));
 async function show(){
   if (!id || !Number.isInteger(lineNo)) { view.innerHTML = '<div class="msg">No line picked. <a href="./approved-leads.html">Go to Approved Leads</a></div>'; return; }
   document.getElementById("backBtn").href = "./job-sheet.html?id=" + encodeURIComponent(id);
-  let q = null;
+  let q = null, place = "";
   try {
-    for (const p of PLACES) { const s = await getDoc(doc(db, p, id)); if (s.exists()) { q = s.data(); break; } }
+    for (const p of PLACES) { const s = await getDoc(doc(db, p, id)); if (s.exists()) { q = s.data(); place = p; break; } }
   } catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
   if (!q) { view.innerHTML = '<div class="msg">That job isn’t on file.</div>'; return; }
 
@@ -104,10 +114,27 @@ async function show(){
 
   /* Every room on its own: a grouped room (qty 3, 330 sq ft) becomes three rooms of 110 sq ft. */
   const rooms = [];
-  picked.forEach(it => (Array.isArray(it.rooms) ? it.rooms : []).forEach(rm => {
-    const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
-    for (let k = 1; k <= n; k++) rooms.push({ name: n > 1 ? rm.name + " " + k : rm.name, sqft: each });
-  }));
+  picked.forEach(it => {
+    const j = items.indexOf(it);
+    let r = 0;
+    (Array.isArray(it.rooms) ? it.rooms : []).forEach(rm => {
+      const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
+      for (let k = 1; k <= n; k++) rooms.push({ name: n > 1 ? rm.name + " " + k : rm.name, sqft: each, key: lineNo + "-" + j + "-" + (r++) });
+    });
+  });
+
+  /* Carpet package extras on this job (stain protector, accelerated drying, deodorizer):
+     each carpet room gets a checkbox for each. Saved on the job under roomChecks. */
+  const isExtra = it => /accelerated drying|deodori[sz]er|stain (protector|guard|repellent)|scotch ?gard/i.test(String(it.label || ""));
+  /* Carpet lines are named after the package ("Deep Cleaning — 800 sq ft"): go by the line's
+     service key, or the package names when an older quote has no key. */
+  const isCarpet = /carpet/i.test(String(line.key || "")) ||
+    /carpet|essential cleaning|deep cleaning|signature cleaning|quick dry|encapsulation/i.test(String(line.label || ""));
+  const extras = isCarpet ? items.filter(isExtra).map(it => splitLabel(it.label)[0]) : [];
+  const checks = new Set(Array.isArray(q.roomChecks) ? q.roomChecks : []);
+  const slug = s => s.toLowerCase().replace(/[^a-z]+/g, "-");
+  const xbox = (r, x) => { const k = r.key + "-" + slug(x), on = checks.has(k);
+    return '<label class="xchk' + (on ? ' done' : '') + '"><input type="checkbox" data-k="' + esc(k) + '"' + (on ? ' checked' : '') + '><span>' + esc(x) + '</span></label>'; };
 
   const sub = picked.map(it => { const [a, b] = splitLabel(it.label || ""); return b ? a + " · " + b : a; }).filter(Boolean).join("  |  ");
   view.innerHTML =
@@ -121,10 +148,33 @@ async function show(){
             '<section class="room" id="room-' + (k + 1) + '">' +
               '<div class="room__name">' + esc(r.name) + '</div>' +
               (r.sqft ? '<div class="room__size">' + r.sqft.toLocaleString() + ' sq ft</div>' : '') +
-              '<div class="room__body"></div>' +
-            '</section>').join("") + '</div>'
+              '<div class="room__body">' + extras.map(x => xbox(r, x)).join("") + '</div>' +
+            '</section>').join("") + '</div>' +
+          (extras.length ? '<div class="saverow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' : '')
         : '<div class="msg">No room breakdown on this line (it was measured by square feet, or it’s an add-on).</div>') +
     '</div>';
+
+  const saveBtn = document.getElementById("saveBtn"), note = document.getElementById("note");
+  if (!saveBtn) return;
+  view.addEventListener("change", e => {
+    const cb = e.target.closest(".xchk input"); if (!cb) return;
+    cb.closest(".xchk").classList.toggle("done", cb.checked);
+    note.textContent = "Not saved yet."; note.classList.remove("err");
+  });
+  /* Ticks on this page replace this page's keys only; other lines' ticks are kept. */
+  saveBtn.addEventListener("click", async () => {
+    saveBtn.disabled = true; note.textContent = "Saving…"; note.classList.remove("err");
+    try {
+      const mine = new Set([...view.querySelectorAll(".xchk input")].map(x => x.dataset.k));
+      const kept = [...checks].filter(k => !mine.has(k));
+      const now = [...view.querySelectorAll(".xchk input:checked")].map(x => x.dataset.k);
+      const next = kept.concat(now);
+      await setDoc(doc(db, place, id), { roomChecks: next, roomChecksAt: serverTimestamp() }, { merge: true });
+      checks.clear(); next.forEach(k => checks.add(k));
+      note.textContent = "Saved.";
+    } catch (e) { console.error(e); note.textContent = "Could not save: " + e.message; note.classList.add("err"); }
+    finally { saveBtn.disabled = false; }
+  });
 }
 
 /* Page lock. Not signed in -> login page, then back here. */

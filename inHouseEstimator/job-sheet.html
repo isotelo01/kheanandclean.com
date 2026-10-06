@@ -154,11 +154,24 @@ async function show(){
     return '<label class="chk' + (done.has(key) ? ' done' : '') + '"><input type="checkbox" data-k="' + esc(key) + '"' +
       (done.has(key) ? ' checked' : '') + '><span>' + esc(label) + '</span>' +
       (href ? '<a class="open" href="' + esc(href) + '">Open ›</a>' : '') + '</label>'; };
+  /* Carpet package extras (stain protector, accelerated drying, deodorizer) aren't lines of
+     their own here: they're checked off room by room on the room pages instead. */
+  /* Carpet lines are named after the package ("Deep Cleaning — 800 sq ft"), so go by the
+     line's service key, or the package names when an older quote has no key. */
+  const isCarpet = l => /carpet/i.test(String(l.key || "")) ||
+    /carpet|essential cleaning|deep cleaning|signature cleaning|quick dry|encapsulation/i.test(String(l.label || ""));
+  const isExtra = it => /accelerated drying|deodori[sz]er|stain (protector|guard|repellent)|scotch ?gard/i.test(String(it.label || ""));
+  /* Labels carry prices ("800 sq ft + $100", "@ $0.50/sq ft"); the sheet shows them without. */
+  const noPrice = t => String(t || "").replace(/\s*@\s*\$[\d.,]+\s*\/\s*sq ft/i, "").replace(/\s*\+\s*\$[\d.,]+/g, "").replace(/\s*\$[\d.,]+/g, "").trim();
   const sections = lines.map((l, i) => {
     const items = Array.isArray(l.items) ? l.items : [];
-    return '<div class="svc"><div class="svc__head"><span>' + esc(l.label || "Service") + '</span>' +
-      '<span class="amt">' + esc(money(l.cost)) + '</span></div>' +
-      (items.length ? items.map((it, j) => box("i-" + i + "-" + j, it.label || "Area", roomLink(i, j))).join("") : box("l-" + i, l.label || "Service", roomLink(i))) +
+    const extras = isCarpet(l) ? items.filter(isExtra) : [];
+    const shown = items.map((it, j) => [it, j]).filter(([it]) => !extras.includes(it));
+    /* No prices on the Job Sheet: it's a work sheet for the crew. */
+    return '<div class="svc"><div class="svc__head"><span>' + esc(noPrice(l.label) || "Service") + '</span></div>' +
+      (shown.length ? shown.map(([it, j]) => box("i-" + i + "-" + j, noPrice(it.label) || "Area", roomLink(i, j))).join("") : box("l-" + i, noPrice(l.label) || "Service", roomLink(i))) +
+      (extras.length ? '<div class="meta" style="padding:6px 4px 0">In every room: ' +
+        esc(extras.map(it => String(it.label).split(" — ")[0]).join(", ")) + ' (check off on each room page)</div>' : '') +
     '</div>';
   }).join("");
 
@@ -170,7 +183,7 @@ async function show(){
       (addr ? '<div class="prow"><a href="https://maps.google.com/?q=' + encodeURIComponent(addr) + '" target="_blank" rel="noopener">' + esc(addr) + '</a></div>' : '') +
       (tel ? '<div class="prow"><a href="tel:' + esc(tel) + '">' + esc(c.phone) + '</a></div>' : '') +
       (c.email ? '<div class="prow">' + esc(c.email) + '</div>' : '') +
-      '<div class="meta" style="margin-top:6px">' + esc([q.number, money(q.total),
+      '<div class="meta" style="margin-top:6px">' + esc([q.number,
         ms(q.acceptedAt) ? "Approved " + shortDate(ms(q.acceptedAt)) : ""].filter(Boolean).join(" \u00b7 ")) + '</div>' +
 
       '<h2>Notes</h2><div id="notes">' + rrow("Quote notes", q.notes) + '<div class="msg">Loading&hellip;</div></div>' +
