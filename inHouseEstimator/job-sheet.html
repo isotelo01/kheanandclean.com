@@ -238,7 +238,15 @@ const ROOM_TYPES = [
   { key: "dining",     name: "Dining Room",             sqft: 245, dims: "12' × 20' 6\"" },
   { key: "addSqft",    name: "Additional Square Feet",  sqft: 1,   step: 10 }
 ];
-/* Add room: open / close the room table; − / + or tap a row to count; Add to job saves. */
+/* Tap anywhere outside an open room table: it closes and its counts clear (nothing is added). */
+document.addEventListener("click", e => {
+  document.querySelectorAll(".addroom").forEach(box => {
+    const pick = box.querySelector(".rpick");
+    if (!pick || pick.hidden || box.contains(e.target)) return;
+    pick.hidden = true; pick.querySelectorAll(".rprow input").forEach(x => x.value = 0);
+  });
+});
+/* Add room: open / close the room table; − / + or tap a row to count; Add room at the bottom saves. */
 view.addEventListener("click", async e => {
   const box = e.target.closest(".addroom"); if (!box || !cur) return;
   const pick = box.querySelector(".rpick");
@@ -386,8 +394,7 @@ async function show(){
               '<input type="number" min="0" step="' + (rt.step || 1) + '" value="0" inputmode="numeric" aria-label="' + esc(rt.name) + '">' +
               '<button type="button" data-rpplus aria-label="More">+</button></span>' +
             '</div>').join("") +
-          '<div class="rpfoot"><button type="button" class="new" data-rpadd>Add to job</button>' +
-          '<button type="button" class="ghost" data-rpcancel>Cancel</button></div>' +
+          '<div class="rpfoot"><button type="button" class="new" data-rpadd>Add room</button></div>' +
         '</div>' +
       '</div>';
   };
