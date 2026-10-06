@@ -17,8 +17,11 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 .wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
 .home{display:flex;flex:none;border-radius:6px}
-.home img{display:block;width:34px;height:34px;border-radius:6px}
+.home img{display:block;width:102px;height:102px;border-radius:12px;border:3px solid var(--gold);background:var(--navy);padding:4px}   /* K&C logo, 3x the old 34px, gold border on blue */
+/* Back to Job Sheet: bigger, it's the main way out (and it saves first). */
+#backBtn{font-size:18px;padding:14px 22px;border:2px solid var(--navy);border-radius:10px}
 h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+#title{display:none}   /* the room name already shows in the card below; kept in the page because the script fills it */
 .ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
@@ -53,6 +56,12 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .pbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .donebox{margin-top:16px;border-top:1px solid var(--line);font-weight:700}
 .donebox.done span{text-decoration:none;color:var(--green)}
+/* Estimated vs actual square feet on a room. */
+.sqrow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:nowrap;margin:2px 0 6px}   /* EST and Actual stay on one line, phones too */
+.sqrow .svcsub{margin:0;white-space:nowrap}
+.actual{display:flex;align-items:center;gap:8px;flex:none;font-size:15px;font-weight:600;color:var(--navy);white-space:nowrap}
+.actual input{width:92px;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
+@media (max-width:360px){ .actual input{width:76px} }
 @media print{ .pbtns,.px{display:none} }
 @media print{ body{background:#fff} .top>div{display:none!important} .panel{box-shadow:none;padding:0} }
 </style>
@@ -64,7 +73,6 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <h1 id="title">Rooms</h1>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
-      <button type="button" class="ghost" onclick="print()">Print</button>
       <a class="ghost" id="backBtn" href="./job-sheet.html">Back to Job Sheet</a>
     </div>
   </div>
@@ -192,7 +200,12 @@ async function show(){
         '<div class="cname">' + esc(name) + '</div>' +
         '<div class="meta">' + esc([q.number, svc].filter(Boolean).join(" · ")) + '</div>' +
         '<div class="svcname">' + esc(spot.name) + '</div>' +
-        (spot.sqft ? '<div class="svcsub">' + spot.sqft.toLocaleString() + ' sq ft</div>' : '') +
+        /* A room: the quoted size as Estimated, plus a box for what was actually measured on site. */
+        (spot.isRoom
+          ? '<div class="sqrow"><div class="svcsub">EST ' + (spot.sqft ? spot.sqft.toLocaleString() + ' sq ft' : '—') + '</div>' +
+            '<label class="actual">Actual <input type="number" id="actualSqft" min="0" step="1" inputmode="numeric" placeholder="Measured"' +
+            (Number(st.actualSqft) > 0 ? ' value="' + Number(st.actualSqft) + '"' : '') + '></label></div>'
+          : (spot.sqft ? '<div class="svcsub">' + spot.sqft.toLocaleString() + ' sq ft</div>' : '')) +
         (roomExtras.length ? '<h3 class="h3">In this room</h3><div class="room__body">' + roomExtras.map(x => xbox(spot, x)).join("") + '</div>' : '') +
         '<h3 class="h3">Notes</h3>' +
         '<textarea id="spotNotes" placeholder="What you found, spots to watch, anything for next time">' + esc(st.notes || "") + '</textarea>' +
@@ -213,6 +226,8 @@ async function show(){
       cb.closest(".xchk").classList.toggle("done", cb.checked); flag();
     });
     document.getElementById("spotNotes").addEventListener("input", flag);
+    const actualEl = document.getElementById("actualSqft");
+    if (actualEl) actualEl.addEventListener("input", flag);
 
     const draw = async () => {
       const urls = await Promise.all(paths.map(p => getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
@@ -255,11 +270,13 @@ async function show(){
       draw();
     });
 
-    saveBtn.addEventListener("click", async () => {
+    const doSave = async () => {
       saveBtn.disabled = true; note.textContent = "Saving…"; note.classList.remove("err");
       try {
         const data = { spots: { [spot.key]: { notes: document.getElementById("spotNotes").value.trim(),
           done: document.getElementById("doneBox").checked, photoPaths: paths, updatedAt: serverTimestamp() } } };
+        /* Actual sq ft measured on site (rooms only); blank clears it. */
+        if (actualEl) { const n = Math.round(Number(actualEl.value)); data.spots[spot.key].actualSqft = n > 0 ? n : null; }
         let next = null;
         if (roomExtras.length) {
           const mine = new Set([...view.querySelectorAll(".room__body .xchk input")].map(x => x.dataset.k));
@@ -272,7 +289,10 @@ async function show(){
         note.textContent = "Saved.";
       } catch (e) { console.error(e); note.textContent = "Could not save: " + e.message; note.classList.add("err"); }
       finally { saveBtn.disabled = false; }
-    });
+      return !note.classList.contains("err");
+    };
+    saveBtn.addEventListener("click", doSave);
+    saveBefore = doSave;   /* Back to Job Sheet saves this room first */
   }
 
   const sub = picked.map(it => { const [a, b] = splitLabel(it.label || ""); return b ? a + " · " + b : a; }).filter(Boolean).join("  |  ");
@@ -301,7 +321,7 @@ async function show(){
     note.textContent = "Not saved yet."; note.classList.remove("err");
   });
   /* Ticks on this page replace this page's keys only; other lines' ticks are kept. */
-  saveBtn.addEventListener("click", async () => {
+  const doSave = async () => {
     saveBtn.disabled = true; note.textContent = "Saving…"; note.classList.remove("err");
     try {
       const mine = new Set([...view.querySelectorAll(".xchk input")].map(x => x.dataset.k));
@@ -313,8 +333,24 @@ async function show(){
       note.textContent = "Saved.";
     } catch (e) { console.error(e); note.textContent = "Could not save: " + e.message; note.classList.add("err"); }
     finally { saveBtn.disabled = false; }
-  });
+    return !note.classList.contains("err");
+  };
+  saveBtn.addEventListener("click", doSave);
+  saveBefore = doSave;
 }
+
+/* Back to Job Sheet saves first (when the page has something to save), then goes back.
+   If the save fails it stays here with the error showing, so nothing typed is lost. */
+let saveBefore = null;
+document.getElementById("backBtn").addEventListener("click", async e => {
+  if (!saveBefore) return;
+  e.preventDefault();
+  const a = e.currentTarget, href = a.href;
+  a.style.pointerEvents = "none"; a.textContent = "Saving…";
+  const ok = await saveBefore();
+  if (ok) { location.href = href; return; }
+  a.style.pointerEvents = ""; a.textContent = "Back to Job Sheet";
+});
 
 /* Page lock. Not signed in -> login page, then back here. */
 let started = false;
