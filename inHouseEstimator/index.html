@@ -82,6 +82,17 @@
               <input id="eZip" name="zip" type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" autocomplete="off" placeholder="95630">
             </div>
           </div>
+          <!-- Texting / Specials answers from a website lead (shown only when the quote came from a lead). -->
+          <div class="estRow" id="eConsentRow" hidden>
+            <div class="estField">
+              <label for="eTextOk">Texting</label>
+              <input id="eTextOk" type="text" readonly tabindex="-1">
+            </div>
+            <div class="estField">
+              <label for="eSpecialsOk">Specials</label>
+              <input id="eSpecialsOk" type="text" readonly tabindex="-1">
+            </div>
+          </div>
         </fieldset>
 
         <fieldset id="svcField" style="scroll-margin-top:calc(var(--bar-h) + 16px)">
@@ -217,6 +228,11 @@
           <label for="eLeadMsg">Lead message</label>
           <textarea id="eLeadMsg" rows="3"></textarea>
         </div>
+        <!-- Services the customer ticked on the website quick quote, as chips (only when the quote came from a lead). -->
+        <div class="estField est__svcchips" id="eLeadSvcField" hidden>
+          <label>Services requested</label>
+          <div class="svcChips" id="eLeadSvcChips"></div>
+        </div>
         <div class="estField est__notes">
           <label for="eNotes">Anything else we should know <span class="opt">(optional)</span></label>
           <textarea id="eNotes" rows="4" placeholder="Parking and access, stairs up to the unit, furniture to move, pets at home, preferred days or times"></textarea>
@@ -241,12 +257,6 @@
             <input type="checkbox" disabled>
             <span>I have read and agree to the <a class="qterms__link" href="./terms.html" target="_blank" rel="noopener">Service Terms &amp; Conditions</a></span>
           </label>
-          <div class="qsign">
-            <label for="qSignName">Type your full name to sign</label>
-            <input type="text" id="qSignName" placeholder="Your full name" autocomplete="off" disabled>
-            <p class="qsign__date">Dated automatically when approved</p>
-          </div>
-          <button type="button" class="qapprove" disabled>Approve Estimate</button>
         </div>
 
 
@@ -350,8 +360,33 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
     set("eZip", data.zip);
     /* The lead's message goes into "Anything else we should know" (no separate
        Lead message box). Only fills it when that box is still empty. */
+    /* "OK to text: yes" / "OK to text specials: yes" lines at the top of the message
+       come out of the box and show as Texting / Specials in Customer details instead. */
+    const msgLines = String(data.message || "").split("\n");
+    let txt = data.texting, spc = data.specials;
+    while (msgLines.length && /^OK to text( specials)?: (yes|no)$/i.test(msgLines[0].trim())) {
+      const m = /^OK to text( specials)?: (yes|no)$/i.exec(msgLines.shift().trim());
+      const yes = m[2].toLowerCase() === "yes";
+      if (m[1]) { if (spc == null) spc = yes; } else if (txt == null) txt = yes;
+    }
+    const msgBody = msgLines.join("\n").trim();
+    if (txt != null || spc != null) {
+      const label = v => v === true ? "OK" : v === false ? "No" : "Not recorded";
+      set("eTextOk", label(txt));
+      set("eSpecialsOk", label(spc));
+      const row = document.getElementById("eConsentRow");
+      if (row) row.hidden = false;
+    }
     const notes = document.getElementById("eNotes");
-    if (notes && data.message && !notes.value.trim()) notes.value = data.message;
+    if (notes && msgBody && !notes.value.trim()) notes.value = msgBody;
+    /* Services the customer ticked on the quick quote, as chips above "Anything else". */
+    const svcs = (Array.isArray(data.services) ? data.services : String(data.services || "").split(","))
+      .map(s => String(s).trim()).filter(Boolean);
+    const chipBox = document.getElementById("eLeadSvcChips"), chipField = document.getElementById("eLeadSvcField");
+    if (svcs.length && chipBox && chipField) {
+      svcs.forEach(s => { const c = document.createElement("span"); c.className = "svcChip"; c.textContent = s; chipBox.appendChild(c); });
+      chipField.hidden = false;
+    }
     /* Remember the lead, so Send marks this lead quoted instead of making a new one. */
     const lid = document.getElementById("eLeadId");
     if (lid && data.leadId) lid.value = data.leadId;

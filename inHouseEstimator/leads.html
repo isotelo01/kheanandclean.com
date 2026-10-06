@@ -519,6 +519,11 @@ async function showLead(id){
       state: a.state || "",
       zip: a.zip || "",
       message: l.message || "",
+      /* Yes / No / null; the estimator shows these as Texting and Specials. */
+      texting: textOk(l),
+      specials: promoOk(l),
+      /* The services ticked on the website form; the estimator shows them as chips. */
+      services: Array.isArray(l.services) ? l.services : String(l.services || "").split(",").map(s => s.trim()).filter(Boolean),
       leadId: l.id,
       /* The day the customer asked for ("10/05/26 AM"), so Job date fills in. */
       when: typeof l.when === "string" ? l.when : "",
