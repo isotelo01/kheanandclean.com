@@ -102,6 +102,19 @@ textarea{min-height:90px;resize:vertical}
 .jobrow .job__date{flex:0 0 auto}
 .jobsheet{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0 14px;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap}
 .jobsheet:hover{opacity:.88}
+/* Job history card: fits a phone, nothing spills out. */
+.jobcard{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;color:var(--ink)}
+.jc1,.jc2{display:flex;align-items:center;gap:10px}
+.jc2{margin-top:6px}
+.jcno{font-weight:700;color:var(--navy);text-decoration:none}
+.jcno:hover{text-decoration:underline}
+.jcst{font-size:12px;font-weight:700;padding:2px 9px;border-radius:20px;background:#fbe9e6;color:var(--red)}
+.jcst.paid{background:#e5f2ec;color:var(--green)}
+.jctot{margin-left:auto;font-weight:700;white-space:nowrap}
+.jcdate{color:var(--muted);font-size:13px}
+.jobcard .jobsheet{margin-left:auto;padding:6px 14px;font-size:13px}
+.jc3{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.jc3 a{color:var(--navy);font-weight:600}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px}
 .new:disabled{opacity:.6;cursor:default}
 .note{font-size:14px;color:var(--muted)}
@@ -572,15 +585,25 @@ async function showProfile(id){
         .map(r => ({ ...r, ms: (r.paid && anyMs(r.paidAt)) || anyMs(r.invoicedAt) }))
         .sort((a, b) => (b.ms || 0) - (a.ms || 0));
       if (!rows.length) { box.textContent = "No jobs yet."; return; }
-      box.innerHTML = rows.map(r =>
-        '<div class="jobrow">' +
-        '<a class="job" href="./quote.html?id=' + encodeURIComponent(r.id) + '" target="_blank" rel="noopener">' +
-          '<span class="job__date">' + esc(shortDate(r.ms) || "\u2014") + '</span>' +
-          '<span class="job__no">' + esc((r.number || "") + (r.paid ? "" : " \u00b7 Unpaid")) + '</span>' +
-          '<span class="job__total">' + esc(money(r.total)) + '</span>' +
-        '</a>' +
-        '<a class="jobsheet" href="./job-sheet.html?id=' + encodeURIComponent(r.id) + '">Job sheet</a>' +
-        '</div>').join("");
+      /* One card per job: invoice no. + status + total; date + Job sheet; then the quote it came
+         from and every version that quote replaced (Q-1068OG, OG2...), each its own link. */
+      box.innerHTML = rows.map(r => {
+        const rid = encodeURIComponent(r.id);
+        const ogs = Array.isArray(r.originals) ? r.originals : (r.originalQuote ? [r.originalQuote] : []);
+        const base = r.baseNumber || r.quoteNumber || (ogs[0] && ogs[0].number) || "";
+        const hist = base || ogs.length
+          ? '<div class="jc3">' + (base ? '<span>' + esc(base) + '</span>' : '') +
+              ogs.map((o, i) => '<a href="./quote.html?id=' + rid + '&original=' + (i + 1) + '" target="_blank" rel="noopener">' +
+                esc("OG" + (i ? i + 1 : "")) + ' ' + esc(money(o.total)) + '</a>').join("") + '</div>'
+          : '';
+        return '<div class="jobcard">' +
+          '<div class="jc1"><a class="jcno" href="./quote.html?id=' + rid + '" target="_blank" rel="noopener">' + esc(r.number || "Invoice") + '</a>' +
+            '<span class="jcst' + (r.paid ? ' paid' : '') + '">' + (r.paid ? "Paid" : "Unpaid") + '</span>' +
+            '<span class="jctot">' + esc(money(r.total)) + '</span></div>' +
+          '<div class="jc2"><span class="jcdate">' + esc(shortDate(r.ms) || "\u2014") + '</span>' +
+            '<a class="jobsheet" href="./job-sheet.html?id=' + rid + '">Job sheet</a></div>' +
+          hist + '</div>';
+      }).join("");
     } catch (e) {
       console.error(e);
       box.textContent = "Could not load job history.";
