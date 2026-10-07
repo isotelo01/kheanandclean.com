@@ -487,7 +487,7 @@ async function showProfile(id){
       '<h2>Job history</h2>' +
       '<div id="jobs" class="jobs">' + (isNew ? "Job history appears once this customer has an invoice." : "Loading\u2026") + '</div>' +
       '<h2>Photos</h2>' +
-      '<div id="photos">' + (!isNew && (photosOf(c).length || pathsOf(c).length || ownOf(c).length)
+      '<div id="photos">' + (!isNew   /* job photos may come in too, so always look */
         ? '<div class="msg">Loading photos&hellip;</div>'
         : '<div class="photos">No photos on file.</div>') + '</div>' +
       (isNew ? "" :
@@ -584,7 +584,7 @@ async function showProfile(id){
         .filter(r => r.customerId === c.id || pks.includes(phoneKey(r.customer && r.customer.phone)))
         .map(r => ({ ...r, ms: (r.paid && anyMs(r.paidAt)) || anyMs(r.invoicedAt) }))
         .sort((a, b) => (b.ms || 0) - (a.ms || 0));
-      if (!rows.length) { box.textContent = "No jobs yet."; return; }
+      if (!rows.length) { box.textContent = "No jobs yet."; return []; }
       /* One card per job: invoice no. + status + total; date + Job sheet; then the quote it came
          from and every version that quote replaced (Q-1068OG, OG2...), each its own link. */
       box.innerHTML = rows.map(r => {
@@ -604,33 +604,53 @@ async function showProfile(id){
             '<a class="jobsheet" href="./job-sheet.html?id=' + rid + '">Job sheet</a></div>' +
           hist + '</div>';
       }).join("");
+      return rows;   /* Photos below also show these jobs' photos */
     } catch (e) {
       console.error(e);
       box.textContent = "Could not load job history.";
+      return [];
     }
   }
-  loadJobs();
+  const jobsP = isNew ? Promise.resolve([]) : loadJobs();
 
   /* Photos: older records carry links; newer ones carry storage paths,
      which only a signed-in staff member can turn into links. */
   async function loadPhotos(){
     if (isNew) return;
-    const urls = photosOf(c), paths = pathsOf(c), own = ownOf(c);
+    const own = ownOf(c);
+    let urls = photosOf(c), paths = pathsOf(c);
     const box = $("photos");
+    /* Customer photos only: plus what the customer sent in on each job's quick quote (its lead) and
+       through the quote page's message box (quoteNotes). Room, Job and Notes photos stay on the job.
+       Ones taken off here with × are listed in hiddenPhotos (the lead / quote keep theirs). */
+    try {
+      const jobs = await jobsP;
+      const leadIds = [...new Set(jobs.map(j => j.leadId).filter(Boolean))];
+      const leads = await Promise.all(leadIds.map(lid => getDoc(doc(db, "leads", lid)).then(s => s.exists() ? s.data() : null).catch(() => null)));
+      const notes = await Promise.all(jobs.map(j => getDoc(doc(db, "quoteNotes", j.id)).then(s => s.exists() ? s.data() : null).catch(() => null)));
+      leads.concat(notes).filter(Boolean).forEach(x => { urls = urls.concat(photosOf(x)); paths = paths.concat(pathsOf(x)); });
+      const ownPaths = new Set(own.map(p => p.path)), hidden = new Set(Array.isArray(c.hiddenPhotos) ? c.hiddenPhotos : []);
+      urls = [...new Set(urls)].filter(u => !hidden.has(u));
+      paths = [...new Set(paths)].filter(p => !ownPaths.has(p) && !hidden.has(p));
+    } catch (e) { console.error("customer photos", e); }
     if (!urls.length && !paths.length && !own.length) {
       if (box) box.innerHTML = '<div class="photos">No photos on file.</div>';
       return;
     }
     const fromPaths = await Promise.all(paths.map(p =>
       getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
-    const older = urls.concat(fromPaths.filter(Boolean));
+    /* Each carried photo keeps its key (the link or the storage path) so its × knows what to take off. */
+    const seenUrl = new Set(), older = [];
+    urls.map(u => ({ url: u, key: u })).concat(paths.map((p, i) => ({ url: fromPaths[i], key: p })))
+      .forEach(o => { if (o.url && !seenUrl.has(o.url)) { seenUrl.add(o.url); older.push(o); } });   /* a lead's link and path can be the same photo */
     if (!box || !box.isConnected) return;   /* left the page while loading */
     const shot = u => '<a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) + '"><img src="' + esc(u) + '" alt="" loading="lazy"></a>';
     /* Added photos first (newest on top), each with its X; older carried-over ones after, no X. */
     const cells = own.slice().reverse().map(p =>
         '<div class="pcell">' + shot(p.url) +
         '<button type="button" class="pdel" data-path="' + esc(p.path) + '" aria-label="Delete photo">\u00d7</button></div>')
-      .concat(older.map(u => '<div class="pcell">' + shot(u) + '</div>'));
+      .concat(older.map(o => '<div class="pcell">' + shot(o.url) +
+        '<button type="button" class="pdel" data-hide="' + esc(o.key) + '" aria-label="Remove photo">×</button></div>'));
     box.innerHTML = cells.length
       ? '<div class="pgrid">' + cells.join("") + '</div>'
       : '<div class="photos">The photos for this customer could not be loaded.</div>';
@@ -687,6 +707,19 @@ async function showProfile(id){
     const x = e.target.closest(".pdel");
     if (!x) return;
     e.preventDefault();
+    /* A quick-quote / quote-page photo: taken off this customer page only (the lead and quote keep it). */
+    if (x.dataset.hide) {
+      if (!confirm("Remove this photo from this customer?")) return;
+      x.disabled = true; photoSay("Removing…");
+      try {
+        const list = [...new Set((Array.isArray(c.hiddenPhotos) ? c.hiddenPhotos : []).concat([x.dataset.hide]))];
+        await setDoc(doc(db, "customers", id), { hiddenPhotos: list }, { merge: true });
+        c.hiddenPhotos = list;
+        if (all) all = all.map(y => y.id === id ? Object.assign({}, y, { hiddenPhotos: list }) : y);
+        photoSay("Photo removed."); await loadPhotos();
+      } catch (err) { console.error(err); photoSay("Could not remove: " + err.message, true); x.disabled = false; }
+      return;
+    }
     const path = x.dataset.path;
     if (!confirm("Delete this photo? This can't be undone.")) return;
     x.disabled = true;
