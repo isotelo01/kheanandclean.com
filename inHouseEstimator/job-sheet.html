@@ -961,21 +961,26 @@ async function show(){
       const revNo = inPlace ? (Number(q.revNo) || 1) : (Number(q.revNo) || 0) + 1;
       const base = String(q.baseNumber || q.number || "").replace(/-R\d+$/, "");
       const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0)), adj = r2(cur.adj), total = r2(sub + adj);
-      /* The original approved quote, kept once and carried forward to R2, R3... */
-      const orig = q.originalQuote || {
-        number: q.number || "", status: "accepted", lines: q.lines || [], subtotal: q.subtotal ?? null,
+      /* Superseded versions, oldest first: shown as Q-1068OG, Q-1068OG2, OG3... (newest highest).
+         A new update adds the approved quote it replaces; updating one still waiting adds nothing. */
+      const prevOGs = Array.isArray(q.originals) ? q.originals : (q.originalQuote ? [q.originalQuote] : []);
+      const snap = {
+        number: base, status: "accepted", lines: q.lines || [], subtotal: q.subtotal ?? null,
         discount: q.discount || 0, discountLabel: q.discountLabel || "", total: q.total ?? null,
         acceptedName: q.acceptedName || "", acceptedAt: q.acceptedAt || null, termsAccepted: !!q.termsAccepted,
         createdAt: q.createdAt || null
       };
+      const originals = inPlace ? prevOGs : prevOGs.concat([snap]);
+      const orig = originals[0];   /* first original: what invoices and older pages read as originalQuote */
       const rev = { ...q };
       ["id", "revision", "revisionOf", "expiresAt", "trashedFrom", "trashedAt"].forEach(k => delete rev[k]);
       Object.assign(rev, {
-        type: "quote", status: "sent", fromJobSheet: true, revNo, baseNumber: base, number: base + "-R" + revNo,
+        /* The live quote keeps the plain number (Q-1068); only superseded ones get OG labels. */
+        type: "quote", status: "sent", fromJobSheet: true, revNo, baseNumber: base, number: base,
         /* Lines as the customer sees them: anything deleted on site left out. */
         lines: JSON.parse(JSON.stringify(cur.lines)).map(l => ({ ...l, items: (l.items || []).filter(it => !it.removed) })),
         subtotal: adj > 0 ? total : sub, discount: adj < 0 ? -adj : 0, discountLabel: q.discountLabel || "Discount", total,
-        originalQuote: orig,
+        originalQuote: orig, originals,
         /* The job sheet as it stands, so R1 opens with the same rooms (and room ids, so photos stay matched). */
         onsite: { lines: JSON.parse(JSON.stringify(cur.lines)), subtotal: sub, total },
         /* Same day: these are on-site edits. Re-approval keeps it as is (no day picking). */

@@ -285,6 +285,13 @@ async function showProfile(id){
     : q.originalQuote
       ? '<a href="./quote.html?id=' + qid + '&original=1" target="_blank" rel="noopener">' + esc(q.originalQuote.number || "Original quote") + '</a> &middot; ' + esc(money(q.originalQuote.total))
       : "";
+  /* On-site updates: every version it replaced, oldest first: Q-1068OG, Q-1068OG2, OG3... (newest highest). */
+  const ogs = Array.isArray(q.originals) ? q.originals : (q.fromJobSheet && q.originalQuote ? [q.originalQuote] : null);
+  if (ogs && ogs.length) {
+    const base = q.baseNumber || (ogs[0] && ogs[0].number) || q.number || "";
+    origLink = ogs.map((o, i) => '<a href="./quote.html?id=' + qid + '&original=' + (i + 1) + '" target="_blank" rel="noopener">' +
+      esc(base + "OG" + (i ? i + 1 : "")) + '</a> &middot; ' + esc(money(o.total))).join("<br>");
+  }
   let quoteLink = onsiteLive
     ? '<a href="./job-sheet.html?id=' + qid + '">On-site job sheet</a> &middot; ' + esc(money(q.onsite.total)) + ' &middot; Active' :
     '<a href="./quote.html?id=' + encodeURIComponent(q.id) + '" target="_blank" rel="noopener">' +

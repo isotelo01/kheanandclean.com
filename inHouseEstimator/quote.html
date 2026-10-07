@@ -520,8 +520,11 @@ async function load(){
   catch (e) { console.error("note", e); }
   /* ?original=1 on an invoice edited on site: show the original approved quote kept on it. */
   let data = snap.data();
-  if (new URLSearchParams(location.search).has("original") && data.originalQuote)
-    data = { ...data, ...data.originalQuote, type: "quote" };
+  /* ?original=2 shows the second superseded version (Q-1068OG2), from the job's originals list. */
+  const ogN = Number(new URLSearchParams(location.search).get("original")) || 1;
+  const og = Array.isArray(data.originals) && data.originals[ogN - 1] ? data.originals[ogN - 1] : data.originalQuote;
+  if (new URLSearchParams(location.search).has("original") && og)
+    data = { ...data, ...og, type: "quote", number: (og.number || data.number || "") + "OG" + (ogN > 1 ? ogN : "") };
   render(data);
 }
 
