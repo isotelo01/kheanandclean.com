@@ -201,7 +201,7 @@ async function show(){
       for (let k = 1; k <= n; k++) {
         /* On-site rooms carry their own id (kept when other rooms are added or deleted). */
         const key = rm.id && n === 1 ? rm.id : lineNo + "-" + j + "-" + r;
-        rooms.push({ name: n > 1 ? rm.name + " " + k : rm.name, sqft: each, j, r: r++, key });
+        rooms.push({ name: n > 1 ? rm.name + " " + k : rm.name, sqft: each, j, r: r++, key, track: !!it.track });
       }
     });
   });
@@ -244,7 +244,7 @@ async function show(){
   } else if (pickedItem && roomNo != null) {
     const rm = rooms.find(x => x.r === roomNo);
     if (rm) spot = { ...rm, isRoom: true };
-  } else if (pickedItem && !(Array.isArray(pickedItem.rooms) && pickedItem.rooms.length)) {
+  } else if (pickedItem && (pickedItem.track || !(Array.isArray(pickedItem.rooms) && pickedItem.rooms.length))) {   /* track: "Whole area" of a straight-sq-ft line */
     spot = { name: splitLabel(pickedItem.label)[0] || "Area", sqft: 0, key: lineNo + "-" + itemNo, isRoom: false,
       stairs: /stair/i.test(String(pickedItem.label || "")) };
   } else if (itemNo == null && !items.length) {
@@ -295,7 +295,7 @@ async function show(){
        Sheet charges the checked rooms' sq ft; it replaces any whole-line hair & debris, so no double charge. */
     /* Quoted with hair & debris: the box starts checked. Once this room is saved, its own setting wins. */
     const lineHair = !!line.hairQuoted || items.some(it => !it.removed && it.addonKey !== "hairRoom" && /^hair & debris/i.test(String(it.label || "")));
-    const showHair = spot.isRoom && isCarpet;
+    const showHair = spot.isRoom && isCarpet && !spot.track;   /* tracking rooms (straight-sq-ft line) add no money */
     const hairOn = typeof st.hair === "boolean" ? st.hair : lineHair;
     /* This room's fiber if it has one, otherwise the job's (set by the first room saved). */
     const FIBERS = ["Nylon", "Polyester", "Olefin", "Other"];

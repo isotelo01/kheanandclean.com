@@ -75,6 +75,12 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
   .sdel{position:static;order:2;width:auto;flex:none;padding:6px 12px;margin-left:8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--red)}
 }
 .addroom{margin:10px 0 6px}
+/* Straight-sq-ft line: a header that opens its rooms (tracking only, no prices) and Add room. */
+.flathead{cursor:pointer}
+.flathead .fcaret{font-size:16px;transition:transform .2s}
+.flathead.open .fcaret{transform:rotate(180deg)}
+.flatsub{display:none;margin:0 0 8px 14px;padding-left:12px;border-left:3px solid var(--gold)}
+.flatsub.open,.summ .flatsub{display:block}
 /* Room table, same rows as the estimator's room picker. */
 .rpick{margin-top:10px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .rpick[hidden]{display:none}
@@ -262,6 +268,13 @@ const rateOf = it => {
   const m = String(it.label || "").match(/@\s*\$([\d.]+)\s*\/\s*sq\s*ft/i); if (m) return Number(m[1]);
   const rm = (it.rooms || []).find(x => Number(x.sqft) > 0); return rm ? (Number(rm.cost) || 0) / Number(rm.sqft) : 0;
 };
+/* Straight by the sq ft ("Deep Cleaning — 1,000 sq ft @ $0.50/sq ft", no rooms on the quote): tapping it
+   opens its rooms. Rooms added there are for tracking only (photos, notes, Done) and add no money;
+   it.track marks it, and recalc never touches it (perSqft stays empty). */
+const isFlat = it => !!it && !it.removed && (!!it.track || (!(Array.isArray(it.rooms) && it.rooms.length) && it.perSqft == null &&
+  !it.addonKey && it.addonPerSqft == null && /@\s*\$[\d.]+\s*\/\s*sq\s*ft/i.test(String(it.label || ""))));
+const flatKey = "kcOpenFlat_" + id;
+const openFlat = new Set((ss.get(flatKey) || "").split(",").filter(Boolean));
 /* The quote's lines, copied for on-site use: grouped rooms split (Bedroom × 3 = Bedroom 1, 2, 3)
    and each room given the same id its photos were already saved under. */
 function onsiteCopy(src){
@@ -314,7 +327,9 @@ function syncHair(lines, spots){
        hand it over to the room boxes. Every room starts checked at the quoted rate, so the
        total doesn't move; unchecking a room takes its sq ft off. */
     const whole = items.find(x => !x.removed && x.addonKey !== "hairRoom" && /^hair & debris/i.test(String(x.label || "")));
-    if (whole) {
+    /* Only when the line has priced rooms to hand it to; a straight-sq-ft line keeps its quoted hair & debris. */
+    const pricedRooms = items.some(x => !x.removed && !x.track && Array.isArray(x.rooms) && x.rooms.length);
+    if (whole && pricedRooms) {
       const wsq = Number(String((String(whole.label).match(/([\d,]+)\s*sq ft/i) || [])[1] || "").replace(/,/g, "")) || 0;
       l.hairQuoted = true;
       l.hairRate = Number(whole.addonPerSqft) || (wsq ? (Number(whole.cost) || 0) / wsq : base);
@@ -323,7 +338,7 @@ function syncHair(lines, spots){
     const rate = Number(l.hairRate) || base;
     /* A room's box: what was saved on its page, else checked if the quote had hair & debris. */
     let sq = 0;
-    items.forEach(it => { if (it.removed || !Array.isArray(it.rooms)) return;
+    items.forEach(it => { if (it.removed || it.track || !Array.isArray(it.rooms)) return;   /* tracking rooms add no money */
       it.rooms.forEach(rm => { const s = spots[rm.id];
         if (s && typeof s.hair === "boolean" ? s.hair : !!l.hairQuoted) sq += Number(rm.sqft) || 0; }); });
     let it = items.find(x => x.addonKey === "hairRoom");
@@ -366,6 +381,15 @@ view.addEventListener("click", e => {
   const box = h.closest(".svc"), k = h.dataset.toggle, on = !box.classList.contains("open");
   box.classList.toggle("open", on); h.setAttribute("aria-expanded", on);
   on ? openLines.add(k) : openLines.delete(k); saveOpen();
+});
+/* Tap a straight-sq-ft line: open or close its rooms (a swiped row just closes its Delete). */
+view.addEventListener("click", e => {
+  const h = e.target.closest("[data-flat]"); if (!h) return;
+  e.preventDefault();
+  const row = h.closest(".srow"); if (row && (row.dataset.justSwiped || row.classList.contains("swiped")) || summ) return;
+  const k = h.dataset.flat, sub = view.querySelector('[data-flatsub="' + k + '"]'); if (!sub) return;
+  const on = sub.classList.toggle("open"); h.classList.toggle("open", on);
+  on ? openFlat.add(k) : openFlat.delete(k); ss.set(flatKey, [...openFlat].join(","));
 });
 /* Rooms and prices come from pricing.js, the same file the estimator uses, so a size or price
    changed there changes here too. Flight of Stairs is left out of the room table: it's its
@@ -428,7 +452,9 @@ view.addEventListener("click", async e => {
   }
   if (!e.target.closest("[data-rpadd]")) return;
   const i = Number(box.dataset.line), j = Number(box.dataset.item), it = cur.lines[i].items[j];
-  if (it.perSqft == null) it.perSqft = rateOf(it);
+  /* Straight-sq-ft service: rooms for tracking only, $0 each, the quoted price stays. */
+  if (isFlat(it)) { it.track = true; if (!Array.isArray(it.rooms)) it.rooms = []; }
+  else if (it.perSqft == null) it.perSqft = rateOf(it);
   let added = 0;
   pick.querySelectorAll(".rprow").forEach(r => {
     const rt = ROOM_TYPES.find(x => x.key === r.dataset.rt), n = Math.max(0, Math.round(Number(r.querySelector("input").value) || 0));
@@ -745,14 +771,30 @@ async function show(){
     /* Hair & debris from the room pages: shown, not deletable here (uncheck it on the room page). */
     if (it.addonKey === "hairRoom") return '<div class="meta staff" style="padding:6px 4px 0">' + esc(noPrice(it.label)) + ' (checked on the room pages)</div>' +
       '<div class="srow sumonly"><div class="spot"><span class="spot__name">' + esc(noPrice(it.label)) + '</span><span class="sprice">' + money(it.cost) + '</span></div></div>';
-    if (!rms.length && it.perSqft == null) return delWrap("item", i, j, "", spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j), it.cost));
-    /* Rooms: one row each, with Delete (a button on desktop, swipe left on phones), then Add room. */
-    return rms.map((rm, r) =>
+    /* Rooms: one row each, with Delete (a button on desktop, swipe left on phones), then Add room.
+       Tracking rooms (straight-sq-ft service) show no price: they add no money. */
+    const roomRows = () => rms.map((rm, r) =>
       '<div class="srow" data-line="' + i + '" data-item="' + j + '" data-room="' + esc(rm.id) + '">' +
         '<button type="button" class="sdel" data-del>Delete</button>' +
-        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r), rm.cost) +
-      '</div>').join("") +
-      /* Add room: opens the estimator's room table (same rooms and sizes, − / + counts). */
+        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r), it.track ? null : rm.cost) +
+      '</div>').join("");
+    /* Straight by the sq ft: the line is a header; tap it to open its rooms and Add room. */
+    if (isFlat(it)) {
+      const fk = i + "-" + j, open = openFlat.has(fk);
+      const head = '<a class="spot flathead' + (open ? ' open' : '') + '" href="#" data-flat="' + fk + '">' +
+        '<span class="spot__name">' + esc(noPrice(it.label) || "Area") + '</span>' +
+        '<span class="spot__size">' + (rms.length ? rms.length + (rms.length === 1 ? " room" : " rooms") : "Add rooms") + '</span>' +
+        '<span class="sprice">' + money(it.cost) + '</span><span class="spot__go fcaret">▾</span></a>';
+      /* Photos already taken on the whole area (before rooms) stay reachable. */
+      const st = spots[fk], whole = st && Object.keys(st).length ? spotRow(fk, "Whole area", "", spotLink(i, j)) : "";
+      return delWrap("item", i, j, "", head) +
+        '<div class="flatsub' + (open ? ' open' : '') + '" data-flatsub="' + fk + '">' + whole + roomRows() + addRoomBox(i, j) + '</div>';
+    }
+    if (!rms.length && it.perSqft == null) return delWrap("item", i, j, "", spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j), it.cost));
+    return roomRows() + addRoomBox(i, j);
+  };
+  /* Add room: opens the estimator's room table (same rooms and sizes, − / + counts). */
+  const addRoomBox = (i, j) =>
       '<div class="addroom" data-line="' + i + '" data-item="' + j + '">' +
         '<button type="button" class="new" data-pick>Add room</button>' +
         '<div class="rpick" hidden>' +
@@ -766,7 +808,6 @@ async function show(){
           '<div class="rpfoot"><button type="button" class="new" data-rpadd>Add room</button></div>' +
         '</div>' +
       '</div>';
-  };
   const sections = lines.map((l, i) => {
     const items = Array.isArray(l.items) ? l.items : [];
     const extras = isCarpet(l) ? items.filter(it => isExtra(it) && !it.removed) : [];
