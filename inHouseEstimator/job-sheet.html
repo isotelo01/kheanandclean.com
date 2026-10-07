@@ -105,6 +105,12 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .addsvc .rprow{cursor:pointer}
 .rpgo{flex:none;font-weight:600;font-size:14px;color:var(--navy)}
 .addfurn{margin:10px 0 6px}
+/* + Add service: the Add-ons heading between the services and the counted add-ons. */
+.rphead{padding:8px 10px;font:700 12px "Archivo",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:#f6f7fa;border-top:1px solid var(--line)}
+/* Carpet line: Change package. */
+.pkgbox{margin:0 0 8px}
+.pkgbtn{padding:6px 12px;font:600 14px "Archivo",sans-serif;color:var(--navy);background:#fff;border:1px solid var(--gold);border-radius:6px;cursor:pointer}
+.pkgbox .rprow{cursor:pointer}
 @media print{.addsvc,.addfurn{display:none!important}}
 .jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
 @media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
@@ -430,6 +436,54 @@ const svcChoices = () => {
 let pendingOpen = null;
 const addonCaption = a => a.sqft != null ? "$" + a.sqft.toFixed(2) + " / sq ft of carpet"
   : (a.text || "$" + a.linear + " per " + addonUnit(a));
+/* Carpet line (by key, or by package name on older quotes). */
+const isCarpetLine = l => /carpet/i.test(String(l.key || "")) ||
+  /carpet|essential cleaning|deep cleaning|signature cleaning|quick dry|encapsulation/i.test(String(l.label || ""));
+/* + Add service, Add-ons: rugs, stairs, pet, stain, filter lines, priced from pricing.js. */
+const CA = (PRICING.SERVICES.carpet || {}).addons || {};
+const xaddList = () => [
+  ...((CA.rug && CA.rug.sizes) || []).map(z => ({ id: "rug:" + z.key, kind: "rug", z, step: 1,
+    name: "Area Rug — " + z.label, cap: "$" + z.price + " per rug" })),
+  CA.stairs && { id: "stairs", kind: "stairs", a: CA.stairs, step: CA.stairs.qtyStep || 0.5,
+    name: CA.stairs.name, cap: "$" + CA.stairs.linear + " per flight, in halves" },
+  ...["pet", "stain", "filter"].map(k => { const a = CARPET_ADDONS.find(x => x.key === k);
+    return a && { id: k, kind: "count", a, step: a.qtyStep || 1, name: a.name, cap: addonCaption(a) }; })
+].filter(Boolean);
+/* Carpet package on a line: the tier whose name is in the line's or its main item's label. */
+const TIERS = (PRICING.SERVICES.carpet || {}).tiers || {};
+const tierOf = l => { const txt = [l.label, ...(l.items || []).filter(it => !it.removed).map(it => it.label)].join(" | ");
+  return Object.keys(TIERS).find(k => txt.includes(TIERS[k].name)) || ""; };
+/* Change package: the line's rate goes to the new package's (rooms kept and repriced; a straight-sq-ft
+   line repriced on its sq ft), then the estimator's package rules for the extras:
+   Signature includes drying, deodorizer and protector; Deep includes drying;
+   Essential has no protector or filter lines; Quick Dry has no drying or protector. */
+function changePkg(l, from, to){
+  const F = TIERS[from], T = TIERS[to]; if (!F || !T || from === to) return;
+  const swap = s => String(s || "").split(F.name).join(T.name)
+    .replace(/@\s*\$[\d.]+\s*\/\s*sq\s*ft/i, "@ $" + T.sqft.toFixed(2) + "/sq ft");
+  let delta = 0;
+  (l.items || []).forEach(it => {
+    if (it.removed) return;
+    if (it.perSqft != null && !it.track) { it.perSqft = T.sqft; it.label = swap(it.label); }   /* rooms: recalc below */
+    else if (isFlat(it)) {
+      const sq = Number(String((String(it.label).match(/([\d,]+)\s*sq ft/i) || [])[1] || "").replace(/,/g, "")) || 0;
+      const old = Number(it.cost) || 0; it.cost = r2(sq * T.sqft); it.label = swap(it.label); delta += it.cost - old;
+    }
+  });
+  l.label = swap(l.label); l.tier = to;
+  /* Extras by package. */
+  const keyOf = it => it.addonKey || (["dry", "deo", "prot", "filter"].find(k => CA[k] && String(it.label || "").startsWith(CA[k].name)) || "");
+  const drop = { signature: ["dry", "deo", "prot"], essential: ["prot", "filter"], quickdry: ["dry", "prot"] }[to] || [];
+  (l.items || []).forEach(it => {
+    if (it.removed) return; const k = keyOf(it);
+    if (drop.includes(k) || (k === "dry" && it.included && to !== "deep")) { delta -= Number(it.cost) || 0; it.cost = 0; it.removed = true; }
+    else if (k === "dry" && to === "deep" && !it.included) { delta -= Number(it.cost) || 0; it.cost = 0; it.included = true; it.label = CA.dry.name; }
+  });
+  if (to === "deep" && CA.dry && !(l.items || []).some(it => !it.removed && keyOf(it) === "dry"))
+    l.items.push({ label: CA.dry.name, cost: 0, included: true });
+  l.cost = r2((Number(l.cost) || 0) + delta);
+  recalc(l);   /* reprices the rooms at the new rate */
+}
 /* Tap anywhere outside an open room table: it closes and its counts clear (nothing is added). */
 document.addEventListener("click", e => {
   document.querySelectorAll(".addroom").forEach(box => {
@@ -536,7 +590,7 @@ view.addEventListener("click", async e => {
 });
 /* Tap outside an open Add service / Add furniture table: it closes, counts clear. */
 document.addEventListener("click", e => {
-  document.querySelectorAll(".addsvc, .addfurn").forEach(box => {
+  document.querySelectorAll(".addsvc, .addfurn, .pkgbox").forEach(box => {
     const p = box.querySelector(".rpick");
     if (!p || p.hidden || box.contains(e.target)) return;
     p.hidden = true; p.querySelectorAll("input[type=number]").forEach(x => x.value = 0);
@@ -559,6 +613,75 @@ view.addEventListener("click", async e => {
   openLines.add(String(idx)); saveOpen();
   pendingOpen = { line: idx, kind: c.items ? "furn" : "room" };
   try { await saveOnsite(); show(); } catch (err) { fail(err); delete row.dataset.busy; }
+});
+/* + Add service, Add-ons: − / + counts, then Add puts them on the carpet line (rugs, pet, stain,
+   filter) or, for stairs, the carpet line else the first floor line. No carpet line: a "Carpet
+   Add-ons" line is made. Priced from pricing.js; they raise the total like any on-site add. */
+view.addEventListener("click", async e => {
+  const box = e.target.closest(".addsvc"); if (!box || !cur) return;
+  const row = e.target.closest(".rprow[data-xa]");
+  if (row && !e.target.closest("input")) {
+    const inp = row.querySelector("input"), st = Number(inp.step) || 1;
+    inp.value = Math.max(0, r2((Number(inp.value) || 0) + (e.target.closest("[data-rpminus]") ? -st : st)));
+    return;
+  }
+  const btn = e.target.closest("[data-xadd]"); if (!btn) return;
+  const list = xaddList();
+  const want = [...box.querySelectorAll(".rprow[data-xa]")]
+    .map(r => [list.find(x => x.id === r.dataset.xa), Number(r.querySelector("input").value) || 0]).filter(([x, n]) => x && n > 0);
+  if (!want.length) { box.querySelector(".rpick").hidden = true; return; }
+  let ci = cur.lines.findIndex(l => l.key === "carpet"); if (ci < 0) ci = cur.lines.findIndex(isCarpetLine);
+  const fi = ci >= 0 ? ci : cur.lines.findIndex(l => l.key !== "upholstery" && !(l.items || []).some(it => it.uphKey));
+  let newIdx = -1;
+  const lineFor = x => { let k = x.kind === "stairs" ? fi : ci;
+    if (k < 0) { if (newIdx < 0) { cur.lines.push({ key: "carpet", label: "Carpet Add-ons", cost: 0, items: [], addedOnSite: true }); newIdx = cur.lines.length - 1; } k = newIdx; }
+    openLines.add(String(k)); return cur.lines[k]; };
+  want.forEach(([x, n]) => {
+    const l = lineFor(x); l.items = Array.isArray(l.items) ? l.items : []; let delta = 0;
+    if (x.kind === "rug") {
+      /* Same label as the estimator: "Area Rugs — Medium (5×8) × 2"; one row and page per rug. */
+      n = Math.round(n); const base = (CA.rug.name || "Area Rugs") + " — " + x.z.label;
+      const it = l.items.find(t => !t.removed && String(t.label || "").startsWith(base + " ×"));
+      if (it) { const prev = Number((String(it.label).match(/×\s*(\d+)\s*$/) || [])[1]) || 0;
+        it.rugSlots = (Number(it.rugSlots) || prev) + n; it.label = base + " × " + (prev + n); it.cost = r2((Number(it.cost) || 0) + n * x.z.price); }
+      else l.items.push({ label: base + " × " + n, cost: r2(n * x.z.price) });
+      delta = n * x.z.price;
+    } else if (x.kind === "stairs") {
+      const rate = Number(x.a.linear) || 100;
+      const it = l.items.find(t => !t.removed && /^flights? of stairs/i.test(String(t.label || "")));
+      const prev = it ? (Number(it.stairsQty) || r2((Number(it.cost) || 0) / rate)) : 0, q = r2(prev + n);
+      const label = q === 1 ? "Flight of Stairs" : (q > 1 ? "Flights" : "Flight") + " of Stairs — " + q;
+      if (it) { it.stairsQty = q; it.label = label; it.cost = r2(q * rate); } else l.items.push({ label, cost: r2(q * rate), stairsQty: q });
+      delta = n * rate;
+    } else {
+      /* Same as the line's + table: one item per add-on, its count going up. */
+      const a = x.a; if (a.key !== "filter") n = Math.round(n);
+      const have = l.items.find(it => it.addonKey === a.key && !it.removed);
+      const unit = addonUnit(a), it = have || { label: a.name, cost: 0, addonKey: a.key, addonRate: a.linear, qty: 0 };
+      if (!have) l.items.push(it);
+      const old = Number(it.cost) || 0, prevQty = Number(it.qty) || 0;
+      it.qty = prevQty + n;
+      if (SPLIT_ADDONS.includes(a.key)) it.spotSlots = (Number(it.spotSlots) || prevQty) + n;
+      it.cost = r2(it.qty * a.linear);
+      it.label = a.name + " — " + it.qty.toLocaleString("en-US") + " " + unit + (it.qty === 1 || / ?ft$/.test(unit) ? "" : "s");
+      delta = it.cost - old;
+    }
+    l.cost = r2((Number(l.cost) || 0) + delta);
+  });
+  saveOpen(); btn.disabled = true;
+  try { await saveOnsite(); show(); } catch (err) { fail(err); btn.disabled = false; }
+});
+/* Change package (carpet line): opens the packages; tap one to switch, the line reprices. */
+view.addEventListener("click", async e => {
+  const box = e.target.closest(".pkgbox"); if (!box || !cur) return;
+  const pick = box.querySelector(".rpick");
+  if (e.target.closest("[data-pkg]")) { pick.hidden = !pick.hidden; return; }
+  const row = e.target.closest(".rprow[data-tier]"); if (!row || box.dataset.busy) return;
+  const l = cur.lines[Number(box.dataset.line)], from = tierOf(l), to = row.dataset.tier;
+  if (!from || from === to) { pick.hidden = true; return; }
+  box.dataset.busy = "1";
+  changePkg(l, from, to);
+  try { await saveOnsite(); show(); } catch (err) { fail(err); delete box.dataset.busy; }
 });
 /* Add furniture (upholstery): − / + counts per piece; each piece gets its own row and page. */
 view.addEventListener("click", async e => {
@@ -846,6 +969,13 @@ async function show(){
         '<div class="rpfoot"><button type="button" class="new" data-adadd>Add</button></div>' +
       '</div></div>' : '') +
       '<div class="svc__body">' +
+      /* Carpet: Change package opens the packages; the current one is marked. */
+      (isCarpetLine(l) && tierOf(l) ? '<div class="pkgbox staff" data-line="' + i + '"><button type="button" class="pkgbtn" data-pkg>Change package</button>' +
+        '<div class="rpick" hidden>' + Object.keys(TIERS).map(k =>
+          '<div class="rprow" data-tier="' + k + '"><span class="rpname">' + esc(TIERS[k].name) +
+            ' <span class="rpcap">$' + Number(TIERS[k].sqft).toFixed(2) + ' / sq ft</span></span>' +
+            '<span class="rpgo">' + (k === tierOf(l) ? 'Current' : 'Switch ›') + '</span></div>').join("") +
+        '</div></div>' : '') +
       (shown.length ? shown.map(([it, j]) => itemRows(it, i, j)).join("")
         : (l.key === "upholstery" ? "" : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i)))) +
       (l.key === "upholstery" ? furnBlock(i) : "") +
@@ -859,13 +989,19 @@ async function show(){
   /* + Add service, above the On-site total: services from the estimator not on the job yet. */
   const onJob = new Set(lines.map(l => l.key || (isCarpet(l) ? "carpet" : "")));
   const choices = svcChoices().filter(c => !onJob.has(c.svc));
-  const addSvc = choices.length
-    ? '<div class="addsvc"><button type="button" class="new" data-addsvc>+ Add service</button><div class="rpick" hidden>' +
+  /* Below the services: Add-ons (rugs, stairs, pet, stain, filter lines) with − / + counts and one Add. */
+  const xrows = xaddList().map(x =>
+    '<div class="rprow" data-xa="' + x.id + '"><span class="rpname">' + esc(x.name) + ' <span class="rpcap">' + esc(x.cap) + '</span></span>' +
+      '<span class="rpstep"><button type="button" data-rpminus aria-label="Fewer">&minus;</button>' +
+      '<input type="number" min="0" step="' + x.step + '" value="0" inputmode="decimal" aria-label="' + esc(x.name) + '">' +
+      '<button type="button" data-rpplus aria-label="More">+</button></span></div>').join("");
+  const addSvc = '<div class="addsvc"><button type="button" class="new" data-addsvc>+ Add service</button><div class="rpick" hidden>' +
         choices.map(c => '<div class="rprow" data-svc="' + c.id + '"><span class="rpname">' + esc(c.name) +
           ' <span class="rpcap">' + esc(c.items ? "Priced per piece of furniture" : "$" + c.rate.toFixed(2) + " / sq ft") + '</span></span>' +
           '<span class="rpgo">Add ›</span></div>').join("") +
-      '</div></div>'
-    : '';
+        (xrows ? '<div class="rphead">Add-ons</div>' + xrows +
+          '<div class="rpfoot"><button type="button" class="new" data-xadd>Add</button></div>' : '') +
+      '</div></div>';
   const sub = lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
   const jtotal = '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
     /* Original quote: on an on-site update (R1, R2...) it's the first approved one, kept inside as originalQuote. */
