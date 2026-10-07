@@ -240,7 +240,8 @@ function render(){
 
 async function grab(name){
   const snap = await getDocs(query(collection(db, name), orderBy("createdAt", "desc"), limit(200)));
-  return snap.docs.map(docSnap => {
+  /* Updated quotes sent from a job sheet (revisionOf) live on that job's contact page, not here. */
+  return snap.docs.filter(s => !s.data().revisionOf).map(docSnap => {
     const d = docSnap.data(), c = d.customer || {};
     return { id: docSnap.id, source: name, createdAt: d.createdAt,
              number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",

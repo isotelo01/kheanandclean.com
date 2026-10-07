@@ -214,7 +214,12 @@ async function load(){
     getDocs(collection(db, s.key))
       .then(snap => snap.docs.map(d => ({ id: d.id, source: s.key, ...d.data() })))
       .catch(e => { console.error(s.key, e); return []; })));
-  all = got.flat().sort((a, b) => (ms(b.acceptedAt) || ms(b.createdAt)) - (ms(a.acceptedAt) || ms(a.createdAt)));
+  /* Updated quotes approved from a job sheet (revisionOf) aren't jobs of their own: each is
+     hung on its job as revAccepted and shown on that job's contact page. */
+  const flat = got.flat(), revs = flat.filter(q => q.revisionOf);
+  all = flat.filter(q => !q.revisionOf).sort((a, b) => (ms(b.acceptedAt) || ms(b.createdAt)) - (ms(a.acceptedAt) || ms(a.createdAt)));
+  revs.forEach(r => { const p = all.find(x => x.id === r.revisionOf);
+    if (p && (!p.revAccepted || ms(r.acceptedAt) > ms(p.revAccepted.acceptedAt))) p.revAccepted = r; });
   await assignNumbers(all);
   await trashLeads(all);
 }
@@ -275,17 +280,30 @@ async function showProfile(id){
      version and the original is kept on it (quote.html?original=1). */
   const qid = encodeURIComponent(q.id);
   const onsiteLive = !!(q.onsite && q.onsite.total != null && !q.originalQuote && q.source !== "invoices");
-  const origLink = onsiteLive
+  let origLink = onsiteLive
     ? '<a href="./quote.html?id=' + qid + '" target="_blank" rel="noopener">' + esc(q.number || "Original quote") + '</a> &middot; ' + esc(money(q.total))
     : q.originalQuote
       ? '<a href="./quote.html?id=' + qid + '&original=1" target="_blank" rel="noopener">' + esc(q.originalQuote.number || "Original quote") + '</a> &middot; ' + esc(money(q.originalQuote.total))
       : "";
-  const quoteLink = onsiteLive
+  let quoteLink = onsiteLive
     ? '<a href="./job-sheet.html?id=' + qid + '">On-site job sheet</a> &middot; ' + esc(money(q.onsite.total)) + ' &middot; Active' :
     '<a href="./quote.html?id=' + encodeURIComponent(q.id) + '" target="_blank" rel="noopener">' +
     esc(q.number || "Open quote") + '</a> \u00b7 ' + esc(money(q.total)) +
     ' \u00b7 ' + (q.source === "invoices" ? "Invoiced, waiting on payment" : "Approved");
   const approvedBy = q.acceptedName ? esc(q.acceptedName) + (ms(q.acceptedAt) ? " on " + esc(shortDate(ms(q.acceptedAt))) : "") : "";
+  /* Updated quote sent from the job sheet: it takes the plain number (Q-1068) as the Quote, and
+     the first approved one is listed as the original, Q-1068OG. Its own link, price and status. */
+  const rv = q.revision && q.revision.id ? q.revision : null;
+  if (rv) {
+    const ra = q.revAccepted && q.revAccepted.id === rv.id ? q.revAccepted : null;
+    quoteLink = '<a href="./quote.html?id=' + encodeURIComponent(rv.id) + '" target="_blank" rel="noopener">' + esc(q.number || "Updated quote") + '</a> &middot; ' +
+      esc(money(ra ? ra.total : rv.total)) + ' &middot; ' +
+      (ra ? "Approved by " + esc(ra.acceptedName || "the customer") + (ms(ra.acceptedAt) ? " on " + esc(shortDate(ms(ra.acceptedAt))) : "")
+          : "Sent, waiting on approval");
+    const og = q.source === "invoices" && q.originalQuote ? q.originalQuote : q;
+    origLink = '<a href="./quote.html?id=' + qid + (og === q ? "" : "&original=1") + '" target="_blank" rel="noopener">' +
+      esc((og.number || q.number || "Q") + "OG") + '</a> &middot; ' + esc(money(og.total));
+  }
 
   view.innerHTML =
     '<div class="panel">' +
@@ -302,6 +320,7 @@ async function showProfile(id){
         '</div>' +
         rrow("Quote", quoteLink) +
         (origLink ? rrow("Original quote", origLink) : "") +
+        (rv && onsiteLive ? rrow("Job sheet", '<a href="./job-sheet.html?id=' + qid + '">On-site job sheet</a> &middot; ' + esc(money(q.onsite.total))) : "") +
         rrow("Approved by", approvedBy) +
         rrow("Quote notes", q.notes ? esc(q.notes) : "") +
         '<div id="leadInfo"></div>' +

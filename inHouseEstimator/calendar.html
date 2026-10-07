@@ -427,7 +427,7 @@ async function load(){
     getDocs(collection(db, p.key))
       .then(s => s.docs.map(d => ({ ...d.data(), id: d.id, _place: p.key, _state: p.state })))
       .catch(e => { console.error(p.key, e); failed.push(p.key + " (" + (e.code || e.message) + ")"); return []; })));
-  const all = got.flat();
+  const all = got.flat().filter(j => !j.revisionOf);   /* an approved job-sheet update isn't a second job */
   blocks = await gotBlocks;
   jobs = all.filter(j => isKey(j.scheduledDate));
   needDate = all.filter(j => j._place === "acceptedQuotes" && !isKey(j.scheduledDate))

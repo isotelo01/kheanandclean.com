@@ -145,7 +145,15 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .summ .svc:not(.sopen) .sthumbs.six{grid-template-columns:repeat(3,1fr)}
 .sthumbs span{display:block;aspect-ratio:1;border-radius:8px;background:#eef0f4 center/cover no-repeat}
 .summ .srow .spot{transform:none!important}
-.sumrow{display:flex;justify-content:flex-end;margin-top:22px}
+.sumrow{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:22px}
+/* Send to customer (Summary only): the updated quote goes back for approval. */
+.sumbtn{display:none}
+.summ .sumbtn{display:inline-block}
+.revbox{display:none;margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:#f6f7fa;font-size:15px}
+.summ .revbox.on{display:block}
+.revbox .revacts{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.revbox .revacts a{font:600 15px "Archivo";text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:8px 14px;color:var(--navy);background:#fff}
+@media print{.sumbtn,.revbox{display:none!important}}
 /* Paper copy: no buttons, no shadows, photos smaller. */
 @media print{
   body{background:#fff}
@@ -805,7 +813,7 @@ async function show(){
     : '';
   const sub = lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
   const jtotal = '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
-    '<div class="meta staff" style="text-align:right">Quoted ' + money(cur.quoted) + '</div>';
+    '<div class="meta staff" style="text-align:right"><a href="./quote.html?id=' + encodeURIComponent(id) + '" target="_blank" rel="noopener">Original quote &middot; ' + money(cur.quoted) + '</a></div>';
 
   view.innerHTML =
     '<div class="panel">' +
@@ -833,7 +841,10 @@ async function show(){
 
       '<h2>Photos</h2><div id="photos"><div class="msg">Loading photos&hellip;</div></div></div>' +
       /* Summarize: flips this sheet into the clean customer view; the same button then says Edit. */
-      '<div class="sumrow"><button type="button" class="new" id="sumBtn"></button></div>' +
+      '<div class="sumrow"><button type="button" class="new sumbtn" id="revBtn">Send to customer</button>' +
+        '<button type="button" class="new" id="sumBtn"></button></div>' +
+      /* The updated quote's link, Preview / Text / Email, and whether it's been approved. */
+      '<div class="revbox" id="revBox"></div>' +
     '</div>';
   applyMode();
 
@@ -900,6 +911,63 @@ async function show(){
   };
   wireBox("notes", "notesPhotos", "notes");
   wireBox("job", "jobPhotos", "sheet");   /* same field and folder as before, so photos already added stay */
+
+  /* ---- Send to customer: the job sheet as an updated quote, back to the customer to approve. ----
+     It's its own quote (quotes/<new id>) with the SAME number (Q-1068), flagged fromJobSheet and
+     revisionOf this job. Approving it books no day and builds no new job sheet; this job stays as
+     it is. The job notes which revision is out under revision {id, total, status}. */
+  const revBox = document.getElementById("revBox"), revBtn = document.getElementById("revBtn");
+  const revLink = rid => new URL("quote.html?id=" + rid, location.href).href;
+  const drawRev = (rv, accepted) => {
+    if (!rv || !rv.id) { revBox.classList.remove("on"); return; }
+    const link = revLink(rv.id), first = String(c.name || "").split(" ")[0];
+    const body = "Hi" + (first ? " " + first : "") + ", here is your updated Khean & Clean quote " + (q.number || "") + ": " + link;
+    const tel = String(c.phone || "").replace(/\D/g, "");
+    revBox.innerHTML = (accepted
+        ? '<b>Approved</b> by ' + esc(accepted.acceptedName || "the customer") + ' &middot; ' + money(accepted.total)
+        : '<b>Updated quote ' + esc(q.number || "") + '</b> &middot; ' + money(rv.total) + ' &middot; sent, waiting on approval') +
+      '<div class="revacts"><a href="' + esc(link) + '" target="_blank" rel="noopener">Preview</a>' +
+        (accepted ? '' :
+          (tel ? '<a href="sms:+1' + tel + '?&body=' + encodeURIComponent(body) + '">Text</a>' : '') +
+          (c.email ? '<a href="mailto:' + encodeURIComponent(c.email) + '?subject=' + encodeURIComponent("Your updated Khean & Clean quote " + (q.number || "")) +
+            '&body=' + encodeURIComponent(body) + '">Email</a>' : '')) +
+      '</div>';
+    revBox.classList.add("on");
+  };
+  /* Already sent one? Show where it stands (approved = it's in acceptedQuotes now). */
+  const rv0 = q.revision && q.revision.id ? q.revision : null;
+  if (rv0) getDoc(doc(db, "acceptedQuotes", rv0.id))
+    .then(s => drawRev(rv0, s.exists() ? s.data() : null))
+    .catch(e => { console.error("revision", e); drawRev(rv0, null); });
+  revBtn.addEventListener("click", async () => {
+    revBtn.disabled = true; revBtn.textContent = "Saving…";
+    try {
+      /* A revision still waiting is updated in place (same link); once one is approved, a new one. */
+      let rid = q.revision && q.revision.id ? q.revision.id : "";
+      if (rid) { const s = await getDoc(doc(db, "quotes", rid)); if (!s.exists()) rid = ""; }
+      if (!rid) { const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+        rid = Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join(""); }
+      const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0)), adj = r2(cur.adj), total = r2(sub + adj);
+      const rev = {
+        type: "quote", status: "sent", number: q.number || "",
+        customer: q.customer || {}, customerId: q.customerId || "", leadId: q.leadId || "", acctNo: q.acctNo ?? null,
+        /* Lines as the customer sees them: anything deleted on site left out. */
+        lines: JSON.parse(JSON.stringify(cur.lines)).map(l => ({ ...l, items: (l.items || []).filter(it => !it.removed) })),
+        subtotal: adj > 0 ? total : sub, discount: adj < 0 ? -adj : 0, discountLabel: q.discountLabel || "Discount",
+        total, notes: q.notes || "",
+        scheduledDate: "", scheduledTime: "",   /* no day: the job keeps the day it already has */
+        keptDate: q.scheduledDate || "", keptTime: q.scheduledTime || "",
+        revisionOf: id, fromJobSheet: true,
+        date: new Date().toISOString().slice(0, 10), createdAt: serverTimestamp()
+      };
+      await setDoc(doc(db, "quotes", rid), rev);
+      const info = { id: rid, total, status: "sent", sentAt: serverTimestamp() };
+      await setDoc(doc(db, place, id), { revision: info }, { merge: true });
+      q.revision = info;
+      drawRev(info, null);
+    } catch (e) { console.error(e); revBox.innerHTML = '<span class="note err">Could not send: ' + esc(e.message) + '</span>'; revBox.classList.add("on"); }
+    finally { revBtn.disabled = false; revBtn.textContent = "Send to customer"; }
+  });
 
   /* Save: ticks and crew notes go onto the quote, so they follow it into the invoice. */
   const saveBtn = document.getElementById("saveBtn");

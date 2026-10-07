@@ -669,7 +669,15 @@ function render(d){
 
   const form = document.getElementById("acceptForm");
   if (form) {
-    const picker = wireDay(d);
+    /* Updated quote sent from the job sheet (fromJobSheet, revisionOf the job): the job already has its
+       day, so there's no day to pick and nothing is booked. Accepting just approves the new price. */
+    const isRev = !!(d.revisionOf && d.fromJobSheet);
+    const picker = isRev ? { loaded: () => false, pick: () => null } : wireDay(d);
+    if (isRev) {
+      const lead = document.getElementById("acceptLead");
+      if (lead) lead.textContent = "We updated your quote on site. Read the terms, then type your name to approve the changes" +
+        (isDay(d.keptDate) ? ". Your job day stays " + dayText(d.keptDate, d.keptTime, d.total) + "." : ".");
+    }
     /* The button stays dead until the box is ticked and a name is typed. */
     const box = document.getElementById("acceptTerms"), nameEl = document.getElementById("acceptName"), go = document.getElementById("acceptBtn");
     const sync = () => { go.disabled = !(box.checked && nameEl.value.trim()); };
