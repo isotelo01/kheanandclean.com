@@ -172,8 +172,9 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 @media print{.sumbtn,.revbox{display:none!important}}
 /* Customer view (?view=customer): Summary only, no buttons, rows don't open staff pages. */
 .pub .sumrow,.pub .revbox,.pub .top>div{display:none!important}
-.pub .spot,.pub .home{pointer-events:none}
+.pub .home{pointer-events:none}   /* rooms stay tappable: they open the room's photos, read-only */
 .pub #authwait{display:none}
+.pub .summ .spot__go{display:inline!important}   /* the › shows rooms open */
 /* Paper copy: no buttons, no shadows, photos smaller. */
 @media print{
   body{background:#fff}
@@ -845,7 +846,7 @@ async function show(){
   /* Hair & debris boxes checked on the room pages: price them onto the line and save. */
   if (syncHair(lines, spots) && !PUBLIC) saveOnsite().catch(fail);   /* customer view never writes */
   let doneCount = 0;
-  const spotLink = (i, j, r) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j) + (r == null ? '' : '&room=' + r);
+  const spotLink = (i, j, r) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j) + (r == null ? '' : '&room=' + r) + (PUBLIC ? '&view=customer' : '');
   /* price: shown only in the Summarize view, where the Delete button was. */
   const spotRow = (key, label, size, href, price) => { total++;
     const d = !!(spots[key] && spots[key].done); if (d) doneCount++;

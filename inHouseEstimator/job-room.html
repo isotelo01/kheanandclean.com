@@ -24,6 +24,13 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 #title{display:none}   /* the room name already shows in the card below; kept in the page because the script fills it */
 .ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
+/* Customer view (?view=customer): the room's photos and notes, nothing to fill in or save. */
+.pub .home{pointer-events:none}
+.pub .actual,.pub .fibrow,.pub .fibnote,.pub .chemrow,.pub .room__body,.pub .h3+.room__body,.pub .pcam,.pub .px,.pub #spotNotes,.pub .saverow,.pub .pempty,.pub #authwait{display:none!important}
+.pub .notesro{white-space:pre-wrap;font-size:16px;line-height:1.45}
+.pub .notesro:empty{display:none}
+.pub .h3:has(+.notesro:empty){display:none}
+.pub .h3:has(+.room__body){display:none}
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
 .cname{font-size:20px;font-weight:700}
 .meta{color:var(--muted);font-size:14px}
@@ -162,6 +169,10 @@ const PLACES = ["acceptedQuotes", "invoices", "paidInvoices", "quotes"];   /* qu
 const ss = { get: k => { try { return sessionStorage.getItem(k) || ""; } catch (e) { return ""; } },
              set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
+/* ?view=customer: the room as the customer sees it from their Job Report — photos and notes only,
+   nothing to fill in, nothing saved, no sign-in. */
+const PUBLIC = qs.get("view") === "customer";
+if (PUBLIC) document.documentElement.classList.add("pub");
 const saved = (() => { try { return JSON.parse(ss.get("kcJobRoom") || "{}"); } catch (e) { return {}; } })();
 const id = qs.get("id") || saved.id || "";
 const lineNo = qs.has("line") ? Number(qs.get("line")) : Number(saved.line);
@@ -172,7 +183,8 @@ if (id) ss.set("kcJobRoom", JSON.stringify({ id, line: lineNo, item: itemNo, roo
 
 async function show(){
   if (!id || !Number.isInteger(lineNo)) { view.innerHTML = '<div class="msg">No line picked. <a href="./approved-leads.html">Go to Approved Leads</a></div>'; return; }
-  document.getElementById("backBtn").href = "./job-sheet.html?id=" + encodeURIComponent(id);
+  document.getElementById("backBtn").href = "./job-sheet.html?id=" + encodeURIComponent(id) + (PUBLIC ? "&view=customer" : "");
+  if (PUBLIC) document.getElementById("backBtn").textContent = "Back to Job Report";
   let q = null, place = "";
   try {
     for (const p of PLACES) { const s = await getDoc(doc(db, p, id)); if (s.exists()) { q = s.data(); place = p; break; } }
@@ -351,6 +363,7 @@ async function show(){
         '<h3 class="ptitle">Before photos</h3>' + (spot.isRoom ? photoBlock("bThr") + photoBlock("bAdj") : "") + photoBlock("before") +
         '<h3 class="ptitle">Inspection photos</h3>' + photoBlock("inspection") +
         '<h3 class="h3">Notes</h3>' +
+        (PUBLIC ? '<div class="notesro">' + esc(st.notes || "") + '</div>' : '') +   /* customer: read-only; none at all when empty */
         '<textarea id="spotNotes" placeholder="What you found, spots to watch, anything for next time">' + esc(st.notes || "") + '</textarea>' +
         '<h3 class="ptitle">After photos</h3>' + (spot.isRoom ? photoBlock("aThr") + photoBlock("aAdj") : "") + photoBlock("after") +
         '<div class="saverow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
@@ -388,8 +401,15 @@ async function show(){
         ? '<div class="pcell"><a href="' + esc(urls[k]) + '" target="_blank" rel="noopener"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
           '<button type="button" class="px" data-k="' + k + '" aria-label="Remove photo">×</button></div>' : '').join("") ||
         '<div class="msg">No photos yet.</div>';
+      /* Customer view: a photo spot with nothing to show is left out, so the page is just the photos. */
+      if (PUBLIC) { const lab = grid.previousElementSibling; const empty = !urls.some(Boolean);
+        grid.classList.toggle("pempty", empty); if (lab && lab.classList.contains("plab")) lab.classList.toggle("pempty", empty); }
     };
-    SHOWN.forEach(draw);
+    /* Customer view: a heading (Before / Inspection / After photos) with no photos under it goes too. */
+    Promise.all(SHOWN.map(draw)).then(() => { if (!PUBLIC) return;
+      view.querySelectorAll(".ptitle").forEach(h => { let n = h.nextElementSibling, any = false;
+        while (n && !n.classList.contains("ptitle") && !n.classList.contains("h3")) { if (n.classList.contains("pgrid") && !n.classList.contains("pempty")) any = true; n = n.nextElementSibling; }
+        h.classList.toggle("pempty", !any); }); });
     /* Photos are saved onto the job as soon as they upload, so none are lost if Save isn't pressed. */
     const savePhotos = () => setDoc(doc(db, place, id), { spots: { [spot.key]: { ...photoFields(), updatedAt: serverTimestamp() } } }, { merge: true });
     const upload = async (g, files) => {
@@ -508,7 +528,7 @@ async function show(){
     return !note.classList.contains("err");
   };
   saveBtn.addEventListener("click", doSave);
-  saveBefore = doSave;
+  if (!PUBLIC) saveBefore = doSave;   /* customer: Back just goes back */
 }
 
 /* Back to Job Sheet saves first (when the page has something to save), then goes back.
@@ -526,7 +546,8 @@ document.getElementById("backBtn").addEventListener("click", async e => {
 
 /* Page lock. Not signed in -> login page, then back here. */
 let started = false;
-onAuthStateChanged(getAuth(app), user => {
+if (PUBLIC) { document.getElementById("authwait")?.remove(); started = true; show(); }   /* customer: no sign-in, nothing saves */
+else onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=job-room.html"); return; }
   document.getElementById("authwait")?.remove();
   if (!started) { started = true; show(); }
