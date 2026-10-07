@@ -116,6 +116,36 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px}
 .note{font-size:14px;color:var(--muted)}
 .note.err{color:var(--red)}
+/* Job photos: camera button in the heading, photos in a grid, × to take one off. */
+.jph{display:flex;align-items:center;gap:10px}
+.pcam{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;background:#fff;color:var(--navy);border:2px solid var(--gold);border-radius:8px;cursor:pointer}
+.jpgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
+.jpcell{position:relative;border-radius:8px;overflow:hidden;background:#eef0f4}
+.jpcell img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.jpx{position:absolute;top:6px;right:6px;width:30px;height:30px;border:0;border-radius:50%;background:rgba(10,14,22,.75);color:#fff;font-size:20px;line-height:1;cursor:pointer}
+@media print{.pcam,.jpx{display:none!important}}
+/* Summarize: the same sheet cleaned up for the customer. Prices sit where the Delete buttons
+   were; staff-only parts (notes, crew notes, photos, add / delete controls) are hidden. Edit flips back. */
+.sprice{display:none;margin-left:auto;flex:none;font-weight:600;white-space:nowrap}
+.sumonly,.sumword{display:none!important}
+.summ .sumonly{display:flex!important}
+.summ .sumword{display:inline!important}
+.summ .sprice{display:inline}
+.summ .sdel,.summ .spot__go,.summ .spot__tick:not(.thumb),.summ .svc__plus,.summ .addonbox,.summ .addroom,.summ .addsvc,
+.summ .addfurn,.summ .staff,.summ .staffword,.summ .prog{display:none!important}
+/* Summary: each service starts folded, showing its first room photos; tap the header to open it. */
+.summ .svc:not(.sopen) .svc__body{display:none}   /* beats the working sheet's own open lines */
+.summ .svc.sopen .svc__body{display:block}
+.summ .svc.sopen .svc__head .caret{transform:rotate(180deg)}
+.summ .svc:not(.sopen) .svc__head .caret{transform:none}
+.summ .svc__head .caret{display:inline-block!important}
+.summ .svc__head .amt{color:var(--ink)}
+.sthumbs{display:none}
+.summ .svc:not(.sopen) .sthumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.summ .svc:not(.sopen) .sthumbs.six{grid-template-columns:repeat(3,1fr)}
+.sthumbs span{display:block;aspect-ratio:1;border-radius:8px;background:#eef0f4 center/cover no-repeat}
+.summ .srow .spot{transform:none!important}
+.sumrow{display:flex;justify-content:flex-end;margin-top:22px}
 /* Paper copy: no buttons, no shadows, photos smaller. */
 @media print{
   body{background:#fff}
@@ -146,7 +176,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getStorage, ref, getDownloadURL, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -168,6 +198,26 @@ const cityLine = c => [[c.city, c.state].filter(Boolean).join(", "), c.zip].filt
 const photosOf = x => (Array.isArray(x && x.photoUrls) ? x.photoUrls : []).filter(u => /^https:\/\//.test(String(u)));
 const pathsOf = x => (Array.isArray(x && x.photoPaths) ? x.photoPaths : [])
   .filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes(".."));
+/* Job photos: shrunk to 2400px on the long side and saved as JPEG, same as the room pages. */
+const shrink = file => new Promise((res, rej) => {
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    let w = img.naturalWidth, h = img.naturalHeight; const m = 2400 / Math.max(w, h);
+    if (m < 1) { w = Math.round(w * m); h = Math.round(h * m); }
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d").drawImage(img, 0, 0, w, h);
+    c.toBlob(b => b ? res(b) : rej(new Error("Could not read that photo")), "image/jpeg", 0.85);
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("That file isn't a photo")); };
+  img.src = url;
+});
+/* A photo box: heading with one camera button (the phone offers Take Photo or Photo Library), then the grid. */
+const photoBox = (k, title) =>
+  '<h2 class="jph">' + title + ' <button type="button" class="pcam" id="pcam-' + k + '" aria-label="Add photo: ' + title + '">' +
+    '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+    '</button><input type="file" id="ppick-' + k + '" accept="image/*" multiple hidden></h2>' +
+  '<div class="jpgrid" id="pgrid-' + k + '"><div class="msg">Loading photos&hellip;</div></div><span class="note" id="pnote-' + k + '"></span>';
 const rrow = (lab, val) => val ? '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval">' + esc(val) + '</div></div>' : "";
 
 /* The sheet is built from the quote itself, so it's ready the moment the quote
@@ -232,15 +282,67 @@ function recalc(l){
   });
   if (any) { l.cost = r2((Number(l.cost) || 0) + delta); l.label = String(l.label || "").replace(/[\d,]+(\s*sq ft)/i, lineSq.toLocaleString("en-US") + "$1"); }
 }
+/* Hair & debris removal checked room by room (job-room.html saves spots.<room id>.hair): the line
+   gets one "Hair & debris removal — N sq ft" item priced on just those rooms' sq ft, at the rate in
+   pricing.js. Returns true when something changed, so it gets saved. */
+function syncHair(lines, spots){
+  const base = Number((((PRICING.SERVICES.carpet || {}).addons || {}).hair || {}).sqft) || 0;
+  let changed = false;
+  lines.forEach(l => {
+    const items = Array.isArray(l.items) ? l.items : [];
+    /* Quoted with hair & debris on the whole carpet line ("Hair & debris removal — 650 sq ft"):
+       hand it over to the room boxes. Every room starts checked at the quoted rate, so the
+       total doesn't move; unchecking a room takes its sq ft off. */
+    const whole = items.find(x => !x.removed && x.addonKey !== "hairRoom" && /^hair & debris/i.test(String(x.label || "")));
+    if (whole) {
+      const wsq = Number(String((String(whole.label).match(/([\d,]+)\s*sq ft/i) || [])[1] || "").replace(/,/g, "")) || 0;
+      l.hairQuoted = true;
+      l.hairRate = Number(whole.addonPerSqft) || (wsq ? (Number(whole.cost) || 0) / wsq : base);
+      l.cost = r2((Number(l.cost) || 0) - (Number(whole.cost) || 0)); whole.cost = 0; whole.removed = true; changed = true;
+    }
+    const rate = Number(l.hairRate) || base;
+    /* A room's box: what was saved on its page, else checked if the quote had hair & debris. */
+    let sq = 0;
+    items.forEach(it => { if (it.removed || !Array.isArray(it.rooms)) return;
+      it.rooms.forEach(rm => { const s = spots[rm.id];
+        if (s && typeof s.hair === "boolean" ? s.hair : !!l.hairQuoted) sq += Number(rm.sqft) || 0; }); });
+    let it = items.find(x => x.addonKey === "hairRoom");
+    if (!sq && (!it || it.removed)) return;
+    if (!it) { it = { label: "", cost: 0, addonKey: "hairRoom" }; items.push(it); l.items = items; }
+    const cost = sq ? r2(sq * rate) : 0, label = "Hair & debris removal — " + sq.toLocaleString("en-US") + " sq ft";
+    if (Number(it.cost) === cost && it.label === label && !!it.removed === !sq) return;
+    l.cost = r2((Number(l.cost) || 0) - (Number(it.cost) || 0) + cost);
+    it.cost = cost; it.label = label; it.removed = !sq; changed = true;
+  });
+  return changed;
+}
 async function saveOnsite(){
   const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0));
   await setDoc(doc(db, cur.place, id), { onsite: { lines: cur.lines, subtotal: sub, total: r2(sub + cur.adj), updatedAt: serverTimestamp() } }, { merge: true });
 }
 const fail = e => { console.error(e); const n = document.getElementById("note"); if (n) { n.textContent = "Could not save: " + e.message; n.classList.add("err"); } };
 
+/* ---- Summarize / Edit: the clean customer view of this same sheet, remembered for this job while the tab is open. ---- */
+const summKey = "kcSumm_" + id;
+let summ = ss.get(summKey) === "1";
+const sumOpen = new Set((ss.get(summKey + "_open") || "").split(",").filter(Boolean));   /* services opened in the summary */
+function applyMode(){
+  document.body.classList.toggle("summ", summ);
+  titleEl.textContent = summ ? "Summary" : "Job Sheet";
+  const b = document.getElementById("sumBtn"); if (b) b.textContent = summ ? "Edit" : "Summarize";
+}
+view.addEventListener("click", e => {
+  if (!e.target.closest("#sumBtn")) return;
+  summ = !summ; ss.set(summKey, summ ? "1" : ""); applyMode();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
 /* Tap a line's header: open or close its rooms. */
 view.addEventListener("click", e => {
   const h = e.target.closest("[data-toggle]"); if (!h) return;
+  /* Summary view: its own open / folded state, kept apart from the working sheet's. */
+  if (summ) { const b = h.closest(".svc"), on = b.classList.toggle("sopen");
+    on ? sumOpen.add(h.dataset.toggle) : sumOpen.delete(h.dataset.toggle); ss.set(summKey + "_open", [...sumOpen].join(",")); return; }
   const box = h.closest(".svc"), k = h.dataset.toggle, on = !box.classList.contains("open");
   box.classList.toggle("open", on); h.setAttribute("aria-expanded", on);
   on ? openLines.add(k) : openLines.delete(k); saveOpen();
@@ -252,7 +354,8 @@ const PRICING = window.KC_PRICING || { ROOM_TYPES: [], SERVICES: {} };
 const ROOM_TYPES = PRICING.ROOM_TYPES.filter(rt => rt.key !== "stairs");
 /* Add-ons offered by the + on each service line, straight from the estimator's list in
    pricing.js (Flight of Stairs and Area Rugs are already on the job). */
-const ADDON_KEYS = { carpet: ["hair", "deo", "prot", "filter", "stretch", "pet", "stain"], tile: ["seal", "acid"] };
+/* Hair & debris isn't in the + list: it's the checkbox on each carpet room's page. */
+const ADDON_KEYS = { carpet: ["deo", "prot", "filter", "stretch", "pet", "stain"], tile: ["seal", "acid"] };
 const addonsFor = svc => (ADDON_KEYS[svc] || [])
   .map(k => ({ key: k, svc, ...(((PRICING.SERVICES[svc] || {}).addons || {})[k] || {}) })).filter(a => a.name);
 const CARPET_ADDONS = addonsFor("carpet");
@@ -489,7 +592,7 @@ view.addEventListener("click", e => { const b = e.target.closest("[data-del]"); 
 /* Phones: swipe a room left to show Delete; swipe it most of the way to delete it straight off. */
 let sw = null;
 view.addEventListener("touchstart", e => {
-  const row = e.target.closest(".srow"); if (!row || e.target.closest("[data-del]")) return;
+  const row = e.target.closest(".srow"); if (!row || e.target.closest("[data-del]") || summ) return;   /* no swipe-delete in the summary */
   view.querySelectorAll(".srow.swiped").forEach(x => { if (x !== row) x.classList.remove("swiped"); });
   sw = { row, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, h: null, open: row.classList.contains("swiped") };
 }, { passive: true });
@@ -564,14 +667,18 @@ async function show(){
      opens its own page on job-room.html: photos, notes and Done for that spot, saved on the
      job under spots. Grouped rooms are split: Bedroom × 3 = Bedroom 1, 2 and 3. */
   const spots = (q.spots && typeof q.spots === "object") ? q.spots : {};
+  /* Hair & debris boxes checked on the room pages: price them onto the line and save. */
+  if (syncHair(lines, spots)) saveOnsite().catch(fail);
   let doneCount = 0;
   const spotLink = (i, j, r) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j) + (r == null ? '' : '&room=' + r);
-  const spotRow = (key, label, size, href) => { total++;
+  /* price: shown only in the Summarize view, where the Delete button was. */
+  const spotRow = (key, label, size, href, price) => { total++;
     const d = !!(spots[key] && spots[key].done); if (d) doneCount++;
     /* Thumbnail: a room's After Threshold photo; stairs / rugs (no Threshold) use their first After photo. */
     const thr = d ? pathsOf({ photoPaths: [...((spots[key] && spots[key].photosAfterThreshold) || []), ...((spots[key] && spots[key].photosAfter) || [])] })[0] : "";
     return '<a class="spot' + (d ? ' done' : '') + '" href="' + esc(href) + '"><span class="spot__tick"' + (thr ? ' data-thumb="' + esc(thr) + '"' : '') + '>' + (d ? '✓' : '') + '</span>' +
       '<span class="spot__name">' + esc(label) + '</span>' + (size ? '<span class="spot__size">' + esc(size) + '</span>' : '') +
+      (price != null ? '<span class="sprice">' + money(price) + '</span>' : '') +
       '<span class="spot__go">›</span></a>'; };
   /* Stairs, a rug or an add-on row: same Delete as the rooms (button on desktop, swipe on phones). */
   const delWrap = (kind, i, j, r, inner) =>
@@ -600,7 +707,8 @@ async function show(){
     if (rug) { const n = Number(it.rugSlots) || Number(rug[2]), gone = Array.isArray(it.rugGone) ? it.rugGone : []; let out = "";
       /* Shown numbers count 1, 2, 3 with no gaps; photos stay with each rug's own slot. */
       let shownNo = 0;
-      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("rug", i, j, r, spotRow(i + "-" + j + "-" + r, "Area Rug " + (++shownNo) + " — " + rug[1], "", spotLink(i, j, r)));
+      const rugEach = (Number(it.cost) || 0) / Math.max(1, Number(rug[2]) || 1);   /* label's "× 2" = rugs still on */
+      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("rug", i, j, r, spotRow(i + "-" + j + "-" + r, "Area Rug " + (++shownNo) + " — " + rug[1], "", spotLink(i, j, r), rugEach));
       return out; }
     /* Stain treatment — 6 spots = Stain treatment 1 … 6, each its own row and page. */
     if (isSplit(it) && Number(it.qty) > 0) {
@@ -608,15 +716,19 @@ async function show(){
       const base = it.baseName || String(it.label || "").split(" — ")[0]; let out = "";
       /* Shown numbers count 1, 2, 3 with no gaps; photos stay with each spot's own slot. */
       let shownNo = 0;
-      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("spot", i, j, r, spotRow(i + "-" + j + "-" + r, base + " " + (++shownNo), "", spotLink(i, j, r)));
+      const spotEach = (Number(it.cost) || 0) / Math.max(1, Number(it.qty) || 1);
+      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("spot", i, j, r, spotRow(i + "-" + j + "-" + r, base + " " + (++shownNo), "", spotLink(i, j, r), spotEach));
       return out;
     }
-    if (!rms.length && it.perSqft == null) return delWrap("item", i, j, "", spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j)));
+    /* Hair & debris from the room pages: shown, not deletable here (uncheck it on the room page). */
+    if (it.addonKey === "hairRoom") return '<div class="meta staff" style="padding:6px 4px 0">' + esc(noPrice(it.label)) + ' (checked on the room pages)</div>' +
+      '<div class="srow sumonly"><div class="spot"><span class="spot__name">' + esc(noPrice(it.label)) + '</span><span class="sprice">' + money(it.cost) + '</span></div></div>';
+    if (!rms.length && it.perSqft == null) return delWrap("item", i, j, "", spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j), it.cost));
     /* Rooms: one row each, with Delete (a button on desktop, swipe left on phones), then Add room. */
     return rms.map((rm, r) =>
       '<div class="srow" data-line="' + i + '" data-item="' + j + '" data-room="' + esc(rm.id) + '">' +
         '<button type="button" class="sdel" data-del>Delete</button>' +
-        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r)) +
+        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r), rm.cost) +
       '</div>').join("") +
       /* Add room: opens the estimator's room table (same rooms and sizes, − / + counts). */
       '<div class="addroom" data-line="' + i + '" data-item="' + j + '">' +
@@ -643,12 +755,20 @@ async function show(){
     /* Carpet and tile lines: a + where the price was, opening that service's add-ons table. */
     const lineAddons = addonsFor(l.key || (isCarpet(l) ? "carpet" : ""));
     const plus = lineAddons.length > 0;
-    return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + '" data-line="' + i + '">' +
+    /* Summary, folded: the first rooms on this line that have a photo (add-ons, rugs, stains
+       skipped) — 4 per service, or 6 when the job is just one service. Room's after photo first. */
+    const thumbMax = lines.length === 1 ? 6 : 4, thumbs = [];
+    items.forEach(it => { if (it.removed || !Array.isArray(it.rooms)) return;
+      it.rooms.forEach(rm => { if (thumbs.length >= thumbMax) return; const s = spots[rm.id] || {};
+        const p = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || []), ...(s.photosBeforeThreshold || []), ...(s.photosBefore || []), ...(s.photoPaths || [])] })[0];
+        if (p) thumbs.push(p); }); });
+    return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + (sumOpen.has(String(i)) ? ' sopen' : '') + '" data-line="' + i + '">' +
       '<div class="svc__headrow">' +
       '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
-        '<span>' + esc(head) + '</span><span class="amt">' + (plus ? '' : money(l.cost) + ' ') + '<span class="caret">▾</span></span></button>' +
+        '<span>' + esc(head) + '</span><span class="amt">' + (plus ? '<span class="sprice" style="color:var(--ink)">' + money(l.cost) + '</span>' : money(l.cost) + ' ') + '<span class="caret">▾</span></span></button>' +
       (plus ? '<button type="button" class="svc__plus" data-addons="' + i + '" aria-label="Add-ons">+</button>' : '') +
       '</div>' +
+      (thumbs.length ? '<div class="sthumbs' + (thumbMax === 6 ? ' six' : '') + '">' + thumbs.map(p => '<span data-sthumb="' + esc(p) + '"></span>').join("") + '</div>' : '') +
       (plus ? '<div class="addonbox" data-line="' + i + '"><div class="rpick" hidden>' +
         lineAddons.map(a =>
           '<div class="rprow" data-ak="' + a.key + '">' +
@@ -666,8 +786,11 @@ async function show(){
       (shown.length ? shown.map(([it, j]) => itemRows(it, i, j)).join("")
         : (l.key === "upholstery" ? "" : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i)))) +
       (l.key === "upholstery" ? furnBlock(i) : "") +
-      (extras.length ? '<div class="meta" style="padding:6px 4px 0">In every room: ' +
+      (extras.length ? '<div class="meta staff" style="padding:6px 4px 0">In every room: ' +
         esc(extras.map(it => String(it.label).split(" — ")[0]).join(", ")) + ' (check off on each room page)</div>' : '') +
+      /* Summarize view: those package extras as their own priced rows. */
+      extras.map(it => '<div class="srow sumonly"><div class="spot"><span class="spot__name">' + esc(noPrice(it.label)) +
+        '</span><span class="sprice">' + money(it.cost) + '</span></div></div>').join("") +
     '</div></div>';
   }).join("");
   /* + Add service, above the On-site total: services from the estimator not on the job yet. */
@@ -681,8 +804,8 @@ async function show(){
       '</div></div>'
     : '';
   const sub = lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
-  const jtotal = '<div class="jtotal"><span>On-site total</span><b>' + money(sub + cur.adj) + '</b></div>' +
-    '<div class="meta" style="text-align:right">Quoted ' + money(cur.quoted) + '</div>';
+  const jtotal = '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
+    '<div class="meta staff" style="text-align:right">Quoted ' + money(cur.quoted) + '</div>';
 
   view.innerHTML =
     '<div class="panel">' +
@@ -695,18 +818,24 @@ async function show(){
       '<div class="meta" style="margin-top:6px">' + esc([q.number,
         ms(q.acceptedAt) ? "Approved " + shortDate(ms(q.acceptedAt)) : ""].filter(Boolean).join(" \u00b7 ")) + '</div>' +
 
-      '<h2>Notes</h2><div id="notes">' + rrow("Quote notes", q.notes) + '<div class="msg">Loading&hellip;</div></div>' +
+      '<h2 class="staff">Notes</h2><div id="notes" class="staff">' + rrow("Quote notes", q.notes) + '<div class="msg">Loading&hellip;</div></div>' +
+      '<div class="staff" style="margin-top:24px">' + photoBox("notes", "Notes photos") + '</div>' +
 
-      '<h2>The job</h2>' +
+      '<h2>The Job</h2>' +
       '<div class="prog" id="prog"></div>' +
       (sections || '<div class="msg">This quote has no line items.</div>') + addSvc + (sections ? jtotal : '') +
 
+      '<div class="staff" style="margin-top:24px">' +
+      photoBox("job", "Job photos") +
       '<h2>Crew notes</h2>' +
       '<textarea id="crewNotes" placeholder="What you found on site, extra spots, anything for next time">' + esc(js.crewNotes || "") + '</textarea>' +
       '<div class="actions" id="saveRow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
 
-      '<h2>Photos</h2><div id="photos"><div class="msg">Loading photos&hellip;</div></div>' +
+      '<h2>Photos</h2><div id="photos"><div class="msg">Loading photos&hellip;</div></div></div>' +
+      /* Summarize: flips this sheet into the clean customer view; the same button then says Edit. */
+      '<div class="sumrow"><button type="button" class="new" id="sumBtn"></button></div>' +
     '</div>';
+  applyMode();
 
   const prog = document.getElementById("prog"), note = document.getElementById("note");
   /* A service was just added: open its Add room / Add furniture table and scroll to it. */
@@ -722,7 +851,55 @@ async function show(){
     getDownloadURL(ref(storage, t.dataset.thumb)).then(u => {
       t.textContent = ""; t.classList.add("thumb"); t.style.backgroundImage = 'url("' + u + '")';
     }).catch(e => console.error("Thumb " + t.dataset.thumb, e)));
+  /* Summary's folded-service photos. */
+  view.querySelectorAll("[data-sthumb]").forEach(t =>
+    getDownloadURL(ref(storage, t.dataset.sthumb)).then(u => { t.style.backgroundImage = 'url("' + u + '")'; })
+      .catch(e => console.error("Thumb " + t.dataset.sthumb, e)));
   document.getElementById("crewNotes").addEventListener("input", () => { note.textContent = "Not saved yet."; note.classList.remove("err"); });
+
+  /* Photo boxes (Notes photos, Job photos): saved on the job as soon as they upload, so none are lost. */
+  const wireBox = (k, field, folder) => {
+  let jobPhotos = (Array.isArray(q[field]) ? q[field] : []).filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/"));
+  const jpgrid = document.getElementById("pgrid-" + k), jobPick = document.getElementById("ppick-" + k), jpNote = document.getElementById("pnote-" + k);
+  const drawJP = async () => {
+    const urls = await Promise.all(jobPhotos.map(p => getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
+    if (!jpgrid.isConnected) return;
+    jpgrid.innerHTML = jobPhotos.map((p, k) => urls[k]
+      ? '<div class="jpcell"><a href="' + esc(urls[k]) + '" class="pshot" data-full="' + esc(urls[k]) + '"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
+        '<button type="button" class="jpx" data-k="' + k + '" aria-label="Remove photo">×</button></div>' : '').join("") ||
+      '<div class="msg">No photos yet.</div>';
+  };
+  drawJP();
+  const saveJP = () => setDoc(doc(db, place, id), { [field]: jobPhotos, [field + "At"]: serverTimestamp() }, { merge: true });
+  document.getElementById("pcam-" + k).addEventListener("click", () => jobPick.click());
+  jobPick.addEventListener("change", async () => {
+    const list = [...jobPick.files]; jobPick.value = ""; if (!list.length) return;
+    jpNote.classList.remove("err");
+    for (let n = 0; n < list.length; n++) {
+      jpNote.textContent = "Uploading photo " + (n + 1) + " of " + list.length + "…";
+      try {
+        const blob = await shrink(list[n]);
+        /* Same folder as the room photos (that's what the storage rules allow). */
+        const path = "quick-quote-photos/job_" + id + "_" + folder + "/" + Date.now() + "_" + n + ".jpg";
+        await uploadBytes(ref(storage, path), blob, { contentType: "image/jpeg" });
+        jobPhotos.push(path);
+      } catch (e) { console.error(e); jpNote.textContent = "A photo didn’t upload: " + e.message; jpNote.classList.add("err"); }
+    }
+    try { await saveJP(); if (!jpNote.classList.contains("err")) jpNote.textContent = "Photos saved."; }
+    catch (e) { console.error(e); jpNote.textContent = "Photos uploaded but not saved to the job: " + e.message; jpNote.classList.add("err"); }
+    drawJP();
+  });
+  /* × takes a photo off the job (the file itself stays in storage). */
+  jpgrid.addEventListener("click", async e => {
+    const b = e.target.closest(".jpx"); if (!b) return; e.preventDefault();
+    jobPhotos.splice(Number(b.dataset.k), 1);
+    try { await saveJP(); jpNote.textContent = "Photo removed."; jpNote.classList.remove("err"); }
+    catch (err) { console.error(err); jpNote.textContent = "Could not save: " + err.message; jpNote.classList.add("err"); }
+    drawJP();
+  });
+  };
+  wireBox("notes", "notesPhotos", "notes");
+  wireBox("job", "jobPhotos", "sheet");   /* same field and folder as before, so photos already added stay */
 
   /* Save: ticks and crew notes go onto the quote, so they follow it into the invoice. */
   const saveBtn = document.getElementById("saveBtn");

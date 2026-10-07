@@ -69,6 +69,10 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .fiberOther{flex:1;min-width:0;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 .fiberOther[hidden]{display:none}
 .fibnote{margin:8px 0 0;font-size:13px;color:var(--muted)}
+/* Hair & debris checkbox: right end of the Fiber type row (carpet rooms only). */
+.hairchk{margin-left:auto;flex:none;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--navy);cursor:pointer;white-space:nowrap}
+.hairchk input{width:24px;height:24px;flex:none;margin:0;accent-color:var(--green)}
+.spot .hairchk{color:#fff}
 /* Pre-Spray and Rinse: two labeled boxes side by side under Fiber type. */
 .chemrow{display:flex;gap:10px;margin-top:10px}
 .chem{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:15px;font-weight:700;color:var(--navy)}
@@ -287,6 +291,12 @@ async function show(){
         '<input type="file" id="pick-' + g + '" accept="image/*"' + (one ? '' : ' multiple') + ' hidden></div>' +
       '<div class="pgrid" id="pgrid-' + g + '" data-g="' + g + '"><div class="msg">Loading photos…</div></div>'; };
     const roomExtras = spot.isRoom ? extras : [];
+    /* Hair & debris removal: each carpet room's own checkbox (saved as spots.<room>.hair). The Job
+       Sheet charges the checked rooms' sq ft; it replaces any whole-line hair & debris, so no double charge. */
+    /* Quoted with hair & debris: the box starts checked. Once this room is saved, its own setting wins. */
+    const lineHair = !!line.hairQuoted || items.some(it => !it.removed && it.addonKey !== "hairRoom" && /^hair & debris/i.test(String(it.label || "")));
+    const showHair = spot.isRoom && isCarpet;
+    const hairOn = typeof st.hair === "boolean" ? st.hair : lineHair;
     /* This room's fiber if it has one, otherwise the job's (set by the first room saved). */
     const FIBERS = ["Nylon", "Polyester", "Olefin", "Other"];
     const jobFib = q.jobFiber && q.jobFiber.type ? q.jobFiber : null;
@@ -317,7 +327,8 @@ async function show(){
           ? '<div class="fibrow"><label for="fiberSel" class="fiblab">Fiber type</label>' +
             '<select id="fiberSel"><option value="">Pick one</option>' +
             FIBERS.map(f => '<option value="' + f + '"' + (fib && fib.type === f ? ' selected' : '') + '>' + f + '</option>').join("") + '</select>' +
-            '<input type="text" id="fiberOther" class="fiberOther" placeholder="Which fiber?" aria-label="Other fiber" value="' + esc(fib && fib.type === "Other" ? fib.other || "" : "") + '"' + (fib && fib.type === "Other" ? '' : ' hidden') + '></div>' +
+            '<input type="text" id="fiberOther" class="fiberOther" placeholder="Which fiber?" aria-label="Other fiber" value="' + esc(fib && fib.type === "Other" ? fib.other || "" : "") + '"' + (fib && fib.type === "Other" ? '' : ' hidden') + '>' +
+            (showHair ? '<label class="hairchk"><input type="checkbox" id="hairChk"' + (hairOn ? ' checked' : '') + '><span>Hair &amp; debris</span></label>' : '') + '</div>' +
             (fibFromJob ? '<p class="fibnote">Filled in from the first room. Change it if this room is different.</p>' : '')
           : '') +
         /* Material type, tile pages only. The first tile room saved sets it for the job. */
@@ -352,6 +363,8 @@ async function show(){
       cb.closest(".xchk").classList.toggle("done", cb.checked); flag();
     });
     document.getElementById("spotNotes").addEventListener("input", flag);
+    const hairEl = document.getElementById("hairChk");
+    if (hairEl) hairEl.addEventListener("change", flag);
     const actualEl = document.getElementById("actualSqft");
     if (actualEl) actualEl.addEventListener("input", flag);
     const otherEl = document.getElementById("fiberOther");
@@ -421,6 +434,8 @@ async function show(){
         /* Pre-Spray and Rinse used in this room (carpet rooms only). */
         if (preEl) data.spots[spot.key].preSpray = preEl.value.trim();
         if (rinseEl) data.spots[spot.key].rinse = rinseEl.value.trim();
+        /* Hair & debris removal in this room (the Job Sheet prices it). */
+        if (hairEl) data.spots[spot.key].hair = hairEl.checked;
         /* Fiber type: saved on this room; the first one saved also becomes the job's, so the
            other carpet rooms open with it filled in. */
         /* Material type (tile): saved on this room; the first one saved becomes the job's. */
