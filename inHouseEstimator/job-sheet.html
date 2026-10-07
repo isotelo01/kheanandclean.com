@@ -296,7 +296,9 @@ function onsiteCopy(src){
       let r = 0; const out = [];
       it.rooms.forEach(rm => { const n = Math.max(1, Number(rm.qty) || 1);
         for (let k = 1; k <= n; k++) out.push({ id: i + "-" + j + "-" + (r++), name: n > 1 ? rm.name + " " + k : String(rm.name || "Room"),
-          sqft: Math.round((Number(rm.sqft) || 0) / n), qty: 1, cost: r2((Number(rm.cost) || 0) / n) }); });
+          sqft: Math.round((Number(rm.sqft) || 0) / n), qty: 1,
+          /* Older quotes saved rooms with no price: work it out from the item's rate, like quote.html does. */
+          cost: rm.cost != null && !isNaN(Number(rm.cost)) ? r2(Number(rm.cost) / n) : r2(Math.round((Number(rm.sqft) || 0) / n) * it.perSqft) }); });
       it.rooms = out;
     });
     return l;
@@ -795,7 +797,9 @@ async function show(){
     }
   } catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
   if (q && place === "quotes" && !q.fromJobSheet) q = null;   /* a plain estimate isn't a job yet */
-  if (!q) { view.innerHTML = '<div class="msg">That job isn\u2019t on file. <a href="./approved-leads.html">Back to Approved Leads</a></div>'; return; }
+  if (!q) { view.innerHTML = PUBLIC   /* the customer's Job Report link: no staff page to send them to */
+    ? '<div class="msg">This job report isn\u2019t available. Call Khean &amp; Clean at (916) 767-2520 and we\u2019ll sort it out.</div>'
+    : '<div class="msg">That job isn\u2019t on file. <a href="./approved-leads.html">Back to Approved Leads</a></div>'; return; }
   if (place === "acceptedQuotes") document.getElementById("backBtn").href = "./approved-leads.html#" + encodeURIComponent(id);
   if (place === "quotes") document.getElementById("backBtn").href = "./dashboard.html";   /* update waiting on approval */
 
