@@ -37,6 +37,19 @@ th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left}
 th{font-size:13px;color:var(--muted);font-weight:600}
 .r{text-align:right}
 tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
+/* Prepared for: computers show the phone on its own line and the Date block on the right.
+   Phones: phone number left + short date (10/7/26) right on one line; the Date block hides,
+   and the Accepted pill sits underneath on the left. */
+.phl{display:block}
+.mdate{display:none}
+@media (max-width:560px){
+  .phl{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+  .mdate{display:inline;color:var(--muted)}
+  .meta > div:first-child{flex:1 1 100%}   /* full width, so the date reaches the right edge */
+  .meta .dfull{display:none}
+  .meta .r{text-align:left}
+  .meta .dstat{margin-top:0!important}
+}
 /* Line labels: name and size on one line, phones and computers alike (see twoLine). */
 br.tl{display:none}
 .tlsep{display:inline}
@@ -538,6 +551,9 @@ function render(d){
   const dateText = d.createdAt && d.createdAt.toDate
     ? d.createdAt.toDate().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
     : fmtDate(d.date);
+  /* Phones: a short date (10/7/26) on the phone-number line, so a long name never gets crowded. */
+  const dShort = (() => { const dt = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : (d.date ? new Date(d.date + "T12:00:00") : null);
+    return dt && !isNaN(dt) ? (dt.getMonth() + 1) + "/" + dt.getDate() + "/" + String(dt.getFullYear()).slice(-2) : ""; })();
   const acceptedOn = d.acceptedAt && d.acceptedAt.toDate
     ? d.acceptedAt.toDate().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
     : "";
@@ -573,8 +589,8 @@ function render(d){
     </div>
     <div class="body">
       <div class="meta">
-        <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}${c.phone ? "<br>" + esc(c.phone) : ""}</p></div>
-        <div class="r"><h3>Date</h3><p>${dateText}</p>${statusHtml ? `<p style="margin-top:10px">${statusHtml}</p>` : ""}</div>
+        <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}<span class="phl">${c.phone ? "<span>" + esc(c.phone) + "</span>" : "<span></span>"}<span class="mdate">${dShort}</span></span></p></div>
+        <div class="r"><h3 class="dfull">Date</h3><p class="dfull">${dateText}</p>${statusHtml ? `<p class="dstat" style="margin-top:10px">${statusHtml}</p>` : ""}</div>
       </div>
       <table>
         <thead><tr><th>Service</th><th class="r">Amount</th></tr></thead>
