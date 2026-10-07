@@ -66,6 +66,9 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 @media (max-width:520px){.right{text-align:left;margin-left:0;width:100%}.cardrow{flex-wrap:wrap}.cardrow .card{flex:1 1 100%}.invbtn,.paidbtn{flex:1 1 100%;padding:13px}}
 /* Red tile: the customer left a message on their quote page that hasn't been handled on Leads yet. */
 .card.flag{background:#f8d7d2;box-shadow:0 0 0 2px var(--red)}
+/* Royal purple card: an updated quote sent back from a job sheet for re-approval. A customer note (red) still wins. */
+.card.rev:not(.flag){background:#3b1a6b;color:#fff;box-shadow:0 0 0 2px #6a3cb4}
+.card.rev:not(.flag) .meta{color:#d8ccf2}
 .flagnote{display:inline-block;margin-top:6px;background:var(--red);color:#fff;border:0;border-radius:6px;padding:4px 10px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;max-width:100%;text-align:left;white-space:normal}
 .flagnote.mine{background:#eef1f6;color:var(--navy)}
 /* Note editor (opens from the chip on a tile). */
@@ -167,7 +170,9 @@ const kindOf = r => (r.source === "invoices" || r.source === "paidInvoices") ? "
 
 const card = r =>
   '<div class="cardrow">' +
-  '<a class="card' + (r.source !== "trash" && flags[r.id] && flags[r.id].by === "customer" ? ' flag' : '') + '" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
+  '<a class="card' + (r.source !== "trash" && flags[r.id] && flags[r.id].by === "customer" ? ' flag' : '') +
+    /* Purple: an on-site update (Q-1068-R1...) waiting on the customer's re-approval. */
+    (r.revisionOf || (r.fromJobSheet && r.source === "quotes") ? ' rev' : '') + '" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
     '<div>' +
       '<div class="who">' + esc(r.name || "No name") + '</div>' +
       '<div class="meta">' + esc(r.number) + (r.phone ? " &middot; " + esc(r.phone) : "") + (r.date ? " &middot; " + esc(r.date) : "") + '</div>' +
@@ -181,7 +186,10 @@ const card = r =>
       '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>' +
       (r.source === "trash"
         ? '<button type="button" class="restore" data-restore="' + esc(r.id) + '">Restore</button>'
-        : '<button type="button" class="editbtn" data-edit="' + esc(r.id) + '" data-from="' + esc(r.source) + '">Edit</button>') +
+        /* Same Edit button on every card. An updated quote from a job sheet (data-job) opens its job sheet. */
+        : '<button type="button" class="editbtn" data-edit="' + esc(r.id) + '" data-from="' + esc(r.source) + '"' +
+            /* On-site updates (R1, R2...) are changed on their job sheet, never in the estimator. */
+            (r.revisionOf ? ' data-job="' + esc(r.revisionOf) + '"' : r.fromJobSheet ? ' data-job="' + esc(r.id) + '"' : '') + '>Edit</button>') +
       (r.source !== "trash" && r.phone
         ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-kind="' + kindOf(r) + '">Text</button>'
         : '') +
@@ -240,10 +248,11 @@ function render(){
 
 async function grab(name){
   const snap = await getDocs(query(collection(db, name), orderBy("createdAt", "desc"), limit(200)));
-  /* Updated quotes sent from a job sheet (revisionOf) live on that job's contact page, not here. */
-  return snap.docs.filter(s => !s.data().revisionOf).map(docSnap => {
+  /* Updated quotes added from a job sheet (revisionOf) show under Estimates while they wait for
+     approval; once approved they belong to the job, so they're left off Accepted and the rest. */
+  return snap.docs.filter(s => name === "quotes" || !s.data().revisionOf).map(docSnap => {
     const d = docSnap.data(), c = d.customer || {};
-    return { id: docSnap.id, source: name, createdAt: d.createdAt,
+    return { id: docSnap.id, source: name, createdAt: d.createdAt, revisionOf: d.revisionOf || "", fromJobSheet: !!d.fromJobSheet,
              number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",
              total: d.total, paidAt: d.paidAt, date: when(d.createdAt), state: stateOf(d) };
   });
@@ -384,7 +393,8 @@ async function toInvoice(id, btn){
   const on = d.onsite && Array.isArray(d.onsite.lines) ? d.onsite : null;
   const inv = Object.assign({}, d, on ? {
     lines: on.lines, subtotal: on.subtotal ?? null, total: on.total ?? null,
-    originalQuote: { number: d.number || "", status: d.status || "accepted", lines: d.lines || [],
+    /* An on-site update (R1...) already carries the first approved quote: keep that one. */
+    originalQuote: d.originalQuote || { number: d.number || "", status: d.status || "accepted", lines: d.lines || [],
       subtotal: d.subtotal ?? null, total: d.total ?? null }
   } : {}, {
     type: "invoice", status: "unpaid", number: "I-" + num,
@@ -589,6 +599,8 @@ boardEl.addEventListener("click", e => {
   const ed = e.target.closest(".editbtn");
   if (!ed) return;
   e.preventDefault(); e.stopPropagation();   /* the row is a link; don't follow it */
+  /* An updated quote from a job sheet is changed on its job sheet, not in the estimator. */
+  if (ed.hasAttribute("data-job")) { location.href = "./job-sheet.html?id=" + encodeURIComponent(ed.getAttribute("data-job")); return; }
   location.href = "./index.html?edit=" + encodeURIComponent(ed.getAttribute("data-edit")) +
                   "&from=" + encodeURIComponent(ed.getAttribute("data-from"));
 });

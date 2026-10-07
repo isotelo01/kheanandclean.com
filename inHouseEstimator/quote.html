@@ -680,7 +680,7 @@ function render(d){
   if (form) {
     /* Updated quote sent from the job sheet (fromJobSheet, revisionOf the job): the job already has its
        day, so there's no day to pick and nothing is booked. Accepting just approves the new price. */
-    const isRev = !!(d.revisionOf && d.fromJobSheet);
+    const isRev = !!d.fromJobSheet;   /* on-site update (Q-1068-R1...): same day as the job, nothing to pick */
     const picker = isRev ? { loaded: () => false, pick: () => null } : wireDay(d);
     if (isRev) {
       const lead = document.getElementById("acceptLead");

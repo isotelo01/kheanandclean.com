@@ -302,7 +302,7 @@ async function showProfile(id){
           : "Sent, waiting on approval");
     const og = q.source === "invoices" && q.originalQuote ? q.originalQuote : q;
     origLink = '<a href="./quote.html?id=' + qid + (og === q ? "" : "&original=1") + '" target="_blank" rel="noopener">' +
-      esc((og.number || q.number || "Q") + "OG") + '</a> &middot; ' + esc(money(og.total));
+      esc(og.number || q.number || "Original quote") + '</a> &middot; ' + esc(money(og.total));   /* no "OG": plain number */
   }
 
   view.innerHTML =

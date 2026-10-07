@@ -158,7 +158,7 @@ const splitLabel = t => { const s = noPrice(t), k = s.indexOf(" — "); return k
 
 /* Which job and which line: ?id=<job>&line=<service #>&item=<item #> (item left off = the whole service).
    Held in sessionStorage too, since login.html only takes a bare page name. */
-const PLACES = ["acceptedQuotes", "invoices", "paidInvoices"];
+const PLACES = ["acceptedQuotes", "invoices", "paidInvoices", "quotes"];   /* quotes: an on-site update waiting on approval */
 const ss = { get: k => { try { return sessionStorage.getItem(k) || ""; } catch (e) { return ""; } },
              set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
