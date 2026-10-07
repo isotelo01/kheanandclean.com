@@ -105,6 +105,7 @@ tr.room td.r{padding-left:8px}
 /* Single-spaced line items, phones and computers alike. */
 tr.sub td{line-height:1.3;padding-top:2px;padding-bottom:2px}
 tr.room td{padding-top:1px;padding-bottom:1px}
+tr.room td.r{white-space:nowrap}   /* room rows: "Master Bedroom · 250 sq ft" left, just the price right */
 tr.head td{padding-top:12px;padding-bottom:4px}
 .totalrow{border-top:1px solid rgba(227,182,74,.45);padding-top:12px}
 .grand{border-top:0;color:var(--gold);align-items:baseline}
@@ -579,7 +580,7 @@ function render(d){
         <thead><tr><th>Service</th><th class="r">Amount</th></tr></thead>
         <tbody>${(d.lines || []).map(l => `<tr class="head"><td>${twoLine(l.label)}</td><td class="r">${money(l.cost)}</td></tr>` +
           (l.items || []).filter(it => !it.removed).map(it => `<tr class="sub"><td>${twoLine(it.label)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>` +
-            (it.rooms || []).map(rm => `<tr class="room"><td>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)}</td><td class="r">${(Number(rm.sqft) || 0).toLocaleString()} sq ft${roomPrice(rm, it)}</td></tr>`).join("")).join("")).join("")}</tbody>
+            (it.rooms || []).map(rm => `<tr class="room"><td>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)} · ${(Number(rm.sqft) || 0).toLocaleString()} sq ft</td><td class="r">${roomPrice(rm, it).replace(/^ · /, "")}</td></tr>`).join("")).join("")).join("")}</tbody>
       </table>
       <div class="totalrow">
         <div class="totals">
