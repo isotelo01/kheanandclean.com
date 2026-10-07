@@ -158,6 +158,10 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .revbox .revacts{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .revbox .revacts a{font:600 15px "Archivo";text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:8px 14px;color:var(--navy);background:#fff}
 @media print{.sumbtn,.revbox{display:none!important}}
+/* Customer view (?view=customer): Summary only, no buttons, rows don't open staff pages. */
+.pub .sumrow,.pub .revbox,.pub .top>div{display:none!important}
+.pub .spot,.pub .home{pointer-events:none}
+.pub #authwait{display:none}
 /* Paper copy: no buttons, no shadows, photos smaller. */
 @media print{
   body{background:#fff}
@@ -240,7 +244,10 @@ const PLACES = ["acceptedQuotes", "invoices", "paidInvoices", "quotes"];
 /* login.html only takes a bare page name, so the job id is held here across sign-in. */
 const ss = { get: k => { try { return sessionStorage.getItem(k) || ""; } catch (e) { return ""; } },
              set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} } };
-const id = new URLSearchParams(location.search).get("id") || ss.get("kcJobSheetId");
+/* Customer view: ?view=customer — read-only Summary, no sign-in, nothing clickable through to staff pages. */
+const PUBLIC = new URLSearchParams(location.search).get("view") === "customer";
+if (PUBLIC) document.documentElement.classList.add("pub");
+const id = new URLSearchParams(location.search).get("id") || (PUBLIC ? "" : ss.get("kcJobSheetId"));
 if (id) ss.set("kcJobSheetId", id);
 
 /* ---- On-site quote building: open a line, add or delete rooms, prices follow. ---- */
@@ -337,7 +344,7 @@ const fail = e => { console.error(e); const n = document.getElementById("note");
 
 /* ---- Summarize / Edit: the clean customer view of this same sheet, remembered for this job while the tab is open. ---- */
 const summKey = "kcSumm_" + id;
-let summ = ss.get(summKey) === "1";
+let summ = PUBLIC || ss.get(summKey) === "1";   /* the customer only ever sees the Summary */
 const sumOpen = new Set((ss.get(summKey + "_open") || "").split(",").filter(Boolean));   /* services opened in the summary */
 function applyMode(){
   document.body.classList.toggle("summ", summ);
@@ -683,7 +690,7 @@ async function show(){
      job under spots. Grouped rooms are split: Bedroom × 3 = Bedroom 1, 2 and 3. */
   const spots = (q.spots && typeof q.spots === "object") ? q.spots : {};
   /* Hair & debris boxes checked on the room pages: price them onto the line and save. */
-  if (syncHair(lines, spots)) saveOnsite().catch(fail);
+  if (syncHair(lines, spots) && !PUBLIC) saveOnsite().catch(fail);   /* customer view never writes */
   let doneCount = 0;
   const spotLink = (i, j, r) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j) + (r == null ? '' : '&room=' + r);
   /* price: shown only in the Summarize view, where the Delete button was. */
@@ -876,7 +883,7 @@ async function show(){
   /* Summary's folded-service photos. */
   view.querySelectorAll("[data-sthumb]").forEach(t =>
     getDownloadURL(ref(storage, t.dataset.sthumb)).then(u => { t.style.backgroundImage = 'url("' + u + '")'; })
-      .catch(e => console.error("Thumb " + t.dataset.sthumb, e)));
+      .catch(e => { console.error("Thumb " + t.dataset.sthumb, e); t.remove(); }));
   document.getElementById("crewNotes").addEventListener("input", () => { note.textContent = "Not saved yet."; note.classList.remove("err"); });
 
   /* Photo boxes (Notes photos, Job photos): saved on the job as soon as they upload, so none are lost. */
@@ -886,7 +893,7 @@ async function show(){
   const drawJP = async () => {
     const urls = await Promise.all(jobPhotos.map(p => getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
     if (!jpgrid.isConnected) return;
-    document.getElementById("pbw-" + k).classList.toggle("empty", !jobPhotos.length);   /* Summary hides an empty box */
+    document.getElementById("pbw-" + k).classList.toggle("empty", !urls.some(Boolean));   /* Summary hides a box with nothing to show */
     jpgrid.innerHTML = jobPhotos.map((p, k) => urls[k]
       ? '<div class="jpcell"><a href="' + esc(urls[k]) + '" class="pshot" data-full="' + esc(urls[k]) + '"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
         '<button type="button" class="jpx" data-k="' + k + '" aria-label="Remove photo">×</button></div>' : '').join("") ||
@@ -1080,9 +1087,11 @@ document.getElementById("printBtn").addEventListener("click", () => window.print
   });
 })();
 
-/* Page lock. Not signed in -> login page, then back to this same sheet. */
+/* Page lock. Not signed in -> login page, then back to this same sheet.
+   Customer view (?view=customer, linked from their quote): no sign-in, read-only Summary. */
 let started = false;
-onAuthStateChanged(getAuth(app), user => {
+if (PUBLIC) { document.getElementById("authwait")?.remove(); started = true; show(); }
+else onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=job-sheet.html"); return; }
   document.getElementById("authwait")?.remove();
   if (!started) { started = true; show(); }

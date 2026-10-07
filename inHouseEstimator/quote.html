@@ -200,6 +200,24 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 .whenEdit:hover{background:rgba(255,255,255,.05)}
 .pprint{display:none}
 @media print{.pprint{display:block;background:#f7f8fa}}
+/* "Your Job Report": the customer's read-only view of the job sheet (photos, rooms, notes). */
+.jobrep{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:14px;box-sizing:border-box;width:100%;max-width:440px;margin:6px auto 22px;padding:16px 22px;text-align:left;color:#0b0f17;text-decoration:none;border-radius:16px;
+  background:linear-gradient(135deg,#f6dc8a 0%,#d4a53c 45%,#b9862a 100%);
+  box-shadow:0 1px 0 rgba(255,255,255,.55) inset,0 -2px 0 rgba(0,0,0,.12) inset,0 10px 28px rgba(212,165,60,.35),0 2px 6px rgba(0,0,0,.3);
+  transition:transform .18s ease,box-shadow .18s ease}
+.jobrep::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:jrShine 3.6s ease-in-out infinite}
+@keyframes jrShine{0%,55%{left:-60%}100%{left:130%}}
+.jobrep .jrico{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:#0b0f17;color:#f6dc8a}
+.jobrep .jrtxt{display:flex;flex-direction:column;gap:3px}
+.jobrep .jrt{font:800 21px/1.05 "Archivo",sans-serif;letter-spacing:.02em}
+.jobrep .jrs{font:600 13px/1.2 "Archivo",sans-serif;opacity:.72}
+.jobrep .jrarr{flex:none;margin-left:auto;font:800 24px/1 "Archivo",sans-serif;transition:transform .18s ease}
+.jobrep:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.55) inset,0 -2px 0 rgba(0,0,0,.12) inset,0 14px 34px rgba(212,165,60,.5),0 3px 8px rgba(0,0,0,.3)}
+.jobrep:hover .jrarr{transform:translateX(4px)}
+.jobrep:active{transform:translateY(0)}
+@media (prefers-reduced-motion:reduce){.jobrep::after{animation:none;display:none}.jobrep,.jobrep .jrarr{transition:none}}
+@media print{.jobrep{display:none}}
 @media print{.photos{display:none}}
 @media print{:root{--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}body,.sheet,.top{background:#fff;color:var(--ink)}tr.head td{color:var(--ink)}tr.sub td,tr.room td{color:var(--muted)}}
 </style>
@@ -592,6 +610,8 @@ function render(d){
         <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}<span class="phl">${c.phone ? "<span>" + esc(c.phone) + "</span>" : "<span></span>"}<span class="mdate">${dShort}</span></span></p></div>
         <div class="r"><h3 class="dfull">Date</h3><p class="dfull">${dateText}</p>${statusHtml ? `<p class="dstat" style="margin-top:10px">${statusHtml}</p>` : ""}</div>
       </div>
+      ${(d.onsite || d.spots) && !new URLSearchParams(location.search).has("original")
+        ? `<a class="jobrep" href="./job-sheet.html?id=${encodeURIComponent(id)}&view=customer" target="_blank" rel="noopener"><span class="jrico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9z"/><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg></span><span class="jrtxt"><span class="jrt">Your Job Report</span><span class="jrs">Photos &amp; details of your clean</span></span><span class="jrarr" aria-hidden="true">&rsaquo;</span></a>` : ""}
       <table>
         <thead><tr><th>Service</th><th class="r">Amount</th></tr></thead>
         <tbody>${(d.lines || []).map(l => `<tr class="head"><td>${twoLine(l.label)}</td><td class="r">${money(l.cost)}</td></tr>` +
