@@ -51,6 +51,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .acts .play{background:var(--navy);color:#fff;border-color:var(--navy)}
 .acts audio{width:100%;max-width:420px;height:36px}
 .vmerr{grid-column:1 / -1;color:var(--red);font-size:13px}
+.vmtext{grid-column:1 / -1;color:var(--ink);font-size:14px;font-style:italic}
 .call{justify-self:end;font:600 13px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 9px;background:#fff}
 /* Phone pill, call bar, dial pad: same as texts.html. */
 .phone{font:600 14px "Archivo";background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
@@ -407,6 +408,7 @@ function vmRow(c) {
       (c.vmNew ? '<span class="tag">New</span>' : '') + '</span>' +
     '<span class="when">' + esc(whenShort(c.vmAt || c.at)) + '</span>' +
     (c.vmError && !c.voicemail ? '<span class="vmerr">This message couldn\'t be copied here. It\'s saved in the Twilio console under Monitor &rarr; Call recordings.</span>' : '') +
+    (c.vmText ? '<span class="vmtext">&ldquo;' + esc(c.vmText) + '&rdquo;</span>' : '') +
     '<div class="acts">' + acts +
       (k ? '<a href="tel:+1' + esc(k) + '">Call back</a><a href="./texts.html#' + esc(k) + '">Text</a>' : '') +
       '<button type="button" data-heard="' + esc(c.id) + '">' + (c.vmNew ? 'Mark heard' : 'Mark new') + '</button>' +
