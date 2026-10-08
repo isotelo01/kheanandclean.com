@@ -2,7 +2,7 @@
    The link opens quote.html (stage two). Unapproved quotes expire after 30 days. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp,
-         collection, query, where, limit, getDocs }
+         collection, query, where, limit, getDocs, deleteField }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
@@ -189,7 +189,32 @@ async function fileContact(quoteId, from, number){
 /* ---- Edit mode: index.html?edit=<id>&from=<collection>, opened from the Dashboard ---- */
 const EDITABLE = ['quotes', 'acceptedQuotes', 'invoices', 'paidInvoices'];
 const ACCEPT_FIELDS = ['acceptedName', 'acceptedAt', 'termsAccepted', 'termsVersion'];
-let edit = null, banner = null, backBtn = null;
+let edit = null, banner = null, backBtn = null, offBtn = null;
+
+/* "Take off calendar": clears the job date on an accepted estimate (same as the
+   Calendar page's button). The job stays in Approved and shows under Needs Date. */
+async function takeOffCalendar(){
+  if (!edit || edit.from !== 'acceptedQuotes') return;
+  offBtn.disabled = true; offBtn.textContent = 'Taking off…';
+  try {
+    await updateDoc(doc(db, 'acceptedQuotes', edit.id),
+      { scheduledDate: deleteField(), scheduledTime: deleteField(), scheduledUpdatedAt: serverTimestamp() });
+  } catch (e) {
+    console.error(e);
+    show('Could not take it off the calendar — ' + (e && e.message ? e.message : 'check your connection') + '.', true);
+    offBtn.disabled = false; offBtn.textContent = 'Take off calendar';
+    return;
+  }
+  ['eWhen', 'eWhenTime'].forEach(fid => {
+    const el = $(fid); if (!el) return;
+    el.value = '';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  delete edit.data.scheduledDate; delete edit.data.scheduledTime;
+  offBtn.remove(); offBtn = null;
+  show('Taken off the calendar. It\u2019s now under Needs Date.');
+}
 
 /* "Return to estimates": saves your edits and sends the invoice back to Estimates. */
 async function returnToEstimates(){
@@ -267,6 +292,17 @@ async function loadForEdit(id, from){
       backBtn.style.cssText = 'margin-top:10px;background:transparent;color:#E3B64A;border:1px solid #E3B64A';
       btn.after(backBtn);
       backBtn.addEventListener('click', returnToEstimates);
+    }
+    /* Accepted estimate with a job date: offer a way to take it off the calendar. */
+    if (from === 'acceptedQuotes' && d.scheduledDate) {
+      offBtn = document.createElement('button');
+      offBtn.type = 'button';
+      offBtn.className = btn.className;
+      offBtn.id = 'eOffBtn';
+      offBtn.textContent = 'Take off calendar';
+      offBtn.style.cssText = 'margin-top:10px;background:transparent;color:#ff6b6b;border:1px solid #ff6b6b';
+      (backBtn || btn).after(offBtn);
+      offBtn.addEventListener('click', takeOffCalendar);
     }
   } catch (e) {
     console.error(e);
@@ -380,5 +416,6 @@ document.addEventListener('click', (e) => {
     if(edit){ edit = null; history.replaceState(null, '', location.pathname); btn.textContent = 'Send Estimate'; }
     if(banner){ banner.remove(); banner = null; }
     if(backBtn){ backBtn.remove(); backBtn = null; }
+    if(offBtn){ offBtn.remove(); offBtn = null; }
   }
 });
