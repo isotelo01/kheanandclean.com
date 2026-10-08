@@ -264,7 +264,7 @@ async function loadForEdit(id, from){
       backBtn.className = btn.className;
       backBtn.id = 'eBackBtn';
       backBtn.textContent = 'Return to estimates';
-      backBtn.style.cssText = 'margin-top:10px;background:transparent;color:inherit;border:1px solid currentColor';
+      backBtn.style.cssText = 'margin-top:10px;background:transparent;color:#E3B64A;border:1px solid #E3B64A';
       btn.after(backBtn);
       backBtn.addEventListener('click', returnToEstimates);
     }
