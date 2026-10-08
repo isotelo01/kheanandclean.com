@@ -1,0 +1,52 @@
+/* Khean & Clean in-house pages: dark screen theme, easy on the eyes.
+   Black page, navy boxes with a gold border, white lettering, black input boxes.
+   Each page links this LAST in its <head>, so it wins over the page's own colours.
+   To undo on a page: delete that one <link> line.
+   Screen only: printed job sheets keep the normal white paper look.
+   NOT used on customer pages (quote.html, terms.html). */
+@media screen{
+:root{--ink:#fff;--muted:#c3c9d4;--line:#3a4866;--bg:#000;color-scheme:dark}
+html,body,#authwait{background:#000}
+body{color:#fff}
+
+/* Boxes: navy with a gold border */
+.panel,.card,.row,.tile,.day,.day.today,.dempty,.dview .dcard,.nbox,.side,.revbox,#dialer,dialog{
+  background:#172239;color:#fff;border:1px solid var(--gold)}
+.day.empty{background:transparent;border:0;border-bottom:1px solid var(--line)}
+.rpfoot,.rphead,.flagnote.mine{background:#0f1729;color:#fff}
+.msg{background:transparent}
+
+/* Colour-coded cards keep their meaning, in darker shades so white text reads */
+.row.bg-residential,.dview .dcard.b-misc{background:#1f3a5f}
+.row.bg-pm,.row.t-green,.panel.t-green,.dview .dcard.b-job{background:#1d4a35}
+.row.bg-realtor,.dview .dcard.b-edh{background:#4f4115}
+.row.bg-commercial,.row.t-red,.panel.t-red,.banner{background:#55291f;color:#fff}
+.row.done{background:#111827}
+.card.flag{background:#5c2a22}
+.job:hover,.spot:hover{background:rgba(255,255,255,.06)}
+
+/* Photo spots */
+.pgrid a,.pcell,.jpcell,.sthumbs span,.nshot a,.nshot img,.spot .spot__tick.thumb{background:#0b1220}
+
+/* Texts: your sent bubbles a lighter navy so they show on the navy panel */
+.b.out{background:#2c4372}
+
+/* Buttons that were white: black with white lettering */
+.ghost,a.ghost,button.ghost,.tab,.trashbtn,.custbtn,.editbtn,.del,.textbtn,.mailbtn,.mailbtn.off,.mailbtn.off:hover,
+.nx,.nshot button,.nclear,.arrow,.x,.mdel,.sdel,.rpstep button,.rpall,.pkgbtn,.revbox .revacts a,.tabs a,
+.acts button,.acts a,.call,.phone,#callbar .cb-mute,#dialBack,#dialer .keys button,.pp .call,.row .call,
+.chk .open,.pcam,.hrs .hr span,.srow .spot{background:#000;color:#fff;border-color:#4a5878}
+.ghost:hover,.del:hover,#dialer .keys button:hover{background:#1d2840}
+.new{border-color:var(--gold)}
+
+/* Lettering that was navy (would vanish on navy) */
+#bRule,#dialer .dh,#dialNum,.dcname,.dctime,.grp summary,.jcno{color:#fff}
+.dcrow a,.jc3 a,.note a,.rval a,.prow a,.chead a,.tabs .n{color:var(--gold)}
+.acct{color:var(--muted)}
+
+/* Input boxes: black with white lettering */
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select,textarea{
+  background:#000 !important;color:#fff !important;border-color:#4a5878 !important}
+::placeholder{color:#8b93a3}
+.hrs .hr input:disabled + span,.hrs button.hr:disabled span{background:#1a2133;color:#6b7385}
+}
