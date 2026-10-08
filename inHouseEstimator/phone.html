@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Phone &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* The business phone, (916) 767-2520: voicemail, the call log, and a dial pad. Same look as texts.html.
+   While this page (or Texts) is open, the computer rings with both cells. Missed calls go to
+   voicemail (functions: voiceDialDone -> voiceVoicemail), saved under calls/{CallSid}. */
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:1120px;margin:0 auto;padding:22px 18px 90px}
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+[hidden]{display:none!important}
+.msg{color:var(--muted);font-size:15px;padding:6px 2px}
+.msg.err{color:var(--red)}
+:where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
+#view{min-width:0}
+/* Voicemail | Calls tabs */
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs a{font:600 15px "Archivo";color:var(--navy);text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 16px}
+.tabs a.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.tabs .n{display:inline-block;min-width:20px;height:20px;border-radius:10px;background:var(--gold);color:var(--navy);font:700 11px/20px "Archivo";text-align:center;padding:0 5px;margin-left:6px}
+.list{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;background:#fff;border-radius:10px;
+  box-shadow:0 1px 6px rgba(23,34,57,.08);padding:12px 16px;border-left:4px solid transparent}
+.row.new{border-left-color:var(--gold)}
+.who{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.new .who{font-weight:700}
+.who a{color:inherit;text-decoration:none}
+.when{color:var(--muted);font-size:13px;white-space:nowrap;text-align:right}
+.last{color:var(--muted);font-size:14px}
+.row.missed .last{color:var(--red);font-weight:600}
+.tag{display:inline-block;font:700 11px "Archivo";letter-spacing:.04em;text-transform:uppercase;background:var(--gold);color:var(--navy);border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.acts{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.acts button,.acts a{font:600 13px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:5px 11px;background:#fff;cursor:pointer}
+.acts button:hover,.acts a:hover{border-color:var(--navy)}
+.acts .play{background:var(--navy);color:#fff;border-color:var(--navy)}
+.acts audio{width:100%;max-width:420px;height:36px}
+.vmerr{grid-column:1 / -1;color:var(--red);font-size:13px}
+.call{justify-self:end;font:600 13px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 9px;background:#fff}
+/* Phone pill, call bar, dial pad: same as texts.html. */
+.phone{font:600 14px "Archivo";background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+.phone.on{color:var(--green);border-color:var(--green)}
+.phone.on::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:7px;vertical-align:1px}
+.phone.bad{color:var(--red);border-color:var(--red)}
+#callbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:8;width:min(560px,calc(100% - 24px));background:var(--navy);color:#fff;
+  border-radius:12px;box-shadow:0 6px 24px rgba(23,34,57,.35);padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#callbar .cb-who{flex:1;min-width:0;font-weight:700;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#callbar .cb-sub{display:block;font-weight:400;font-size:13px;opacity:.85}
+#callbar button{font:600 15px "Archivo";border:0;border-radius:8px;padding:10px 16px;cursor:pointer}
+#callbar .cb-ok{background:#1f8a5b;color:#fff}
+#callbar .cb-no{background:var(--red);color:#fff}
+#callbar .cb-mute{background:#fff;color:var(--navy)}
+#callbar .cb-mute[aria-pressed="true"]{background:var(--gold)}
+#dialer{position:fixed;right:18px;top:84px;z-index:9;width:260px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(23,34,57,.22);padding:14px}
+#dialer .dh{display:flex;align-items:center;justify-content:space-between;font:700 15px "Archivo";color:var(--navy);margin-bottom:8px}
+#dialer .dx{border:0;background:none;font-size:24px;line-height:1;color:var(--muted);cursor:pointer;padding:2px 6px}
+#dialNum{width:100%;font:600 22px "Archivo";text-align:center;border:1px solid var(--line);border-radius:8px;padding:9px 6px;color:var(--navy)}
+#dialer .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+#dialer .keys button{font:600 20px "Archivo";background:var(--bg);color:var(--navy);border:0;border-radius:10px;padding:11px 0;cursor:pointer}
+#dialer .drow{display:flex;gap:8px}
+#dialCall{flex:1;font:700 16px "Archivo";background:#1f8a5b;color:#fff;border:0;border-radius:10px;padding:11px;cursor:pointer}
+#dialBack{font:600 18px "Archivo";background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:10px;padding:0 14px;cursor:pointer}
+#dialMsg{font-size:13px;color:var(--muted);margin-top:8px;min-height:1em}
+#dialMsg.bad{color:var(--red)}
+@media(max-width:540px){#dialer{left:12px;right:12px;width:auto;top:70px}.top{gap:10px}}
+/* Desktop: dial pad pinned on the right, always open. */
+@media(min-width:1024px){
+  .wrap{max-width:1200px}
+  .cols{grid-template-columns:minmax(0,1fr) 290px}
+  #dialBtn,#dialX{display:none}
+  #dialer,#dialer[hidden]{display:block!important;position:sticky;top:12px;right:auto;width:auto;z-index:1;
+    border:0;border-radius:12px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:0;overflow:hidden}
+  #dialer .dh{background:var(--navy);color:#fff;font:700 18px "Playfair Display",Georgia,serif;margin:0;padding:14px 18px;border-bottom:3px solid var(--gold)}
+  #dialNum{display:block;width:calc(100% - 36px);margin:18px 18px 0;font-size:26px;border:0;border-bottom:2px solid var(--line);border-radius:0;padding:8px 4px}
+  #dialNum:focus{outline:0;border-bottom-color:var(--gold)}
+  #dialer .keys{gap:10px;margin:18px}
+  #dialer .keys button{font-size:22px;padding:14px 0;border:1px solid var(--line);background:#fff}
+  #dialer .keys button:hover{background:#fbf3df;border-color:var(--gold)}
+  #dialer .keys button:active{background:var(--gold)}
+  #dialer .drow{margin:0 18px}
+  #dialCall{font-size:17px;padding:13px}
+  #dialMsg{margin:12px 18px 18px;text-align:center}
+}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Phone</h1>
+    <div class="nav">
+      <button type="button" class="phone" id="phoneBtn">Phone off</button>
+      <button type="button" class="ghost" id="dialBtn">Dial</button>
+      <a class="ghost" href="./texts.html">Texts</a>
+    </div>
+  </div>
+  <div class="cols">
+    <div id="main">
+      <nav class="tabs" aria-label="Phone lists">
+        <a href="#voicemail" id="tabVm">Voicemail<span class="n" id="vmCount" hidden></span></a>
+        <a href="#calls" id="tabCalls">Calls</a>
+      </nav>
+      <div id="view"><div class="msg">Loading&hellip;</div></div>
+    </div>
+    <div id="dialer" role="dialog" aria-label="Dial a number" hidden>
+      <div class="dh">Dial <button type="button" class="dx" id="dialX" aria-label="Close">&times;</button></div>
+      <input id="dialNum" type="tel" inputmode="tel" autocomplete="off" placeholder="Enter number" aria-label="Number to call">
+      <div class="keys">
+        <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+        <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+        <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+        <button type="button" data-k="*">*</button><button type="button" data-k="0">0</button><button type="button" data-k="#">#</button>
+      </div>
+      <div class="drow"><button type="button" id="dialCall">Call</button><button type="button" id="dialBack" aria-label="Delete">&#9003;</button></div>
+      <div id="dialMsg"></div>
+    </div>
+  </div>
+</div>
+<div id="callbar" role="status" aria-live="polite" hidden></div>
+
+<!-- Twilio's calling library: lets this page ring and talk like a phone. Same pinned version as texts.html. -->
+<script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, updateDoc }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+const storage = getStorage(app);
+const voiceToken = httpsCallable(getFunctions(app, "us-central1"), "voiceToken");
+
+const view = document.getElementById("view");
+const ELLIPSIS = "…", DOT = " · ";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const key = p => { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
+const pretty = p => { const d = key(p); return d ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : String(p || ""); };
+const ms = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
+const sameDay = (a, b) => a.toDateString() === b.toDateString();
+const yesterday = () => { const y = new Date(); y.setDate(y.getDate() - 1); return y; };
+function whenShort(t) {
+  const m = ms(t); if (!m) return "";
+  const d = new Date(m), tm = d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+  if (sameDay(d, new Date())) return tm;
+  if (sameDay(d, yesterday())) return "Yesterday " + tm;
+  return d.toLocaleDateString([], {month: "short", day: "numeric"}) + " " + tm;
+}
+const mmss = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+const nameByKey = {};   // filled from the call log, so the call bar can show a name
+
+/* ---------- phone: this page as the business phone (same as texts.html) ---------- */
+const phoneBtn = document.getElementById("phoneBtn"), callbar = document.getElementById("callbar");
+let baseTitle = document.title;
+let device = null, ready = false, live = null, tick = null;
+const phoneState = (text, cls, why) => { phoneBtn.textContent = text; phoneBtn.className = "phone" + (cls ? " " + cls : ""); phoneBtn.title = why || ""; syncDial(); };
+const getToken = async () => (await voiceToken()).data.token;
+const who = num => { const k = key(num); return {k, name: nameByKey[k] || "", num: k ? pretty(k) : (num || "Unknown caller")}; };
+
+async function askMic() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return "This browser can't use a microphone here.";
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({audio: true});
+    s.getTracks().forEach(t => t.stop());
+    return "";
+  } catch (e) {
+    const n = e && e.name;
+    if (n === "NotAllowedError" || n === "SecurityError")
+      return "Microphone is blocked. Click the icon left of the web address, set Microphone to Allow, then refresh.";
+    if (n === "NotFoundError") return "No microphone found. Plug one in or use a headset.";
+    if (n === "NotReadableError") return "Another app is using the microphone. Close it and try again.";
+    return "Microphone problem: " + ((e && e.message) || n || e);
+  }
+}
+const errText = (step, e) => step + ": " + (e ? (e.code ? e.code + " " : "") + (e.message || String(e)) : "unknown");
+
+async function phoneOn() {
+  if (!window.Twilio || !window.Twilio.Device) { phoneState("Phone unavailable", "bad", "The calling library didn't load."); return; }
+  phoneState("Turning on" + ELLIPSIS);
+  const mic = await askMic();
+  if (mic) { ready = false; phoneState("Phone error", "bad", mic); return; }
+  let step = "Getting the sign-in pass", lastErr = null;
+  try {
+    const token = await getToken();
+    step = "Starting the phone";
+    device = new window.Twilio.Device(token, {closeProtection: true, codecPreferences: ["opus", "pcmu"]});
+    device.on("registered", () => { ready = true; phoneState("Phone on", "on", "This page rings with your cells."); });
+    device.on("unregistered", () => { ready = false; if (device) phoneState("Phone off"); });
+    device.on("error", e => { lastErr = e; console.warn("phone", e); phoneState("Phone error", "bad", e ? (e.code ? e.code + ": " : "") + (e.message || "") : ""); });
+    device.on("incoming", ringing);
+    device.on("tokenWillExpire", async () => {
+      try { device.updateToken(await getToken()); } catch (e) { console.warn("phone token", e); }
+    });
+    step = "Connecting to Twilio";
+    await device.register();
+  } catch (e) {
+    console.warn("phone on", step, e);
+    if (device) { device.destroy(); device = null; }
+    ready = false; phoneState("Phone error", "bad", errText(step, e || lastErr));
+  }
+}
+function phoneOff() {
+  if (live) return;   // never cut off a call in progress
+  if (device) { device.destroy(); device = null; }
+  ready = false; phoneState("Phone off");
+}
+phoneBtn.addEventListener("click", () => device ? phoneOff() : phoneOn());
+
+function endCall() {
+  clearInterval(tick); tick = null; live = null;
+  callbar.hidden = true; callbar.innerHTML = "";
+  document.title = baseTitle;
+}
+function callBar(c, w, status) {
+  live = c;
+  const pre = w.name ? w.num + DOT : "";
+  callbar.innerHTML = '<span class="cb-who">' + esc(w.name || w.num) + '<span class="cb-sub" id="cbSub">' + esc(pre + status) + '</span></span>' +
+    '<button type="button" class="cb-mute" id="cbMute" aria-pressed="false">Mute</button>' +
+    '<button type="button" class="cb-no" id="cbHang">Hang up</button>';
+  callbar.hidden = false;
+  const sub = document.getElementById("cbSub");
+  document.getElementById("cbMute").onclick = e => {
+    const m = !c.isMuted(); c.mute(m);
+    e.currentTarget.setAttribute("aria-pressed", String(m)); e.currentTarget.textContent = m ? "Unmute" : "Mute";
+  };
+  document.getElementById("cbHang").onclick = () => c.disconnect();
+  ["disconnect", "cancel", "reject"].forEach(ev => c.on(ev, () => { if (live === c) endCall(); }));
+  c.on("error", e => { console.warn("call", e); if (live === c) endCall(); });
+  return () => {
+    const t0 = Date.now(); sub.textContent = pre + "0:00"; clearInterval(tick);
+    tick = setInterval(() => { sub.textContent = pre + mmss(Math.round((Date.now() - t0) / 1000)); }, 1000);
+  };
+}
+function ringing(c) {
+  if (live) { c.reject(); return; }
+  const w = who(c.parameters && c.parameters.From);
+  live = c;
+  document.title = "Incoming call" + ELLIPSIS;
+  callbar.innerHTML = '<span class="cb-who">' + esc(w.name || w.num) + '<span class="cb-sub">' +
+      esc((w.name ? w.num + DOT : "") + "Incoming call") + '</span></span>' +
+    '<button type="button" class="cb-ok" id="cbAns">Answer</button>' +
+    '<button type="button" class="cb-no" id="cbDec">Decline</button>';
+  callbar.hidden = false;
+  ["cancel", "disconnect"].forEach(ev => c.on(ev, () => { if (live === c) endCall(); }));
+  document.getElementById("cbDec").onclick = () => { c.reject(); endCall(); };
+  document.getElementById("cbAns").onclick = () => {
+    document.title = baseTitle;
+    const go = callBar(c, w, "Connecting" + ELLIPSIS);
+    c.on("accept", go);
+    c.accept();
+  };
+}
+async function callOut(k) {
+  if (live) return;
+  const w = who(k);
+  live = "dialing";
+  try {
+    const c = await device.connect({params: {To: "+1" + k}});
+    const go = callBar(c, w, "Calling" + ELLIPSIS);
+    c.on("accept", go);
+  } catch (e) {
+    console.warn("call out", e); endCall();
+    alert("Couldn't place the call: " + ((e && e.message) || e));
+  }
+}
+
+/* ---------- dial pad (same as texts.html) ---------- */
+const dialer = document.getElementById("dialer"), dialNum = document.getElementById("dialNum"),
+  dialMsg = document.getElementById("dialMsg");
+function syncDial(note) {
+  if (!dialer || dialer.hidden) return;
+  if (note) { dialMsg.textContent = note; dialMsg.className = ""; return; }
+  const bad = phoneBtn.classList.contains("bad");
+  dialMsg.className = bad ? "bad" : "";
+  dialMsg.textContent = bad ? phoneBtn.textContent + (phoneBtn.title ? " (" + phoneBtn.title + ")" : "")
+    : device && ready ? "Phone on. People see (916) 767-2520."
+    : "Phone is off. It turns on when you press Call.";
+}
+const deskDial = window.matchMedia("(min-width:1024px)");
+const closeDial = () => { if (!deskDial.matches) dialer.hidden = true; };
+function openDial(focus) { dialer.hidden = false; syncDial(); if (focus !== false) dialNum.focus(); }
+document.getElementById("dialBtn").addEventListener("click", () => dialer.hidden ? openDial() : closeDial());
+document.getElementById("dialX").addEventListener("click", closeDial);
+const dialDigits = () => dialNum.value.replace(/[^0-9*#]/g, "");
+function fmtDial(d) {
+  if (/[*#]/.test(d)) return d;
+  let pre = "";
+  if (d.length > 10 && d[0] === "1") { pre = "1 "; d = d.slice(1); }
+  if (d.length > 10) return pre + d;
+  if (d.length > 6) return pre + "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6);
+  if (d.length > 3) return pre + "(" + d.slice(0, 3) + ") " + d.slice(3);
+  return pre + d;
+}
+const setDial = d => { dialNum.value = fmtDial(d); };
+dialNum.addEventListener("input", () => setDial(dialDigits()));
+function dialKey(k) {
+  if (live && typeof live === "object" && live.sendDigits) {
+    try { live.sendDigits(k); } catch (err) { console.warn("tone", err); }
+  } else setDial(dialDigits() + k);
+}
+const dialDel = () => setDial(dialDigits().slice(0, -1));
+dialer.querySelector(".keys").addEventListener("click", e => {
+  const b = e.target.closest("button[data-k]");
+  if (!b) return;
+  dialKey(b.dataset.k); dialNum.focus();
+});
+document.getElementById("dialBack").addEventListener("click", () => { dialDel(); dialNum.focus(); });
+async function dialGo() {
+  if (live) { syncDial("You're already on a call."); return; }
+  const k = key(dialNum.value);
+  if (!k) { syncDial("Enter a 10-digit number."); return; }
+  if (!device || !ready) { syncDial("Turning the phone on" + ELLIPSIS); await phoneOn(); }
+  if (!device || !ready) { syncDial(); return; }
+  callOut(k);
+}
+document.getElementById("dialCall").addEventListener("click", dialGo);
+dialNum.addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); dialGo(); }
+  else if (e.key === "Escape") closeDial();
+});
+document.addEventListener("keydown", e => {
+  if (dialer.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t && (t === dialNum || t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (/^[0-9*#]$/.test(e.key)) { e.preventDefault(); dialKey(e.key); }
+  else if (e.key === "Backspace") { e.preventDefault(); dialDel(); }
+  else if (e.key === "Enter" && dialDigits()) { e.preventDefault(); dialGo(); }
+});
+if (deskDial.matches) openDial(false);
+deskDial.addEventListener("change", e => { if (e.matches) openDial(false); });
+
+// Phone on: Call links on this page dial through the computer. Phone off: this device dials them.
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest('a[href^="tel:"]');
+  if (!a || !device || !ready) return;
+  const k = key(a.getAttribute("href"));
+  if (!k) return;
+  e.preventDefault();
+  callOut(k);
+});
+
+/* ---------- voicemail + call log ----------
+   One live read of the last 300 calls feeds both tabs. A voicemail is a call with a
+   voicemail file (or vmError if Twilio's copy couldn't be saved here). New = gold edge,
+   until it's played to the end or marked heard. While a message is playing, updates
+   wait so the player doesn't restart under you. */
+let calls = [], tab = "voicemail", playing = 0, pending = false, loaded = false;
+const urls = {};   // voicemail path -> playable link, once fetched
+const isVm = c => !!(c.voicemail || c.vmError);
+const nameOf = c => {
+  const k = c.key || key(c.dir === "out" ? c.to : c.from);
+  return {k, name: c.name || nameByKey[k] || (k ? pretty(k) : (c.from || "Unknown caller"))};
+};
+
+function render() {
+  if (!loaded) return;   // keeps "Loading…" until the first read arrives
+  if (playing) { pending = true; return; }
+  pending = false;
+  const vms = calls.filter(isVm), fresh = vms.filter(c => c.vmNew).length;
+  const n = document.getElementById("vmCount");
+  n.hidden = !fresh; n.textContent = fresh;
+  baseTitle = (fresh ? "(" + fresh + ") " : "") + "Phone · Khean & Clean";
+  if (!live || live === "dialing") document.title = baseTitle;
+  document.getElementById("tabVm").classList.toggle("on", tab === "voicemail");
+  document.getElementById("tabCalls").classList.toggle("on", tab === "calls");
+  if (tab === "voicemail") {
+    view.innerHTML = vms.length ? '<div class="list">' + vms.map(vmRow).join("") + '</div>'
+      : '<div class="msg">No voicemail yet. When nobody answers within about 18 seconds, callers hear the greeting and can leave a message. It shows up here.</div>';
+  } else {
+    view.innerHTML = calls.length ? '<div class="list">' + calls.map(callRow).join("") + '</div>'
+      : '<div class="msg">No calls yet.</div>';
+  }
+}
+
+function vmRow(c) {
+  const {k, name} = nameOf(c);
+  const acts = c.voicemail
+    ? '<button type="button" class="play" data-play="' + esc(c.id) + '">&#9654; Play ' + esc(mmss(c.vmSeconds || 0)) + '</button>'
+    : '';
+  return '<div class="row' + (c.vmNew ? ' new' : '') + '" data-id="' + esc(c.id) + '">' +
+    '<span class="who">' + (k ? '<a href="./texts.html#' + esc(k) + '" title="Texts">' + esc(name) + '</a>' : esc(name)) +
+      (c.vmNew ? '<span class="tag">New</span>' : '') + '</span>' +
+    '<span class="when">' + esc(whenShort(c.vmAt || c.at)) + '</span>' +
+    (c.vmError && !c.voicemail ? '<span class="vmerr">This message couldn\'t be copied here. It\'s saved in the Twilio console under Monitor &rarr; Call recordings.</span>' : '') +
+    '<div class="acts">' + acts +
+      (k ? '<a href="tel:+1' + esc(k) + '">Call back</a><a href="./texts.html#' + esc(k) + '">Text</a>' : '') +
+      '<button type="button" data-heard="' + esc(c.id) + '">' + (c.vmNew ? 'Mark heard' : 'Mark new') + '</button>' +
+    '</div></div>';
+}
+
+function callRow(c) {
+  const {k, name} = nameOf(c), out = c.dir === "out", missed = c.status === "missed";
+  const stale = c.status === "ringing" && Date.now() - ms(c.at) > 120000;
+  const what = (out ? "Outgoing" : "Incoming") + DOT +
+    (c.status === "answered" ? "Answered" + (c.duration ? " " + mmss(c.duration) : "")
+      : missed ? (out ? "No answer" : "Missed") : stale ? "Ended" : "Ringing" + ELLIPSIS);
+  return '<div class="row' + (missed ? ' missed' : '') + '">' +
+    '<span class="who">' + (k ? '<a href="./texts.html#' + esc(k) + '" title="Texts">' + esc(name) + '</a>' : esc(name)) +
+      (isVm(c) ? '<a class="tag" href="#voicemail" style="text-decoration:none">Voicemail</a>' : '') + '</span>' +
+    '<span class="when">' + esc(whenShort(c.at)) + '</span>' +
+    '<span class="last">' + esc(what) + '</span>' +
+    (k ? '<a class="call" href="tel:+1' + esc(k) + '">Call</a>' : '<span></span>') +
+  '</div>';
+}
+
+// Play: fetch the file's link, swap the button for a player. Played to the end = heard.
+view.addEventListener("click", async e => {
+  const p = e.target.closest("[data-play]"), h = e.target.closest("[data-heard]");
+  if (p) {
+    const c = calls.find(x => x.id === p.dataset.play);
+    if (!c || !c.voicemail) return;
+    p.disabled = true; p.textContent = "Loading" + ELLIPSIS;
+    try {
+      urls[c.voicemail] = urls[c.voicemail] || await getDownloadURL(ref(storage, c.voicemail));
+    } catch (err) {
+      console.warn("voicemail link", err);
+      p.disabled = false; p.textContent = "Couldn't load. Try again";
+      alert("Couldn't open this voicemail: " + ((err && err.code) || (err && err.message) || err));
+      return;
+    }
+    const a = document.createElement("audio");
+    a.controls = true; a.autoplay = true; a.src = urls[c.voicemail];
+    a.addEventListener("play", () => { playing = 1; });
+    a.addEventListener("ended", async () => {
+      playing = 0;
+      if (c.vmNew) { try { await updateDoc(doc(db, "calls", c.id), {vmNew: false}); } catch (err) { console.warn("heard", err); } }
+      if (pending) render();
+    });
+    p.replaceWith(a);
+  } else if (h) {
+    const c = calls.find(x => x.id === h.dataset.heard);
+    if (!c) return;
+    h.disabled = true;
+    try { await updateDoc(doc(db, "calls", c.id), {vmNew: !c.vmNew}); }
+    catch (err) { h.disabled = false; alert("Couldn't save that: " + ((err && err.message) || err)); }
+  }
+});
+
+function startCalls() {
+  onSnapshot(query(collection(db, "calls"), orderBy("at", "desc"), limit(300)), snap => {
+    calls = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    loaded = true;
+    calls.forEach(c => { const {k} = nameOf(c); if (k && c.name && !nameByKey[k]) nameByKey[k] = c.name; });
+    render();
+  }, err => { view.innerHTML = '<div class="msg err">Could not load calls: ' + esc(err.message) + '</div>'; });
+}
+
+/* ---------- which tab ---------- */
+const route = () => {
+  tab = location.hash === "#calls" ? "calls" : "voicemail";
+  playing = 0;   // switching tabs stops the player
+  render();
+};
+
+/* Page lock. Not signed in -> login page, then back here. */
+let started = false;
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=phone.html"); return; }
+  document.getElementById("authwait")?.remove();
+  if (!started) {
+    started = true;
+    window.addEventListener("hashchange", route);
+    route(); startCalls();
+    phoneOn();   // the business phone is always on while this page is open
+  }
+});
+</script>
+</body>
+</html>
