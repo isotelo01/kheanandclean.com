@@ -400,14 +400,14 @@ async function phoneOn() {
   phoneState("Turning on" + ELLIPSIS);
   const mic = await askMic();
   if (mic) { ready = false; phoneState("Phone error", "bad", mic); return; }
-  let step = "Getting the sign-in pass";
+  let step = "Getting the sign-in pass", lastErr = null;
   try {
     const token = await getToken();
     step = "Starting the phone";
     device = new window.Twilio.Device(token, {closeProtection: true, codecPreferences: ["opus", "pcmu"]});
     device.on("registered", () => { ready = true; phoneState("Phone on", "on", "This page rings with your cells."); });
     device.on("unregistered", () => { ready = false; if (device) phoneState("Phone off"); });
-    device.on("error", e => { console.warn("phone", e); phoneState("Phone error", "bad", e ? (e.code ? e.code + ": " : "") + (e.message || "") : ""); });
+    device.on("error", e => { lastErr = e; console.warn("phone", e); phoneState("Phone error", "bad", e ? (e.code ? e.code + ": " : "") + (e.message || "") : ""); });
     device.on("incoming", ringing);
     device.on("tokenWillExpire", async () => {
       try { device.updateToken(await getToken()); } catch (e) { console.warn("phone token", e); }
@@ -418,7 +418,7 @@ async function phoneOn() {
   } catch (e) {
     console.warn("phone on", step, e);
     if (device) { device.destroy(); device = null; }
-    ready = false; phoneState("Phone error", "bad", errText(step, e));
+    ready = false; phoneState("Phone error", "bad", errText(step, e || lastErr));
   }
 }
 function phoneOff() {
