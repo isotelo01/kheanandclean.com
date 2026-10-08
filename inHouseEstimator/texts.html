@@ -104,6 +104,21 @@ textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1
 .row .who a{color:inherit;text-decoration:none}
 .row .call{justify-self:end;font:600 13px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 9px;background:#fff}
 .row.missed .last{color:var(--red);font-weight:600}
+#callbar[hidden]{display:none}
+/* Dial pad: small pop-up to call any number. */
+#dialer{position:fixed;right:18px;top:84px;z-index:9;width:260px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(23,34,57,.22);padding:14px}
+#dialer .dh{display:flex;align-items:center;justify-content:space-between;font:700 15px "Archivo";color:var(--navy);margin-bottom:8px}
+#dialer .dx{border:0;background:none;font-size:24px;line-height:1;color:var(--muted);cursor:pointer;padding:2px 6px}
+#dialNum{width:100%;box-sizing:border-box;font:600 22px "Archivo";text-align:center;border:1px solid var(--line);border-radius:8px;padding:9px 6px;color:var(--navy)}
+#dialer .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+#dialer .keys button{font:600 20px "Archivo";background:var(--bg);color:var(--navy);border:0;border-radius:10px;padding:11px 0;cursor:pointer}
+#dialer .keys button:hover{background:var(--line)}
+#dialer .drow{display:flex;gap:8px}
+#dialCall{flex:1;font:700 16px "Archivo";background:#1f8a5b;color:#fff;border:0;border-radius:10px;padding:11px;cursor:pointer}
+#dialBack{font:600 18px "Archivo";background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:10px;padding:0 14px;cursor:pointer}
+#dialMsg{font-size:13px;color:var(--muted);margin-top:8px;min-height:1em}
+#dialMsg.bad{color:var(--red)}
+@media(max-width:540px){#dialer{left:12px;right:12px;width:auto;top:70px}}
 @media(max-width:820px){.cols{grid-template-columns:1fr}.side{position:static;max-height:none}body.in-thread .side{display:none}}
 @media(max-width:540px){.b{max-width:88%}.thread{max-height:56vh}.top{gap:10px}}
 </style>
@@ -118,6 +133,7 @@ textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1
       <button type="button" class="phone" id="phoneBtn">Phone off</button>
       <a class="ghost" id="allBtn" href="#" hidden>All texts</a>
       <a class="ghost" id="callsBtn" href="#calls">Calls</a>
+      <button type="button" class="ghost" id="dialBtn">Dial</button>
       <a class="ghost" href="./leads.html">Leads</a>
       <a class="new" id="newBtn" href="#new">New text</a>
     </div>
@@ -131,6 +147,18 @@ textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1
   </div>
 </div>
 <div id="callbar" role="status" aria-live="polite" hidden></div>
+<div id="dialer" role="dialog" aria-label="Dial a number" hidden>
+  <div class="dh">Phone <button type="button" class="dx" id="dialX" aria-label="Close">&times;</button></div>
+  <input id="dialNum" type="tel" inputmode="tel" autocomplete="off" placeholder="Enter number" aria-label="Number to call">
+  <div class="keys">
+    <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+    <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+    <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+    <button type="button" data-k="*">*</button><button type="button" data-k="0">0</button><button type="button" data-k="#">#</button>
+  </div>
+  <div class="drow"><button type="button" id="dialCall">Call</button><button type="button" id="dialBack" aria-label="Delete">&#9003;</button></div>
+  <div id="dialMsg"></div>
+</div>
 
 <!-- Twilio's calling library: lets this page ring and talk like a phone. Pinned version. -->
 <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js"></script>
@@ -343,7 +371,7 @@ const pref = {
   set: v => { try { localStorage.setItem("kcPhone", v); } catch { /* private mode */ } }
 };
 const mmss = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
-const phoneState = (text, cls, why) => { phoneBtn.textContent = text; phoneBtn.className = "phone" + (cls ? " " + cls : ""); phoneBtn.title = why || ""; };
+const phoneState = (text, cls, why) => { phoneBtn.textContent = text; phoneBtn.className = "phone" + (cls ? " " + cls : ""); phoneBtn.title = why || ""; syncDial(); };
 const getToken = async () => (await voiceToken()).data.token;
 const who = num => { const k = key(num); return {k, name: nameByKey[k] || "", num: k ? pretty(k) : (num || "Unknown caller")}; };
 
@@ -354,7 +382,7 @@ async function phoneOn() {
     device = new window.Twilio.Device(await getToken(), {closeProtection: true, codecPreferences: ["opus", "pcmu"]});
     device.on("registered", () => { ready = true; phoneState("Phone on", "on", "This page rings with your cells."); });
     device.on("unregistered", () => { ready = false; if (device) phoneState("Phone off"); });
-    device.on("error", e => { console.warn("phone", e); phoneState("Phone error", "bad", (e && e.message) || ""); });
+    device.on("error", e => { console.warn("phone", e); phoneState("Phone error", "bad", e ? (e.code ? e.code + ": " : "") + (e.message || "") : ""); });
     device.on("incoming", ringing);
     device.on("tokenWillExpire", async () => {
       try { device.updateToken(await getToken()); } catch (e) { console.warn("phone token", e); }
@@ -364,7 +392,7 @@ async function phoneOn() {
   } catch (e) {
     console.warn("phone on", e);
     if (device) { device.destroy(); device = null; }
-    ready = false; phoneState("Phone error", "bad", friendly(e));
+    ready = false; phoneState("Phone error", "bad", e && typeof e.code === "number" ? e.code + ": " + (e.message || "") : friendly(e));
   }
 }
 function phoneOff() {
@@ -437,6 +465,49 @@ async function callOut(k) {
     alert("Couldn't place the call: " + ((e && e.message) || e));
   }
 }
+
+/* ---------- dial pad: call any number without opening a customer ----------
+   Dial (top bar) opens it. Type or tap a number, then Call or Enter. If the phone is off it
+   turns on first. During a call the keys send tones (for "press 1" menus). Shows the phone's
+   status in plain words, including the error if it won't turn on. */
+const dialer = document.getElementById("dialer"), dialNum = document.getElementById("dialNum"),
+  dialMsg = document.getElementById("dialMsg");
+function syncDial(note) {
+  if (!dialer || dialer.hidden) return;
+  if (note) { dialMsg.textContent = note; dialMsg.className = ""; return; }
+  const bad = phoneBtn.classList.contains("bad");
+  dialMsg.className = bad ? "bad" : "";
+  dialMsg.textContent = bad ? phoneBtn.textContent + (phoneBtn.title ? " (" + phoneBtn.title + ")" : "")
+    : device && ready ? "Phone on. People see (916) 767-2520."
+    : "Phone is off. It turns on when you press Call.";
+}
+const closeDial = () => { dialer.hidden = true; };
+function openDial() { dialer.hidden = false; syncDial(); dialNum.focus(); }
+document.getElementById("dialBtn").addEventListener("click", () => dialer.hidden ? openDial() : closeDial());
+document.getElementById("dialX").addEventListener("click", closeDial);
+dialer.querySelector(".keys").addEventListener("click", e => {
+  const b = e.target.closest("button[data-k]");
+  if (!b) return;
+  if (live && typeof live === "object" && live.sendDigits) {
+    try { live.sendDigits(b.dataset.k); } catch (err) { console.warn("tone", err); }
+  } else dialNum.value += b.dataset.k;
+  dialNum.focus();
+});
+document.getElementById("dialBack").addEventListener("click", () => { dialNum.value = dialNum.value.slice(0, -1); dialNum.focus(); });
+async function dialGo() {
+  if (live) { syncDial("You're already on a call."); return; }
+  const k = key(dialNum.value);
+  if (!k) { syncDial("Enter a 10-digit number."); return; }
+  if (!device || !ready) { syncDial("Turning the phone on" + ELLIPSIS); await phoneOn(); }
+  if (!device || !ready) { syncDial(); return; }   // couldn't turn on: shows why
+  closeDial();
+  callOut(k);
+}
+document.getElementById("dialCall").addEventListener("click", dialGo);
+dialNum.addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); dialGo(); }
+  else if (e.key === "Escape") closeDial();
+});
 
 // Phone on: every Call / phone-number link on this page dials through the computer.
 document.addEventListener("click", e => {
