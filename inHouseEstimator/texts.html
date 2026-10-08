@@ -741,7 +741,7 @@ onAuthStateChanged(getAuth(app), user => {
   document.getElementById("authwait")?.remove();
   if (!started) {
     started = true; window.addEventListener("hashchange", route); route(); startPeople();
-    if (pref.get() === "on") phoneOn();   // left on last time: turn back on
+    phoneOn();   // the business phone is always on while this page is open
   }
 });
 </script>
