@@ -204,8 +204,8 @@ async function returnToEstimates(){
   backBtn.disabled = true; btn.disabled = true; backBtn.textContent = 'Moving…';
   try {
     await saveEdit(q, true);
-    banner.textContent = 'Editing ' + edit.data.number + '.';
-    backBtn.remove(); backBtn = null;
+    location.href = './dashboard.html';   /* back to the Dashboard to see it in Estimates */
+    return;
   } catch (e) {
     console.error(e);
     show('Could not move it — ' + (e && e.message ? e.message : 'check your connection') + '.', true);
