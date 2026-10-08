@@ -189,7 +189,31 @@ async function fileContact(quoteId, from, number){
 /* ---- Edit mode: index.html?edit=<id>&from=<collection>, opened from the Dashboard ---- */
 const EDITABLE = ['quotes', 'acceptedQuotes', 'invoices', 'paidInvoices'];
 const ACCEPT_FIELDS = ['acceptedName', 'acceptedAt', 'termsAccepted', 'termsVersion'];
-let edit = null, banner = null;
+let edit = null, banner = null, backBtn = null;
+
+/* "Return to estimates": saves your edits and sends the invoice back to Estimates. */
+async function returnToEstimates(){
+  const q = window.KC_quote;
+  if (!edit || edit.from !== 'invoices') return;
+  if (!q) { show('Build an estimate first — nothing to save yet.', true); return; }
+  if (val('eType') !== 'Residential' && !val('eBiz')) {
+    show('Add the business name before saving.', true);
+    const b = $('eBiz'); if (b) b.focus();
+    return;
+  }
+  backBtn.disabled = true; btn.disabled = true; backBtn.textContent = 'Moving…';
+  try {
+    await saveEdit(q, true);
+    banner.textContent = 'Editing ' + edit.data.number + '.';
+    backBtn.remove(); backBtn = null;
+  } catch (e) {
+    console.error(e);
+    show('Could not move it — ' + (e && e.message ? e.message : 'check your connection') + '.', true);
+    backBtn.disabled = false; backBtn.textContent = 'Return to estimates';
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 const signedIn = () => new Promise(res => {
   const off = onAuthStateChanged(getAuth(app), u => { if (u) { off(); res(u); } });
@@ -233,6 +257,17 @@ async function loadForEdit(id, from){
     }
     banner.textContent = note;
     btn.textContent = 'Save changes';
+    /* Unpaid invoice: offer a way back to Estimates. Only shows when you edit an invoice. */
+    if (from === 'invoices') {
+      backBtn = document.createElement('button');
+      backBtn.type = 'button';
+      backBtn.className = btn.className;
+      backBtn.id = 'eBackBtn';
+      backBtn.textContent = 'Return to estimates';
+      backBtn.style.cssText = 'margin-top:10px;background:transparent;color:inherit;border:1px solid currentColor';
+      btn.after(backBtn);
+      backBtn.addEventListener('click', returnToEstimates);
+    }
   } catch (e) {
     console.error(e);
     banner.textContent = 'Could not load that estimate: ' + (e && e.message ? e.message : 'check your connection') + '.';
@@ -243,12 +278,23 @@ async function loadForEdit(id, from){
 
 /* Save over the same document: same id, same number, so links already sent keep working.
    An accepted estimate whose price changed goes back to Estimates for a fresh approval. */
-async function saveEdit(q){
+async function saveEdit(q, backToEstimates){
   const merged = Object.assign({}, edit.data, fromForm(q), { updatedAt: serverTimestamp() });
   const priceChanged = Math.abs(Number(q.total) - (Number(edit.data.total) || 0)) >= 0.01;
   let target = edit.from, text = 'Saved changes to ' + merged.number + '. Same link as before.';
 
-  if (edit.from === 'quotes' || (edit.from === 'acceptedQuotes' && priceChanged)) {
+  /* "Return to estimates" on an unpaid invoice: undo what the Invoice button added,
+     put the original Q- number back, and make it need accepting again. */
+  if (backToEstimates && edit.from === 'invoices') {
+    const invNo = merged.number;
+    if (merged.quoteNumber) merged.number = merged.quoteNumber;
+    ['type', 'invoicedAt', 'quoteNumber', 'quoteId'].forEach(k => delete merged[k]);
+    ACCEPT_FIELDS.forEach(k => delete merged[k]);
+    merged.status = 'sent';
+    merged.expiresAt = Timestamp.fromMillis(Date.now() + 30 * 864e5);
+    target = 'quotes';
+    text = 'Invoice ' + invNo + ' is back in Estimates as ' + merged.number + '. It needs to be accepted again. Same link as before.';
+  } else if (edit.from === 'quotes' || (edit.from === 'acceptedQuotes' && priceChanged)) {
     ACCEPT_FIELDS.forEach(k => delete merged[k]);
     merged.status = 'sent';
     merged.expiresAt = Timestamp.fromMillis(Date.now() + 30 * 864e5);
@@ -331,5 +377,6 @@ document.addEventListener('click', (e) => {
     /* New while editing leaves edit mode, so the next Send makes a fresh quote. */
     if(edit){ edit = null; history.replaceState(null, '', location.pathname); btn.textContent = 'Send Estimate'; }
     if(banner){ banner.remove(); banner = null; }
+    if(backBtn){ backBtn.remove(); backBtn = null; }
   }
 });
