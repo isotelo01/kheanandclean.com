@@ -194,7 +194,7 @@ let edit = null, banner = null, backBtn = null;
 /* "Return to estimates": saves your edits and sends the invoice back to Estimates. */
 async function returnToEstimates(){
   const q = window.KC_quote;
-  if (!edit || edit.from !== 'invoices') return;
+  if (!edit || (edit.from !== 'invoices' && edit.from !== 'acceptedQuotes')) return;
   if (!q) { show('Build an estimate first — nothing to save yet.', true); return; }
   if (val('eType') !== 'Residential' && !val('eBiz')) {
     show('Add the business name before saving.', true);
@@ -257,8 +257,8 @@ async function loadForEdit(id, from){
     }
     banner.textContent = note;
     btn.textContent = 'Save changes';
-    /* Unpaid invoice: offer a way back to Estimates. Only shows when you edit an invoice. */
-    if (from === 'invoices') {
+    /* Unpaid invoice or accepted estimate: offer a way back to Estimates. */
+    if (from === 'invoices' || from === 'acceptedQuotes') {
       backBtn = document.createElement('button');
       backBtn.type = 'button';
       backBtn.className = btn.className;
@@ -294,12 +294,14 @@ async function saveEdit(q, backToEstimates){
     merged.expiresAt = Timestamp.fromMillis(Date.now() + 30 * 864e5);
     target = 'quotes';
     text = 'Invoice ' + invNo + ' is back in Estimates as ' + merged.number + '. It needs to be accepted again. Same link as before.';
-  } else if (edit.from === 'quotes' || (edit.from === 'acceptedQuotes' && priceChanged)) {
+  } else if (edit.from === 'quotes' || (edit.from === 'acceptedQuotes' && (priceChanged || backToEstimates))) {
     ACCEPT_FIELDS.forEach(k => delete merged[k]);
     merged.status = 'sent';
     merged.expiresAt = Timestamp.fromMillis(Date.now() + 30 * 864e5);
     target = 'quotes';
-    if (edit.from === 'acceptedQuotes') text = 'Saved ' + merged.number + '. The price changed, so it moved back to Estimates for the customer to approve again. Same link as before.';
+    if (edit.from === 'acceptedQuotes') text = backToEstimates
+      ? merged.number + ' is back in Estimates. It needs to be accepted again. Same link as before.'
+      : 'Saved ' + merged.number + '. The price changed, so it moved back to Estimates for the customer to approve again. Same link as before.';
   }
 
   await setDoc(doc(db, target, edit.id), merged);           /* copy first ... */
