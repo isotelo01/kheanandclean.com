@@ -25,6 +25,13 @@ input{ width:100%; background:rgba(255,255,255,.05); color:var(--cream);
   border:1px solid rgba(255,255,255,.22); border-radius:10px;
   padding:.72rem .85rem; font:inherit; margin-bottom:14px; }
 input:focus{ outline:none; border-color:var(--gold); }
+/* Password box with a Show/Hide button inside its right edge. */
+.pwrap{ position:relative; margin-bottom:14px; }
+.pwrap input{ margin-bottom:0; padding-right:4.6rem; }
+.pwrap .show{ position:absolute; right:6px; top:50%; transform:translateY(-50%); width:auto;
+  background:none; color:var(--gold); padding:6px 10px; border-radius:8px;
+  font:600 .85rem "Archivo",sans-serif; letter-spacing:.02em; }
+.pwrap .show:focus-visible{ outline:2px solid var(--gold); outline-offset:1px; }
 button{ width:100%; background:var(--gold); color:var(--navy); border:0;
   border-radius:999px; padding:.8rem; font:700 1rem "Archivo",sans-serif;
   cursor:pointer; letter-spacing:.04em; }
@@ -48,7 +55,10 @@ button[disabled]{ opacity:.6; cursor:default; }
     <label for="email">Email</label>
     <input id="email" type="email" autocomplete="username" required>
     <label for="pw">Password</label>
-    <input id="pw" type="password" autocomplete="current-password" required>
+    <div class="pwrap">
+      <input id="pw" type="password" autocomplete="current-password" required>
+      <button type="button" class="show" id="showPw" aria-controls="pw" aria-pressed="false">Show</button>
+    </div>
     <button type="submit" id="goBtn">Sign in</button>
   </form>
   <button type="button" class="linkbtn" id="forgotBtn">Forgot password?</button>
@@ -82,6 +92,17 @@ const next = (() => {
 const form = document.getElementById("loginForm");
 const btn  = document.getElementById("goBtn");
 const err  = document.getElementById("err");
+
+/* Show / Hide the password so you can check what you typed. */
+const pw = document.getElementById("pw");
+const showPw = document.getElementById("showPw");
+showPw.addEventListener("click", () => {
+  const hidden = pw.type === "password";
+  pw.type = hidden ? "text" : "password";
+  showPw.textContent = hidden ? "Hide" : "Show";
+  showPw.setAttribute("aria-pressed", String(hidden));
+  pw.focus();
+});
 
 /* Already signed in? Don't make them do it twice. */
 onAuthStateChanged(auth, user => { if (user) location.replace("./" + next); });
