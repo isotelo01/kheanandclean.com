@@ -176,6 +176,7 @@ const card = r =>
     '<div>' +
       '<div class="who">' + esc(r.name || "No name") + '</div>' +
       '<div class="meta">' + esc(r.number) + (r.phone ? " &middot; " + esc(r.phone) : "") + (r.date ? " &middot; " + esc(r.date) : "") + '</div>' +
+      (r.source === "trash" && trashLeftLabel(r) ? '<div class="meta">' + esc(trashLeftLabel(r)) + '</div>' : '') +
       (r.source !== "trash" && flags[r.id]
         ? '<button type="button" class="flagnote' + (flags[r.id].by === "customer" ? '' : ' mine') + '" data-note="' + esc(r.id) + '" title="Open note">&#128172; ' +
             esc(notePreview(flags[r.id])) + '</button>'
@@ -217,6 +218,24 @@ const NOW = new Date();
 const MONTH_NAME = NOW.toLocaleString("en-US", { month: "long" });
 const thisMonth = r => { const d = new Date(tsMs(r.paidAt) || tsMs(r.createdAt)); return d.getFullYear() === NOW.getFullYear() && d.getMonth() === NOW.getMonth(); };
 
+/* Trash keeps things 30 days, then erases them for good (same rule as Leads).
+   There's no manual erase button; the sweep runs each time the Dashboard loads. */
+const TRASH_DAYS = 30;
+const trashDaysLeft = r => { const t = tsMs(r.trashedAt); return t ? TRASH_DAYS - Math.floor((Date.now() - t) / 864e5) : null; };
+const trashLeftLabel = r => { const d = trashDaysLeft(r); return d === null ? "" : d <= 1 ? "Erased tomorrow" : "Erased in " + d + " days"; };
+async function purgeTrash(rows){
+  const keep = [];
+  for (const r of rows) {
+    const d = trashDaysLeft(r);
+    if (d !== null && d <= 0) {
+      try { await deleteDoc(doc(db, "trash", r.id)); continue; }
+      catch (e) { console.error("Could not erase trash " + r.id, e); }
+    }
+    keep.push(r);
+  }
+  return keep;
+}
+
 function render(){
   if (!loaded) return;
   const term = (qEl ? qEl.value : "").trim().toLowerCase();
@@ -256,7 +275,7 @@ async function grab(name){
     const d = docSnap.data(), c = d.customer || {};
     return { id: docSnap.id, source: name, createdAt: d.createdAt, revisionOf: d.revisionOf || "", fromJobSheet: !!d.fromJobSheet,
              number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",
-             total: d.total, paidAt: d.paidAt, date: when(d.createdAt), state: stateOf(d) };
+             total: d.total, paidAt: d.paidAt, trashedAt: d.trashedAt, date: when(d.createdAt), state: stateOf(d) };
   });
 }
 
@@ -266,6 +285,7 @@ async function load(){
     const all = SECTIONS.concat(TRASH_SECTION);
     const got = await Promise.all(all.map(s => grab(s.key).catch(e => { console.error(s.key, e); return []; })));
     all.forEach((s, i) => { data[s.key] = got[i]; });
+    data.trash = await purgeTrash(data.trash || []);
     /* Shared notes on quotes (quoteNotes, keyed by quote id). A failure here just means
        no notes on the tiles, never a blank dashboard. */
     Object.keys(flags).forEach(k => delete flags[k]);

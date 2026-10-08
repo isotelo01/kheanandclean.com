@@ -39,7 +39,9 @@ th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertic
 th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 td.amt,th.amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 tfoot td{font-weight:700;border-bottom:none}
-.del{font:600 13px "Archivo";background:none;border:none;color:var(--red);cursor:pointer;padding:0}
+.del{display:inline-flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;border-radius:6px;color:var(--red);cursor:pointer;padding:4px}
+.del:hover{border-color:var(--line);background:#fbf1ef}
+.del svg{display:block;width:17px;height:17px}
 .note{color:var(--muted);font-size:13px}
 .sides{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 .sides .panel{margin-bottom:0;min-width:0}
@@ -107,7 +109,7 @@ tfoot td{font-weight:700;border-bottom:none}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp }
+import { getFirestore, collection, query, where, getDocs, getDoc, setDoc, addDoc, deleteDoc, doc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
@@ -125,6 +127,7 @@ const auth = getAuth(app);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
 
 /* Accountant-friendly fields. Each expense stores month "YYYY-MM" so a month loads with one simple query. */
 const CATEGORIES = ["Supplies", "Chemicals", "Equipment", "Fuel", "Vehicle", "Insurance", "Marketing", "Software / subscriptions", "Repairs", "Other"];
@@ -167,10 +170,11 @@ async function loadIncome(){
 function renderIncome(){
   if (!income.length) { $("incList").innerHTML = '<div class="msg">No paid invoices in ' + esc(monthName()) + '.</div>'; return; }
   const total = income.reduce((s, r) => s + r.total, 0);
-  $("incList").innerHTML = '<div class="tablewrap"><table><thead><tr><th>Date</th><th>Customer</th><th>Invoice</th><th class="amt">Amount</th></tr></thead><tbody>' +
+  $("incList").innerHTML = '<div class="tablewrap"><table><thead><tr><th>Date</th><th>Customer</th><th>Invoice</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
     income.map(r => '<tr><td>' + esc(r.date) + '</td><td>' + esc(r.name || "No name") + '</td><td>' +
-      '<a href="./quote.html?id=' + encodeURIComponent(r.id) + '">' + esc(r.number) + '</a></td><td class="amt">' + money(r.total) + '</td></tr>').join("") +
-    '</tbody><tfoot><tr><td colspan="3">Total (' + income.length + ')</td><td class="amt">' + money(total) + '</td></tr></tfoot></table></div>';
+      '<a href="./quote.html?id=' + encodeURIComponent(r.id) + '">' + esc(r.number) + '</a></td><td class="amt">' + money(r.total) +
+      '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '" title="Move to trash" aria-label="Move invoice ' + esc(r.number) + ' to trash">' + TRASH + '</button></td></tr>').join("") +
+    '</tbody><tfoot><tr><td colspan="3">Total (' + income.length + ')</td><td class="amt">' + money(total) + '</td><td></td></tr></tfoot></table></div>';
 }
 
 function renderProfit(){
@@ -210,7 +214,7 @@ function render(){
     rows.map(r => '<tr><td>' + esc(r.date) + '</td><td>' + esc(r.vendor) +
       (r.notes ? '<div class="note">' + esc(r.notes) + '</div>' : '') + '</td><td>' + esc(r.category) +
       '</td><td>' + esc(r.paidWith) + '</td><td>' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
-      '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '">Delete</button></td></tr>').join("") +
+      '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '" title="Delete expense" aria-label="Delete expense">' + TRASH + '</button></td></tr>').join("") +
     '</tbody><tfoot><tr><td colspan="5">Total (' + rows.length + ')</td><td class="amt">' + money(total) + '</td><td></td></tr></tfoot></table></div>';
 }
 
@@ -252,6 +256,32 @@ $("list").addEventListener("click", async e => {
   if (!r || !confirm("Delete " + r.vendor + " " + money(r.amount) + " on " + r.date + "?")) return;
   try { await deleteDoc(doc(db, "expenses", r.id)); await loadMonth(); }
   catch (err) { console.error(err); alert("Could not delete: " + err.message); }
+});
+
+/* Income trash can = move to Trash, same format as the Dashboard's ×, so Dashboard
+   Trash > Restore puts it back in paidInvoices. Trash erases it after 30 days. */
+$("incList").addEventListener("click", async e => {
+  const b = e.target.closest(".del");
+  if (!b) return;
+  const r = income.find(x => x.id === b.dataset.id);
+  if (!r) return;
+  if (!confirm("Move " + (r.number || "this invoice") + " \u2014 " + (r.name || "No name") + " " + money(r.total) + " to Trash?\n\n" +
+      "It leaves Income, the Dashboard and the customer's history. You can restore it from the Dashboard Trash for 30 days, then it's erased.")) return;
+  b.disabled = true;
+  try {
+    const ref = doc(db, "paidInvoices", r.id);
+    const src = await getDoc(ref);
+    if (src.exists()) {
+      await setDoc(doc(db, "trash", r.id), Object.assign({}, src.data(), {
+        trashedFrom: "paidInvoices", trashedAt: serverTimestamp()
+      }));
+      await deleteDoc(ref);
+    }
+    await loadMonth();
+  } catch (err) {
+    console.error(err); b.disabled = false;
+    alert("Could not move to Trash: " + err.message + "\n\nIf it keeps failing, check the Firestore Rules \u2014 deletes from \"paidInvoices\" may be blocked.");
+  }
 });
 
 /* CSV for the accountant: one row per expense, plain columns. */
