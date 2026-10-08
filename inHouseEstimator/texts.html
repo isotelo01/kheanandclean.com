@@ -16,7 +16,7 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
 #authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
-.wrap{max-width:760px;margin:0 auto;padding:22px 18px 60px}
+.wrap{max-width:1120px;margin:0 auto;padding:22px 18px 60px}
 .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
 .home{display:flex;flex:none;border-radius:6px}
 .home img{display:block;width:34px;height:34px;border-radius:6px}
@@ -68,6 +68,43 @@ textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1
 .count{font-size:13px;color:var(--muted)}
 .field{display:grid;gap:4px;margin-bottom:10px}
 .field label{font-size:13px;font-weight:600;color:var(--muted)}
+/* Left panel: everyone you can call or text, hottest first. Leads, Approved leads, Contacts.
+   Each person shows once (Approved beats Leads beats Contacts). Tap the name for texts, Call to dial. */
+.cols{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}
+#view{min-width:0}
+.side{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto;background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:12px}
+.side input{width:100%;font:inherit;font-size:15px;padding:8px 10px;border:1px solid #c9cedb;border-radius:8px;margin-bottom:6px}
+.side input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold)}
+.grp{border-top:1px solid var(--line);padding-top:4px;margin-top:6px}
+.grp summary{cursor:pointer;font:700 13px "Archivo";letter-spacing:.06em;text-transform:uppercase;color:var(--navy);padding:6px 2px;list-style-position:inside}
+.pp{display:flex;align-items:center;gap:8px;border-radius:8px;padding:6px 6px;border-left:3px solid transparent}
+.pp:hover{background:var(--bg)}
+.pp.on{background:var(--bg);border-left-color:var(--gold)}
+.pp .open{flex:1;min-width:0;text-decoration:none;color:inherit;display:grid}
+.pp .pn{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pp .ph{font-size:13px;color:var(--muted)}
+.pp .dot{min-width:20px;height:20px;border-radius:10px;background:var(--gold);color:var(--navy);font:700 11px/20px "Archivo";text-align:center;padding:0 5px}
+.pp .call{flex:none;font:600 13px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:4px 9px;background:#fff}
+.pp .call:hover{border-color:var(--navy)}
+.none{font-size:13px;color:var(--muted);padding:4px 6px}
+/* Phone: on/off pill in the top bar, the call bar along the bottom, and the Calls list. */
+.phone{font:600 14px "Archivo";background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+.phone.on{color:var(--green);border-color:var(--green)}
+.phone.on::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:7px;vertical-align:1px}
+.phone.bad{color:var(--red);border-color:var(--red)}
+#callbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:8;width:min(560px,calc(100% - 24px));background:var(--navy);color:#fff;
+  border-radius:12px;box-shadow:0 6px 24px rgba(23,34,57,.35);padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#callbar .cb-who{flex:1;min-width:0;font-weight:700;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#callbar .cb-sub{display:block;font-weight:400;font-size:13px;opacity:.85}
+#callbar button{font:600 15px "Archivo";border:0;border-radius:8px;padding:10px 16px;cursor:pointer}
+#callbar .cb-ok{background:#1f8a5b;color:#fff}
+#callbar .cb-no{background:var(--red);color:#fff}
+#callbar .cb-mute{background:#fff;color:var(--navy)}
+#callbar .cb-mute[aria-pressed="true"]{background:var(--gold)}
+.row .who a{color:inherit;text-decoration:none}
+.row .call{justify-self:end;font:600 13px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 9px;background:#fff}
+.row.missed .last{color:var(--red);font-weight:600}
+@media(max-width:820px){.cols{grid-template-columns:1fr}.side{position:static;max-height:none}body.in-thread .side{display:none}}
 @media(max-width:540px){.b{max-width:88%}.thread{max-height:56vh}.top{gap:10px}}
 </style>
 </head>
@@ -78,18 +115,29 @@ textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <h1>Texts</h1>
     <div class="nav">
+      <button type="button" class="phone" id="phoneBtn">Phone off</button>
       <a class="ghost" id="allBtn" href="#" hidden>All texts</a>
+      <a class="ghost" id="callsBtn" href="#calls">Calls</a>
       <a class="ghost" href="./leads.html">Leads</a>
       <a class="new" id="newBtn" href="#new">New text</a>
     </div>
   </div>
-  <div id="view"><div class="msg">Loading&hellip;</div></div>
+  <div class="cols">
+    <aside class="side" aria-label="People">
+      <input id="find" type="search" placeholder="Search name or number" aria-label="Search people" autocomplete="off">
+      <div id="people"><div class="none">Loading&hellip;</div></div>
+    </aside>
+    <div id="view"><div class="msg">Loading&hellip;</div></div>
+  </div>
 </div>
+<div id="callbar" role="status" aria-live="polite" hidden></div>
 
+<!-- Twilio's calling library: lets this page ring and talk like a phone. Pinned version. -->
+<script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, query, orderBy, limit, limitToLast, onSnapshot, doc, updateDoc }
+import { getFirestore, collection, query, orderBy, limit, limitToLast, onSnapshot, doc, updateDoc, getDocs }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
@@ -150,7 +198,7 @@ function showList() {
     view.innerHTML = '<div class="list">' + snap.docs.map(d => {
       const t = d.data(), n = Number(t.unread) || 0;
       return '<a class="row' + (n ? ' unread' : '') + '" href="#' + esc(d.id) + '">' +
-        '<span class="who">' + esc(t.name || pretty(t.phone || d.id)) + (t.optedOut ? '<span class="stop">STOP</span>' : '') + '</span>' +
+        '<span class="who">' + esc(t.name || nameByKey[d.id] || pretty(t.phone || d.id)) + (t.optedOut ? '<span class="stop">STOP</span>' : '') + '</span>' +
         '<span class="when">' + esc(whenShort(t.lastAt)) + '</span>' +
         '<span class="last">' + (t.lastDir === "out" ? "You: " : "") + esc(t.lastBody || "") + '</span>' +
         (n ? '<span class="badge" title="' + n + ' unread">' + n + '</span>' : '<span></span>') +
@@ -178,7 +226,7 @@ function showThread(id) {
   // Name, phone link, STOP warning; opening the conversation marks it read.
   stop.push(onSnapshot(doc(db, "smsThreads", id), s => {
     t = s.exists() ? s.data() : {};
-    document.getElementById("cname").textContent = t.name || pretty(t.phone || id);
+    document.getElementById("cname").textContent = t.name || nameByKey[id] || pretty(t.phone || id);
     const tel = document.getElementById("ctel");
     tel.textContent = pretty(t.phone || id);
     tel.href = "tel:" + (t.phone || "+1" + id);
@@ -282,6 +330,237 @@ function showNew(prefill) {
   (prefill ? body : to).focus();
 }
 
+/* ---------- phone: this page as the business phone ----------
+   Phone on = this page rings along with both cells when someone calls (916) 767-2520, and
+   Call buttons dial out through the computer showing the business number. Needs the page
+   open and the microphone allowed. Phone off = Call buttons dial from this device as before. */
+const voiceToken = httpsCallable(getFunctions(app, "us-central1"), "voiceToken");
+const phoneBtn = document.getElementById("phoneBtn"), callbar = document.getElementById("callbar");
+const baseTitle = document.title;
+let device = null, ready = false, live = null, tick = null;
+const pref = {
+  get: () => { try { return localStorage.getItem("kcPhone"); } catch { return null; } },
+  set: v => { try { localStorage.setItem("kcPhone", v); } catch { /* private mode */ } }
+};
+const mmss = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+const phoneState = (text, cls, why) => { phoneBtn.textContent = text; phoneBtn.className = "phone" + (cls ? " " + cls : ""); phoneBtn.title = why || ""; };
+const getToken = async () => (await voiceToken()).data.token;
+const who = num => { const k = key(num); return {k, name: nameByKey[k] || "", num: k ? pretty(k) : (num || "Unknown caller")}; };
+
+async function phoneOn() {
+  if (!window.Twilio || !window.Twilio.Device) { phoneState("Phone unavailable", "bad", "The calling library didn't load."); return; }
+  phoneState("Turning on" + ELLIPSIS);
+  try {
+    device = new window.Twilio.Device(await getToken(), {closeProtection: true, codecPreferences: ["opus", "pcmu"]});
+    device.on("registered", () => { ready = true; phoneState("Phone on", "on", "This page rings with your cells."); });
+    device.on("unregistered", () => { ready = false; if (device) phoneState("Phone off"); });
+    device.on("error", e => { console.warn("phone", e); phoneState("Phone error", "bad", (e && e.message) || ""); });
+    device.on("incoming", ringing);
+    device.on("tokenWillExpire", async () => {
+      try { device.updateToken(await getToken()); } catch (e) { console.warn("phone token", e); }
+    });
+    await device.register();
+    pref.set("on");
+  } catch (e) {
+    console.warn("phone on", e);
+    if (device) { device.destroy(); device = null; }
+    ready = false; phoneState("Phone error", "bad", friendly(e));
+  }
+}
+function phoneOff() {
+  if (live) return;   // never cut off a call in progress
+  if (device) { device.destroy(); device = null; }
+  ready = false; pref.set("off"); phoneState("Phone off");
+}
+phoneBtn.addEventListener("click", () => device ? phoneOff() : phoneOn());
+
+function endCall() {
+  clearInterval(tick); tick = null; live = null;
+  callbar.hidden = true; callbar.innerHTML = "";
+  document.title = baseTitle;
+}
+
+// The bottom bar during a call: name, then Calling…/Connecting… until they pick up, then a timer.
+function callBar(c, w, status) {
+  live = c;
+  const pre = w.name ? w.num + DOT : "";
+  callbar.innerHTML = '<span class="cb-who">' + esc(w.name || w.num) + '<span class="cb-sub" id="cbSub">' + esc(pre + status) + '</span></span>' +
+    '<button type="button" class="cb-mute" id="cbMute" aria-pressed="false">Mute</button>' +
+    '<button type="button" class="cb-no" id="cbHang">Hang up</button>';
+  callbar.hidden = false;
+  const sub = document.getElementById("cbSub");
+  document.getElementById("cbMute").onclick = e => {
+    const m = !c.isMuted(); c.mute(m);
+    e.currentTarget.setAttribute("aria-pressed", String(m)); e.currentTarget.textContent = m ? "Unmute" : "Mute";
+  };
+  document.getElementById("cbHang").onclick = () => c.disconnect();
+  ["disconnect", "cancel", "reject"].forEach(ev => c.on(ev, () => { if (live === c) endCall(); }));
+  c.on("error", e => { console.warn("call", e); if (live === c) endCall(); });
+  return () => {   // start the timer once they pick up
+    const t0 = Date.now(); sub.textContent = pre + "0:00"; clearInterval(tick);
+    tick = setInterval(() => { sub.textContent = pre + mmss(Math.round((Date.now() - t0) / 1000)); }, 1000);
+  };
+}
+
+// Someone's calling the business number. Your cells ring too; first to answer gets it.
+function ringing(c) {
+  if (live) { c.reject(); return; }   // already on a call here; the cells keep ringing
+  const w = who(c.parameters && c.parameters.From);
+  live = c;
+  document.title = "Incoming call" + ELLIPSIS;
+  callbar.innerHTML = '<span class="cb-who">' + esc(w.name || w.num) + '<span class="cb-sub">' +
+      esc((w.name ? w.num + DOT : "") + "Incoming call") + '</span></span>' +
+    '<button type="button" class="cb-ok" id="cbAns">Answer</button>' +
+    '<button type="button" class="cb-no" id="cbDec">Decline</button>';
+  callbar.hidden = false;
+  // Picked up on a cell, or they hung up: the bar goes away.
+  ["cancel", "disconnect"].forEach(ev => c.on(ev, () => { if (live === c) endCall(); }));
+  document.getElementById("cbDec").onclick = () => { c.reject(); endCall(); };
+  document.getElementById("cbAns").onclick = () => {
+    document.title = baseTitle;
+    const go = callBar(c, w, "Connecting" + ELLIPSIS);
+    c.on("accept", go);
+    c.accept();
+  };
+}
+
+async function callOut(k) {
+  if (live) return;
+  const w = who(k);
+  live = "dialing";
+  try {
+    const c = await device.connect({params: {To: "+1" + k}});
+    const go = callBar(c, w, "Calling" + ELLIPSIS);
+    c.on("accept", go);
+  } catch (e) {
+    console.warn("call out", e); endCall();
+    alert("Couldn't place the call: " + ((e && e.message) || e));
+  }
+}
+
+// Phone on: every Call / phone-number link on this page dials through the computer.
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest('a[href^="tel:"]');
+  if (!a || !device || !ready) return;   // phone off: let this device dial it normally
+  const k = key(a.getAttribute("href"));
+  if (!k) return;
+  e.preventDefault();
+  callOut(k);
+});
+
+/* ---------- call log ---------- */
+function showCalls() {
+  view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+  stop.push(onSnapshot(query(collection(db, "calls"), orderBy("at", "desc"), limit(200)), snap => {
+    if (snap.empty) {
+      view.innerHTML = '<div class="msg">No calls yet. Calls to and from (916) 767-2520 show up here once the ' +
+        'business number is switched over in Twilio.</div>';
+      return;
+    }
+    view.innerHTML = '<div class="list">' + snap.docs.map(d => {
+      const c = d.data(), out = c.dir === "out";
+      const k = c.key || key(out ? c.to : c.from);
+      const name = c.name || nameByKey[k] || (k ? pretty(k) : (c.from || "Unknown caller"));
+      const missed = c.status === "missed";
+      const stale = c.status === "ringing" && Date.now() - ms(c.at) > 120000;
+      const what = (out ? "Outgoing" : "Incoming") + DOT +
+        (c.status === "answered" ? "Answered" + (c.duration ? " " + mmss(c.duration) : "")
+          : missed ? (out ? "No answer" : "Missed")
+          : stale ? "Ended" : "Ringing" + ELLIPSIS);
+      return '<div class="row' + (missed ? ' missed' : '') + '">' +
+        '<span class="who">' + (k ? '<a href="#' + esc(k) + '" title="Texts">' + esc(name) + '</a>' : esc(name)) + '</span>' +
+        '<span class="when">' + esc(whenShort(c.at)) + '</span>' +
+        '<span class="last">' + esc(what) + '</span>' +
+        (k ? '<a class="call" href="tel:+1' + esc(k) + '">Call</a>' : '<span></span>') +
+      '</div>';
+    }).join('') + '</div>';
+  }, err => { view.innerHTML = '<div class="msg err">Could not load calls: ' + esc(err.message) + '</div>'; }));
+}
+
+/* ---------- left panel: Leads, Approved leads, Contacts ----------
+   Read once when the page opens (same collections leads.html, approved-leads.html and
+   customers.html use). Unread counts stay live from smsThreads. */
+const people = {leads: [], approved: [], contacts: []};
+const nameByKey = {};      // phone key -> name, so texts show a name instead of a number
+let unreadByKey = {}, peopleLoaded = false;
+const GROUPS = [
+  {k: "leads", label: "Leads", open: true},
+  {k: "approved", label: "Approved leads", open: true},
+  {k: "contacts", label: "Contacts", open: false}
+];
+const openState = {};
+GROUPS.forEach(g => { openState[g.k] = g.open; });
+
+async function loadPeople() {
+  const [L, A, C] = await Promise.allSettled([
+    getDocs(collection(db, "leads")), getDocs(collection(db, "acceptedQuotes")), getDocs(collection(db, "customers"))]);
+  const seen = new Set();
+  const take = (list, rows) => rows.forEach(r => {
+    if (!r.k || seen.has(r.k)) return;
+    seen.add(r.k); list.push(r);
+    if (r.name && !nameByKey[r.k]) nameByKey[r.k] = r.name;
+  });
+  const docs = s => s.status === "fulfilled" ? s.value.docs.map(d => ({id: d.id, ...d.data()})) : [];
+  const byName = (a, b) => (a.name || "").localeCompare(b.name || "", undefined, {sensitivity: "base"});
+  // Approved first so someone further along shows there, not as a lead.
+  take(people.approved, docs(A).filter(q => !q.trashed).map(q => {
+    const c = q.customer || {};
+    return {k: key(c.phone), name: c.name || c.business || "No name", sub: q.number || ""};
+  }).sort(byName));
+  take(people.leads, docs(L).filter(l => !l.trashed && !l.converted)
+    .sort((a, b) => ms(b.createdAt || b.updatedAt) - ms(a.createdAt || a.updatedAt))
+    .map(l => ({k: key(l.phone), name: l.name || "No name", sub: l.status || "new"})));
+  take(people.contacts, docs(C).filter(c => !c.trashed).map(c => {
+    const phone = (Array.isArray(c.phones) && c.phones[0]) || c.phone;
+    const biz = c.type && !/resid/i.test(c.type) && c.business;
+    return {k: key(phone), name: (biz ? c.business : c.name) || c.business || "No name", sub: ""};
+  }).sort(byName));
+  [L, A, C].forEach(s => { if (s.status === "rejected") console.warn("people load", s.reason); });
+  peopleLoaded = true;
+  renderPeople();
+  // An open conversation with no saved name picks one up now.
+  const cn = document.getElementById("cname"), h = location.hash.slice(1);
+  if (cn && nameByKey[h] && cn.textContent === pretty(h)) cn.textContent = nameByKey[h];
+}
+
+function renderPeople() {
+  if (!peopleLoaded) return;   // still says Loading… until the three lists are in
+  const box = document.getElementById("people");
+  const t = document.getElementById("find").value.trim().toLowerCase(), td = t.replace(/\D/g, "");
+  const cur = location.hash.slice(1);
+  const match = p => !t || p.name.toLowerCase().includes(t) || (td.length >= 3 && p.k.includes(td));
+  box.innerHTML = GROUPS.map(g => {
+    const list = people[g.k].filter(match);
+    const rows = list.length ? list.map(p => {
+      const n = unreadByKey[p.k] || 0;
+      return '<div class="pp' + (p.k === cur ? ' on' : '') + '">' +
+        '<a class="open" href="#' + esc(p.k) + '" title="Texts with ' + esc(p.name) + '">' +
+          '<span class="pn">' + esc(p.name) + '</span><span class="ph">' + esc(pretty(p.k)) + '</span></a>' +
+        (n ? '<span class="dot" title="' + n + ' unread">' + n + '</span>' : '') +
+        '<a class="call" href="tel:+1' + esc(p.k) + '">Call</a>' +
+      '</div>';
+    }).join('') : '<div class="none">' + (t ? "No matches" : "Nobody here yet") + '</div>';
+    return '<details class="grp" data-g="' + g.k + '"' + (openState[g.k] || t ? ' open' : '') + '>' +
+      '<summary>' + esc(g.label) + ' (' + list.length + ')</summary>' + rows + '</details>';
+  }).join('');
+  box.querySelectorAll("details.grp").forEach(d => d.addEventListener("toggle", () => {
+    if (!document.getElementById("find").value.trim()) openState[d.dataset.g] = d.open;
+  }));
+}
+
+document.getElementById("find").addEventListener("input", renderPeople);
+
+function startPeople() {
+  loadPeople().catch(e => {
+    document.getElementById("people").innerHTML = '<div class="none">Could not load people: ' + esc(e.message) + '</div>';
+  });
+  onSnapshot(query(collection(db, "smsThreads"), orderBy("lastAt", "desc"), limit(200)), snap => {
+    unreadByKey = {};
+    snap.docs.forEach(d => { const n = Number(d.data().unread) || 0; if (n) unreadByKey[d.id] = n; });
+    renderPeople();
+  }, err => console.warn("unread", err));
+}
+
 /* ---------- which screen ---------- */
 const route = () => {
   clearScreen();
@@ -289,7 +568,11 @@ const route = () => {
   const isNew = h === "new" || h.startsWith("new/");
   document.getElementById("allBtn").hidden = !h;
   document.getElementById("newBtn").hidden = isNew;
+  document.getElementById("callsBtn").hidden = h === "calls";
+  document.body.classList.toggle("in-thread", !!h);   // phones: hide the people panel inside a conversation
+  renderPeople();
   if (isNew) showNew(h.slice(4));
+  else if (h === "calls") showCalls();
   else if (/^\d{5,15}$/.test(h)) showThread(h);
   else showList();
 };
@@ -299,7 +582,10 @@ let started = false;
 onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=texts.html"); return; }
   document.getElementById("authwait")?.remove();
-  if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
+  if (!started) {
+    started = true; window.addEventListener("hashchange", route); route(); startPeople();
+    if (pref.get() === "on") phoneOn();   // left on last time: turn back on
+  }
 });
 </script>
 </body>
