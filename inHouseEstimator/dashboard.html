@@ -271,7 +271,9 @@ async function grab(name){
      approval; once approved they belong to the job, so they're left off Accepted and the rest. */
   return snap.docs.filter(s => name === "quotes" || !s.data().revisionOf)
     /* Paid invoices hidden with × stay in Firestore; they just leave the Dashboard. */
-    .filter(s => !(name === "paidInvoices" && s.data().dashHidden)).map(docSnap => {
+    .filter(s => !(name === "paidInvoices" && s.data().dashHidden))
+    /* Items trashed from Income & Expenses live in that page's own Trash, not this one. */
+    .filter(s => !(name === "trash" && s.data().trashBin === "income")).map(docSnap => {
     const d = docSnap.data(), c = d.customer || {};
     return { id: docSnap.id, source: name, createdAt: d.createdAt, revisionOf: d.revisionOf || "", fromJobSheet: !!d.fromJobSheet,
              number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",
