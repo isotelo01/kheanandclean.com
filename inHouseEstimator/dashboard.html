@@ -250,7 +250,9 @@ async function grab(name){
   const snap = await getDocs(query(collection(db, name), orderBy("createdAt", "desc"), limit(200)));
   /* Updated quotes added from a job sheet (revisionOf) show under Estimates while they wait for
      approval; once approved they belong to the job, so they're left off Accepted and the rest. */
-  return snap.docs.filter(s => name === "quotes" || !s.data().revisionOf).map(docSnap => {
+  return snap.docs.filter(s => name === "quotes" || !s.data().revisionOf)
+    /* Paid invoices hidden with × stay in Firestore; they just leave the Dashboard. */
+    .filter(s => !(name === "paidInvoices" && s.data().dashHidden)).map(docSnap => {
     const d = docSnap.data(), c = d.customer || {};
     return { id: docSnap.id, source: name, createdAt: d.createdAt, revisionOf: d.revisionOf || "", fromJobSheet: !!d.fromJobSheet,
              number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",
@@ -492,6 +494,12 @@ boardEl.addEventListener("click", async e => {
 /* Trash is a move, not an erase: the doc is copied to "trash" with a note of the
    collection it came from, so Restore can put it back where it was. */
 async function toTrash(id, from){
+  /* A paid invoice is the main file: × only hides it from the Dashboard.
+     It stays in paidInvoices for Income & Expenses and the customer's history. */
+  if (from === "paidInvoices") {
+    await setDoc(doc(db, from, id), { dashHidden: true, dashHiddenAt: serverTimestamp() }, { merge: true });
+    return;
+  }
   const src = await getDoc(doc(db, from, id));
   if (!src.exists()) return;
   const d = src.data();
