@@ -185,6 +185,27 @@
           </fieldset>
         </div>
 
+        <!-- Line items: type a description and price, Add puts it in the table, Delete removes the row. -->
+        <fieldset id="liField" style="margin-bottom:1.9rem">
+          <legend class="lgnd">Line items</legend>
+          <div class="estRow">
+            <div class="estField">
+              <label for="liDesc">Description</label>
+              <input id="liDesc" type="text" autocomplete="off" placeholder="e.g. Pet odor treatment">
+            </div>
+            <div class="estField">
+              <label for="liPrice">Price</label>
+              <input id="liPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+            </div>
+          </div>
+          <button type="button" id="liAdd" class="btn btn--jade" style="width:100%;margin-top:.6rem">Add line item</button>
+          <table id="liTable" style="width:100%;margin-top:1rem;border-collapse:collapse" hidden>
+            <thead><tr><th style="text-align:left;padding:.4rem">Item</th><th style="text-align:right;padding:.4rem">Price</th><th></th></tr></thead>
+            <tbody id="liBody"></tbody>
+          </table>
+          <!-- Add/Delete is handled in app.js, so these items price into the estimate and save with it. -->
+        </fieldset>
+
         <fieldset class="disc" style="margin-bottom:1.9rem">
           <legend class="lgnd">Discount</legend>
           <div class="disc__row">

@@ -55,6 +55,7 @@
     STATE.carpet.dryDefaultApplied = true;
     STATE.upholstery = { items:{}, touched:false };
     SERVICES.upholstery.items.forEach(function(it){ STATE.upholstery.items[it.key] = 0; });
+    STATE.custom = [];   // custom line items: [{desc, price}], typed in by hand
   }
   initState();
 
@@ -904,6 +905,14 @@
       breakdown.push({ key:k, label:serviceLineLabel(k), cost:cost, items:items });
       sum += cost;
     });
+    /* Custom line items: one group, each item its own line, added into the total. */
+    var custom = (STATE.custom || []).filter(function(c){ return c && c.desc; });
+    if(custom.length){
+      var cSum = custom.reduce(function(s,c){ return s + (+c.price || 0); }, 0);
+      breakdown.push({ key:'custom', label:'Additional services', cost:cSum,
+        items: custom.map(function(c){ return { label:c.desc, cost:+c.price || 0 }; }) });
+      sum += cSum;
+    }
     return { breakdown:breakdown, sum:sum };
   }
 
@@ -920,7 +929,26 @@
     return total;
   }
 
+  /* Draw the custom line items table from STATE.custom (each row has a Delete). */
+  function renderCustom(){
+    var body = document.getElementById('liBody'), table = document.getElementById('liTable');
+    if(!body || !table) return;
+    var list = STATE.custom || [];
+    body.innerHTML = '';
+    list.forEach(function(c, i){
+      var tr = document.createElement('tr');
+      var c1 = document.createElement('td'), c2 = document.createElement('td'), c3 = document.createElement('td');
+      c1.textContent = c.desc; c1.style.padding = '.4rem';
+      c2.textContent = '$' + (+c.price || 0).toFixed(2); c2.style.cssText = 'text-align:right;padding:.4rem';
+      c3.style.cssText = 'text-align:right;padding:.4rem';
+      c3.innerHTML = '<button type="button" class="btn btn--wireDark" data-lidel="' + i + '">Delete</button>';
+      tr.append(c1, c2, c3); body.appendChild(tr);
+    });
+    table.hidden = !list.length;
+  }
+
   function calc(){
+    renderCustom();
     /* Stairs label: "Flight of Stairs" up to 1, "Flights of Stairs" above 1 (1.5 counts as
        plural), on both the add-on row and the room-picker row, for whichever service is open. */
     var stairsSt = STATE[activeSvc] && STATE[activeSvc].rooms;
@@ -1008,6 +1036,30 @@
   });
   /* Waive minimum: checked = no $150 floor on this estimate. */
   (function(){ var w = document.getElementById('waiveMin'); if(w) w.addEventListener('change', calc); })();
+
+  /* Custom line items: Add (button or Enter) puts it in STATE.custom and reprices; Delete removes it. */
+  (function(){
+    var d = document.getElementById('liDesc'), p = document.getElementById('liPrice'),
+        add = document.getElementById('liAdd'), body = document.getElementById('liBody');
+    if(!d || !p || !add || !body) return;
+    function addItem(){
+      var desc = d.value.trim();
+      if(!desc){ d.focus(); return; }
+      STATE.custom.push({ desc: desc, price: Math.max(0, parseFloat(p.value) || 0) });
+      d.value = ''; p.value = ''; d.focus();
+      calc();
+    }
+    add.addEventListener('click', addItem);
+    [d, p].forEach(function(el){
+      el.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); addItem(); } });
+    });
+    body.addEventListener('click', function(e){
+      var b = e.target.closest('[data-lidel]');
+      if(!b) return;
+      STATE.custom.splice(+b.getAttribute('data-lidel'), 1);
+      calc();
+    });
+  })();
 
   document.getElementById('plus').addEventListener('click', function(){
     qty.value = (+qty.value||0) + (+qty.step||1);
