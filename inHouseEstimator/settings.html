@@ -42,6 +42,20 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .note.err{color:var(--red)}
 :where(a,button,input,select):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 @media(max-width:540px){.chrow{grid-template-columns:minmax(0,1fr) 88px 84px 36px;gap:6px}}
+/* Prices section (prices-settings.js) */
+.pgroup{border-top:1px solid #eef0f4;padding:6px 0}
+.pgroup:first-child{border-top:0}
+.pgroup summary{font:600 17px "Archivo";cursor:pointer;padding:8px 0}
+.pgroup h3,.pgroup h4{font:600 15px "Archivo";margin:8px 0 2px}
+.prrow{display:grid;grid-template-columns:minmax(0,1fr) 110px 64px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #eef0f4}
+.pname small{display:block;font-size:13px;color:var(--muted)}
+.lrow{display:grid;grid-template-columns:minmax(0,1fr) 90px 64px 40px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #eef0f4}
+.lhead{border-top:0;padding-bottom:0;font-size:13px;font-weight:600;color:var(--muted)}
+.prrow input:not([type=checkbox]),.lrow input:not([type=checkbox]){width:100%;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
+.prrow .cost input{padding-left:22px}
+.hide{display:flex;gap:4px;align-items:center;font-size:13px;color:var(--muted);white-space:nowrap}
+.hide input{width:auto}
+@media(max-width:540px){.prrow{grid-template-columns:minmax(0,1fr) 88px 58px;gap:6px}.lrow{grid-template-columns:minmax(0,1fr) 72px 58px 36px;gap:6px}}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
 </head>
@@ -69,6 +83,13 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
   </div>
 
   <div class="actions"><button type="button" class="new" id="saveBtn">Save changes</button><span class="note" id="note"></span></div>
+
+  <div class="panel" style="margin-top:28px">
+    <h2>Prices</h2>
+    <p class="sub">Service prices, add-ons, rooms and furniture. Tap a service to open it. Hide takes something off without deleting it.</p>
+    <div id="prices"><div class="empty">Loading&hellip;</div></div>
+  </div>
+  <div class="actions"><button type="button" class="new" id="pricesSave">Save prices</button><span class="note" id="pricesNote"></span></div>
 </div>
 
 <script type="module">
@@ -176,5 +197,7 @@ onAuthStateChanged(auth, async user => {
   } catch (e) { console.error(e); note.textContent = "Could not load settings: " + e.message; note.classList.add("err"); }
 });
 </script>
+<script src="./pricing.js"></script>
+<script type="module" src="./prices-settings.js"></script>
 </body>
 </html>
