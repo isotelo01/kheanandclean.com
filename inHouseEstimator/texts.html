@@ -118,6 +118,17 @@ textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1
 #dialBack{font:600 18px "Archivo";background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:10px;padding:0 14px;cursor:pointer}
 #dialMsg{font-size:13px;color:var(--muted);margin-top:8px;min-height:1em}
 #dialMsg.bad{color:var(--red)}
+/* Reminders placeholder under the dial pad (nothing sends yet) */
+#reminders{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}
+#reminders .rh{font:700 15px "Archivo";color:var(--navy);margin-bottom:6px}
+#reminders .rbtn{display:block;width:100%;text-align:left;font:600 14px "Archivo";background:var(--bg);color:var(--navy);border:1px dashed var(--line);border-radius:8px;padding:9px 12px;margin-top:6px;cursor:not-allowed;opacity:.85}
+#reminders .rbtn small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+#reminders .rnote{font-size:12px;color:var(--muted);margin:8px 0 0}
+@media(min-width:1024px){
+  #reminders{margin:0;padding:0;border-top:0}
+  #reminders .rh{background:var(--navy);color:#fff;font:700 18px "Playfair Display",Georgia,serif;margin:0;padding:14px 18px;border-top:3px solid var(--gold);border-bottom:3px solid var(--gold)}
+  #reminders .rbody{padding:12px 18px 18px}
+}
 @media(max-width:540px){#dialer{left:12px;right:12px;width:auto;top:70px}}
 @media(max-width:820px){.cols{grid-template-columns:1fr}.side{position:static;max-height:none}body.in-thread .side{display:none}}
 @media(max-width:540px){.b{max-width:88%}.thread{max-height:56vh}.top{gap:10px}}
@@ -176,6 +187,17 @@ textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1
   </div>
   <div class="drow"><button type="button" id="dialCall">Call</button><button type="button" id="dialBack" aria-label="Delete">&#9003;</button></div>
   <div id="dialMsg"></div>
+  <!-- Reminders: PLACEHOLDER, nothing sends yet. Later these send through the same texting setup as this
+       page (from (916) 767-2520): the day-before reminder, and "on my way" (asked Yes/No when he taps a
+       job's address to navigate). data-remind names which one, for wiring later. -->
+  <section id="reminders" aria-label="Reminders">
+    <div class="rh">Reminders</div>
+    <div class="rbody">
+      <button type="button" class="rbtn" data-remind="day-before" disabled>Day-before text<small>Reminds tomorrow's customers</small></button>
+      <button type="button" class="rbtn" data-remind="on-my-way" disabled>On my way text<small>Asks Yes/No when you tap a job's address</small></button>
+      <p class="rnote">Placeholder. Not hooked up yet.</p>
+    </div>
+  </section>
 </div>
   </div>
 </div>

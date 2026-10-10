@@ -203,26 +203,7 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 #bRule{margin:10px 0 0;font-weight:600;color:var(--navy);min-height:1.2em}
 .ghost.danger{color:var(--red)}
 
-/* 5-Day view (the page opens on it): today + the next 4 days. Weather spot top right of each day. */
-body.fiveMode .bar{display:none}
-body.dayMode #fiveBtn{display:none}
-#fiveBtn{display:inline-flex;align-items:center;gap:6px}
-.five{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:6px}
-.fday{background:#000;color:#fff;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-height:240px;min-width:0}
-.fday.today{box-shadow:0 0 0 2px var(--gold)}
-.fhead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:2px}
-.fdate{background:none;border:0;color:#fff;font:700 17px "Archivo",sans-serif;padding:0;text-align:left;cursor:pointer}
-.fdate small{display:block;font-weight:500;font-size:13px;color:#bccbdd}
-.wx{min-width:58px;text-align:right;font:600 13px "Archivo",sans-serif;color:#bccbdd}
-.wx .wxi{display:block;font-size:26px;line-height:1;min-height:26px}
-.fday .job{white-space:normal;font-size:14px;padding:6px 8px}
-.faddr{display:block;font-size:13px;line-height:1.35;color:var(--gold);margin:3px 0 0 8px;overflow-wrap:anywhere}
-.faddr.none{color:#8b93a3}
-.fnone{color:#8b93a3;font-size:14px;margin:4px 0 0}
-
 @media (max-width:759px){
-  .five{grid-template-columns:1fr}
-  .fday{min-height:0}
   .bar{flex-wrap:wrap;justify-content:space-between}
   body:not(.dayMode) .mnav{flex-basis:100%;order:1}
   .jump{flex:1;justify-content:center}
@@ -253,7 +234,6 @@ body.dayMode #fiveBtn{display:none}
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <h1>Calendar</h1>
     <div class="links">
-      <button type="button" class="ghost" id="fiveBtn">Calendar</button>
       <button type="button" class="ghost need" id="needBtn" aria-label="0 jobs need a date"><span class="nd-full">Needs Date (0)</span><span class="nd-num"></span></button>
       <button type="button" class="ghost icon" id="refreshBtn" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>
     </div>
@@ -663,7 +643,7 @@ function renderDay(){
   document.getElementById("mlabel").textContent = fromKey(dayKey).toLocaleDateString(undefined, phone()
     ? { weekday: "short", month: "short", day: "numeric" }
     : { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-  document.getElementById("backBtn").textContent = "\u2039 " + (fiveMode ? "5-Day" : phone() ? "Week" : "Month");
+  document.getElementById("backBtn").textContent = "\u2039 " + (phone() ? "Week" : "Month");
   view.innerHTML = '<div class="dview"><div class="dvhead">' +
       '<span class="dvsum">' + (list.length ? list.length + (list.length === 1 ? " job" : " jobs") + " \u00b7 " + esc(money(sum)) : "No jobs") +
         (dayKey === todayKey() ? '<span class="tag">Today</span>' : '') + '</span>' + holTag(dayKey) +
@@ -708,65 +688,15 @@ window.addEventListener("popstate", e => {
   if (dayKey) showList();
 });
 
-/* ---- 5-Day view, what the page opens on: today and the next 4 days. Each day has a weather
-   spot (blank "--°" until a forecast is hooked up in weatherFor) and that day's schedule, with the
-   address under each job (tap it for Maps). Tap a day's date to open that day. The Calendar
-   button at the top switches to the normal calendar and back. ---- */
-let fiveMode = true;            // false = normal calendar (week on the phone, month on a computer)
-const fiveBtn = document.getElementById("fiveBtn");
-const weatherFor = k => null;   // LATER: return { icon: "\u2600\uFE0F", hi: 78, lo: 55 } for day k
-const CAL_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" ' +
-  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/>' +
-  '<path d="M3 10h18M8 3v4M16 3v4"/></svg>';
-function fiveJob(j){
-  const c = j.customer || {}, addr = [c.street, cityLine(c)].filter(Boolean).join(", ");
-  return '<div class="fjob">' + chip(j, false) + (addr
-    ? '<a class="faddr" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr) +
-      '" target="_blank" rel="noopener">' + esc(addr) + '</a>'
-    : '<span class="faddr none">No address on file</span>') + '</div>';
-}
-function renderFive(){
-  const tk = todayKey();
-  let html = '<div class="five">';
-  for (let i = 0; i < 5; i++) {
-    const d = addDays(fromKey(tk), i), k = keyOf(d), w = weatherFor(k);
-    const items = [
-      ...(carryByDay.get(k) || []).map(b => ["00:00", carryChip(b, true)]),
-      ...(blocksByDay.get(k) || []).map(b => [b.time, blkChip(b, true)]),
-      ...(byDay.get(k) || []).map(j => [isTime(j.scheduledTime) ? j.scheduledTime : "99", fiveJob(j)])
-    ].sort((a, b) => a[0].localeCompare(b[0])).map(x => x[1]).join("");
-    html += '<section class="fday' + (i ? '' : ' today') + '">' +
-      '<div class="fhead"><button type="button" class="fdate" data-open="' + k + '" aria-label="Open ' + esc(shortDay(d)) + '">' +
-        (i ? esc(d.toLocaleDateString(undefined, { weekday: "long" })) : "Today") +
-        '<small>' + esc(d.toLocaleDateString(undefined, { month: "short", day: "numeric" })) + '</small></button>' +
-        '<div class="wx" data-wx="' + k + '"><span class="wxi" aria-hidden="true">' + (w ? w.icon : "") + '</span>' +
-          '<span class="wxt">' + (w ? w.hi + "\u00b0 / " + w.lo + "\u00b0" : "--\u00b0") + '</span></div></div>' +
-      holTag(k) + (items || '<p class="fnone">Nothing scheduled</p>') + '</section>';
-  }
-  view.innerHTML = html + '</div>';
-}
-fiveBtn.addEventListener("click", () => {
-  fiveMode = !fiveMode;
-  if (!fiveMode) {   // to the normal calendar, on this week / this month
-    const n = fromKey(todayKey());
-    weekStart = weekOf(n); pview = "week"; month = new Date(n.getFullYear(), n.getMonth(), 1);
-  }
-  render();
-  window.scrollTo(0, 0);
-});
-
 const mq = window.matchMedia("(max-width: 759px)");
 const phone = () => mq.matches;
 const render = () => {
   document.body.classList.toggle("dayMode", !!dayKey);
-  document.body.classList.toggle("fiveMode", fiveMode && !dayKey);
-  fiveBtn.innerHTML = CAL_ICON + '<span>' + (fiveMode ? "Calendar" : "5-Day") + '</span>';
-  fiveBtn.setAttribute("aria-label", fiveMode ? "Show the full calendar" : "Show the next 5 days");
   const unit = dayKey ? "day" : phone() && pview === "week" ? "week" : "month";
   document.getElementById("prevBtn").setAttribute("aria-label", "Previous " + unit);
   document.getElementById("nextBtn").setAttribute("aria-label", "Next " + unit);
   viewBtn.textContent = pview === "week" ? "Month" : "Week";
-  if (dayKey) renderDay(); else if (fiveMode) renderFive(); else if (unit === "week") renderWeek(); else renderMonth();
+  if (dayKey) renderDay(); else if (unit === "week") renderWeek(); else renderMonth();
 };
 
 function goToday(){
@@ -874,7 +804,7 @@ async function saveDate(j, clear){
     showWeek(date);
   } else {
     const d = fromKey(date); month = new Date(d.getFullYear(), d.getMonth(), 1);
-    render();   /* month, or the 5-Day view if that's showing */
+    renderMonth();
   }
 }
 
@@ -1012,7 +942,7 @@ async function saveBlock(kind){
   dlg.close();
   if (dayKey) { landHour = time; setDay(date); return; }
   if (phone()) showWeek(date);
-  else { const d = fromKey(date); month = new Date(d.getFullYear(), d.getMonth(), 1); render(); }
+  else { const d = fromKey(date); month = new Date(d.getFullYear(), d.getMonth(), 1); renderMonth(); }
 }
 
 function showBlock(b){
