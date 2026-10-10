@@ -43,7 +43,11 @@ h1{font:700 30px "Playfair Display",Georgia,serif;color:#fff;margin:0;border-bot
 .tools{display:flex;align-items:center;gap:10px;margin-top:12px}
 body:not(.dayMode) .tools{display:none}
 #backBtn{display:none}
-body.dayMode #backBtn{display:inline-block}
+body.dayMode #backBtn{display:inline-flex}
+/* Day view: gold bubble next to the date, "Open October" -> that month */
+#backBtn{align-items:center;flex:none;background:var(--gold);color:var(--navy);border:1px solid var(--gold);border-radius:999px;
+  padding:9px 20px;font:700 15px "Archivo",sans-serif;white-space:nowrap;box-shadow:0 2px 10px rgba(227,182,74,.25)}
+#backBtn:hover{background:#f0c75e}
 .need.has{background:var(--gold);border-color:var(--gold);color:var(--navy)}
 .nd-num{display:none}   /* the number-only version is for phones (see the phone rules at the bottom) */
 /* Phone: the week label doubles as a date picker; Week/Month switch */
@@ -238,9 +242,6 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
       <button type="button" class="ghost icon" id="refreshBtn" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></button>
     </div>
   </div>
-  <div class="tools">
-    <button type="button" class="ghost" id="backBtn">&lsaquo; Week</button>
-  </div>
   <div class="bar">
     <div class="mnav">
       <button type="button" class="arrow" id="prevBtn" aria-label="Previous month">&lsaquo;</button>
@@ -248,6 +249,7 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
       <button type="button" class="arrow" id="nextBtn" aria-label="Next month">&rsaquo;</button>
     </div>
     <button type="button" class="ghost" id="viewBtn">Month</button>
+    <button type="button" class="ghost" id="backBtn">Open month</button>
   </div>
   <div id="note" class="msg" hidden></div>
   <div id="view"><div class="msg">Loading&hellip;</div></div>
@@ -643,7 +645,7 @@ function renderDay(){
   document.getElementById("mlabel").textContent = fromKey(dayKey).toLocaleDateString(undefined, phone()
     ? { weekday: "short", month: "short", day: "numeric" }
     : { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-  document.getElementById("backBtn").textContent = "\u2039 " + (phone() ? "Week" : "Month");
+  document.getElementById("backBtn").textContent = "Open " + fromKey(dayKey).toLocaleDateString(undefined, { month: "long" });
   view.innerHTML = '<div class="dview"><div class="dvhead">' +
       '<span class="dvsum">' + (list.length ? list.length + (list.length === 1 ? " job" : " jobs") + " \u00b7 " + esc(money(sum)) : "No jobs") +
         (dayKey === todayKey() ? '<span class="tag">Today</span>' : '') + '</span>' + holTag(dayKey) +
@@ -667,10 +669,11 @@ function setDay(k, fromList){
   window.scrollTo(0, 0);
 }
 
+let toMonth = false;   // the "Open October" button: land on the month view (phone too), not the week
 function showList(){
   dayKey = null;
   const d = fromKey(lastDay || todayKey());
-  weekStart = weekOf(d); pview = "week";
+  weekStart = weekOf(d); pview = toMonth ? "month" : "week"; toMonth = false;
   month = new Date(d.getFullYear(), d.getMonth(), 1);
   render();
 }
@@ -996,7 +999,7 @@ document.addEventListener("click", e => {
   if (ab) { showBlockForm(ab.dataset.addblk, { date: dayKey, start: ab.dataset.h }); return; }
   const hr = t.closest("[data-hour]");   // an hour in the day view (not a link or a job card in it)
   if (hr && !t.closest("a, .dcard")) { showHourMenu(hr.dataset.hour); return; }
-  if (t.closest("#backBtn")) { closeDay(); return; }
+  if (t.closest("#backBtn")) { toMonth = true; closeDay(); return; }
   const wk = t.closest("[data-week]");
   if (wk) { showWeek(wk.dataset.week); return; }
   const op = t.closest("[data-open]");

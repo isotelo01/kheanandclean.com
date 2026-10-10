@@ -38,17 +38,19 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:0;border-bottom:3px
 /* Calendar tile = a window on the next 5 days (today + 4). Full width; Estimator sits below it.
    Tap a job: opens that day in the calendar. Tap the address: Google Maps. Tap anywhere else: the calendar. */
 .main{grid-template-columns:1fr}
-.main .tile.cal{justify-content:flex-start;gap:12px;cursor:pointer;overflow:hidden}
+.main .tile.cal{justify-content:flex-start;padding:0;gap:0;cursor:pointer;overflow:hidden}
+/* Gold bubble above the calendar box: opens the full calendar (month). */
+.calbtn{justify-self:start;display:inline-flex;align-items:center;gap:6px;background:var(--gold);color:var(--navy);text-decoration:none;
+  border-radius:999px;padding:9px 20px;font:700 15px "Archivo",sans-serif;box-shadow:0 2px 10px rgba(227,182,74,.25)}
+.calbtn:hover{background:#f0c75e}
 .ptitle{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;text-decoration:none}
-.five{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:0 -18px -16px;border-top:1px solid rgba(227,182,74,.35);align-items:stretch}
-.pday{background:transparent;border:0;border-left:1px solid rgba(227,182,74,.35);border-radius:0;padding:12px 12px 14px;min-height:200px;min-width:0;display:flex;flex-direction:column;gap:7px;
+.five{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;align-items:stretch;flex:1}
+.pday{background:transparent;border:0;border-left:1px solid rgba(227,182,74,.35);border-radius:0;padding:14px 12px 16px;min-height:230px;min-width:0;display:flex;flex-direction:column;gap:7px;
   cursor:pointer;transition:background .15s,transform .15s;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
 .pday:first-child{border-left:0}
 .pday:hover{background:rgba(255,255,255,.05)}
 .pday.today{background:rgba(227,182,74,.09);box-shadow:inset 0 3px 0 var(--gold)}
 .pday.pressing{background:rgba(227,182,74,.18);transform:scale(.97)}
-.pfull{margin-top:auto;align-self:flex-start;color:var(--gold);border:1px solid rgba(227,182,74,.55);border-radius:999px;padding:3px 10px;font:600 12px "Archivo",sans-serif;text-decoration:none;white-space:nowrap}
-.pfull:hover{background:rgba(227,182,74,.15)}
 .phead{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
 .pdate{color:#fff;font:700 15px/1.2 "Archivo",sans-serif}
 .pdate small{display:block;font-weight:500;font-size:12px;color:rgba(255,255,255,.65)}
@@ -62,10 +64,14 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:0;border-bottom:3px
 .pnone{color:rgba(255,255,255,.5);font-size:13px}
 @media (max-width:759px){ .five{grid-template-columns:1fr} .pday{min-height:0;border-left:0;border-top:1px solid rgba(227,182,74,.35)} .pday:first-child{border-top:0} }
 
-/* Job Site Data: just for him. Recent jobs, estimated vs actual sq ft room by room (+/-, the most-off
+/* Job Site Data: a normal tile in the grid. Tap it and the full details open in a panel under the grid
+   (tap again to close). Recent jobs, estimated vs actual sq ft room by room (+/-, the most-off
    rooms highlighted), chemicals used, and chemical costs for the month and the year. */
-.main .tile.jsd{justify-content:flex-start;gap:10px}
-.main .tile.jsd:hover{background:var(--navy)}
+button.tile{font:inherit;text-align:left;cursor:pointer;width:100%}
+.tile.jsd{justify-content:flex-start;gap:10px;margin-top:12px;background:var(--navy);color:#fff}
+.tile.jsd[hidden]{display:none}
+.tile.jsd .tname{color:var(--gold)}
+.tile.jsd .tdesc{color:rgba(255,255,255,.78)}
 .jsdsum{display:flex;flex-wrap:wrap;gap:8px}
 .jsdsum div{background:rgba(255,255,255,.06);border:1px solid rgba(227,182,74,.35);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,.75);font-size:13px}
 .jsdsum b{display:block;font-size:18px;color:var(--gold)}
@@ -109,18 +115,14 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:0;border-bottom:3px
 
   <nav aria-label="App pages">
     <div class="main">
+      <a class="calbtn" href="./calendar.html">Open full calendar &rsaquo;</a>
       <div class="tile cal" id="calTile">
-        <a class="ptitle" href="./calendar.html"><span class="tdesc">Open the full calendar &rsaquo;</span></a>
         <div class="five" id="five"><div class="pnone">Loading&hellip;</div></div>
       </div>
-      <section class="tile jsd" aria-label="Job Site Data">
-        <div class="ptitle"><span class="tname">Job Site Data</span><span class="tdesc">Estimated vs actual, chemicals and costs. Just for you.</span></div>
-        <div class="jsdsum" id="jsdSum"></div>
-        <div id="jsd"><div class="pnone">Loading&hellip;</div></div>
-      </section>
     </div>
     <div class="rest">
       <a class="tile" href="./index.html"><span class="tname">Estimator</span><span class="tdesc">Build an estimate and send it</span></a>
+      <button type="button" class="tile" id="jsdTile" aria-expanded="false" aria-controls="jsdPanel"><span class="tname">Job Site Data</span><span class="tdesc" id="jsdMini">Chemicals, estimated vs actual</span></button>
       <a class="tile" href="./leads.html"><span class="tname">Leads</span><span class="tdesc">Quick quotes from the website</span></a>
       <a class="tile" href="./texts.html"><span class="tname">Texts</span><span class="tdesc">Customer texts to (916) 767-2520</span></a>
       <a class="tile" href="./phone.html"><span class="tname">Phone</span><span class="tdesc">Voicemail, call log and dial pad</span></a>
@@ -131,6 +133,11 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:0;border-bottom:3px
       <a class="tile" href="./settings.html"><span class="tname">Settings</span><span class="tdesc">Chemicals and what they cost you</span></a>
       <a class="tile" href="https://kheanandclean.com/" target="_blank" rel="noopener"><span class="tname">Website</span><span class="tdesc">kheanandclean.com</span></a>
     </div>
+    <section class="tile jsd" id="jsdPanel" aria-label="Job Site Data" hidden>
+      <div class="ptitle"><span class="tname">Job Site Data</span><span class="tdesc">Estimated vs actual, chemicals and costs. Just for you.</span></div>
+      <div class="jsdsum" id="jsdSum"></div>
+      <div id="jsd"><div class="pnone">Loading&hellip;</div></div>
+    </section>
   </nav>
 
   <div class="foot"><button type="button" class="signout" id="signOutBtn">Sign out</button></div>
@@ -233,14 +240,13 @@ async function loadFive(){
         '<small>' + esc(d.toLocaleDateString(undefined, { month: "short", day: "numeric" })) + '</small></div>' +
         '<div class="wx" data-wx="' + k + '"><span class="wxi" aria-hidden="true">' + (w ? w.icon : "") + '</span>' +
           '<span class="wxt">' + (w ? w.hi + "\u00b0 / " + w.lo + "\u00b0" : "--\u00b0") + '</span></div></div>' +
-      (items || '<div class="pnone">Open</div>') +
-      '<a class="pfull" href="./calendar.html">Full calendar \u203a</a></section>';
+      (items || '<div class="pnone">Open</div>') + '</section>';
   }).join("") + (failed ? '<div class="pnone">Some of the schedule could not load. Open the calendar.</div>' : '');
 }
 
 /* Day boxes: tap a day = that day in the calendar. Hold a day ~half a second = the full calendar.
-   Jobs, entries and the "Full calendar" button keep their own links; the address still opens Google Maps.
-   Tapping the top line of the tile = the full calendar. */
+   Jobs and entries keep their own links; the address still opens Google Maps.
+   The gold "Open full calendar" bubble above the box = the full calendar. */
 const calTile = document.getElementById("calTile");
 let holdTimer = null, held = false;
 const endHold = () => { clearTimeout(holdTimer); holdTimer = null;
@@ -266,6 +272,14 @@ calTile.addEventListener("click", e => {
    its quoted size, and the chemicals logged on the job sheet (jobSheet.chemicals / chemicalCost).
    Rooms are laid out the same way job-room.html does, so each room finds its own Actual. ---- */
 const jsdBox = document.getElementById("jsd"), jsdSum = document.getElementById("jsdSum");
+/* The Job Site Data tile opens / closes the details panel under the grid. */
+const jsdTile = document.getElementById("jsdTile"), jsdPanel = document.getElementById("jsdPanel");
+jsdTile.addEventListener("click", () => {
+  const open = jsdPanel.hidden;
+  jsdPanel.hidden = !open;
+  jsdTile.setAttribute("aria-expanded", String(open));
+  if (open) jsdPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 const num = n => Math.round(Number(n) || 0).toLocaleString("en-US");
 const money = n => "$" + (Number(n) || 0).toFixed(2);
 const signed = n => n > 0 ? "+" + num(n) : n < 0 ? "\u2212" + num(-n) : "0";
@@ -301,6 +315,7 @@ async function loadJSD(){
   jsdSum.innerHTML = '<div><b>' + money(total(monthStart)) + '</b>Chemicals this month</div>' +
     '<div><b>' + money(total(yearStart)) + '</b>Chemicals this year</div>' +
     '<div><b>--</b>Time on jobs (not tracked yet)</div>';
+  document.getElementById("jsdMini").textContent = money(total(monthStart)) + " chemicals this month";
 
   const recent = jobs.filter(j => j.scheduledDate >= back60)
     .sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate)).slice(0, 10);
