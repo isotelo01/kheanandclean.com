@@ -56,6 +56,27 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:0;border-bottom:3px
 .pnone{color:rgba(255,255,255,.5);font-size:13px}
 @media (max-width:759px){ .five{grid-template-columns:1fr} .pday{min-height:0} }
 
+/* Job Site Data: just for him. Recent jobs, estimated vs actual sq ft room by room (+/-, the most-off
+   rooms highlighted), chemicals used, and chemical costs for the month and the year. */
+.main .tile.jsd{justify-content:flex-start;gap:10px}
+.main .tile.jsd:hover{background:var(--navy)}
+.jsdsum{display:flex;flex-wrap:wrap;gap:8px}
+.jsdsum div{background:rgba(255,255,255,.06);border:1px solid rgba(227,182,74,.35);border-radius:8px;padding:6px 12px;color:rgba(255,255,255,.75);font-size:13px}
+.jsdsum b{display:block;font-size:18px;color:var(--gold)}
+.jjob{background:rgba(255,255,255,.06);border:1px solid rgba(227,182,74,.35);border-radius:8px;margin-top:6px;color:#fff}
+.jjob summary{cursor:pointer;padding:8px 12px;font:600 14px/1.35 "Archivo",sans-serif}
+.jjob summary small{display:block;font-weight:400;color:rgba(255,255,255,.72);font-size:12.5px}
+.jbody{padding:0 12px 12px;font-size:13.5px}
+.jbody h4{margin:12px 0 4px;font:700 12px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase;letter-spacing:.05em}
+.jt{width:100%;border-collapse:collapse}
+.jt th,.jt td{text-align:right;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.1)}
+.jt th:first-child,.jt td:first-child{text-align:left}
+.jt th{font-weight:600;color:rgba(255,255,255,.6);font-size:12px}
+.jt tr.top td{background:rgba(227,182,74,.18);font-weight:700}
+.over{color:#ff8a7a}.under{color:#7fd6a4}
+.jmuted{color:rgba(255,255,255,.55)}
+.jlink{display:inline-block;margin-top:10px;color:var(--gold);font-size:13px}
+
 .foot{display:flex;justify-content:flex-end;margin-top:30px}
 .signout{background:none;border:0;color:var(--muted);font:500 14px "Archivo",sans-serif;text-decoration:underline;cursor:pointer;padding:4px}
 
@@ -87,6 +108,11 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:0;border-bottom:3px
         <div class="five" id="five"><div class="pnone">Loading&hellip;</div></div>
       </div>
       <a class="tile" href="./index.html"><span class="tname">Estimator</span><span class="tdesc">Build an estimate and send it</span></a>
+      <section class="tile jsd" aria-label="Job Site Data">
+        <div class="ptitle"><span class="tname">Job Site Data</span><span class="tdesc">Estimated vs actual, chemicals and costs. Just for you.</span></div>
+        <div class="jsdsum" id="jsdSum"></div>
+        <div id="jsd"><div class="pnone">Loading&hellip;</div></div>
+      </section>
     </div>
     <div class="rest">
       <a class="tile" href="./leads.html"><span class="tname">Leads</span><span class="tdesc">Quick quotes from the website</span></a>
@@ -183,12 +209,85 @@ document.getElementById("calTile").addEventListener("click", e => {
   if (!e.target.closest("a")) location.href = "./calendar.html";
 });
 
+/* ---- Job Site Data: jobs from the last 60 days (newest first, up to 10). Reads what the job pages
+   already save: each room's Actual sq ft (spots.<room>.actualSqft, entered on the room page) against
+   its quoted size, and the chemicals logged on the job sheet (jobSheet.chemicals / chemicalCost).
+   Rooms are laid out the same way job-room.html does, so each room finds its own Actual. ---- */
+const jsdBox = document.getElementById("jsd"), jsdSum = document.getElementById("jsdSum");
+const num = n => Math.round(Number(n) || 0).toLocaleString("en-US");
+const money = n => "$" + (Number(n) || 0).toFixed(2);
+const signed = n => n > 0 ? "+" + num(n) : n < 0 ? "\u2212" + num(-n) : "0";
+const tone = n => n > 0 ? "over" : n < 0 ? "under" : "";
+function roomsOf(q){
+  const spots = q.spots || {}, out = [];
+  const lines = (q.onsite && Array.isArray(q.onsite.lines)) ? q.onsite.lines : (Array.isArray(q.lines) ? q.lines : []);
+  lines.forEach((l, i) => (Array.isArray(l.items) ? l.items : []).forEach((it, j) => {
+    if (it.removed) return;
+    let r = 0;
+    (Array.isArray(it.rooms) ? it.rooms : []).forEach(rm => {
+      const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
+      for (let k = 1; k <= n; k++) {
+        const key = rm.id && n === 1 ? rm.id : i + "-" + j + "-" + r; r++;
+        const a = Number((spots[key] || {}).actualSqft) || 0;
+        out.push({ name: n > 1 ? rm.name + " " + k : String(rm.name || "Room"), est: each, act: a > 0 ? a : null });
+      }
+    });
+  }));
+  return out;
+}
+async function loadJSD(){
+  const now = new Date(), today = keyOf(now), yearStart = now.getFullYear() + "-01-01", monthStart = today.slice(0, 8) + "01";
+  const back60 = keyOf(addDays(now, -60)), start = back60 < yearStart ? back60 : yearStart;
+  let failed = false;
+  const lists = await Promise.all(["acceptedQuotes", "invoices", "paidInvoices"].map(p =>
+    getDocs(query(collection(db, p), where("scheduledDate", ">=", start), where("scheduledDate", "<=", today)))
+      .then(s => s.docs.map(d => ({ ...d.data(), id: d.id })))
+      .catch(e => { console.error(p, e); failed = true; return []; })));
+  const jobs = lists.flat().filter(j => !j.revisionOf);
+  const chem = j => Number((j.jobSheet || {}).chemicalCost) || 0;
+  const total = from => jobs.filter(j => j.scheduledDate >= from).reduce((s, j) => s + chem(j), 0);
+  jsdSum.innerHTML = '<div><b>' + money(total(monthStart)) + '</b>Chemicals this month</div>' +
+    '<div><b>' + money(total(yearStart)) + '</b>Chemicals this year</div>' +
+    '<div><b>--</b>Time on jobs (not tracked yet)</div>';
+
+  const recent = jobs.filter(j => j.scheduledDate >= back60)
+    .sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate)).slice(0, 10);
+  if (!recent.length) { jsdBox.innerHTML = '<div class="pnone">No jobs in the last 60 days.</div>'; return; }
+  jsdBox.innerHTML = recent.map(j => {
+    const rooms = roomsOf(j), m = rooms.filter(x => x.act != null);
+    const e = m.reduce((s, x) => s + x.est, 0), a = m.reduce((s, x) => s + x.act, 0), d = a - e;
+    /* The 3 rooms furthest off (over or under) get highlighted. */
+    const top = new Set(m.filter(x => x.act !== x.est).sort((x, y) => Math.abs(y.act - y.est) - Math.abs(x.act - x.est)).slice(0, 3));
+    const js = j.jobSheet || {}, chems = Array.isArray(js.chemicals) ? js.chemicals : [];
+    const when = new Date(j.scheduledDate + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    const sqLine = m.length
+      ? 'Sq ft (' + m.length + ' of ' + rooms.length + ' rooms measured): est ' + num(e) + ' \u2192 actual ' + num(a) + ' (<span class="' + tone(d) + '">' + signed(d) + '</span>)'
+      : rooms.length ? rooms.length + (rooms.length === 1 ? ' room' : ' rooms') + ', none measured yet' : 'No room breakdown on this job';
+    return '<details class="jjob"><summary>' + esc(when) + ' \u00b7 ' + esc(nameOf(j.customer || {})) +
+        '<small>' + sqLine + ' \u00b7 Chemicals ' + money(chem(j)) + '</small></summary><div class="jbody">' +
+      '<h4>Estimated vs actual sq ft</h4>' +
+      (rooms.length ? '<table class="jt"><tr><th>Room</th><th>Est</th><th>Actual</th><th>+/\u2212</th></tr>' +
+        rooms.map(x => '<tr' + (top.has(x) ? ' class="top"' : '') + '><td>' + esc(x.name) + '</td><td>' + num(x.est) + '</td><td>' +
+          (x.act != null ? num(x.act) : '<span class="jmuted">\u2014</span>') + '</td><td>' +
+          (x.act != null ? '<span class="' + tone(x.act - x.est) + '">' + signed(x.act - x.est) + '</span>' : '') + '</td></tr>').join("") +
+        '</table><div class="jmuted" style="font-size:12px;margin-top:4px">+ bigger than estimated, \u2212 smaller. Highlighted: the rooms most off.</div>'
+        : '<div class="jmuted">No rooms on this job.</div>') +
+      '<h4>Chemicals used</h4>' +
+      (chems.length ? chems.map(c => '<div>' + esc(c.name) + ' \u00b7 ' + esc(c.amount) + ' ' + esc(c.unit) + ' \u00b7 ' + money(c.cost) + '</div>').join("") +
+        '<div><b>Total ' + money(chem(j)) + '</b></div>' : '<div class="jmuted">None logged.</div>') +
+      '<h4>Time on job</h4><div class="jmuted">Not tracked yet.</div>' +
+      '<a class="jlink" href="./job-sheet.html?id=' + encodeURIComponent(j.id) + '">Open job sheet \u203a</a>' +
+    '</div></details>';
+  }).join("") + (failed ? '<div class="pnone">Some jobs could not load.</div>' : '');
+}
+
 /* Page lock. Not signed in -> login page, then back here. */
 let fiveLoaded = false;
 onAuthStateChanged(auth, user => {
   if (!user) { location.replace("./login.html?next=hub.html"); return; }
   document.getElementById("authwait")?.remove();
-  if (!fiveLoaded) { fiveLoaded = true; loadFive().catch(e => { console.error(e); fiveBox.innerHTML = '<div class="pnone">Could not load the schedule.</div>'; }); }
+  if (!fiveLoaded) { fiveLoaded = true; loadFive().catch(e => { console.error(e); fiveBox.innerHTML = '<div class="pnone">Could not load the schedule.</div>'; });
+    loadJSD().catch(e => { console.error(e); jsdBox.innerHTML = '<div class="pnone">Could not load job site data.</div>'; }); }
 });
 
 /* Signing out trips the lock above, which sends you to the login page. */
