@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Settings &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Same look as job-sheet.html. */
+:root{--navy:#172239;--gold:#E3B64A;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.new:disabled{opacity:.6;cursor:default}
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px;margin-bottom:16px}
+.panel h2{font:700 20px "Playfair Display",Georgia,serif;margin:0 0 6px;border-bottom:2px solid var(--gold);padding-bottom:6px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 12px}
+/* One row per product: name, cost, ounce or quart, × to delete. */
+.chrow{display:grid;grid-template-columns:minmax(0,1fr) 110px 96px 40px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #eef0f4}
+.chhead{border-top:0;padding-top:0;font-size:13px;font-weight:600;color:var(--muted)}
+.chrow input,.chrow select{width:100%;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
+.cost{position:relative;display:block}
+.cost span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.chrow .cost input{padding-left:22px}
+.perOz{grid-column:1/-1;font-size:13px;color:var(--muted);margin-top:-4px}
+.perOz:empty{display:none}
+.x{width:36px;height:36px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--red);font-size:20px;line-height:1;cursor:pointer}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+.add{margin-top:10px}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.note{font-size:14px;color:var(--muted)}
+.note.err{color:var(--red)}
+:where(a,button,input,select):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media(max-width:540px){.chrow{grid-template-columns:minmax(0,1fr) 88px 84px 36px;gap:6px}}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Settings</h1>
+    <a class="ghost" href="./hub.html" style="margin-left:auto">Back</a>
+  </div>
+
+  <div class="panel">
+    <h2>General chemicals</h2>
+    <p class="sub">Pre-spray, rinse and the rest. Enter what one ounce or one quart costs you.</p>
+    <div id="list-general"><div class="empty">Loading&hellip;</div></div>
+    <button type="button" class="ghost add" data-add="general">+ Add chemical</button>
+  </div>
+
+  <div class="panel">
+    <h2>Stain treatments</h2>
+    <p class="sub">Stain products, kept separate so stain-heavy jobs show their real cost.</p>
+    <div id="list-stain"><div class="empty">Loading&hellip;</div></div>
+    <button type="button" class="ghost add" data-add="stain">+ Add stain product</button>
+  </div>
+
+  <div class="actions"><button type="button" class="new" id="saveBtn">Save changes</button><span class="note" id="note"></span></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app), auth = getAuth(app);
+
+/* The whole product list is one document: settings/chemicals -> { items: [...] }.
+   The job sheet reads the same document. */
+const REF = doc(db, "settings", "chemicals");
+const OZ = { oz: 1, qt: 32 };   /* 32 ounces in a quart */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const note = document.getElementById("note"), saveBtn = document.getElementById("saveBtn");
+const dirty = () => { note.textContent = "Not saved yet."; note.classList.remove("err"); };
+/* Quart-priced products also show what that works out to per ounce. */
+const perOzTxt = it => { const c = Number(it.cost) || 0;
+  return it.unit === "qt" && c > 0 ? "$" + (c / OZ.qt).toFixed(3) + " per oz" : ""; };
+let items = [];
+
+function draw() {
+  ["general", "stain"].forEach(g => {
+    const box = document.getElementById("list-" + g), rows = items.filter(it => it.group === g);
+    box.innerHTML = rows.length
+      ? '<div class="chrow chhead"><span>Product</span><span>Cost</span><span>Per</span><span></span></div>' +
+        rows.map(it => '<div class="chrow" data-id="' + esc(it.id) + '">' +
+          '<input data-f="name" value="' + esc(it.name) + '" placeholder="Product name" aria-label="Product name">' +
+          '<label class="cost"><span>$</span><input data-f="cost" type="number" min="0" step="0.01" inputmode="decimal" value="' +
+            (it.cost ?? "") + '" placeholder="0.00" aria-label="Cost"></label>' +
+          '<select data-f="unit" aria-label="Measured in">' +
+            '<option value="oz"' + (it.unit === "qt" ? "" : " selected") + '>ounce</option>' +
+            '<option value="qt"' + (it.unit === "qt" ? " selected" : "") + '>quart</option></select>' +
+          '<button type="button" class="x" data-del aria-label="Delete ' + esc(it.name || "product") + '">&times;</button>' +
+          '<span class="perOz">' + perOzTxt(it) + '</span></div>').join("")
+      : '<div class="empty">None yet. Tap Add to put one in.</div>';
+  });
+}
+
+/* Typing in a row updates that product (nothing is saved until Save changes). */
+document.querySelector(".wrap").addEventListener("input", e => {
+  const row = e.target.closest(".chrow[data-id]"); if (!row) return;
+  const it = items.find(x => x.id === row.dataset.id); if (!it) return;
+  const f = e.target.dataset.f;
+  if (f === "name") it.name = e.target.value;
+  if (f === "cost") it.cost = e.target.value === "" ? null : Number(e.target.value);
+  if (f === "unit") it.unit = e.target.value === "qt" ? "qt" : "oz";
+  row.querySelector(".perOz").textContent = perOzTxt(it);
+  dirty();
+});
+
+/* Add builds a new empty row in that section; × asks first, then takes the row off. */
+document.querySelector(".wrap").addEventListener("click", e => {
+  const add = e.target.closest("[data-add]");
+  if (add) {
+    const it = { id: newId(), group: add.dataset.add, name: "", cost: null, unit: "oz" };
+    items.push(it); draw(); dirty();
+    document.querySelector('.chrow[data-id="' + it.id + '"] input')?.focus();
+    return;
+  }
+  const del = e.target.closest("[data-del]");
+  if (del) {
+    const id = del.closest(".chrow").dataset.id, it = items.find(x => x.id === id);
+    if (!confirm('Delete "' + ((it && it.name) || "this product") + '"? Jobs that already used it keep their record.')) return;
+    items = items.filter(x => x.id !== id); draw(); dirty();
+  }
+});
+
+/* Save changes writes the whole list. Rows left without a name are dropped. */
+saveBtn.addEventListener("click", async () => {
+  saveBtn.disabled = true; note.textContent = "Saving\u2026"; note.classList.remove("err");
+  try {
+    const clean = items.map(it => ({ id: it.id, group: it.group === "stain" ? "stain" : "general",
+      name: String(it.name || "").trim(), cost: Number(it.cost) > 0 ? Number(it.cost) : null,
+      unit: it.unit === "qt" ? "qt" : "oz" })).filter(it => it.name);
+    const dropped = items.length - clean.length;
+    await setDoc(REF, { items: clean, updatedAt: serverTimestamp() });
+    items = clean; draw();
+    note.textContent = "Saved." + (dropped ? " Rows with no name were left out." : "");
+  } catch (e) { console.error(e); note.textContent = "Could not save: " + e.message; note.classList.add("err"); }
+  finally { saveBtn.disabled = false; }
+});
+
+/* Warn before leaving with unsaved changes. */
+addEventListener("beforeunload", e => { if (note.textContent === "Not saved yet.") e.preventDefault(); });
+
+/* Page lock. Not signed in -> login page, then back here. */
+onAuthStateChanged(auth, async user => {
+  if (!user) { location.replace("./login.html?next=settings.html"); return; }
+  document.getElementById("authwait")?.remove();
+  try {
+    const s = await getDoc(REF);
+    items = s.exists() && Array.isArray(s.data().items) ? s.data().items : [];
+    draw();
+  } catch (e) { console.error(e); note.textContent = "Could not load settings: " + e.message; note.classList.add("err"); }
+});
+</script>
+</body>
+</html>

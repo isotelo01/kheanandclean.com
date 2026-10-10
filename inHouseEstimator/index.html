@@ -199,6 +199,8 @@
             </div>
           </div>
           <button type="button" id="liAdd" class="btn btn--jade" style="width:100%;margin-top:.6rem">Add line item</button>
+          <button type="button" id="liSavedBtn" class="btn btn--jade" style="width:100%;margin-top:.5rem">Saved line items</button>
+          <div id="liSaved" hidden style="margin-top:.6rem;max-height:260px;overflow:auto"></div>
           <table id="liTable" style="width:100%;margin-top:1rem;border-collapse:collapse" hidden>
             <thead><tr><th style="text-align:left;padding:.4rem">Item</th><th style="text-align:right;padding:.4rem">Price</th><th></th></tr></thead>
             <tbody id="liBody"></tbody>
@@ -599,6 +601,52 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js');
   });
 }
+</script>
+<script type="module">
+/* Saved line items: each Add saves to savedLineItems; the button lists them to reuse or remove. */
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+const app = getApps().length ? getApp() : initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app), COL = 'savedLineItems';
+const keyOf = s => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100) || 'item';
+document.addEventListener('li:added', e => {
+  const { desc, price } = e.detail;
+  setDoc(doc(db, COL, keyOf(desc)), { desc, price, updatedAt: serverTimestamp() })
+    .catch(err => console.error('save line item failed', err));
+});
+const btn = document.getElementById('liSavedBtn'), box = document.getElementById('liSaved');
+async function show() {
+  box.hidden = false; box.textContent = 'Loading…';
+  try {
+    const snap = await getDocs(collection(db, COL));
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.desc).localeCompare(String(b.desc)));
+    if (!items.length) { box.textContent = 'No saved line items yet.'; return; }
+    box.innerHTML = '';
+    items.forEach(it => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid rgba(127,127,127,.25);color:var(--bone)';
+      const name = document.createElement('span'); name.style.flex = '1'; name.textContent = it.desc;
+      const amt = document.createElement('span'); amt.textContent = '$' + (+it.price || 0).toFixed(2);
+      const addB = document.createElement('button'); addB.type = 'button'; addB.className = 'btn btn--jade'; addB.textContent = 'Add';
+      addB.onclick = () => window.kcAddLine(it.desc, it.price);
+      const delB = document.createElement('button'); delB.type = 'button'; delB.className = 'btn btn--jade'; delB.textContent = 'Remove';
+      delB.onclick = async () => {
+        if (!confirm('Remove "' + it.desc + '" from saved items?')) return;
+        try { await deleteDoc(doc(db, COL, it.id)); row.remove(); if (!box.children.length) box.textContent = 'No saved line items yet.'; }
+        catch (err) { alert('Could not remove it.'); console.error(err); }
+      };
+      row.append(name, amt, addB, delB); box.appendChild(row);
+    });
+  } catch (err) { box.textContent = 'Could not load saved items.'; console.error(err); }
+}
+btn.addEventListener('click', () => box.hidden ? show() : (box.hidden = true));
 </script>
 <script src="places.js" defer></script>
 </body>

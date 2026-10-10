@@ -1034,6 +1034,8 @@ async function show(){
 
       '<div style="margin-top:24px">' +
       photoBox("job", "Job photos") +   /* shown read-only in the Summary */
+      /* Chemicals used: staff only, saved with the Save button under Crew notes. */
+      '<div class="staff" style="margin-top:24px"><h2>Chemicals used</h2><div id="chems"><div class="msg">Loading&hellip;</div></div></div>' +
       /* Crew notes: in the Summary, the saved text read-only; nothing at all when there's none. */
       '<div class="crewbox' + (String(js.crewNotes || "").trim() ? '' : ' empty') + '" style="margin-top:24px"><h2>Crew notes</h2>' +
       '<div class="crewro">' + esc(js.crewNotes || "") + '</div>' +
@@ -1113,6 +1115,57 @@ async function show(){
   };
   wireBox("notes", "notesPhotos", "notes");
   wireBox("job", "jobPhotos", "sheet");   /* same field and folder as before, so photos already added stay */
+
+  /* ---- Chemicals used: the product list comes from Settings (settings/chemicals). The crew enters how
+     much of each went on this job, in ounces or quarts, and the cost works out from the Settings price.
+     Saved on the job under jobSheet.chemicals with the price at the time, so later price changes in
+     Settings don't rewrite old jobs. A product deleted from Settings still shows here if this job used it. */
+  const chemBox = document.getElementById("chems"), CHEM_OZ = { oz: 1, qt: 32 };
+  let chemReady = false;
+  const chemCostOf = r => {
+    const amount = Number(r.querySelector("input").value) || 0, unit = r.querySelector("select").value === "qt" ? "qt" : "oz";
+    const unitCost = Number(r.dataset.cost) || 0, perOz = unitCost / CHEM_OZ[r.dataset.punit];
+    return { id: r.dataset.chem, name: r.dataset.name, group: r.dataset.group, amount, unit,
+      unitCost, priceUnit: r.dataset.punit, cost: Math.round(amount * CHEM_OZ[unit] * perOz * 100) / 100 };
+  };
+  const readChems = () => [...chemBox.querySelectorAll(".chemrow")].map(chemCostOf).filter(c => c.amount > 0);
+  const calcChems = () => {
+    let sum = 0;
+    chemBox.querySelectorAll(".chemrow").forEach(r => {
+      const c = chemCostOf(r); sum += c.cost;
+      r.querySelector(".chemcost").textContent = !c.amount ? "" : c.unitCost ? money(c.cost) : "No price set in Settings";
+    });
+    const t = document.getElementById("chemTotal"); if (t) t.textContent = money(sum);
+  };
+  (async () => {
+    const saved = Array.isArray(js.chemicals) ? js.chemicals : [];
+    let list = [];
+    try { const s = await getDoc(doc(db, "settings", "chemicals")); if (s.exists() && Array.isArray(s.data().items)) list = s.data().items.slice(); }
+    catch (e) { console.error("chemicals", e); }
+    const ids = new Set(list.map(c => c.id)), used = new Map(saved.map(c => [c.id, c]));
+    saved.forEach(c => { if (!ids.has(c.id)) list.push({ id: c.id, name: c.name, group: c.group, cost: c.unitCost, unit: c.priceUnit }); });
+    if (!chemBox.isConnected) return;
+    if (!list.length) { chemBox.innerHTML = '<div class="msg">No chemicals set up yet. Add them in <a href="./settings.html">Settings</a>.</div>'; return; }
+    const sel = 'style="font:16px Archivo;padding:6px 4px;border:1px solid var(--line);border-radius:6px"';
+    chemBox.innerHTML = [["general", "General"], ["stain", "Stain treatments"]].map(([g, label]) => {
+      const rows = list.filter(c => (c.group === "stain" ? "stain" : "general") === g); if (!rows.length) return "";
+      return '<div class="rphead" style="margin-top:8px">' + label + '</div>' + rows.map(c => {
+        const u = used.get(c.id) || {};
+        return '<div class="rprow chemrow" style="cursor:default" data-chem="' + esc(c.id) + '" data-name="' + esc(c.name) + '" data-group="' + g +
+          '" data-cost="' + (Number(c.cost) || 0) + '" data-punit="' + (c.unit === "qt" ? "qt" : "oz") + '">' +
+          '<span class="rpname">' + esc(c.name) + '<span class="rpcap chemcost"></span></span>' +
+          '<span class="rpstep"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0" value="' + (Number(u.amount) || "") +
+            '" aria-label="How much ' + esc(c.name) + '">' +
+          '<select ' + sel + ' aria-label="Ounces or quarts"><option value="oz"' + (u.unit === "qt" ? "" : " selected") + '>oz</option>' +
+            '<option value="qt"' + (u.unit === "qt" ? " selected" : "") + '>qt</option></select></span></div>';
+      }).join("");
+    }).join("") + '<div class="jtotal" style="font-size:16px"><span>Chemical cost for this job</span><b id="chemTotal">$0.00</b></div>';
+    calcChems(); chemReady = true;
+  })();
+  chemBox.addEventListener("input", e => {
+    if (!e.target.closest(".chemrow")) return;
+    calcChems(); note.textContent = "Not saved yet."; note.classList.remove("err");
+  });
 
   /* ---- Send to customer: the job sheet as an updated quote, back to the customer to approve. ----
      It's its own quote (quotes/<new id>) with the SAME number (Q-1068), flagged fromJobSheet and
@@ -1196,6 +1249,8 @@ async function show(){
     try {
       const keys = [...done];   /* old-style ticks kept as they were; Done now lives on each room page */
       await setDoc(doc(db, place, id), { jobSheet: { done: keys, crewNotes: document.getElementById("crewNotes").value.trim(),
+        /* Chemicals only once the list has loaded, so a fast Save can't wipe what's already logged. */
+        ...(chemReady ? (ch => ({ chemicals: ch, chemicalCost: Math.round(ch.reduce((a, c) => a + c.cost, 0) * 100) / 100 }))(readChems()) : {}),
         updatedAt: serverTimestamp() } }, { merge: true });
       note.textContent = "Saved.";
       /* The Summary's read-only copy follows what was just saved. */

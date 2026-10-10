@@ -1045,10 +1045,17 @@
     function addItem(){
       var desc = d.value.trim();
       if(!desc){ d.focus(); return; }
-      STATE.custom.push({ desc: desc, price: Math.max(0, parseFloat(p.value) || 0) });
+      var price = Math.max(0, parseFloat(p.value) || 0);
+      STATE.custom.push({ desc: desc, price: price });
+      document.dispatchEvent(new CustomEvent('li:added', { detail: { desc: desc, price: price } }));
       d.value = ''; p.value = ''; d.focus();
       calc();
     }
+    /* Lets the Saved line items list put an item on the estimate. */
+    window.kcAddLine = function(desc, price){
+      STATE.custom.push({ desc: desc, price: Math.max(0, +price || 0) });
+      calc();
+    };
     add.addEventListener('click', addItem);
     [d, p].forEach(function(el){
       el.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); addItem(); } });
