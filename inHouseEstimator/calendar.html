@@ -128,11 +128,18 @@ button.dnum{border:0;background:none;padding:0;color:inherit;cursor:pointer}
 .day{cursor:pointer}
 .dlink{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left}
 .dlink .chev{color:var(--muted);margin-left:6px}
-/* Phone week view: black day boxes that stretch to fill the screen (height set in fitWeek) */
-.days.week .day{flex:1 0 auto;min-height:64px;background:#000;color:#fff;box-shadow:none;padding:10px 12px;border-bottom:0;border-radius:10px}
-.days.week .day.today{box-shadow:0 0 0 2px var(--gold)}
+/* Phone week view: Brass & Steam, same as the month grid. Navy day boxes on a brass edge; each day with a
+   forecast gets a heat bar down its left side and a faint wash, coloured by its high. Height set in fitWeek. */
+.days.week{gap:8px}
+.days.week .day{position:relative;overflow:hidden;flex:1 0 auto;min-height:64px;background:#0e1729;color:#eef2f8;box-shadow:none;
+  border:1px solid rgba(227,182,74,.28);border-radius:12px;padding:10px 12px 10px 16px}
+.days.week .day[style*="--heat"]{background:linear-gradient(90deg,hsla(var(--heat),85%,55%,.16),hsla(var(--heat),85%,55%,.03) 55%,transparent),#0e1729}
+.days.week .day[style*="--heat"]::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:hsl(var(--heat),82%,56%)}
+.days.week .day.today{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 22px rgba(227,182,74,.25)}
+.days.week .day.past{opacity:.6}
+.days.week .dlink{font:700 17px "Playfair Display",Georgia,serif;font-variant-numeric:lining-nums}
 .days.week .day .dhead{color:#fff}
-.days.week .day .chev{color:#bccbdd}
+.days.week .day .chev{color:var(--gold)}
 
 /* Day view: one day's jobs in time order */
 .dview{display:flex;flex-direction:column;gap:10px}
@@ -549,7 +556,7 @@ function renderMonth(){
     if (mini) {
       const sel = d >= weekStart && d < addDays(weekStart, 7), n = list.length + (blocksByDay.get(k) || []).length;
       html += '<button type="button" class="cell' + (d.getMonth() !== m ? ' out' : '') + (k === tk ? ' today' : '') + (sel ? ' sel' : '') +
-        '" data-week="' + k + '" aria-label="Show the week of ' + esc(shortDay(d)) + '"><span class="dnum">' + d.getDate() + '</span>' +
+        '" data-week="' + k + '" aria-label="Show the week of ' + esc(shortDay(d)) + '"' + heatStyle(k) + '><span class="dnum">' + d.getDate() + '</span>' +
         (n ? '<span class="cnt">' + n + '</span>' : '') +
         (holidayOn(k).length ? '<span class="hicon" aria-hidden="true">' + holidayOn(k).map(h => h.icon).join("") + '</span>' : '') + '</button>';
       continue;
@@ -583,9 +590,9 @@ function renderWeek(){
   let html = '<div class="days week">';
   for (let i = 0; i < 7; i++) {
     const d = addDays(weekStart, i), k = keyOf(d), items = dayItems(k, true);
-    html += '<section class="day' + (items ? '' : ' empty') + (k === tk ? ' today' : '') + (k < tk ? ' past' : '') + '" id="d-' + k + '" data-open="' + k + '">' +
+    html += '<section class="day' + (items ? '' : ' empty') + (k === tk ? ' today' : '') + (k < tk ? ' past' : '') + '" id="d-' + k + '" data-open="' + k + '"' + heatStyle(k) + '>' +
       '<div class="dhead"><button type="button" class="dlink" data-open="' + k + '">' + esc(shortDay(d)) +
-        (k === tk ? '<span class="tag">Today</span>' : '') + '<span class="chev" aria-hidden="true">\u203a</span></button></div>' +
+        (k === tk ? '<span class="tag">Today</span>' : '') + '<span class="chev" aria-hidden="true">\u203a</span></button>' + wxTag(k) + '</div>' +
       holTag(k) + items + '</section>';
   }
   view.innerHTML = html + '</div>';
@@ -1083,7 +1090,7 @@ onAuthStateChanged(getAuth(app), async user => {
   render();
   if (phone() && !dayKey) goToday();
   /* Weather comes in after the calendar; if it fails, the calendar just shows without it. */
-  loadWeather().then(() => { if (!dayKey && !phone()) renderMonth(); }).catch(e => console.error(e));
+  loadWeather().then(() => { if (!dayKey) render(); }).catch(e => console.error(e));
 });
 </script>
 </body>
