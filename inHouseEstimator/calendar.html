@@ -93,6 +93,10 @@ body.dayMode #backBtn{display:inline-flex}
 .chead{display:flex;align-items:center;justify-content:space-between;min-height:26px}
 .dnum{font:600 14px "Archivo";width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%}
 .cell.today .dnum{background:var(--gold);color:var(--navy)}
+/* Weather next to the date: icon + hi / lo (Folsom, Open-Meteo). Last ~month and the next 16 days. */
+.cwx{display:inline-flex;align-items:center;gap:4px;font:600 12px "Archivo",sans-serif;color:rgba(255,255,255,.8);white-space:nowrap}
+.cwx i{font-style:normal;font-size:18px;line-height:1;filter:saturate(1.4) brightness(1.15)}
+.cell.out .cwx{opacity:.7}
 /* Click a day box (or its date) to open that day */
 .cell{cursor:pointer}
 .cell:hover{background:#17181b}
@@ -495,6 +499,25 @@ function dayItems(k, full){
   ].sort((a, b) => a[0].localeCompare(b[0])).map(x => x[1]).join("");
 }
 
+/* ---- Weather (Folsom, Open-Meteo, free, no key): "2026-10-10" -> { icon, hi, lo }. ---- */
+const wxByDay = new Map();
+const wxIcon = c => c === 0 ? "\u2600\uFE0F" : c <= 2 ? "\u{1F324}\uFE0F" : c === 3 ? "\u2601\uFE0F" : c <= 48 ? "\u{1F32B}\uFE0F"
+  : c <= 67 ? "\u{1F327}\uFE0F" : c <= 77 ? "\u{1F328}\uFE0F" : c <= 82 ? "\u{1F326}\uFE0F" : c <= 86 ? "\u{1F328}\uFE0F" : "\u26C8\uFE0F";
+async function loadWeather(){
+  const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=38.678&longitude=-121.176" +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit" +
+    "&timezone=America%2FLos_Angeles&past_days=31&forecast_days=16");
+  if (!r.ok) throw new Error("weather " + r.status);
+  const d = (await r.json()).daily || {};
+  (d.time || []).forEach((k, i) => {
+    if (d.temperature_2m_max[i] == null) return;
+    wxByDay.set(k, { icon: wxIcon(d.weather_code[i]), hi: Math.round(d.temperature_2m_max[i]), lo: Math.round(d.temperature_2m_min[i]) });
+  });
+}
+const wxTag = k => { const w = wxByDay.get(k);
+  return w ? '<span class="cwx" title="' + w.hi + '\u00b0 high, ' + w.lo + '\u00b0 low"><i aria-hidden="true">' + w.icon + '</i>' +
+    w.hi + '\u00b0/' + w.lo + '\u00b0</span>' : ''; };
+
 /* ---- Desktop: month grid ---- */
 let month = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); })();
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -519,7 +542,7 @@ function renderMonth(){
     }
     html += '<div class="cell' + (d.getMonth() !== m ? ' out' : '') + (k === tk ? ' today' : '') + '" data-open="' + k + '">' +
       '<div class="chead"><button type="button" class="dnum" data-open="' + k + '" aria-label="Open ' + esc(shortDay(d)) + '">' +
-        d.getDate() + '</button></div>' +
+        d.getDate() + '</button>' + wxTag(k) + '</div>' +
       holTag(k) + dayItems(k, false) + '</div>';
   }
   view.innerHTML = '<div class="grid' + (mini ? ' mini' : '') + '">' + html + '</div>';
@@ -1045,6 +1068,8 @@ onAuthStateChanged(getAuth(app), async user => {
   catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
   render();
   if (phone() && !dayKey) goToday();
+  /* Weather comes in after the calendar; if it fails, the calendar just shows without it. */
+  loadWeather().then(() => { if (!dayKey && !phone()) renderMonth(); }).catch(e => console.error(e));
 });
 </script>
 </body>
