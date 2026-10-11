@@ -36,6 +36,11 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:0;border-bottom:3px
 .main .tname{font-size:28px;color:var(--gold)}
 .main .tdesc{color:rgba(255,255,255,.78);font-size:15px}
 
+/* Mail tile: gold mail icon on top, opens the Zoho inbox for contact@ in a new tab. */
+.tile.mail{justify-content:flex-start;gap:4px}
+.micon{width:40px;height:40px;border-radius:10px;background:rgba(227,182,74,.16);color:var(--gold);display:flex;align-items:center;justify-content:center;margin-bottom:6px}
+.tile.mail .tdesc{overflow-wrap:anywhere}
+
 /* Calendar tile = a window on the next 5 days (today + 4). Full width; Estimator sits below it.
    Tap a job: opens that day in the calendar. Tap the address: Google Maps. Tap anywhere else: the calendar. */
 .main{grid-template-columns:1fr}
@@ -137,6 +142,7 @@ button.tile{font:inherit;text-align:left;cursor:pointer;width:100%}
       <button type="button" class="tile" id="jsdTile" aria-expanded="false" aria-controls="jsdPanel"><span class="tname">Job Site Data</span><span class="tdesc" id="jsdMini">Chemicals, estimated vs actual</span></button>
       <a class="tile" href="./leads.html"><span class="tname">Leads</span><span class="tdesc">Quick quotes from the website</span></a>
       <a class="tile" href="./texts.html"><span class="tname">Texts</span><span class="tdesc">Customer texts to (916) 767-2520</span></a>
+      <a class="tile mail" href="https://mail.zoho.com/" target="_blank" rel="noopener"><span class="micon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span><span class="tname">Mail</span><span class="tdesc">contact@kheanandclean.com</span></a>
       <a class="tile" href="./phone.html"><span class="tname">Phone</span><span class="tdesc">Voicemail, call log and dial pad</span></a>
       <a class="tile" href="./approved-leads.html"><span class="tname">Approved Leads</span><span class="tdesc">Approved jobs waiting to be done</span></a>
       <a class="tile" href="./dashboard.html"><span class="tname">Dashboard</span><span class="tdesc">Estimates, invoices and payments</span></a>
