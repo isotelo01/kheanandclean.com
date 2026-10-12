@@ -2430,15 +2430,15 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
         <h2>Five stars. We'd like to keep it that way.</h2>
       </div>
       <div class="score rise" style="--d:100ms">
-        <span class="score__n num">5.0</span>
+        <span class="score__n num" id="gScore">5.0</span>
         <span class="score__m">
           <span class="score__s">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-          <span class="score__t">Google &middot; 5.0 on Yelp</span>
+          <span class="score__t" id="gScoreT">Google &middot; 5.0 on Yelp</span>
         </span>
       </div>
     </div>
 
-    <div class="revs rise">
+    <div class="revs rise" id="gRevs">
       <div class="rev">
         <span class="rev__s">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
         <p>They cleaned the carpet and tile throughout my home, and everything came out looking amazing. They were professional, on time, and very affordable.</p>
@@ -2474,6 +2474,33 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
     </div>
   </div>
 </section>
+<script>
+/* Live Google reviews: asks the getReviews function (Firebase) for the rating and up to 5 reviews.
+   If it answers, the score and cards are swapped for the live ones. If it doesn't (offline, file://,
+   function down), the four reviews written above simply stay. */
+(function () {
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
+  fetch("https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getReviews")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.reviews || !d.reviews.length) return;
+      if (d.rating) {
+        document.getElementById("gScore").textContent = Number(d.rating).toFixed(1);
+        document.getElementById("gScoreT").innerHTML = "Google &middot; " + esc(d.count) + " reviews &middot; 5.0 on Yelp";
+      }
+      document.getElementById("gRevs").innerHTML = d.reviews.map(function (v) {
+        var name = v.authorUrl
+          ? '<a href="' + esc(v.authorUrl) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(v.name) + '</a>'
+          : esc(v.name);
+        return '<div class="rev"><span class="rev__s">' + "&#9733;".repeat(Math.round(v.rating) || 5) + '</span>' +
+          '<p>' + esc(v.text) + '</p><div class="rev__who"><span class="rev__name">' + name + '</span>' +
+          '<span class="rev__src">Google review' + (v.when ? ' &middot; ' + esc(v.when) : '') + '</span></div></div>';
+      }).join("");
+    })
+    .catch(function () {});
+})();
+</script>
 
 <section class="band band--ink grain grain--dark" id="areas">
   <div class="shell">
