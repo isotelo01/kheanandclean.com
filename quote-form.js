@@ -32,7 +32,7 @@
   var PHONE_HREF    = 'tel:+19167672520';
   /* Photo hand-off targets. Neither link can attach anything — they only open
      the app with the wording prefilled; the customer adds the photos. */
-  var EMAIL_DISPLAY = 'kheanandclean@gmail.com';
+  var EMAIL_DISPLAY = 'contact@kheanandclean.com';
   var PHOTO_SUBJECT = 'Photos for my Khean & Clean estimate';
   var SMS_HREF      = 'sms:+19167672520?&body=' + encodeURIComponent(PHOTO_SUBJECT);
   var MAIL_HREF     = 'mailto:' + EMAIL_DISPLAY + '?subject=' + encodeURIComponent(PHOTO_SUBJECT);
