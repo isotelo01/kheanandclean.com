@@ -134,6 +134,15 @@ tr.head td{padding-top:12px;padding-bottom:4px}
 input{background:#05070c;color:var(--ink);border-color:#2c3446}
 button{background:var(--gold);color:#0b0f17}
 button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
+/* Terms of Service: big button opens the terms in a popup; agreeing is the box at the bottom of the popup. */
+.accept .termsBtn{display:block;width:100%;margin:0 0 14px;padding:14px 18px;font:700 18px "Archivo";background:transparent;color:var(--gold);border:2px solid var(--gold);border-radius:8px}
+.termsDlg{width:min(720px,94vw);height:min(86vh,900px);max-height:86vh;padding:0;border:1px solid var(--gold);border-radius:10px;background:#0d1b2a;color:var(--ink)}
+.termsDlg[open]{display:flex;flex-direction:column}
+.termsDlg::backdrop{background:rgba(0,0,0,.75)}
+.termsDlg iframe{flex:1;min-height:0;width:100%;border:0;background:#0d1b2a}
+.termsDlg .tfoot{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:14px 16px;border-top:1px solid rgba(227,182,74,.45);background:#0b0f17}
+.termsDlg .tfoot .terms{margin:0;font-size:16px;font-weight:600}
+.accept [hidden]{display:none!important}
 /* Customer message box: one small line until tapped, then it opens with an optional photo link. */
 .photos{margin-top:22px}
 .photos textarea{display:block;width:100%;height:44px;padding:11px 12px;border:1px solid #2c3446;border-radius:8px;background:#05070c;color:var(--ink);font:15px/1.4 "Archivo",sans-serif;resize:none;overflow:hidden;transition:height .15s}
@@ -656,13 +665,21 @@ function render(d){
           <p class="whenNote" id="whenNote" aria-live="polite"></p>
         </div>
         <form id="acceptForm">
-          <label class="terms">
-            <input type="checkbox" id="acceptTerms" disabled>
-            <span>I have read and agree to the <a href="./terms.html" id="termsLink" target="_blank" rel="noopener">Service Terms &amp; Conditions</a>. <em id="termsHint" style="color:var(--muted);font-style:normal">(open the terms to enable this)</em></span>
+          <button type="button" class="termsBtn" id="termsBtn">Read &amp; agree to the Terms of Service</button>
+          <label class="terms" id="termsDone" hidden>
+            <input type="checkbox" id="acceptTerms">
+            <span>I have read the Terms of Service</span>
           </label>
           <input id="acceptName" aria-label="Your full name" placeholder="Your full name" required autocomplete="name">
           <button type="submit" id="acceptBtn" disabled>Accept quote</button>
         </form>
+        <dialog class="termsDlg" id="termsDlg" aria-label="Terms of Service">
+          <iframe id="termsFrame" title="Terms of Service"></iframe>
+          <div class="tfoot">
+            <label class="terms"><input type="checkbox" id="termsAgree"><span>I have read the Terms of Service</span></label>
+            <button type="button" class="ghost" id="termsClose">Close</button>
+          </div>
+        </dialog>
       </div>` : ""}
       ${!isQuote && d.status !== "paid" ? `
       <div class="pay">
@@ -730,15 +747,26 @@ function render(d){
     const sync = () => { go.disabled = !(box.checked && nameEl.value.trim()); };
     box.addEventListener("change", sync); nameEl.addEventListener("input", sync);
 
-    /* The box can't be ticked until the terms link has been opened. */
-    const link = document.getElementById("termsLink"), hint = document.getElementById("termsHint");
-    link.addEventListener("click", () => { box.disabled = false; if (hint) hint.textContent = "(terms opened)"; });
+    /* Terms of Service: the big button opens the terms in a popup (no new tab, so phones stay on the quote).
+       Ticking "I have read the Terms of Service" at the bottom of the popup closes it and swaps the button
+       for a ticked box. Unticking that box brings the button back, so agreeing always goes through the popup. */
+    const tBtn = document.getElementById("termsBtn"), tDone = document.getElementById("termsDone"),
+      dlg = document.getElementById("termsDlg"), tFrame = document.getElementById("termsFrame"),
+      tAgree = document.getElementById("termsAgree");
+    const setAgreed = on => { box.checked = on; tDone.hidden = !on; tBtn.hidden = on; sync(); };
+    tBtn.addEventListener("click", () => {
+      if (!tFrame.src) tFrame.src = "./terms.html";
+      tAgree.checked = false; dlg.showModal();
+    });
+    tAgree.addEventListener("change", () => { if (tAgree.checked) { setAgreed(true); dlg.close(); } });
+    document.getElementById("termsClose").addEventListener("click", () => dlg.close());
+    box.addEventListener("change", () => { if (!box.checked) setAgreed(false); });
 
     form.onsubmit = async e => {
     e.preventDefault();
     const name = nameEl.value.trim();
     if (!name || !box.checked) return;
-    const btn = form.querySelector("button"); btn.disabled = true; btn.textContent = "Accepting…";
+    const btn = go; btn.disabled = true; btn.textContent = "Accepting…";
     try {
       /* Copy into acceptedQuotes first, then remove the original. In that order a
          failure leaves the quote where it was rather than losing it.
