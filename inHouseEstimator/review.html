@@ -31,14 +31,20 @@ textarea{min-height:130px;resize:vertical}
 .room{margin-bottom:14px}
 .rlab{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px}
 .pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
-/* Tap a photo to pick or unpick it. Picked ones get a gold frame and a tick. */
-.pick{position:relative;display:block;padding:0;border:3px solid transparent;border-radius:10px;overflow:hidden;background:#eef0f4;cursor:pointer}
-.pick img{display:block;width:100%;aspect-ratio:1;object-fit:cover;opacity:.55}
-.pick.on{border-color:var(--gold)}
-.pick.on img{opacity:1}
-.pick .tag{position:absolute;left:6px;bottom:6px;font:700 12px "Archivo";background:rgba(10,14,22,.65);color:#fff;border-radius:20px;padding:2px 9px}
-.pick .tick{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;background:var(--gold);color:var(--navy);font:700 16px/26px "Archivo";text-align:center;display:none}
-.pick.on .tick{display:block}
+/* Photos in the send. The X in the corner takes one out. Same X as the customer profile. */
+.pcell{position:relative;border-radius:10px;overflow:hidden;background:#eef0f4}
+.pcell img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.pcell .tag{position:absolute;left:6px;bottom:6px;font:700 12px "Archivo";background:rgba(10,14,22,.65);color:#fff;border-radius:20px;padding:2px 9px}
+.pdel{position:absolute;top:6px;right:6px;width:32px;height:32px;border:2px solid rgba(255,255,255,.6);border-radius:50%;background:rgba(10,14,22,.4);color:#fff;font-size:20px;line-height:1;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.2)}
+.pdel:hover{background:rgba(10,14,22,.75);border-color:#fff}
+/* Room picker: one row per room, its After photo as the thumbnail, a box to tick. */
+.rlist{border:1px solid var(--line);border-radius:8px;margin-top:10px;overflow:hidden}
+.rpk{display:flex;align-items:center;gap:12px;padding:8px 12px;border-top:1px solid var(--line);cursor:pointer}
+.rpk:first-child{border-top:0}
+.rpk input{width:22px;height:22px;flex:none;accent-color:var(--navy)}
+.rpk img,.rpk .nothumb{width:56px;height:56px;flex:none;border-radius:6px;object-fit:cover;background:#eef0f4}
+.rpk b{flex:1}
+.rpk small{color:var(--muted)}
 .padd,.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
@@ -93,7 +99,7 @@ const okPath = p => typeof p === "string" && p.startsWith("quick-quote-photos/")
 /* Every photo on the page, by key: { label, url, path } for job photos, { label, url, file } for added ones. */
 const photos = new Map();
 const picked = new Set();
-let localNo = 0;
+let localNo = 0, jobTok = 0;
 
 async function start(){
   if (!cid) { view.innerHTML = '<div class="msg">No customer picked. <a href="./customers.html">Go to Customers</a></div>'; return; }
@@ -137,14 +143,14 @@ async function start(){
     '<div class="actions"><button type="button" class="new" id="shareBtn">Share photos + text</button>' +
       '<a class="ghost" id="smsBtn" href="#">Text only</a>' +
       '<button type="button" class="ghost" id="copyBtn">Copy text</button></div>' +
-    '<div class="note" id="say" style="margin-top:8px">Tap a photo to pick or unpick it.</div>' +
+    '<div class="note" id="say" style="margin-top:8px">No photos in this send yet.</div>' +
   '</div>';
 
   const say = (t, err) => { const n = $("say"); n.textContent = t; n.classList.toggle("err", !!err); };
-  const thumb = (key, o) => '<button type="button" class="pick' + (picked.has(key) ? ' on' : '') + '" data-k="' + esc(key) + '">' +
-    '<img src="' + esc(o.url) + '" alt="" loading="lazy">' + (o.tag ? '<span class="tag">' + esc(o.tag) + '</span>' : '') +
-    '<span class="tick">\u2713</span></button>';
-  const sayCount = () => say(picked.size ? picked.size + " photo" + (picked.size === 1 ? "" : "s") + " picked." : "Tap a photo to pick or unpick it.");
+  const thumb = (key, o) => '<div class="pcell"><img src="' + esc(o.url) + '" alt="" loading="lazy">' +
+    (o.tag ? '<span class="tag">' + esc(o.tag) + '</span>' : '') +
+    '<button type="button" class="pdel" data-x="' + esc(key) + '" aria-label="Remove photo">\u00d7</button></div>';
+  const sayCount = () => say(picked.size ? picked.size + " photo" + (picked.size === 1 ? "" : "s") + " in this send. Tap \u00d7 to take one out." : "No photos in this send yet.");
 
   /* One row per room: its Threshold Before and After photos. Rooms are saved by a code, so they show as Room 1, 2... */
   async function showJob(j){
@@ -155,29 +161,52 @@ async function start(){
     const spots = (j.spots && typeof j.spots === "object") ? j.spots : {};
     const num = k => k.split("-").map(n => String(Number(n) || 0).padStart(4, "0")).join("-");
     const keys = Object.keys(spots).sort((a, b) => num(a).localeCompare(num(b)));
-    const rows = [];
-    let roomNo = 0;
+    const tok = ++jobTok;   /* switching jobs mid-load drops the old one's results */
+    const rooms = [];
     for (const k of keys) {
       const s = spots[k] || {};
       const bef = (Array.isArray(s.photosBeforeThreshold) ? s.photosBeforeThreshold : []).filter(okPath);
       const aft = (Array.isArray(s.photosAfterThreshold) ? s.photosAfterThreshold : []).filter(okPath);
       if (!bef.length && !aft.length) continue;
-      roomNo++;
-      const list = bef.map(p => ({ path: p, tag: "Before" })).concat(aft.map(p => ({ path: p, tag: "After" })));
-      const urls = await Promise.all(list.map(x => getDownloadURL(ref(storage, x.path)).catch(e => { console.error("Photo " + x.path, e); return null; })));
-      const cells = [];
-      list.forEach((x, i) => {
-        if (!urls[i]) return;
-        const key = "j:" + x.path;
-        photos.set(key, { url: urls[i], path: x.path, tag: x.tag });
-        picked.add(key);   /* picked to start with; tap to drop any */
-        cells.push(thumb(key, photos.get(key)));
-      });
-      if (cells.length) rows.push('<div class="room"><div class="rlab">Room ' + roomNo + '</div><div class="pgrid">' + cells.join("") + '</div></div>');
+      rooms.push({ no: rooms.length + 1, bef, aft, on: false });
     }
-    if ($("ba") !== box || !box.isConnected) return;
-    box.innerHTML = rows.length ? rows.join("") : '<div class="msg">No Threshold photos on this job.</div>';
-    sayCount();
+    /* Thumbnail for each room in the picker: its After Threshold photo (Before if there's no After). */
+    const thumbs = await Promise.all(rooms.map(r => getDownloadURL(ref(storage, r.aft[0] || r.bef[0])).catch(e => { console.error("Thumb", e); return ""; })));
+    if (tok !== jobTok) return;
+    if (!rooms.length) { box.innerHTML = '<div class="msg">No Threshold photos on this job.</div>'; sayCount(); return; }
+    box.innerHTML = '<button type="button" class="ghost" id="roomBtn"></button>' +
+      '<div class="rlist" id="roomList">' + rooms.map((r, i) =>
+        '<label class="rpk"><input type="checkbox" data-room="' + i + '">' +
+          (thumbs[i] ? '<img src="' + esc(thumbs[i]) + '" alt="" loading="lazy">' : '<span class="nothumb"></span>') +
+          '<b>Room ' + r.no + '</b><small>' + (r.bef.length + r.aft.length) + ' photo' + (r.bef.length + r.aft.length === 1 ? '' : 's') + '</small></label>').join("") +
+      '</div><div id="sendJob" style="margin-top:12px"></div>';
+    const roomBtn = () => { $("roomBtn").textContent = "Pick rooms (" + rooms.filter(r => r.on).length + " of " + rooms.length + ")"; };
+    /* The photos in the send, grouped by room, each with its X. */
+    const drawSend = () => {
+      $("sendJob").innerHTML = rooms.filter(r => r.on).map(r => {
+        const cells = r.bef.concat(r.aft).map(p => "j:" + p).filter(k => picked.has(k)).map(k => thumb(k, photos.get(k)));
+        return cells.length ? '<div class="room"><div class="rlab">Room ' + r.no + '</div><div class="pgrid">' + cells.join("") + '</div></div>' : '';
+      }).join("");
+      roomBtn(); sayCount();
+    };
+    /* Tick a room: its Before and After photos go in the send. Untick: they come out. */
+    const setRoom = async (r, on) => {
+      r.on = on;
+      const list = r.bef.map(p => ({ path: p, tag: "Before" })).concat(r.aft.map(p => ({ path: p, tag: "After" })));
+      if (!on) { list.forEach(x => { photos.delete("j:" + x.path); picked.delete("j:" + x.path); }); drawSend(); return; }
+      const urls = await Promise.all(list.map(x => getDownloadURL(ref(storage, x.path)).catch(e => { console.error("Photo " + x.path, e); return null; })));
+      if (tok !== jobTok || !r.on) return;
+      list.forEach((x, i) => { if (!urls[i]) return; const key = "j:" + x.path; photos.set(key, { url: urls[i], path: x.path, tag: x.tag }); picked.add(key); });
+      drawSend();
+    };
+    $("roomList").addEventListener("change", e => {
+      const cb = e.target.closest("[data-room]");
+      if (cb) setRoom(rooms[+cb.dataset.room], cb.checked);
+    });
+    $("roomBtn").addEventListener("click", () => { $("roomList").hidden = !$("roomList").hidden; });
+    /* First three rooms ticked to start. */
+    rooms.slice(0, 3).forEach((r, i) => { box.querySelector('[data-room="' + i + '"]').checked = true; setRoom(r, true); });
+    roomBtn();
   }
   showJob(jobs[0]);
   $("job")?.addEventListener("change", e => showJob(jobs[+e.target.value]));
@@ -197,12 +226,16 @@ async function start(){
   $("addIn").addEventListener("change", onPick);
   $("camIn").addEventListener("change", onPick);
 
+  /* X: takes that one photo out of the send. Untick and re-tick its room to bring it back. */
   view.addEventListener("click", e => {
-    const b = e.target.closest(".pick");
+    const b = e.target.closest("[data-x]");
     if (!b) return;
-    const k = b.dataset.k;
-    if (picked.has(k)) picked.delete(k); else picked.add(k);
-    b.classList.toggle("on", picked.has(k));
+    const k = b.dataset.x, o = photos.get(k);
+    if (o && o.file) URL.revokeObjectURL(o.url);
+    photos.delete(k); picked.delete(k);
+    const room = b.closest(".room");
+    b.closest(".pcell").remove();
+    if (room && !room.querySelector(".pcell")) room.remove();
     sayCount();
   });
 
