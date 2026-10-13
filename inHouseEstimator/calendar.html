@@ -796,7 +796,9 @@ function showJob(j){
       '<a class="new" href="./job-sheet.html?id=' + encodeURIComponent(j.id) + '">Job sheet</a>' +
       '<a class="ghost" href="./quote.html?id=' + encodeURIComponent(j.id) + '" target="_blank" rel="noopener">Open quote</a>' +
       (j._place === "acceptedQuotes" ? '<button type="button" class="ghost" data-sched="' + esc(jobKey(j)) + '">Change date</button>' : '') +
-    '</div>');
+      '<button type="button" class="ghost danger" data-deljob="' + esc(jobKey(j)) + '">Delete job</button>' +
+    '</div>' +
+    '<p class="err" id="sErr" role="alert"></p>');
 }
 
 /* Approved jobs with no date. From a day's + button the date is filled in already. */
@@ -1031,6 +1033,27 @@ async function deleteBlock(id){
   render();
 }
 
+/* Delete job (for clearing test jobs): removes it from wherever it lives (Approved, Invoices or Paid). Asks first. */
+async function deleteJob(key){
+  const j = findJob(key);
+  if (!j) return;
+  const name = displayName(j.customer || {});
+  if (!confirm("Delete " + name + "'s job" + (j.number ? " " + j.number : "") + "? This can't be undone.")) return;
+  const btns = dlgBody.querySelectorAll("button");
+  btns.forEach(x => x.disabled = true);
+  try { await deleteDoc(doc(db, j._place, j.id)); }
+  catch (e) {
+    console.error(e);
+    document.getElementById("sErr").textContent = "Could not delete: " + e.message;
+    btns.forEach(x => x.disabled = false);
+    return;
+  }
+  jobs = jobs.filter(x => x !== j); needDate = needDate.filter(x => x !== j);
+  index();
+  dlg.close();
+  render();
+}
+
 /* ---- Taps ---- */
 document.addEventListener("click", e => {
   const t = e.target;
@@ -1049,6 +1072,8 @@ document.addEventListener("click", e => {
   if (bl) { const b = blocks.find(x => x.id === bl.dataset.blk); if (b) showBlock(b); return; }
   const del = t.closest("[data-delblk]");
   if (del) { deleteBlock(del.dataset.delblk); return; }
+  const dj = t.closest("[data-deljob]");
+  if (dj) { deleteJob(dj.dataset.deljob); return; }
   const ab = t.closest("[data-addblk]");
   if (ab) { showBlockForm(ab.dataset.addblk, { date: dayKey, start: ab.dataset.h }); return; }
   const hr = t.closest("[data-hour]");   // an hour in the day view (not a link or a job card in it)
