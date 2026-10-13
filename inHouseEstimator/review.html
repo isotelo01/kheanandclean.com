@@ -116,10 +116,10 @@ async function start(){
   let jobs = [];
   try {
     const pks = phonesOf(c).map(phoneKey).filter(Boolean);
-    const snaps = await Promise.all(["invoices", "paidInvoices"].map(k => getDocs(collection(db, k))));
+    const snaps = await Promise.all(["invoices", "paidInvoices", "acceptedQuotes"].map(k => getDocs(collection(db, k))));
     jobs = snaps.flatMap((snap, i) => snap.docs.map(d => ({ id: d.id, ...d.data(), paid: i === 1 })))
       .filter(r => r.customerId === c.id || pks.includes(phoneKey(r.customer && r.customer.phone)))
-      .map(r => ({ ...r, ms: (r.paid && anyMs(r.paidAt)) || anyMs(r.invoicedAt) }))
+      .map(r => ({ ...r, ms: (r.paid && anyMs(r.paidAt)) || anyMs(r.invoicedAt) || anyMs(r.acceptedAt) || anyMs(r.scheduledDate) || anyMs(r.createdAt) }))
       .sort((a, b) => (b.ms || 0) - (a.ms || 0));
   } catch (e) { console.error("jobs", e); }
 
