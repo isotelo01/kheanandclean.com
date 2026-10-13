@@ -137,6 +137,9 @@ textarea{min-height:90px;resize:vertical}
 .tmpl .tb{white-space:pre-wrap}
 .tmpl .ta{white-space:nowrap;text-align:right}
 .tmpl .ta .ghost{display:inline-block;font-size:14px;padding:6px 12px;margin-left:4px}
+/* Review request row: one navy button that opens the review page. */
+.tmpl .rvbtn{display:grid;gap:4px;padding:12px 14px;border-radius:8px;background:var(--navy);color:#fff;text-decoration:none}
+.tmpl .rvbtn span{white-space:pre-wrap;font-size:14px;opacity:.85}
 @media(max-width:620px){.tmpl tr{display:grid;border-top:1px solid var(--line);padding:8px 0}.tmpl td{border:0;padding:3px 2px}.tmpl .ta{text-align:left}.tmpl .ta .ghost{margin:4px 6px 0 0}}
 label[hidden]{display:none}
 label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
@@ -458,7 +461,7 @@ const TEXTS = [
   { label: "Appointment reminder", body: "Hi {name}, just a reminder from Khean & Clean about your cleaning appointment tomorrow. Reply here if anything changes." },
   { label: "Estimate follow-up",   body: "Hi {name}, this is Israel with Khean & Clean following up on your estimate. Any questions I can answer?" },
   { label: "Thank you",            body: "Hi {name}, thanks for choosing Khean & Clean! Let me know if anything needs a touch-up." },
-  { label: "Review request",       body: "Hi {name}, thanks again for having us out. If you were happy with the job, a quick Google review would mean a lot to our small family business." }
+  { label: "Review request",       body: "Hi {name}, thanks again for having us out. If you were happy with the job, a quick Google review would mean a lot to our small family business: kheanandclean.com/review" }
 ];
 
 async function showProfile(id){
@@ -583,7 +586,10 @@ async function showProfile(id){
     const box = $("tmplBox");
     if (!box.hidden) { box.hidden = true; return; }
     const t = telOf(phonesOf(c)[0]);
-    box.innerHTML = '<table class="tmpl"><tbody>' + TEXTS.map((x, i) =>
+    /* Review request: the whole row is one button that opens review.html (photos + editable text). */
+    const rvUrl = x => './review.html?c=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(tmplBody(x));
+    box.innerHTML = '<table class="tmpl"><tbody>' + TEXTS.map((x, i) => x.label === "Review request"
+      ? '<tr><td colspan="3"><a class="rvbtn" href="' + esc(rvUrl(x)) + '"><b>' + esc(x.label) + ' \u203a</b><span>' + esc(tmplBody(x)) + '</span></a></td></tr>' :
       '<tr><td class="tl">' + esc(x.label) + '</td><td class="tb">' + esc(tmplBody(x)) + '</td>' +
       '<td class="ta"><a class="ghost" href="' + esc("sms:" + t + "?&body=" + encodeURIComponent(tmplBody(x))) + '">Text</a>' +
       '<button type="button" class="ghost" data-copy="' + i + '">Copy</button></td></tr>').join("") + '</tbody></table>';

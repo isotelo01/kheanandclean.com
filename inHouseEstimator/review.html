@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Review request &middot; Khean &amp; Clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.new:disabled{opacity:.6;cursor:default}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
+.panel h2{font:700 20px "Playfair Display",Georgia,serif;margin:24px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
+.panel h2:first-child{margin-top:0}
+.msg,.note{color:var(--muted);font-size:14px}
+.note.err{color:var(--red)}
+.who{font-weight:700;font-size:18px}
+select,textarea{display:block;width:100%;font:16px "Archivo";padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
+textarea{min-height:130px;resize:vertical}
+.room{margin-bottom:14px}
+.rlab{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+/* Tap a photo to pick or unpick it. Picked ones get a gold frame and a tick. */
+.pick{position:relative;display:block;padding:0;border:3px solid transparent;border-radius:10px;overflow:hidden;background:#eef0f4;cursor:pointer}
+.pick img{display:block;width:100%;aspect-ratio:1;object-fit:cover;opacity:.55}
+.pick.on{border-color:var(--gold)}
+.pick.on img{opacity:1}
+.pick .tag{position:absolute;left:6px;bottom:6px;font:700 12px "Archivo";background:rgba(10,14,22,.65);color:#fff;border-radius:20px;padding:2px 9px}
+.pick .tick{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;background:var(--gold);color:var(--navy);font:700 16px/26px "Archivo";text-align:center;display:none}
+.pick.on .tick{display:block}
+.padd,.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Review request</h1>
+    <a class="ghost" id="back" href="./customers.html" style="margin-left:auto">Back to customer</a>
+  </div>
+  <div id="view"><div class="msg">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage, ref, getDownloadURL, getBlob } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+/* Opened from the customer's Pre-made texts: ?c=<customer id>&t=<review text, name already filled in>. */
+const qs = new URLSearchParams(location.search);
+const cid = qs.get("c") || "";
+const startText = qs.get("t") || "";
+
+const $ = id => document.getElementById(id);
+const view = $("view");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const digits = s => String(s || "").replace(/\D/g, "");
+const phoneKey = s => { const d = digits(s).slice(-10); return d.length === 10 ? d : ""; };
+const listOf = (arr, one) => (Array.isArray(arr) && arr.length ? arr : [one]).map(x => String(x || "").trim()).filter(Boolean);
+const phonesOf = c => listOf(c.phones, c.phone);
+const telOf = p => { const d = digits(p); return d.length === 10 ? "+1" + d : d; };
+const anyMs = t => { if (!t) return null; if (typeof t.toMillis === "function") return t.toMillis(); const n = Date.parse(t); return isNaN(n) ? null : n; };
+const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const shortDate = ms => ms ? new Date(ms).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
+/* Job photos live under quick-quote-photos/ (same rule as the other pages). */
+const okPath = p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes("..");
+
+/* Every photo on the page, by key: { label, url, path } for job photos, { label, url, file } for added ones. */
+const photos = new Map();
+const picked = new Set();
+let localNo = 0;
+
+async function start(){
+  if (!cid) { view.innerHTML = '<div class="msg">No customer picked. <a href="./customers.html">Go to Customers</a></div>'; return; }
+  $("back").href = "./customers.html#" + encodeURIComponent(cid);
+  let c;
+  try {
+    const s = await getDoc(doc(db, "customers", cid));
+    if (!s.exists()) { view.innerHTML = '<div class="msg">Customer not found.</div>'; return; }
+    c = { id: cid, ...s.data() };
+  } catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
+
+  /* Jobs: same match as the customer's Job History (customer link, or phone on older records). */
+  let jobs = [];
+  try {
+    const pks = phonesOf(c).map(phoneKey).filter(Boolean);
+    const snaps = await Promise.all(["invoices", "paidInvoices"].map(k => getDocs(collection(db, k))));
+    jobs = snaps.flatMap((snap, i) => snap.docs.map(d => ({ id: d.id, ...d.data(), paid: i === 1 })))
+      .filter(r => r.customerId === c.id || pks.includes(phoneKey(r.customer && r.customer.phone)))
+      .map(r => ({ ...r, ms: (r.paid && anyMs(r.paidAt)) || anyMs(r.invoicedAt) }))
+      .sort((a, b) => (b.ms || 0) - (a.ms || 0));
+  } catch (e) { console.error("jobs", e); }
+
+  const tel = telOf(phonesOf(c)[0] || "");
+  view.innerHTML = '<div class="panel">' +
+    '<div class="who">' + esc(c.name || c.business || "Customer") + '</div>' +
+    '<div class="msg">' + esc(phonesOf(c)[0] || "No phone on file") + '</div>' +
+    '<h2>Before &amp; after</h2>' +
+    (jobs.length > 1
+      ? '<select id="job">' + jobs.map((j, i) => '<option value="' + i + '">' +
+          esc([j.number || "Job", shortDate(j.ms), money(j.total)].filter(Boolean).join(" \u00b7 ")) + '</option>').join("") + '</select>'
+      : (jobs.length ? '<div class="msg">' + esc([jobs[0].number || "Job", shortDate(jobs[0].ms)].filter(Boolean).join(" \u00b7 ")) + '</div>' : '')) +
+    '<div id="ba" style="margin-top:12px"></div>' +
+    '<h2>Your photos</h2>' +
+    '<div id="mine" class="pgrid"></div>' +
+    '<div class="padd"><button type="button" class="ghost" id="addBtn">Add photos</button>' +
+      '<button type="button" class="ghost" id="camBtn">Take photo</button>' +
+      '<input type="file" id="addIn" accept="image/*" multiple hidden>' +
+      '<input type="file" id="camIn" accept="image/*" capture="environment" hidden></div>' +
+    '<h2>Message</h2>' +
+    '<textarea id="txt">' + esc(startText) + '</textarea>' +
+    '<div class="actions"><button type="button" class="new" id="shareBtn">Share photos + text</button>' +
+      '<a class="ghost" id="smsBtn" href="#">Text only</a>' +
+      '<button type="button" class="ghost" id="copyBtn">Copy text</button></div>' +
+    '<div class="note" id="say" style="margin-top:8px">Tap a photo to pick or unpick it.</div>' +
+  '</div>';
+
+  const say = (t, err) => { const n = $("say"); n.textContent = t; n.classList.toggle("err", !!err); };
+  const thumb = (key, o) => '<button type="button" class="pick' + (picked.has(key) ? ' on' : '') + '" data-k="' + esc(key) + '">' +
+    '<img src="' + esc(o.url) + '" alt="" loading="lazy">' + (o.tag ? '<span class="tag">' + esc(o.tag) + '</span>' : '') +
+    '<span class="tick">\u2713</span></button>';
+  const sayCount = () => say(picked.size ? picked.size + " photo" + (picked.size === 1 ? "" : "s") + " picked." : "Tap a photo to pick or unpick it.");
+
+  /* One row per room: its Threshold Before and After photos. Rooms are saved by a code, so they show as Room 1, 2... */
+  async function showJob(j){
+    const box = $("ba");
+    [...photos.keys()].filter(k => k.startsWith("j:")).forEach(k => { photos.delete(k); picked.delete(k); });
+    if (!j) { box.innerHTML = '<div class="msg">No jobs on file for this customer.</div>'; sayCount(); return; }
+    box.innerHTML = '<div class="msg">Loading photos&hellip;</div>';
+    const spots = (j.spots && typeof j.spots === "object") ? j.spots : {};
+    const num = k => k.split("-").map(n => String(Number(n) || 0).padStart(4, "0")).join("-");
+    const keys = Object.keys(spots).sort((a, b) => num(a).localeCompare(num(b)));
+    const rows = [];
+    let roomNo = 0;
+    for (const k of keys) {
+      const s = spots[k] || {};
+      const bef = (Array.isArray(s.photosBeforeThreshold) ? s.photosBeforeThreshold : []).filter(okPath);
+      const aft = (Array.isArray(s.photosAfterThreshold) ? s.photosAfterThreshold : []).filter(okPath);
+      if (!bef.length && !aft.length) continue;
+      roomNo++;
+      const list = bef.map(p => ({ path: p, tag: "Before" })).concat(aft.map(p => ({ path: p, tag: "After" })));
+      const urls = await Promise.all(list.map(x => getDownloadURL(ref(storage, x.path)).catch(e => { console.error("Photo " + x.path, e); return null; })));
+      const cells = [];
+      list.forEach((x, i) => {
+        if (!urls[i]) return;
+        const key = "j:" + x.path;
+        photos.set(key, { url: urls[i], path: x.path, tag: x.tag });
+        picked.add(key);   /* picked to start with; tap to drop any */
+        cells.push(thumb(key, photos.get(key)));
+      });
+      if (cells.length) rows.push('<div class="room"><div class="rlab">Room ' + roomNo + '</div><div class="pgrid">' + cells.join("") + '</div></div>');
+    }
+    if ($("ba") !== box || !box.isConnected) return;
+    box.innerHTML = rows.length ? rows.join("") : '<div class="msg">No Threshold photos on this job.</div>';
+    sayCount();
+  }
+  showJob(jobs[0]);
+  $("job")?.addEventListener("change", e => showJob(jobs[+e.target.value]));
+
+  /* Your photos: kept on this page only, for this send. Not saved to the customer. */
+  const showMine = () => {
+    $("mine").innerHTML = [...photos.entries()].filter(([k]) => k.startsWith("l:")).map(([k, o]) => thumb(k, o)).join("");
+  };
+  const onPick = e => {
+    const files = [...e.target.files].filter(f => /^image\//.test(f.type));
+    e.target.value = "";
+    files.forEach(f => { const key = "l:" + (++localNo); photos.set(key, { url: URL.createObjectURL(f), file: f }); picked.add(key); });
+    showMine(); sayCount();
+  };
+  $("addBtn").addEventListener("click", () => $("addIn").click());
+  $("camBtn").addEventListener("click", () => $("camIn").click());
+  $("addIn").addEventListener("change", onPick);
+  $("camIn").addEventListener("change", onPick);
+
+  view.addEventListener("click", e => {
+    const b = e.target.closest(".pick");
+    if (!b) return;
+    const k = b.dataset.k;
+    if (picked.has(k)) picked.delete(k); else picked.add(k);
+    b.classList.toggle("on", picked.has(k));
+    sayCount();
+  });
+
+  /* Text only: opens the messages app with the (edited) message. */
+  $("smsBtn").addEventListener("click", e => {
+    if (!tel) { e.preventDefault(); say("No phone on file.", true); return; }
+    $("smsBtn").href = "sms:" + tel + "?&body=" + encodeURIComponent($("txt").value);
+  });
+  $("copyBtn").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("txt").value); say("Text copied."); }
+    catch (err) { console.error(err); say("Can't copy.", true); }
+  });
+
+  /* Share: on a phone, the share sheet (pick Messages, then the customer). On a computer that
+     can't share files, the photos download instead and the text gets copied. */
+  $("shareBtn").addEventListener("click", async () => {
+    const btn = $("shareBtn");
+    const text = $("txt").value;
+    btn.disabled = true;
+    try {
+      const files = [];
+      let n = 0;
+      for (const k of picked) {
+        const o = photos.get(k);
+        if (!o) continue;
+        n++;
+        say("Getting photo " + n + " of " + picked.size + "\u2026");
+        if (o.file) { files.push(o.file); continue; }
+        const blob = await getBlob(ref(storage, o.path));
+        files.push(new File([blob], "khean-clean-" + (o.tag || "photo").toLowerCase() + "-" + n + ".jpg", { type: blob.type || "image/jpeg" }));
+      }
+      if (navigator.share && (!files.length || (navigator.canShare && navigator.canShare({ files })))) {
+        await navigator.share(files.length ? { files, text } : { text });
+        say("Shared.");
+      } else {
+        files.forEach(f => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(f); a.download = f.name;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        });
+        try { await navigator.clipboard.writeText(text); } catch (err) {}
+        say(files.length ? "This device can't share photos. They downloaded, and the text is copied." : "Text copied.");
+      }
+    } catch (err) {
+      if (err && err.name === "AbortError") sayCount();   /* closed the share sheet */
+      else { console.error(err); say("Couldn't share: " + (err && err.message || err), true); }
+    }
+    btn.disabled = false;
+  });
+}
+
+/* Page lock. Not signed in -> login page. */
+let started = false;
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=customers.html"); return; }
+  $("authwait")?.remove();
+  if (!started) { started = true; start(); }
+});
+</script>
+</body>
+</html>
