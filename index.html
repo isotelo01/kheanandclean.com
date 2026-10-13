@@ -402,8 +402,8 @@ img{ max-width:100%; display:block; }
 .hero__photobox{ position:relative; overflow:hidden; padding:clamp(1.6rem,3.5vw,2.75rem); border-radius:4px; box-shadow:0 20px 50px -20px rgba(0,0,0,.6); isolation:isolate; min-height:clamp(22.5rem,45vw,35rem); display:flex; flex-direction:column; justify-content:flex-start; align-items:flex-start; text-align:left; }
 .hero__photo{ position:absolute; inset:0; background-position:top center; background-size:cover; background-repeat:no-repeat; opacity:0; transition:opacity 1.4s ease; z-index:0; }
 .hero__photo.is-active{ opacity:1; }
-.hero__photo--before{ background-image:url("images/hero-before.jpg"); }
-.hero__photo--after{ background-image:url("images/hero-after.jpg"); }
+.hero__photo--before{ background-image:url("images/tile-grout-cleaning-folsom-before-2.jpg"); }
+.hero__photo--after{ background-image:url("images/tile-grout-cleaning-folsom-after-2.jpg"); }
 .hero__photo--carpetBefore{ background-image:url("images/hero-carpet-before.jpg"); }
 .hero__photo--carpetAfter{ background-image:url("images/hero-carpet-after.jpg"); }
 .hero__photo--couch{ background-image:url("images/hero-couch.jpg"); }
@@ -2089,6 +2089,24 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
           <span class="est__cur">$</span><span class="est__amt num" id="total">0</span>
         </div>
         <p class="est__min" id="minNote"></p>
+
+        <!-- Door hanger offer: hidden until the ZIP above is a qualifying zip (KC_OFFERS in the
+             offer script near the end). Nothing auto-applies; the customer ticks what they want. -->
+        <style>
+          .estOffer{ margin:.9rem 0 1.1rem; padding:.9rem 1rem; border:1.5px dashed #E3B64A; border-radius:12px; background:rgba(227,182,74,.12); }
+          .estOffer__ttl{ margin:0 0 .55rem; font-weight:700; }
+          .estOffer__opt{ display:flex; align-items:center; gap:.55rem; margin:.4rem 0; cursor:pointer; }
+          .estOffer__opt input{ width:18px; height:18px; margin:0; flex:none; accent-color:#E3B64A; cursor:pointer; }
+          .estOffer__opt span{ opacity:.75; }
+          .qConfetti{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:9999; }
+          .qConfetti i{ position:absolute; top:-14px; width:8px; height:14px; opacity:.95; animation:qConfettiFall linear forwards; }
+          @keyframes qConfettiFall{ to{ transform:translate(var(--x), 105vh) rotate(var(--r)); } }
+        </style>
+        <div class="estOffer" id="estOffer" hidden>
+          <p class="estOffer__ttl">You qualify for our door hanger offer! Pick what you'd like:</p>
+          <label class="estOffer__opt"><input type="checkbox" id="ePerkMin"> $50 job minimum <span>(instead of $150)</span></label>
+          <label class="estOffer__opt"><input type="checkbox" id="ePerkPet"> One free pet treatment <span>(with a $50+ purchase)</span></label>
+        </div>
 
         <div class="estField est__notes">
           <label for="eNotes">Anything else we should know <span class="opt">(optional)</span></label>
@@ -4230,6 +4248,8 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   /* The estimate total as shown (minimum applied), 0 when nothing is entered.
      The open-days box reads it: $450 or more books the whole day. */
   window.kcEstTotal = function(){ var b = buildBreakdown(); return b.breakdown.length ? Math.max(b.sum, MIN_JOB) : 0; };
+  /* Door hanger offer: the "$50 job minimum" box calls this (50 on, 150 off) and the estimate redraws. */
+  window.kcSetMinJob = function(v){ MIN_JOB = v; calc(); };
 
   function calc(){
     /* Stairs add-on label: "Flight of Stairs" at 0 or 1, "Flights of Stairs" at 2 or more. */
@@ -4650,6 +4670,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       }).join('\n');
       out += '\n\nESTIMATED TOTAL: $' + money(applied);
       if(applied > b.sum){ out += '\n(Minimum service charge of $' + money(MIN_JOB) + ' applied.)'; }
+      if(window.kcOfferNote && window.kcOfferNote()){ out += '\n' + window.kcOfferNote(); }
       var sq = combinedFloorSqft();
       if(sq > 0){ out += '\nTotal floor area entered: ' + sq.toLocaleString() + ' sq ft'; }
       return out;
@@ -4668,7 +4689,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       showApptPopup();
       var fd = new FormData();
       fd.append('access_key', EST_ACCESS_KEY);
-      fd.append('subject', 'Appointment request \u2014 ' + eSubjectTail());
+      fd.append('subject', 'Appointment request \u2014 ' + eSubjectTail() + (window.kcOfferNote && window.kcOfferNote() ? ' - door hanger offer' : ''));
       fd.append('from_name', 'Khean & Clean estimator');
       fd.append('name',    eName.value.trim());
       fd.append('phone',   ePhone.value.trim());
@@ -4749,9 +4770,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
              snapshot format, so New quote on the Leads page can rebuild it.
              Saved as text so Firestore takes any shape. */
           estimateData: (typeof STATE !== 'undefined')
-            ? JSON.stringify({ v:1, active: activeSvc, state: STATE, discAmt:'', discPct:'', waiveMin:false })
+            ? JSON.stringify({ v:1, active: activeSvc, state: STATE, discAmt:'', discPct:'', waiveMin: !!window.kcOfferMinOn })
             : '',
-          message:    noteTxt   /* just "Anything else we should know"; the estimate travels in estimateData */
+          message:    (window.kcOfferNote && window.kcOfferNote() ? window.kcOfferNote() + '\n\n' : '') + noteTxt   /* door hanger picks first, then "Anything else we should know"; the estimate travels in estimateData */
         }).catch(function(err){
           if(window.console) console.error('Estimator lead save failed', err);
           return null;
@@ -5590,6 +5611,71 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     const ex = document.getElementById('qExpand'); if (ex) ex.classList.add('is-open');
   }
   kcLoadEdit();
+</script>
+<script>
+/* ---- Door hanger zip offer (estimator) ----
+   Same qualifying zips as quick-quote.html. A qualifying ZIP in the estimator (typed here,
+   or carried over from the quick quote) reveals the two offer boxes with confetti.
+   Nothing applies until the customer ticks a box. */
+(function(){
+  var KC_OFFERS = { '95630': true };
+  var zipEl = document.getElementById('eZip'), box = document.getElementById('estOffer');
+  var minBox = document.getElementById('ePerkMin'), petBox = document.getElementById('ePerkPet');
+  if(!zipEl || !box || !minBox || !petBox) return;
+  var shownFor = '';
+
+  window.kcOfferMinOn = false;
+  /* The line that goes on the email and the CRM lead; empty when nothing is ticked. */
+  window.kcOfferNote = function(){
+    if(box.hidden) return '';
+    var picks = [];
+    if(minBox.checked) picks.push('$50 job minimum');
+    if(petBox.checked) picks.push('free pet treatment (with $50+ purchase)');
+    return picks.length ? 'DOOR HANGER OFFER (zip ' + shownFor + '): ' + picks.join(' + ') : '';
+  };
+
+  function setMin(on){
+    window.kcOfferMinOn = on;
+    if(window.kcSetMinJob) window.kcSetMinJob(on ? 50 : 150);
+  }
+  minBox.addEventListener('change', function(){ setMin(minBox.checked); });
+
+  function check(){
+    var z = (zipEl.value || '').replace(/\D/g, '').slice(0, 5);
+    if(KC_OFFERS[z]){
+      if(shownFor === z) return;
+      shownFor = z; box.hidden = false; confetti();
+    } else if(!box.hidden){
+      /* Zip changed to one that doesn't qualify: hide the boxes and undo any pick. */
+      shownFor = ''; box.hidden = true;
+      minBox.checked = false; petBox.checked = false;
+      if(window.kcOfferMinOn) setMin(false);
+    }
+  }
+  zipEl.addEventListener('input', check);
+  zipEl.addEventListener('change', check);
+  check();
+  window.addEventListener('load', function(){ setTimeout(check, 300); });   // a zip restored from the quick quote lands after load
+
+  function confetti(){
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var colors = ['#E3B64A', '#ffffff', '#2E8B57', '#F2D27A', '#7FB3E6'];
+    var layer = document.createElement('div'); layer.className = 'qConfetti'; layer.setAttribute('aria-hidden', 'true');
+    for(var i = 0; i < 120; i++){
+      var p = document.createElement('i');
+      p.style.left = (Math.random() * 100) + 'vw';
+      p.style.background = colors[i % colors.length];
+      p.style.animationDelay = (Math.random() * 0.6) + 's';
+      p.style.animationDuration = (2.2 + Math.random() * 1.6) + 's';
+      p.style.setProperty('--x', ((Math.random() - 0.5) * 160) + 'px');
+      p.style.setProperty('--r', (Math.random() * 720 - 360) + 'deg');
+      if(i % 3 === 0) p.style.borderRadius = '50%';
+      layer.appendChild(p);
+    }
+    document.body.appendChild(layer);
+    setTimeout(function(){ layer.remove(); }, 4600);
+  }
+})();
 </script>
 <script src="places.js" defer></script>
 </body>

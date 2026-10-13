@@ -865,6 +865,23 @@ body{ background:#172239; }
 #qSummarizeBtn{ display:none !important; }
 .qqPage .kcq__tool{ color:#fff; border-color:rgba(255,255,255,.45); }
 .qqPage .kcq__tool:hover{ color:#E3B64A; border-color:#E3B64A; background:rgba(227,182,74,.1); }
+
+/* Door hanger zip offer box + confetti */
+.qOffer{ margin:0 0 1.4rem; padding:1rem 1.1rem; border:1.5px dashed #E3B64A; border-radius:12px; background:rgba(227,182,74,.08); text-align:center; }
+.qqPage .qOffer__ask{ display:block; margin:0 0 .6rem; color:#E3B64A; font-weight:600; }
+.qOffer__row{ display:flex; gap:.5rem; justify-content:center; }
+.qqPage .qOffer__row input{ width:9rem; min-width:0; padding:.6rem .75rem; font:inherit; letter-spacing:.08em; text-align:center; color:#fff; background:transparent; border:1.5px solid #E3B64A; border-radius:10px; }
+.qqPage .qOffer__row input::placeholder{ color:rgba(255,255,255,.45); }
+.qqPage .qOffer__row input:focus{ outline:none; box-shadow:0 0 0 3px rgba(227,182,74,.35); }
+.qOffer__go{ padding:.6rem 1.2rem; font:inherit; font-weight:700; color:#172239; background:#E3B64A; border:1.5px solid #E3B64A; border-radius:10px; cursor:pointer; }
+.qOffer__go:hover{ filter:brightness(1.08); }
+.qqPage .qform .qOffer__msg{ margin:.75rem 0 0; color:#fff; }
+.qqPage .qform .qOffer__msg.is-win{ color:#E3B64A; font-size:1.05em; }
+.qqPage .qform .qOffer__msg.is-win strong{ display:block; font-size:1.25em; color:#fff; }
+.qqPage .qform .qOffer__msg.is-err{ color:#F08C7A; }
+.qConfetti{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:9999; }
+.qConfetti i{ position:absolute; top:-14px; width:8px; height:14px; opacity:.95; animation:qConfettiFall linear forwards; }
+@keyframes qConfettiFall{ to{ transform:translate(var(--x), 105vh) rotate(var(--r)); } }
 /* Photo previews: even square tiles with an X to remove one. */
 .qPhotoPreview{ display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px; margin-top:10px; }
 .qPhotoPreview:empty{ display:none; }
@@ -899,6 +916,12 @@ body{ background:#172239; }
           <a class="qqMarkLink" href="index.html" aria-label="Khean &amp; Clean home page"><img class="qqMark" src="images/logo.png" alt="Khean &amp; Clean logo"></a>
           <p class="qform__ttl">Quick Online Quote</p>
           <p class="qform__sub">Free &middot; No obligation</p>
+
+          <!-- Door hanger offer: this page is where the flyer QR lands, so the offer is
+               stated outright (no zip check). Confetti fires on load from the offer script. -->
+          <div class="qOffer" id="qOffer">
+            <p class="qOffer__msg is-win" id="qOfferMsg" role="status"><strong>$50 job minimum</strong>and one free pet treatment with a purchase of $50 or more, for residents of 95630.</p>
+          </div>
 
           <form id="quoteForm" novalidate>
             <div class="qrow">
@@ -1961,9 +1984,13 @@ window.kcQAddr = function(){
       function(c){ return c.value; }
     ).join(', ');
 
+    /* Door hanger zip: no pricing here, so the lead just arrives flagged. The customer
+       picks the actual perks in the homepage estimator, which reads the same zip. */
+    var offerNote = window.kcOfferPage ? 'DOOR HANGER OFFER: $50 job minimum + free pet treatment with $50+ purchase (95630 residents)' : '';
+
     var fd = new FormData();
     fd.append('access_key', ACCESS_KEY);
-    fd.append('subject', kcNotifySubject());
+    fd.append('subject', kcNotifySubject() + (offerNote ? ' - door hanger offer' : ''));
     fd.append('from_name', 'Khean & Clean website');
     fd.append('name',     document.getElementById('qName').value.trim());
     fd.append('phone',    document.getElementById('qPhone').value.trim());
@@ -1980,6 +2007,7 @@ window.kcQAddr = function(){
     fd.append('sms_consent', smsOk ? 'Yes' : 'No');
     var promoOk = !!(document.getElementById('qPromo') && document.getElementById('qPromo').checked);
     fd.append('marketing_consent', promoOk ? 'Yes' : 'No');
+    if (offerNote) { fd.append('offer', offerNote); }
     if (form.querySelector('.qhp').checked) { fd.append('botcheck', 'true'); }
 
     submit.disabled = true;
@@ -2017,7 +2045,7 @@ window.kcQAddr = function(){
           type:          document.getElementById('qType').value.toLowerCase(),
           services:      services,
           when:          window.kcWhen ? window.kcWhen() : '',
-          message:       document.getElementById('qMsg').value.trim(),
+          message:       (offerNote ? offerNote + '\n\n' : '') + document.getElementById('qMsg').value.trim(),
           smsConsent:    smsOk,
           marketingConsent: promoOk,
           photoPaths:    photoPaths
@@ -2082,6 +2110,35 @@ window.kcQAddr = function(){
   form.addEventListener('input', save);
   form.addEventListener('change', save);
   window.kcQuoteSave = save;
+})();
+</script>
+<script>
+/* ---- Door hanger offer ----
+   The flyer QR lands here, so everyone on this page gets the offer: confetti on load,
+   and the request arrives flagged as a door hanger lead (see offerNote in the submit). */
+(function(){
+  if(!document.getElementById('qOffer')) return;
+  window.kcOfferPage = true;
+  confetti();
+
+  function confetti(){
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var colors = ['#E3B64A', '#ffffff', '#2E8B57', '#F2D27A', '#7FB3E6'];
+    var layer = document.createElement('div'); layer.className = 'qConfetti'; layer.setAttribute('aria-hidden', 'true');
+    for(var i = 0; i < 120; i++){
+      var p = document.createElement('i');
+      p.style.left = (Math.random() * 100) + 'vw';
+      p.style.background = colors[i % colors.length];
+      p.style.animationDelay = (Math.random() * 0.6) + 's';
+      p.style.animationDuration = (2.2 + Math.random() * 1.6) + 's';
+      p.style.setProperty('--x', ((Math.random() - 0.5) * 160) + 'px');
+      p.style.setProperty('--r', (Math.random() * 720 - 360) + 'deg');
+      if(i % 3 === 0) p.style.borderRadius = '50%';
+      layer.appendChild(p);
+    }
+    document.body.appendChild(layer);
+    setTimeout(function(){ layer.remove(); }, 4600);
+  }
 })();
 </script>
 <script src="places.js" defer></script>
