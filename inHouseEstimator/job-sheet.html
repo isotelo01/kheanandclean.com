@@ -129,8 +129,10 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .note{font-size:14px;color:var(--muted)}
 .note.err{color:var(--red)}
 /* Job photos: camera button in the heading, photos in a grid, × to take one off. */
-.jph{display:flex;align-items:center;gap:10px}
-.pcam{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;background:#fff;color:var(--navy);border:2px solid var(--gold);border-radius:8px;cursor:pointer}
+.jph{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pcam{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 12px;background:#fff;color:var(--navy);border:2px solid var(--gold);border-radius:8px;cursor:pointer;font:600 14px "Archivo";white-space:nowrap}
+/* The real file picker sits inside each button, unseen: tapping the button opens it directly (Android blocks code-opened pickers). */
+.pin{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 .jpgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
 .jpcell{position:relative;border-radius:8px;overflow:hidden;background:#eef0f4}
 .jpcell img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
@@ -242,11 +244,12 @@ const shrink = file => new Promise((res, rej) => {
   img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("That file isn't a photo")); };
   img.src = url;
 });
-/* A photo box: heading with one camera button (the phone offers Take Photo or Photo Library), then the grid. */
+/* A photo box: heading with Take photo (opens the camera) and Add photos (the library, several at once), then the grid. */
 const photoBox = (k, title) => '<div class="pbwrap empty" id="pbw-' + k + '">' +   /* "empty" until photos load */
-  '<h2 class="jph">' + title + ' <button type="button" class="pcam" id="pcam-' + k + '" aria-label="Add photo: ' + title + '">' +
-    '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
-    '</button><input type="file" id="ppick-' + k + '" accept="image/*" multiple hidden></h2>' +
+  '<h2 class="jph">' + title + ' <label class="pcam">' +
+    '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+    'Take photo<input type="file" class="pin" id="pcap-' + k + '" accept="image/*" capture="environment"></label>' +
+    '<label class="pcam">Add photos<input type="file" class="pin" id="ppick-' + k + '" accept="image/*" multiple></label></h2>' +
   '<div class="jpgrid" id="pgrid-' + k + '"><div class="msg">Loading photos&hellip;</div></div><span class="note" id="pnote-' + k + '"></span></div>';
 const rrow = (lab, val) => val ? '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval">' + esc(val) + '</div></div>' : "";
 
@@ -1087,9 +1090,9 @@ async function show(){
   };
   drawJP();
   const saveJP = () => setDoc(doc(db, place, id), { [field]: jobPhotos, [field + "At"]: serverTimestamp() }, { merge: true });
-  document.getElementById("pcam-" + k).addEventListener("click", () => jobPick.click());
-  jobPick.addEventListener("change", async () => {
-    const list = [...jobPick.files]; jobPick.value = ""; if (!list.length) return;
+  /* Take photo and Add photos both upload the same way. */
+  [jobPick, document.getElementById("pcap-" + k)].forEach(inp => inp.addEventListener("change", async () => {
+    const list = [...inp.files]; inp.value = ""; if (!list.length) return;
     jpNote.classList.remove("err");
     for (let n = 0; n < list.length; n++) {
       jpNote.textContent = "Uploading photo " + (n + 1) + " of " + list.length + "…";
@@ -1104,7 +1107,7 @@ async function show(){
     try { await saveJP(); if (!jpNote.classList.contains("err")) jpNote.textContent = "Photos saved."; }
     catch (e) { console.error(e); jpNote.textContent = "Photos uploaded but not saved to the job: " + e.message; jpNote.classList.add("err"); }
     drawJP();
-  });
+  }));
   /* × takes a photo off the job (the file itself stays in storage). */
   jpgrid.addEventListener("click", async e => {
     const b = e.target.closest(".jpx"); if (!b) return; e.preventDefault();
