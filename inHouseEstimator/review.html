@@ -45,6 +45,7 @@ textarea{min-height:130px;resize:vertical}
 .rpk img,.rpk .nothumb{width:56px;height:56px;flex:none;border-radius:6px;object-fit:cover;background:#eef0f4}
 .rpk b{flex:1}
 .rpk small{color:var(--muted)}
+.rpk small.lurl{overflow-wrap:anywhere;text-align:right}
 .padd,.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
@@ -139,7 +140,9 @@ async function start(){
       '<input type="file" id="addIn" accept="image/*" multiple hidden>' +
       '<input type="file" id="camIn" accept="image/*" capture="environment" hidden></div>' +
     '<h2>Message</h2>' +
-    '<textarea id="txt">' + esc(startText) + '</textarea>' +
+    '<button type="button" class="ghost" id="linkBtn">Review link: Google</button>' +
+    '<div class="rlist" id="linkList" hidden></div>' +
+    '<textarea id="txt" style="margin-top:10px">' + esc(startText) + '</textarea>' +
     '<div class="actions"><button type="button" class="new" id="shareBtn">Share photos + text</button>' +
       '<a class="ghost" id="smsBtn" href="#">Text only</a>' +
       '<button type="button" class="ghost" id="copyBtn">Copy text</button></div>' +
@@ -247,6 +250,27 @@ async function start(){
   $("copyBtn").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText($("txt").value); say("Text copied."); }
     catch (err) { console.error(err); say("Can't copy.", true); }
+  });
+
+  /* Review link: Google by default. Pick another site and the link in the message swaps.
+     Same links as the public reviews page. */
+  const LINKS = [
+    ["Google", "kheanandclean.com/review"],
+    ["Yelp", "https://www.yelp.com/biz/khean-and-clean-folsom"],
+    ["Nextdoor", "https://nextdoor.com/page/khean-clean-llc/"],
+    ["Facebook", "https://www.facebook.com/kheanandclean/reviews/"]
+  ];
+  let curLink = LINKS[0][1];
+  $("linkList").innerHTML = LINKS.map(([n, u], i) =>
+    '<label class="rpk"><input type="radio" name="rvl" value="' + i + '"' + (i ? '' : ' checked') + '>' +
+    '<b>' + esc(n) + '</b><small class="lurl">' + esc(u.replace(/^https:\/\/(www\.)?/, "")) + '</small></label>').join("");
+  $("linkBtn").addEventListener("click", () => { $("linkList").hidden = !$("linkList").hidden; });
+  $("linkList").addEventListener("change", e => {
+    const [n, u] = LINKS[+e.target.value];
+    const t = $("txt");
+    t.value = t.value.includes(curLink) ? t.value.replace(curLink, u) : t.value.trimEnd() + " " + u;
+    curLink = u;
+    $("linkBtn").textContent = "Review link: " + n;
   });
 
   /* Share: on a phone, the share sheet (pick Messages, then the customer). On a computer that
