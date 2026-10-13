@@ -36,7 +36,7 @@
 '          <li>Folsom, CA 95630</li>',
 '          <li>9am &ndash; 9pm, seven days</li>',
 '          <li>After-hours water removal</li>',
-'          <li><a href="index.html#about">About us</a></li>',
+'          <li><a href="mailto:contact@kheanandclean.com">contact@kheanandclean.com</a></li>',
 '          <li><a href="reviews.html">Leave us a review</a></li>',
 '        </ul>',
 '        <a class="btn" href="contact.html" style="margin-top:1.3rem;">Contact us</a>',
