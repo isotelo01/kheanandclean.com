@@ -1042,7 +1042,8 @@ async function show(){
       '<textarea id="crewNotes" placeholder="What you found on site, extra spots, anything for next time">' + esc(js.crewNotes || "") + '</textarea>' +
       '<div class="actions" id="saveRow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div></div>' +
 
-      '<h2 class="staff">Photos</h2><div id="photos" class="staff"><div class="msg">Loading photos&hellip;</div></div></div>' +
+      /* Finishing photos: manual uploads only (beginning shots go in Job photos up top). */
+      '<div style="margin-top:24px">' + photoBox("finish", "Finishing photos") + '</div></div>' +
       /* Summarize: flips this sheet into the clean customer view; the same button then says Edit. */
       '<div class="sumrow"><button type="button" class="new sumbtn" id="revBtn">Add to estimates</button>' +
         '<button type="button" class="new" id="sumBtn"></button></div>' +
@@ -1115,6 +1116,7 @@ async function show(){
   };
   wireBox("notes", "notesPhotos", "notes");
   wireBox("job", "jobPhotos", "sheet");   /* same field and folder as before, so photos already added stay */
+  wireBox("finish", "finishPhotos", "finish");
 
   /* ---- Chemicals used: the product list comes from Settings (settings/chemicals). The crew enters how
      much of each went on this job, in ounces or quarts, and the cost works out from the Settings price.
@@ -1289,19 +1291,8 @@ async function show(){
       note1("Quote notes", q.notes);
     notesEl.innerHTML = html || '<div class="msg">No notes on file.</div>';
   }
-
-  /* Quick-quote photos: links, or storage paths turned into links. */
-  /* Plus the photos taken on each room's page. */
-  const paths = [...new Set(pathsOf(lead).concat(pathsOf(cust), pathsOf(qnote), ...Object.values(spots).map(pathsOf)))];
-  const fromPaths = await Promise.all(paths.map(p =>
-    getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
-  const shots = [...new Set(photosOf(lead).concat(photosOf(cust), fromPaths.filter(Boolean)))];
-  const pbox = document.getElementById("photos");
-  if (!pbox || !pbox.isConnected) return;
-  pbox.innerHTML = shots.length
-    ? '<div class="pgrid">' + shots.map(u =>
-        '<a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) + '"><img src="' + esc(u) + '" alt="" loading="lazy"></a>').join("") + '</div>'
-    : '<div class="photos">No photos on file.</div>';
+  /* No autofilled photo section: room photos stay on each room's page; Job photos and
+     Finishing photos are manual uploads only. */
 }
 
 document.getElementById("printBtn").addEventListener("click", () => window.print());
