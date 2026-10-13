@@ -126,6 +126,18 @@ textarea{min-height:90px;resize:vertical}
 .t-pm{background:#e3f1ea;color:var(--green)}
 .t-realtor{background:#fbf1d8;color:#8a6412}
 .t-commercial{background:#f4e4e1;color:var(--red)}
+/* Profile contact links: address opens maps, phone calls (or call/text on a phone). */
+.read .contact a.clink{color:inherit;text-decoration:underline;text-decoration-color:var(--gold);text-underline-offset:3px}
+.pmenu{display:flex;gap:8px;margin:6px 0 4px}
+.pmenu a{font:600 14px "Archivo";padding:7px 18px;border-radius:6px;background:var(--navy);color:#fff;text-decoration:none}
+/* Pre-made texts table. */
+.tmpl{width:100%;border-collapse:collapse;margin-top:10px;font-size:15px}
+.tmpl td{border-top:1px solid var(--line);padding:10px 6px;vertical-align:top}
+.tmpl .tl{font-weight:700;white-space:nowrap}
+.tmpl .tb{white-space:pre-wrap}
+.tmpl .ta{white-space:nowrap;text-align:right}
+.tmpl .ta .ghost{display:inline-block;font-size:14px;padding:6px 12px;margin-left:4px}
+@media(max-width:620px){.tmpl tr{display:grid;border-top:1px solid var(--line);padding:8px 0}.tmpl td{border:0;padding:3px 2px}.tmpl .ta{text-align:left}.tmpl .ta .ghost{margin:4px 6px 0 0}}
 label[hidden]{display:none}
 label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:#fff}
 </style>
@@ -426,14 +438,28 @@ function readBlock(c){
       '<div class="prow cname cnamerow">' + esc(displayName(c)) + ' ' + badge(c) + '</div>' +
       (subName(c) ? prow(subName(c)) : "") +
       (addrs.length
-        ? addrs.map(a => prow([a.street, cityLine(a)].filter(Boolean).join("\n"))).join("")
+        ? addrs.map(a => '<div class="prow"><a class="clink" href="' + esc(mapUrl(a)) + '" target="_blank" rel="noopener">' +
+            [a.street, cityLine(a)].filter(Boolean).map(esc).join("<br>") + '</a></div>').join("")
         : "") +
-      prow(phonesOf(c).join("\n")) +
+      phonesOf(c).map(p => '<div class="prow"><a class="clink plink" href="tel:' + esc(telOf(p)) + '" data-tel="' + esc(telOf(p)) + '">' + esc(p) + '</a></div>').join("") +
       prow(emailsOf(c).join("\n")) +
+      (phonesOf(c).length ? '<button type="button" class="ghost madd" id="tmplBtn">Pre-made texts</button><div id="tmplBox" hidden></div>' : "") +
     '</div>' +
     rrow("Notes", c.notes) +
   '</div>';
 }
+
+/* Address -> Google Maps (opens the Maps app on a phone). Phone -> dialable digits. */
+const mapUrl = a => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addrLine(a));
+const telOf = p => { const d = digits(p); return d.length === 10 ? "+1" + d : d; };
+/* Pre-made texts. {name} becomes the customer's first name. */
+const TEXTS = [
+  { label: "On my way",            body: "Hi {name}, this is Israel with Khean & Clean. I'm on my way and should be there in about 20 minutes." },
+  { label: "Appointment reminder", body: "Hi {name}, just a reminder from Khean & Clean about your cleaning appointment tomorrow. Reply here if anything changes." },
+  { label: "Estimate follow-up",   body: "Hi {name}, this is Israel with Khean & Clean following up on your estimate. Any questions I can answer?" },
+  { label: "Thank you",            body: "Hi {name}, thanks for choosing Khean & Clean! Let me know if anything needs a touch-up." },
+  { label: "Review request",       body: "Hi {name}, thanks again for having us out. If you were happy with the job, a quick Google review would mean a lot to our small family business." }
+];
 
 async function showProfile(id){
   const isNew = id === "new";
@@ -534,6 +560,42 @@ async function showProfile(id){
     $("cancelBtn").addEventListener("click", () => showProfile(id));
   }
   setMode(editing);
+
+  /* Phone number: on a phone/tablet, tapping it shows Call / Text.
+     On a computer it stays a plain tel: link, which hands the call to the phone
+     (Phone Link on Windows, iPhone calling on a Mac). */
+  const touch = matchMedia("(pointer: coarse)").matches;
+  $("readView")?.addEventListener("click", e => {
+    const p = e.target.closest(".plink");
+    if (!p || !touch) return;
+    e.preventDefault();
+    const wasOpen = p.nextElementSibling && p.nextElementSibling.classList.contains("pmenu");
+    view.querySelectorAll(".pmenu").forEach(m => m.remove());
+    if (wasOpen) return;
+    const t = p.dataset.tel;
+    p.insertAdjacentHTML("afterend", '<div class="pmenu"><a href="tel:' + esc(t) + '">Call</a><a href="sms:' + esc(t) + '">Text</a></div>');
+  });
+
+  /* Pre-made texts: opens a table; Text opens the messages app with it filled in, Copy copies it. */
+  const firstName = ((c.name || "").trim().split(/\s+/)[0]) || "there";
+  const tmplBody = x => x.body.replace(/\{name\}/g, firstName);
+  $("tmplBtn")?.addEventListener("click", () => {
+    const box = $("tmplBox");
+    if (!box.hidden) { box.hidden = true; return; }
+    const t = telOf(phonesOf(c)[0]);
+    box.innerHTML = '<table class="tmpl"><tbody>' + TEXTS.map((x, i) =>
+      '<tr><td class="tl">' + esc(x.label) + '</td><td class="tb">' + esc(tmplBody(x)) + '</td>' +
+      '<td class="ta"><a class="ghost" href="' + esc("sms:" + t + "?&body=" + encodeURIComponent(tmplBody(x))) + '">Text</a>' +
+      '<button type="button" class="ghost" data-copy="' + i + '">Copy</button></td></tr>').join("") + '</tbody></table>';
+    box.hidden = false;
+  });
+  $("tmplBox")?.addEventListener("click", async e => {
+    const b = e.target.closest("[data-copy]");
+    if (!b) return;
+    try { await navigator.clipboard.writeText(tmplBody(TEXTS[+b.dataset.copy])); b.textContent = "Copied"; }
+    catch (err) { console.error(err); b.textContent = "Can't copy"; }
+    setTimeout(() => { b.textContent = "Copy"; }, 1500);
+  });
 
   /* Add phone / Add email, and the X on each row. */
   $("editView").addEventListener("click", e => {
