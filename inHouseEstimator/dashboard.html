@@ -39,6 +39,9 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .custbtn{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px}
 .editbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
 .editbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
+/* Square Job sheet button on accepted estimates, centered in the card's open middle. */
+.jsq{flex:none;margin:0 auto;width:62px;height:62px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--navy);font:700 12px/1.15 "Archivo",system-ui,sans-serif;cursor:pointer;text-align:center;padding:0}
+.jsq:hover{background:var(--navy);border-color:var(--navy);color:#fff}
 .restore{background:var(--green);color:#fff;border:0;border-radius:6px;padding:6px 13px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
 .cardrow{display:flex;align-items:stretch;gap:10px;margin-bottom:10px}
 .cardrow .card{flex:1;min-width:0;margin-bottom:0}
@@ -190,6 +193,8 @@ const card = r =>
             esc(notePreview(flags[r.id])) + '</button>'
         : '') +
     '</div>' +
+    /* Accepted estimates: a square Job sheet button in the open middle of the card. */
+    (r.source === "acceptedQuotes" ? '<button type="button" class="jsq" data-js="' + esc(r.id) + '">Job<br>sheet</button>' : '') +
     '<div class="right">' +
       '<div class="amt">' + money(r.total) + '</div>' +
       '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>' +
@@ -665,6 +670,8 @@ function openNote(qid){
 
 /* Edit reopens the estimate in the estimator, which saves back over the same record. */
 boardEl.addEventListener("click", e => {
+  const js = e.target.closest(".jsq");
+  if (js) { e.preventDefault(); e.stopPropagation(); location.href = "./job-sheet.html?id=" + encodeURIComponent(js.getAttribute("data-js")); return; }
   const ed = e.target.closest(".editbtn");
   if (!ed) return;
   e.preventDefault(); e.stopPropagation();   /* the row is a link; don't follow it */
