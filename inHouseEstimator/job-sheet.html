@@ -1134,7 +1134,10 @@ async function show(){
       t.textContent = ""; t.classList.add("thumb");
       const im = new Image(); im.alt = ""; im.src = u; t.appendChild(im);
     }).catch(e => console.error("Thumb " + t.dataset.thumb, e)));
-  /* Summary's folded-service photos. */
+  /* Summary's folded-service photos: the same photos its room rows show, so the preview matches what opens. */
+  view.querySelectorAll(".svc").forEach(sv => { const box = sv.querySelector(".sthumbs"); if (!box) return;
+    const ps = [...sv.querySelectorAll(".spot__tick[data-thumb]")].map(t => t.dataset.thumb).slice(0, box.classList.contains("six") ? 6 : 4);
+    if (ps.length) box.innerHTML = ps.map(p => '<span data-sthumb="' + esc(p) + '"></span>').join(""); });
   view.querySelectorAll("[data-sthumb]").forEach(t =>
     getDownloadURL(ref(storage, t.dataset.sthumb)).then(u => { t.style.backgroundImage = 'url("' + u + '")'; })
       .catch(e => { console.error("Thumb " + t.dataset.sthumb, e); t.remove(); }));
