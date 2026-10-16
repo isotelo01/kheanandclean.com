@@ -240,6 +240,14 @@ async function show(){
      photos and Done, saved on the job under spots.<key>. */
   const pickedItem = itemNo == null ? null : items[itemNo];
   let spot = null;
+  /* Estimate's "Pet odor treatment × 6" (not yet re-saved on the Job Sheet): its count, else 0. */
+  function estSplit(it){
+    if (!it || it.addonKey || (Array.isArray(it.rooms) && it.rooms.length)) return 0;
+    const m = String(it.label || "").trim().match(/^(Carpet Stretching|Pet odor treatment|Stain treatment)(?:\s*×\s*(\d+))?$/i);
+    if (!m) return 0;
+    const unit = /^carpet/i.test(m[1]) ? 100 : /^pet/i.test(m[1]) ? 50 : 15;   /* fallback when the label has no count */
+    return m[2] ? Number(m[2]) : Math.round((Number(it.cost) || 0) / unit);
+  }
   /* One rug out of an Area Rugs line ("Medium (5×8) × 2" = two rugs, each its own page). */
   const rug = pickedItem && roomNo != null && !(Array.isArray(pickedItem.rooms) && pickedItem.rooms.length) &&
     String(pickedItem.label || "").match(/Area Rugs\s*—\s*(.+?)\s*×\s*(\d+)\s*$/i);
@@ -251,11 +259,15 @@ async function show(){
     const dm = rug[1].match(/(\d+)\s*[×x]\s*(\d+)/);
     spot = { name: "Area Rug " + shownNo(pickedItem.rugGone) + " — " + rug[1], sqft: dm ? Number(dm[1]) * Number(dm[2]) : 0,
       key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false, rug: true };
-  } else if (pickedItem && roomNo != null && (pickedItem.split || ["stretch", "pet", "stain"].includes(pickedItem.addonKey)) &&
-             roomNo < (Number(pickedItem.spotSlots) || Number(pickedItem.qty) || 0)) {
+  } else if (pickedItem && roomNo != null && (pickedItem.split || ["stretch", "pet", "stain"].includes(pickedItem.addonKey) || estSplit(pickedItem)) &&
+             roomNo < (Number(pickedItem.spotSlots) || Number(pickedItem.qty) || estSplit(pickedItem) || 0)) {
     /* One spot / room / piece (Stain treatment 3, Carpet Stretching 2, Couch 1...). */
-    spot = { name: (pickedItem.baseName || String(pickedItem.label || "").split(" — ")[0]) + " " + shownNo(pickedItem.spotGone), sqft: 0,
-      key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false };
+    const baseNm = pickedItem.baseName || String(pickedItem.label || "").split(" — ")[0].replace(/\s*×\s*\d+\s*$/, "");
+    const key3 = pickedItem.addonKey || (/^carpet stretching/i.test(baseNm) ? "stretch" : /^pet odor/i.test(baseNm) ? "pet" : /^stain treatment/i.test(baseNm) ? "stain" : "");
+    /* Stretching, pet odor and stain pages get the rug form (EST / Actual size); stretching has no Pre-Spray / Rinse. */
+    spot = { name: baseNm + " " + shownNo(pickedItem.spotGone), sqft: 0,
+      key: lineNo + "-" + itemNo + "-" + roomNo, isRoom: false,
+      rugForm: !!key3, noChem: key3 === "stretch" };
   } else if (pickedItem && roomNo != null) {
     const rm = rooms.find(x => x.r === roomNo);
     if (rm) spot = { ...rm, isRoom: true };
@@ -332,7 +344,7 @@ async function show(){
         '<div class="meta">' + esc([q.number, svc].filter(Boolean).join(" · ")) + '</div>' +
         '<div class="svcname">' + esc(spot.name) + '</div>' +
         /* A room: the quoted size as Estimated, plus a box for what was actually measured on site. */
-        (spot.isRoom || spot.rug   /* rugs too: EST from their size */
+        (spot.isRoom || spot.rug || spot.rugForm   /* rugs too: EST from their size; stretching/pet/stain the same form */
           ? '<div class="sqrow"><div class="svcsub">EST ' + (spot.sqft ? spot.sqft.toLocaleString() + ' sq ft' : '—') + '</div>' +
             '<label class="actual">Actual <input type="number" id="actualSqft" min="0" step="1" inputmode="numeric" placeholder="Measured"' +
             (Number(st.actualSqft) > 0 ? ' value="' + Number(st.actualSqft) + '"' : '') + '></label></div>'
@@ -356,7 +368,7 @@ async function show(){
           : '') +
         /* Pre-Spray and Rinse: every page on a carpet or tile line (rooms, stairs, rugs and the
            add-ons with their own photo page). */
-        (isCarpet || isTile
+        ((isCarpet || isTile) && !spot.noChem   /* Carpet Stretching: no Pre-Spray / Rinse */
           ? '<div class="chemrow">' +
               '<label class="chem">Pre-Spray <input type="text" id="preSpray" value="' + esc(st.preSpray || "") + '"></label>' +
               '<label class="chem">Rinse <input type="text" id="rinse" value="' + esc(st.rinse || "") + '"></label>' +
