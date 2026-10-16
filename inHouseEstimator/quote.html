@@ -112,10 +112,12 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 body{background:#05070c}
 .sheet{background:#0b0f17;color:var(--ink);border:1px solid #1d2433;box-shadow:0 2px 24px rgba(0,0,0,.5)}
 .top{background:#0b0f17;border-bottom:1px solid rgba(227,182,74,.45)}
-.brand{color:var(--gold);border-bottom:0;font-size:30px;white-space:nowrap}
-.brand small{font-size:.45em;letter-spacing:.06em;margin-left:.2em}   /* "LLC", small, same line */
-@media (max-width:420px){.brand{font-size:24px}}
-@media (max-width:340px){.brand{font-size:21px}}
+.brand{color:var(--gold);border-bottom:0;font-size:34px;white-space:nowrap}
+@media (max-width:420px){.brand{font-size:28px}}
+@media (max-width:340px){.brand{font-size:24px}}
+/* Date sits under "Quote" / "Invoice"; the old date spots in Prepared for are hidden. */
+.kind .kdate{font:400 13px "Archivo",sans-serif;color:var(--muted);margin-top:6px;letter-spacing:0}
+.mdate,.meta .dfull{display:none!important}
 .legal{color:#c9d0de}
 .meta h3,th{color:var(--gold);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
 .meta strong{font-weight:500;font-size:19px}
@@ -634,11 +636,11 @@ function render(d){
       <div class="idblock">
         <img src="../images/logo.png" alt="Khean &amp; Clean">
         <div style="position:relative">
-          <div class="brand">Khean &amp; Clean<small>LLC</small></div>
+          <div class="brand">Khean &amp; Clean</div>
           <div class="contact" style="margin-top:4px"><a href="tel:${TEL}">${PHONE}</a> · <a href="${SITE_URL}" target="_blank" rel="noopener">${SITE}</a></div>
         </div>
       </div>
-      <div class="kind"><div class="t">${isQuote ? "Quote" : "Invoice"}</div><div class="n">${num}</div></div>
+      <div class="kind"><div class="t">${isQuote ? "Quote" : "Invoice"}<div class="kdate">${dShort}</div></div><div class="n">${num}</div></div>
     </div>
     <div class="body">
       <div class="meta">
