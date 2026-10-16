@@ -143,7 +143,15 @@ input{background:#05070c;color:var(--ink);border-color:#2c3446}
 button{background:var(--gold);color:#0b0f17}
 button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 /* Terms of Service: big button opens the terms in a popup; agreeing is the box at the bottom of the popup. */
-.accept .termsBtn{display:block;width:100%;margin:0 0 14px;padding:14px 18px;font:700 18px "Archivo";background:transparent;color:var(--gold);border:2px solid var(--gold);border-radius:8px}
+.accept .termsBtn{display:block;width:100%;margin:0 0 14px;padding:14px 18px;font:700 18px "Archivo";position:relative;overflow:hidden;cursor:pointer;
+  color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);border:1px solid #3fdc8a;border-radius:8px;
+  background:linear-gradient(135deg,#0f7a43,#1fae62 50%,#0f7a43);animation:tglow 2.4s ease-in-out infinite}
+/* Shimmering green: a light sweeps across it the whole time, plus a soft pulsing glow. */
+.accept .termsBtn::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:tshine 2.6s ease-in-out infinite}
+@keyframes tshine{0%{left:-60%}60%,100%{left:130%}}
+@keyframes tglow{0%,100%{box-shadow:0 0 10px rgba(46,204,113,.35)}50%{box-shadow:0 0 22px rgba(46,204,113,.7)}}
+@media (prefers-reduced-motion:reduce){.accept .termsBtn,.accept .termsBtn::after{animation:none}}
 .termsDlg{width:min(720px,94vw);height:min(86vh,900px);max-height:86vh;padding:0;border:1px solid var(--gold);border-radius:10px;background:#0d1b2a;color:var(--ink)}
 .termsDlg[open]{display:flex;flex-direction:column}
 .termsDlg::backdrop{background:rgba(0,0,0,.75)}
