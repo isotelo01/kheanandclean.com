@@ -156,7 +156,7 @@ label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding
       <a class="ghost" href="./dashboard.html">Dashboard</a>
       <a class="ghost" href="./leads.html">Leads</a>
       <a class="ghost" href="./approved-leads.html">Approved</a>
-      <a class="new" href="#new">Add customer</a>
+      <a class="new" id="addCust" href="#new">Add customer</a>
     </div>
   </div>
   <div id="view"><div class="msg">Loading&hellip;</div></div>
@@ -632,7 +632,7 @@ async function showProfile(id){
         : { trashed: false, trashedAt: null };
       await setDoc(doc(db, "customers", id), patch, { merge: true });
       if (all) all = all.map(x => x.id === id ? Object.assign({}, x, { trashed: flag }) : x);
-      location.hash = flag ? "#trash" : "#" + encodeURIComponent(id);
+      location.hash = flag ? "" : "#" + encodeURIComponent(id);   /* trashed: back to the customer list, not the Trash page */
       if (!flag) showProfile(id);
     } catch (e) {
       console.error(e);
@@ -894,6 +894,8 @@ async function showProfile(id){
 const route = () => {
   const h = decodeURIComponent(location.hash.slice(1));
   window.scrollTo(0, 0);
+  const add = document.getElementById("addCust");
+  if (add) add.style.display = h === "trash" ? "none" : "";   /* no Add customer in the Trash */
   if (h === "trash") showTrash();
   else if (h) showProfile(h);
   else showList();
