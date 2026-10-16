@@ -1065,7 +1065,10 @@ async function show(){
         ms(q.acceptedAt) ? "Approved " + shortDate(ms(q.acceptedAt)) : ""].filter(Boolean).join(" \u00b7 ")) + '</div>' +
 
       '<h2 class="staff">Notes from quote and estimate</h2><div id="notes" class="staff">' + rrow("Quote notes", q.notes) + '<div class="msg">Loading&hellip;</div></div>' +
-      '<div style="margin-top:24px">' + photoBox("notes", "Notes photos") + '</div>' +   /* shown read-only in the Summary */
+      /* Customer notes and photos: staff only (hidden in the Summary / customer view). Start-of-job notes;
+         Crew notes below are the end-of-job notes. The text saves with the Save button under Crew notes. */
+      '<div class="staff" style="margin-top:24px">' + photoBox("notes", "Customer notes and photos") +
+        '<textarea id="custNotes" style="margin-top:12px" placeholder="Notes about the customer or the home before starting">' + esc(js.custNotes || "") + '</textarea></div>' +
 
       '<h2>The Job</h2>' +
       '<div class="prog" id="prog"></div>' +
@@ -1110,7 +1113,7 @@ async function show(){
   view.querySelectorAll("[data-sthumb]").forEach(t =>
     getDownloadURL(ref(storage, t.dataset.sthumb)).then(u => { t.style.backgroundImage = 'url("' + u + '")'; })
       .catch(e => { console.error("Thumb " + t.dataset.sthumb, e); t.remove(); }));
-  document.getElementById("crewNotes").addEventListener("input", () => { note.textContent = "Not saved yet."; note.classList.remove("err"); });
+  ["crewNotes", "custNotes"].forEach(t => document.getElementById(t).addEventListener("input", () => { note.textContent = "Not saved yet."; note.classList.remove("err"); }));
 
   /* Photo boxes (Notes photos, Job photos): saved on the job as soon as they upload, so none are lost. */
   const wireBox = (k, field, folder) => {
@@ -1291,6 +1294,7 @@ async function show(){
     try {
       const keys = [...done];   /* old-style ticks kept as they were; Done now lives on each room page */
       await setDoc(doc(db, place, id), { jobSheet: { done: keys, crewNotes: document.getElementById("crewNotes").value.trim(),
+        custNotes: document.getElementById("custNotes").value.trim(),
         /* Chemicals only once the list has loaded, so a fast Save can't wipe what's already logged. */
         ...(chemReady ? (ch => ({ chemicals: ch, chemicalCost: Math.round(ch.reduce((a, c) => a + c.cost, 0) * 100) / 100 }))(readChems()) : {}),
         updatedAt: serverTimestamp() } }, { merge: true });
