@@ -203,7 +203,8 @@ const card = r =>
         /* Same Edit button on every card. An updated quote from a job sheet (data-job) opens its job sheet. */
         : '<button type="button" class="editbtn" data-edit="' + esc(r.id) + '" data-from="' + esc(r.source) + '"' +
             /* On-site updates (R1, R2...) are changed on their job sheet, never in the estimator. */
-            (r.revisionOf ? ' data-job="' + esc(r.revisionOf) + '"' : r.fromJobSheet ? ' data-job="' + esc(r.id) + '"' : '') + '>Edit</button>') +
+            /* Accepted cards have their own Job sheet button, so their Edit opens the quote. */
+            (r.revisionOf ? ' data-job="' + esc(r.revisionOf) + '"' : r.fromJobSheet && r.source !== "acceptedQuotes" ? ' data-job="' + esc(r.id) + '"' : '') + '>Edit</button>') +
       (r.source !== "trash" && r.phone
         ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-kind="' + kindOf(r) + '">Text</button>'
         : '') +
