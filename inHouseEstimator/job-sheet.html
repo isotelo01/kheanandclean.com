@@ -191,6 +191,12 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .sumrow{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:22px}
 /* Send to customer (Summary only): the updated quote goes back for approval. */
 .sumbtn{display:none}
+/* Variance box: Summarize only, staff only. */
+.varbox{display:none;margin-top:22px;padding:14px 16px;border:1px solid var(--gold);border-radius:8px;font-size:16px}
+.summ .varbox{display:block}
+.varbox .varacts{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:12px}
+@media print{.varbox{display:none!important}}
+.pub .varbox{display:none!important}
 .summ .sumbtn{display:inline-block}
 .revbox{display:none;margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:#f6f7fa;font-size:15px}
 .summ .revbox.on{display:block}
@@ -1065,6 +1071,8 @@ async function show(){
           '<div class="rpfoot"><button type="button" class="new" data-xadd>Add</button></div>' : '') +
       '</div></div>';
   const sub = lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
+  const variance = r2(sub + cur.adj - cur.quoted);
+  const showVar = !PUBLIC && (place === "acceptedQuotes" || place === "quotes") && Math.abs(variance) >= 0.01 && q.varianceIgnored !== r2(sub + cur.adj);
   const jtotal = '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
     /* Original quote: on an on-site update (R1, R2...) it's the first approved one, kept inside as originalQuote. */
     '<div class="meta staff" style="text-align:right"><a href="./quote.html?id=' + encodeURIComponent(id) + (q.originalQuote ? '&original=1' : '') +
@@ -1112,8 +1120,14 @@ async function show(){
       /* Finishing photos: manual uploads only (beginning shots go in Job photos up top). */
       '<div style="margin-top:24px">' + photoBox("finish", "Finishing photos") + '</div></div>' +
       /* Summarize: flips this sheet into the clean customer view; the same button then says Edit. */
-      '<div class="sumrow"><button type="button" class="new sumbtn" id="revBtn">Add to estimates</button>' +
-        '<button type="button" class="new" id="sumBtn"></button></div>' +
+      /* Variance (staff only, Summarize): the job sheet total differs from the approved quote.
+         Resend estimate sends the new price for approval; Ignore variance keeps the original quote price
+         (saved as varianceIgnored = the total ignored; the invoice then uses the original quote). */
+      (showVar ? '<div class="varbox"><div>Variance <b>' + (variance > 0 ? '+' : '&minus;') + money(Math.abs(variance)) + '</b></div>' +
+        '<div class="meta">Quote ' + money(cur.quoted) + ' &rarr; Job sheet ' + money(r2(sub + cur.adj)) + '</div>' +
+        '<div class="varacts"><button type="button" class="new" id="revBtn">Resend estimate</button>' +
+        '<button type="button" class="new" id="ignVarBtn">Ignore variance</button></div></div>' : '') +
+      '<div class="sumrow"><button type="button" class="new" id="sumBtn"></button></div>' +
       /* The updated quote's link, Preview / Text / Email, and whether it's been approved. */
       '<div class="revbox" id="revBox"></div>' +
     '</div>';
@@ -1262,7 +1276,20 @@ async function show(){
     revBox.classList.add("on");
   };
   /* No status box on the job sheet: where the updated quote stands shows on the Dashboard and the contact page. */
-  revBtn.addEventListener("click", async () => {
+  /* Ignore variance: keep the original quote price. Saved as the job sheet total that was ignored,
+     so a later change on the job sheet brings the variance back. */
+  const ignVarBtn = document.getElementById("ignVarBtn");
+  if (ignVarBtn) ignVarBtn.addEventListener("click", async () => {
+    const t = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0) + cur.adj);
+    ignVarBtn.disabled = true; ignVarBtn.textContent = "Saving…";
+    try {
+      await setDoc(doc(db, place, id), { varianceIgnored: t }, { merge: true });
+      q.varianceIgnored = t;
+      const vb = view.querySelector(".varbox"); if (vb) vb.remove();
+    } catch (e) { console.error(e); ignVarBtn.disabled = false; ignVarBtn.textContent = "Ignore variance";
+      revBox.innerHTML = '<span class="note err">Could not save: ' + esc(e.message) + '</span>'; revBox.classList.add("on"); }
+  });
+  if (revBtn) revBtn.addEventListener("click", async () => {
     revBtn.disabled = true; revBtn.textContent = "Saving…";
     try {
       /* On-site update -> Q-1068-R1, R2...: its own estimate that CARRIES THE JOB (same day, job sheet,
@@ -1313,7 +1340,7 @@ async function show(){
       location.href = "./dashboard.html";
       return;
     } catch (e) { console.error(e); revBox.innerHTML = '<span class="note err">Could not send: ' + esc(e.message) + '</span>'; revBox.classList.add("on"); }
-    finally { revBtn.disabled = false; revBtn.textContent = "Add to estimates"; }
+    finally { revBtn.disabled = false; revBtn.textContent = "Resend estimate"; }
   });
 
   /* Save: ticks and crew notes go onto the quote, so they follow it into the invoice. */
