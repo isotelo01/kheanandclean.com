@@ -821,8 +821,9 @@ function render(d){
     tAgree.addEventListener("change", () => { if (tAgree.checked) { setAgreed(true); dlg.close(); } });
     /* The big "I read this" button at the end of the terms does the same as the box. */
     window.addEventListener("message", e => {
-      if (e.origin !== location.origin || e.data !== "kc-terms-read" || !dlg.open) return;
-      tAgree.checked = true; setAgreed(true); dlg.close();
+      if (e.origin !== location.origin || !dlg.open) return;
+      if (e.data === "kc-terms-read") { tAgree.checked = true; setAgreed(true); dlg.close(); }
+      else if (e.data === "kc-terms-close") dlg.close();   /* "Do not agree and close": box stays unticked */
     });
     document.getElementById("termsClose").addEventListener("click", () => dlg.close());
     box.addEventListener("change", () => { if (!box.checked) setAgreed(false); });

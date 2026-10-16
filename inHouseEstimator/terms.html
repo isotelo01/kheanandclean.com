@@ -135,13 +135,16 @@ a:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
 
   <!-- Big "I read this" under the terms. Only shows inside the quote's popup; tapping it ticks the box and closes. -->
   <button type="button" id="readBtn" hidden
-    style="width:100%;margin:22px 0 6px;padding:18px;border:0;border-radius:10px;background:#E3B64A;color:#0b0f17;font-family:inherit;font-weight:700;font-size:18px;line-height:1.2;letter-spacing:.04em;cursor:pointer">I read this</button>
+    style="width:100%;margin:22px 0 6px;padding:18px;border:0;border-radius:10px;background:#E3B64A;color:#0b0f17;font-family:inherit;font-weight:700;font-size:18px;line-height:1.2;letter-spacing:.04em;cursor:pointer">I read this and agree to the terms</button>
+  <button type="button" id="noBtn" hidden
+    style="width:100%;margin:0 0 6px;padding:12px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:transparent;color:inherit;font-family:inherit;font-weight:600;font-size:15px;cursor:pointer">Do not agree and close</button>
   <script>
     (function(){
-      var b = document.getElementById('readBtn');
+      var b = document.getElementById('readBtn'), n = document.getElementById('noBtn');
       if (window.parent === window) return;   /* opened on its own: no popup to close */
-      b.hidden = false;
+      b.hidden = false; n.hidden = false;
       b.addEventListener('click', function(){ window.parent.postMessage('kc-terms-read', location.origin); });
+      n.addEventListener('click', function(){ window.parent.postMessage('kc-terms-close', location.origin); });
     })();
   </script>
 
