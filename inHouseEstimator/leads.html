@@ -315,7 +315,7 @@ async function showList(){
   view.innerHTML = (live.length
     ? STATUSES.map(s => {
         const inS = live.filter(l => statusOf(l).v === s.v);
-        return inS.length ? '<section class="col"><h3 class="colhead">' + s.label + ' (' + inS.length + ')</h3>' +
+        return inS.length ? '<section class="col"><h3 class="colhead">' + (s.v === "quoted" ? "Quoted, not hired" : s.label) + ' (' + inS.length + ')</h3>' +
           inS.map(card).join("") + '</section>' : "";
       }).join("")
     : '<div class="msg">No open leads. Quick quotes from the website land here.</div>') +
