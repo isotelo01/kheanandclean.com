@@ -31,6 +31,9 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .home img{display:block;width:34px;height:34px;border-radius:6px}
 .trashbtn{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 13px;font:600 15px "Archivo",system-ui,sans-serif;cursor:pointer;color:var(--ink)}
 .trashbtn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+/* Refresh: the arrow spins while it reloads, then shows a check for a moment. */
+#refreshBtn.spin{animation:rspin .7s linear infinite}
+@keyframes rspin{to{transform:rotate(360deg)}}
 .trashbtn span{margin-left:6px;color:var(--muted);font-size:13px}
 .trashbtn[aria-pressed="true"] span{color:#cfd6e4}
 .custbtn{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px}
@@ -293,8 +296,13 @@ async function grab(name){
 
 /* Refresh button (top bar): re-pulls the lists without reloading the page. */
 document.getElementById("refreshBtn").addEventListener("click", async e => {
-  const b = e.currentTarget; b.disabled = true;
-  try { await load(); } finally { b.disabled = false; }
+  const b = e.currentTarget; b.disabled = true; b.classList.add("spin");
+  const wait = new Promise(r => setTimeout(r, 600));   /* long enough to see it move */
+  try { await Promise.all([load(), wait]); }
+  finally {
+    b.classList.remove("spin"); b.innerHTML = "&#10003;";
+    setTimeout(() => { b.innerHTML = "&#10227;"; b.disabled = false; }, 900);
+  }
 });
 
 async function load(){
