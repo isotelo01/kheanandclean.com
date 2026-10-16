@@ -170,6 +170,7 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 .pbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
 .paddlink{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:4px 0;color:var(--gold);font:600 14px "Archivo",sans-serif;cursor:pointer}
 .paddlink svg{width:16px;height:16px}
+.pbar > span{display:flex;flex-wrap:wrap;gap:4px 16px}
 #photoSend{padding:8px 22px;font-size:15px}
 .pthumbs{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 0}
 .pthumbs:empty{display:none}
@@ -383,10 +384,17 @@ function wireNote(d, isQuote, num){
   }, 200));
   $("photoPickBtn").onclick = () => pick.click();
   pick.onchange = () => { add(pick.files); pick.value = ""; };
+  const cam = $("photoCam");
+  $("photoCamBtn").onclick = () => cam.click();
+  cam.onchange = () => { add(cam.files); cam.value = ""; };
   msg.oninput = sync;
   label(); draw(); sync();
 
-  send.onclick = async () => {
+  /* Send saves the box and emails a heads-up. Accepting the quote also saves whatever is in the
+     box (text and unsent photos) first, without the email, so it rides along to the job sheet. */
+  window.kcSaveNote = () => changed() ? save(true) : Promise.resolve();
+  send.onclick = () => save(false);
+  async function save(fromAccept) {
     send.disabled = true;
     send.textContent = files.length ? "Uploading photos…" : "Saving…";
     const c = d.customer || {};
@@ -410,7 +418,7 @@ function wireNote(d, isQuote, num){
     try { send.textContent = "Saving…"; await setDoc(doc(db, "quoteNotes", id), next); ok = true; }
     catch (err) { console.error("Note save failed", err); }
     /* Heads-up email. Goes out even if the save failed, so nothing is lost. */
-    if (text || added.length) {
+    if (!fromAccept && (text || added.length)) {
       try {
         const fd = new FormData();
         fd.append("access_key", WEB3_KEY);
@@ -431,7 +439,7 @@ function wireNote(d, isQuote, num){
     } else {
       sync(); say(`That didn't go through. Try again, or text us at ${PHONE}.`);
     }
-  };
+  }
 }
 
 /* ===== The job day in "Ready to book?" =====
@@ -664,9 +672,11 @@ function render(d){
         <textarea id="photoMsg" aria-label="Message to Khean &amp; Clean" placeholder="Did we leave anything off? Questions or concerns? Leave them here."></textarea>
         <div class="pmore">
           <input id="photoPick" type="file" accept="image/*" multiple hidden>
+          <input id="photoCam" type="file" accept="image/*" capture="environment" hidden>
           <div class="pthumbs" id="photoThumbs"></div>
           <div class="pbar">
-            <button type="button" class="paddlink" id="photoPickBtn">${PIC_SVG}Add photos</button>
+            <span><button type="button" class="paddlink" id="photoCamBtn">${PIC_SVG}Take photo</button>
+            <button type="button" class="paddlink" id="photoPickBtn">${PIC_SVG}Add photos</button></span>
             <button type="button" id="photoSend" disabled>Send</button>
           </div>
         </div>
@@ -833,6 +843,8 @@ function render(d){
     const name = nameEl.value.trim();
     if (!name || !box.checked) return;
     const btn = go; btn.disabled = true; btn.textContent = "Accepting…";
+    /* Whatever is in the message box (text, photos not sent yet) is saved with the approval. */
+    try { if (window.kcSaveNote) await window.kcSaveNote(); } catch (err) { console.error("Note save on accept failed", err); }
     try {
       /* Copy into acceptedQuotes first, then remove the original. In that order a
          failure leaves the quote where it was rather than losing it.
