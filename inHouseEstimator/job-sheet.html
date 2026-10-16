@@ -427,6 +427,20 @@ const addonUnit = a => a.key === "filter" ? "linear ft" : a.key === "stretch" ? 
 const SPLIT_ADDONS = ["stretch", "pet", "stain"];
 /* One row and page per piece / spot: the counted add-ons, and upholstery pieces added on site. */
 const isSplit = it => !!it.split || SPLIT_ADDONS.includes(it.addonKey);
+/* A counted add-on that came from the estimate ("Pet odor treatment × 6", or an older quote with
+   no count) gets the same fields as one added on site, so it splits into 1, 2, 3... too. */
+function asSplit(it){
+  if (!it || it.addonKey || it.removed || (Array.isArray(it.rooms) && it.rooms.length)) return;
+  const lab = String(it.label || "").trim();
+  const a = ALL_ADDONS.find(x => SPLIT_ADDONS.includes(x.key) && x.linear > 0 &&
+    new RegExp("^" + x.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(\\s*\u00d7\\s*\\d+)?$", "i").test(lab));
+  if (!a) return;
+  const m = lab.match(/\u00d7\s*(\d+)$/), q = m ? Number(m[1]) : Math.round((Number(it.cost) || 0) / a.linear);
+  if (!(q > 0)) return;
+  const unit = addonUnit(a);
+  Object.assign(it, { addonKey: a.key, addonRate: a.linear, qty: q, baseName: a.name,
+    label: a.name + " \u2014 " + q + " " + unit + (q === 1 ? "" : "s") });
+}
 /* + Add service: the estimator's services (pricing.js), carpet in its four packages. Only the
    ones not already on the job are offered. */
 const SVC_ORDER = ["carpet", "tile", "lvp", "stone", "upholstery"];
@@ -886,6 +900,7 @@ async function show(){
     /* Area Rugs "Medium (5×8) × 2" = two rugs, each its own row and page. */
     const rug = !rms.length && /^Area Rugs\b/i.test(String(it.label || "")) && String(noPrice(it.label)).match(/^Area Rugs\s*—\s*(.+?)\s*×\s*(\d+)$/i);
     if (it.removed) return "";   /* deleted on site: kept in the list (so photos stay matched) but not shown */
+    asSplit(it);   /* estimate's "Stain treatment × 6" → Stain treatment 1 … 6 */
     /* Each rug keeps its number (Area Rug 2 stays Area Rug 2) when another is deleted. */
     if (rug) { const n = Number(it.rugSlots) || Number(rug[2]), gone = Array.isArray(it.rugGone) ? it.rugGone : []; let out = "";
       /* Shown numbers count 1, 2, 3 with no gaps; photos stay with each rug's own slot. */
