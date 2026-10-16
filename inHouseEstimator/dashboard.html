@@ -63,6 +63,8 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .feebtn[disabled]{opacity:.55;cursor:default}
 .mailbtn.off,.mailbtn.off:hover{background:#fff;color:#b3b8c2;border-color:var(--line);cursor:default}
 .who{font-weight:600}
+.who[data-go]{cursor:pointer;display:inline-block}
+.who[data-go]:hover{text-decoration:underline}
 .meta{color:var(--muted);font-size:14px;margin-top:2px}
 .right{text-align:right;margin-left:auto}
 .amt{font:700 20px "Archivo",system-ui,sans-serif;font-variant-numeric:tabular-nums lining-nums}
@@ -179,13 +181,23 @@ const notePreview = n => { const t = String(n.text || "").trim(), k = (n.photoPa
 
 const kindOf = r => (r.source === "invoices" || r.source === "paidInvoices") ? "invoice" : "estimate";
 
+/* Customer name: customer profile if they're a customer, otherwise their lead page. */
+const personHref = r => r.custId ? "./customers.html#" + encodeURIComponent(r.custId)
+                      : r.leadId ? "./leads.html#" + encodeURIComponent(r.leadId) : "";
+document.addEventListener("click", e => {
+  const p = e.target.closest(".who[data-go]");
+  if (!p) return;
+  e.preventDefault(); e.stopPropagation();
+  location.href = p.dataset.go;
+}, true);
+
 const card = r =>
   '<div class="cardrow">' +
   '<a class="card' + (r.source !== "trash" && flags[r.id] && flags[r.id].by === "customer" ? ' flag' : '') +
     /* Purple: an on-site update (Q-1068-R1...) waiting on the customer's re-approval. */
     (r.revisionOf || (r.fromJobSheet && r.source === "quotes") ? ' rev' : '') + '" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
     '<div>' +
-      '<div class="who">' + esc(r.name || "No name") + '</div>' +
+      '<div class="who"' + (personHref(r) ? ' data-go="' + esc(personHref(r)) + '" title="Open profile"' : '') + '>' + esc(r.name || "No name") + '</div>' +
       '<div class="meta">' + esc(r.number) + (r.phone ? " &middot; " + esc(r.phone) : "") + (r.date ? " &middot; " + esc(r.date) : "") + '</div>' +
       (r.source === "trash" && trashLeftLabel(r) ? '<div class="meta">' + esc(trashLeftLabel(r)) + '</div>' : '') +
       (r.source !== "trash" && flags[r.id]
@@ -295,6 +307,7 @@ async function grab(name){
     .filter(s => !(name === "trash" && s.data().trashBin === "income")).map(docSnap => {
     const d = docSnap.data(), c = d.customer || {};
     return { id: docSnap.id, source: name, createdAt: d.createdAt, revisionOf: d.revisionOf || "", fromJobSheet: !!d.fromJobSheet,
+             custId: d.customerId || "", leadId: d.leadId || "",
              number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",
              total: d.total, feeWaived: !!d.feeWaived, paidAt: d.paidAt, trashedAt: d.trashedAt, date: when(d.createdAt), state: stateOf(d) };
   });
