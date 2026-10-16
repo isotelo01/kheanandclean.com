@@ -96,6 +96,7 @@ br.tl{display:none}
 .terms input{flex:none;min-width:0;width:20px;height:20px;margin:2px 0 0;accent-color:var(--navy)}
 .terms a{color:var(--navy);font-weight:600}
 .accept button[disabled]{opacity:.5;cursor:not-allowed}
+.accept .adate{align-self:center;color:var(--muted);font-size:14px;margin-left:6px}   /* today's date beside Accept quote */
 input{flex:1;min-width:200px;font:16px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px}
 button{font:700 16px "Archivo";background:var(--navy);color:#fff;border:0;border-radius:6px;padding:10px 20px;cursor:pointer}
 button.ghost{background:#fff;color:var(--navy);border:1px solid var(--line);font-weight:600;font-size:14px;padding:8px 14px}
@@ -674,7 +675,7 @@ function render(d){
         </div>
       </div>
       ${d.minApplied ? `<p style="text-align:right;color:var(--muted);font-size:14px;margin:6px 0 0">Minimum service charge applied.</p>` : ""}
-      ${sigHtml}${whenHtml}
+      ${whenHtml}
       ${d.notes ? `<div class="notes">${esc(d.notes)}</div>` : ""}
       ${d.status !== "paid" ? `
       <div class="photos" id="photoBox">
@@ -712,6 +713,7 @@ function render(d){
           </label>
           <input id="acceptName" aria-label="Your full name" placeholder="Your full name" required autocomplete="name">
           <button type="submit" id="acceptBtn" disabled>Accept quote</button>
+          <span class="adate">${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
         </form>
         <dialog class="termsDlg" id="termsDlg" aria-label="Terms of Service">
           <iframe id="termsFrame" title="Terms of Service"></iframe>
@@ -759,6 +761,7 @@ function render(d){
         </div>
         <p class="payhelp">Questions about this invoice or how to pay? Call or text <a href="tel:${TEL}">${PHONE}</a>.</p>
       </div>` : ""}
+      ${sigHtml}
     </div>
     <div class="foot"><span>Thank you for choosing Khean &amp; Clean.</span><button class="ghost" onclick="print()">Print or save as PDF</button></div>`;
 
@@ -875,7 +878,7 @@ function render(d){
         await setDoc(doc(db, "acceptedQuotes", id), accepted);
       }
       await deleteDoc(doc(db, "quotes", id));
-      const done = { ...d, status: "accepted", acceptedName: name };
+      const done = { ...d, status: "accepted", acceptedName: name, acceptedAt: { toDate: () => new Date() } };   /* signed date shows right away */
       if (live) {
         done.scheduledDate = ""; done.scheduledTime = "";
         done._whenMsg = "No day set yet. We'll call you to set one.";
