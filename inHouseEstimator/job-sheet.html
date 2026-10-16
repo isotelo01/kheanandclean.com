@@ -1301,9 +1301,9 @@ async function show(){
          Once R1 is approved, the next tap makes R2. */
       if (place !== "acceptedQuotes" && place !== "quotes") throw new Error("This job is already invoiced.");
       const inPlace = place === "quotes";
-      let rid = id;
-      if (!inPlace) { const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-        rid = Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join(""); }
+      /* Same id the whole way through (Accepted -> Estimates -> Accepted), so the customer's links never break.
+         The version it replaces is kept inside it under originals (OG). */
+      const rid = id;
       const revNo = inPlace ? (Number(q.revNo) || 1) : (Number(q.revNo) || 0) + 1;
       const base = String(q.baseNumber || q.number || "").replace(/-R\d+$/, "");
       const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0)), adj = r2(cur.adj), total = r2(sub + adj);
