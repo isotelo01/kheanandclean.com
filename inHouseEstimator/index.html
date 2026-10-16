@@ -643,11 +643,32 @@ async function show() {
     if (!items.length) { box.textContent = 'No saved line items yet.'; return; }
     box.innerHTML = '';
     items.forEach(it => {
-      /* Same look as the add-on rows: name + price, − qty + counter, small × in the corner. */
+      /* Row: tap name = +1, Edit in front of the counter (desktop). Mobile: swipe left for Edit, only − and qty on the right. */
+      if (!document.getElementById('liSStyle')) {
+        const st = document.createElement('style'); st.id = 'liSStyle';
+        st.textContent =
+          '.liS{position:relative;overflow:hidden}' +
+          '.liS .liIn{display:flex;align-items:center;gap:.5rem;width:100%;transition:transform .2s}' +
+          '.liS .liName{flex:1;min-width:0;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:.4rem 0;cursor:pointer}' +
+          '.liS .liEd{flex:none;padding:4px 10px;border-radius:4px;border:1px solid rgba(227,182,74,.6);background:transparent;color:var(--gold,#E3B64A);font-size:12px;line-height:1.2;cursor:pointer}' +
+          '.liS .liEdM{display:none}' +
+          '.liS .liForm{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;width:100%}' +
+          '.liS .liForm input{flex:1 1 140px;min-width:0}' +
+          '@media (max-width:760px){' +
+            '.liS .liIn>.liEd{display:none}' +
+            '.liS .step button:last-child{display:none}' +
+            '.liS .step button:first-child{order:2}' +
+            '.liS .liEdM{display:block;position:absolute;top:0;right:0;bottom:0;width:72px;border:0;border-radius:0;background:var(--gold,#E3B64A);color:#000;font-weight:700;opacity:0;transition:opacity .2s}' +
+            '.liS.swiped .liIn{transform:translateX(-80px)}' +
+            '.liS.swiped .liEdM{opacity:1}' +
+          '}';
+        document.head.appendChild(st);
+      }
       const row = document.createElement('div');
-      row.className = 'add addQty';
-      row.style.cssText = 'gap:.5rem';
-      const name = document.createElement('span');
+      row.className = 'add addQty liS';
+      const inner = document.createElement('div'); inner.className = 'liIn';
+      const name = document.createElement('button');
+      name.type = 'button'; name.className = 'liName'; name.title = 'Tap to add one';
       name.innerHTML = '<span></span> <span class="add__c"></span>';
       name.firstChild.textContent = it.desc;
       name.lastChild.textContent = '$' + (+it.price || 0).toFixed(2) + ' each';
@@ -662,17 +683,46 @@ async function show() {
       minus.onclick = () => set(+qty.value - 1);
       plus.onclick = () => set(+qty.value + 1);
       qty.oninput = () => set(qty.value);
-      const delB = document.createElement('button');
-      delB.type = 'button'; delB.textContent = 'Delete'; delB.title = 'Delete from saved items';
-      delB.setAttribute('aria-label', 'Delete ' + it.desc);
-      delB.style.cssText = 'flex:none;padding:4px 8px;border-radius:4px;' +
-        'border:1px solid rgba(227,182,74,.6);background:transparent;color:var(--gold,#E3B64A);font-size:12px;line-height:1.2;cursor:pointer';
-      delB.onclick = async () => {
-        if (!confirm('Delete "' + it.desc + '" from saved items?')) return;
-        try { await deleteDoc(doc(db, COL, it.id)); row.remove(); if (!box.children.length) box.textContent = 'No saved line items yet.'; }
-        catch (err) { alert('Could not delete it.'); console.error(err); }
-      };
-      row.append(name, step, delB); box.appendChild(row);
+      step.style.marginLeft = '0';
+      name.onclick = () => { if (row.classList.contains('swiped')) { row.classList.remove('swiped'); return; } set(+qty.value + 1); };
+      const mkEd = cls => { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = 'Edit';
+        b.setAttribute('aria-label', 'Edit ' + it.desc); b.onclick = openEdit; return b; };
+      const edB = mkEd('liEd'), edM = mkEd('liEdM');
+      /* Edit panel: change name and price, Save, Delete, Cancel. */
+      function openEdit() {
+        row.classList.remove('swiped');
+        const f = document.createElement('div'); f.className = 'liForm';
+        f.innerHTML = '<input type="text" aria-label="Name"><input type="number" min="0" step="0.01" inputmode="decimal" aria-label="Price">' +
+          '<button type="button" class="liEd">Save</button><button type="button" class="liEd">Delete</button><button type="button" class="liEd">Cancel</button>';
+        const [nIn, pIn, saveB, delB, canB] = f.children;
+        nIn.value = it.desc; pIn.value = (+it.price || 0).toFixed(2);
+        inner.hidden = true; edM.hidden = true; row.appendChild(f); nIn.focus();
+        canB.onclick = () => { f.remove(); inner.hidden = false; edM.hidden = false; };
+        saveB.onclick = async () => {
+          const d = nIn.value.trim(), p = Math.round((+pIn.value || 0) * 100) / 100;
+          if (!d) { alert('Name can\u2019t be blank.'); return; }
+          try {
+            await setDoc(doc(db, COL, it.id), { desc: d, price: p }, { merge: true });
+            it.desc = d; it.price = p;
+            name.firstChild.textContent = d; name.lastChild.textContent = '$' + p.toFixed(2) + ' each';
+            if (+qty.value > 0) window.kcSetLine(it.id, d, p, +qty.value);
+            canB.onclick();
+          } catch (err) { alert('Could not save it.'); console.error(err); }
+        };
+        delB.onclick = async () => {
+          if (!confirm('Delete "' + it.desc + '" from saved items?')) return;
+          try { await deleteDoc(doc(db, COL, it.id)); row.remove(); if (!box.children.length) box.textContent = 'No saved line items yet.'; }
+          catch (err) { alert('Could not delete it.'); console.error(err); }
+        };
+      }
+      /* Mobile swipe: left shows Edit, right hides it. */
+      let x0 = null;
+      row.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+      row.addEventListener('touchend', e => {
+        if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null;
+        if (dx < -40) row.classList.add('swiped'); else if (dx > 40) row.classList.remove('swiped');
+      });
+      inner.append(name, edB, step); row.append(inner, edM); box.appendChild(row);
     });
   } catch (err) { box.textContent = 'Could not load saved items.'; console.error(err); }
 }
