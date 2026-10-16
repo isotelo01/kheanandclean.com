@@ -149,6 +149,11 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 /* Summary: Notes photos, Job photos and Crew notes read-only, and left out entirely when empty. */
 .crewro{display:none;white-space:pre-wrap;font-size:16px}
 .summ .crewro{display:block}
+/* Headline: a typing box while working; in the Summary, the saved line in big text (nothing when empty). */
+#headline{display:block;width:100%;font:600 18px "Archivo";padding:10px 12px;border:1px solid var(--line);border-radius:6px;color:var(--ink);background:transparent}
+.headro{display:none;font:700 24px/1.25 "Archivo";color:var(--ink)}
+.summ .headro{display:block}
+.summ #headline,.summ .headbox.empty{display:none!important}
 .summ .pbwrap.empty,.summ .crewbox.empty,.summ .pcam,.summ .jpx,.summ .pbwrap .note,.summ #crewNotes,.summ #saveRow{display:none!important}
 /* Summarize: the same sheet cleaned up for the customer. Prices sit where the Delete buttons
    were; staff-only parts (notes, crew notes, photos, add / delete controls) are hidden. Edit flips back. */
@@ -1070,6 +1075,12 @@ async function show(){
       '<div class="staff" style="margin-top:24px">' + photoBox("notes", "Customer notes and photos") +
         '<textarea id="custNotes" style="margin-top:12px" placeholder="Notes about the customer or the home before starting">' + esc(js.custNotes || "") + '</textarea></div>' +
 
+      /* Header photo and headline: shown on the customer's job report. The headline saves with the Save button under Crew notes. */
+      '<div style="margin-top:24px">' + photoBox("head", "Header photo") +
+        '<div class="headbox' + (String(js.headline || "").trim() ? '' : ' empty') + '" style="margin-top:12px">' +
+        '<div class="headro">' + esc(js.headline || "") + '</div>' +
+        '<input type="text" id="headline" placeholder="Headline" value="' + esc(js.headline || "") + '"></div></div>' +
+
       '<h2>The Job</h2>' +
       '<div class="prog" id="prog"></div>' +
       (sections || '<div class="msg">This quote has no line items.</div>') + addSvc + (sections ? jtotal : '') +
@@ -1113,7 +1124,7 @@ async function show(){
   view.querySelectorAll("[data-sthumb]").forEach(t =>
     getDownloadURL(ref(storage, t.dataset.sthumb)).then(u => { t.style.backgroundImage = 'url("' + u + '")'; })
       .catch(e => { console.error("Thumb " + t.dataset.sthumb, e); t.remove(); }));
-  ["crewNotes", "custNotes"].forEach(t => document.getElementById(t).addEventListener("input", () => { note.textContent = "Not saved yet."; note.classList.remove("err"); }));
+  ["crewNotes", "custNotes", "headline"].forEach(t => document.getElementById(t).addEventListener("input", () => { note.textContent = "Not saved yet."; note.classList.remove("err"); }));
 
   /* Photo boxes (Notes photos, Job photos): saved on the job as soon as they upload, so none are lost. */
   const wireBox = (k, field, folder) => {
@@ -1160,6 +1171,7 @@ async function show(){
   wireBox("notes", "notesPhotos", "notes");
   wireBox("job", "jobPhotos", "sheet");   /* same field and folder as before, so photos already added stay */
   wireBox("finish", "finishPhotos", "finish");
+  wireBox("head", "headerPhotos", "header");
 
   /* ---- Chemicals used: the product list comes from Settings (settings/chemicals). The crew enters how
      much of each went on this job, in ounces or quarts, and the cost works out from the Settings price.
@@ -1295,6 +1307,7 @@ async function show(){
       const keys = [...done];   /* old-style ticks kept as they were; Done now lives on each room page */
       await setDoc(doc(db, place, id), { jobSheet: { done: keys, crewNotes: document.getElementById("crewNotes").value.trim(),
         custNotes: document.getElementById("custNotes").value.trim(),
+        headline: document.getElementById("headline").value.trim(),
         /* Chemicals only once the list has loaded, so a fast Save can't wipe what's already logged. */
         ...(chemReady ? (ch => ({ chemicals: ch, chemicalCost: Math.round(ch.reduce((a, c) => a + c.cost, 0) * 100) / 100 }))(readChems()) : {}),
         updatedAt: serverTimestamp() } }, { merge: true });
@@ -1302,6 +1315,8 @@ async function show(){
       /* The Summary's read-only copy follows what was just saved. */
       const cn = document.getElementById("crewNotes").value.trim();
       view.querySelector(".crewro").textContent = cn; view.querySelector(".crewbox").classList.toggle("empty", !cn);
+      const hl = document.getElementById("headline").value.trim();
+      view.querySelector(".headro").textContent = hl; view.querySelector(".headbox").classList.toggle("empty", !hl);
     } catch (e) { console.error(e); note.textContent = "Could not save: " + e.message; note.classList.add("err"); }
     finally { saveBtn.disabled = false; }
   });

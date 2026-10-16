@@ -91,6 +91,10 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 /* Label over each photo spot (Threshold, Stains and more photos...). */
 .plab{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 6px;font-size:15px;font-weight:700;color:var(--navy)}
 .pcam{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 12px;background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:8px;cursor:pointer;font:600 14px "Archivo";white-space:nowrap}
+/* Icon-only photo buttons (camera = Take photo, plus = Add photos), on the label's line at the right. */
+.plab{flex-wrap:nowrap}
+.plab>span{flex:1;min-width:0}
+.pcam.picon{width:44px;height:44px;padding:0;flex:none}
 /* The real file picker sits inside each button, unseen: tapping the button opens it directly (Android blocks code-opened pickers). */
 .pin{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 /* A room's own page: navy card, white text. Boxes stay white; Save goes gold so it shows. */
@@ -312,11 +316,12 @@ async function show(){
     /* One small camera button per spot, next to its label. The phone itself then offers
        Take Photo or Photo Library. */
     const CAM = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+    const PLUS = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>';
     const photoBlock = g => { const one = GROUPS[g].one;
       return '<div class="plab"><span>' + GROUPS[g].label + '</span>' +
         /* Take photo opens the camera; Add photo(s) opens the library. */
-        '<label class="pcam">' + CAM + 'Take photo<input type="file" class="pin" id="cap-' + g + '" accept="image/*" capture="environment"></label>' +
-        '<label class="pcam">Add photo' + (one ? '' : 's') + '<input type="file" class="pin" id="pick-' + g + '" accept="image/*"' + (one ? '' : ' multiple') + '></label></div>' +
+        '<label class="pcam picon" title="Take photo" aria-label="Take photo">' + CAM + '<input type="file" class="pin" id="cap-' + g + '" accept="image/*" capture="environment"></label>' +
+        '<label class="pcam picon" title="Add photo' + (one ? '' : 's') + '" aria-label="Add photo' + (one ? '' : 's') + '">' + PLUS + '<input type="file" class="pin" id="pick-' + g + '" accept="image/*"' + (one ? '' : ' multiple') + '></label></div>' +
       '<div class="pgrid" id="pgrid-' + g + '" data-g="' + g + '"><div class="msg">Loading photos…</div></div>'; };
     const roomExtras = spot.isRoom ? extras : [];
     /* Hair & debris removal: each carpet room's own checkbox (saved as spots.<room>.hair). The Job
