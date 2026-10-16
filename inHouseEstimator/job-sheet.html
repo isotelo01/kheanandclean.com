@@ -1335,6 +1335,16 @@ async function show(){
         date: new Date().toISOString().slice(0, 10), createdAt: inPlace ? (q.createdAt || serverTimestamp()) : serverTimestamp()
       });
       await setDoc(doc(db, "quotes", rid), rev);
+      /* Back to waiting on approval: the lead comes out of Trash into Leads as "Quoted, not hired",
+         pointing at the updated quote. leadTrashed off, so approving it again trashes the lead again. */
+      if (q.leadId && !inPlace) {
+        try {
+          if ((await getDoc(doc(db, "leads", q.leadId))).exists()) {
+            await setDoc(doc(db, "leads", q.leadId), { trashed: false, trashedAt: null, status: "quoted", quoteId: rid, updatedAt: serverTimestamp() }, { merge: true });
+            await setDoc(doc(db, "quotes", rid), { leadTrashed: false }, { merge: true });
+          }
+        } catch (e) { console.error("Lead back to Quoted " + q.leadId, e); }
+      }
       /* Saved first; only then does the old record come off Accepted (it now lives inside the update). */
       if (!inPlace) await deleteDoc(doc(db, place, id));
       /* Straight to the Dashboard: preview, Text or Email it from Estimates. */
