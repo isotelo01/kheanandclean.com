@@ -646,7 +646,7 @@ async function show() {
       /* Same look as the add-on rows: name + price, − qty + counter, small × in the corner. */
       const row = document.createElement('div');
       row.className = 'add addQty';
-      row.style.cssText = 'position:relative;padding-right:1.6rem';
+      row.style.cssText = 'gap:.5rem';
       const name = document.createElement('span');
       name.innerHTML = '<span></span> <span class="add__c"></span>';
       name.firstChild.textContent = it.desc;
@@ -663,10 +663,10 @@ async function show() {
       plus.onclick = () => set(+qty.value + 1);
       qty.oninput = () => set(qty.value);
       const delB = document.createElement('button');
-      delB.type = 'button'; delB.textContent = '\u00d7'; delB.title = 'Delete from saved items';
+      delB.type = 'button'; delB.textContent = 'Delete'; delB.title = 'Delete from saved items';
       delB.setAttribute('aria-label', 'Delete ' + it.desc);
-      delB.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;border-radius:50%;' +
-        'border:1px solid rgba(227,182,74,.6);background:transparent;color:var(--gold,#E3B64A);font-size:14px;line-height:1;cursor:pointer';
+      delB.style.cssText = 'flex:none;padding:4px 8px;border-radius:4px;' +
+        'border:1px solid rgba(227,182,74,.6);background:transparent;color:var(--gold,#E3B64A);font-size:12px;line-height:1.2;cursor:pointer';
       delB.onclick = async () => {
         if (!confirm('Delete "' + it.desc + '" from saved items?')) return;
         try { await deleteDoc(doc(db, COL, it.id)); row.remove(); if (!box.children.length) box.textContent = 'No saved line items yet.'; }
