@@ -51,7 +51,8 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 .spot__tick{width:24px;height:24px;flex:none;border:2px solid var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
 .spot.done .spot__tick{background:var(--green);border-color:var(--green)}
 /* Done room: the After Threshold photo shows in place of the tick. */
-.spot .spot__tick.thumb{width:64px;height:64px;border:0;border-radius:6px;background:#eef0f4 center/cover no-repeat}
+.spot .spot__tick.thumb{width:64px;height:64px;border:0;border-radius:6px;background:#eef0f4 center/cover no-repeat;overflow:hidden}
+.spot .spot__tick.thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .spot__name{font-weight:600}
 .spot__size{color:var(--muted);font-size:14px}
 .spot__go{margin-left:auto;color:var(--muted);font-size:22px;line-height:1}
@@ -109,6 +110,10 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .rphead{padding:8px 10px;font:700 12px "Archivo",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:#f6f7fa;border-top:1px solid var(--line)}
 /* Carpet line: Change package. */
 .pkgbox{margin:0 0 8px}
+/* Change package and Add room side by side; an open table takes the full width. */
+.pkgrow{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.pkgrow .addtop{margin:0 0 8px}
+.pkgrow > div:has(.rpick:not([hidden])){flex-basis:100%;order:2}
 .pkgbtn{padding:6px 12px;font:600 14px "Archivo",sans-serif;color:var(--navy);background:#fff;border:1px solid var(--gold);border-radius:6px;cursor:pointer}
 .pkgbox .rprow{cursor:pointer}
 @media print{.addsvc,.addfurn{display:none!important}}
@@ -529,7 +534,13 @@ view.addEventListener("click", async e => {
     return;
   }
   if (!e.target.closest("[data-rpadd]")) return;
-  const i = Number(box.dataset.line), j = Number(box.dataset.item), it = cur.lines[i].items[j];
+  const i = Number(box.dataset.line), l0 = cur.lines[i];
+  /* "new": the line has no rooms yet (only rugs / add-ons), so start a rooms item at its package's rate. */
+  const fresh = box.dataset.item === "new";
+  const j = fresh ? l0.items.length : Number(box.dataset.item);
+  let it = fresh ? null : l0.items[j];
+  if (fresh) { const T = TIERS[tierOf(l0)] || {}, rate = Number(T.sqft) || 0;
+    it = { label: (T.name || "Carpet Cleaning") + " - 0 sq ft @ $" + rate.toFixed(2) + "/sq ft", cost: 0, rooms: [], perSqft: rate }; }
   /* Straight-sq-ft service: rooms for tracking only, $0 each, the quoted price stays. */
   if (isFlat(it)) { it.track = true; if (!Array.isArray(it.rooms)) it.rooms = []; }
   else if (it.perSqft == null) it.perSqft = rateOf(it);
@@ -544,6 +555,7 @@ view.addEventListener("click", async e => {
     for (let k = 1; k <= n; k++) mk(have + n > 1 ? rt.name + " " + (have + k) : rt.name, rt.sqft);
   });
   if (!added) { pick.hidden = true; return; }
+  if (fresh) l0.items.push(it);
   recalc(cur.lines[i]); e.target.disabled = true;
   try { await saveOnsite(); show(); } catch (err) { fail(err); e.target.disabled = false; }
 });
@@ -869,10 +881,12 @@ async function show(){
   let doneCount = 0;
   const spotLink = (i, j, r) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j) + (r == null ? '' : '&room=' + r) + (PUBLIC ? '&view=customer' : '');
   /* price: shown only in the Summarize view, where the Delete button was. */
-  const spotRow = (key, label, size, href, price) => { total++;
+  const spotRow = (key, label, size, href, price, isRoom) => { total++;
     const d = !!(spots[key] && spots[key].done); if (d) doneCount++;
-    /* Thumbnail: a room's After Threshold photo; stairs / rugs (no Threshold) use their first After photo. */
-    const thr = d ? pathsOf({ photoPaths: [...((spots[key] && spots[key].photosAfterThreshold) || []), ...((spots[key] && spots[key].photosAfter) || [])] })[0] : "";
+    /* Thumbnail: a room's After Threshold photo; stairs / rugs (no Threshold) use their first After photo only,
+       so a leftover hidden Threshold photo never shows. */
+    const sk = spots[key] || {};
+    const thr = d ? pathsOf({ photoPaths: [...(isRoom ? (sk.photosAfterThreshold || []) : []), ...(sk.photosAfter || [])] })[0] : "";
     return '<a class="spot' + (d ? ' done' : '') + '" href="' + esc(href) + '"><span class="spot__tick"' + (thr ? ' data-thumb="' + esc(thr) + '"' : '') + '>' + (d ? '✓' : '') + '</span>' +
       '<span class="spot__name">' + esc(label) + '</span>' + (size ? '<span class="spot__size">' + esc(size) + '</span>' : '') +
       (price != null ? '<span class="sprice">' + money(price) + '</span>' : '') +
@@ -926,7 +940,7 @@ async function show(){
     const roomRows = () => rms.map((rm, r) =>
       '<div class="srow" data-line="' + i + '" data-item="' + j + '" data-room="' + esc(rm.id) + '">' +
         '<button type="button" class="sdel" data-del>Delete</button>' +
-        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r), it.track ? null : rm.cost) +
+        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r), it.track ? null : rm.cost, true) +
       '</div>').join("");
     /* Straight by the sq ft: the line is a header; tap it to open its rooms and Add room. */
     if (isFlat(it)) {
@@ -944,9 +958,9 @@ async function show(){
     return roomRows() + addRoomBox(i, j);
   };
   /* Add room: opens the estimator's room table (same rooms and sizes, − / + counts). */
-  const addRoomBox = (i, j) =>
-      '<div class="addroom" data-line="' + i + '" data-item="' + j + '">' +
-        '<button type="button" class="new" data-pick>Add room</button>' +
+  const addRoomBox = (i, j, top) =>
+      '<div class="addroom' + (top ? ' addtop' : '') + '" data-line="' + i + '" data-item="' + j + '">' +
+        '<button type="button" class="' + (top ? 'pkgbtn' : 'new') + '" data-pick>Add room</button>' +
         '<div class="rpick" hidden>' +
           ROOM_TYPES.map(rt =>
             '<div class="rprow" data-rt="' + rt.key + '">' +
@@ -997,12 +1011,16 @@ async function show(){
       '</div></div>' : '') +
       '<div class="svc__body">' +
       /* Carpet: Change package opens the packages; the current one is marked. */
-      (isCarpetLine(l) && tierOf(l) ? '<div class="pkgbox staff" data-line="' + i + '"><button type="button" class="pkgbtn" data-pkg>Change package</button>' +
+      (isCarpetLine(l) && tierOf(l) ? '<div class="pkgrow staff"><div class="pkgbox" data-line="' + i + '"><button type="button" class="pkgbtn" data-pkg>Change package</button>' +
         '<div class="rpick" hidden>' + Object.keys(TIERS).map(k =>
           '<div class="rprow" data-tier="' + k + '"><span class="rpname">' + esc(TIERS[k].name) +
             ' <span class="rpcap">$' + Number(TIERS[k].sqft).toFixed(2) + ' / sq ft</span></span>' +
             '<span class="rpgo">' + (k === tierOf(l) ? 'Current' : 'Switch ›') + '</span></div>').join("") +
-        '</div></div>' : '') +
+        '</div></div>' +
+        /* Add room next to Change package: adds to the line's rooms, or starts them when there are none. */
+        (() => { const rj = items.findIndex(it => !it.removed && Array.isArray(it.rooms) && !isFlat(it));
+          return addRoomBox(i, rj < 0 ? "new" : rj, true); })() +
+        '</div>' : '') +
       (shown.length ? shown.map(([it, j]) => itemRows(it, i, j)).join("")
         : (l.key === "upholstery" ? "" : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i)))) +
       (l.key === "upholstery" ? furnBlock(i) : "") +
@@ -1056,7 +1074,7 @@ async function show(){
       '<div style="margin-top:24px">' +
       photoBox("job", "Job photos") +   /* shown read-only in the Summary */
       /* Chemicals used: staff only, saved with the Save button under Crew notes. */
-      '<div class="staff" style="margin-top:24px"><h2>Chemicals used</h2><div id="chems"><div class="msg">Loading&hellip;</div></div></div>' +
+      '<div class="staff" style="margin-top:24px"><h2>Detergents used</h2><div id="chems"><div class="msg">Loading&hellip;</div></div></div>' +
       /* Crew notes: in the Summary, the saved text read-only; nothing at all when there's none. */
       '<div class="crewbox' + (String(js.crewNotes || "").trim() ? '' : ' empty') + '" style="margin-top:24px"><h2>Crew notes</h2>' +
       '<div class="crewro">' + esc(js.crewNotes || "") + '</div>' +
@@ -1085,7 +1103,8 @@ async function show(){
   /* Swap each done room's tick for its After Threshold photo; the tick stays if the photo won't load. */
   view.querySelectorAll(".spot__tick[data-thumb]").forEach(t =>
     getDownloadURL(ref(storage, t.dataset.thumb)).then(u => {
-      t.textContent = ""; t.classList.add("thumb"); t.style.backgroundImage = 'url("' + u + '")';
+      t.textContent = ""; t.classList.add("thumb");
+      const im = new Image(); im.alt = ""; im.src = u; t.appendChild(im);
     }).catch(e => console.error("Thumb " + t.dataset.thumb, e)));
   /* Summary's folded-service photos. */
   view.querySelectorAll("[data-sthumb]").forEach(t =>
@@ -1168,7 +1187,7 @@ async function show(){
     const ids = new Set(list.map(c => c.id)), used = new Map(saved.map(c => [c.id, c]));
     saved.forEach(c => { if (!ids.has(c.id)) list.push({ id: c.id, name: c.name, group: c.group, cost: c.unitCost, unit: c.priceUnit }); });
     if (!chemBox.isConnected) return;
-    if (!list.length) { chemBox.innerHTML = '<div class="msg">No chemicals set up yet. Add them in <a href="./settings.html">Settings</a>.</div>'; return; }
+    if (!list.length) { chemBox.innerHTML = '<div class="msg">No detergents set up yet. Add them in <a href="./settings.html">Settings</a>.</div>'; return; }
     const sel = 'style="font:16px Archivo;padding:6px 4px;border:1px solid var(--line);border-radius:6px"';
     chemBox.innerHTML = [["general", "General"], ["stain", "Stain treatments"]].map(([g, label]) => {
       const rows = list.filter(c => (c.group === "stain" ? "stain" : "general") === g); if (!rows.length) return "";
