@@ -56,6 +56,7 @@
     STATE.upholstery = { items:{}, touched:false };
     SERVICES.upholstery.items.forEach(function(it){ STATE.upholstery.items[it.key] = 0; });
     STATE.custom = [];   // custom line items: [{desc, price}], typed in by hand
+    STATE.free = { pet:0, stain:0, stretch:0 };   // free spots/rooms given away (Discount section)
   }
   initState();
 
@@ -947,6 +948,35 @@
     table.hidden = !list.length;
   }
 
+  /* Free pet / stain / stretching (Discount section). One line each with its count,
+     e.g. "Free pet treatment × 2", at that add-on's own price. Capped at how many
+     are on the estimate, so it can never give away more than was charged. */
+  var FREE_KEYS = [['pet','Free pet treatment'], ['stain','Free stain treatment'], ['stretch','Free carpet stretching']];
+  function freeAvail(k){
+    var n = 0, unit = 0;
+    Object.keys(SERVICES).forEach(function(s){
+      var a = SERVICES[s].addons && SERVICES[s].addons[k], st = STATE[s];
+      if(!a || !st || !st.touched || !st.addons || !st.addons[k] || !st.addons[k].on) return;
+      var q = +st.addons[k].qty || 0;
+      if(q > 0){ n += q; unit = a.linear; }
+    });
+    if(!unit && SERVICES.carpet.addons[k]) unit = SERVICES.carpet.addons[k].linear;
+    return { n:n, unit:unit };
+  }
+  function freeLines(){
+    var out = [];
+    FREE_KEYS.forEach(function(f){
+      var k = f[0], av = freeAvail(k);
+      var n = Math.min(Math.max(0, Math.floor(+STATE.free[k] || 0)), av.n);
+      STATE.free[k] = n;
+      var el = document.getElementById('free_' + k), c = document.getElementById('free_' + k + '_c');
+      if(el && String(el.value) !== String(n)) el.value = n;
+      if(c) c.textContent = '$' + money(av.unit) + ' each \u00b7 ' + (av.n ? av.n + ' on estimate' : 'none on estimate');
+      if(n > 0) out.push({ key:k, qty:n, label: f[1] + (n > 1 ? ' \u00d7 ' + n : ''), amount: n * av.unit });
+    });
+    return out;
+  }
+
   function calc(){
     renderCustom();
     /* Stairs label: "Flight of Stairs" up to 1, "Flights of Stairs" above 1 (1.5 counts as
@@ -960,6 +990,8 @@
       if(stairsRoom) stairsRoom.textContent = stairsTxt;
     }
     var b = buildBreakdown();
+    var free = freeLines(), freeSum = free.reduce(function(s, f){ return s + f.amount; }, 0);
+    var net = b.sum - freeSum;   /* what's left after the free items; discount and minimum work from this */
 
     if(!b.breakdown.length){
       linesEl.innerHTML = '';
@@ -979,15 +1011,16 @@
     var dAmtEl = document.getElementById('discAmt'), dPctEl = document.getElementById('discPct');
     var dAmt = dAmtEl ? Math.max(0, +dAmtEl.value || 0) : 0;
     var dPct = dPctEl ? Math.min(100, Math.max(0, +dPctEl.value || 0)) : 0;
-    var wanted = Math.round(dAmt > 0 ? dAmt : b.sum * dPct / 100);
-    var disc = Math.min(wanted, b.sum);
+    var wanted = Math.round(dAmt > 0 ? dAmt : net * dPct / 100);
+    var disc = Math.min(wanted, net);
     var waiveEl = document.getElementById('waiveMin'), waived = !!(waiveEl && waiveEl.checked);
-    var applied = disc > 0 ? b.sum - disc : (waived ? b.sum : Math.max(b.sum, MIN_JOB));
+    var applied = disc > 0 ? net - disc : (waived ? net : Math.max(net, MIN_JOB));
     var discEl = document.getElementById('discLines');
     if(discEl){
-      if(disc > 0){
+      if(disc > 0 || free.length){
         discEl.innerHTML = '<li><span>Subtotal</span><span>$'+money(b.sum)+'</span></li>' +
-          '<li class="discLine"><span>Discount'+(dAmt > 0 ? '' : ' ('+dPct+'%)')+'</span><span>\u2212$'+money(disc)+'</span></li>';
+          free.map(function(f){ return '<li class="discLine"><span>'+f.label+'</span><span>\u2212$'+money(f.amount)+'</span></li>'; }).join('') +
+          (disc > 0 ? '<li class="discLine"><span>Discount'+(dAmt > 0 ? '' : ' ('+dPct+'%)')+'</span><span>\u2212$'+money(disc)+'</span></li>' : '');
         discEl.hidden = false;
       } else { discEl.innerHTML = ''; discEl.hidden = true; }
     }
@@ -1017,16 +1050,35 @@
     var sqftTotal = combinedFloorSqft();
     totalSqftNumEl.textContent = sqftTotal > 0 ? sqftTotal.toLocaleString() : '';
     totalSqftLabelEl.textContent = sqftTotal > 0 ? 'total sq ft across all floor types' : '';
-    minEl.textContent = applied > b.sum
+    minEl.textContent = applied > net
       ? 'Minimum service charge of $' + money(MIN_JOB) + ' applied.'
       : '';
-    /* What's on screen right now, for send.js to save. Same numbers the panel shows. */
+    var feeEl = document.getElementById('waiveFee');
+    /* What's on screen right now, for send.js to save. Same numbers the panel shows.
+       subtotal - freeTotal - discount = total (unless the minimum kicked in). */
     window.KC_quote = {
       lines: b.breakdown, subtotal: b.sum, discount: disc,
       discountLabel: disc > 0 ? 'Discount' + (dAmt > 0 ? '' : ' (' + dPct + '%)') : '',
-      total: applied, minApplied: applied > b.sum, sqftTotal: sqftTotal
+      freeLines: free.map(function(f){ return { label: f.label, qty: f.qty, amount: f.amount }; }), freeTotal: freeSum,
+      feeWaived: !!(feeEl && feeEl.checked),
+      total: applied, minApplied: applied > net, sqftTotal: sqftTotal
     };
   }
+
+  /* Free counters: − / + buttons and typing in the box. freeLines() caps them. */
+  document.addEventListener('click', function(e){
+    var bt = e.target.closest('[data-free]');
+    if(!bt) return;
+    var k = bt.getAttribute('data-free');
+    STATE.free[k] = Math.max(0, (+STATE.free[k] || 0) + (+bt.getAttribute('data-d') || 0));
+    calc();
+  });
+  FREE_KEYS.forEach(function(f){
+    var el = document.getElementById('free_' + f[0]);
+    if(el) el.addEventListener('input', function(){ STATE.free[f[0]] = Math.max(0, Math.floor(+el.value || 0)); calc(); });
+  });
+  /* Waive card fee: saved on the estimate, carried to the invoice, same as the Dashboard button. */
+  (function(){ var w = document.getElementById('waiveFee'); if(w) w.addEventListener('change', calc); })();
 
   /* Discount boxes: typing in one empties the other, then reprice. */
   ['discAmt','discPct'].forEach(function(id, i){
@@ -1046,7 +1098,9 @@
       var desc = d.value.trim();
       if(!desc){ d.focus(); return; }
       var price = Math.max(0, parseFloat(p.value) || 0);
-      STATE.custom.push({ desc: desc, price: price });
+      /* lib = same id the saved list uses (keyOf in index.html), so its counter shows 1 */
+      var lib = desc.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100) || 'item';
+      STATE.custom.push({ desc: desc, price: price, lib: lib, qty: 1 });
       document.dispatchEvent(new CustomEvent('li:added', { detail: { desc: desc, price: price } }));
       d.value = ''; p.value = ''; d.focus();
       calc();
@@ -1054,6 +1108,21 @@
     /* Lets the Saved line items list put an item on the estimate. */
     window.kcAddLine = function(desc, price){
       STATE.custom.push({ desc: desc, price: Math.max(0, +price || 0) });
+      calc();
+    };
+    /* Saved line item counters: one estimate line per saved item (tagged with lib = its id).
+       qty 0 removes it; qty 2+ shows "Name × 2" at unit price × qty. */
+    window.kcLineQty = function(id){
+      var c = STATE.custom.find(function(x){ return x && x.lib === id; });
+      return c ? (c.qty || 1) : 0;
+    };
+    window.kcSetLine = function(id, desc, unit, qty){
+      qty = Math.max(0, Math.floor(+qty || 0)); unit = Math.max(0, +unit || 0);
+      var i = STATE.custom.findIndex(function(x){ return x && x.lib === id; });
+      if(!qty){ if(i > -1) STATE.custom.splice(i, 1); calc(); return; }
+      var line = { desc: qty > 1 ? desc + ' \u00d7 ' + qty : desc,
+                   price: Math.round(unit * qty * 100) / 100, lib: id, qty: qty };
+      if(i > -1) STATE.custom[i] = line; else STATE.custom.push(line);
       calc();
     };
     add.addEventListener('click', addItem);
@@ -1179,6 +1248,7 @@
       if(jobTime) jobTime.value = '';
       ['discAmt','discPct'].forEach(function(id){ var d = document.getElementById(id); if(d) d.value = ''; });
       var wm = document.getElementById('waiveMin'); if(wm) wm.checked = false;
+      var wf = document.getElementById('waiveFee'); if(wf) wf.checked = false;
       syncService();
       calc();
       window.scrollTo({ top:0, behavior:'smooth' });
@@ -1208,7 +1278,8 @@
     return JSON.parse(JSON.stringify({
       v:1, active: activeSvc, state: STATE,
       discAmt: dA ? dA.value : '', discPct: dP ? dP.value : '',
-      waiveMin: !!(document.getElementById('waiveMin') || {}).checked
+      waiveMin: !!(document.getElementById('waiveMin') || {}).checked,
+      waiveFee: !!(document.getElementById('waiveFee') || {}).checked
     }));
   };
 
@@ -1228,6 +1299,7 @@
     if(dA) dA.value = form.discAmt || '';
     if(dP) dP.value = form.discPct || '';
     var wm = document.getElementById('waiveMin'); if(wm) wm.checked = !!form.waiveMin;
+    var wf = document.getElementById('waiveFee'); if(wf) wf.checked = !!form.waiveFee;
     var t = STATE.carpet.tier, tid = t==='signature' ? 'tSig' : (t==='quickdry' ? 'tQuick' : (t==='essential' ? 'tEss' : 'tDeep'));
     document.getElementById(tid).checked = true;
     var radio = document.querySelector('input[name="svc"][value="' + (form.active || 'carpet') + '"]');

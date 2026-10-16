@@ -45,6 +45,8 @@ function fromForm(q){
     },
     lines: JSON.parse(JSON.stringify(q.lines)),
     subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel,
+    freeLines: q.freeLines || [], freeTotal: q.freeTotal || 0,   /* "Free pet treatment × 2" etc. */
+    feeWaived: !!q.feeWaived,   /* no 3% card fee on this one; carries to the invoice */
     total: q.total, minApplied: q.minApplied, sqftTotal: q.sqftTotal,
     notes: val('eNotes'),
     scheduledDate: val('eWhen'),   /* Job date, "2026-10-08". Same field the calendar's Change date writes; blank = no date. */
@@ -267,6 +269,8 @@ async function loadForEdit(id, from){
     if ($('eBiz') && c.business) $('eBiz').value = c.business;
 
     if (d.form) window.KC_restore(d.form);
+    /* The saved doc decides the card fee, so a Dashboard "Waive fee" tap isn't undone by editing. */
+    if ($('waiveFee')) { $('waiveFee').checked = !!d.feeWaived; $('waiveFee').dispatchEvent(new Event('change', { bubbles: true })); }
     edit = { id, from, data: d };
     /* Keep the estimate filed under the same customer or lead as before. */
     if ($('eCustId')) $('eCustId').value = d.customerId || '';

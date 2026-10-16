@@ -638,6 +638,7 @@ function render(d){
       <div class="totalrow">
         <div class="totals">
         <div><span>Subtotal</span><span>${money(d.subtotal)}</span></div>
+        ${(d.freeLines || []).map(f => `<div><span>${esc(f.label)}</span><span>&minus;${money(f.amount)}</span></div>`).join("")}
         ${d.discount > 0 ? `<div><span>${esc(d.discountLabel || "Discount")}</span><span>&minus;${money(d.discount)}</span></div>` : ""}
         ${d.tax ? `<div><span>Tax (${d.taxRate}%)</span><span>${money(d.tax)}</span></div>` : ""}
         <div class="grand"><span>Total</span><span>${money(d.total)}</span></div>

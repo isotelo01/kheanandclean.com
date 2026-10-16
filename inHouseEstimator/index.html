@@ -217,6 +217,19 @@
           <label class="add" style="margin-top:.9rem;border-bottom:0">
             <input type="checkbox" id="waiveMin"> Waive minimum charge <span class="add__c">No $150 minimum</span>
           </label>
+          <label class="add" style="border-bottom:0">
+            <input type="checkbox" id="waiveFee"> Waive card fee <span class="add__c">No 3% on card payments</span>
+          </label>
+          <!-- Free pet / stain / stretching: counters, capped at what's on the estimate (app.js). -->
+          <div class="add addQty" style="border-bottom:0"><span>Free pet treatment <span class="add__c" id="free_pet_c"></span></span>
+            <div class="step step--sm" style="margin-left:auto"><button type="button" data-free="pet" data-d="-1" aria-label="Decrease">&minus;</button><input type="number" min="0" step="1" id="free_pet" value="0"><button type="button" data-free="pet" data-d="1" aria-label="Increase">+</button></div>
+          </div>
+          <div class="add addQty" style="border-bottom:0"><span>Free stain treatment <span class="add__c" id="free_stain_c"></span></span>
+            <div class="step step--sm" style="margin-left:auto"><button type="button" data-free="stain" data-d="-1" aria-label="Decrease">&minus;</button><input type="number" min="0" step="1" id="free_stain" value="0"><button type="button" data-free="stain" data-d="1" aria-label="Increase">+</button></div>
+          </div>
+          <div class="add addQty" style="border-bottom:0"><span>Free carpet stretching <span class="add__c" id="free_stretch_c"></span></span>
+            <div class="step step--sm" style="margin-left:auto"><button type="button" data-free="stretch" data-d="-1" aria-label="Decrease">&minus;</button><input type="number" min="0" step="1" id="free_stretch" value="0"><button type="button" data-free="stretch" data-d="1" aria-label="Increase">+</button></div>
+          </div>
         </fieldset>
       </div>
 
@@ -630,19 +643,36 @@ async function show() {
     if (!items.length) { box.textContent = 'No saved line items yet.'; return; }
     box.innerHTML = '';
     items.forEach(it => {
+      /* Same look as the add-on rows: name + price, − qty + counter, small × in the corner. */
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid rgba(127,127,127,.25);color:var(--bone)';
-      const name = document.createElement('span'); name.style.flex = '1'; name.textContent = it.desc;
-      const amt = document.createElement('span'); amt.textContent = '$' + (+it.price || 0).toFixed(2);
-      const addB = document.createElement('button'); addB.type = 'button'; addB.className = 'btn btn--jade'; addB.textContent = 'Add';
-      addB.onclick = () => window.kcAddLine(it.desc, it.price);
-      const delB = document.createElement('button'); delB.type = 'button'; delB.className = 'btn btn--jade'; delB.textContent = 'Remove';
+      row.className = 'add addQty';
+      row.style.cssText = 'position:relative;padding-right:1.6rem';
+      const name = document.createElement('span');
+      name.innerHTML = '<span></span> <span class="add__c"></span>';
+      name.firstChild.textContent = it.desc;
+      name.lastChild.textContent = '$' + (+it.price || 0).toFixed(2) + ' each';
+      const step = document.createElement('div');
+      step.className = 'step step--sm'; step.style.marginLeft = 'auto';
+      step.innerHTML = '<button type="button" aria-label="Decrease">&minus;</button>' +
+                       '<input type="number" min="0" step="1">' +
+                       '<button type="button" aria-label="Increase">+</button>';
+      const [minus, qty, plus] = step.children;
+      qty.value = window.kcLineQty ? window.kcLineQty(it.id) : 0;
+      const set = n => { qty.value = Math.max(0, Math.floor(+n || 0)); window.kcSetLine(it.id, it.desc, it.price, qty.value); };
+      minus.onclick = () => set(+qty.value - 1);
+      plus.onclick = () => set(+qty.value + 1);
+      qty.oninput = () => set(qty.value);
+      const delB = document.createElement('button');
+      delB.type = 'button'; delB.textContent = '\u00d7'; delB.title = 'Delete from saved items';
+      delB.setAttribute('aria-label', 'Delete ' + it.desc);
+      delB.style.cssText = 'position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;border-radius:50%;' +
+        'border:1px solid rgba(227,182,74,.6);background:transparent;color:var(--gold,#E3B64A);font-size:14px;line-height:1;cursor:pointer';
       delB.onclick = async () => {
-        if (!confirm('Remove "' + it.desc + '" from saved items?')) return;
+        if (!confirm('Delete "' + it.desc + '" from saved items?')) return;
         try { await deleteDoc(doc(db, COL, it.id)); row.remove(); if (!box.children.length) box.textContent = 'No saved line items yet.'; }
-        catch (err) { alert('Could not remove it.'); console.error(err); }
+        catch (err) { alert('Could not delete it.'); console.error(err); }
       };
-      row.append(name, amt, addB, delB); box.appendChild(row);
+      row.append(name, step, delB); box.appendChild(row);
     });
   } catch (err) { box.textContent = 'Could not load saved items.'; console.error(err); }
 }
