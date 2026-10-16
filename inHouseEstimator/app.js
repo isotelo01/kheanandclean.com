@@ -853,7 +853,13 @@
         else if(a.needsQty)  cost = (ast.qty||0) * a.linear;
         else if(a.flat) cost = a.flat;
         else            cost = sqft * a.sqft;
-        if(cost > 0) items.push({ label: (k === 'stairs' && (st.rooms.stairs || 0) > 1) ? 'Flights of Stairs' : a.name, cost: cost });
+        // Show the count: "Pet odor treatment × 5". Footage add-ons show the amount instead.
+        var n = k === 'stairs' ? (st.rooms.stairs || 0) : (a.needsQty ? (+ast.qty || 0) : 0);
+        var nm = (k === 'stairs' && n > 1) ? 'Flights of Stairs' : a.name;
+        if(k === 'filter' && n > 0) nm += ' \u2014 ' + n + ' ft';
+        else if((k === 'seal' || k === 'acid') && n > 0) nm += ' \u2014 ' + n + ' sq ft';
+        else if(n > 1) nm += ' \u00d7 ' + n;
+        if(cost > 0) items.push({ label: nm, cost: cost });
       });
 
       return items;
