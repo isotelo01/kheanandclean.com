@@ -1,7 +1,7 @@
 /* Send Estimate — stage one: save the quote to Firestore and hand back a link.
    The link opens quote.html (stage two). Unapproved quotes expire after 30 days. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp,
+import { getFirestore, doc, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp,
          collection, query, where, limit, getDocs, deleteField }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged }
@@ -34,6 +34,12 @@ function show(text, isErr){
   msg.classList.toggle('is-err', !!isErr);
 }
 
+/* Reads the estimate back from the server (not the phone's copy). No match = not saved. */
+async function confirmSaved(col, id, number){
+  const s = await getDocFromServer(doc(db, col, id));
+  if (!s.exists() || s.data().number !== number) throw new Error('could not confirm it saved, try again');
+}
+
 /* Everything that comes from the form. Used for new quotes and for edits.
    "form" is the snapshot of choices that lets Edit reopen the estimate later. */
 function fromForm(q){
@@ -62,8 +68,7 @@ function showLink(id, number, text){
   const body = 'Hi' + (first ? ' ' + first : '') + ', here is your Khean & Clean estimate ' + number + ': ' + link;
   const phone = val('ePhone').replace(/\D/g, '');
   $('qLinkSms').href = 'sms:' + (phone ? '+1' + phone : '') + '?&body=' + encodeURIComponent(body);
-  show(text);
-  return { link, body };
+  return { link, body };   /* no link box anymore: Save confirms, then the Dashboard */
 }
 
 /* After a new estimate saves: offer text or email, then go to the Dashboard.
@@ -347,6 +352,7 @@ async function saveEdit(q, backToEstimates){
   await setDoc(doc(db, target, edit.id), merged);           /* copy first ... */
   if (target !== edit.from) await deleteDoc(doc(db, edit.from, edit.id));   /* ... then remove */
   await fileContact(edit.id, target, merged.number);
+  await confirmSaved(target, edit.id, merged.number);
   edit.from = target; edit.data = merged;
   showLink(edit.id, merged.number, text);
 }
@@ -370,8 +376,14 @@ btn.addEventListener('click', async () => {
   }
 
   btn.disabled = true; btn.textContent = 'Saving…';
+  let leaving = false;
   try {
-    if (edit) { await saveEdit(q); return; }
+    if (edit) {
+      await saveEdit(q);   /* throws unless the server copy checks out */
+      leaving = true; btn.textContent = 'Saved \u2713';
+      setTimeout(() => { location.href = './dashboard.html'; }, 900);
+      return;
+    }
 
     /* Next quote number, Q-1001 onward. A transaction so two sends can't share a number. */
     const n = await runTransaction(db, async (tx) => {
@@ -389,15 +401,17 @@ btn.addEventListener('click', async () => {
       expiresAt: Timestamp.fromMillis(Date.now() + 30 * 864e5)
     }, fromForm(q)));
     await fileContact(id, 'quotes', number);
+    await confirmSaved('quotes', id, number);
 
     const sent = showLink(id, number, 'Saved as ' + number + '. Link is good for 30 days unless approved.');
+    leaving = true; btn.textContent = 'Saved \u2713';
     askHowToSend(number, sent.link, sent.body);
   } catch (e) {
     console.error(e);
     show('Could not save — ' + (e && e.message ? e.message : 'check your connection') + '.', true);
     url.value = '';
   } finally {
-    btn.disabled = false; btn.textContent = edit ? 'Save changes' : 'Send Estimate';
+    if (!leaving) { btn.disabled = false; btn.textContent = edit ? 'Save changes' : 'Send Estimate'; }
   }
 });
 
