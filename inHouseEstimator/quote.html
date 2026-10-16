@@ -77,6 +77,14 @@ br.tl{display:none}
 .pname{font-weight:700;margin-bottom:3px}
 .pnote{font-size:13.5px;color:var(--muted);line-height:1.4}
 .payhelp{margin:14px 0 0;font-size:14px;color:var(--muted)}
+/* Optional tip: one button, opens a single amount box. Card's 3% fee is on the service only, never the tip. */
+.pay [hidden]{display:none!important}
+.tipbox{margin:0 0 16px}
+.tipbtn{padding:10px 18px;font:700 16px "Archivo",sans-serif;border:2px solid var(--gold)!important;color:var(--gold)!important;border-radius:8px;cursor:pointer}
+.tiprow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tiprow .tipcur{font:700 19px "Archivo",sans-serif}
+.tiprow input{width:130px;padding:10px 12px;font:600 18px "Archivo",sans-serif;border:1px solid var(--gold);border-radius:8px}
+.tipnote{margin:8px 0 0;font-size:14px;color:var(--muted)}
 .status{display:inline-block;font-weight:700;padding:4px 12px;border-radius:20px;font-size:14px}
 .status.paid,.status.accepted{background:#e5f2ec;color:var(--green)}
 .status.unpaid{background:#fbe9e6;color:var(--red)}
@@ -140,7 +148,7 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 .termsDlg[open]{display:flex;flex-direction:column}
 .termsDlg::backdrop{background:rgba(0,0,0,.75)}
 .termsDlg iframe{flex:1;min-height:0;width:100%;border:0;background:#0d1b2a}
-.termsDlg .tfoot{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:14px 16px;border-top:1px solid rgba(227,182,74,.45);background:#0b0f17}
+.termsDlg .tfoot{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;min-height:124px;padding:14px 20px;border-top:1px solid rgba(227,182,74,.45);background:#0b0f17}
 .termsDlg .tfoot .terms{margin:0;font-size:16px;font-weight:600}
 .accept [hidden]{display:none!important}
 /* Customer message box: one small line until tapped, then it opens with an optional photo link. */
@@ -633,6 +641,9 @@ function render(d){
         ${d.discount > 0 ? `<div><span>${esc(d.discountLabel || "Discount")}</span><span>&minus;${money(d.discount)}</span></div>` : ""}
         ${d.tax ? `<div><span>Tax (${d.taxRate}%)</span><span>${money(d.tax)}</span></div>` : ""}
         <div class="grand"><span>Total</span><span>${money(d.total)}</span></div>
+        ${d.cardFee > 0 ? `<div><span>Card fee (3%)</span><span>${money(d.cardFee)}</span></div>` : ""}
+        ${d.tip > 0 ? `<div><span>Tip</span><span>${money(d.tip)}</span></div>` : ""}
+        ${d.amountPaid > 0 && (d.tip > 0 || d.cardFee > 0) ? `<div><span><strong>Paid</strong></span><span><strong>${money(d.amountPaid)}</strong></span></div>` : ""}
         </div>
       </div>
       ${d.minApplied ? `<p style="text-align:right;color:var(--muted);font-size:14px;margin:6px 0 0">Minimum service charge applied.</p>` : ""}
@@ -684,24 +695,33 @@ function render(d){
       ${!isQuote && d.status !== "paid" ? `
       <div class="pay">
         <h2>Ways to pay</h2>
-        <p class="payamt">Amount due <strong>${money(d.total)}</strong></p>
+        <p class="payamt">Amount due <strong id="payDue">${money(d.total)}</strong></p>
+        <div class="tipbox">
+          <button type="button" class="ghost tipbtn" id="tipBtn">+ Add a tip</button>
+          <div class="tiprow" id="tipRow" hidden>
+            <span class="tipcur">$</span>
+            <input id="tipAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" aria-label="Tip amount">
+            <button type="button" class="ghost" id="tipClear">No tip</button>
+          </div>
+          <p class="tipnote" id="tipNote" hidden></p>
+        </div>
         <div class="paygrid">
           <div class="paybox">
             ${PICO.dollar}<div class="pname">Zelle</div>
             <div class="pnote">No fees. Send to <strong>${ZELLE}</strong> from your bank app.</div>
           </div>
-          <a class="paybox go" href="https://venmo.com/${VENMO}?txn=pay&amount=${Number(d.total).toFixed(2)}&note=${encodeURIComponent("Khean & Clean " + d.number)}" target="_blank" rel="noopener">
+          <a class="paybox go" id="venmoPay" href="https://venmo.com/${VENMO}?txn=pay&amount=${Number(d.total).toFixed(2)}&note=${encodeURIComponent("Khean & Clean " + d.number)}" target="_blank" rel="noopener">
             ${PICO.phone}<div class="pname">Venmo</div>
             <div class="pnote">Opens Venmo with the amount filled in.</div>
           </a>
-          <a class="paybox go" href="https://paypal.me/${PAYPAL_ME}/${Number(d.total).toFixed(2)}" target="_blank" rel="noopener">
+          <a class="paybox go" id="paypalPay" href="https://paypal.me/${PAYPAL_ME}/${Number(d.total).toFixed(2)}" target="_blank" rel="noopener">
             ${PICO.wallet}<div class="pname">PayPal</div>
             <div class="pnote">Pay with a PayPal balance or a card.</div>
           </a>
           ${CHECKOUT_URL ? `
           <a class="paybox go card" href="#" id="cardPay">
             ${PICO.card}<div class="pname">Card or Apple Pay</div>
-            <div class="pnote">Visa, Mastercard, Amex, Apple Pay, Google Pay.</div>
+            <div class="pnote" id="cardNote">Visa, Mastercard, Amex, Apple Pay, Google Pay.</div>
           </a>` : `
           <div class="paybox soon">
             ${PICO.card}<div class="pname">Card or Apple Pay</div>
@@ -715,13 +735,44 @@ function render(d){
 
   if (document.getElementById("photoBox")) wireNote(d, isQuote, num);
 
+  /* Tip: optional. It adds to every way to pay. The card's 3% fee is figured on the service total only,
+     never the tip. The card charge itself is recomputed by createCheckout on the server. */
+  let tip = 0;
+  const tipBtn = document.getElementById("tipBtn");
+  if (tipBtn) {
+    const svc = Number(d.total) || 0, fee = d.feeWaived ? 0 : Math.round(svc * 100 * 0.03) / 100;
+    const tipRow = document.getElementById("tipRow"), tipAmt = document.getElementById("tipAmt"),
+      tipNote = document.getElementById("tipNote"), due = document.getElementById("payDue"),
+      venmo = document.getElementById("venmoPay"), paypal = document.getElementById("paypalPay"),
+      cardNote = document.getElementById("cardNote");
+    const tipSync = () => {
+      const v = Math.round((parseFloat(tipAmt.value) || 0) * 100) / 100;
+      tip = v > 0 && v <= 1000 ? v : 0;
+      const sum = svc + tip;
+      due.textContent = money(sum);
+      tipNote.hidden = !tip;
+      tipNote.textContent = tip ? `Includes a ${money(tip)} tip. Thank you!` : "";
+      if (venmo) venmo.href = venmo.href.replace(/amount=[\d.]+/, "amount=" + sum.toFixed(2));
+      if (paypal) paypal.href = paypal.href.replace(/\/[\d.]+$/, "/" + sum.toFixed(2));
+      if (cardNote) cardNote.textContent = fee
+        ? `Adds a 3% card fee (${money(fee)}) on the service, not the tip. Charged ${money(sum + fee)}.`
+        : `No card fee. Charged ${money(sum)}.`;
+    };
+    tipBtn.addEventListener("click", () => { tipBtn.hidden = true; tipRow.hidden = false; tipAmt.focus(); });
+    tipAmt.addEventListener("input", tipSync);
+    document.getElementById("tipClear").addEventListener("click", () => {
+      tipAmt.value = ""; tipSync(); tipRow.hidden = true; tipBtn.hidden = false;
+    });
+    tipSync();
+  }
+
   const cardPay = document.getElementById("cardPay");
   if (cardPay) cardPay.addEventListener("click", async e => {
     e.preventDefault();
     const note = cardPay.querySelector(".pnote"), was = note.textContent;
     note.textContent = "Opening secure checkout…";
     try {
-      const r = await fetch(CHECKOUT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const r = await fetch(CHECKOUT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, tip }) });
       const j = await r.json();
       if (!r.ok || !j.url) throw new Error(j.error || "No checkout URL");
       location.href = j.url;

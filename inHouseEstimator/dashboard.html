@@ -52,6 +52,9 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .invbtn[disabled]{opacity:.55;cursor:default}
 .textbtn,.mailbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
 .textbtn:hover,.mailbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
+.feebtn{display:block;margin:7px 0 0 auto;background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer}
+.feebtn.on{background:var(--gold);color:#0b0f17}
+.feebtn[disabled]{opacity:.55;cursor:default}
 .mailbtn.off,.mailbtn.off:hover{background:#fff;color:#b3b8c2;border-color:var(--line);cursor:default}
 .who{font-weight:600}
 .meta{color:var(--muted);font-size:14px;margin-top:2px}
@@ -99,6 +102,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
   <div class="top">
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
+      <button type="button" id="refreshBtn" class="trashbtn" title="Refresh" aria-label="Refresh">&#10227;</button>
       <button type="button" id="trashToggle" class="trashbtn" aria-pressed="false" title="Trash">&#128465;<span id="trashCount"></span></button>
       <a class="custbtn" href="./leads.html">Leads</a>
       <a class="custbtn" href="./approved-leads.html">Approved</a>
@@ -200,6 +204,11 @@ const card = r =>
             ? '<button type="button" class="mailbtn" data-mail="' + esc(r.id) + '" data-email="' + esc(r.email) + '" data-kind="' + kindOf(r) + '">Email</button>'
             : '<button type="button" class="mailbtn off" aria-disabled="true" title="No email on file">Email</button>')
         : '') +
+      /* Staff only: drop the 3% card fee on this one invoice. Tap again to put it back. */
+      (r.source === "invoices"
+        ? '<button type="button" class="feebtn' + (r.feeWaived ? ' on' : '') + '" data-fee="' + esc(r.id) + '">' +
+            (r.feeWaived ? 'Fee waived \u2713' : 'Waive fee') + '</button>'
+        : '') +
     '</div>' +
     (r.source !== "trash"
       ? '<button type="button" class="del" data-del="' + esc(r.id) + '" data-from="' + esc(r.source) + '" aria-label="Move to trash" title="Move to trash">&times;</button>'
@@ -278,9 +287,15 @@ async function grab(name){
     const d = docSnap.data(), c = d.customer || {};
     return { id: docSnap.id, source: name, createdAt: d.createdAt, revisionOf: d.revisionOf || "", fromJobSheet: !!d.fromJobSheet,
              number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",
-             total: d.total, paidAt: d.paidAt, trashedAt: d.trashedAt, date: when(d.createdAt), state: stateOf(d) };
+             total: d.total, feeWaived: !!d.feeWaived, paidAt: d.paidAt, trashedAt: d.trashedAt, date: when(d.createdAt), state: stateOf(d) };
   });
 }
+
+/* Refresh button (top bar): re-pulls the lists without reloading the page. */
+document.getElementById("refreshBtn").addEventListener("click", async e => {
+  const b = e.currentTarget; b.disabled = true;
+  try { await load(); } finally { b.disabled = false; }
+});
 
 async function load(){
   try {
@@ -478,6 +493,21 @@ boardEl.addEventListener("click", e => {
   const subject = "Your " + kind + " from Khean & Clean";
   const body = "Hi, here's your " + kind + " from Khean & Clean:\n\n" + link;
   location.href = "mailto:" + encodeURIComponent(m.dataset.email) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+});
+
+/* Waive fee: toggles the 3% card fee off/on for this one invoice. The customer page and
+   createCheckout both read feeWaived, so the card charge drops to service + tip. */
+boardEl.addEventListener("click", async e => {
+  const f = e.target.closest(".feebtn");
+  if (!f) return;
+  e.preventDefault(); e.stopPropagation();
+  const id = f.getAttribute("data-fee"), on = !f.classList.contains("on");
+  f.disabled = true;
+  try { await setDoc(doc(db, "invoices", id), { feeWaived: on }, { merge: true }); await load(); }
+  catch (err) {
+    console.error(err); f.disabled = false;
+    alert("Couldn't change the card fee. If it keeps failing, check the Firestore Rules for \"invoices\".");
+  }
 });
 
 boardEl.addEventListener("click", async e => {
