@@ -339,6 +339,24 @@ async function load(){
       ns.docs.forEach(x => { const n = x.data();
         if (String(n.text || "").trim() || (n.photoPaths || []).length) flags[x.id] = n; });
     } catch (e) { console.error("quote notes", e); }
+    /* Name links: records without a saved customerId/leadId are matched by phone or email
+       (customer first, then lead). A failure here just leaves names unlinked. */
+    try {
+      const [cs, ls] = await Promise.all([getDocs(collection(db, "customers")), getDocs(collection(db, "leads"))]);
+      const cMap = {}, lMap = {};
+      cs.docs.forEach(x => { const v = x.data(); if (v.trashed) return;
+        [...(v.phoneKeys || []), v.phoneKey, phoneKey(v.phone)].filter(Boolean).forEach(k => cMap["p" + k] ||= x.id);
+        [...(v.emailKeys || []), v.emailKey, emailKey(v.email)].filter(Boolean).forEach(k => cMap["e" + k] ||= x.id); });
+      ls.docs.forEach(x => { const v = x.data(); if (v.trashed) return;
+        const pk = phoneKey(v.phone), ek = emailKey(v.email);
+        if (pk) lMap["p" + pk] ||= x.id; if (ek) lMap["e" + ek] ||= x.id; });
+      Object.values(data).flat().forEach(r => {
+        if (r.custId) return;
+        const pk = phoneKey(r.phone), ek = emailKey(r.email);
+        r.custId = (pk && cMap["p" + pk]) || (ek && cMap["e" + ek]) || "";
+        if (!r.custId && !r.leadId) r.leadId = (pk && lMap["p" + pk]) || (ek && lMap["e" + ek]) || "";
+      });
+    } catch (e) { console.error("name links", e); }
     const tc = document.getElementById("trashCount");
     if (tc) tc.textContent = (data.trash || []).length || "";
     loaded = true;
