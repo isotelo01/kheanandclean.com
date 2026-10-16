@@ -414,11 +414,11 @@ async function showLead(id){
       '</div>' +
       '<h2>Photos</h2>' +
       '<div id="photos"><div class="msg">' + (photoCount(l) ? 'Loading photos&hellip;' : 'No photos with this lead.') + '</div></div>' +
-      '<h2>Status</h2>' +
-      '<div class="actions">' +
-        STATUSES.map(s => '<button type="button" class="' + (s.v === cur ? "new" : "ghost") + '" data-status="' + s.v + '">' + s.label + '</button>').join("") +
-      '</div>' +
-      (l.quoteId ? '<div class="actions" id="quoteLinks"></div>' : '') +
+      /* Status: just the current one, set on its own (Call / Text / Email -> Contacted).
+         Once there's a quote, no status at all: only the quote buttons. */
+      (l.quoteId
+        ? '<div class="actions" id="quoteLinks" style="margin-top:22px"></div>'
+        : '<h2>Status</h2><div class="actions"><span class="new" id="stLabel" style="cursor:default">' + esc(statusOf(l).label) + '</span></div>') +
       '<h2>Notes</h2>' +
       '<div class="notesbox">' +
         '<textarea id="staffNotes" rows="4" placeholder="Notes about this lead\u2026">' + esc(l.staffNotes || "") + '</textarea>' +
@@ -664,6 +664,15 @@ async function showLead(id){
       showLead(id);
     } catch (e) { console.error(e); msg.classList.add("err"); msg.textContent = "Could not save: " + e.message; saveMsg.disabled = false; }
   });
+
+  /* Call / Text / Email on a New lead: it becomes Contacted on its own. */
+  view.querySelectorAll('a[href^="tel:"], a[href^="sms:"], a[href^="mailto:"]').forEach(a => a.addEventListener("click", () => {
+    const cur2 = (all && all.find(x => x.id === id)) || l;
+    if (statusOf(cur2).v !== "new") return;
+    updateDoc(doc(db, "leads", id), { status: "contacted", updatedAt: serverTimestamp() })
+      .then(() => { patchLocal({ status: "contacted" }); const s = document.getElementById("stLabel"); if (s) s.textContent = "Contacted"; })
+      .catch(e => console.error("Contacted", e));
+  }));
 
   /* Quote canceled: drop the lead out of Quoted, back to a regular lead. */
   const cancelQuoteBtn = document.getElementById("cancelQuoteBtn");
