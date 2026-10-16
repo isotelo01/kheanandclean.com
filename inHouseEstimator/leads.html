@@ -448,12 +448,17 @@ async function showLead(id){
   if (l.quoteId) (async () => {
     const box = document.getElementById("quoteLinks");
     const qid = encodeURIComponent(l.quoteId), num = l.quoteNumber ? " " + esc(l.quoteNumber) : "";
-    let from = "quotes";
-    try { if ((await getDoc(doc(db, "acceptedQuotes", l.quoteId))).exists()) from = "acceptedQuotes"; }
+    let from = "quotes", upd = null;
+    try { if ((await getDoc(doc(db, "acceptedQuotes", l.quoteId))).exists()) from = "acceptedQuotes";
+      else { const s = await getDoc(doc(db, "quotes", l.quoteId)); if (s.exists() && s.data().fromJobSheet) upd = s.data(); } }
     catch (e) { console.error("Quote lookup", e); }
     if (!box || !box.isConnected) return;
+    /* Updated quote from a job sheet, waiting on approval: the original quote and the job sheet stay reachable. */
+    const og = upd && upd.originalQuote;
     box.innerHTML = '<a class="ghost" href="./index.html?edit=' + qid + '&amp;from=' + from + '">Open quote' + num + '</a>' +
-      (from === "acceptedQuotes" ? '<a class="ghost" href="./job-sheet.html?id=' + qid + '">Job sheet</a>' : '');
+      (og ? '<a class="ghost" href="./quote.html?id=' + qid + '&amp;original=1" target="_blank" rel="noopener">Original quote' +
+        (og.total != null ? ' &middot; $' + Number(og.total).toFixed(2) : '') + '</a>' : '') +
+      (from === "acceptedQuotes" || upd ? '<a class="ghost" href="./job-sheet.html?id=' + qid + '">Job sheet</a>' : '');
   })();
 
   /* Photos. Older leads carry links; newer ones carry storage paths, which only
