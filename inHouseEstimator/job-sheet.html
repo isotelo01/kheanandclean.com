@@ -1064,7 +1064,7 @@ async function show(){
       '<div class="meta" style="margin-top:6px">' + esc([q.number,
         ms(q.acceptedAt) ? "Approved " + shortDate(ms(q.acceptedAt)) : ""].filter(Boolean).join(" \u00b7 ")) + '</div>' +
 
-      '<h2 class="staff">Notes</h2><div id="notes" class="staff">' + rrow("Quote notes", q.notes) + '<div class="msg">Loading&hellip;</div></div>' +
+      '<h2 class="staff">Notes from quote and estimate</h2><div id="notes" class="staff">' + rrow("Quote notes", q.notes) + '<div class="msg">Loading&hellip;</div></div>' +
       '<div style="margin-top:24px">' + photoBox("notes", "Notes photos") + '</div>' +   /* shown read-only in the Summary */
 
       '<h2>The Job</h2>' +
@@ -1330,6 +1330,19 @@ async function show(){
       /* Customer-profile notes stay on the customer's profile; the Job Sheet shows job notes only. */
       note1("Quote notes", q.notes);
     notesEl.innerHTML = html || '<div class="msg">No notes on file.</div>';
+    /* Photos the customer sent: from the message box on their quote, and from the website estimate (their lead). */
+    const custPaths = [...new Set(pathsOf({ photoPaths: [...((qnote && qnote.photoPaths) || []), ...((lead && lead.photoPaths) || [])] }))];
+    const custUrls = [...((lead && Array.isArray(lead.photos)) ? lead.photos : [])].filter(u => typeof u === "string" && /^https:\/\//.test(u));
+    if (custPaths.length || custUrls.length) {
+      const urls = custUrls.concat((await Promise.all(custPaths.map(p =>
+        getDownloadURL(ref(storage, p)).catch(e => { console.error("Customer photo " + p, e); return null; })))).filter(Boolean));
+      if (urls.length && notesEl.isConnected) {
+        if (!html) notesEl.innerHTML = "";
+        notesEl.insertAdjacentHTML("beforeend", '<div class="rrow"><div class="rlab">Customer photos</div></div>' +
+          '<div class="jpgrid">' + urls.map(u => '<div class="jpcell"><a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) +
+          '"><img src="' + esc(u) + '" alt="" loading="lazy"></a></div>').join("") + '</div>');
+      }
+    }
   }
   /* No autofilled photo section: room photos stay on each room's page; Job photos and
      Finishing photos are manual uploads only. */
