@@ -158,6 +158,9 @@ button.dnum{border:0;background:none;padding:0;color:inherit;cursor:pointer}
 .dcrow a{color:var(--navy)}
 .dcsvc{margin-top:4px;color:var(--muted);font-size:14px}
 .dcfoot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+/* Edit / Delete right on a Misc / Job / EDH card in the day view */
+.blkacts{display:flex;gap:8px;margin-top:8px}
+.blkacts .ghost{padding:5px 12px;font-size:13px}
 .dctot{font-weight:700;margin-right:auto;font-variant-numeric:tabular-nums}
 .sm{padding:6px 12px;font-size:14px}
 .dempty{background:#fff;border-radius:10px;padding:18px;color:var(--muted);text-align:center}
@@ -653,12 +656,14 @@ function dayCard(j){
     '</div></article>';
 }
 
-/* Misc / Job / EDH entry in the day view; tap the name for Delete. */
+/* Misc / Job / EDH entry in the day view, with its own Edit and Delete buttons. */
 const blkCard = b => '<article class="dcard blk b-' + b.kind + '">' +
   '<div class="dctime">' + spanText(b) + '</div>' +
   '<div><button type="button" class="dcname" data-blk="' + esc(b.id) + '">' + KINDS[b.kind] + '</button>' +
     (b.note ? '<div class="dcrow">' + esc(b.note) + '</div>' : '') +
-    '<div class="dcsvc">' + esc(ruleOf(b)) + '</div></div></article>';
+    '<div class="dcsvc">' + esc(ruleOf(b)) + '</div>' +
+    '<div class="blkacts"><button type="button" class="ghost" data-editblk="' + esc(b.id) + '">Edit</button>' +
+      '<button type="button" class="ghost danger" data-delblkask="' + esc(b.id) + '">Delete</button></div></div></article>';
 const carryCard = b => '<article class="dcard blk b-edh carry">' +
   '<div class="dctime">AM slot</div>' +
   '<div><button type="button" class="dcname" data-blk="' + esc(b.id) + '">Blocked</button>' +
@@ -886,12 +891,12 @@ function showHourMenu(h){
 
 function showBlockForm(kind, pre = {}){
   const edh = kind === "edh", start = HOURS.includes(pre.start) ? pre.start : "";
-  openDlg('<h3>Add ' + (edh ? "EDH shift" : "Miscellaneous / Job") + '</h3>' +
+  openDlg('<h3>' + (pre.editing ? "Edit " : "Add ") + (edh ? "EDH shift" : "Miscellaneous / Job") + '</h3>' +
     '<form id="blkForm" novalidate>' +
       '<label class="fld"><span>Date</span><input type="date" id="bDate" value="' + esc(pre.date || dayKey || todayKey()) + '"></label>' +
       (edh ? '' : '<div class="fld"><span>What it is</span><div class="hrs two" role="radiogroup" aria-label="What it is">' +
-        '<label class="hr"><input type="radio" name="bType" value="misc" checked><span>Miscellaneous</span></label>' +
-        '<label class="hr"><input type="radio" name="bType" value="job"><span>Job</span></label></div></div>' +
+        '<label class="hr"><input type="radio" name="bType" value="misc"' + (pre.type === "job" ? '' : ' checked') + '><span>Miscellaneous</span></label>' +
+        '<label class="hr"><input type="radio" name="bType" value="job"' + (pre.type === "job" ? ' checked' : '') + '><span>Job</span></label></div></div>' +
         '<div class="fld" id="bJobF" style="display:none"><span>When</span><div class="hrs two" role="radiogroup" aria-label="When">' +
         JOB_SPANS.map(([s, e, name], i) => '<label class="hr"><input type="radio" name="bJob" value="' + s + '-' + e + '"' +
           ((start >= "13:00" ? i === 1 : i === 0) ? ' checked' : '') + '><span>' + name + '<br>' + time12(s) + ' \u2013 ' + time12(e) +
@@ -904,13 +909,17 @@ function showBlockForm(kind, pre = {}){
           : '<button type="button" class="hr" data-pickh="' + h + '" aria-pressed="false"><span>' + time12(h) + '</span></button>').join("") +
       '</div></div>' +
       '<p class="state" id="bRule"></p>' +
-      '<label class="fld"><span>Note (optional)</span><input type="text" id="bNote" maxlength="80"></label>' +
+      '<label class="fld"><span>Note (optional)</span><input type="text" id="bNote" maxlength="80" value="' + esc(pre.note || "") + '"></label>' +
       '<p class="err" id="sErr" role="alert"></p>' +
       '<div class="acts"><button type="submit" class="new">Save to calendar</button>' +
         '<button type="button" class="ghost" data-close>Cancel</button></div>' +
     '</form>');
   const form = document.getElementById("blkForm"), box = document.getElementById("bHrs"), rule = document.getElementById("bRule");
   let a = edh ? "" : start, z = "";   // Misc / Job: start time and end time tapped
+  if (!edh && a && pre.end) {   // editing a Misc entry: re-select its last hour too
+    const last = pad(Number(pre.end.slice(0, 2)) - 2) + ":00";
+    if (last > a && HOURS.includes(last)) z = last;
+  }
   const day = () => document.getElementById("bDate").value;
   const hits = (taken, s, last) => rowsOf(s, plus2(last)).some(h => taken.has(h));   // Misc s..last runs into a taken hour
   const show = () => {
@@ -1000,6 +1009,12 @@ async function saveBlock(kind){
     btns.forEach(x => x.disabled = false);
     return;
   }
+  if (editing) {   // edit: the new entry is saved, now remove the old one
+    const old = editing;
+    editing = null;
+    try { await deleteDoc(doc(db, "calendarBlocks", old.id)); }
+    catch (e) { console.error(e); blocks.push(old); alert("Saved the change, but the old entry couldn\u2019t be removed: " + e.message); }
+  }
   blocks.push(b);
   index();
   dlg.close();
@@ -1015,9 +1030,27 @@ function showBlock(b){
     '<p class="state">' + esc(ruleOf(b) + next) + '</p>' +
     rrow("Note", b.note ? esc(b.note) : "") +
     '<p class="err" id="sErr" role="alert"></p>' +
-    '<div class="acts"><button type="button" class="ghost danger" data-delblk="' + esc(b.id) + '">Delete</button>' +
+    '<div class="acts"><button type="button" class="ghost" data-editblk="' + esc(b.id) + '">Edit</button>' +
+      '<button type="button" class="ghost danger" data-delblk="' + esc(b.id) + '">Delete</button>' +
       '<button type="button" class="ghost" data-close>Close</button></div>');
 }
+
+/* Edit = the same Add form, filled in. The old entry steps aside while editing so it doesn't
+   count as a clash with itself; Save adds the new one then removes the old; Cancel puts it back. */
+let editing = null;
+function startEdit(id){
+  const b = blocks.find(x => x.id === id);
+  if (!b) return;
+  if (dlg.open) dlg.close();
+  blocks = blocks.filter(x => x !== b);
+  index();
+  editing = b;
+  showBlockForm(b.kind === "edh" ? "edh" : "misc", { date: b.date, start: b.time, end: b.end || "", note: b.note || "", type: b.kind, editing: true });
+}
+dlg.addEventListener("close", () => {
+  if (dlg.open) return;   // the edit form already reopened it (close events arrive a moment late)
+  if (editing) { blocks.push(editing); editing = null; index(); }
+});
 
 async function deleteBlock(id){
   const b = blocks.find(x => x.id === id);
@@ -1027,7 +1060,8 @@ async function deleteBlock(id){
   try { await deleteDoc(doc(db, "calendarBlocks", id)); }
   catch (e) {
     console.error(e);
-    document.getElementById("sErr").textContent = "Could not delete: " + e.message;
+    const se = dlg.open && document.getElementById("sErr");   // deleting from a day-view card has no pop-up open
+    if (se) se.textContent = "Could not delete: " + e.message; else alert("Could not delete: " + e.message);
     btns.forEach(x => x.disabled = false);
     return;
   }
@@ -1076,6 +1110,10 @@ document.addEventListener("click", e => {
   if (bl) { const b = blocks.find(x => x.id === bl.dataset.blk); if (b) showBlock(b); return; }
   const del = t.closest("[data-delblk]");
   if (del) { deleteBlock(del.dataset.delblk); return; }
+  const dask = t.closest("[data-delblkask]");   // Delete right on a day-view card: ask first
+  if (dask) { if (confirm("Delete this from the calendar?")) deleteBlock(dask.dataset.delblkask); return; }
+  const eb = t.closest("[data-editblk]");
+  if (eb) { startEdit(eb.dataset.editblk); return; }
   const dj = t.closest("[data-deljob]");
   if (dj) { deleteJob(dj.dataset.deljob); return; }
   const ab = t.closest("[data-addblk]");

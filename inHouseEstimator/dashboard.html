@@ -58,6 +58,10 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .invbtn[disabled]{opacity:.55;cursor:default}
 .textbtn,.mailbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
 .textbtn:hover,.mailbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
+/* Text choice: Business line (app) or My phone */
+.textmenu{display:inline-flex;gap:6px;margin-left:6px;vertical-align:middle}
+.textmenu button{background:var(--gold);color:var(--navy);border:0;border-radius:6px;padding:5px 11px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
+.textmenu button[data-via="phone"]{background:#fff;border:1px solid var(--navy)}
 .feebtn{display:block;margin:7px 0 0 auto;background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer}
 .feebtn.on{background:var(--gold);color:#0b0f17}
 .feebtn[disabled]{opacity:.55;cursor:default}
@@ -515,18 +519,47 @@ async function toPaid(id){
   await deleteDoc(doc(db, "invoices", id));
 }
 
-/* Text: open the phone's messaging app with the number and link filled in.
+/* Text: tapping it opens a small choice.
+   "Business line" sends through the app from (916) 767-2520 (smsSend), and it shows on the Texts page.
+   "My phone" opens the phone's own messaging app (personal number) with the number and link filled in.
    sms: with a body needs "?body=" on Android and "&body=" on iOS. */
-boardEl.addEventListener("click", e => {
+const smsSendFn = httpsCallable(getFunctions(getApp(), "us-central1"), "smsSend");
+const closeTextMenu = () => document.querySelectorAll(".textmenu").forEach(m => m.remove());
+document.addEventListener("click", e => { if (!e.target.closest(".textmenu, .textbtn")) closeTextMenu(); });
+boardEl.addEventListener("click", async e => {
+  const choice = e.target.closest(".textmenu button");
+  if (choice) {
+    e.preventDefault(); e.stopPropagation();
+    const m = choice.closest(".textmenu"), t = m.previousElementSibling;
+    const digits = String(t.dataset.phone || "").replace(/\D/g, "");
+    const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "quote.html?id=" + encodeURIComponent(t.dataset.text);
+    const body = "Hi, here's your " + (t.dataset.kind === "invoice" ? "invoice" : "estimate") + " from Khean & Clean: " + link;
+    if (choice.dataset.via === "phone") {
+      closeTextMenu();
+      const sep = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? "&" : "?";
+      location.href = "sms:" + digits + sep + "body=" + encodeURIComponent(body);
+      return;
+    }
+    closeTextMenu();
+    t.disabled = true; t.textContent = "Sending…";
+    try {
+      await smsSendFn({to: digits, body});
+      t.textContent = "Sent ✓";
+    } catch (err) {
+      t.disabled = false; t.textContent = "Text";
+      alert("Text didn't send. " + (err.message || ""));
+    }
+    return;
+  }
   const t = e.target.closest(".textbtn");
   if (!t) return;
   e.preventDefault(); e.stopPropagation();
-  const digits = String(t.dataset.phone || "").replace(/\D/g, "");
-  if (!digits) { alert("No phone number on this one."); return; }
-  const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "quote.html?id=" + encodeURIComponent(t.dataset.text);
-  const body = "Hi, here's your " + (t.dataset.kind === "invoice" ? "invoice" : "estimate") + " from Khean & Clean: " + link;
-  const sep = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? "&" : "?";
-  location.href = "sms:" + digits + sep + "body=" + encodeURIComponent(body);
+  if (!String(t.dataset.phone || "").replace(/\D/g, "")) { alert("No phone number on this one."); return; }
+  const open = t.nextElementSibling && t.nextElementSibling.classList.contains("textmenu");
+  closeTextMenu();
+  if (open) return;
+  t.insertAdjacentHTML("afterend", '<span class="textmenu"><button type="button" data-via="app">Business line</button>' +
+    '<button type="button" data-via="phone">My phone</button></span>');
 });
 
 /* Email: one click sends it straight from israel@kheanandclean.com (sendEmail function).
