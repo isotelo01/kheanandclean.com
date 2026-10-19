@@ -404,19 +404,28 @@ async function nextAcctNo(){
   });
 }
 
-/* Already a customer? The one picked in the estimate first, then phone and email. */
+/* Already a customer? The one picked in the estimate first, then phone and email.
+   Active customers win. If the only match is in the Trash, ask: restore it, or start fresh.
+   Start fresh is remembered on the quote (freshCustomer) so it isn't asked again. */
 async function findCustomer(d){
+  let binned = null;
   if (d.customerId) {
     const s = await getDoc(doc(db, "customers", d.customerId));
-    if (s.exists()) return { id: s.id, ...s.data() };
+    if (s.exists()) { const x = { id: s.id, ...s.data() }; if (!x.trashed) return x; binned = x; }
   }
   const c = d.customer || {}, pk = phoneKey(c.phone), ek = emailKey(c.email);
   for (const [f, op, v] of [["phoneKeys", "array-contains", pk], ["phoneKey", "==", pk],
                             ["emailKeys", "array-contains", ek], ["emailKey", "==", ek]]) {
     if (!v) continue;
-    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(1)));
-    if (!s.empty) return { id: s.docs[0].id, ...s.docs[0].data() };
+    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(5)));
+    for (const doc_ of s.docs) { const x = { id: doc_.id, ...doc_.data() }; if (!x.trashed) return x; binned ||= x; }
   }
+  if (!binned || d.freshCustomer) return null;
+  if (confirm('"' + (binned.name || "This customer") + '" is in the customer Trash.\n\nOK = restore that customer record\nCancel = start a fresh customer')) {
+    await setDoc(doc(db, "customers", binned.id), { trashed: false, trashedAt: null, updatedAt: serverTimestamp() }, { merge: true });
+    return { ...binned, trashed: false };
+  }
+  d.freshCustomer = true;
   return null;
 }
 
