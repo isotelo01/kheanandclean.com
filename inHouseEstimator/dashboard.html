@@ -123,7 +123,8 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { getFirestore, collection, query, orderBy, limit, getDocs, where,
          doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -528,18 +529,25 @@ boardEl.addEventListener("click", e => {
   location.href = "sms:" + digits + sep + "body=" + encodeURIComponent(body);
 });
 
-/* Email: open the mail app with the address, subject and link filled in.
-   Greyed-out (no email on file) does nothing. */
-boardEl.addEventListener("click", e => {
+/* Email: one click sends it straight from israel@kheanandclean.com (sendEmail function).
+   Asks first so a stray click can't send. Greyed-out (no email on file) does nothing. */
+const sendEmailFn = httpsCallable(getFunctions(getApp()), "sendEmail");
+boardEl.addEventListener("click", async e => {
   const m = e.target.closest(".mailbtn");
   if (!m) return;
   e.preventDefault(); e.stopPropagation();
-  if (m.classList.contains("off")) return;
+  if (m.classList.contains("off") || m.disabled) return;
   const kind = m.dataset.kind === "invoice" ? "invoice" : "estimate";
   const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "quote.html?id=" + encodeURIComponent(m.dataset.mail);
-  const subject = "Your " + kind + " from Khean & Clean";
-  const body = "Hi, here's your " + kind + " from Khean & Clean:\n\n" + link;
-  location.href = "mailto:" + encodeURIComponent(m.dataset.email) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+  if (!confirm("Email this " + kind + " to " + m.dataset.email + "?")) return;
+  m.disabled = true; m.textContent = "Sending…";
+  try {
+    await sendEmailFn({to: m.dataset.email, kind, docId: m.dataset.mail, link});
+    m.textContent = "Sent ✓";
+  } catch (err) {
+    m.disabled = false; m.textContent = "Email";
+    alert("Email didn't send. " + (err.message || ""));
+  }
 });
 
 /* Waive fee: toggles the 3% card fee off/on for this one invoice. The customer page and
