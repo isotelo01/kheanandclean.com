@@ -253,9 +253,10 @@ function render(){
   $("list").innerHTML = '<div class="tablewrap"><table><thead><tr>' +
     '<th>Date</th><th>Vendor</th><th>Category</th><th class="pw">Paid with</th><th class="pw">Ref #</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
     rows.map(r => '<tr><td>' + esc(String(r.date || "").replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2")) + '</td><td><span class="vname">' + esc(r.vendor) + '</span>' +
-      (r.receiptPath ? '<div><a href="#" class="rcpt" data-path="' + esc(r.receiptPath) + '">Receipt</a></div>' : '') + '</td><td>' + esc(r.category) +
+      '</td><td>' + esc(r.category) +
       (r.notes ? '<div><a href="#" class="items" data-id="' + esc(r.id) + '">Items</a></div>' : '') +
       '</td><td class="pw">' + esc(r.paidWith) + '</td><td class="pw">' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
+      (r.receiptPath ? '<div><a href="#" class="rcpt" data-path="' + esc(r.receiptPath) + '">Receipt</a></div>' : '') +
       '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '" title="Move to trash" aria-label="Move expense to trash">&times;</button></td></tr>').join("") +
     '</tbody><tfoot><tr><td colspan="3">Total (' + rows.length + ')</td><td class="pw"></td><td class="pw"></td><td class="amt">' + money(total) + '</td><td></td></tr></tfoot></table></div>';
 }
