@@ -6,6 +6,8 @@ import { getFirestore, doc, getDoc, getDocFromServer, setDoc, updateDoc, deleteD
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFunctions, httpsCallable }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -72,34 +74,57 @@ function showLink(id, number, text){
 }
 
 /* After a new estimate saves: offer text or email, then go to the Dashboard.
-   Closing the dialog any way -- button, X, Esc, backdrop -- lands on the Dashboard. */
-function askHowToSend(number, link, body){
+   Closing the dialog any way -- button, X, Esc, backdrop -- lands on the Dashboard.
+   Same as the Dashboard buttons: Text it = from the business line (smsSend), Email it =
+   straight from israel@ (sendEmail). On a phone there's also "Text from my phone". */
+const fns = getFunctions(app, 'us-central1');
+const smsSendFn = httpsCallable(fns, 'smsSend'), sendEmailFn = httpsCallable(fns, 'sendEmail');
+
+function askHowToSend(id, number, link, body){
   const dlg = $('sendDlg');
   if (!dlg || !dlg.showModal) { location.href = './dashboard.html'; return; }
 
   const phone = val('ePhone').replace(/\D/g, '');
   const email = val('eEmail');
-  const sms = $('sendDlgSms'), mail = $('sendDlgMail');
+  const sms = $('sendDlgSms'), mail = $('sendDlgMail'), mine = $('sendDlgMine'), sub = $('sendDlgSub');
+  const onPhone = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
   $('sendDlgTtl').textContent = 'Saved as ' + number;
-  $('sendDlgSub').textContent = 'Send it to the customer, or close to go to the Dashboard.';
+  sub.textContent = 'Send it to the customer, or close to go to the Dashboard.';
 
   /* Only offer a route we actually have a destination for. */
   sms.hidden = !phone;
-  sms.href = 'sms:' + (phone ? '+1' + phone : '') + '?&body=' + encodeURIComponent(body);
   mail.hidden = !email;
-  mail.href = 'mailto:' + encodeURIComponent(email) +
-    '?subject=' + encodeURIComponent('Your Khean & Clean estimate ' + number) +
-    '&body=' + encodeURIComponent(body);
-  if (!phone && !email) $('sendDlgSub').textContent = 'No phone or email on the estimate, so there is nobody to send it to. The link is on the Dashboard.';
+  if (mine) {
+    mine.hidden = !(phone && onPhone);
+    const sep = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? '&' : '?';
+    mine.href = 'sms:' + phone + sep + 'body=' + encodeURIComponent(body);
+    mine.addEventListener('click', () => setTimeout(() => dlg.close(), 400), { once: true });
+  }
+  if (!phone && !email) sub.textContent = 'No phone or email on the estimate, so there is nobody to send it to. The link is on the Dashboard.';
+
+  /* One tap sends; the box stays open so you can do the other one too. */
+  const sendVia = (a, label, fn) => a.onclick = async (e) => {
+    e.preventDefault();
+    if (a.getAttribute('aria-disabled') === 'true') return;
+    a.setAttribute('aria-disabled', 'true'); a.textContent = 'Sending\u2026';
+    try {
+      await fn();
+      a.textContent = label + ' \u2713';
+      sub.textContent = 'Sent. Close to go to the Dashboard.';
+    } catch (err) {
+      a.removeAttribute('aria-disabled'); a.textContent = label === 'Texted' ? 'Text it' : 'Email it';
+      sub.textContent = (label === 'Texted' ? 'Text' : 'Email') + ' didn\u2019t send. ' + ((err && err.message) || 'Try again.');
+    }
+  };
+  sendVia(sms, 'Texted', () => smsSendFn({ to: phone, body }));
+  sendVia(mail, 'Emailed', () => sendEmailFn({ to: email, name: val('eName'), kind: 'estimate', docId: id, link }));
 
   const leave = () => { location.href = './dashboard.html'; };
   dlg.addEventListener('close', leave, { once: true });
   $('sendDlgX').onclick = () => dlg.close();
   /* Click outside the sheet closes it. */
   dlg.onclick = (e) => { if (e.target === dlg) dlg.close(); };
-  /* Tapping Send hands off to the phone's app, then we move on. */
-  [sms, mail].forEach(a => a.addEventListener('click', () => setTimeout(() => dlg.close(), 400), { once: true }));
 
   dlg.showModal();
 }
@@ -405,7 +430,7 @@ btn.addEventListener('click', async () => {
 
     const sent = showLink(id, number, 'Saved as ' + number + '. Link is good for 30 days unless approved.');
     leaving = true; btn.textContent = 'Saved \u2713';
-    askHowToSend(number, sent.link, sent.body);
+    askHowToSend(id, number, sent.link, sent.body);
   } catch (e) {
     console.error(e);
     show('Could not save — ' + (e && e.message ? e.message : 'check your connection') + '.', true);

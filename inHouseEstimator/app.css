@@ -768,7 +768,9 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .estClearDlg::backdrop{ background:rgba(10,10,11,.55); }
 
 /* Send dialog: same green sheet as the clear dialog, plus a corner close. */
-.sendDlg{ position:relative; }
+/* fixed (not relative) so the open box sits in the middle of the screen, not at the top of the page */
+.sendDlg{ position:fixed; inset:0; margin:auto; height:fit-content; max-height:calc(100dvh - 2rem); overflow:auto; }
+.sendDlg .estClearDlg__acts a.btn[aria-disabled="true"]{ opacity:.6; pointer-events:none; }
 .sendDlg__x{
   position:absolute; top:.6rem; right:.7rem;
   width:2rem; height:2rem; border-radius:50%;
