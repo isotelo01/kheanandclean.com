@@ -1030,11 +1030,17 @@ async function show(){
     /* Summary, folded: the first 3 rooms with photos, each with its Before and After side by side,
        then More (opens every room). Threshold photos first, then the room's other Before / After. */
     const prev = [], roomsAll = [];
-    items.forEach(it => { if (it.removed || !Array.isArray(it.rooms)) return;
-      it.rooms.forEach(rm => { roomsAll.push(rm); if (prev.length >= 3) return; const s = spots[rm.id] || {};
-        const b = pathsOf({ photoPaths: [...(s.photosBeforeThreshold || []), ...(s.photosBefore || [])] })[0];
-        const a = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || [])] })[0];
-        if (b || a) prev.push({ name: rm.name, b, a }); }); });
+    const addPrev = (key, name) => { roomsAll.push(key); if (prev.length >= 3) return; const s = spots[key] || {};
+      const b = pathsOf({ photoPaths: [...(s.photosBeforeThreshold || []), ...(s.photosBefore || [])] })[0];
+      const a = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || [])] })[0];
+      if (b || a) prev.push({ name, b, a }); };
+    items.forEach((it, j) => { if (it.removed) return;
+      if (Array.isArray(it.rooms) && it.rooms.length) { it.rooms.forEach(rm => addPrev(rm.id, rm.name)); return; }
+      /* Upholstery pieces and other items with their own page: "i-j", or "i-j-r" for each one of several. */
+      const own = Object.keys(spots).filter(k => k === i + "-" + j || k.indexOf(i + "-" + j + "-") === 0)
+        .sort((x, y) => (Number(x.split("-")[2]) || 0) - (Number(y.split("-")[2]) || 0));
+      const base = (it.baseName || noPrice(it.label) || "Item").replace(/\s*×\s*1$/, "");   /* "Couch × 1" reads as "Couch" */
+      own.forEach(k => { const r = k.split("-")[2]; addPrev(k, own.length > 1 || r != null ? base + " " + ((Number(r) || 0) + 1) : base); }); });
     const slot = (p, lbl) => '<span class="spslot" data-lbl="' + lbl + '"' + (p ? ' data-sthumb="' + esc(p) + '"' : '') + '></span>';
     const prevBox = prev.length ? '<div class="sthumbs sprev">' + prev.map(r =>
         '<div class="sprow"><b>' + esc(r.name || "Room") + '</b>' + slot(r.b, "Before") + slot(r.a, "After") + '</div>').join("") +
