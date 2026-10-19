@@ -149,6 +149,13 @@ async function start(){
   view.innerHTML = '<div class="panel">' +
     '<div class="who">' + esc(c.name || c.business || "Customer") + '</div>' +
     '<div class="msg">' + esc(phonesOf(c)[0] || "No phone on file") + '</div>' +
+    /* Order: header photo (the thank-you card, goes out first), message, before & after, your photos. */
+    '<h2>Header photo</h2>' +
+    '<div id="head" class="pgrid"></div>' +
+    '<h2>Message</h2>' +
+    '<button type="button" class="ghost" id="linkBtn">Review link: Google</button>' +
+    '<div class="rlist" id="linkList" hidden></div>' +
+    '<textarea id="txt" style="margin-top:10px">' + esc(startText) + '</textarea>' +
     '<h2>Before &amp; after</h2>' +
     (jobs.length > 1
       ? '<select id="job">' + jobs.map((j, i) => '<option value="' + i + '">' +
@@ -161,10 +168,6 @@ async function start(){
       '<button type="button" class="ghost" id="camBtn">Take photo</button>' +
       '<input type="file" id="addIn" accept="image/*" multiple hidden>' +
       '<input type="file" id="camIn" accept="image/*" capture="environment" hidden></div>' +
-    '<h2>Message</h2>' +
-    '<button type="button" class="ghost" id="linkBtn">Review link: Google</button>' +
-    '<div class="rlist" id="linkList" hidden></div>' +
-    '<textarea id="txt" style="margin-top:10px">' + esc(startText) + '</textarea>' +
     '<div class="actions"><button type="button" class="new" id="sendBtn">Send text</button>' +
       '<button type="button" class="new" id="mailBtn">Send email</button></div>' +
     '<div class="note" id="say" style="margin-top:8px">No photos in this send yet.</div>' +
@@ -175,6 +178,15 @@ async function start(){
     (o.tag ? '<span class="tag">' + esc(o.tag) + '</span>' : '') +
     '<button type="button" class="pdel" data-x="' + esc(key) + '" aria-label="Remove photo">\u00d7</button></div>';
   const sayCount = () => say(picked.size ? picked.size + " photo" + (picked.size === 1 ? "" : "s") + " in this send. Tap \u00d7 to take one out." : "No photos in this send yet.");
+
+  /* Header photo: the thank-you card (website images/thank-you-card.jpg). Picked to start; it always goes out first. */
+  const CARD = "h:card";
+  photos.set(CARD, { url: "../images/thank-you-card.jpg", src: "../images/thank-you-card.jpg", tag: "Thank you" });
+  picked.add(CARD);
+  $("head").innerHTML = thumb(CARD, photos.get(CARD));
+  sayCount();
+  const inOrder = () => [...picked].sort((a, b) => (b === CARD) - (a === CARD));   // card first, then the rest as picked
+  const blobOf = async o => o.file || (o.src ? await (await fetch(o.src)).blob() : await getBlob(ref(storage, o.path)));
 
   /* One row per room: its Threshold Before and After photos. Rooms are saved by a code, so they show as Room 1, 2... */
   async function showJob(j){
@@ -295,12 +307,12 @@ async function start(){
     try {
       const uid = getAuth(app).currentUser.uid, paths = [];
       let n = 0;
-      for (const k of picked) {
+      for (const k of inOrder()) {
         const o = photos.get(k);
         if (!o) continue;
         n++;
         say("Getting photo " + n + " of " + picked.size + "...");
-        const src = o.file || await getBlob(ref(storage, o.path));
+        const src = await blobOf(o);
         const blob = await shrink(src);
         const p = "sms-out/" + uid + "/" + Date.now() + "_" + n + ".jpg";
         await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
@@ -334,15 +346,15 @@ async function start(){
     try {
       const uid = getAuth(app).currentUser.uid, attachments = [];
       let n = 0;
-      for (const k of picked) {
+      for (const k of inOrder()) {
         const o = photos.get(k);
         if (!o) continue;
         n++;
         say("Getting photo " + n + " of " + picked.size + "...");
-        const blob = await shrink(o.file || await getBlob(ref(storage, o.path)));
+        const blob = await shrink(await blobOf(o));
         const p = "mail-out/" + uid + "/" + Date.now() + "_" + n + ".jpg";
         await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
-        attachments.push({ path: p, name: "khean-clean-" + (o.tag || "photo").toLowerCase() + "-" + n + ".jpg" });
+        attachments.push({ path: p, name: "khean-clean-" + (o.tag || "photo").toLowerCase().replace(/\s+/g, "-") + "-" + n + ".jpg" });
       }
       say("Sending email...");
       await mailSend({ from: "israel@kheanandclean.com", to: email, subject: "How did we do? - Khean & Clean", text, attachments });
