@@ -1036,8 +1036,17 @@
        are reused for the plain-text email below, where a <br> would show up
        literally. Only the first dash is replaced, so "@ $0.47/sq ft" stays put. */
     var twoLine = function(t){ return String(t).replace(' \u2014 ', '<br>'); };
+    /* Carpet head on screen: "Carpet Cleaning", then the package in its button branding
+       (red script Signature, gold Deep), bigger, then the size. Saved label text is unchanged. */
+    var carpetHead = function(r){
+      var t = (STATE.carpet && STATE.carpet.tier) || 'essential', nm = SERVICES.carpet.tiers[t].name;
+      var pkg = t === 'signature' ? '<span class="segScript">Signature</span> Cleaning'
+              : t === 'deep' ? '<span class="segGold">Deep</span> Cleaning' : nm;
+      var size = String(r.label).split(' \u2014 ')[1] || '';
+      return 'Carpet Cleaning<br><span class="pkgName">' + pkg + '</span>' + (size ? '<br>' + size : '');
+    };
     linesEl.innerHTML = b.breakdown.map(function(r){
-      var head = '<li class="lineItem"><span>'+twoLine(r.label)+'</span><span>$'+money(r.cost)+'</span></li>';
+      var head = '<li class="lineItem"><span>'+(r.key === 'carpet' ? carpetHead(r) : twoLine(r.label))+'</span><span>$'+money(r.cost)+'</span></li>';
       var subs = r.items.map(function(it){
         var line = '<li class="lineItem__sub"><span>'+twoLine(it.label)+'</span><span>'+(it.included ? 'Included' : '$'+money(it.cost))+'</span></li>';
         /* Rooms that produced the footage above, each with its sq ft and its own price.
