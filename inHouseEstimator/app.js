@@ -807,7 +807,8 @@
         sqft = st.sqft || 0;
       }
       var rate = (svcKey === 'carpet') ? s.tiers[st.tier || 'essential'].sqft : s.rate;
-      var tierName = (svcKey==='carpet') ? s.tiers[st.tier||'essential'].name : s.name;
+      /* Quote lines say what's being cleaned: "Carpet Deep Cleaning", not just "Deep Cleaning". */
+      var tierName = (svcKey==='carpet') ? 'Carpet ' + s.tiers[st.tier||'essential'].name : s.name;
       /* Each picked room's own price (its sq ft at this rate), so the estimate and the
          customer's quote can show the rooms adding up. A grouped line (Bedroom × 3) gets one price. */
       roomList.forEach(function(rm){ rm.cost = rm.sqft * rate; });
@@ -892,7 +893,7 @@
       } else {
         sqft = st.sqft || 0;
       }
-      var name = (svcKey==='carpet') ? s.tiers[st.tier||'essential'].name : s.name;
+      var name = (svcKey==='carpet') ? 'Carpet ' + s.tiers[st.tier||'essential'].name : s.name;
       var sizeTxt = sqft.toLocaleString() + ' sq ft';
       if(flatRooms) sizeTxt += ' + $' + flatRooms.toLocaleString();
       return name + ' \u2014 ' + sizeTxt;
