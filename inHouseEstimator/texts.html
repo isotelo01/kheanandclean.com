@@ -213,7 +213,7 @@ textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, query, orderBy, limit, limitToLast, onSnapshot, doc, updateDoc, getDocs }
+import { getFirestore, collection, query, orderBy, limit, limitToLast, onSnapshot, doc, updateDoc, getDocs, getDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
@@ -316,6 +316,58 @@ function showList() {
   }, err => { view.innerHTML = '<div class="msg err">Could not load texts: ' + esc(err.message) + '</div>'; }));
 }
 
+/* ---------- links in texts ----------
+   Links become tappable. Links to kheanandclean.com also get a small preview card, like Messages:
+   an estimate / invoice link shows its number, total and name (read from the app's own records);
+   the review link shows the thank-you card. Other websites stay plain links (no outside lookups). */
+const LINK_RX = /(https?:\/\/[^\s<]+|(?:www\.)?kheanandclean\.com\/?[^\s<]*)/gi;
+const fullUrl = s => (/^https?:\/\//i.test(s) ? s : "https://" + s).replace(/[.,!?)]+$/, "");
+function linkify(text) {
+  let out = "", last = 0;
+  String(text).replace(LINK_RX, (m, _g, i) => {
+    out += esc(text.slice(last, i)) + '<a href="' + esc(fullUrl(m)) + '" target="_blank" rel="noopener">' + esc(m) + '</a>';
+    last = i + m.length; return m;
+  });
+  return out + esc(String(text).slice(last));
+}
+function previewSlot(text) {
+  const m = String(text).match(LINK_RX);
+  if (!m) return "";
+  const u = fullUrl(m[0]);
+  return /^https:\/\/(www\.)?kheanandclean\.com(\/|$)/i.test(u) ? '<span class="lp" data-lp="' + esc(u) + '"></span>' : "";
+}
+const lpCache = {};
+const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+async function previewOf(u) {
+  const url = new URL(u), card = (img, title, sub) => ({img, title, sub});
+  if (/\/review\/?$/i.test(url.pathname)) return card("../images/review-card.jpg", "How did we do? Leave Khean & Clean a review", "kheanandclean.com");
+  const id = url.searchParams.get("id");
+  if (/quote(\.html)?$/i.test(url.pathname) && id) {
+    for (const [col, kind] of [["quotes", "estimate"], ["acceptedQuotes", "approved estimate"], ["invoices", "invoice"], ["paidInvoices", "paid invoice"]]) {
+      const s = await getDoc(doc(db, col, id)).catch(() => null);
+      if (s && s.exists()) {
+        const q = s.data(), c = q.customer || {};
+        return card("../images/icon-180.png", "Khean & Clean " + kind + (q.number ? " " + q.number : ""),
+          [money(q.total), c.business || c.name].filter(Boolean).join(" · "));
+      }
+    }
+    return card("../images/icon-180.png", "Khean & Clean estimate", "No longer on file");
+  }
+  return card("../images/icon-180.png", "Khean & Clean", "kheanandclean.com" + url.pathname.replace(/\/$/, ""));
+}
+function fillPreviews(box) {
+  box.querySelectorAll("[data-lp]").forEach(async el => {
+    const u = el.dataset.lp;
+    try {
+      const p = await (lpCache[u] = lpCache[u] || previewOf(u));
+      el.innerHTML = '<a href="' + esc(u) + '" target="_blank" rel="noopener" style="display:flex;gap:10px;align-items:center;margin-top:8px;padding:8px;border-radius:10px;background:rgba(0,0,0,.25);text-decoration:none;color:inherit;white-space:normal">' +
+        '<img src="' + esc(p.img) + '" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;margin:0;flex:none">' +
+        '<span style="min-width:0"><b style="display:block;font-size:14px;line-height:1.3">' + esc(p.title) + '</b>' +
+        '<small style="display:block;opacity:.8;font-size:12.5px">' + esc(p.sub) + '</small></span></a>';
+    } catch (e) { console.warn("link preview", e); }
+  });
+}
+
 /* ---------- one conversation ---------- */
 function showThread(id) {
   let t = {}, first = true, sending = false;
@@ -367,7 +419,7 @@ function showThread(id) {
           : /^video\//.test(x.type)
           ? '<video src="' + esc(x.url) + '" controls playsinline preload="metadata" style="display:block;max-width:100%;border-radius:10px;margin-bottom:6px"></video>'
           : '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">Attachment ' + (i + 1) + '</a>').join('');
-      h += '<div class="b ' + dir + '">' + pics + esc(m.body || "") + '</div>';
+      h += '<div class="b ' + dir + '">' + pics + linkify(m.body || "") + previewSlot(m.body || "") + '</div>';
       if (dir === "out") {
         const bad = m.status === "failed" || m.status === "undelivered";
         h += '<div class="st out' + (bad ? ' bad' : '') + '">' + esc(timeOf(at) + DOT + (STATUS[m.status] || "Sent") +
@@ -377,6 +429,7 @@ function showThread(id) {
       }
       return h;
     }).join('');
+    fillPreviews(box);
     if (first || atBottom) box.scrollTop = box.scrollHeight;
     first = false;
   }, err => {
