@@ -70,7 +70,8 @@ textarea{min-height:130px;resize:vertical}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref, getDownloadURL, getBlob } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getStorage, ref, getDownloadURL, getBlob, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -82,6 +83,21 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 const storage = getStorage(app);
+const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
+/* Photos for a text: shrunk to 1200px JPEGs so 5 fit in one picture text. */
+function shrink(blob){
+  return new Promise(res => {
+    const url = URL.createObjectURL(blob), img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const k = Math.min(1, 1200 / Math.max(img.width, img.height)), w = Math.round(img.width * k), h = Math.round(img.height * k);
+      const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(img, 0, 0, w, h);
+      c.toBlob(b => res(b || blob), "image/jpeg", 0.8);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); res(blob); };
+    img.src = url;
+  });
+}
 
 /* Opened from the customer's Pre-made texts: ?c=<customer id>&t=<review text, name already filled in>. */
 const qs = new URLSearchParams(location.search);
@@ -148,9 +164,7 @@ async function start(){
     '<button type="button" class="ghost" id="linkBtn">Review link: Google</button>' +
     '<div class="rlist" id="linkList" hidden></div>' +
     '<textarea id="txt" style="margin-top:10px">' + esc(startText) + '</textarea>' +
-    '<div class="actions"><button type="button" class="new" id="shareBtn">Share photos + text</button>' +
-      '<a class="ghost" id="smsBtn" href="#">Text only</a>' +
-      '<button type="button" class="ghost" id="copyBtn">Copy text</button></div>' +
+    '<div class="actions"><button type="button" class="new" id="sendBtn">Send</button></div>' +
     '<div class="note" id="say" style="margin-top:8px">No photos in this send yet.</div>' +
   '</div>';
 
@@ -247,15 +261,6 @@ async function start(){
     sayCount();
   });
 
-  /* Text only: opens the messages app with the (edited) message. */
-  $("smsBtn").addEventListener("click", e => {
-    if (!tel) { e.preventDefault(); say("No phone on file.", true); return; }
-    $("smsBtn").href = "./texts.html?body=" + encodeURIComponent($("txt").value) + "#" + digits(tel).slice(-10);   // business line
-  });
-  $("copyBtn").addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText($("txt").value); say("Text copied."); }
-    catch (err) { console.error(err); say("Can't copy.", true); }
-  });
 
   /* Review link: Google by default. Pick another site and the link in the message swaps.
      Same links as the public reviews page. */
@@ -278,42 +283,42 @@ async function start(){
     $("linkBtn").textContent = "Review link: " + n;
   });
 
-  /* Share: on a phone, the share sheet (pick Messages, then the customer). On a computer that
-     can't share files, the photos download instead and the text gets copied. */
-  $("shareBtn").addEventListener("click", async () => {
-    const btn = $("shareBtn");
-    const text = $("txt").value;
-    btn.disabled = true;
+  /* Send: texts the message and the picked photos from the business line (916) 767-2520.
+     Up to 5 photos ride in each picture text; more than 5 go in follow-up texts. */
+  $("sendBtn").addEventListener("click", async () => {
+    const btn = $("sendBtn"), text = $("txt").value.trim();
+    if (!tel) { say("No phone on file.", true); return; }
+    if (!text && !picked.size) { say("Type a message or add photos first.", true); return; }
+    btn.disabled = true; btn.textContent = "Sending";
     try {
-      const files = [];
+      const uid = getAuth(app).currentUser.uid, paths = [];
       let n = 0;
       for (const k of picked) {
         const o = photos.get(k);
         if (!o) continue;
         n++;
-        say("Getting photo " + n + " of " + picked.size + "\u2026");
-        if (o.file) { files.push(o.file); continue; }
-        const blob = await getBlob(ref(storage, o.path));
-        files.push(new File([blob], "khean-clean-" + (o.tag || "photo").toLowerCase() + "-" + n + ".jpg", { type: blob.type || "image/jpeg" }));
+        say("Getting photo " + n + " of " + picked.size + "...");
+        const src = o.file || await getBlob(ref(storage, o.path));
+        const blob = await shrink(src);
+        const p = "sms-out/" + uid + "/" + Date.now() + "_" + n + ".jpg";
+        await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
+        paths.push(p);
       }
-      if (navigator.share && (!files.length || (navigator.canShare && navigator.canShare({ files })))) {
-        await navigator.share(files.length ? { files, text } : { text });
-        say("Shared.");
-      } else {
-        files.forEach(f => {
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(f); a.download = f.name;
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-        });
-        try { await navigator.clipboard.writeText(text); } catch (err) {}
-        say(files.length ? "This device can't share photos. They downloaded, and the text is copied." : "Text copied.");
+      const batches = [];
+      for (let i = 0; i < paths.length; i += 5) batches.push(paths.slice(i, i + 5));
+      if (!batches.length) batches.push([]);
+      for (let i = 0; i < batches.length; i++) {
+        say("Sending" + (batches.length > 1 ? " text " + (i + 1) + " of " + batches.length : "") + "...");
+        await smsSend({ to: tel, body: i === 0 ? text : "", media: batches[i] });
       }
+      say("Sent from (916) 767-2520. It's in Texts.");
+      btn.textContent = "Sent";
+      return;
     } catch (err) {
-      if (err && err.name === "AbortError") sayCount();   /* closed the share sheet */
-      else { console.error(err); say("Couldn't share: " + (err && err.message || err), true); }
+      console.error(err);
+      say("Couldn't send: " + ((err && err.message) || err), true);
     }
-    btn.disabled = false;
+    btn.disabled = false; btn.textContent = "Send";
   });
 }
 
