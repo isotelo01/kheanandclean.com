@@ -11,7 +11,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Job Sheet &middot; Khean &amp; Clean</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
 <style>
 /* Same look as approved-leads.html. */
 :root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
@@ -201,6 +201,9 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 a.sprow{color:inherit;text-decoration:none;padding:6px;margin-left:-6px;margin-right:-6px;border-radius:8px}
 a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 .sthumbs .sprow .sgo{display:inline;aspect-ratio:auto;background:none;border-radius:0;color:var(--gold);font-weight:700}
+/* Plan names in the brand lettering, same as the estimator: Deep in gold, Signature in red script. */
+.segGold{color:#E3B64A}
+.segScript{font-family:"Dancing Script",cursive;font-size:1.35em;font-weight:600;color:#EA5545;letter-spacing:0}
 .sprev .srest{display:none}
 .sprev.sall .srest{display:grid}
 .spslot{position:relative}
@@ -1075,7 +1078,7 @@ async function show(){
     return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + (sumOpen.has(String(i)) ? ' sopen' : '') + '" data-line="' + i + '">' +
       '<div class="svc__headrow">' +
       '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
-        '<span>' + esc(head) + '</span><span class="amt">' + (plus ? '<span class="sprice" style="color:var(--ink)">' + money(l.cost) + '</span>' : money(l.cost) + ' ') + '<span class="caret">▾</span></span></button>' +
+        '<span>' + esc(head).replace(/\bDeep(?= Clean)/, '<span class="segGold">Deep</span>').replace(/\bSignature(?= Clean)/, '<span class="segScript">Signature</span>') + '</span><span class="amt">' + (plus ? '<span class="sprice" style="color:var(--ink)">' + money(l.cost) + '</span>' : money(l.cost) + ' ') + '<span class="caret">▾</span></span></button>' +
       (plus ? '<button type="button" class="svc__plus" data-addons="' + i + '" aria-label="Add-ons">+</button>' : '') +
       '</div>' +
       (prevBox || (thumbs.length ? '<div class="sthumbs' + (thumbMax === 6 ? ' six' : '') + '">' + thumbs.map(p => '<span data-sthumb="' + esc(p) + '"></span>').join("") + '</div>' : '')) +

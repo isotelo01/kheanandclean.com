@@ -54,6 +54,8 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
 br.tl{display:none}
 .tlsep{display:inline}
 .totalrow{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-top:14px}
+.segGold{color:#E3B64A}
+.segScript{font-family:"Dancing Script",cursive;font-size:1.35em;font-weight:600;color:#EA5545;letter-spacing:0}
 .sig{max-width:360px;margin-top:22px}
 .sig .name{font:600 30px "Dancing Script",cursive;color:var(--navy);line-height:1.1;padding:0 4px 2px}
 .sig .line{border-bottom:1.5px solid var(--navy);margin-bottom:5px}
@@ -317,6 +319,8 @@ const roomPrice = (rm, it) => {
 };
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 /* Same as the estimator: the size after the first " — " drops to its own line. */
+/* Plan names in the brand lettering, same as the estimator: Deep in gold, Signature in red script. */
+const brandTier = h => h.replace(/\bDeep(?= Clean)/, '<span class="segGold">Deep</span>').replace(/\bSignature(?= Clean)/, '<span class="segScript">Signature</span>');
 const twoLine = t => esc(t).replace(" \u2014 ", '<br class="tl"><span class="tlsep"> — </span>');   /* phones: size on its own line; wider: one line */
 const fmtDate = s => s ? new Date(s + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "";
 
@@ -677,7 +681,7 @@ function render(d){
         ? `<a class="jobrep" href="./job-sheet.html?id=${encodeURIComponent(id)}&view=customer" target="_blank" rel="noopener"><span class="jrico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9z"/><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg></span><span class="jrtxt"><span class="jrt">Your Job Report</span><span class="jrs">Photos &amp; details of your clean</span></span><span class="jrarr" aria-hidden="true">&rsaquo;</span></a>` : ""}
       <table>
         <thead><tr><th>Service</th><th class="r">Amount</th></tr></thead>
-        <tbody>${(d.lines || []).map(l => `<tr class="head"><td>${twoLine(l.label)}</td><td class="r">${money(l.cost)}</td></tr>` +
+        <tbody>${(d.lines || []).map(l => `<tr class="head"><td>${brandTier(twoLine(l.label))}</td><td class="r">${money(l.cost)}</td></tr>` +
           (l.items || []).filter(it => !it.removed).map(it => `<tr class="sub"><td>${twoLine(it.label)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>` +
             (it.track ? [] : it.rooms || []).map(rm => `<tr class="room"><td>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)} · ${(Number(rm.sqft) || 0).toLocaleString()} sq ft</td><td class="r">${roomPrice(rm, it).replace(/^ · /, "")}</td></tr>`).join("")).join("")).join("")}</tbody>
       </table>
