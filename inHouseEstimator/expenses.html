@@ -192,7 +192,7 @@ async function loadIncome(){
     const snap = await getDocs(query(collection(db, "paidInvoices"), where("paidAt", ">=", start), where("paidAt", "<", end)));
     income = snap.docs.map(d => {
       const x = d.data(), p = x.paidAt && x.paidAt.toDate ? x.paidAt.toDate() : null;
-      return { id: d.id, number: x.number || "", name: (x.customer && x.customer.name) || "", total: Number(x.total) || 0,
+      return { id: d.id, number: x.number || "", name: (x.customer && x.customer.name) || "", custId: x.customerId || "", total: Number(x.total) || 0,
                paid: p, date: p ? p.getFullYear() + "-" + pad(p.getMonth() + 1) + "-" + pad(p.getDate()) : "" };
     }).sort((a, b) => (a.paid || 0) - (b.paid || 0));
     renderIncome();
@@ -208,7 +208,8 @@ function renderIncome(){
   if (!income.length) { $("incList").innerHTML = '<div class="msg">No paid invoices in ' + esc(monthName()) + '.</div>'; return; }
   const total = income.reduce((s, r) => s + r.total, 0);
   $("incList").innerHTML = '<div class="tablewrap"><table><thead><tr><th>Date</th><th>Customer</th><th>Invoice</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
-    income.map(r => '<tr><td>' + esc(r.date) + '</td><td>' + esc(r.name || "No name") + '</td><td>' +
+    income.map(r => '<tr><td>' + esc(String(r.date || "").replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2")) + '</td><td>' +
+      (r.custId ? '<a href="./customers.html#' + encodeURIComponent(r.custId) + '">' + esc(r.name || "No name") + '</a>' : esc(r.name || "No name")) + '</td><td>' +
       '<a href="./quote.html?id=' + encodeURIComponent(r.id) + '">' + esc(r.number) + '</a></td><td class="amt">' + money(r.total) +
       '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '" title="Move to trash" aria-label="Move invoice ' + esc(r.number) + ' to trash">&times;</button></td></tr>').join("") +
     '</tbody><tfoot><tr><td colspan="3">Total (' + income.length + ')</td><td class="amt">' + money(total) + '</td><td></td></tr></tfoot></table></div>';
