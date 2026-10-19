@@ -83,6 +83,9 @@ tfoot td{font-weight:700;border-bottom:none}
 
   <div class="panel">
     <button type="button" class="new" id="toggleForm" aria-expanded="false">+ Add a payment</button>
+    <button type="button" class="ghost" id="scanBtn">Scan a receipt</button>
+    <input type="file" id="scanFile" accept="image/*" hidden>
+    <span class="msg" id="scanMsg"></span>
     <div id="formWrap" hidden>
     <h2 style="margin-top:16px">Add a paid invoice</h2>
     <div class="grid">
@@ -122,6 +125,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getFirestore, collection, query, where, getDocs, getDoc, setDoc, addDoc, deleteDoc, doc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -133,6 +138,9 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 const auth = getAuth(app);
+const storage = getStorage(app);
+const readReceipt = httpsCallable(getFunctions(app, "us-central1"), "readReceipt");
+let pendingReceipt = "";   // Storage path of a scanned receipt, saved with the next expense
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -222,7 +230,8 @@ function render(){
   $("list").innerHTML = '<div class="tablewrap"><table><thead><tr>' +
     '<th>Date</th><th>Vendor</th><th>Category</th><th>Paid with</th><th>Ref #</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
     rows.map(r => '<tr><td>' + esc(r.date) + '</td><td>' + esc(r.vendor) +
-      (r.notes ? '<div class="note">' + esc(r.notes) + '</div>' : '') + '</td><td>' + esc(r.category) +
+      (r.notes ? '<div class="note">' + esc(r.notes) + '</div>' : '') +
+      (r.receiptPath ? '<div><a href="#" class="rcpt" data-path="' + esc(r.receiptPath) + '">Receipt</a></div>' : '') + '</td><td>' + esc(r.category) +
       '</td><td>' + esc(r.paidWith) + '</td><td>' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
       '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '" title="Move to trash" aria-label="Move expense to trash">&times;</button></td></tr>').join("") +
     '</tbody><tfoot><tr><td colspan="5">Total (' + rows.length + ')</td><td class="amt">' + money(total) + '</td><td></td></tr></tfoot></table></div>';
@@ -235,6 +244,44 @@ $("toggleForm").addEventListener("click", () => {
   $("toggleForm").textContent = open ? "Close" : "+ Add a payment";
 });
 
+/* Scan a receipt: photo -> shrink -> Storage receipts/ -> readReceipt fills the form. Nothing saves until Save. */
+async function shrink(file, max = 2400){
+  const img = await createImageBitmap(file);
+  const k = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return await new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
+}
+$("scanBtn").addEventListener("click", () => $("scanFile").click());
+$("scanFile").addEventListener("change", async () => {
+  const file = $("scanFile").files[0];
+  $("scanFile").value = "";
+  if (!file) return;
+  const msg = $("scanMsg"), btn = $("scanBtn");
+  btn.disabled = true; msg.className = "msg"; msg.textContent = "Uploading\u2026";
+  try {
+    const blob = await shrink(file);
+    const path = "receipts/" + todayStr().slice(0, 7) + "/" + Date.now() + ".jpg";
+    await uploadBytes(sRef(storage, path), blob, { contentType: "image/jpeg" });
+    pendingReceipt = path;   // photo rides with the entry even if reading fails and he types it in
+    msg.textContent = "Reading receipt\u2026";
+    const r = (await readReceipt({ path })).data || {};
+    if (r.date) $("fDate").value = r.date;
+    if (r.vendor) $("fVendor").value = r.vendor;
+    if (r.total) $("fAmount").value = r.total.toFixed(2);
+    if (r.category) $("fCat").value = r.category;
+    $("fNotes").value = (r.items || []).join(", ");
+    $("formWrap").hidden = false;
+    $("toggleForm").setAttribute("aria-expanded", "true");
+    $("toggleForm").textContent = "Close";
+    msg.textContent = "Check it over, then Save.";
+  } catch (e) {
+    console.error(e);
+    msg.className = "msg err"; msg.textContent = "Could not read receipt: " + e.message;
+  } finally { btn.disabled = false; }
+});
+
 $("saveBtn").addEventListener("click", async () => {
   const date = $("fDate").value, vendor = $("fVendor").value.trim(), amount = Math.round(parseFloat($("fAmount").value) * 100) / 100;
   const msg = $("formMsg");
@@ -245,10 +292,12 @@ $("saveBtn").addEventListener("click", async () => {
       date, month: date.slice(0, 7), vendor, amount,
       category: $("fCat").value, paidWith: $("fPaid").value,
       ref: $("fRef").value.trim(), notes: $("fNotes").value.trim(),
+      receiptPath: pendingReceipt,
       createdBy: auth.currentUser ? auth.currentUser.email || auth.currentUser.uid : "",
       createdAt: serverTimestamp()
     });
     $("fVendor").value = ""; $("fAmount").value = ""; $("fRef").value = ""; $("fNotes").value = "";
+    pendingReceipt = ""; $("scanMsg").textContent = "";
     msg.textContent = "Saved.";
     const [y, m] = date.split("-").map(Number);
     cur = { y, m };
@@ -336,6 +385,14 @@ async function trashRow(from, b){
   catch (err) { console.error(err); b.disabled = false; alert("Could not move to Trash: " + err.message); }
 }
 $("list").addEventListener("click", e => { const b = e.target.closest(".del"); if (b) trashRow("expenses", b); });
+/* Receipt link: open the saved photo in a new tab (window opened first so phones don't block it). */
+$("list").addEventListener("click", async e => {
+  const a = e.target.closest(".rcpt"); if (!a) return;
+  e.preventDefault();
+  const w = window.open("", "_blank");
+  try { const url = await getDownloadURL(sRef(storage, a.dataset.path)); if (w) w.location = url; else location.href = url; }
+  catch (err) { console.error(err); if (w) w.close(); alert("Could not open receipt: " + err.message); }
+});
 $("incList").addEventListener("click", e => { const b = e.target.closest(".del"); if (b) trashRow("paidInvoices", b); });
 
 /* CSV for the accountant: one row per expense, plain columns. */
