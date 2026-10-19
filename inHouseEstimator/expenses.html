@@ -230,8 +230,8 @@ function render(){
   $("list").innerHTML = '<div class="tablewrap"><table><thead><tr>' +
     '<th>Date</th><th>Vendor</th><th>Category</th><th>Paid with</th><th>Ref #</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
     rows.map(r => '<tr><td>' + esc(String(r.date || "").replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2")) + '</td><td>' + esc(r.vendor) +
-      (r.notes ? '<div class="note">' + esc(r.notes) + '</div>' : '') +
       (r.receiptPath ? '<div><a href="#" class="rcpt" data-path="' + esc(r.receiptPath) + '">Receipt</a></div>' : '') + '</td><td>' + esc(r.category) +
+      (r.notes ? '<div class="note">' + esc(r.notes) + '</div>' : '') +
       '</td><td>' + esc(r.paidWith) + '</td><td>' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
       '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '" title="Move to trash" aria-label="Move expense to trash">&times;</button></td></tr>').join("") +
     '</tbody><tfoot><tr><td colspan="5">Total (' + rows.length + ')</td><td class="amt">' + money(total) + '</td><td></td></tr></tfoot></table></div>';
