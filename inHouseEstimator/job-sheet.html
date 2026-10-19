@@ -201,6 +201,8 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 a.sprow{color:inherit;text-decoration:none;padding:6px;margin-left:-6px;margin-right:-6px;border-radius:8px}
 a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 .sthumbs .sprow .sgo{display:inline;aspect-ratio:auto;background:none;border-radius:0;color:var(--gold);font-weight:700}
+.sprev .srest{display:none}
+.sprev.sall .srest{display:grid}
 .spslot{position:relative}
 .spslot::after{content:attr(data-lbl);position:absolute;left:4px;bottom:4px;font:700 10.5px "Archivo";background:rgba(10,14,22,.7);color:#fff;border-radius:10px;padding:1px 7px}
 .smore{display:block;margin:12px 0 0 auto;background:none;border:1px solid var(--gold);color:inherit;border-radius:8px;padding:8px 16px;font:600 14px "Archivo";cursor:pointer}
@@ -434,6 +436,13 @@ view.addEventListener("click", e => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
+/* Summary More: drops the rest of the rows in right there (no reload, the page stays put); Less folds them back. */
+view.addEventListener("click", e => {
+  const m = e.target.closest("[data-more]"); if (!m) return;
+  e.preventDefault();
+  const box = m.closest(".sprev"), on = box.classList.toggle("sall"), n = box.querySelectorAll(".srest").length;
+  m.textContent = on ? "Less ▴" : "More (" + n + ") ▾";
+});
 /* Tap a line's header: open or close its rooms. */
 view.addEventListener("click", e => {
   const h = e.target.closest("[data-toggle]"); if (!h) return;
@@ -1033,24 +1042,28 @@ async function show(){
     /* Summary, folded: the first 3 rooms with photos, each with its Before and After side by side,
        then More (opens every room). Threshold photos first, then the room's other Before / After. */
     const prev = [], roomsAll = [];
-    const addPrev = (key, name, href) => { roomsAll.push(key); if (prev.length >= 3) return; const s = spots[key] || {};
+    /* Every room / piece goes in the list; the first 3 with photos show, More drops the rest in below. */
+    const addPrev = (key, name, href) => { const s = spots[key] || {};
       const b = pathsOf({ photoPaths: [...(s.photosBeforeThreshold || []), ...(s.photosBefore || [])] })[0];
       const a = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || [])] })[0];
-      if (b || a) prev.push({ name, b, a, href }); };
+      const row = { name, b, a, href };
+      if ((b || a) && prev.length < 3) prev.push(row); else roomsAll.push(row); };
     items.forEach((it, j) => { if (it.removed) return;
       if (Array.isArray(it.rooms) && it.rooms.length) { it.rooms.forEach((rm, r) => addPrev(rm.id, rm.name, spotLink(i, j, r))); return; }
       /* Upholstery pieces and other items with their own page: "i-j", or "i-j-r" for each one of several. */
       const own = Object.keys(spots).filter(k => k === i + "-" + j || k.indexOf(i + "-" + j + "-") === 0)
         .sort((x, y) => (Number(x.split("-")[2]) || 0) - (Number(y.split("-")[2]) || 0));
       const base = (it.baseName || noPrice(it.label) || "Item").replace(/\s*×\s*1$/, "");   /* "Couch × 1" reads as "Couch" */
+      if (!own.length) { addPrev(i + "-" + j, base, spotLink(i, j)); return; }   /* no photos page yet: still listed */
       own.forEach(k => { const r = k.split("-")[2];
         addPrev(k, own.length > 1 || r != null ? base + " " + ((Number(r) || 0) + 1) : base, spotLink(i, j, r == null ? null : Number(r))); }); });
     const slot = (p, lbl) => '<span class="spslot" data-lbl="' + lbl + '"' + (p ? ' data-sthumb="' + esc(p) + '"' : '') + '></span>';
     /* Each row is one link: tap anywhere on it (name or photos) to open that room's / piece's photos.
        More ▾ (the dropdown) sits under the rows; the price stays up in the header. */
-    const prevBox = true ? '<div class="sthumbs sprev">' + prev.map(r =>   /* always: More ▾ is how a service opens now */
-        '<a class="sprow" href="' + esc(r.href) + '"><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span></b>' + slot(r.b, "Before") + slot(r.a, "After") + '</a>').join("") +
-      '<button type="button" class="smore" data-toggle="' + i + '">More ▾</button></div>' : '';
+    const rowHtml = (r, rest) => '<a class="sprow' + (rest ? ' srest' : '') + '" href="' + esc(r.href) + '"><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span></b>' + slot(r.b, "Before") + slot(r.a, "After") + '</a>';
+    const prevBox = (prev.length || roomsAll.length) ? '<div class="sthumbs sprev">' + prev.map(r => rowHtml(r, false)).join("") +
+      roomsAll.map(r => rowHtml(r, true)).join("") +
+      (roomsAll.length ? '<button type="button" class="smore" data-more>More (' + roomsAll.length + ') ▾</button>' : '') + '</div>' : '';
     return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + (sumOpen.has(String(i)) ? ' sopen' : '') + '" data-line="' + i + '">' +
       '<div class="svc__headrow">' +
       '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
