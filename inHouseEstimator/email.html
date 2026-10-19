@@ -107,6 +107,7 @@ const app = initializeApp({
 const fns = getFunctions(app, "us-central1");
 const mailList = httpsCallable(fns, "mailList"), mailRead = httpsCallable(fns, "mailRead");
 const mailMove = httpsCallable(fns, "mailMove"), mailSend = httpsCallable(fns, "mailSend");
+const mailWith = httpsCallable(fns, "mailWith");
 const storage = getStorage(app);
 /* Attachments: uploaded to mail-out/<you>/ when you press Send; mailSend attaches them. 20 MB total, 10 files. */
 const ATT_TOTAL = 20 * 1024 * 1024;
@@ -172,6 +173,24 @@ async function showList(f, force) {
       '<span class="when">' + esc(whenShort(m.date)) + '</span>' +
       '<span class="subj">' + esc(m.subject || "(no subject)") + '</span></a>';
   }).join("") + '</div>';
+}
+
+/* #with/<address>: every email from them (Inbox) and to them (Sent), newest first. From a customer's Email history. */
+async function showWith(addr) {
+  current = null; renderFolders();
+  view.innerHTML = '<div class="msg">Finding emails with ' + esc(addr) + '&hellip;</div>';
+  let r;
+  try { r = (await mailWith({address: addr})).data; }
+  catch (e) { view.innerHTML = '<div class="msg err">' + esc(friendly(e)) + '</div>'; return; }
+  const list = r.messages || [];
+  view.innerHTML = '<div class="msg">Emails with ' + esc(addr) + ' &middot; <a href="#new/' + encodeURIComponent(addr) + '">New email to them</a></div>' +
+    (list.length ? '<div class="list">' + list.map(m => {
+      const sent = m.folder === "Sent";
+      return '<a class="row' + (m.seen || sent ? '' : ' unread') + '" href="#' + m.folder + '/' + m.uid + '">' +
+        '<span class="who">' + (sent ? "You sent" : "They sent") + '</span>' +
+        '<span class="when">' + esc(whenShort(m.date)) + '</span>' +
+        '<span class="subj">' + esc(m.subject || "(no subject)") + '</span></a>';
+    }).join("") + '</div>' : '<div class="msg">No emails with them yet.</div>');
 }
 
 async function showMessage(f, uid) {
@@ -288,6 +307,7 @@ const route = () => {
   document.getElementById("newBtn").hidden = h === "new" || h.startsWith("new/") || h === "reply";
   if (h === "new") return showCompose(false);
   if (h.startsWith("new/")) return showCompose(false, h.slice(4));   // #new/<address>: from a customer's or lead's email link
+  if (h.startsWith("with/")) return showWith(h.slice(5));   // #with/<address>: a customer's Email history
   if (h === "reply") return showCompose(true);
   const [f, uid] = h.split("/");
   const fk = FOLDERS.some(x => x[0] === f) ? f : "INBOX";

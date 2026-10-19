@@ -388,19 +388,25 @@ function render() {
   if (!loaded) return;   // keeps "Loading…" until the first read arrives
   if (playing) { pending = true; return; }
   pending = false;
-  const vms = calls.filter(isVm), fresh = vms.filter(c => c.vmNew).length;
+  const fresh = calls.filter(isVm).filter(c => c.vmNew).length;
   const n = document.getElementById("vmCount");
   n.hidden = !fresh; n.textContent = fresh;
+  // #calls/<number> (from a customer's Call history): only that person's calls and voicemail.
+  const list = onlyK ? calls.filter(c => nameOf(c).k === onlyK) : calls, vms = list.filter(isVm);
+  document.getElementById("tabVm").setAttribute("href", "#voicemail" + (onlyK ? "/" + onlyK : ""));
+  document.getElementById("tabCalls").setAttribute("href", "#calls" + (onlyK ? "/" + onlyK : ""));
+  const only = onlyK ? '<div class="msg">Only ' + esc(nameByKey[onlyK] || pretty(onlyK)) + ' &middot; <a href="#' + tab + '">Show everyone</a></div>' : '';
   baseTitle = (fresh ? "(" + fresh + ") " : "") + "Phone · Khean & Clean";
   if (!live || live === "dialing") document.title = baseTitle;
   document.getElementById("tabVm").classList.toggle("on", tab === "voicemail");
   document.getElementById("tabCalls").classList.toggle("on", tab === "calls");
   if (tab === "voicemail") {
-    view.innerHTML = vms.length ? '<div class="list">' + vms.map(vmRow).join("") + '</div>'
-      : '<div class="msg">No voicemail yet. When nobody answers within about 18 seconds, callers hear the greeting and can leave a message. It shows up here.</div>';
+    view.innerHTML = only + (vms.length ? '<div class="list">' + vms.map(vmRow).join("") + '</div>'
+      : onlyK ? '<div class="msg">No voicemail from them.</div>'
+      : '<div class="msg">No voicemail yet. When nobody answers within about 18 seconds, callers hear the greeting and can leave a message. It shows up here.</div>');
   } else {
-    view.innerHTML = calls.length ? '<div class="list">' + calls.map(callRow).join("") + '</div>'
-      : '<div class="msg">No calls yet.</div>';
+    view.innerHTML = only + (list.length ? '<div class="list">' + list.map(callRow).join("") + '</div>'
+      : '<div class="msg">No calls ' + (onlyK ? 'with them' : 'yet') + '.</div>');
   }
 }
 
@@ -479,8 +485,11 @@ function startCalls() {
 }
 
 /* ---------- which tab ---------- */
+let onlyK = "";
 const route = () => {
-  tab = location.hash === "#calls" ? "calls" : "voicemail";
+  const [t, f] = location.hash.slice(1).split("/");
+  tab = t === "calls" ? "calls" : "voicemail";
+  onlyK = /^\d{10}$/.test(f || "") ? f : "";
   playing = 0;   // switching tabs stops the player
   render();
 };
