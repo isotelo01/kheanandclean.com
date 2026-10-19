@@ -324,7 +324,9 @@ function showThread(id) {
       const dl = dayLabel(at);
       if (dl !== lastDay) { h += '<div class="day">' + esc(dl) + '</div>'; lastDay = dl; }
       const pics = (Array.isArray(m.media) ? m.media : []).filter(x => /^https:\/\//.test(x && x.url)).map((x, i) =>
-        /^image\//.test(x.type)
+        /^https:\/\/api\.twilio\.com\//.test(x.url)   // came in before pictures were saved to the app: loading it pops up a Twilio sign-in
+          ? '<span class="msg" style="display:block;margin-bottom:4px">' + (/^video\//.test(x.type) ? 'Video' : 'Photo') + ' (older, not saved in the app)</span>'
+          : /^image\//.test(x.type)
           ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener"><img src="' + esc(x.url) + '" alt="Photo ' + (i + 1) + '" loading="lazy"></a>'
           : /^video\//.test(x.type)
           ? '<video src="' + esc(x.url) + '" controls playsinline preload="metadata" style="display:block;max-width:100%;border-radius:10px;margin-bottom:6px"></video>'
