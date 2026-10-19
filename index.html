@@ -5323,6 +5323,23 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   }
 
   pairs.forEach(function(pr){ link(pr[0], pr[1]); });
+
+  /* Text me Yes / No and the specials box: the answer in one form carries to the other.
+     They can still change it there; that change carries back the same way. */
+  [['qSms','eSms'],['qSmsNo','eSmsNo'],['qPromo','ePromo']].forEach(function(pr){
+    var a = document.getElementById(pr[0]), b = document.getElementById(pr[1]);
+    if(!a || !b) return;
+    function copy(from, to){
+      if(syncing || to.checked === from.checked) return;
+      if(to.type === 'radio' && !from.checked) return;   // a radio un-picks itself when its partner is picked
+      syncing = true;
+      to.checked = from.checked;
+      to.dispatchEvent(new Event('change', { bubbles: true }));   // clears any "please choose" note there
+      syncing = false;
+    }
+    a.addEventListener('change', function(){ copy(a, b); });
+    b.addEventListener('change', function(){ copy(b, a); });
+  });
 })();
 </script>
 <script>
