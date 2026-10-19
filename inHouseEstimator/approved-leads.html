@@ -339,7 +339,7 @@ async function showProfile(id){
           '<div class="prow cname cnamerow">' + esc(displayName(c)) + ' ' + badge(c) + '</div>' +
           (typeOf(c).v !== "residential" && c.business && c.name ? prow(c.name) : "") +
           prow([c.street, cityLine(c)].filter(Boolean).join("\n")) +
-          prow(c.phone) + prow(c.email) +
+          prow(c.phone) + (c.email ? '<div class="prow"><a href="./email.html#new/' + encodeURIComponent(c.email) + '">' + esc(c.email) + '</a></div>' : '') +
         '</div>' +
         rrow("Quote", quoteLink) +
         (origLink ? rrow("Original quote", origLink) : "") +

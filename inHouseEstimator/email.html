@@ -207,12 +207,12 @@ async function showMessage(f, uid) {
 }
 
 /* New email, or Reply to the open message. A reply goes out from the address the customer wrote to. */
-function showCompose(reply) {
+function showCompose(reply, preTo) {
   renderFolders();
   const m = reply ? current : null;
   if (reply && !m) { location.hash = folder; return; }
   const froms = FROMS.slice();
-  let fromPick = FROMS[0], to = "", subject = "", body = "";
+  let fromPick = FROMS[0], to = preTo || "", subject = "", body = "";
   if (m) {
     const ours = [...(m.to || []), ...(m.cc || [])].map(a => (a.address || "").toLowerCase()).filter(OURS);
     ours.forEach(a => { if (!froms.includes(a)) froms.push(a); });
@@ -257,8 +257,9 @@ function showCompose(reply) {
 /* ---------- which screen ---------- */
 const route = () => {
   const h = decodeURIComponent(location.hash.slice(1));
-  document.getElementById("newBtn").hidden = h === "new" || h === "reply";
+  document.getElementById("newBtn").hidden = h === "new" || h.startsWith("new/") || h === "reply";
   if (h === "new") return showCompose(false);
+  if (h.startsWith("new/")) return showCompose(false, h.slice(4));   // #new/<address>: from a customer's or lead's email link
   if (h === "reply") return showCompose(true);
   const [f, uid] = h.split("/");
   const fk = FOLDERS.some(x => x[0] === f) ? f : "INBOX";

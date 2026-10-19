@@ -450,7 +450,7 @@ function readBlock(c){
             [a.street, cityLine(a)].filter(Boolean).map(esc).join("<br>") + '</a></div>').join("")
         : "") +
       phonesOf(c).map(p => '<div class="prow"><a class="clink plink" href="tel:' + esc(telOf(p)) + '" data-tel="' + esc(telOf(p)) + '">' + esc(p) + '</a></div>').join("") +
-      prow(emailsOf(c).join("\n")) +
+      emailsOf(c).map(e => '<div class="prow"><a class="clink" href="./email.html#new/' + encodeURIComponent(e) + '">' + esc(e) + '</a></div>').join("") +   /* opens a new email in the app's Mail */
       (phonesOf(c).length ? '<button type="button" class="ghost madd" id="tmplBtn">Pre-made texts</button><div id="tmplBox" hidden></div>' : "") +
     '</div>' +
     rrow("Notes", c.notes) +

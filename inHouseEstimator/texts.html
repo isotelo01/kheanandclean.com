@@ -216,6 +216,7 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, collection, query, orderBy, limit, limitToLast, onSnapshot, doc, updateDoc, getDocs }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -227,6 +228,38 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
+const storage = getStorage(app);
+
+/* Photos / videos on a text. Photos are shrunk to 1600px JPEGs; videos go as-is (texting limit is 5 MB).
+   Uploaded to sms-out/<you>/ right before sending; smsSend turns them into links Twilio sends. */
+const ATTACH_MAX = 5, MMS_BYTES = 5 * 1024 * 1024;
+function shrinkPhoto(file) {
+  if (!/^image\//.test(file.type) || /gif/.test(file.type)) return Promise.resolve(file);
+  return new Promise(res => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.width, h = img.height; const k = Math.min(1, 1600 / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
+      const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(img, 0, 0, w, h);
+      c.toBlob(b => res(b && b.size < file.size ? b : file), "image/jpeg", 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); res(file); };
+    img.src = url;
+  });
+}
+async function uploadAttachments(files) {
+  const uid = getAuth(app).currentUser.uid, paths = [];
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i], blob = await shrinkPhoto(f);
+    if (blob.size >= MMS_BYTES) throw new Error((f.name || "That file") + " is too big to text (5 MB max). Send a shorter video.");
+    const type = blob.type || f.type || "application/octet-stream";
+    const ext = blob !== f ? "jpg" : ((f.name || "").split(".").pop() || type.split("/")[1] || "bin").replace(/[^a-z0-9]/gi, "").slice(0, 5).toLowerCase();
+    const p = "sms-out/" + uid + "/" + Date.now() + "_" + i + "." + ext;
+    await uploadBytes(sRef(storage, p), blob, {contentType: type});
+    paths.push(p);
+  }
+  return paths;
+}
 
 const view = document.getElementById("view");
 const MAX = 1600;
@@ -293,8 +326,11 @@ function showThread(id) {
       '<div class="thread" id="thread"><div class="msg">Loading&hellip;</div></div>' +
       '<form class="reply" id="replyForm">' +
         '<textarea id="body" rows="3" maxlength="' + MAX + '" placeholder="Type a reply' + ELLIPSIS + '" aria-label="Reply"></textarea>' +
+        '<div id="attList" style="display:flex;flex-wrap:wrap;gap:6px"></div>' +
         '<div class="ractions"><span class="count" id="count">0 / ' + MAX + '</span>' +
-          '<button class="new" type="submit" id="sendBtn">Send</button></div>' +
+          '<span style="display:flex;gap:8px;align-items:center">' +
+            '<label class="ghost" style="cursor:pointer;margin:0">Photo / video<input type="file" id="attIn" accept="image/*,video/*" multiple hidden></label>' +
+            '<button class="new" type="submit" id="sendBtn">Send</button></span></div>' +
         '<div class="msg" id="note" role="status"></div>' +
       '</form>' +
     '</div>';
@@ -358,16 +394,30 @@ function showThread(id) {
     history.replaceState(null, "", location.pathname + location.hash);
   }
   body.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); } });
+  // Photo / video picks: small chips under the box, x to drop one.
+  let picks = [];
+  const attIn = document.getElementById("attIn"), attList = document.getElementById("attList");
+  const drawPicks = () => {
+    attList.innerHTML = picks.map((f, i) => '<span class="ghost" style="display:inline-flex;gap:6px;align-items:center;font-size:13px">' +
+      (/^video\//.test(f.type) ? "Video" : "Photo") + " " + (i + 1) +
+      '<button type="button" data-x="' + i + '" aria-label="Remove" style="border:0;background:none;color:inherit;cursor:pointer;font-size:15px">&times;</button></span>').join("");
+  };
+  attIn.addEventListener("change", () => {
+    picks = picks.concat([...attIn.files]).slice(0, ATTACH_MAX); attIn.value = ""; drawPicks();
+  });
+  attList.addEventListener("click", e => { const x = e.target.closest("[data-x]"); if (x) { picks.splice(+x.dataset.x, 1); drawPicks(); } });
   form.addEventListener("submit", async e => {
     e.preventDefault();
     const text = body.value.trim();
-    if (!text || sending) return;
+    if ((!text && !picks.length) || sending) return;
     if (t.optedOut) { note.className = "msg err"; note.textContent = "They replied STOP, so this can't be sent."; return; }
-    sending = true; btn.disabled = true; btn.textContent = "Sending" + ELLIPSIS;
+    sending = true; btn.disabled = true; btn.textContent = (picks.length ? "Uploading" : "Sending") + ELLIPSIS;
     note.className = "msg"; note.textContent = "";
     try {
-      const r = await smsSend({to: t.phone || id, body: text});
-      body.value = ""; count.textContent = "0 / " + MAX;
+      const media = picks.length ? await uploadAttachments(picks) : [];
+      btn.textContent = "Sending" + ELLIPSIS;
+      const r = await smsSend({to: t.phone || id, body: text, media});
+      body.value = ""; count.textContent = "0 / " + MAX; picks = []; drawPicks();
       if (r && r.data && r.data.saved === false) note.textContent = "Sent, but it didn't save here. Don't send it again.";
     } catch (err) {
       note.className = "msg err"; note.textContent = friendly(err);   // your text stays in the box
