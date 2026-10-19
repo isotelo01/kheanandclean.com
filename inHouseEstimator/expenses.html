@@ -53,6 +53,15 @@ tfoot td{font-weight:700;border-bottom:none}
 .pl .pos{color:var(--green)}
 .pl .neg{color:var(--red)}
 @media (max-width:760px){.sides{grid-template-columns:1fr}.pl .big{font-size:19px}}
+/* Items pop-up: small scrolling box on desktop, full screen on phones. */
+.itemsBox{border:none;padding:0;width:min(440px,92vw);max-height:70vh;display:none;flex-direction:column;overflow:hidden}
+.itemsBox[open]{display:flex}
+.itemsBox::backdrop{background:rgba(0,0,0,.55)}
+.itemsHead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-bottom:2px solid var(--gold)}
+.itemsHead h3{font:700 18px "Playfair Display",Georgia,serif;margin:0}
+#itemsClose{background:none;border:1px solid var(--line);border-radius:6px;color:inherit;font:400 24px/1 "Archivo",system-ui,sans-serif;width:36px;height:36px;cursor:pointer;flex:none}
+.itemsBody{padding:14px 16px;overflow-y:auto;white-space:pre-wrap;font-size:15px}
+@media (max-width:759px){.itemsBox{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0}}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
 </head>
@@ -119,6 +128,11 @@ tfoot td{font-weight:700;border-bottom:none}
   </div>
   <div class="panel" id="profitBox" style="margin-top:16px"></div>
 </div>
+
+<dialog id="itemsBox" class="panel itemsBox" aria-labelledby="itemsTitle">
+  <div class="itemsHead"><h3 id="itemsTitle">Items</h3><button type="button" id="itemsClose" aria-label="Close">&times;</button></div>
+  <div id="itemsBody" class="itemsBody"></div>
+</dialog>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -231,7 +245,7 @@ function render(){
     '<th>Date</th><th>Vendor</th><th>Category</th><th>Paid with</th><th>Ref #</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
     rows.map(r => '<tr><td>' + esc(String(r.date || "").replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2")) + '</td><td>' + esc(r.vendor) +
       (r.receiptPath ? '<div><a href="#" class="rcpt" data-path="' + esc(r.receiptPath) + '">Receipt</a></div>' : '') + '</td><td>' + esc(r.category) +
-      (r.notes ? '<div class="note">' + esc(r.notes) + '</div>' : '') +
+      (r.notes ? '<div><a href="#" class="items" data-id="' + esc(r.id) + '">Items</a></div>' : '') +
       '</td><td>' + esc(r.paidWith) + '</td><td>' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
       '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '" title="Move to trash" aria-label="Move expense to trash">&times;</button></td></tr>').join("") +
     '</tbody><tfoot><tr><td colspan="5">Total (' + rows.length + ')</td><td class="amt">' + money(total) + '</td><td></td></tr></tfoot></table></div>';
@@ -393,6 +407,17 @@ $("list").addEventListener("click", async e => {
   try { const url = await getDownloadURL(sRef(storage, a.dataset.path)); if (w) w.location = url; else location.href = url; }
   catch (err) { console.error(err); if (w) w.close(); alert("Could not open receipt: " + err.message); }
 });
+/* Items link: show what was bought in a pop-up (full screen on phones). */
+$("list").addEventListener("click", e => {
+  const a = e.target.closest(".items"); if (!a) return;
+  e.preventDefault();
+  const r = rows.find(x => x.id === a.dataset.id); if (!r) return;
+  $("itemsTitle").textContent = (r.vendor || "Items") + (r.date ? " \u2014 " + String(r.date).replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2") : "");
+  $("itemsBody").textContent = r.notes || "";
+  $("itemsBox").showModal();
+});
+$("itemsClose").addEventListener("click", () => $("itemsBox").close());
+$("itemsBox").addEventListener("click", e => { if (e.target === $("itemsBox")) $("itemsBox").close(); });
 $("incList").addEventListener("click", e => { const b = e.target.closest(".del"); if (b) trashRow("paidInvoices", b); });
 
 /* CSV for the accountant: one row per expense, plain columns. */
