@@ -84,6 +84,7 @@ const app = initializeApp({
 const db = getFirestore(app);
 const storage = getStorage(app);
 const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
+const mailSend = httpsCallable(getFunctions(app, "us-central1"), "mailSend");
 /* Photos for a text: shrunk to 1200px JPEGs so 5 fit in one picture text. */
 function shrink(blob){
   return new Promise(res => {
@@ -164,7 +165,8 @@ async function start(){
     '<button type="button" class="ghost" id="linkBtn">Review link: Google</button>' +
     '<div class="rlist" id="linkList" hidden></div>' +
     '<textarea id="txt" style="margin-top:10px">' + esc(startText) + '</textarea>' +
-    '<div class="actions"><button type="button" class="new" id="sendBtn">Send</button></div>' +
+    '<div class="actions"><button type="button" class="new" id="sendBtn">Send text</button>' +
+      '<button type="button" class="new" id="mailBtn">Send email</button></div>' +
     '<div class="note" id="say" style="margin-top:8px">No photos in this send yet.</div>' +
   '</div>';
 
@@ -318,7 +320,40 @@ async function start(){
       console.error(err);
       say("Couldn't send: " + ((err && err.message) || err), true);
     }
-    btn.disabled = false; btn.textContent = "Send";
+    btn.disabled = false; btn.textContent = "Send text";
+  });
+
+  /* Send email: same message and photos (attached) to the customer's email, from israel@kheanandclean.com.
+     Goes through Zoho, so it's in Mail's Sent folder too. */
+  const email = listOf(c.emails, c.email)[0] || "";
+  $("mailBtn").addEventListener("click", async () => {
+    const btn = $("mailBtn"), text = $("txt").value.trim();
+    if (!email) { say("No email on file for this customer.", true); return; }
+    if (!text) { say("Type a message first.", true); return; }
+    btn.disabled = true; btn.textContent = "Sending";
+    try {
+      const uid = getAuth(app).currentUser.uid, attachments = [];
+      let n = 0;
+      for (const k of picked) {
+        const o = photos.get(k);
+        if (!o) continue;
+        n++;
+        say("Getting photo " + n + " of " + picked.size + "...");
+        const blob = await shrink(o.file || await getBlob(ref(storage, o.path)));
+        const p = "mail-out/" + uid + "/" + Date.now() + "_" + n + ".jpg";
+        await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
+        attachments.push({ path: p, name: "khean-clean-" + (o.tag || "photo").toLowerCase() + "-" + n + ".jpg" });
+      }
+      say("Sending email...");
+      await mailSend({ from: "israel@kheanandclean.com", to: email, subject: "How did we do? - Khean & Clean", text, attachments });
+      say("Email sent to " + email + ".");
+      btn.textContent = "Sent";
+      return;
+    } catch (err) {
+      console.error(err);
+      say("Couldn't send the email: " + ((err && err.message) || err), true);
+    }
+    btn.disabled = false; btn.textContent = "Send email";
   });
 }
 
