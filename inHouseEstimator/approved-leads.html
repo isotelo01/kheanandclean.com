@@ -432,7 +432,7 @@ document.getElementById("refreshBtn").addEventListener("click", async e => {
 /* Page lock. Not signed in -> login page, then back here. */
 let started = false;
 onAuthStateChanged(getAuth(app), user => {
-  if (!user) { location.replace("./login.html?next=approved-leads.html"); return; }
+  if (!user) { location.replace("./login.html?next=" + encodeURIComponent("approved-leads.html" + location.hash)); return; }
   document.getElementById("authwait")?.remove();
   if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
 });

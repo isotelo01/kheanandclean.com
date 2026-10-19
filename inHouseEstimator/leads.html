@@ -739,7 +739,7 @@ const route = () => {
 /* Page lock. Not signed in -> login page, then back here. */
 let started = false;
 onAuthStateChanged(getAuth(app), user => {
-  if (!user) { location.replace("./login.html?next=leads.html"); return; }
+  if (!user) { location.replace("./login.html?next=" + encodeURIComponent("leads.html" + location.hash)); return; }
   document.getElementById("authwait")?.remove();
   if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
 });

@@ -488,7 +488,7 @@ const route = () => {
 /* Page lock. Not signed in -> login page, then back here. */
 let started = false;
 onAuthStateChanged(getAuth(app), user => {
-  if (!user) { location.replace("./login.html?next=phone.html"); return; }
+  if (!user) { location.replace("./login.html?next=" + encodeURIComponent("phone.html" + location.hash)); return; }
   document.getElementById("authwait")?.remove();
   if (!started) {
     started = true;

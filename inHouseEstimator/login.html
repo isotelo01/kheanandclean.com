@@ -86,7 +86,7 @@ const auth = getAuth(initializeApp({
    Only a local page name is accepted, so the link can't bounce you off-site. */
 const next = (() => {
   const raw = new URLSearchParams(location.search).get("next") || "hub.html";
-  return /^[\w.-]+\.html$/.test(raw) ? raw : "hub.html";
+  return /^[\w.-]+\.html(#[\w%.-]*)?$/.test(raw) ? raw : "hub.html";   // #<id> keeps a text link's lead/profile
 })();
 
 const form = document.getElementById("loginForm");
