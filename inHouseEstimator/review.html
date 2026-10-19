@@ -68,7 +68,7 @@ textarea{min-height:130px;resize:vertical}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL, getBlob, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
@@ -152,6 +152,8 @@ async function start(){
     /* Order: header photo (the thank-you card, goes out first), message, before & after, your photos. */
     '<h2>Header photo</h2>' +
     '<div id="head" class="pgrid"></div>' +
+    '<div class="padd"><button type="button" class="ghost" id="headBtn">Change header photo</button>' +
+      '<input type="file" id="headIn" accept="image/*" hidden></div>' +
     '<h2>Message</h2>' +
     '<button type="button" class="ghost" id="linkBtn">Review link: Google</button>' +
     '<div class="rlist" id="linkList" hidden></div>' +
@@ -179,12 +181,35 @@ async function start(){
     '<button type="button" class="pdel" data-x="' + esc(key) + '" aria-label="Remove photo">\u00d7</button></div>';
   const sayCount = () => say(picked.size ? picked.size + " photo" + (picked.size === 1 ? "" : "s") + " in this send. Tap \u00d7 to take one out." : "No photos in this send yet.");
 
-  /* Header photo: the thank-you card (website images/thank-you-card.jpg). Picked to start; it always goes out first. */
-  const CARD = "h:card";
-  photos.set(CARD, { url: "../images/thank-you-card.jpg", src: "../images/thank-you-card.jpg", tag: "Thank you" });
-  picked.add(CARD);
-  $("head").innerHTML = thumb(CARD, photos.get(CARD));
-  sayCount();
+  /* Header photo: a saved preset (settings/reviewRequest.headerPath, the file in Storage presets/).
+     Until one is saved it's the thank-you card on the website (images/thank-you-card.jpg).
+     Picked to start on every review request; it always goes out first. */
+  const CARD = "h:card", HEAD_REF = doc(db, "settings", "reviewRequest");
+  const setHead = o => {
+    photos.set(CARD, Object.assign({ tag: "Thank you" }, o));
+    picked.add(CARD);
+    $("head").innerHTML = thumb(CARD, photos.get(CARD));
+    sayCount();
+  };
+  setHead({ url: "../images/thank-you-card.jpg", src: "../images/thank-you-card.jpg" });
+  getDoc(HEAD_REF).then(async s => {
+    const p = s.exists() && s.data().headerPath;
+    if (p && p.startsWith("presets/")) setHead({ url: await getDownloadURL(ref(storage, p)), path: p });
+  }).catch(e => console.error("header preset", e));
+  /* Change header photo: saved as the new preset for every review request after this. */
+  $("headBtn").addEventListener("click", () => $("headIn").click());
+  $("headIn").addEventListener("change", async e => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (!f) return;
+    say("Saving the new header photo...");
+    try {
+      const blob = await shrink(f), p = "presets/review-header-" + Date.now() + ".jpg";
+      await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
+      await setDoc(HEAD_REF, { headerPath: p, updatedAt: serverTimestamp() }, { merge: true });
+      setHead({ url: await getDownloadURL(ref(storage, p)), path: p });
+      say("Saved. This header goes on every review request now.");
+    } catch (err) { console.error(err); say("Couldn't save the header photo: " + ((err && err.message) || err), true); }
+  });
   const inOrder = () => [...picked].sort((a, b) => (b === CARD) - (a === CARD));   // card first, then the rest as picked
   const blobOf = async o => o.file || (o.src ? await (await fetch(o.src)).blob() : await getBlob(ref(storage, o.path)));
 
