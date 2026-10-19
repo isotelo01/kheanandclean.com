@@ -87,7 +87,7 @@ go.addEventListener("click", async () => {
   for (const [name, num, date, created, services, total] of ROWS) {
     const id = "import-I-" + num, label = "I-" + num + " " + name;
     try {
-      if ((await getDoc(doc(db, "paidInvoices", id))).exists()) { say("skip", "Already imported: " + label); skipped++; continue; }
+      const existed = (await getDoc(doc(db, "paidInvoices", id))).exists();
       const hits = custs.filter(c => norm(c.name) === norm(name) || norm(c.business) === norm(name));
       const c = hits.length === 1 ? hits[0] : null;
       const phones = c ? (Array.isArray(c.phones) ? c.phones : (c.phone ? [c.phone] : [])) : [];
@@ -99,13 +99,19 @@ go.addEventListener("click", async () => {
         createdAt: noon(created), invoicedAt: noon(date), paidAt: noon(date), importedAt: serverTimestamp()
       };
       if (c) rec.customerId = c.id;
+      if (existed) {
+        /* Already imported: only refresh the name and profile link; totals and dates stay as they are. */
+        await setDoc(doc(db, "paidInvoices", id), c ? { customer: rec.customer, customerId: c.id } : { customer: rec.customer }, { merge: true });
+        say(c ? "ok" : "err", "Updated " + label + (c ? " \u2192 profile linked" : " \u2014 no customer profile found, not linked"));
+        skipped++; continue;
+      }
       await setDoc(doc(db, "paidInvoices", id), rec);
       if (c) say("ok", "Imported " + label + " \u2192 profile linked");
       else say("err", "Imported " + label + " \u2014 " + (hits.length ? hits.length + " customers share this name" : "no customer profile found") + ", not linked");
       done++;
     } catch (e) { console.error(e); say("err", "Failed " + label + ": " + e.message); failed++; }
   }
-  say("", "Done. " + done + " imported, " + skipped + " skipped, " + failed + " failed.");
+  say("", "Done. " + done + " imported, " + skipped + " updated, " + failed + " failed.");
   go.textContent = "Run again";
   go.disabled = false;
 });
