@@ -555,6 +555,14 @@ boardEl.addEventListener("click", async e => {
   if (!t) return;
   e.preventDefault(); e.stopPropagation();
   if (!String(t.dataset.phone || "").replace(/\D/g, "")) { alert("No phone number on this one."); return; }
+  // Desktop: no choice, it goes straight out from the business line (asks first so a stray click can't send).
+  if (!/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+    if (!confirm("Text this " + (t.dataset.kind === "invoice" ? "invoice" : "estimate") + " from the business line (916) 767-2520?")) return;
+    closeTextMenu();
+    t.insertAdjacentHTML("afterend", '<span class="textmenu" hidden><button type="button" data-via="app"></button></span>');
+    t.nextElementSibling.firstElementChild.click();
+    return;
+  }
   const open = t.nextElementSibling && t.nextElementSibling.classList.contains("textmenu");
   closeTextMenu();
   if (open) return;
