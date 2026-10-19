@@ -60,7 +60,19 @@ tfoot td{font-weight:700;border-bottom:none}
 .itemsHead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-bottom:2px solid var(--gold)}
 .itemsHead h3{font:700 18px "Playfair Display",Georgia,serif;margin:0}
 #itemsClose{background:none;border:1px solid var(--line);border-radius:6px;color:inherit;font:400 24px/1 "Archivo",system-ui,sans-serif;width:36px;height:36px;cursor:pointer;flex:none}
-.itemsBody{padding:14px 16px;overflow-y:auto;white-space:pre-wrap;font-size:15px}
+.itemsBody{padding:14px 16px;overflow-y:auto;font-size:15px}
+.exrow{cursor:pointer}
+.exrow:hover td{background:rgba(255,255,255,.04)}
+.rvendor{font:700 18px "Archivo",system-ui,sans-serif;margin-bottom:10px}
+.rl{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line)}
+.rl span{color:var(--muted)}
+.rl b{text-align:right;font-weight:600}
+.rsub{color:var(--muted);margin:12px 0 4px}
+.ritems{margin:0 0 6px;padding-left:20px}
+.ritems li{padding:2px 0}
+.rtotal{border-top:2px solid var(--gold);border-bottom:0;margin-top:8px;font-size:17px}
+.rtotal b{font-weight:700}
+.itemsBody .rcpt{margin-top:16px;width:100%}
 /* Phones: no boxes around sections, just a line between them, for more room. */
 @media (max-width:759px){
   .wrap .panel{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none;padding:14px 0;margin:0}
@@ -252,7 +264,7 @@ function render(){
   const total = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   $("list").innerHTML = '<div class="tablewrap"><table><thead><tr>' +
     '<th>Date</th><th>Vendor</th><th>Category</th><th class="pw">Paid with</th><th class="pw">Ref #</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
-    rows.map(r => '<tr><td>' + esc(String(r.date || "").replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2")) + '</td><td><span class="vname">' + esc(r.vendor) + '</span>' +
+    rows.map(r => '<tr class="exrow" data-id="' + esc(r.id) + '"><td>' + esc(String(r.date || "").replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2")) + '</td><td><span class="vname">' + esc(r.vendor) + '</span>' +
       '</td><td>' + esc(r.category) +
       (r.notes ? '<div><a href="#" class="items" data-id="' + esc(r.id) + '">Items</a></div>' : '') +
       '</td><td class="pw">' + esc(r.paidWith) + '</td><td class="pw">' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
@@ -409,21 +421,30 @@ async function trashRow(from, b){
   catch (err) { console.error(err); b.disabled = false; alert("Could not move to Trash: " + err.message); }
 }
 $("list").addEventListener("click", e => { const b = e.target.closest(".del"); if (b) trashRow("expenses", b); });
-/* Receipt link: open the saved photo in a new tab (window opened first so phones don't block it). */
-$("list").addEventListener("click", async e => {
+/* Receipt photo button (inside the digital receipt): open the saved photo in a new tab (window opened first so phones don't block it). */
+$("itemsBox").addEventListener("click", async e => {
   const a = e.target.closest(".rcpt"); if (!a) return;
   e.preventDefault();
   const w = window.open("", "_blank");
   try { const url = await getDownloadURL(sRef(storage, a.dataset.path)); if (w) w.location = url; else location.href = url; }
   catch (err) { console.error(err); if (w) w.close(); alert("Could not open receipt: " + err.message); }
 });
-/* Items link: show what was bought in a pop-up (full screen on phones). */
+/* Digital receipt: tap a row, Items or Receipt to see everything saved for that expense (full screen on phones). */
 $("list").addEventListener("click", e => {
-  const a = e.target.closest(".items"); if (!a) return;
+  if (e.target.closest(".del")) return;
+  const tr = e.target.closest("tr.exrow"); if (!tr) return;
   e.preventDefault();
-  const r = rows.find(x => x.id === a.dataset.id); if (!r) return;
-  $("itemsTitle").textContent = (r.vendor || "Items") + (r.date ? " \u2014 " + String(r.date).replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2") : "");
-  $("itemsBody").textContent = r.notes || "";
+  const r = rows.find(x => x.id === tr.dataset.id); if (!r) return;
+  const md = String(r.date || "").replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2");
+  const items = String(r.notes || "").split(/\s*,\s*|\n+/).filter(Boolean);
+  const line = (k, v) => v ? '<div class="rl"><span>' + k + '</span><b>' + esc(v) + '</b></div>' : '';
+  $("itemsTitle").textContent = "Receipt";
+  $("itemsBody").innerHTML =
+    '<div class="rvendor">' + esc(r.vendor || "No vendor") + '</div>' +
+    line("Date", md) + line("Category", r.category) + line("Paid with", r.paidWith) + line("Ref #", r.ref) +
+    (items.length ? '<div class="rsub">Items</div><ul class="ritems">' + items.map(i => '<li>' + esc(i) + '</li>').join("") + '</ul>' : '') +
+    '<div class="rl rtotal"><span>Total</span><b>' + money(r.amount) + '</b></div>' +
+    (r.receiptPath ? '<button type="button" class="ghost rcpt" data-path="' + esc(r.receiptPath) + '">View receipt photo</button>' : '');
   $("itemsBox").showModal();
 });
 $("itemsClose").addEventListener("click", () => $("itemsBox").close());
