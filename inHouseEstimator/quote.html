@@ -772,6 +772,12 @@ function render(d){
 
   if (document.getElementById("photoBox")) wireNote(d, isQuote, num);
 
+  /* Email "Save as PDF" button opens ...&pdf=1: pop the print / save-as-PDF sheet once the page is drawn. */
+  if (new URLSearchParams(location.search).get("pdf") === "1" && !window.__pdfOnce) {
+    window.__pdfOnce = true;
+    setTimeout(() => print(), 800);
+  }
+
   /* Tip: optional. It adds to every way to pay. The card's 3% fee is figured on the service total only,
      never the tip. The card charge itself is recomputed by createCheckout on the server. */
   let tip = 0;
