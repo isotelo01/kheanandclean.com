@@ -416,7 +416,9 @@ function showThread(id) {
     try {
       const media = picks.length ? await uploadAttachments(picks) : [];
       btn.textContent = "Sending" + ELLIPSIS;
-      const r = await smsSend({to: t.phone || id, body: text, media});
+      // One photo per text: phones were only showing the first picture of a multi-photo text.
+      let r = await smsSend({to: t.phone || id, body: text, media: media.slice(0, 1)});
+      for (let i = 1; i < media.length; i++) r = await smsSend({to: t.phone || id, body: "", media: [media[i]]});
       body.value = ""; count.textContent = "0 / " + MAX; picks = []; drawPicks();
       if (r && r.data && r.data.saved === false) note.textContent = "Sent, but it didn't save here. Don't send it again.";
     } catch (err) {

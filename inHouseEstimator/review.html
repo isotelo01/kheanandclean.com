@@ -307,7 +307,7 @@ async function start(){
         paths.push(p);
       }
       const batches = [];
-      for (let i = 0; i < paths.length; i += 5) batches.push(paths.slice(i, i + 5));
+      for (let i = 0; i < paths.length; i++) batches.push([paths[i]]);   // one photo per text: phones only showed the first of several
       if (!batches.length) batches.push([]);
       for (let i = 0; i < batches.length; i++) {
         say("Sending" + (batches.length > 1 ? " text " + (i + 1) + " of " + batches.length : "") + "...");
