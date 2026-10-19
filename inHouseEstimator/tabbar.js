@@ -7,6 +7,8 @@
     ["customers.html", "Customers", '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/>']
   ];
   var here = (location.pathname.split("/").pop() || "").replace(/\.html$/, "");
+  // On the Dashboard itself, its tab becomes Income & Expenses.
+  if (here === "dashboard") tabs[2] = ["expenses.html", "Income", '<path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'];
   var css = document.createElement("style");
   css.textContent =
     "#tabbar{display:none}" +
@@ -17,6 +19,7 @@
       "#tabbar svg{width:18px;height:18px}" +
       "body{padding-bottom:calc(46px + env(safe-area-inset-bottom))!important}" +
       "#callbar{bottom:calc(58px + env(safe-area-inset-bottom))!important}" +
+      ".mhide{display:none!important}" +
     "}";
   document.head.appendChild(css);
   var nav = document.createElement("nav");
