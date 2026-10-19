@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Email &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Same look as texts.html. The Zoho mailbox (contact@, israel@ and the other alias all land here):
+   folders, the message list, one message, and Reply / New email. Everything goes through the
+   mailList / mailRead / mailMove / mailSend functions, which talk to Zoho. Nothing is stored in Firestore. */
+:root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:1120px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.home{display:flex;flex:none;border-radius:6px}
+.home img{display:block;width:34px;height:34px;border-radius:6px}
+h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.new{font:600 15px "Archivo";background:var(--navy);color:#fff;text-decoration:none;border:1px solid var(--navy);border-radius:6px;padding:9px 18px;cursor:pointer}
+.ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
+.ghost.danger{color:var(--red)}
+.new:disabled,.ghost:disabled{opacity:.6;cursor:default}
+[hidden]{display:none!important}
+.msg{color:var(--muted);font-size:15px;padding:10px 2px}
+.msg.err{color:var(--red)}
+:where(a,button,select,input,textarea):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* Folders */
+.folders{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.folders a{font:600 14px "Archivo";text-decoration:none;color:var(--navy);background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 14px}
+.folders a.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.folders .n{display:inline-block;min-width:20px;margin-left:6px;border-radius:10px;background:var(--gold);color:var(--navy);font-size:12px;text-align:center;padding:0 6px}
+
+/* The list: newest first. Gold edge + bold = unread. */
+.list{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;text-decoration:none;color:inherit;background:#fff;
+  border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:12px 16px;border-left:4px solid transparent}
+.row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
+.row.unread{border-left-color:var(--gold)}
+.who{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.unread .who,.row.unread .subj{font-weight:700}
+.when{color:var(--muted);font-size:13px;white-space:nowrap;text-align:right}
+.subj{grid-column:1/-1;color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.unread .subj{color:var(--ink)}
+.toaddr{color:var(--muted);font-size:12px;font-weight:500;margin-left:6px}
+
+/* One message */
+.panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:16px}
+.mhead{border-bottom:2px solid var(--gold);padding-bottom:10px;margin-bottom:12px}
+.mhead h2{font:700 22px "Playfair Display",Georgia,serif;margin:0 0 6px;overflow-wrap:anywhere}
+.mmeta{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+.mmeta b{color:var(--ink);font-weight:600}
+.acts{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.body{width:100%;min-height:360px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.plain{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px}
+.att{font-size:13px;color:var(--muted);margin-top:8px}
+
+/* Compose */
+.fld{display:block;margin-bottom:12px}
+.fld span{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.fld input,.fld select,.fld textarea{width:100%;font:15px "Archivo",system-ui,sans-serif;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:6px;padding:9px 11px}
+.fld textarea{min-height:220px;resize:vertical;line-height:1.5}
+@media (max-width:600px){ .wrap{padding:16px 12px 50px} h1{font-size:26px} .body{min-height:300px} }
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Email</h1>
+    <div class="nav">
+      <button type="button" class="ghost" id="refreshBtn">Refresh</button>
+      <a class="ghost" href="./texts.html">Texts</a>
+      <a class="new" id="newBtn" href="#new">New email</a>
+    </div>
+  </div>
+  <nav class="folders" id="folders" aria-label="Folders"></nav>
+  <div id="view"><div class="msg">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const fns = getFunctions(app, "us-central1");
+const mailList = httpsCallable(fns, "mailList"), mailRead = httpsCallable(fns, "mailRead");
+const mailMove = httpsCallable(fns, "mailMove"), mailSend = httpsCallable(fns, "mailSend");
+
+const FOLDERS = [["INBOX", "Inbox"], ["Sent", "Sent"], ["Spam", "Spam"], ["Archive", "Archive"], ["Trash", "Trash"]];
+// Addresses he can send from. Any other @kheanandclean.com address a message was sent to gets added
+// for that reply (the third alias), so replies go out from the address the customer wrote to.
+const FROMS = ["israel@kheanandclean.com", "contact@kheanandclean.com"];
+const OURS = a => /@kheanandclean\.com$/i.test(a) && !/^tydakhean@/i.test(a);
+
+const view = document.getElementById("view");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const who = a => a ? (a.name || a.address || "") : "";
+const full = a => a ? (a.name ? a.name + " <" + a.address + ">" : a.address) : "";
+const friendly = err => { const m = (err && err.message) || ""; return !m || /^internal$/i.test(m) ? "Something went wrong. Please try again." : m; };
+const sameDay = (a, b) => a.toDateString() === b.toDateString();
+function whenShort(iso) {
+  const d = new Date(iso); if (!iso || isNaN(d)) return "";
+  if (sameDay(d, new Date())) return d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+  return d.toLocaleDateString([], {month: "short", day: "numeric", year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric"});
+}
+const whenLong = iso => { const d = new Date(iso); return !iso || isNaN(d) ? "" : d.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}); };
+
+let cache = {};          // folder -> {messages, unseen}
+let current = null;      // the message open right now (for Reply)
+let folder = "INBOX";
+
+function renderFolders() {
+  document.getElementById("folders").innerHTML = FOLDERS.map(([k, label]) => {
+    const n = k === "INBOX" && cache.INBOX ? cache.INBOX.unseen : 0;
+    return '<a href="#' + k + '"' + (k === folder ? ' class="on"' : '') + '>' + label + (n ? '<span class="n">' + n + '</span>' : '') + '</a>';
+  }).join("");
+}
+
+async function showList(f, force) {
+  folder = f; current = null; renderFolders();
+  if (!cache[f] || force) {
+    view.innerHTML = '<div class="msg">Loading&hellip;</div>';
+    try { cache[f] = (await mailList({folder: f})).data; }
+    catch (e) { view.innerHTML = '<div class="msg err">' + esc(friendly(e)) + '</div>'; return; }
+    renderFolders();
+  }
+  if (folder !== f) return;   // switched folders while it loaded
+  const list = cache[f].messages || [];
+  if (!list.length) { view.innerHTML = '<div class="msg">Nothing here.</div>'; return; }
+  const sentLike = f === "Sent" || f === "Drafts";
+  view.innerHTML = '<div class="list">' + list.map(m => {
+    const p = sentLike ? (m.to || [])[0] : (m.from || [])[0];
+    const ourTo = !sentLike && (m.to || []).map(a => a.address).find(OURS);
+    return '<a class="row' + (m.seen || sentLike ? '' : ' unread') + '" href="#' + f + '/' + m.uid + '">' +
+      '<span class="who">' + (sentLike ? "To: " : "") + esc(who(p) || "(no sender)") +
+        (ourTo && f === "INBOX" ? '<span class="toaddr">to ' + esc(ourTo.split("@")[0]) + '@</span>' : '') + '</span>' +
+      '<span class="when">' + esc(whenShort(m.date)) + '</span>' +
+      '<span class="subj">' + esc(m.subject || "(no subject)") + '</span></a>';
+  }).join("") + '</div>';
+}
+
+async function showMessage(f, uid) {
+  folder = f; renderFolders();
+  view.innerHTML = '<div class="msg">Opening&hellip;</div>';
+  let m;
+  try { m = (await mailRead({folder: f, uid})).data; }
+  catch (e) { view.innerHTML = '<div class="msg err">' + esc(friendly(e)) + '</div>'; return; }
+  current = m;
+  const row = cache[f] && (cache[f].messages || []).find(x => x.uid === uid);   // it's read now
+  if (row && !row.seen) { row.seen = true; if (f === "INBOX" && cache.INBOX.unseen) cache.INBOX.unseen--; renderFolders(); }
+  const list = a => (a || []).map(full).join(", ");
+  view.innerHTML = '<div class="panel">' +
+    '<div class="mhead"><h2>' + esc(m.subject || "(no subject)") + '</h2>' +
+      '<div class="mmeta"><b>From:</b> ' + esc(list(m.from)) + '</div>' +
+      '<div class="mmeta"><b>To:</b> ' + esc(list(m.to)) + (m.cc && m.cc.length ? ' &nbsp; <b>Cc:</b> ' + esc(list(m.cc)) : '') + '</div>' +
+      '<div class="mmeta">' + esc(whenLong(m.date)) + '</div></div>' +
+    '<div class="acts"><a class="ghost" href="#' + f + '">&larr; ' + esc((FOLDERS.find(x => x[0] === f) || [, f])[1]) + '</a>' +
+      (f === "Sent" ? '' : '<a class="new" href="#reply">Reply</a>') +
+      (f === "Trash" ? '<button type="button" class="ghost" id="moveBtn" data-to="INBOX">Move to Inbox</button>'
+        : '<button type="button" class="ghost danger" id="moveBtn" data-to="Trash">Delete</button>') + '</div>' +
+    (m.html ? '<iframe class="body" id="mbody" title="Email" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"></iframe>'
+      : '<div class="plain">' + esc(m.text || "(empty)") + '</div>') +
+    (m.attachments && m.attachments.length ? '<div class="att">Attachments (open in Zoho to download): ' +
+      esc(m.attachments.map(a => a.name).join(", ")) + '</div>' : '') +
+    '<p class="msg err" id="mErr" role="alert"></p></div>';
+  const fr = document.getElementById("mbody");
+  if (fr) {
+    // No scripts ever run in here (no allow-scripts). Links open in a new tab.
+    fr.srcdoc = '<!doctype html><html><head><meta charset="utf-8"><base target="_blank">' +
+      '<style>body{margin:12px;font:15px/1.5 Arial,Helvetica,sans-serif;color:#1c2230;overflow-wrap:anywhere}img{max-width:100%;height:auto}</style>' +
+      '</head><body>' + m.html + '</body></html>';
+    fr.addEventListener("load", () => {
+      try { fr.style.height = Math.min(Math.max(fr.contentDocument.documentElement.scrollHeight + 20, 300), 6000) + "px"; } catch (e) { /* keep default */ }
+    });
+  }
+  document.getElementById("moveBtn").addEventListener("click", async e => {
+    const b = e.currentTarget, to = b.dataset.to;
+    if (to === "Trash" && !confirm("Move this email to Trash?")) return;
+    b.disabled = true;
+    try {
+      await mailMove({folder: f, uid, to});
+      delete cache[f]; delete cache[to];
+      location.hash = f;
+    } catch (err) { b.disabled = false; document.getElementById("mErr").textContent = friendly(err); }
+  });
+}
+
+/* New email, or Reply to the open message. A reply goes out from the address the customer wrote to. */
+function showCompose(reply) {
+  renderFolders();
+  const m = reply ? current : null;
+  if (reply && !m) { location.hash = folder; return; }
+  const froms = FROMS.slice();
+  let fromPick = FROMS[0], to = "", subject = "", body = "";
+  if (m) {
+    const ours = [...(m.to || []), ...(m.cc || [])].map(a => (a.address || "").toLowerCase()).filter(OURS);
+    ours.forEach(a => { if (!froms.includes(a)) froms.push(a); });
+    if (ours.length) fromPick = ours[0];
+    to = ((m.replyTo && m.replyTo[0]) || (m.from && m.from[0]) || {}).address || "";
+    subject = /^re:/i.test(m.subject || "") ? m.subject : "Re: " + (m.subject || "");
+    const quoted = String(m.text || "").trim().split("\n").slice(0, 200).map(l => "> " + l).join("\n");
+    body = "\n\n\nOn " + whenLong(m.date) + ", " + full((m.from || [])[0]) + " wrote:\n" + quoted;
+  }
+  view.innerHTML = '<div class="panel"><div class="mhead"><h2>' + (m ? "Reply" : "New email") + '</h2></div>' +
+    '<form id="cForm" novalidate>' +
+      '<label class="fld"><span>From</span><select id="cFrom">' +
+        froms.map(a => '<option value="' + esc(a) + '"' + (a === fromPick ? ' selected' : '') + '>' + esc(a) + '</option>').join("") + '</select></label>' +
+      '<label class="fld"><span>To</span><input id="cTo" type="email" multiple autocomplete="email" value="' + esc(to) + '" placeholder="customer@example.com"></label>' +
+      '<label class="fld"><span>Subject</span><input id="cSubj" type="text" maxlength="300" value="' + esc(subject) + '"></label>' +
+      '<label class="fld"><span>Message</span><textarea id="cBody">' + esc(body) + '</textarea></label>' +
+      '<div class="acts"><button type="submit" class="new" id="cSend">Send</button>' +
+        '<a class="ghost" href="#' + (m ? folder + "/" + m.uid : folder) + '">Cancel</a></div>' +
+      '<p class="msg err" id="cErr" role="alert"></p>' +
+    '</form></div>';
+  const ta = document.getElementById("cBody");
+  (to ? ta : document.getElementById("cTo")).focus();
+  if (to) ta.setSelectionRange(0, 0);
+  document.getElementById("cForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const btn = document.getElementById("cSend"), err = document.getElementById("cErr");
+    const data = {from: document.getElementById("cFrom").value, to: document.getElementById("cTo").value.trim(),
+      subject: document.getElementById("cSubj").value.trim(), text: ta.value};
+    if (!data.to) { err.textContent = "Add who it's going to."; return; }
+    if (!data.text.trim()) { err.textContent = "Type a message first."; return; }
+    if (m && m.messageId) { data.inReplyTo = m.messageId; data.references = m.references || []; }
+    btn.disabled = true; btn.textContent = "Sending\u2026"; err.textContent = "";
+    try {
+      await mailSend(data);
+      delete cache.Sent;
+      view.innerHTML = '<div class="panel"><div class="msg">Sent \u2713 from ' + esc(data.from) + '</div>' +
+        '<div class="acts"><a class="ghost" href="#' + folder + '">Back to ' + esc((FOLDERS.find(x => x[0] === folder) || [, "Inbox"])[1]) + '</a></div></div>';
+    } catch (x) { btn.disabled = false; btn.textContent = "Send"; err.textContent = friendly(x); }
+  });
+}
+
+/* ---------- which screen ---------- */
+const route = () => {
+  const h = decodeURIComponent(location.hash.slice(1));
+  document.getElementById("newBtn").hidden = h === "new" || h === "reply";
+  if (h === "new") return showCompose(false);
+  if (h === "reply") return showCompose(true);
+  const [f, uid] = h.split("/");
+  const fk = FOLDERS.some(x => x[0] === f) ? f : "INBOX";
+  if (uid && /^\d+$/.test(uid)) return showMessage(fk, Number(uid));
+  showList(fk);
+};
+document.getElementById("refreshBtn").addEventListener("click", () => { cache = {}; route(); });
+
+/* Page lock. Not signed in -> login page, then back here. */
+let started = false;
+onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=email.html"); return; }
+  document.getElementById("authwait")?.remove();
+  if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
+});
+</script>
+</body>
+</html>
