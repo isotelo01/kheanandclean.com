@@ -414,7 +414,7 @@ async function showLead(id){
         '</div>' +
       '</div>' +
       '<div class="actions">' +
-        (tel ? '<a class="ghost" href="tel:' + esc(tel) + '">Call</a><a class="ghost" href="sms:' + esc(tel) + '">Text</a>' : '') +
+        (tel ? '<a class="ghost" href="tel:' + esc(tel) + '">Call</a><a class="ghost" href="./texts.html#' + esc(String(tel).replace(/\D/g, "").slice(-10)) + '">Text</a>' : '') +   /* business line, not your cell */
         (l.email ? '<a class="ghost" href="mailto:' + encodeURIComponent(l.email) + '">Email</a>' : '') +
       '</div>' +
       '<h2>Photos</h2>' +
@@ -671,7 +671,7 @@ async function showLead(id){
   });
 
   /* Call / Text / Email on a New lead: it becomes Contacted on its own. */
-  view.querySelectorAll('a[href^="tel:"], a[href^="sms:"], a[href^="mailto:"]').forEach(a => a.addEventListener("click", () => {
+  view.querySelectorAll('a[href^="tel:"], a[href^="sms:"], a[href^="./texts.html"], a[href^="mailto:"]').forEach(a => a.addEventListener("click", () => {
     const cur2 = (all && all.find(x => x.id === id)) || l;
     if (statusOf(cur2).v !== "new") return;
     updateDoc(doc(db, "leads", id), { status: "contacted", updatedAt: serverTimestamp() })

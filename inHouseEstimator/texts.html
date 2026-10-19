@@ -326,6 +326,8 @@ function showThread(id) {
       const pics = (Array.isArray(m.media) ? m.media : []).filter(x => /^https:\/\//.test(x && x.url)).map((x, i) =>
         /^image\//.test(x.type)
           ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener"><img src="' + esc(x.url) + '" alt="Photo ' + (i + 1) + '" loading="lazy"></a>'
+          : /^video\//.test(x.type)
+          ? '<video src="' + esc(x.url) + '" controls playsinline preload="metadata" style="display:block;max-width:100%;border-radius:10px;margin-bottom:6px"></video>'
           : '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">Attachment ' + (i + 1) + '</a>').join('');
       h += '<div class="b ' + dir + '">' + pics + esc(m.body || "") + '</div>';
       if (dir === "out") {
@@ -347,6 +349,12 @@ function showThread(id) {
   const form = document.getElementById("replyForm"), body = document.getElementById("body"),
         btn = document.getElementById("sendBtn"), note = document.getElementById("note"), count = document.getElementById("count");
   body.addEventListener("input", () => { count.textContent = body.value.length + " / " + MAX; });
+  // Opened from a "Text" button with a ready-made message (?body=...): put it in the box once, unsent.
+  const pre = new URLSearchParams(location.search).get("body");
+  if (pre) {
+    body.value = pre.slice(0, MAX); count.textContent = body.value.length + " / " + MAX;
+    history.replaceState(null, "", location.pathname + location.hash);
+  }
   body.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); form.requestSubmit(); } });
   form.addEventListener("submit", async e => {
     e.preventDefault();

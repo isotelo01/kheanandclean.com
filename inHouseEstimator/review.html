@@ -250,7 +250,7 @@ async function start(){
   /* Text only: opens the messages app with the (edited) message. */
   $("smsBtn").addEventListener("click", e => {
     if (!tel) { e.preventDefault(); say("No phone on file.", true); return; }
-    $("smsBtn").href = "sms:" + tel + "?&body=" + encodeURIComponent($("txt").value);
+    $("smsBtn").href = "./texts.html?body=" + encodeURIComponent($("txt").value) + "#" + digits(tel).slice(-10);   // business line
   });
   $("copyBtn").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText($("txt").value); say("Text copied."); }
