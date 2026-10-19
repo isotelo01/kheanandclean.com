@@ -1050,7 +1050,7 @@ async function show(){
        More ▾ (the dropdown) sits under the rows; the price stays up in the header. */
     const prevBox = true ? '<div class="sthumbs sprev">' + prev.map(r =>   /* always: More ▾ is how a service opens now */
         '<a class="sprow" href="' + esc(r.href) + '"><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span></b>' + slot(r.b, "Before") + slot(r.a, "After") + '</a>').join("") +
-      (roomsAll.length > prev.length || !prev.length ? '<button type="button" class="smore" data-toggle="' + i + '">More ▾</button>' : '') + '</div>' : '';
+      '<button type="button" class="smore" data-toggle="' + i + '">More ▾</button></div>' : '';
     return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + (sumOpen.has(String(i)) ? ' sopen' : '') + '" data-line="' + i + '">' +
       '<div class="svc__headrow">' +
       '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
