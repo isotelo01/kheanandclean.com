@@ -223,7 +223,7 @@ const card = r =>
         : '') +
       (r.source !== "trash"
         ? (r.email
-            ? '<button type="button" class="mailbtn" data-mail="' + esc(r.id) + '" data-email="' + esc(r.email) + '" data-kind="' + kindOf(r) + '">Email</button>'
+            ? '<button type="button" class="mailbtn" data-mail="' + esc(r.id) + '" data-email="' + esc(r.email) + '" data-name="' + esc(r.name) + '" data-kind="' + kindOf(r) + '">Email</button>'
             : '<button type="button" class="mailbtn off" aria-disabled="true" title="No email on file">Email</button>')
         : '') +
       /* Staff only: drop the 3% card fee on this one invoice. Tap again to put it back. */
@@ -542,7 +542,7 @@ boardEl.addEventListener("click", async e => {
   if (!confirm("Email this " + kind + " to " + m.dataset.email + "?")) return;
   m.disabled = true; m.textContent = "Sending…";
   try {
-    await sendEmailFn({to: m.dataset.email, kind, docId: m.dataset.mail, link});
+    await sendEmailFn({to: m.dataset.email, name: m.dataset.name || "", kind, docId: m.dataset.mail, link});
     m.textContent = "Sent ✓";
   } catch (err) {
     m.disabled = false; m.textContent = "Email";
