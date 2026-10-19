@@ -597,13 +597,13 @@ async function load(){
   catch (e) { sheet.innerHTML = `<div class="msg">This page couldn't load. Check your connection and refresh, or call ${PHONE}.</div>`; console.error(e); return; }
   if (!snap.exists()) { sheet.innerHTML = `<div class="msg">This link doesn't match a quote or invoice. Call ${PHONE} and we'll sort it out.</div>`; return; }
   /* Tell Khean & Clean the customer opened it (Viewed tag + text to the cells). Open estimates and
-     unpaid invoices only, never when you're signed in to the app, and never twice per page load. */
+     unpaid invoices only, never when Israel is signed in to the app (Tita's opens do count), and never twice per page load. */
   const coll = snap.ref.parent.id;
   if ((coll === "quotes" || coll === "invoices") && !window.__viewedOnce) {
     window.__viewedOnce = true;
     const off = onAuthStateChanged(getAuth(db.app), user => {
       off();
-      if (user) return;
+      if (user && user.email === "kheanandclean@gmail.com") return;   // only Israel's own opens are skipped; Tita's count
       fetch("https://us-central1-khean-estimator-78f3e.cloudfunctions.net/quoteViewed", {
         method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id}), keepalive: true
       }).catch(() => {});
