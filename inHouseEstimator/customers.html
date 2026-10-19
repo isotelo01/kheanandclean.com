@@ -454,7 +454,7 @@ function readBlock(c){
       (phonesOf(c).length ? '<button type="button" class="ghost madd" id="tmplBtn">Pre-made texts</button><div id="tmplBox" hidden></div>' : "") +
       /* History: their texts and calls (first phone on file) and emails (first email), in the app's own pages. */
       ((phonesOf(c).length || emailsOf(c).length) ? '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">' +
-        (phonesOf(c).length ? '<a class="ghost" href="./texts.html#' + esc(digits(phonesOf(c)[0]).slice(-10)) + '">Text history</a>' +
+        (phonesOf(c).length ? '<a class="ghost" data-direct href="./texts.html#' + esc(digits(phonesOf(c)[0]).slice(-10)) + '">Text history</a>' +
           '<a class="ghost" href="./phone.html#calls/' + esc(digits(phonesOf(c)[0]).slice(-10)) + '">Call history</a>' : "") +
         (emailsOf(c).length ? '<a class="ghost" href="./email.html#with/' + encodeURIComponent(emailsOf(c)[0]) + '">Email history</a>' : "") +
       '</div>' : "") +

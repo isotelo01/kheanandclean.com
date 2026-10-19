@@ -166,6 +166,39 @@ function ringing(c) {
   };
 }
 
+/* ---------- Text: business line or my phone (phones only) ----------
+   Any "Text" link into the app's Texts (./texts.html#<number>, maybe ?body=) asks first:
+   Business line = the app's Texts from (916) 767-2520; My phone = your own Messages app.
+   Computers keep going straight to the business line. Links marked data-direct skip the question. */
+const onPhone = () => matchMedia("(max-width:759px)").matches || matchMedia("(pointer: coarse)").matches;
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest('a[href^="./texts.html"]');
+  if (!a || a.hasAttribute("data-direct") || !onPhone()) return;
+  const u = new URL(a.getAttribute("href"), location.href), k = (u.hash.slice(1).match(/^\d{10}$/) || [])[0];
+  if (!k) return;
+  e.preventDefault();
+  const body = u.searchParams.get("body") || "";
+  const sep = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? "&" : "?";
+  const mine = "sms:+1" + k + (body ? sep + "body=" + encodeURIComponent(body) : "");
+  document.getElementById("kcPick")?.remove();
+  const s = document.createElement("div");
+  s.id = "kcPick";
+  s.style.cssText = "position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center";
+  s.innerHTML = '<div style="background:#172239;color:#fff;width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));font:600 16px system-ui,sans-serif;display:grid;gap:10px">' +
+    '<div style="text-align:center;opacity:.8;font-weight:500">Text ' + esc(pretty(k)) + ' from</div>' +
+    '<a href="' + esc(a.getAttribute("href")) + '" data-direct style="display:block;text-align:center;background:#d9b25f;color:#172239;border-radius:10px;padding:14px;text-decoration:none">Business line (916) 767-2520</a>' +
+    '<a href="' + esc(mine) + '" style="display:block;text-align:center;background:#fff;color:#172239;border-radius:10px;padding:14px;text-decoration:none">My phone</a>' +
+    '<button type="button" style="background:none;border:0;color:#fff;font:inherit;padding:10px;cursor:pointer">Cancel</button></div>';
+  s.addEventListener("click", ev => {
+    if (ev.target === s || ev.target.tagName === "BUTTON") { s.remove(); return; }
+    if (ev.target.closest("a")) {
+      a.dispatchEvent(new CustomEvent("kc:texted", {bubbles: true}));   // e.g. a lead turns Contacted
+      setTimeout(() => s.remove(), 300);
+    }
+  });
+  document.body.appendChild(s);
+}, true);
+
 let started = false;
 onAuthStateChanged(getAuth(app), user => {
   if (!user || started) return;
