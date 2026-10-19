@@ -64,6 +64,9 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
 .pcell{position:relative;border-radius:8px;overflow:hidden;background:#eef0f4}
 .pcell img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+/* Star (bottom right): a favorite. Starred photos come up already picked on the Review request page. */
+.pstar{position:absolute;bottom:6px;right:6px;width:32px;height:32px;border:0;border-radius:50%;background:rgba(10,14,22,.65);color:#fff;font-size:19px;line-height:1;cursor:pointer}
+.pstar.on{color:#E3B64A;background:rgba(10,14,22,.85)}
 .px{position:absolute;top:6px;right:6px;width:30px;height:30px;border:0;border-radius:50%;background:rgba(10,14,22,.75);color:#fff;font-size:20px;line-height:1;cursor:pointer}
 .pbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .donebox{margin-top:16px;border-top:1px solid var(--line);font-weight:700}
@@ -422,12 +425,25 @@ async function show(){
     if (preEl) preEl.addEventListener("input", flag);
     if (rinseEl) rinseEl.addEventListener("input", flag);
 
+    /* Favorites for the whole job (q.starred: photo paths). Tap the star to add or remove one; saved right away. */
+    const starred = new Set(Array.isArray(q.starred) ? q.starred : []);
+    view.addEventListener("click", async e => {
+      const s = e.target.closest("[data-star]"); if (!s) return;
+      e.preventDefault();
+      const p = s.dataset.star, on = !starred.has(p);
+      on ? starred.add(p) : starred.delete(p);
+      s.classList.toggle("on", on); s.textContent = on ? "★" : "☆"; s.setAttribute("aria-pressed", String(on));
+      try { await setDoc(doc(db, place, id), { starred: [...starred] }, { merge: true }); note.textContent = on ? "Starred for review requests." : "Star removed."; note.classList.remove("err"); }
+      catch (err) { console.error(err); note.textContent = "Could not save the star: " + err.message; note.classList.add("err"); }
+    });
     const draw = async g => {
       const grid = document.getElementById("pgrid-" + g), paths = groups[g];
       const urls = await Promise.all(paths.map(p => getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
       grid.innerHTML = paths.map((p, k) => urls[k]
         ? '<div class="pcell"><a href="' + esc(urls[k]) + '" target="_blank" rel="noopener"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
-          '<button type="button" class="px" data-k="' + k + '" aria-label="Remove photo">×</button></div>' : '').join("") ||
+          '<button type="button" class="px" data-k="' + k + '" aria-label="Remove photo">×</button>' +
+          (PUBLIC ? '' : '<button type="button" class="pstar' + (starred.has(p) ? ' on' : '') + '" data-star="' + esc(p) + '" aria-label="Favorite" aria-pressed="' + starred.has(p) + '">' + (starred.has(p) ? '★' : '☆') + '</button>') +
+          '</div>' : '').join("") ||
         '<div class="msg">No photos yet.</div>';
       /* Customer view: a photo spot with nothing to show is left out, so the page is just the photos. */
       if (PUBLIC) { const lab = grid.previousElementSibling; const empty = !urls.some(Boolean);

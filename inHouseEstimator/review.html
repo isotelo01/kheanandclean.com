@@ -231,6 +231,10 @@ async function start(){
       const s = spots[k] || {};
       const bef = (Array.isArray(s.photosBeforeThreshold) ? s.photosBeforeThreshold : []).filter(okPath);
       const aft = (Array.isArray(s.photosAfterThreshold) ? s.photosAfterThreshold : []).filter(okPath);
+      /* Starred photos from the room's other photo spots come along too (Before ones with Before). */
+      const starSet = new Set(Array.isArray(j.starred) ? j.starred : []);
+      Object.keys(s).filter(f => /^photo/.test(f) && !/Threshold$/.test(f) && Array.isArray(s[f])).forEach(f =>
+        s[f].filter(p => okPath(p) && starSet.has(p)).forEach(p => (/Before|Inspect/i.test(f) ? bef : aft).push(p)));
       if (!bef.length && !aft.length) continue;
       rooms.push({ no: rooms.length + 1, bef, aft, on: false });
     }
@@ -254,13 +258,16 @@ async function start(){
       roomBtn(); sayCount();
     };
     /* Tick a room: its Before and After photos go in the send. Untick: they come out. */
+    const stars = new Set(Array.isArray(j.starred) ? j.starred : []);
+    let starOnly = stars.size > 0;
     const setRoom = async (r, on) => {
       r.on = on;
       const list = r.bef.map(p => ({ path: p, tag: "Before" })).concat(r.aft.map(p => ({ path: p, tag: "After" })));
       if (!on) { list.forEach(x => { photos.delete("j:" + x.path); picked.delete("j:" + x.path); }); drawSend(); return; }
       const urls = await Promise.all(list.map(x => getDownloadURL(ref(storage, x.path)).catch(e => { console.error("Photo " + x.path, e); return null; })));
       if (tok !== jobTok || !r.on) return;
-      list.forEach((x, i) => { if (!urls[i]) return; const key = "j:" + x.path; photos.set(key, { url: urls[i], path: x.path, tag: x.tag }); picked.add(key); });
+      list.forEach((x, i) => { if (!urls[i]) return; const key = "j:" + x.path; photos.set(key, { url: urls[i], path: x.path, tag: x.tag });
+        if (!starOnly || stars.has(x.path)) picked.add(key); });   /* opening with stars: only the starred ones go in */
       drawSend();
     };
     $("roomList").addEventListener("change", e => {
@@ -268,8 +275,10 @@ async function start(){
       if (cb) setRoom(rooms[+cb.dataset.room], cb.checked);
     });
     $("roomBtn").addEventListener("click", () => { $("roomList").hidden = !$("roomList").hidden; });
-    /* First three rooms ticked to start. */
-    rooms.slice(0, 3).forEach((r, i) => { box.querySelector('[data-room="' + i + '"]').checked = true; setRoom(r, true); });
+    /* To start: the job's starred photos (star on the job sheet), with their rooms ticked.
+       No stars on this job: the first three rooms, as before. Ticking a room by hand adds all its photos. */
+    const startRooms = stars.size ? rooms.filter(r => r.bef.concat(r.aft).some(p => stars.has(p))) : rooms.slice(0, 3);
+    startRooms.forEach(r => { box.querySelector('[data-room="' + rooms.indexOf(r) + '"]').checked = true; setRoom(r, true).then(() => { starOnly = false; }); });
     roomBtn();
   }
   showJob(jobs[0]);
