@@ -94,6 +94,7 @@ h1{font:700 30px "Playfair Display",Georgia,serif;margin:0;border-bottom:3px sol
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -106,6 +107,19 @@ const app = initializeApp({
 const fns = getFunctions(app, "us-central1");
 const mailList = httpsCallable(fns, "mailList"), mailRead = httpsCallable(fns, "mailRead");
 const mailMove = httpsCallable(fns, "mailMove"), mailSend = httpsCallable(fns, "mailSend");
+const storage = getStorage(app);
+/* Attachments: uploaded to mail-out/<you>/ when you press Send; mailSend attaches them. 20 MB total, 10 files. */
+const ATT_TOTAL = 20 * 1024 * 1024;
+async function uploadMailFiles(files) {
+  const uid = getAuth(app).currentUser.uid, out = [];
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i], ext = ((f.name || "").split(".").pop() || "bin").replace(/[^a-z0-9]/gi, "").slice(0, 6).toLowerCase() || "bin";
+    const p = "mail-out/" + uid + "/" + Date.now() + "_" + i + "." + ext;
+    await uploadBytes(sRef(storage, p), f, {contentType: f.type || "application/octet-stream"});
+    out.push({path: p, name: f.name || ("attachment." + ext)});
+  }
+  return out;
+}
 
 const FOLDERS = [["INBOX", "Inbox"], ["Sent", "Sent"], ["Spam", "Spam"], ["Archive", "Archive"], ["Trash", "Trash"]];
 // Addresses he can send from. Any other @kheanandclean.com address a message was sent to gets added
@@ -229,13 +243,25 @@ function showCompose(reply, preTo) {
       '<label class="fld"><span>To</span><input id="cTo" type="email" multiple autocomplete="email" value="' + esc(to) + '" placeholder="customer@example.com"></label>' +
       '<label class="fld"><span>Subject</span><input id="cSubj" type="text" maxlength="300" value="' + esc(subject) + '"></label>' +
       '<label class="fld"><span>Message</span><textarea id="cBody">' + esc(body) + '</textarea></label>' +
+      '<div id="cAtts" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px"></div>' +
       '<div class="acts"><button type="submit" class="new" id="cSend">Send</button>' +
+        '<label class="ghost" style="cursor:pointer">Attach<input type="file" id="cFiles" multiple hidden></label>' +
         '<a class="ghost" href="#' + (m ? folder + "/" + m.uid : folder) + '">Cancel</a></div>' +
       '<p class="msg err" id="cErr" role="alert"></p>' +
     '</form></div>';
   const ta = document.getElementById("cBody");
   (to ? ta : document.getElementById("cTo")).focus();
   if (to) ta.setSelectionRange(0, 0);
+  // Attachments picked so far: chips with the file name, x to remove.
+  let files = [];
+  const cAtts = document.getElementById("cAtts"), cFiles = document.getElementById("cFiles");
+  const drawAtts = () => {
+    cAtts.innerHTML = files.map((f, i) => '<span class="ghost" style="display:inline-flex;gap:6px;align-items:center;font-size:13px;max-width:100%">' +
+      '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px">' + esc(f.name) + '</span>' +
+      '<button type="button" data-x="' + i + '" aria-label="Remove" style="border:0;background:none;color:inherit;cursor:pointer;font-size:15px">&times;</button></span>').join("");
+  };
+  cFiles.addEventListener("change", () => { files = files.concat([...cFiles.files]).slice(0, 10); cFiles.value = ""; drawAtts(); });
+  cAtts.addEventListener("click", e => { const x = e.target.closest("[data-x]"); if (x) { files.splice(+x.dataset.x, 1); drawAtts(); } });
   document.getElementById("cForm").addEventListener("submit", async e => {
     e.preventDefault();
     const btn = document.getElementById("cSend"), err = document.getElementById("cErr");
@@ -245,7 +271,9 @@ function showCompose(reply, preTo) {
     if (!data.text.trim()) { err.textContent = "Type a message first."; return; }
     if (m && m.messageId) { data.inReplyTo = m.messageId; data.references = m.references || []; }
     btn.disabled = true; btn.textContent = "Sending\u2026"; err.textContent = "";
+    if (files.reduce((n, f) => n + f.size, 0) > ATT_TOTAL) { btn.disabled = false; btn.textContent = "Send"; err.textContent = "Attachments are too big (20 MB total max)."; return; }
     try {
+      if (files.length) data.attachments = await uploadMailFiles(files);
       await mailSend(data);
       delete cache.Sent;
       view.innerHTML = '<div class="panel"><div class="msg">Sent \u2713 from ' + esc(data.from) + '</div>' +
