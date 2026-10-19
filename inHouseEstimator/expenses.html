@@ -73,6 +73,8 @@ tfoot td{font-weight:700;border-bottom:none}
 .rtotal{border-top:2px solid var(--gold);border-bottom:0;margin-top:8px;font-size:17px}
 .rtotal b{font-weight:700}
 .itemsBody .rcpt{margin-top:16px;width:100%}
+.rmemo{margin-top:16px}
+.rmemo textarea{min-height:90px}
 /* Phones: no boxes around sections, just a line between them, for more room. */
 @media (max-width:759px){
   .wrap .panel{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none;padding:14px 0;margin:0}
@@ -444,8 +446,22 @@ $("list").addEventListener("click", e => {
     line("Date", md) + line("Category", r.category) + line("Paid with", r.paidWith) + line("Ref #", r.ref) +
     (items.length ? '<div class="rsub">Items</div><ul class="ritems">' + items.map(i => '<li>' + esc(i) + '</li>').join("") + '</ul>' : '') +
     '<div class="rl rtotal"><span>Total</span><b>' + money(r.amount) + '</b></div>' +
-    (r.receiptPath ? '<button type="button" class="ghost rcpt" data-path="' + esc(r.receiptPath) + '">View receipt photo</button>' : '');
+    (r.receiptPath ? '<button type="button" class="ghost rcpt" data-path="' + esc(r.receiptPath) + '">View receipt photo</button>' : '') +
+    '<label class="rmemo">Notes<textarea id="memoText" rows="4" placeholder="Add a note">' + esc(r.memo || "") + '</textarea></label>' +
+    '<div class="actions"><button type="button" class="new" id="memoSave" data-id="' + esc(r.id) + '">Save note</button><span id="memoMsg" class="msg"></span></div>';
   $("itemsBox").showModal();
+});
+/* Notes on a receipt: saved to the expense as "memo" (the "notes" field holds the items list). */
+$("itemsBox").addEventListener("click", async e => {
+  const b = e.target.closest("#memoSave"); if (!b) return;
+  const memo = $("memoText").value.trim();
+  b.disabled = true; $("memoMsg").textContent = "Saving\u2026";
+  try {
+    await setDoc(doc(db, "expenses", b.dataset.id), { memo }, { merge: true });
+    const r = rows.find(x => x.id === b.dataset.id); if (r) r.memo = memo;
+    $("memoMsg").textContent = "Saved.";
+  } catch (err) { console.error(err); $("memoMsg").textContent = "Could not save: " + err.message; }
+  b.disabled = false;
 });
 $("itemsClose").addEventListener("click", () => $("itemsBox").close());
 $("itemsBox").addEventListener("click", e => { if (e.target === $("itemsBox")) $("itemsBox").close(); });
