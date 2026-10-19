@@ -272,6 +272,7 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 const db = getFirestore(initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -595,6 +596,19 @@ async function load(){
   }
   catch (e) { sheet.innerHTML = `<div class="msg">This page couldn't load. Check your connection and refresh, or call ${PHONE}.</div>`; console.error(e); return; }
   if (!snap.exists()) { sheet.innerHTML = `<div class="msg">This link doesn't match a quote or invoice. Call ${PHONE} and we'll sort it out.</div>`; return; }
+  /* Tell Khean & Clean the customer opened it (Viewed tag + text to the cells). Open estimates and
+     unpaid invoices only, never when you're signed in to the app, and never twice per page load. */
+  const coll = snap.ref.parent.id;
+  if ((coll === "quotes" || coll === "invoices") && !window.__viewedOnce) {
+    window.__viewedOnce = true;
+    const off = onAuthStateChanged(getAuth(db.app), user => {
+      off();
+      if (user) return;
+      fetch("https://us-central1-khean-estimator-78f3e.cloudfunctions.net/quoteViewed", {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({id}), keepalive: true
+      }).catch(() => {});
+    });
+  }
   /* The shared note on this quote, if any. Missing or blocked just means an empty box. */
   try { const ns = await getDoc(doc(db, "quoteNotes", id)); note = ns.exists() ? ns.data() : null; }
   catch (e) { console.error("note", e); }

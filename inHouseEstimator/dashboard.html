@@ -74,6 +74,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .amt{font:700 20px "Archivo",system-ui,sans-serif;font-variant-numeric:tabular-nums lining-nums}
 .status{display:inline-block;font-weight:700;padding:3px 11px;border-radius:20px;font-size:13px;margin-top:4px}
 .status.sent,.status.draft{background:#eef1f6;color:var(--muted)}
+.status.viewed{background:var(--gold,#E3B64A);color:#172239}
 .status.accepted,.status.invoiced,.status.paid{background:#e5f2ec;color:var(--green)}
 .status.expired,.status.declined{background:#fbe9e6;color:var(--red)}
 .msg{background:#fff;border-radius:10px;padding:50px 20px;text-align:center;color:var(--muted)}
@@ -214,7 +215,10 @@ const card = r =>
     (r.source === "acceptedQuotes" ? '<button type="button" class="jsq" data-js="' + esc(r.id) + '">Job<br>sheet</button>' : '') +
     '<div class="right">' +
       '<div class="amt">' + money(r.total) + '</div>' +
-      '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>' +
+      /* Customer opened the link: "Viewed" + when (last time they opened it) instead of Awaiting reply / Invoiced. */
+      (r.viewedAt && ((r.source === "quotes" && r.state === "sent") || r.source === "invoices")
+        ? '<span class="status viewed">Viewed &middot; ' + esc(when(r.viewedAt)) + '</span>'
+        : '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>') +
       (r.source === "trash"
         ? '<button type="button" class="restore" data-restore="' + esc(r.id) + '">Restore</button>'
         /* Same Edit button on every card. An updated quote from a job sheet (data-job) opens its job sheet. */
@@ -312,7 +316,7 @@ async function grab(name){
     .filter(s => !(name === "trash" && s.data().trashBin === "income")).map(docSnap => {
     const d = docSnap.data(), c = d.customer || {};
     return { id: docSnap.id, source: name, createdAt: d.createdAt, revisionOf: d.revisionOf || "", fromJobSheet: !!d.fromJobSheet,
-             custId: d.customerId || "", leadId: d.leadId || "",
+             custId: d.customerId || "", leadId: d.leadId || "", viewedAt: d.lastViewedAt || d.viewedAt || null,
              number: d.number || "", name: c.name || "", phone: c.phone || "", email: c.email || "",
              total: d.total, feeWaived: !!d.feeWaived, paidAt: d.paidAt, trashedAt: d.trashedAt, date: when(d.createdAt), state: stateOf(d) };
   });
