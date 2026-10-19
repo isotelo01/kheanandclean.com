@@ -188,7 +188,7 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .summ .svc.sopen .svc__body{display:block}
 .summ .svc.sopen .svc__head .caret{transform:rotate(180deg)}
 .summ .svc:not(.sopen) .svc__head .caret{transform:none}
-.summ .svc__head .caret{display:inline-block!important}
+.summ .svc__head .caret{display:none!important}   /* Summary: price only up top; the dropdown is More ▾ under the rows */
 .summ .svc__head .amt{color:var(--ink)}
 .sthumbs{display:none}
 .summ .svc:not(.sopen) .sthumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
@@ -198,6 +198,9 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .summ .svc:not(.sopen) .sthumbs.sprev{display:block}
 .sprow{display:grid;grid-template-columns:minmax(0,1fr) 96px 96px;gap:8px;align-items:center;margin-top:10px}
 .sprow b{font-weight:600;font-size:15px;overflow-wrap:anywhere}
+a.sprow{color:inherit;text-decoration:none;padding:6px;margin-left:-6px;margin-right:-6px;border-radius:8px}
+a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
+.sthumbs .sprow .sgo{display:inline;aspect-ratio:auto;background:none;border-radius:0;color:var(--gold);font-weight:700}
 .spslot{position:relative}
 .spslot::after{content:attr(data-lbl);position:absolute;left:4px;bottom:4px;font:700 10.5px "Archivo";background:rgba(10,14,22,.7);color:#fff;border-radius:10px;padding:1px 7px}
 .smore{display:block;margin:12px 0 0 auto;background:none;border:1px solid var(--gold);color:inherit;border-radius:8px;padding:8px 16px;font:600 14px "Archivo";cursor:pointer}
@@ -1030,21 +1033,24 @@ async function show(){
     /* Summary, folded: the first 3 rooms with photos, each with its Before and After side by side,
        then More (opens every room). Threshold photos first, then the room's other Before / After. */
     const prev = [], roomsAll = [];
-    const addPrev = (key, name) => { roomsAll.push(key); if (prev.length >= 3) return; const s = spots[key] || {};
+    const addPrev = (key, name, href) => { roomsAll.push(key); if (prev.length >= 3) return; const s = spots[key] || {};
       const b = pathsOf({ photoPaths: [...(s.photosBeforeThreshold || []), ...(s.photosBefore || [])] })[0];
       const a = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || [])] })[0];
-      if (b || a) prev.push({ name, b, a }); };
+      if (b || a) prev.push({ name, b, a, href }); };
     items.forEach((it, j) => { if (it.removed) return;
-      if (Array.isArray(it.rooms) && it.rooms.length) { it.rooms.forEach(rm => addPrev(rm.id, rm.name)); return; }
+      if (Array.isArray(it.rooms) && it.rooms.length) { it.rooms.forEach((rm, r) => addPrev(rm.id, rm.name, spotLink(i, j, r))); return; }
       /* Upholstery pieces and other items with their own page: "i-j", or "i-j-r" for each one of several. */
       const own = Object.keys(spots).filter(k => k === i + "-" + j || k.indexOf(i + "-" + j + "-") === 0)
         .sort((x, y) => (Number(x.split("-")[2]) || 0) - (Number(y.split("-")[2]) || 0));
       const base = (it.baseName || noPrice(it.label) || "Item").replace(/\s*×\s*1$/, "");   /* "Couch × 1" reads as "Couch" */
-      own.forEach(k => { const r = k.split("-")[2]; addPrev(k, own.length > 1 || r != null ? base + " " + ((Number(r) || 0) + 1) : base); }); });
+      own.forEach(k => { const r = k.split("-")[2];
+        addPrev(k, own.length > 1 || r != null ? base + " " + ((Number(r) || 0) + 1) : base, spotLink(i, j, r == null ? null : Number(r))); }); });
     const slot = (p, lbl) => '<span class="spslot" data-lbl="' + lbl + '"' + (p ? ' data-sthumb="' + esc(p) + '"' : '') + '></span>';
-    const prevBox = prev.length ? '<div class="sthumbs sprev">' + prev.map(r =>
-        '<div class="sprow"><b>' + esc(r.name || "Room") + '</b>' + slot(r.b, "Before") + slot(r.a, "After") + '</div>').join("") +
-      (roomsAll.length > prev.length ? '<button type="button" class="smore" data-toggle="' + i + '">More ›</button>' : '') + '</div>' : '';
+    /* Each row is one link: tap anywhere on it (name or photos) to open that room's / piece's photos.
+       More ▾ (the dropdown) sits under the rows; the price stays up in the header. */
+    const prevBox = true ? '<div class="sthumbs sprev">' + prev.map(r =>   /* always: More ▾ is how a service opens now */
+        '<a class="sprow" href="' + esc(r.href) + '"><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span></b>' + slot(r.b, "Before") + slot(r.a, "After") + '</a>').join("") +
+      (roomsAll.length > prev.length || !prev.length ? '<button type="button" class="smore" data-toggle="' + i + '">More ▾</button>' : '') + '</div>' : '';
     return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + (sumOpen.has(String(i)) ? ' sopen' : '') + '" data-line="' + i + '">' +
       '<div class="svc__headrow">' +
       '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
