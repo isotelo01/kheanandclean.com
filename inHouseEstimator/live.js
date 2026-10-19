@@ -82,7 +82,6 @@ function startBubbles() {
 /* ---------- phone on every page ---------- */
 function phoneLook(state, why) {   // "on" | "off" | "bad"
   document.querySelectorAll('#tabbar a[href="./phone.html"]').forEach(a => a.classList.toggle("kcOn", state === "on"));
-  if (OWN_PHONE) return;
   let p = document.getElementById("kcPill");
   if (!p) { p = document.createElement("a"); p.id = "kcPill"; p.href = "./phone.html"; p.innerHTML = "<i></i><span></span>"; document.body.appendChild(p); }
   p.className = state === "on" ? "" : state;
@@ -93,7 +92,7 @@ function phoneLook(state, why) {   // "on" | "off" | "bad"
 // phone.html / texts.html: just mirror their own Phone button into the green tab.
 function mirrorOwnPhone() {
   const btn = document.getElementById("phoneBtn"); if (!btn) return;
-  const sync = () => phoneLook(btn.classList.contains("on") ? "on" : "off");
+  const sync = () => phoneLook(btn.classList.contains("on") ? "on" : btn.classList.contains("bad") ? "bad" : "off", btn.title);
   new MutationObserver(sync).observe(btn, {attributes: true, attributeFilter: ["class"]});
   sync();
 }
