@@ -265,14 +265,13 @@ function render(){
   if (!rows.length) { $("list").innerHTML = '<div class="msg">Nothing logged for ' + esc(monthName()) + ' yet.</div>'; return; }
   const total = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   $("list").innerHTML = '<div class="tablewrap"><table><thead><tr>' +
-    '<th>Date</th><th>Vendor</th><th>Category</th><th class="pw">Paid with</th><th class="pw">Ref #</th><th class="amt">Amount</th><th></th></tr></thead><tbody>' +
+    '<th>Date</th><th>Vendor</th><th>Category</th><th class="pw">Paid with</th><th class="pw">Ref #</th><th class="amt">Amount</th></tr></thead><tbody>' +
     rows.map(r => '<tr class="exrow" data-id="' + esc(r.id) + '"><td>' + esc(String(r.date || "").replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2")) + '</td><td><span class="vname">' + esc(r.vendor) + '</span>' +
       '</td><td>' + esc(r.category) +
-      (r.notes ? '<div><a href="#" class="items" data-id="' + esc(r.id) + '">Items</a></div>' : '') +
       '</td><td class="pw">' + esc(r.paidWith) + '</td><td class="pw">' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
       (r.receiptPath ? '<div><a href="#" class="rcpt" data-path="' + esc(r.receiptPath) + '">Receipt</a></div>' : '') +
-      '</td><td><button type="button" class="del" data-id="' + esc(r.id) + '" title="Move to trash" aria-label="Move expense to trash">&times;</button></td></tr>').join("") +
-    '</tbody><tfoot><tr><td colspan="3">Total (' + rows.length + ')</td><td class="pw"></td><td class="pw"></td><td class="amt">' + money(total) + '</td><td></td></tr></tfoot></table></div>';
+      '</td></tr>').join("") +
+    '</tbody><tfoot><tr><td colspan="3">Total (' + rows.length + ')</td><td class="pw"></td><td class="pw"></td><td class="amt">' + money(total) + '</td></tr></tfoot></table></div>';
 }
 
 $("toggleForm").addEventListener("click", () => {
@@ -448,8 +447,16 @@ $("list").addEventListener("click", e => {
     '<div class="rl rtotal"><span>Total</span><b>' + money(r.amount) + '</b></div>' +
     (r.receiptPath ? '<button type="button" class="ghost rcpt" data-path="' + esc(r.receiptPath) + '">View receipt photo</button>' : '') +
     '<label class="rmemo">Notes<textarea id="memoText" rows="4" placeholder="Add a note">' + esc(r.memo || "") + '</textarea></label>' +
-    '<div class="actions"><button type="button" class="new" id="memoSave" data-id="' + esc(r.id) + '">Save note</button><span id="memoMsg" class="msg"></span></div>';
+    '<div class="actions"><button type="button" class="new" id="memoSave" data-id="' + esc(r.id) + '">Save note</button><span id="memoMsg" class="msg"></span></div>' +
+    '<div class="actions" style="margin-top:18px"><button type="button" class="ghost" id="rDel" data-id="' + esc(r.id) + '" style="color:var(--red)">Delete (move to Trash)</button></div>';
   $("itemsBox").showModal();
+});
+/* Delete inside the receipt: same as the old row × — goes to this page's Trash, restorable for 30 days. */
+$("itemsBox").addEventListener("click", async e => {
+  const b = e.target.closest("#rDel"); if (!b) return;
+  b.disabled = true;
+  try { await moveToTrash("expenses", b.dataset.id); $("itemsBox").close(); await Promise.all([loadMonth(), loadTrash()]); }
+  catch (err) { console.error(err); b.disabled = false; alert("Could not move to Trash: " + err.message); }
 });
 /* Notes on a receipt: saved to the expense as "memo" (the "notes" field holds the items list). */
 $("itemsBox").addEventListener("click", async e => {
