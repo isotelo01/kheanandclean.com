@@ -31,4 +31,8 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + t[2] + '</svg>' + t[1] + '</a>';
   }).join("");
   document.body.appendChild(nav);
+  // Unread bubbles + the business phone on every page (live.js).
+  var live = document.createElement("script");
+  live.type = "module"; live.src = "./live.js";
+  document.body.appendChild(live);
 })();
