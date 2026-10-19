@@ -194,6 +194,14 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .summ .svc:not(.sopen) .sthumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
 .summ .svc:not(.sopen) .sthumbs.six{grid-template-columns:repeat(3,1fr)}
 .sthumbs span{display:block;aspect-ratio:1;border-radius:8px;background:rgba(0,0,0,.25) center/contain no-repeat}   /* whole photo, not cropped */
+/* Folded service in the Summary: first 3 rooms as rows of name + Before + After, then More. */
+.summ .svc:not(.sopen) .sthumbs.sprev{display:block}
+.sprow{display:grid;grid-template-columns:minmax(0,1fr) 96px 96px;gap:8px;align-items:center;margin-top:10px}
+.sprow b{font-weight:600;font-size:15px;overflow-wrap:anywhere}
+.spslot{position:relative}
+.spslot::after{content:attr(data-lbl);position:absolute;left:4px;bottom:4px;font:700 10.5px "Archivo";background:rgba(10,14,22,.7);color:#fff;border-radius:10px;padding:1px 7px}
+.smore{display:block;margin:12px 0 0 auto;background:none;border:1px solid var(--gold);color:inherit;border-radius:8px;padding:8px 16px;font:600 14px "Archivo";cursor:pointer}
+@media (max-width:420px){ .sprow{grid-template-columns:minmax(0,1fr) 80px 80px} }
 .summ .srow .spot{transform:none!important}
 .sumrow{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:22px}
 /* Send to customer (Summary only): the updated quote goes back for approval. */
@@ -1019,13 +1027,25 @@ async function show(){
       it.rooms.forEach(rm => { if (thumbs.length >= thumbMax) return; const s = spots[rm.id] || {};
         const p = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || []), ...(s.photosBeforeThreshold || []), ...(s.photosBefore || []), ...(s.photoPaths || [])] })[0];
         if (p) thumbs.push(p); }); });
+    /* Summary, folded: the first 3 rooms with photos, each with its Before and After side by side,
+       then More (opens every room). Threshold photos first, then the room's other Before / After. */
+    const prev = [], roomsAll = [];
+    items.forEach(it => { if (it.removed || !Array.isArray(it.rooms)) return;
+      it.rooms.forEach(rm => { roomsAll.push(rm); if (prev.length >= 3) return; const s = spots[rm.id] || {};
+        const b = pathsOf({ photoPaths: [...(s.photosBeforeThreshold || []), ...(s.photosBefore || [])] })[0];
+        const a = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || [])] })[0];
+        if (b || a) prev.push({ name: rm.name, b, a }); }); });
+    const slot = (p, lbl) => '<span class="spslot" data-lbl="' + lbl + '"' + (p ? ' data-sthumb="' + esc(p) + '"' : '') + '></span>';
+    const prevBox = prev.length ? '<div class="sthumbs sprev">' + prev.map(r =>
+        '<div class="sprow"><b>' + esc(r.name || "Room") + '</b>' + slot(r.b, "Before") + slot(r.a, "After") + '</div>').join("") +
+      (roomsAll.length > prev.length ? '<button type="button" class="smore" data-toggle="' + i + '">More ›</button>' : '') + '</div>' : '';
     return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + (sumOpen.has(String(i)) ? ' sopen' : '') + '" data-line="' + i + '">' +
       '<div class="svc__headrow">' +
       '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
         '<span>' + esc(head) + '</span><span class="amt">' + (plus ? '<span class="sprice" style="color:var(--ink)">' + money(l.cost) + '</span>' : money(l.cost) + ' ') + '<span class="caret">▾</span></span></button>' +
       (plus ? '<button type="button" class="svc__plus" data-addons="' + i + '" aria-label="Add-ons">+</button>' : '') +
       '</div>' +
-      (thumbs.length ? '<div class="sthumbs' + (thumbMax === 6 ? ' six' : '') + '">' + thumbs.map(p => '<span data-sthumb="' + esc(p) + '"></span>').join("") + '</div>' : '') +
+      (prevBox || (thumbs.length ? '<div class="sthumbs' + (thumbMax === 6 ? ' six' : '') + '">' + thumbs.map(p => '<span data-sthumb="' + esc(p) + '"></span>').join("") + '</div>' : '')) +
       (plus ? '<div class="addonbox" data-line="' + i + '"><div class="rpick" hidden>' +
         lineAddons.map(a =>
           '<div class="rprow" data-ak="' + a.key + '">' +
@@ -1156,7 +1176,7 @@ async function show(){
       const im = new Image(); im.alt = ""; im.src = u; t.appendChild(im);
     }).catch(e => console.error("Thumb " + t.dataset.thumb, e)));
   /* Summary's folded-service photos: the same photos its room rows show, so the preview matches what opens. */
-  view.querySelectorAll(".svc").forEach(sv => { const box = sv.querySelector(".sthumbs"); if (!box) return;
+  view.querySelectorAll(".svc").forEach(sv => { const box = sv.querySelector(".sthumbs"); if (!box || box.classList.contains("sprev")) return;   /* Before / After rows keep their own photos */
     const ps = [...sv.querySelectorAll(".spot__tick[data-thumb]")].map(t => t.dataset.thumb).slice(0, box.classList.contains("six") ? 6 : 4);
     if (ps.length) box.innerHTML = ps.map(p => '<span data-sthumb="' + esc(p) + '"></span>').join(""); });
   view.querySelectorAll("[data-sthumb]").forEach(t =>
