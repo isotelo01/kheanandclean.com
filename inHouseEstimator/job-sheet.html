@@ -207,6 +207,14 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 .spslot::after{content:attr(data-lbl);position:absolute;left:4px;bottom:4px;font:700 10.5px "Archivo";background:rgba(10,14,22,.7);color:#fff;border-radius:10px;padding:1px 7px}
 .smore{display:block;margin:12px 0 0 auto;background:none;border:1px solid var(--gold);color:inherit;border-radius:8px;padding:8px 16px;font:600 14px "Archivo";cursor:pointer}
 @media (max-width:420px){ .sprow{grid-template-columns:minmax(0,1fr) 80px 80px} }
+/* Computers: no wide empty gap. Each room / piece is a small card (name on top, Before and After
+   side by side, bigger), three cards across; More sits under them on the right. */
+@media (min-width:760px){
+  .summ .svc:not(.sopen) .sthumbs.sprev{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}
+  .sthumbs a.sprow{grid-template-columns:1fr 1fr;gap:8px;margin:0;padding:10px;border:1px solid rgba(227,182,74,.28);border-radius:10px}
+  .sthumbs .sprow b{grid-column:1/-1}
+  .sthumbs .smore{grid-column:1/-1;margin-top:0}
+}
 .summ .srow .spot{transform:none!important}
 .sumrow{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:22px}
 /* Send to customer (Summary only): the updated quote goes back for approval. */
