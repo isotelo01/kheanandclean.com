@@ -1048,7 +1048,9 @@
     linesEl.innerHTML = b.breakdown.map(function(r){
       var head = '<li class="lineItem"><span>'+(r.key === 'carpet' ? carpetHead(r) : twoLine(r.label))+'</span><span>$'+money(r.cost)+'</span></li>';
       var subs = r.items.map(function(it){
-        var line = '<li class="lineItem__sub"><span>'+twoLine(it.label)+'</span><span>'+(it.included ? 'Included' : '$'+money(it.cost))+'</span></li>';
+        /* Carpet: the package is shown big above, so its line just says "Carpet Cleaning" (screen only). */
+        var subLbl = r.key === 'carpet' ? String(it.label).replace(/^Carpet [^\u2014]+?(?= \u2014 .*\/sq ft)/, 'Carpet Cleaning') : it.label;
+        var line = '<li class="lineItem__sub"><span>'+twoLine(subLbl)+'</span><span>'+(it.included ? 'Included' : '$'+money(it.cost))+'</span></li>';
         /* Rooms that produced the footage above, each with its sq ft and its own price.
            Only room-mode items carry this. */
         if(it.rooms && it.rooms.length){
