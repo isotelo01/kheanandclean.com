@@ -34,6 +34,10 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 .meta{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px}
 .meta h3{font-size:13px;color:var(--muted);margin:0 0 4px;font-weight:600}
 .meta p{margin:0}
+/* Mascot in the space between Prepared for and the Date, with the guarantee under him. */
+.mascot{display:flex;flex-direction:column;align-items:center;text-align:center;align-self:center}
+.mascot img{height:150px;width:auto;display:block}
+.mascot span{margin-top:6px;color:var(--gold);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
 table{width:100%;border-collapse:collapse}
 th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left}
 th{font-size:13px;color:var(--muted);font-weight:600}
@@ -51,6 +55,8 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
   .meta .dfull{display:none}
   .meta .r{text-align:left}
   .meta .dstat{margin-top:0!important}
+  .mascot{order:3;flex:1 1 100%}   /* phones: under the Accepted pill, centered */
+  .mascot img{height:120px}
 }
 /* Line labels: name and size on one line, phones and computers alike (see twoLine). */
 br.tl{display:none}
@@ -688,6 +694,7 @@ function render(d){
     <div class="body">
       <div class="meta">
         <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}<span class="phl">${c.phone ? "<span>" + esc(c.phone) + "</span>" : "<span></span>"}<span class="mdate">${dShort}</span></span></p></div>
+        <div class="mascot"><img src="../images/mascot.webp" alt="Khean &amp; Clean mascot"><span>7-Day Re-Clean Guarantee</span></div>
         <div class="r"><h3 class="dfull">Date</h3><p class="dfull">${dateText}</p>${statusHtml ? `<p class="dstat" style="margin-top:10px">${statusHtml}</p>` : ""}</div>
       </div>
       ${(d.onsite || d.spots) && !new URLSearchParams(location.search).has("original")
