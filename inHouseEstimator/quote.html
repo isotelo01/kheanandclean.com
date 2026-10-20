@@ -57,12 +57,14 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
   .meta .dstat{margin-top:0!important}
   /* Phones: the mascot up beside Prepared for; the guarantee on its own line across the
      full width, under the Accepted pill. */
-  .meta{row-gap:12px}
-  .meta > div:first-child{flex:1 1 0;min-width:0;order:1}
+  /* Grid: name/address with the Accepted pill right under it on the left, the mascot tall on
+     the right beside both, the guarantee across the bottom. */
+  .meta{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;row-gap:10px}
+  .meta > div:first-child{grid-column:1;grid-row:1;min-width:0}
+  .meta .r{grid-column:1;grid-row:2;align-self:start}
   .mascot{display:contents}
-  .mascot img{order:2;flex:none;width:40%;max-width:170px;height:auto;align-self:center}
-  .meta .r{order:3;flex:1 1 100%}
-  .mascot span{order:4;flex:1 1 100%;margin-top:0;font-size:17px;letter-spacing:.1em;text-align:center}
+  .mascot img{grid-column:2;grid-row:1 / span 2;width:min(42vw,210px);height:auto;align-self:start;margin-top:-10px}
+  .mascot span{grid-column:1 / -1;grid-row:3;margin-top:0;font-size:17px;letter-spacing:.1em;text-align:center}
 }
 /* Line labels: name and size on one line, phones and computers alike (see twoLine). */
 br.tl{display:none}
