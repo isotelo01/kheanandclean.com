@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<title>Photo Cache &middot; Khean &amp; Clean</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Photo Cache: full-quality originals from the iPhone or Google Photos, stored untouched (no shrinking,
+   HEIC kept as HEIC). A small preview is made for the grid; tapping opens or downloads the original.
+   Files: Storage photo-cache/<time>_<name>, previews photo-cache/thumbs/. List: Firestore photoCache. Staff only. */
+:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:1000px;margin:0 auto;padding:18px 16px 70px}
+.back{color:var(--muted);font-size:14px;text-decoration:none}
+h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:8px 0 2px;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.sub{color:var(--muted);margin:6px 0 16px;font-size:15px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--navy);color:var(--gold);border:0;border-radius:999px;padding:11px 20px;font:700 15px "Archivo",sans-serif;cursor:pointer;position:relative}
+.btn.ghost{background:transparent;color:var(--navy);border:2px solid var(--navy)}
+.btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.count{color:var(--muted);font-size:14px;margin-left:auto}
+.prog{background:#fff;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14.5px;box-shadow:0 1px 6px rgba(23,34,57,.08)}
+.prog .track{height:6px;background:var(--line);border-radius:99px;margin-top:6px;overflow:hidden}
+.prog .fill{height:100%;background:var(--gold);width:0}
+.month{font:700 13px "Archivo",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.ph{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#d9dde5;border:0;padding:0;cursor:pointer}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph .nm{position:absolute;inset:auto 0 0 0;background:rgba(23,34,57,.75);color:#fff;font-size:11.5px;padding:3px 6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ph .noprev{display:grid;place-items:center;height:100%;color:var(--navy);font:700 14px "Archivo",sans-serif}
+.empty{background:#fff;border-radius:10px;padding:24px;text-align:center;color:var(--muted)}
+dialog{border:0;border-radius:14px;padding:0;max-width:min(96vw,1100px);width:100%;background:#0b0f18;color:#fff}
+dialog::backdrop{background:rgba(0,0,0,.75)}
+.vimg{display:block;max-width:100%;max-height:72vh;margin:0 auto;object-fit:contain}
+.vbody{padding:12px 16px 16px}
+.vmeta{font-size:14px;color:#c8cfdb;overflow-wrap:anywhere}
+.vacts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.vacts a,.vacts button{background:var(--gold);color:var(--navy);border:0;border-radius:999px;padding:10px 18px;font:700 14px "Archivo",sans-serif;text-decoration:none;cursor:pointer}
+.vacts .del{background:transparent;color:#ff9b8a;border:1px solid #ff9b8a;margin-left:auto}
+.vacts .close{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)}
+:where(a,button,label):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <a class="back" href="./hub.html">&lsaquo; Hub</a>
+  <h1>Photo Cache</h1>
+  <p class="sub">Full-quality originals from your iPhone or Google Photos. Nothing gets shrunk or compressed.</p>
+  <div class="bar">
+    <label class="btn">+ Add photos<input type="file" id="pick" accept="image/*,.heic,.heif,.dng" multiple></label>
+    <label class="btn ghost">Take photo<input type="file" id="cam" accept="image/*" capture="environment"></label>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="prog" id="prog" hidden><span id="progText"></span><div class="track"><div class="fill" id="fill"></div></div></div>
+  <div id="list"><div class="empty">Loading&hellip;</div></div>
+</div>
+
+<dialog id="viewer" aria-label="Photo">
+  <img class="vimg" id="vImg" alt="">
+  <div class="vbody">
+    <div class="vmeta" id="vMeta"></div>
+    <div class="vacts">
+      <a id="vOpen" href="#" target="_blank" rel="noopener">Open original</a>
+      <a id="vDown" href="#" download>Download</a>
+      <button type="button" class="close" id="vClose">Close</button>
+      <button type="button" class="del" id="vDel">Delete</button>
+    </div>
+  </div>
+</dialog>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app), storage = getStorage(app);
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mb = n => n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+const MAX = 100 * 1024 * 1024;   /* 100 MB a photo (ProRAW fits) */
+
+/* iPhone files sometimes come in with no type; work it out from the name so it saves as an image. */
+const TYPES = { heic: "image/heic", heif: "image/heif", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+  gif: "image/gif", webp: "image/webp", dng: "image/x-adobe-dng", tif: "image/tiff", tiff: "image/tiff", avif: "image/avif" };
+const typeOf = f => (f.type && f.type.startsWith("image/")) ? f.type : (TYPES[(f.name.split(".").pop() || "").toLowerCase()] || "");
+
+/* Small preview for the grid (480 px). Some browsers can't read HEIC: then no preview, the original is still saved. */
+async function preview(file){
+  try {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 480 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.8));
+    return blob ? { blob, w: bmp.width, h: bmp.height } : null;
+  } catch (e) { return null; }
+}
+const put = (path, blob, type, onPct) => new Promise((res, rej) => {
+  const task = uploadBytesResumable(sRef(storage, path), blob, { contentType: type, cacheControl: "private, max-age=31536000" });
+  task.on("state_changed", s => onPct && onPct(s.bytesTransferred / s.totalBytes), rej, () => res());
+});
+
+let uid = null, items = [];
+async function addFiles(files){
+  files = [...files]; if (!files.length || !uid) return;
+  const prog = $("prog"), fill = $("fill"), txt = $("progText");
+  prog.hidden = false; let ok = 0, bad = [];
+  const totalBytes = files.reduce((s, f) => s + f.size, 0) || 1; let doneBytes = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i], type = typeOf(f);
+    txt.textContent = "Uploading " + (i + 1) + " of " + files.length + " · " + f.name + " (" + mb(f.size) + ")";
+    if (!type) { bad.push(f.name + " (not a photo)"); doneBytes += f.size; continue; }
+    if (f.size > MAX) { bad.push(f.name + " (over 100 MB)"); doneBytes += f.size; continue; }
+    try {
+      const stamp = Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+      const safe = f.name.replace(/[^\w.\-]+/g, "_").slice(-80);
+      const path = "photo-cache/" + stamp + "_" + safe;
+      await put(path, f, type, p => { fill.style.width = Math.round((doneBytes + p * f.size) / totalBytes * 100) + "%"; });
+      const pv = await preview(f);
+      let thumb = "";
+      if (pv) { thumb = "photo-cache/thumbs/" + stamp + ".jpg"; await put(thumb, pv.blob, "image/jpeg"); }
+      await addDoc(collection(db, "photoCache"), { path, thumb, name: f.name, size: f.size, type,
+        width: pv ? pv.w : null, height: pv ? pv.h : null,
+        takenAt: f.lastModified || null, uploadedAt: serverTimestamp(), by: auth.currentUser.email || uid });
+      ok++;
+    } catch (e) { console.error(e); bad.push(f.name + " (" + (e.code || e.message) + ")"); }
+    doneBytes += f.size; fill.style.width = Math.round(doneBytes / totalBytes * 100) + "%";
+  }
+  txt.textContent = ok + " saved" + (bad.length ? " · couldn’t save: " + bad.join(", ") : ".");
+  setTimeout(() => { if (!bad.length) prog.hidden = true; }, 4000);
+  load();
+}
+$("pick").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+$("cam").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+
+async function load(){
+  const snap = await getDocs(query(collection(db, "photoCache"), orderBy("uploadedAt", "desc")));
+  items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  $("count").textContent = items.length + (items.length === 1 ? " photo" : " photos") + " · " + mb(items.reduce((s, x) => s + (x.size || 0), 0));
+  if (!items.length) { $("list").innerHTML = '<div class="empty">No photos yet. Tap Add photos.</div>'; return; }
+  /* Grouped by the month the photo was taken (or uploaded). */
+  const groups = new Map();
+  items.forEach(x => {
+    const t = x.takenAt || (x.uploadedAt && x.uploadedAt.toMillis && x.uploadedAt.toMillis()) || Date.now();
+    const k = new Date(t).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x);
+  });
+  $("list").innerHTML = [...groups].map(([k, xs]) => '<div class="month">' + esc(k) + '</div><div class="grid">' +
+    xs.map(x => '<button type="button" class="ph" data-id="' + esc(x.id) + '" aria-label="' + esc(x.name) + '">' +
+      (x.thumb ? '<img data-thumb="' + esc(x.thumb) + '" alt="">' : '<span class="noprev">' + esc((x.name.split(".").pop() || "").toUpperCase()) + '</span>') +
+      '<span class="nm">' + esc(x.name) + '</span></button>').join("") + '</div>').join("");
+  /* Previews load as they scroll into view. */
+  const io = new IntersectionObserver(es => es.forEach(en => {
+    if (!en.isIntersecting) return; io.unobserve(en.target);
+    getDownloadURL(sRef(storage, en.target.dataset.thumb)).then(u => en.target.src = u).catch(console.error);
+  }), { rootMargin: "300px" });
+  $("list").querySelectorAll("img[data-thumb]").forEach(im => io.observe(im));
+}
+
+/* Viewer: shows the full original (browsers that can't show HEIC fall back to the preview), plus Open / Download / Delete. */
+let cur = null;
+$("list").addEventListener("click", async e => {
+  const b = e.target.closest(".ph"); if (!b) return;
+  cur = items.find(x => x.id === b.dataset.id); if (!cur) return;
+  $("vImg").removeAttribute("src");
+  const when = cur.takenAt ? new Date(cur.takenAt).toLocaleString() : "";
+  $("vMeta").textContent = [cur.name, mb(cur.size || 0), cur.width ? cur.width + " × " + cur.height : "", when].filter(Boolean).join(" · ");
+  $("viewer").showModal();
+  try {
+    const url = await getDownloadURL(sRef(storage, cur.path));
+    $("vOpen").href = url; $("vDown").href = url; $("vDown").setAttribute("download", cur.name);
+    $("vImg").onerror = () => { if (cur.thumb) getDownloadURL(sRef(storage, cur.thumb)).then(u => $("vImg").src = u); };
+    $("vImg").src = url;
+  } catch (err) { console.error(err); $("vMeta").textContent += " · couldn’t load"; }
+});
+$("vClose").onclick = () => $("viewer").close();
+$("vDel").onclick = async () => {
+  if (!cur || !confirm("Delete " + cur.name + " for good?")) return;
+  try {
+    await deleteObject(sRef(storage, cur.path)).catch(e => { if (e.code !== "storage/object-not-found") throw e; });
+    if (cur.thumb) await deleteObject(sRef(storage, cur.thumb)).catch(() => {});
+    await deleteDoc(doc(db, "photoCache", cur.id));
+    $("viewer").close(); load();
+  } catch (e) { console.error(e); alert("Couldn't delete: " + (e.code || e.message)); }
+};
+
+/* Page lock: staff only. */
+onAuthStateChanged(auth, u => {
+  if (!u) { location.replace("./login.html?next=photo-cache.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  uid = u.uid; $("authwait")?.remove();
+  load().catch(e => { console.error(e); $("list").innerHTML = '<div class="empty">Couldn’t load photos.</div>'; });
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
