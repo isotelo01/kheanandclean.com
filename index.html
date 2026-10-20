@@ -421,7 +421,8 @@ img{ max-width:100%; display:block; }
 .hero__ctrl button:hover{ background:rgba(6,12,10,.75); border-color:#fff; }
 .hero__ctrl button:focus-visible{ outline:2px solid var(--brass-lit, #f0c670); outline-offset:2px; }
 .hero h1 > .hero__photobox > .hero__tagline{ position:relative; z-index:2; }
-.hero__let{ display:block; font-size:.5em; line-height:1; margin-bottom:.12em; }
+.hero__let{ display:block; font-size:.5em; line-height:1; margin-bottom:.12em; transition:opacity .5s ease; }
+.hero__let.is-off{ opacity:0; }
 .hero__brand{ display:block; font-size:var(--fs-display); white-space:nowrap; }
 .hero__llc{ font-size:.26em; letter-spacing:.06em; vertical-align:.12em; }
 .hero h1 .lit{ background:var(--gold-grad); background-clip:text; -webkit-background-clip:text; color:transparent; -webkit-text-fill-color:transparent; background-size:180% 180%; }
@@ -1523,8 +1524,8 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
   <div class="shell hero__stack">
     <p class="label label--d rise hero__labelNoLine"><span class="label__no">Est. Folsom, CA</span>Owner-operated steam cleaning</p>
     <h1 class="rise" style="--d:80ms">
-      <span class="hero__topline"><span class="hero__toplineTxt"><span class="hero__let">Let</span><span class="hero__brand foil">Khean <span class="mark__amp">&amp;</span> Clean <span class="hero__llc">LLC</span></span></span><span class="hero__logoWrap"><img class="hero__logo" src="images/logo.png" alt="Khean &amp; Clean logo"></span></span>
-      <span class="hero__photobox"><span class="hero__photo hero__photo--before" aria-hidden="true"></span><span class="hero__photo hero__photo--after" aria-hidden="true"></span><span class="hero__photo hero__photo--carpetBefore" aria-hidden="true"></span><span class="hero__photo hero__photo--carpetAfter" aria-hidden="true"></span><span class="hero__photo hero__photo--couch" aria-hidden="true"></span><span class="hero__photo hero__photo--van is-active" aria-hidden="true"></span><span class="hero__scrim" aria-hidden="true"></span><span class="hero__watermark hero__watermark--before" aria-hidden="true"></span><span class="hero__watermark hero__watermark--after" aria-hidden="true"></span><span id="heroTagline" class="hero__tagline"><span class="lit">bring Folsom &amp; El Dorado Hills floors back to life</span> with our tile, carpet and upholstery cleaning services.</span></span>
+      <span class="hero__topline"><span class="hero__toplineTxt"><span class="hero__let is-off">Let</span><span class="hero__brand foil">Khean <span class="mark__amp">&amp;</span> Clean <span class="hero__llc">LLC</span></span></span><span class="hero__logoWrap"><img class="hero__logo" src="images/logo.png" alt="Khean &amp; Clean logo"></span></span>
+      <span class="hero__photobox"><span class="hero__photo hero__photo--before" aria-hidden="true"></span><span class="hero__photo hero__photo--after" aria-hidden="true"></span><span class="hero__photo hero__photo--carpetBefore" aria-hidden="true"></span><span class="hero__photo hero__photo--carpetAfter" aria-hidden="true"></span><span class="hero__photo hero__photo--couch" aria-hidden="true"></span><span class="hero__photo hero__photo--van is-active" aria-hidden="true"></span><span class="hero__scrim" aria-hidden="true"></span><span class="hero__watermark hero__watermark--before" aria-hidden="true"></span><span class="hero__watermark hero__watermark--after" aria-hidden="true"></span><span id="heroTagline" class="hero__tagline"><span class="lit">Folsom&#8217;s neighborhood floor experts</span>.</span></span>
     </h1>
 
       <div class="pmBand rise" style="--d:130ms">
@@ -3164,10 +3165,10 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   var groutTagline = '<span class="lit">reveal your grout\'s true color</span>.';
   var carpetTagline = '<span class="lit">restore the feeling of fresh carpet between your toes</span>.';
   var upholsteryTagline = '<span class="lit">make an old friend look new again</span> with our expert upholstery service.';
-  var vanTagline = '<span class="lit">bring Folsom &amp; El Dorado Hills floors back to life</span> with our tile, carpet and upholstery cleaning services.';
+  var vanTagline = '<span class="lit">Folsom&#8217;s neighborhood floor experts</span>.';
 
   var slides = [
-    { photo: document.querySelector('.hero__photo--van'),    wm: null,                                                tagline: vanTagline },
+    { photo: document.querySelector('.hero__photo--van'),    wm: null, noLet: true,                                                tagline: vanTagline },
     { photo: document.querySelector('.hero__photo--before'), wm: document.querySelector('.hero__watermark--before'), tagline: groutTagline },
     { photo: document.querySelector('.hero__photo--after'),  wm: document.querySelector('.hero__watermark--after'),  tagline: groutTagline },
     { photo: document.querySelector('.hero__photo--carpetBefore'), wm: document.querySelector('.hero__watermark--before'), tagline: carpetTagline },
@@ -3225,6 +3226,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     document.querySelectorAll('.hero__watermark').forEach(function(el){
       el.classList.toggle('is-active', el === activeWm);
     });
+    // Van photo: no "Let" above Khean & Clean. Every other photo: "Let" comes back.
+    var letEl = document.querySelector('.hero__let');
+    if(letEl) letEl.classList.toggle('is-off', !!slides[idx].noLet);
     var nextTagline = slides[idx].tagline;
     if(taglineEl && nextTagline !== currentTagline){
       taglineEl.style.opacity = '0';
