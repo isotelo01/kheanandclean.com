@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0d1b2a">
 <meta name="robots" content="noindex, nofollow">
-<title>Photo Cache &middot; Khean &amp; Clean</title>
+<title>Photo &amp; Video Cache &middot; Khean &amp; Clean</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="../images/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,6 +36,7 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:8px 0 2px;border-bo
 .ph img{width:100%;height:100%;object-fit:cover;display:block}
 .ph .nm{position:absolute;inset:auto 0 0 0;background:rgba(23,34,57,.75);color:#fff;font-size:11.5px;padding:3px 6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ph .noprev{display:grid;place-items:center;height:100%;color:var(--navy);font:700 14px "Archivo",sans-serif}
+.ph .play{position:absolute;top:6px;left:6px;background:rgba(23,34,57,.8);color:#fff;border-radius:999px;font:700 11.5px "Archivo",sans-serif;padding:3px 8px}
 .empty{background:#fff;border-radius:10px;padding:24px;text-align:center;color:var(--muted)}
 dialog{border:0;border-radius:14px;padding:0;max-width:min(96vw,1100px);width:100%;background:#0b0f18;color:#fff}
 dialog::backdrop{background:rgba(0,0,0,.75)}
@@ -54,11 +55,12 @@ dialog::backdrop{background:rgba(0,0,0,.75)}
 <div id="authwait"></div>
 <div class="wrap">
   <a class="back" href="./hub.html">&lsaquo; Hub</a>
-  <h1>Photo Cache</h1>
-  <p class="sub">Full-quality originals from your iPhone or Google Photos. Nothing gets shrunk or compressed.</p>
+  <h1>Photo &amp; Video Cache</h1>
+  <p class="sub">Full-quality photos and videos from your iPhone or Google Photos. Nothing gets shrunk or compressed.</p>
   <div class="bar">
-    <label class="btn">+ Add photos<input type="file" id="pick" accept="image/*,.heic,.heif,.dng" multiple></label>
+    <label class="btn">+ Add photos &amp; videos<input type="file" id="pick" accept="image/*,video/*,.heic,.heif,.dng,.mov,.mp4,.m4v" multiple></label>
     <label class="btn ghost">Take photo<input type="file" id="cam" accept="image/*" capture="environment"></label>
+    <label class="btn ghost">Record video<input type="file" id="camv" accept="video/*" capture="environment"></label>
     <span class="count" id="count"></span>
   </div>
   <div class="prog" id="prog" hidden><span id="progText"></span><div class="track"><div class="fill" id="fill"></div></div></div>
@@ -67,6 +69,7 @@ dialog::backdrop{background:rgba(0,0,0,.75)}
 
 <dialog id="viewer" aria-label="Photo">
   <img class="vimg" id="vImg" alt="">
+  <video class="vimg" id="vVid" controls playsinline preload="metadata" hidden></video>
   <div class="vbody">
     <div class="vmeta" id="vMeta"></div>
     <div class="vacts">
@@ -99,15 +102,41 @@ const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const mb = n => n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
-const MAX = 100 * 1024 * 1024;   /* 100 MB a photo (ProRAW fits) */
+const MAX = 100 * 1024 * 1024;          /* 100 MB a photo (ProRAW fits) */
+const MAX_VIDEO = 4 * 1024 * 1024 * 1024; /* 4 GB a video (several minutes of iPhone 4K) */
 
-/* iPhone files sometimes come in with no type; work it out from the name so it saves as an image. */
+/* iPhone files sometimes come in with no type; work it out from the name so it saves as the right kind. */
 const TYPES = { heic: "image/heic", heif: "image/heif", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
-  gif: "image/gif", webp: "image/webp", dng: "image/x-adobe-dng", tif: "image/tiff", tiff: "image/tiff", avif: "image/avif" };
-const typeOf = f => (f.type && f.type.startsWith("image/")) ? f.type : (TYPES[(f.name.split(".").pop() || "").toLowerCase()] || "");
+  gif: "image/gif", webp: "image/webp", dng: "image/x-adobe-dng", tif: "image/tiff", tiff: "image/tiff", avif: "image/avif",
+  mov: "video/quicktime", mp4: "video/mp4", m4v: "video/x-m4v", "3gp": "video/3gpp", webm: "video/webm" };
+const typeOf = f => (f.type && /^(image|video)\//.test(f.type)) ? f.type : (TYPES[(f.name.split(".").pop() || "").toLowerCase()] || "");
+const isVid = x => String(x.type || "").startsWith("video/");
+
+/* Video preview: one frame about a second in. Some phones/browsers can't decode the format: then no preview. */
+function videoFrame(file){
+  return new Promise(res => {
+    const v = document.createElement("video"), url = URL.createObjectURL(file);
+    let done = false;
+    const finish = r => { if (done) return; done = true; URL.revokeObjectURL(url); res(r); };
+    v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
+    v.onloadedmetadata = () => { v.currentTime = Math.min(1, (v.duration || 2) / 2); };
+    v.onseeked = () => {
+      try {
+        const k = Math.min(1, 480 / Math.max(v.videoWidth, v.videoHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+        c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+        c.toBlob(b => finish(b ? { blob: b, w: v.videoWidth, h: v.videoHeight, dur: Math.round(v.duration || 0) } : null), "image/jpeg", 0.8);
+      } catch (e) { finish(null); }
+    };
+    v.onerror = () => finish(null);
+    setTimeout(() => finish(null), 15000);
+  });
+}
 
 /* Small preview for the grid (480 px). Some browsers can't read HEIC: then no preview, the original is still saved. */
 async function preview(file){
+  if (isVid({ type: typeOf(file) })) return videoFrame(file);
   try {
     const bmp = await createImageBitmap(file);
     const k = Math.min(1, 480 / Math.max(bmp.width, bmp.height));
@@ -132,8 +161,9 @@ async function addFiles(files){
   for (let i = 0; i < files.length; i++) {
     const f = files[i], type = typeOf(f);
     txt.textContent = "Uploading " + (i + 1) + " of " + files.length + " · " + f.name + " (" + mb(f.size) + ")";
-    if (!type) { bad.push(f.name + " (not a photo)"); doneBytes += f.size; continue; }
-    if (f.size > MAX) { bad.push(f.name + " (over 100 MB)"); doneBytes += f.size; continue; }
+    if (!type) { bad.push(f.name + " (not a photo or video)"); doneBytes += f.size; continue; }
+    if (!type.startsWith("video/") && f.size > MAX) { bad.push(f.name + " (photo over 100 MB)"); doneBytes += f.size; continue; }
+    if (type.startsWith("video/") && f.size > MAX_VIDEO) { bad.push(f.name + " (video over 4 GB)"); doneBytes += f.size; continue; }
     try {
       const stamp = Date.now() + "_" + Math.random().toString(36).slice(2, 6);
       const safe = f.name.replace(/[^\w.\-]+/g, "_").slice(-80);
@@ -143,7 +173,7 @@ async function addFiles(files){
       let thumb = "";
       if (pv) { thumb = "photo-cache/thumbs/" + stamp + ".jpg"; await put(thumb, pv.blob, "image/jpeg"); }
       await addDoc(collection(db, "photoCache"), { path, thumb, name: f.name, size: f.size, type,
-        width: pv ? pv.w : null, height: pv ? pv.h : null,
+        width: pv ? pv.w : null, height: pv ? pv.h : null, duration: pv && pv.dur ? pv.dur : null,
         takenAt: f.lastModified || null, uploadedAt: serverTimestamp(), by: auth.currentUser.email || uid });
       ok++;
     } catch (e) { console.error(e); bad.push(f.name + " (" + (e.code || e.message) + ")"); }
@@ -155,12 +185,16 @@ async function addFiles(files){
 }
 $("pick").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
 $("cam").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+$("camv").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+const mmss = s => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 
 async function load(){
   const snap = await getDocs(query(collection(db, "photoCache"), orderBy("uploadedAt", "desc")));
   items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  $("count").textContent = items.length + (items.length === 1 ? " photo" : " photos") + " · " + mb(items.reduce((s, x) => s + (x.size || 0), 0));
-  if (!items.length) { $("list").innerHTML = '<div class="empty">No photos yet. Tap Add photos.</div>'; return; }
+  const nv = items.filter(isVid).length, np = items.length - nv;
+  $("count").textContent = np + (np === 1 ? " photo" : " photos") + " · " + nv + (nv === 1 ? " video" : " videos") +
+    " · " + mb(items.reduce((s, x) => s + (x.size || 0), 0));
+  if (!items.length) { $("list").innerHTML = '<div class="empty">Nothing here yet. Tap Add photos &amp; videos.</div>'; return; }
   /* Grouped by the month the photo was taken (or uploaded). */
   const groups = new Map();
   items.forEach(x => {
@@ -171,6 +205,7 @@ async function load(){
   $("list").innerHTML = [...groups].map(([k, xs]) => '<div class="month">' + esc(k) + '</div><div class="grid">' +
     xs.map(x => '<button type="button" class="ph" data-id="' + esc(x.id) + '" aria-label="' + esc(x.name) + '">' +
       (x.thumb ? '<img data-thumb="' + esc(x.thumb) + '" alt="">' : '<span class="noprev">' + esc((x.name.split(".").pop() || "").toUpperCase()) + '</span>') +
+      (isVid(x) ? '<span class="play">▶ ' + (x.duration ? mmss(x.duration) : "Video") + '</span>' : '') +
       '<span class="nm">' + esc(x.name) + '</span></button>').join("") + '</div>').join("");
   /* Previews load as they scroll into view. */
   const io = new IntersectionObserver(es => es.forEach(en => {
@@ -185,18 +220,23 @@ let cur = null;
 $("list").addEventListener("click", async e => {
   const b = e.target.closest(".ph"); if (!b) return;
   cur = items.find(x => x.id === b.dataset.id); if (!cur) return;
-  $("vImg").removeAttribute("src");
+  const vid = isVid(cur);
+  $("vImg").removeAttribute("src"); $("vVid").removeAttribute("src"); $("vVid").load();
+  $("vImg").hidden = vid; $("vVid").hidden = !vid;
   const when = cur.takenAt ? new Date(cur.takenAt).toLocaleString() : "";
-  $("vMeta").textContent = [cur.name, mb(cur.size || 0), cur.width ? cur.width + " × " + cur.height : "", when].filter(Boolean).join(" · ");
+  $("vMeta").textContent = [cur.name, mb(cur.size || 0), cur.width ? cur.width + " × " + cur.height : "",
+    cur.duration ? mmss(cur.duration) : "", when].filter(Boolean).join(" · ");
   $("viewer").showModal();
   try {
     const url = await getDownloadURL(sRef(storage, cur.path));
     $("vOpen").href = url; $("vDown").href = url; $("vDown").setAttribute("download", cur.name);
+    if (vid) { $("vVid").src = url; return; }   /* full-quality video streams in the player */
     $("vImg").onerror = () => { if (cur.thumb) getDownloadURL(sRef(storage, cur.thumb)).then(u => $("vImg").src = u); };
     $("vImg").src = url;
   } catch (err) { console.error(err); $("vMeta").textContent += " · couldn’t load"; }
 });
 $("vClose").onclick = () => $("viewer").close();
+$("viewer").addEventListener("close", () => { $("vVid").pause(); });   /* stop the video when the viewer closes */
 $("vDel").onclick = async () => {
   if (!cur || !confirm("Delete " + cur.name + " for good?")) return;
   try {
