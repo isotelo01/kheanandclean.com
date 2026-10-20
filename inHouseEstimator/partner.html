@@ -50,6 +50,16 @@ button[disabled]{ opacity:.6; cursor:default; }
 .foot{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:24px; font-size:.85rem; }
 .foot a{ color:var(--muted); }
 .signout{ background:none; color:var(--muted); padding:4px; text-decoration:underline; font-weight:500; }
+.gear{ margin-left:auto; flex:none; width:44px; height:44px; padding:0; display:grid; place-items:center;
+  background:rgba(255,255,255,.05); color:var(--gold); border:1px solid var(--line); border-radius:50%; }
+.gear:hover{ border-color:var(--gold); }
+dialog#settings{ width:min(560px, calc(100% - 32px)); max-height:calc(100svh - 32px); overflow:auto; padding:0;
+  background:none; border:0; color:var(--cream); }
+dialog#settings::backdrop{ background:rgba(0,0,0,.6); }
+dialog#settings .card{ margin:0; position:relative; }
+.close{ position:absolute; top:10px; right:10px; width:36px; height:36px; padding:0; border-radius:50%;
+  background:none; color:var(--muted); font-size:1.4rem; line-height:1; }
+.close:hover{ color:var(--cream); }
 @media (max-width:540px){ .actions,.row{ grid-template-columns:1fr; } }
 </style>
 </head>
@@ -62,6 +72,9 @@ button[disabled]{ opacity:.6; cursor:default; }
       <h1 id="bizName">Partner Portal</h1>
       <p class="hello" id="hello"></p>
     </div>
+    <button type="button" class="gear" id="gearBtn" aria-label="Business details" title="Business details">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
   </div>
 
   <section class="card">
@@ -88,8 +101,10 @@ button[disabled]{ opacity:.6; cursor:default; }
     </ul>
   </section>
 
+  <dialog id="settings" aria-labelledby="settingsTitle">
   <section class="card">
-    <h2>Your business details</h2>
+    <button type="button" class="close" id="closeBtn" aria-label="Close">&times;</button>
+    <h2 id="settingsTitle">Your business details</h2>
     <form id="profile">
       <div class="row">
         <div><label for="biz">Business name</label><input id="biz" required maxlength="190"></div>
@@ -104,6 +119,7 @@ button[disabled]{ opacity:.6; cursor:default; }
       <p class="msg" id="msg" role="status"></p>
     </form>
   </section>
+  </dialog>
 
   <div class="foot">
     <a href="https://kheanandclean.com/">kheanandclean.com</a>
@@ -160,6 +176,12 @@ $("profile").addEventListener("submit", async e => {
   catch (ex) { console.error(ex); msg.classList.add("bad"); msg.textContent = "Could not save. Try again."; }
   btn.disabled = false;
 });
+
+/* Gear (top right) opens the business details; X, Esc or tapping outside closes them. */
+const settings = $("settings");
+$("gearBtn").onclick = () => { $("msg").textContent = ""; settings.showModal(); };
+$("closeBtn").onclick = () => settings.close();
+settings.addEventListener("click", e => { if (e.target === settings) settings.close(); });
 
 $("signOutBtn").onclick = () => signOut(auth).catch(console.error);
 </script>
