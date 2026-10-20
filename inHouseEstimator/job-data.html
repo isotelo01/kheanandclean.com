@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<title>Job Data &middot; Khean &amp; Clean</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* One job's data, just for you: the drive, time on site, estimated vs actual sq ft, chemicals.
+   Opened from the Job data button on a paid invoice (dashboard.html). Staff only. */
+:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px}
+.back{color:var(--muted);font-size:14px;text-decoration:none}
+h1{font:700 28px/1.2 "Playfair Display",Georgia,serif;margin:8px 0 2px}
+.sub{color:var(--muted);margin:0 0 16px;font-size:15px}
+.panel{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 6px rgba(23,34,57,.08)}
+h2{font:700 13px "Archivo",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin:0 0 10px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font-size:20px;color:var(--navy)}
+.stat span{font-size:13px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12.5px;color:var(--muted);font-weight:600}
+tr.top td{background:rgba(227,182,74,.18);font-weight:700}
+.over{color:#b3261e}.under{color:#2e8a57}
+.muted{color:var(--muted)}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+.links a{color:var(--navy);font-weight:600}
+:where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <a class="back" href="./dashboard.html">&lsaquo; Dashboard</a>
+  <h1>Job Data</h1>
+  <p class="sub" id="sub">Loading&hellip;</p>
+  <div id="view"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app);
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = n => Math.round(Number(n) || 0).toLocaleString("en-US");
+const money = n => "$" + (Number(n) || 0).toFixed(2);
+const signed = n => n > 0 ? "+" + num(n) : n < 0 ? "−" + num(-n) : "0";
+const tone = n => n > 0 ? "over" : n < 0 ? "under" : "";
+const clock = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const dur = m => m == null ? "—" : m < 60 ? Math.round(m) + " min" : Math.floor(m / 60) + "h " + Math.round(m % 60) + "m";
+const nameOf = c => (String(c.type || "").toLowerCase() !== "residential" && c.business ? c.business : c.name) || c.business || "No name";
+const id = new URLSearchParams(location.search).get("id") || "";
+
+/* Rooms laid out the same way job-room.html and the hub's Job Site Data do, so each finds its Actual. */
+function roomsOf(q){
+  const spots = q.spots || {}, out = [];
+  const lines = (q.onsite && Array.isArray(q.onsite.lines)) ? q.onsite.lines : (Array.isArray(q.lines) ? q.lines : []);
+  lines.forEach((l, i) => (Array.isArray(l.items) ? l.items : []).forEach((it, j) => {
+    if (it.removed) return;
+    let r = 0;
+    (Array.isArray(it.rooms) ? it.rooms : []).forEach(rm => {
+      const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
+      for (let k = 1; k <= n; k++) {
+        const key = rm.id && n === 1 ? rm.id : i + "-" + j + "-" + r; r++;
+        const a = Number((spots[key] || {}).actualSqft) || 0;
+        out.push({ name: n > 1 ? rm.name + " " + k : String(rm.name || "Room"), est: each, act: a > 0 ? a : null });
+      }
+    });
+  }));
+  return out;
+}
+
+async function load(){
+  if (!id) { $("sub").textContent = "No job picked."; return; }
+  let q = null, place = "";
+  for (const p of ["paidInvoices", "invoices", "acceptedQuotes"]) {
+    try { const s = await getDoc(doc(db, p, id)); if (s.exists()) { q = s.data(); place = p; break; } } catch (e) { console.error(p, e); }
+  }
+  if (!q) { $("sub").textContent = "That job isn't on file."; return; }
+  const c = q.customer || {};
+  const when = q.scheduledDate ? new Date(q.scheduledDate + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "";
+  $("sub").textContent = [nameOf(c), q.number, when].filter(Boolean).join(" · ");
+  document.title = "Job Data · " + nameOf(c) + " · Khean & Clean";
+
+  /* Trip: logged on the job sheet (trip.js). Miles are estimates (straight line x 1.25). */
+  const t = q.trip || {};
+  const driveMin = t.driveStart && t.arrived ? (t.arrived.at - t.driveStart.at) / 60000 : null;
+  const siteMin = t.arrived && t.finished ? (t.finished.at - t.arrived.at) / 60000 : null;
+  const totalMi = (Number(t.driveMiles) || 0) + (Number(t.homeMiles) || 0);
+  const trip = (t.driveStart || t.arrived)
+    ? '<div class="stats">' +
+        '<div class="stat"><b>' + (t.driveMiles != null ? "≈ " + t.driveMiles + " mi" : "—") + '</b><span>Drive there' + (driveMin != null ? " · " + dur(driveMin) : "") + '</span></div>' +
+        '<div class="stat"><b>' + dur(siteMin) + '</b><span>On site' + (t.arrived ? " · " + clock(t.arrived.at) + (t.finished ? "–" + clock(t.finished.at) : "") : "") + '</span></div>' +
+        '<div class="stat"><b>' + (t.homeMiles != null ? "≈ " + t.homeMiles + " mi" : "—") + '</b><span>' + (t.finished && t.finished.then === "next" ? "Went to the next job" : "Drive home") + '</span></div>' +
+        '<div class="stat"><b>' + (totalMi ? "≈ " + Math.round(totalMi * 10) / 10 + " mi" : "—") + '</b><span>Total miles</span></div>' +
+      '</div><p class="muted" style="font-size:13px;margin:8px 0 0">Miles are estimates from GPS (straight line × 1.25 for roads).</p>'
+    : '<p class="muted" style="margin:0">No trip logged. Use Drive on the job sheet next time.</p>';
+
+  /* Square footage, room by room. The 3 rooms furthest off are highlighted. */
+  const rooms = roomsOf(q), m = rooms.filter(x => x.act != null);
+  const e = m.reduce((s, x) => s + x.est, 0), a = m.reduce((s, x) => s + x.act, 0);
+  const top = new Set(m.filter(x => x.act !== x.est).sort((x, y) => Math.abs(y.act - y.est) - Math.abs(x.act - x.est)).slice(0, 3));
+  const sq = rooms.length
+    ? (m.length ? '<p style="margin:0 0 8px">' + m.length + ' of ' + rooms.length + ' rooms measured: est ' + num(e) + ' → actual ' + num(a) +
+        ' (<span class="' + tone(a - e) + '">' + signed(a - e) + ' sq ft</span>)</p>' : '<p class="muted" style="margin:0 0 8px">No rooms measured yet.</p>') +
+      '<table><tr><th>Room</th><th>Est</th><th>Actual</th><th>+/−</th></tr>' +
+      rooms.map(x => '<tr' + (top.has(x) ? ' class="top"' : '') + '><td>' + esc(x.name) + '</td><td>' + num(x.est) + '</td><td>' +
+        (x.act != null ? num(x.act) : '<span class="muted">—</span>') + '</td><td>' +
+        (x.act != null ? '<span class="' + tone(x.act - x.est) + '">' + signed(x.act - x.est) + '</span>' : '') + '</td></tr>').join("") + '</table>'
+    : '<p class="muted" style="margin:0">No rooms on this job.</p>';
+
+  /* Chemicals logged on the job sheet. */
+  const js = q.jobSheet || {}, chems = Array.isArray(js.chemicals) ? js.chemicals : [];
+  const ch = chems.length
+    ? '<table><tr><th>Chemical</th><th>Used</th><th>Cost</th></tr>' +
+      chems.map(x => '<tr><td>' + esc(x.name) + '</td><td>' + esc([x.amount, x.unit].filter(Boolean).join(" ")) + '</td><td>' + money(x.cost) + '</td></tr>').join("") +
+      '<tr><td><b>Total</b></td><td></td><td><b>' + money(js.chemicalCost) + '</b></td></tr></table>'
+    : '<p class="muted" style="margin:0">None logged.</p>';
+
+  $("view").innerHTML =
+    '<section class="panel"><h2>Trip</h2>' + trip + '</section>' +
+    '<section class="panel"><h2>Square footage</h2>' + sq + '</section>' +
+    '<section class="panel"><h2>Chemicals</h2>' + ch + '</section>' +
+    '<div class="links"><a href="./job-sheet.html?id=' + encodeURIComponent(id) + '">Open job sheet &rsaquo;</a>' +
+    '<a href="./quote.html?id=' + encodeURIComponent(id) + '">Open invoice &rsaquo;</a></div>';
+}
+
+/* Page lock: staff only. */
+onAuthStateChanged(auth, u => {
+  if (!u) { location.replace("./login.html?next=dashboard.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  $("authwait")?.remove();
+  load().catch(e => { console.error(e); $("sub").textContent = "Couldn't load this job."; });
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>

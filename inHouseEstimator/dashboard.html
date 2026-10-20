@@ -196,6 +196,12 @@ const kindOf = r => (r.source === "invoices" || r.source === "paidInvoices") ? "
 const personHref = r => r.custId ? "./customers.html#" + encodeURIComponent(r.custId)
                       : r.leadId ? "./leads.html#" + encodeURIComponent(r.leadId) : "";
 document.addEventListener("click", e => {
+  const jd = e.target.closest("[data-jd]");
+  if (!jd) return;
+  e.preventDefault(); e.stopPropagation();
+  location.href = "./job-data.html?id=" + encodeURIComponent(jd.dataset.jd);
+}, true);
+document.addEventListener("click", e => {
   const p = e.target.closest(".who[data-go]");
   if (!p) return;
   e.preventDefault(); e.stopPropagation();
@@ -218,6 +224,8 @@ const card = r =>
     '</div>' +
     /* Accepted estimates: a square Job sheet button in the open middle of the card. */
     (r.source === "acceptedQuotes" ? '<button type="button" class="jsq" data-js="' + esc(r.id) + '">Job<br>sheet</button>' : '') +
+    /* Paid invoices: the same square opens Job Data (drive, miles, time on site, sq ft, chemicals). */
+    (r.source === "paidInvoices" ? '<button type="button" class="jsq" data-jd="' + esc(r.id) + '">Job<br>data</button>' : '') +
     '<div class="right">' +
       '<div class="amt">' + money(r.total) + '</div>' +
       /* Customer opened the link: "Viewed" + when (last time they opened it) instead of Awaiting reply / Invoiced. */

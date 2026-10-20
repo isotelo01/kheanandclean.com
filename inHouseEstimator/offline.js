@@ -111,7 +111,7 @@ export async function saveForOffline(){
   if (!("caches" in window)) throw new Error("This browser can't save pages offline");
   const c = await caches.open(OFFLINE_CACHE);
   const pages = ["./job-sheet.html", "./job-room.html"];
-  const files = ["./offline.js", "./pricing.js", "./theme-dark.css", "./tabbar.js", "../images/icon-180.png",
+  const files = ["./offline.js", "./trip.js", "./pricing.js", "./theme-dark.css", "./tabbar.js", "../images/icon-180.png",
     FB + "firebase-app.js", FB + "firebase-firestore.js", FB + "firebase-auth.js", FB + "firebase-storage.js"];
   for (const u of pages) {
     const r = await fetch(u, { cache: "reload" }); if (!r.ok) throw new Error("Could not save " + u);

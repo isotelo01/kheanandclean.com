@@ -269,6 +269,18 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
   .pgrid{grid-template-columns:repeat(4,1fr)}
   textarea{border:1px solid #999;min-height:140px}
 }
+/* Trip tracker under the customer's address (trip.js). Staff only; never printed. */
+.trip{margin:14px 0 4px;border:1px solid var(--gold);border-radius:10px;padding:12px 14px}
+.triphead{font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.tripline{font-size:15px;line-height:1.45}
+.tripbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tripbtns button{flex:1 1 140px;min-height:44px;border-radius:999px;border:1px solid var(--gold);background:transparent;color:inherit;font:700 15px "Archivo",sans-serif;cursor:pointer;padding:8px 14px}
+.tripbtns button.tripgo{background:var(--gold);color:var(--navy)}
+.tripbtns button[disabled]{opacity:.6}
+.triplink{background:none;border:0;padding:0;color:var(--gold);text-decoration:underline;font:inherit;cursor:pointer;flex:none!important;min-height:0!important}
+.tripnote{margin-top:10px;font-size:13px;opacity:.8}
+.tripmsg{font-size:13.5px;margin-top:6px;color:var(--gold)}
+@media print{ #tripBox{display:none} }
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
 </head>
@@ -297,6 +309,8 @@ import { getStorage, ref } from "https://www.gstatic.com/firebasejs/12.19.0/fire
 /* Offline versions: work with no service and sync when it's back (offline.js). */
 import { getFirestore, getDoc, setDoc, updateDoc, getDownloadURL, uploadBytes,
   startOffline, saveForOffline, offlineJobs, rememberJob } from "./offline.js";
+/* Trip: Drive / I'm here / Done (go home or next job), saved on the job as `trip` (trip.js). */
+import { mountTrip } from "./trip.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -1324,6 +1338,8 @@ async function show(){
       (addr ? '<div class="prow"><a href="https://maps.google.com/?q=' + encodeURIComponent(addr) + '" target="_blank" rel="noopener">' + [c.street, cityLine(c)].filter(Boolean).map(esc).join('<br>') + '</a></div>' : '') +
       (tel ? '<div class="prow"><a href="tel:' + esc(tel) + '">' + esc(c.phone) + '</a></div>' : '') +
       (c.email ? '<div class="prow">' + esc(c.email) + '</div>' : '') +
+      /* Trip tracker (staff only): filled in by mountTrip after the sheet draws. */
+      (PUBLIC ? '' : '<div id="tripBox" class="staff"></div>') +
       '<div class="meta" style="margin-top:6px">' + esc([q.number,
         ms(q.acceptedAt) ? "Approved " + shortDate(ms(q.acceptedAt)) : ""].filter(Boolean).join(" \u00b7 ")) + '</div>' +
 
@@ -1363,6 +1379,8 @@ async function show(){
       '<div class="revbox" id="revBox"></div>' +
     '</div>';
   applyMode();
+  const tripBox = document.getElementById("tripBox");
+  if (tripBox) { try { mountTrip({ box: tripBox, db, place, id, addr, trip: q.trip }); } catch (e) { console.error("trip", e); } }
 
   const prog = document.getElementById("prog"), note = document.getElementById("note");
   /* A service was just added: open its Add room / Add furniture table and scroll to it. */
