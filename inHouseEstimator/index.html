@@ -586,7 +586,10 @@ function attach(inputId, field) {
     });
     box.hidden = false;
   }
-  input.addEventListener('input', async () => {
+  input.addEventListener('input', async (e) => {
+    /* Only when you type: a quote opening for edit (or a lead) fills the box by code, and that
+       shouldn't pop the contact list up over an already filled-in name. */
+    if (!e.isTrusted) { hide(); return; }
     const raw = input.value.trim();
     if (raw.length < 3) { hide(); return; }
     const t = raw.toLowerCase(), digits = raw.replace(/\D/g, '');
