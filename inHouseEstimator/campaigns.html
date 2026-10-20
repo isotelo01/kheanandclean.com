@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<title>Campaigns &middot; Khean &amp; Clean</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Campaigns: every ad campaign in one place (Facebook, Instagram, Google, Nextdoor, flyers, website).
+   Each campaign has its offer, dates, promo code, landing page, notes, photos, and the ads written
+   for each place it runs. Staff only. Firestore: campaigns. Photos: Storage campaigns/<id>/. */
+:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:1150px;margin:0 auto;padding:18px 16px 60px}
+.back{color:var(--muted);font-size:14px;text-decoration:none}
+h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:8px 0 4px;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.sub{color:var(--muted);margin:4px 0 16px;font-size:15px}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:start}
+.panel{background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 6px rgba(23,34,57,.08)}
+.newbtn{width:100%;background:var(--navy);color:var(--gold);border:0;border-radius:999px;padding:11px;font:700 15px "Archivo",sans-serif;cursor:pointer;margin-bottom:10px}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.filters button{background:transparent;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font:600 12.5px "Archivo",sans-serif;cursor:pointer;color:var(--ink)}
+.filters button.on{background:var(--navy);color:var(--gold);border-color:var(--navy)}
+.item{display:block;width:100%;text-align:left;background:transparent;border:0;border-left:4px solid var(--c,#999);border-radius:8px;padding:9px 10px;margin-bottom:6px;cursor:pointer;font:inherit;color:inherit}
+.item:hover{background:#f5f6f8}
+.item.on{background:#f0f2f6}
+.item b{display:block;font-size:15px;line-height:1.3}
+.item small{color:var(--muted);font-size:12.5px}
+label.f{display:block;font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+.title{width:100%;font:700 24px/1.25 "Playfair Display",Georgia,serif;border:0;border-bottom:2px solid var(--line);padding:6px 0;background:transparent;color:var(--ink)}
+.title:focus{outline:none;border-color:var(--gold)}
+input.t,select,textarea{width:100%;font:16px/1.5 "Archivo",sans-serif;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+textarea{resize:vertical;min-height:90px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.chans{display:flex;flex-wrap:wrap;gap:6px}
+.chans label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;font-size:14px}
+.chans input{accent-color:var(--navy)}
+h3{font:700 17px "Playfair Display",Georgia,serif;margin:20px 0 6px}
+.ad{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.adtop{display:flex;gap:8px;align-items:center}
+.adtop select{width:auto;flex:1}
+.mini{background:transparent;border:1px solid var(--navy);color:var(--navy);border-radius:999px;padding:7px 14px;font:600 13.5px "Archivo",sans-serif;cursor:pointer;white-space:nowrap}
+.mini.del{border-color:#b3261e;color:#b3261e}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:6px}
+.ph{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#e3e6ec}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph button{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(10,14,22,.75);color:#fff;font-size:17px;cursor:pointer;line-height:1}
+.addph{display:inline-flex;align-items:center;gap:6px;position:relative;margin-top:8px}
+.addph input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:16px}
+.saved{color:var(--muted);font-size:13.5px}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+:where(a,button,input,select,textarea,label):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (max-width:820px){ .layout{grid-template-columns:1fr} .grid2,.grid3{grid-template-columns:1fr} }
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <a class="back" href="./hub.html">&lsaquo; Hub</a>
+  <h1>Campaigns</h1>
+  <p class="sub">Every ad in one place: Facebook, Instagram, Google, Nextdoor, flyers and the website. Saves on its own as you type.</p>
+  <div class="layout">
+    <aside class="panel">
+      <button type="button" class="newbtn" id="newBtn">+ New campaign</button>
+      <div class="filters" id="filters"></div>
+      <div id="list"><div class="empty">Loading&hellip;</div></div>
+    </aside>
+    <main class="panel" id="editor"><div class="empty">Pick a campaign on the left, or tap + New campaign.</div></main>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, getDoc, addDoc, setDoc, deleteDoc, doc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app), storage = getStorage(app);
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ms = t => t && t.toMillis ? t.toMillis() : (Number(t) || 0);
+const STATUS = { idea: ["Idea", "#8a94a6"], ready: ["Ready", "#2f6fb0"], live: ["Live", "#2e8a57"], paused: ["Paused", "#c48a12"], ended: ["Ended", "#5f6675"] };
+const CHANNELS = { facebook: "Facebook", instagram: "Instagram", google: "Google", nextdoor: "Nextdoor", flyer: "Flyer / postcard", website: "Website" };
+const SERVICES = ["Carpet", "Tile & grout", "Upholstery", "Hardwood / LVP", "Natural stone", "Area rugs", "Pet treatment", "Multiple"];
+const BLANK = { name: "", status: "idea", service: "", offer: "", channels: [], promoCode: "", landing: "", start: "", end: "", notes: "", ads: [], photos: [] };
+
+/* The first two campaigns, added once (remembered in meta/campaignsSeeded). */
+const STARTERS = [
+  { name: "Reveal your grout's true color", service: "Tile & grout", offer: "Tile & grout cleaning",
+    notes: "Tile campaign. Headline: “Reveal your grout’s true color.”\n- " },
+  { name: "3 rooms for $150: get your house ready for the holidays", service: "Carpet", offer: "3 rooms for $150",
+    notes: "Holiday campaign: three rooms for $150, get your house ready for the holidays.\n- " }
+];
+
+let items = [], cur = null, filter = "all", timer = null;
+const sorted = () => items.slice().sort((a, b) => ms(b.updatedAt) - ms(a.updatedAt));
+function drawFilters(){
+  const n = { all: items.length }; items.forEach(a => n[a.status] = (n[a.status] || 0) + 1);
+  $("filters").innerHTML = [["all", "All"], ...Object.entries(STATUS).map(([k, v]) => [k, v[0]])].map(([k, l]) =>
+    '<button type="button" data-f="' + k + '" class="' + (filter === k ? "on" : "") + '">' + l + ' ' + (n[k] || 0) + '</button>').join("");
+}
+function drawList(){
+  const xs = sorted().filter(a => filter === "all" || a.status === filter);
+  $("list").innerHTML = xs.length ? xs.map(a => { const s = STATUS[a.status] || STATUS.idea;
+    return '<button type="button" class="item' + (cur && cur.id === a.id ? " on" : "") + '" style="--c:' + s[1] + '" data-id="' + esc(a.id) + '">' +
+      '<b>' + esc(a.name || "Untitled campaign") + '</b><small>' + s[0] + ((a.channels || []).length ? " · " + a.channels.map(c => CHANNELS[c] || c).join(", ") : "") +
+      ((a.ads || []).length ? " · " + a.ads.length + (a.ads.length === 1 ? " ad" : " ads") : "") + '</small></button>'; }).join("")
+    : '<div class="empty">Nothing here yet.</div>';
+}
+
+const opt = (list, v) => list.map(([k, l]) => '<option value="' + esc(k) + '"' + (v === k ? " selected" : "") + '>' + esc(l) + '</option>').join("");
+function adCard(a, i){
+  return '<div class="ad" data-ad="' + i + '"><div class="adtop"><select data-k="channel" aria-label="Where this ad runs">' +
+      opt([["", "Where does it run?"], ...Object.entries(CHANNELS)], a.channel) + '</select>' +
+      '<button type="button" class="mini" data-copy="' + i + '">Copy</button><button type="button" class="mini del" data-delad="' + i + '">Delete</button></div>' +
+    '<label class="f">Headline</label><input class="t" data-k="headline" value="' + esc(a.headline) + '">' +
+    '<label class="f">Ad text</label><textarea data-k="text">' + esc(a.text) + '</textarea>' +
+    '<div class="grid2"><div><label class="f">Button / call to action</label><input class="t" data-k="cta" value="' + esc(a.cta) + '" placeholder="e.g. Get a free quote"></div>' +
+    '<div><label class="f">Results</label><input class="t" data-k="results" value="' + esc(a.results) + '" placeholder="e.g. $40 spent, 6 leads, 2 booked"></div></div></div>';
+}
+function drawEditor(){
+  if (!cur) { $("editor").innerHTML = '<div class="empty">Pick a campaign on the left, or tap + New campaign.</div>'; return; }
+  const c = cur;
+  $("editor").innerHTML =
+    '<input class="title" data-f="name" placeholder="Campaign name or slogan" value="' + esc(c.name) + '" aria-label="Campaign name">' +
+    '<div class="grid3"><div><label class="f">Status</label><select data-f="status">' + opt(Object.entries(STATUS).map(([k, v]) => [k, v[0]]), c.status) + '</select></div>' +
+      '<div><label class="f">Service</label><select data-f="service">' + opt([["", "Pick one"], ...SERVICES.map(s => [s, s])], c.service) + '</select></div>' +
+      '<div><label class="f">Offer</label><input class="t" data-f="offer" value="' + esc(c.offer) + '" placeholder="e.g. 3 rooms for $150"></div></div>' +
+    '<label class="f">Where it runs</label><div class="chans">' + Object.entries(CHANNELS).map(([k, l]) =>
+      '<label><input type="checkbox" data-chan="' + k + '"' + ((c.channels || []).includes(k) ? " checked" : "") + '>' + l + '</label>').join("") + '</div>' +
+    '<div class="grid2"><div><label class="f">Promo code</label><input class="t" data-f="promoCode" value="' + esc(c.promoCode) + '" placeholder="e.g. GROUT25"></div>' +
+      '<div><label class="f">Landing page</label><input class="t" data-f="landing" value="' + esc(c.landing) + '" placeholder="e.g. kheanandclean.com/tile-and-grout"></div></div>' +
+    '<div class="grid2"><div><label class="f">Starts</label><input class="t" type="date" data-f="start" value="' + esc(c.start) + '"></div>' +
+      '<div><label class="f">Ends</label><input class="t" type="date" data-f="end" value="' + esc(c.end) + '"></div></div>' +
+    '<label class="f">Notes and ideas</label><textarea data-f="notes" placeholder="Who it’s for, the angle, what to say">' + esc(c.notes) + '</textarea>' +
+    '<h3>Photos and graphics</h3><div class="photos" id="photos">' + (c.photos || []).map((p, i) =>
+      '<div class="ph"><img data-path="' + esc(p) + '" alt=""><button type="button" data-delph="' + i + '" aria-label="Remove photo">&times;</button></div>').join("") + '</div>' +
+    '<label class="mini addph">+ Add photos<input type="file" id="phPick" accept="image/*" multiple></label>' +
+    '<h3>Ads</h3><div id="ads">' + (c.ads || []).map(adCard).join("") + '</div>' +
+    '<button type="button" class="mini" id="addAd">+ Add an ad</button>' +
+    '<div class="bar"><span class="saved" id="saved">Saved</span><button type="button" class="mini del" id="delBtn" style="margin-left:auto">Delete campaign</button></div>';
+  $("photos").querySelectorAll("img[data-path]").forEach(im => getDownloadURL(sRef(storage, im.dataset.path)).then(u => im.src = u).catch(console.error));
+}
+
+/* Saves about a second after you stop typing. */
+function queueSave(now){
+  if ($("saved")) $("saved").textContent = "Saving…";
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    const c = cur; if (!c) return;
+    const data = {}; Object.keys(BLANK).forEach(k => data[k] = c[k]); data.updatedAt = serverTimestamp();
+    try { await setDoc(doc(db, "campaigns", c.id), data, { merge: true }); c.updatedAt = Date.now();
+      if ($("saved")) $("saved").textContent = "Saved"; drawFilters(); drawList(); }
+    catch (e) { console.error(e); if ($("saved")) $("saved").textContent = "Couldn’t save. Check your connection."; }
+  }, now ? 0 : 900);
+}
+const ed = $("editor");
+ed.addEventListener("input", e => {
+  if (!cur) return;
+  const f = e.target.dataset.f, k = e.target.dataset.k;
+  if (f) { cur[f] = e.target.value; queueSave(); return; }
+  if (k) { const i = +e.target.closest("[data-ad]").dataset.ad; cur.ads[i][k] = e.target.value; queueSave(); }
+});
+ed.addEventListener("change", e => {
+  if (!cur) return;
+  if (e.target.dataset.chan) { const s = new Set(cur.channels || []); e.target.checked ? s.add(e.target.dataset.chan) : s.delete(e.target.dataset.chan);
+    cur.channels = Object.keys(CHANNELS).filter(k => s.has(k)); queueSave(); }
+  if (e.target.id === "phPick") addPhotos(e.target.files);
+});
+ed.addEventListener("click", async e => {
+  const t = e.target; if (!cur) return;
+  if (t.id === "addAd") { cur.ads = (cur.ads || []).concat([{ channel: "", headline: cur.name || "", text: "", cta: "", results: "" }]); drawEditor(); queueSave(true); }
+  else if (t.dataset.delad != null) { if (!confirm("Delete this ad?")) return; cur.ads.splice(+t.dataset.delad, 1); drawEditor(); queueSave(true); }
+  else if (t.dataset.copy != null) { const a = cur.ads[+t.dataset.copy];
+    try { await navigator.clipboard.writeText([a.headline, a.text, a.cta].filter(Boolean).join("\n\n")); t.textContent = "Copied"; } catch (err) { t.textContent = "Couldn’t copy"; }
+    setTimeout(() => t.textContent = "Copy", 1500); }
+  else if (t.dataset.delph != null) { if (!confirm("Remove this photo?")) return;
+    const p = cur.photos.splice(+t.dataset.delph, 1)[0]; deleteObject(sRef(storage, p)).catch(console.error); drawEditor(); queueSave(true); }
+  else if (t.id === "delBtn") { if (!confirm("Delete “" + (cur.name || "this campaign") + "” and its photos?")) return;
+    try { for (const p of cur.photos || []) await deleteObject(sRef(storage, p)).catch(() => {});
+      await deleteDoc(doc(db, "campaigns", cur.id)); items = items.filter(x => x !== cur); cur = null; drawFilters(); drawList(); drawEditor(); }
+    catch (err) { console.error(err); alert("Couldn't delete."); } }
+});
+async function addPhotos(files){
+  const c = cur; if (!c) return;
+  $("saved").textContent = "Uploading…";
+  for (const f of [...files].slice(0, 20)) {
+    if (!/^image\//.test(f.type) || f.size > 20 * 1024 * 1024) continue;
+    const path = "campaigns/" + c.id + "/" + Date.now() + "_" + f.name.replace(/[^\w.\-]+/g, "_").slice(-60);
+    try { await uploadBytes(sRef(storage, path), f, { contentType: f.type }); c.photos = (c.photos || []).concat([path]); }
+    catch (e) { console.error(e); alert("Couldn't upload " + f.name); }
+  }
+  if (cur === c) drawEditor(); queueSave(true);
+}
+$("list").addEventListener("click", e => { const b = e.target.closest(".item"); if (!b) return;
+  cur = items.find(a => a.id === b.dataset.id); drawList(); drawEditor();
+  if (window.innerWidth < 820) $("editor").scrollIntoView({ behavior: "smooth" }); });
+$("filters").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; filter = b.dataset.f; drawFilters(); drawList(); });
+$("newBtn").onclick = async () => {
+  const a = { ...BLANK, channels: [], ads: [], photos: [], createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+  try { const r = await addDoc(collection(db, "campaigns"), a); cur = { ...a, id: r.id, updatedAt: Date.now() }; items.push(cur);
+    filter = "all"; drawFilters(); drawList(); drawEditor(); ed.querySelector(".title").focus(); }
+  catch (e) { console.error(e); alert("Couldn't add a campaign."); }
+};
+
+async function load(){
+  let snap = await getDocs(collection(db, "campaigns"));
+  const seedRef = doc(db, "meta", "campaignsSeeded");
+  const seedSnap = await getDoc(seedRef);
+  const seeded = new Set((seedSnap.data() || {}).names || []);
+  snap.docs.forEach(d => d.data().name && seeded.add(d.data().name));
+  const todo = STARTERS.filter(s => !seeded.has(s.name));
+  for (const s of todo) { await addDoc(collection(db, "campaigns"), { ...BLANK, ...s, channels: [], ads: [], photos: [], createdAt: serverTimestamp(), updatedAt: serverTimestamp() }); seeded.add(s.name); }
+  if (todo.length || !seedSnap.exists()) await setDoc(seedRef, { names: [...seeded].slice(0, 200) }, { merge: true });
+  if (todo.length) snap = await getDocs(collection(db, "campaigns"));
+  items = snap.docs.map(d => ({ id: d.id, ...BLANK, ...d.data() }));
+  drawFilters(); drawList();
+}
+
+/* Page lock: staff only. */
+onAuthStateChanged(auth, u => {
+  if (!u) { location.replace("./login.html?next=campaigns.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  $("authwait")?.remove();
+  load().catch(e => { console.error(e); $("list").innerHTML = '<div class="empty">Couldn’t load campaigns.</div>'; });
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
