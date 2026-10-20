@@ -1335,8 +1335,7 @@ async function show(){
       /* Crew notes: in the Summary, the saved text read-only; nothing at all when there's none. */
       '<div class="crewbox' + (String(js.crewNotes || "").trim() ? '' : ' empty') + '" style="margin-top:24px"><h2>Crew notes</h2>' +
       '<div class="crewro">' + esc(js.crewNotes || "") + '</div>' +
-      '<textarea id="crewNotes" placeholder="What you found on site, extra spots, anything for next time">' + esc(js.crewNotes || "") + '</textarea>' +
-      '<div class="actions" id="saveRow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div></div>' +
+      '<textarea id="crewNotes" placeholder="What you found on site, extra spots, anything for next time">' + esc(js.crewNotes || "") + '</textarea></div>' +
 
       /* Finishing photos: manual uploads only (beginning shots go in Job photos up top). */
       '<div style="margin-top:24px">' + photoBox("finish", "Extraction results") + '</div></div>' +
@@ -1348,7 +1347,9 @@ async function show(){
         '<div class="meta">Quote ' + money(cur.quoted) + ' &rarr; Job sheet ' + money(r2(sub + cur.adj)) + '</div>' +
         '<div class="varacts"><button type="button" class="new" id="revBtn">Resend estimate</button>' +
         '<button type="button" class="new" id="ignVarBtn">Ignore variance</button></div></div>' : '') +
-      '<div class="sumrow"><button type="button" class="new" id="sumBtn"></button></div>' +
+      /* Save sits at the very bottom, on the left of the Summarize line. */
+      '<div class="sumrow"><div class="actions" id="saveRow" style="margin:0 auto 0 0"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
+        '<button type="button" class="new" id="sumBtn"></button></div>' +
       /* The updated quote's link, Preview / Text / Email, and whether it's been approved. */
       '<div class="revbox" id="revBox"></div>' +
     '</div>';
