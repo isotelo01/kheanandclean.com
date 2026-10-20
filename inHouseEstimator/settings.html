@@ -112,6 +112,16 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
     <div id="prices"><div class="empty">Loading&hellip;</div></div>
   </div>
   <div class="actions"><button type="button" class="new" id="pricesSave">Save prices</button><span class="note" id="pricesNote"></span></div>
+
+  <!-- Vendor documents: what partners download from their portal. Stored privately (vendor-docs/ in
+       Firebase Storage): only staff and signed-in partners can open them. Upload replaces the old one. -->
+  <div class="panel" style="margin-top:28px">
+    <h2>Vendor documents</h2>
+    <p class="sub">What realtors and property managers download from their portal. Only signed-in partners can open these. PDF or photo, up to 20 MB. Uploading replaces the old one.</p>
+    <div id="vdocs"><div class="empty">Loading&hellip;</div></div>
+    <input type="file" id="vdocFile" accept="application/pdf,image/*" hidden>
+    <span class="note" id="vdocNote"></span>
+  </div>
 </div>
 
 <script type="module">
@@ -119,6 +129,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage, ref as sref, uploadBytes, getDownloadURL, getMetadata }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -217,6 +229,42 @@ onAuthStateChanged(auth, async user => {
     items = s.exists() && Array.isArray(s.data().items) ? s.data().items : [];
     draw();
   } catch (e) { console.error(e); note.textContent = "Could not load settings: " + e.message; note.classList.add("err"); }
+  drawDocs();
+});
+
+/* Vendor documents: one fixed file per document in vendor-docs/ (partner.html reads the same names). */
+const storage = getStorage(app);
+const VDOCS = [["w9", "W-9"], ["insurance", "Proof of insurance"], ["license", "Business license"]];
+const vdocNote = document.getElementById("vdocNote"), vdocFile = document.getElementById("vdocFile");
+let vdocPick = null;
+async function drawDocs() {
+  const rows = await Promise.all(VDOCS.map(async ([k, label]) => {
+    let info = "Not uploaded yet", view = "<span></span>";
+    try {
+      const r = sref(storage, "vendor-docs/" + k), m = await getMetadata(r);
+      info = "Updated " + new Date(m.updated).toLocaleDateString();
+      view = '<a class="ghost" href="' + esc(await getDownloadURL(r)) + '" target="_blank" rel="noopener">View</a>';
+    } catch (e) { if (e.code !== "storage/object-not-found") { console.error(e); info = "Couldn't check"; } }
+    return '<div class="prrow" style="grid-template-columns:minmax(0,1fr) auto auto"><span class="pname">' + esc(label) +
+      '<small>' + esc(info) + '</small></span>' + view +
+      '<button type="button" class="new" data-vdoc="' + k + '">Upload</button></div>';
+  }));
+  document.getElementById("vdocs").innerHTML = rows.join("");
+}
+document.getElementById("vdocs").addEventListener("click", e => {
+  const b = e.target.closest("[data-vdoc]"); if (!b) return;
+  vdocPick = b.dataset.vdoc; vdocFile.value = ""; vdocFile.click();
+});
+vdocFile.addEventListener("change", async () => {
+  const f = vdocFile.files[0]; if (!f || !vdocPick) return;
+  vdocNote.classList.remove("err");
+  if (f.size > 20 * 1024 * 1024) { vdocNote.textContent = "That file is over 20 MB."; vdocNote.classList.add("err"); return; }
+  vdocNote.textContent = "Uploading…";
+  try {
+    await uploadBytes(sref(storage, "vendor-docs/" + vdocPick), f,
+      { contentType: f.type || "application/pdf", contentDisposition: 'inline; filename="' + f.name.replace(/"/g, "") + '"' });
+    vdocNote.textContent = "Uploaded."; drawDocs();
+  } catch (e) { console.error(e); vdocNote.textContent = "Could not upload: " + e.message; vdocNote.classList.add("err"); }
 });
 </script>
 <script src="./pricing.js"></script>

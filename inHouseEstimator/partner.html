@@ -209,14 +209,14 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
     <p class="empty">Your jobs, reports and before-and-after photos will show up here.</p>
   </section>
 
-  <!-- Vendor documents (same files as the website's vendor-forms page). No W-9 file on the site yet,
-       so W-9 is an email request, same as vendor-forms.html. -->
+  <!-- Vendor documents. Uploaded in Settings > Vendor documents (private storage, partners only).
+       Until one is uploaded: insurance and license use the website copies, W-9 is an email request. -->
   <section class="card">
     <h2>Vendor documents</h2>
     <div class="actions" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-      <a class="act" href="../documents/certificate-of-insurance.jpg" target="_blank" rel="noopener"><b>Proof of insurance</b></a>
-      <a class="act" href="../documents/business-license.jpg" target="_blank" rel="noopener"><b>Business license</b></a>
-      <a class="act" href="mailto:contact@kheanandclean.com?subject=W-9%20request"><b>Request W-9</b></a>
+      <a class="act" id="doc-insurance" href="../documents/certificate-of-insurance.jpg" target="_blank" rel="noopener"><b>Proof of insurance</b></a>
+      <a class="act" id="doc-license" href="../documents/business-license.jpg" target="_blank" rel="noopener"><b>Business license</b></a>
+      <a class="act" id="doc-w9" href="mailto:contact@kheanandclean.com?subject=W-9%20request"><b>Request W-9</b></a>
     </div>
   </section>
 
@@ -265,6 +265,7 @@ import { getAuth, onAuthStateChanged, signOut, deleteUser, reauthenticateWithPop
   GoogleAuthProvider, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, addDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getStorage, ref as sref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -297,6 +298,12 @@ onAuthStateChanged(auth, async u => {
   $("type").value = me.type || "Property management";
   $("email").value = u.email || me.email || "";
   $("authwait").remove();
+  /* Vendor documents uploaded in staff Settings (vendor-docs/): point each tile at the private copy. */
+  const st = getStorage(app);
+  ["insurance", "license", "w9"].forEach(k => getDownloadURL(sref(st, "vendor-docs/" + k)).then(url => {
+    const a = $("doc-" + k); a.href = url; a.target = "_blank"; a.rel = "noopener";
+    if (k === "w9") a.innerHTML = "<b>W-9</b>";
+  }).catch(() => {}));
 });
 
 $("profile").addEventListener("submit", async e => {
