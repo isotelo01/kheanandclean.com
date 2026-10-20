@@ -177,7 +177,8 @@ async function start(){
       '<button type="button" class="ghost" id="camBtn">Take photo</button>' +
       '<input type="file" id="addIn" accept="image/*" multiple hidden>' +
       '<input type="file" id="camIn" accept="image/*" capture="environment" hidden></div>' +
-    '<div class="actions"><button type="button" class="new" id="sendBtn">Send text</button>' +
+    '<div class="actions"><button type="button" class="new" id="sendBtn">Text from business</button>' +
+      '<button type="button" class="new" id="myBtn">Text from my phone</button>' +
       '<button type="button" class="new" id="mailBtn">Send email</button></div>' +
     '<div class="note" id="say" style="margin-top:8px">No photos in this send yet.</div>' +
   '</div>';
@@ -392,7 +393,38 @@ async function start(){
       console.error(err);
       say("Couldn't send: " + ((err && err.message) || err), true);
     }
-    btn.disabled = false; btn.textContent = "Send text";
+    btn.disabled = false; btn.textContent = "Text from business";
+  });
+
+  /* Text from my phone (for friends who know your personal number): opens the phone's share menu
+     with the message and picked photos; pick Messages and the contact. Where photos can't be
+     shared, it opens Messages to this customer with just the text. Nothing goes through Twilio. */
+  $("myBtn").addEventListener("click", async () => {
+    const btn = $("myBtn"), text = $("txt").value.trim();
+    if (!text && !picked.size) { say("Type a message or add photos first.", true); return; }
+    const smsLink = () => { location.href = "sms:" + tel + (/iPhone|iPad|Mac/.test(navigator.userAgent) ? "&" : "?") + "body=" + encodeURIComponent(text); };
+    btn.disabled = true;
+    try {
+      const files = [];
+      let n = 0;
+      for (const k of inOrder()) {
+        const o = photos.get(k);
+        if (!o) continue;
+        n++;
+        say("Getting photo " + n + " of " + picked.size + "...");
+        files.push(new File([await shrink(await blobOf(o))], "photo" + n + ".jpg", { type: "image/jpeg" }));
+      }
+      if (files.length && navigator.canShare && navigator.canShare({ files })) {
+        say("Pick Messages, then " + (c.name || "the customer") + ".");
+        await navigator.share({ text, files });
+      } else {
+        if (files.length) say("This device can't share photos from here, so it's the text only.", true);
+        smsLink();
+      }
+    } catch (err) {
+      if (!(err && err.name === "AbortError")) { console.error(err); say("Couldn't open your phone's messages: " + ((err && err.message) || err), true); }
+    }
+    btn.disabled = false;
   });
 
   /* Send email: same message and photos (attached) to the customer's email, from israel@kheanandclean.com.

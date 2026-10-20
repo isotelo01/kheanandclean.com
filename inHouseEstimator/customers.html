@@ -588,7 +588,7 @@ async function showProfile(id){
     view.querySelectorAll(".pmenu").forEach(m => m.remove());
     if (wasOpen) return;
     const t = p.dataset.tel;
-    p.insertAdjacentHTML("afterend", '<div class="pmenu"><a href="tel:' + esc(t) + '">Call</a><a href="./texts.html#' + esc(digits(t).slice(-10)) + '">Text</a></div>');   /* business line */
+    p.insertAdjacentHTML("afterend", '<div class="pmenu"><a href="tel:' + esc(t) + '">Call</a><a href="./texts.html#' + esc(digits(t).slice(-10)) + '">Text</a><a href="sms:' + esc(t) + '">My phone</a></div>');   /* Text = business line; My phone = your own Messages */
   });
 
   /* Pre-made texts: opens a table; Text opens the messages app with it filled in, Copy copies it. */
@@ -603,7 +603,8 @@ async function showProfile(id){
     box.innerHTML = '<table class="tmpl"><tbody>' + TEXTS.map((x, i) => x.label === "Review request"
       ? '<tr><td colspan="3"><a class="rvbtn" href="' + esc(rvUrl(x)) + '"><b>' + esc(x.label) + ' \u203a</b><span>' + esc(tmplBody(x)) + '</span></a></td></tr>' :
       '<tr><td class="tl">' + esc(x.label) + '</td><td class="tb">' + esc(tmplBody(x)) + '</td>' +
-      '<td class="ta"><a class="ghost" href="' + esc("./texts.html?body=" + encodeURIComponent(tmplBody(x)) + "#" + digits(t).slice(-10)) + '">Text</a>' +
+      '<td class="ta"><a class="ghost" href="' + esc("./texts.html?body=" + encodeURIComponent(tmplBody(x)) + "#" + digits(t).slice(-10)) + '">Business</a>' +
+      '<a class="ghost" href="' + esc("sms:" + t + (/iPhone|iPad|Mac/.test(navigator.userAgent) ? "&" : "?") + "body=" + encodeURIComponent(tmplBody(x))) + '">My phone</a>' +
       '<button type="button" class="ghost" data-copy="' + i + '">Copy</button></td></tr>').join("") + '</tbody></table>';
     box.hidden = false;
   });
