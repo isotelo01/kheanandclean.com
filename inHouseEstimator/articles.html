@@ -70,7 +70,7 @@ textarea{resize:vertical}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, getDocs, addDoc, setDoc, deleteDoc, doc, serverTimestamp }
+import { getFirestore, collection, getDocs, getDoc, addDoc, setDoc, deleteDoc, doc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const app = initializeApp({
@@ -94,7 +94,13 @@ const STARTERS = [
   { title: "What fabric to buy for your furniture (and what not to)", keywords: "best couch fabric, pet friendly sofa fabric, easy to clean upholstery",
     notes: "A cleaner's honest opinion: which upholstery fabrics hold up and clean well, which ones to avoid, and what to look out for when buying.\n- " },
   { title: "Area rugs: what to buy, what not to buy", keywords: "best area rug material, washable rugs, rugs for pets",
-    notes: "What to look for in an area rug from someone who cleans them: materials, backings, dyes, and the ones that give people trouble.\n- " }
+    notes: "What to look for in an area rug from someone who cleans them: materials, backings, dyes, and the ones that give people trouble.\n- " },
+  { title: "Why deep cleaning matters", keywords: "is professional carpet cleaning worth it, deep carpet cleaning, how often to deep clean carpet",
+    notes: "Why a real deep clean is worth paying a pro for, compared to vacuuming or a rental machine.\n- " },
+  { title: "The CRB vs a regular brush (and how it pulls out pet hair)", keywords: "CRB carpet cleaning, counter rotating brush, how to get pet hair out of carpet",
+    notes: "Why we use a CRB instead of a regular brush, and how it gets embedded pet hair out of carpet. Could split pet hair into its own article later.\n- " },
+  { title: "The truth about cat pee", keywords: "cat urine carpet, how to get cat pee smell out of carpet, cat pee smell keeps coming back",
+    notes: "The honest truth about cat urine in carpet: where it really goes and why the smell keeps coming back.\n- " }
 ];
 
 let items = [], cur = null, filter = "all", timer = null;
@@ -175,10 +181,16 @@ $("newBtn").onclick = async () => {
 
 async function load(){
   let snap = await getDocs(collection(db, "articles"));
-  if (snap.empty) {
-    for (const s of STARTERS) await addDoc(collection(db, "articles"), { ...s, status: "idea", body: "", createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  /* Starter ideas: each added once (remembered in meta/articlesSeeded), so a deleted one never comes back. */
+  const seedRef = doc(db, "meta", "articlesSeeded");
+  const seeded = new Set(((await getDoc(seedRef)).data() || {}).titles || []);
+  snap.docs.forEach(d => seeded.has(d.data().title) || (d.data().title && seeded.add(d.data().title)));
+  const todo = STARTERS.filter(s => !seeded.has(s.title));
+  if (todo.length) {
+    for (const s of todo) { await addDoc(collection(db, "articles"), { ...s, status: "idea", body: "", createdAt: serverTimestamp(), updatedAt: serverTimestamp() }); seeded.add(s.title); }
+    await setDoc(seedRef, { titles: [...seeded].slice(0, 200) }, { merge: true });
     snap = await getDocs(collection(db, "articles"));
-  }
+  } else if (!(await getDoc(seedRef)).exists()) await setDoc(seedRef, { titles: [...seeded].slice(0, 200) });
   items = snap.docs.map(d => ({ id: d.id, title: "", status: "idea", keywords: "", notes: "", body: "", ...d.data() }));
   drawFilters(); drawList();
 }
