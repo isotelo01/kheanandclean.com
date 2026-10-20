@@ -123,6 +123,24 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .pkgrow > div:has(.rpick:not([hidden])){flex-basis:100%;order:2}
 .pkgbtn{padding:6px 12px;font:600 14px "Archivo",sans-serif;color:var(--navy);background:#fff;border:1px solid var(--gold);border-radius:6px;cursor:pointer}
 .pkgbox .rprow{cursor:pointer}
+/* Detergent & material, set once per section (carpet rooms, area rugs, tile): every room fills in from it. */
+.secdef{margin:0 0 8px}
+.pkgrow > div.secdef:has(.secpanel:not([hidden])){flex-basis:100%;order:2}
+.secsum{display:block;font-size:12.5px;color:var(--muted);margin-top:4px}
+.secsum:empty{display:none}
+.secpanel{margin-top:10px;border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:10px}
+.secpanel[hidden]{display:none}
+.seclab{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.seclab b{min-width:72px}
+.seclab select,.seclab input{font:16px "Archivo";padding:6px;border:1px solid var(--line);border-radius:6px}
+.seclab input[type=number]{width:84px}
+.seclab input[hidden]{display:none}
+.secacts{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rughead{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px;margin:12px 0 6px;padding-top:10px;border-top:1px solid var(--line)}
+.rughead .rugttl{font:700 13px "Archivo",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding-top:7px}
+.rughead .secdef{text-align:right}
+.rughead > .secdef:has(.secpanel:not([hidden])){flex-basis:100%;text-align:left}
+@media print{.secdef{display:none!important}}
 @media print{.addsvc,.addfurn{display:none!important}}
 .jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
 @media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
@@ -1154,8 +1172,19 @@ async function show(){
           '<div class="rpfoot"><button type="button" class="new" data-rpadd>Add room</button></div>' +
         '</div>' +
       '</div>';
+  /* Detergent & material button for a section: "L<line>" (carpet rooms or tile), "L<line>rug" (area rugs).
+     Saved on the job under secDefaults; the room pages fill in from it. */
+  const secDefsNow = (q.secDefaults && typeof q.secDefaults === "object") ? q.secDefaults : {};
+  const secSummary = d => !d ? "" : [d.material === "Other" && d.materialOther ? d.materialOther : d.material,
+    ...["preSpray", "rinse"].map(f => d[f] && d[f].name ? (f === "preSpray" ? "Pre-Spray " : "Rinse ") + d[f].name +
+      (d[f].amount ? " " + d[f].amount + " " + d[f].unit : "") : "")].filter(Boolean).join(" · ");
+  const secBtn = (key, kind) => '<div class="secdef staff" data-sec="' + key + '" data-kind="' + kind + '">' +
+    '<button type="button" class="pkgbtn" data-secopen>Detergent &amp; material</button>' +
+    '<span class="secsum">' + esc(secSummary(secDefsNow[key])) + '</span><div class="secpanel" hidden></div></div>';
+  const isTileLine = l => l.key ? l.key === "tile" : /tile/i.test(String(l.label || ""));
   const sections = lines.map((l, i) => {
     const items = Array.isArray(l.items) ? l.items : [];
+    let rugHead = false;
     const extras = isCarpet(l) ? items.filter(it => isExtra(it) && !it.removed) : [];
     const shown = items.map((it, j) => [it, j]).filter(([it]) => !extras.includes(it));
     /* Header: "Carpet Deep Cleaning — 540 sq ft" and the line's price; tap it to open or close its rooms. */
@@ -1227,8 +1256,16 @@ async function show(){
         /* Add room next to Change package: adds to the line's rooms, or starts them when there are none. */
         (() => { const rj = items.findIndex(it => !it.removed && Array.isArray(it.rooms) && !isFlat(it));
           return addRoomBox(i, rj < 0 ? "new" : rj, true); })() +
+        secBtn("L" + i, "carpet") +   /* Detergent & material for this line's carpet rooms */
         '</div>' : '') +
-      (shown.length ? shown.map(([it, j]) => itemRows(it, i, j)).join("")
+      /* Tile (or a carpet line with no package row): Detergent & material at the top of its rooms. */
+      (isCarpetLine(l) && tierOf(l) ? '' : isCarpet(l) ? '<div class="pkgrow staff">' + secBtn("L" + i, "carpet") + '</div>'
+        : isTileLine(l) ? '<div class="pkgrow staff">' + secBtn("L" + i, "tile") + '</div>' : '') +
+      (shown.length ? shown.map(([it, j]) => {
+        /* Area Rugs: a heading above the first rug, with the rugs' own Detergent & material on the right. */
+        const isRug = isCarpet(l) && !it.removed && /^Area Rugs\b/i.test(String(it.label || "")) && !(Array.isArray(it.rooms) && it.rooms.length);
+        const h = isRug && !rugHead ? (rugHead = true, '<div class="rughead staff"><span class="rugttl">Area Rugs</span>' + secBtn("L" + i + "rug", "carpet") + '</div>') : "";
+        return h + itemRows(it, i, j); }).join("")
         : (l.key === "upholstery" ? "" : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i)))) +
       (l.key === "upholstery" ? furnBlock(i) : "") +
       (extras.length ? '<div class="meta staff" style="padding:6px 4px 0">In every room: ' +
@@ -1437,6 +1474,67 @@ async function show(){
   chemBox.addEventListener("input", e => {
     if (!e.target.closest(".chemrow")) return;
     calcChems(); note.textContent = "Not saved yet."; note.classList.remove("err");
+  });
+
+  /* ---- Detergent & material per section (carpet rooms, area rugs, tile). Set once and every room in
+     that section fills in (job-room.html reads secDefaults.<key>); any room can still be changed on
+     its own page. Amounts feed Detergents used below: each product's amount there becomes the total
+     across the sections, and the sheet saves. ---- */
+  const secDefs = { ...secDefsNow };
+  const MATS = { carpet: ["Nylon", "Polyester", "Olefin", "Other"], tile: ["Porcelain", "Ceramic"] };
+  const toOz = (a, u) => (Number(a) || 0) * (u === "qt" ? 32 : 1);
+  view.querySelectorAll(".secdef").forEach(box => {
+    const key = box.dataset.sec, kind = box.dataset.kind, panel = box.querySelector(".secpanel"), sumEl = box.querySelector(".secsum");
+    const draw = () => {
+      const d = secDefs[key] || {};
+      const prods = [...chemBox.querySelectorAll('.chemrow[data-group="general"]')].map(r => ({ id: r.dataset.chem, name: r.dataset.name }));
+      const prodRow = f => { const v = d[f] || {};
+        return '<label class="seclab"><b>' + (f === "preSpray" ? "Pre-Spray" : "Rinse") + '</b>' +
+          '<select data-f="' + f + '"><option value="">None</option>' +
+          prods.map(p => '<option value="' + esc(p.id) + '"' + (v.id === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join("") +
+          (v.id && !prods.some(p => p.id === v.id) ? '<option value="' + esc(v.id) + '" selected>' + esc(v.name) + '</option>' : '') + '</select>' +
+          '<input type="number" min="0" step="0.5" inputmode="decimal" placeholder="Amount" data-a="' + f + '" value="' + (Number(v.amount) || "") + '">' +
+          '<select data-u="' + f + '"><option value="oz"' + (v.unit === "qt" ? "" : " selected") + '>oz</option>' +
+          '<option value="qt"' + (v.unit === "qt" ? " selected" : "") + '>qt</option></select></label>'; };
+      panel.innerHTML = '<label class="seclab"><b>Material</b><select data-f="material"><option value="">Pick one</option>' +
+          MATS[kind].map(m => '<option' + (d.material === m ? ' selected' : '') + '>' + m + '</option>').join("") + '</select>' +
+          (kind === "carpet" ? '<input type="text" data-f="materialOther" placeholder="Which fiber?" value="' + esc(d.materialOther || "") + '"' + (d.material === "Other" ? '' : ' hidden') + '>' : '') + '</label>' +
+        prodRow("preSpray") + prodRow("rinse") +
+        (prods.length ? '' : '<div class="meta">No detergents yet. Add them in <a href="./settings.html">Settings</a>.</div>') +
+        '<div class="secacts"><button type="button" class="new" data-secapply>Apply to all rooms</button><span class="note"></span></div>';
+    };
+    box.addEventListener("change", e => {
+      if (!e.target.matches('select[data-f="material"]')) return;
+      const o = panel.querySelector('[data-f="materialOther"]'); if (o) o.hidden = e.target.value !== "Other";
+    });
+    box.addEventListener("click", async e => {
+      if (e.target.closest("[data-secopen]")) { if (panel.hidden) draw(); panel.hidden = !panel.hidden; return; }
+      const btn = e.target.closest("[data-secapply]"); if (!btn) return;
+      const msg = panel.querySelector(".secacts .note");
+      const pickP = f => { const s = panel.querySelector('select[data-f="' + f + '"]'); if (!s.value) return null;
+        return { id: s.value, name: s.options[s.selectedIndex].text, amount: Number(panel.querySelector('[data-a="' + f + '"]').value) || 0,
+          unit: panel.querySelector('[data-u="' + f + '"]').value === "qt" ? "qt" : "oz" }; };
+      const mat = panel.querySelector('select[data-f="material"]').value, oth = panel.querySelector('[data-f="materialOther"]');
+      const d = { material: mat || null, materialOther: mat === "Other" && oth ? oth.value.trim() : "", preSpray: pickP("preSpray"), rinse: pickP("rinse") };
+      btn.disabled = true; msg.textContent = "Saving…"; msg.classList.remove("err");
+      try {
+        await setDoc(doc(db, place, id), { secDefaults: { [key]: d } }, { merge: true });
+        secDefs[key] = d; q.secDefaults = { ...secDefs };
+        sumEl.textContent = secSummary(d);
+        /* Detergents used: each product the sections use gets the sections' total (in oz), then the sheet saves. */
+        if (chemReady) {
+          const tot = {};
+          Object.values(secDefs).forEach(s => ["preSpray", "rinse"].forEach(f => { const p = s && s[f];
+            if (p && p.id && p.amount) tot[p.id] = (tot[p.id] || 0) + toOz(p.amount, p.unit); }));
+          Object.keys(tot).forEach(pid => {
+            const r = [...chemBox.querySelectorAll(".chemrow")].find(x => x.dataset.chem === pid); if (!r) return;
+            r.querySelector("input").value = Math.round(tot[pid] * 100) / 100; r.querySelector("select").value = "oz"; });
+          calcChems(); document.getElementById("saveBtn").click();
+        }
+        msg.textContent = "Applied to every room in this section.";
+      } catch (err) { console.error(err); msg.textContent = "Could not save: " + err.message; msg.classList.add("err"); }
+      finally { btn.disabled = false; }
+    });
   });
 
   /* ---- Send to customer: the job sheet as an updated quote, back to the customer to approve. ----

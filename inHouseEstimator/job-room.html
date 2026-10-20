@@ -347,12 +347,20 @@ async function show(){
     const jobFib = q.jobFiber && q.jobFiber.type ? q.jobFiber : null;
     /* Rugs are often a different fiber from the carpet: they don't fill in from the job's. */
     const jobFibHere = spot.rug ? null : jobFib;
-    const fib = st.fiber && st.fiber.type ? st.fiber : jobFibHere;
-    const fibFromJob = !(st.fiber && st.fiber.type) && !!jobFibHere;
-    /* Tile: this room's material, otherwise the job's (set by the first tile room saved). */
+    /* The section's Detergent & material (set once on the Job Sheet: "L<line>", area rugs "L<line>rug").
+       Order: this room's own pick, then the section's, then the job's. */
+    const sd = ((q.secDefaults || {})["L" + lineNo + (spot.rug ? "rug" : "")]) || {};
+    const secFib = isCarpet && sd.material ? { type: sd.material, other: sd.materialOther || "" } : null;
+    const secMat = isTile && sd.material ? sd.material : "";
+    const secPre = (sd.preSpray && sd.preSpray.name) || "", secRinse = (sd.rinse && sd.rinse.name) || "";
+    const fib = st.fiber && st.fiber.type ? st.fiber : (secFib || jobFibHere);
+    const fibFromJob = !(st.fiber && st.fiber.type) && !!(secFib || jobFibHere);
+    const fromWhere = secFib ? "Filled in from the section on the Job Sheet." : "Filled in from the first room.";
+    /* Tile: this room's material, otherwise the section's, otherwise the job's (set by the first tile room saved). */
     const MATERIALS = ["Porcelain", "Ceramic"];
-    const mat = st.material || q.jobMaterial || "";
-    const matFromJob = !st.material && !!q.jobMaterial;
+    const mat = st.material || secMat || q.jobMaterial || "";
+    const matFromJob = !st.material && !!(secMat || q.jobMaterial);
+    const matWhere = secMat ? "Filled in from the section on the Job Sheet." : "Filled in from the first room.";
     titleEl.textContent = spot.name;
     document.title = spot.name + " · " + name + " · Khean & Clean";
     view.innerHTML =
@@ -374,21 +382,21 @@ async function show(){
             FIBERS.map(f => '<option value="' + f + '"' + (fib && fib.type === f ? ' selected' : '') + '>' + f + '</option>').join("") + '</select>' +
             '<input type="text" id="fiberOther" class="fiberOther" placeholder="Which fiber?" aria-label="Other fiber" value="' + esc(fib && fib.type === "Other" ? fib.other || "" : "") + '"' + (fib && fib.type === "Other" ? '' : ' hidden') + '>' +
             (showHair ? '<label class="hairchk"><input type="checkbox" id="hairChk"' + (hairOn ? ' checked' : '') + '><span>Hair &amp; debris</span></label>' : '') + '</div>' +
-            (fibFromJob ? '<p class="fibnote">Filled in from the first room. Change it if this room is different.</p>' : '')
+            (fibFromJob ? '<p class="fibnote">' + fromWhere + ' Change it if this room is different.</p>' : '')
           : '') +
         /* Material type, tile pages only. The first tile room saved sets it for the job. */
         (isTile
           ? '<div class="fibrow"><label for="materialSel" class="fiblab">Material type</label>' +
             '<select id="materialSel"><option value="">Pick one</option>' +
             MATERIALS.map(m => '<option value="' + m + '"' + (mat === m ? ' selected' : '') + '>' + m + '</option>').join("") + '</select></div>' +
-            (matFromJob ? '<p class="fibnote matnote">Filled in from the first room. Change it if this room is different.</p>' : '')
+            (matFromJob ? '<p class="fibnote matnote">' + matWhere + ' Change it if this room is different.</p>' : '')
           : '') +
         /* Pre-Spray and Rinse: every page on a carpet or tile line (rooms, stairs, rugs and the
            add-ons with their own photo page). */
         ((isCarpet || isTile) && !spot.noChem   /* Carpet Stretching: no Pre-Spray / Rinse */
           ? '<div class="chemrow">' +
-              '<label class="chem">Pre-Spray <input type="text" id="preSpray" value="' + esc(st.preSpray || "") + '"></label>' +
-              '<label class="chem">Rinse <input type="text" id="rinse" value="' + esc(st.rinse || "") + '"></label>' +
+              '<label class="chem">Pre-Spray <input type="text" id="preSpray" value="' + esc(st.preSpray || secPre) + '"></label>' +
+              '<label class="chem">Rinse <input type="text" id="rinse" value="' + esc(st.rinse || secRinse) + '"></label>' +
             '</div>'
           : '') +
         (roomExtras.length ? '<h3 class="h3">In this room</h3><div class="room__body">' + roomExtras.map(x => xbox(spot, x)).join("") + '</div>' : '') +
@@ -498,21 +506,23 @@ async function show(){
         /* Actual sq ft measured on site (rooms only); blank clears it. */
         if (actualEl) { const n = Math.round(Number(actualEl.value)); data.spots[spot.key].actualSqft = n > 0 ? n : null; }
         /* Pre-Spray and Rinse used in this room (carpet rooms only). */
-        if (preEl) data.spots[spot.key].preSpray = preEl.value.trim();
-        if (rinseEl) data.spots[spot.key].rinse = rinseEl.value.trim();
+        /* Same as the section's product: saved blank, so the room keeps following the section. */
+        if (preEl) { const v = preEl.value.trim(); data.spots[spot.key].preSpray = v === secPre ? "" : v; }
+        if (rinseEl) { const v = rinseEl.value.trim(); data.spots[spot.key].rinse = v === secRinse ? "" : v; }
         /* Hair & debris removal in this room (the Job Sheet prices it). */
         if (hairEl) data.spots[spot.key].hair = hairEl.checked;
         /* Fiber type: saved on this room; the first one saved also becomes the job's, so the
            other carpet rooms open with it filled in. */
         /* Material type (tile): saved on this room; the first one saved becomes the job's. */
         if (matEl) {
-          data.spots[spot.key].material = matEl.value || null;
+          data.spots[spot.key].material = matEl.value && matEl.value !== secMat ? matEl.value : null;   /* same as the section: follow it */
           if (matEl.value && !q.jobMaterial) { data.jobMaterial = matEl.value; q.jobMaterial = matEl.value; }
         }
         if (otherEl) {
           const pick = document.getElementById("fiberSel").value;
           const fiber = pick ? { type: pick, other: pick === "Other" ? otherEl.value.trim() : "" } : null;
-          data.spots[spot.key].fiber = fiber;
+          /* Same as the section's fiber: saved blank, so the room keeps following the section. */
+          data.spots[spot.key].fiber = secFib && fiber && fiber.type === secFib.type && (fiber.other || "") === (secFib.other || "") ? null : fiber;
           if (fiber && !spot.rug && !(q.jobFiber && q.jobFiber.type)) {   /* a rug never sets the job's fiber */ data.jobFiber = fiber; q.jobFiber = fiber; }
         }
         let next = null;
