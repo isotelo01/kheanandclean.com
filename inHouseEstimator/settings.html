@@ -129,7 +129,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref as sref, uploadBytes, getDownloadURL, getMetadata }
+import { getStorage, ref as sref, uploadBytes, getDownloadURL, getMetadata, deleteObject }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
@@ -243,7 +243,8 @@ async function drawDocs() {
     try {
       const r = sref(storage, "vendor-docs/" + k), m = await getMetadata(r);
       info = "Updated " + new Date(m.updated).toLocaleDateString();
-      view = '<a class="ghost" href="' + esc(await getDownloadURL(r)) + '" target="_blank" rel="noopener">View</a>';
+      view = '<span style="display:flex;gap:8px"><a class="ghost" href="' + esc(await getDownloadURL(r)) + '" target="_blank" rel="noopener">View</a>' +
+        '<button type="button" class="ghost" data-vdel="' + k + '" style="color:var(--red)">Delete</button></span>';
     } catch (e) { if (e.code !== "storage/object-not-found") { console.error(e); info = "Couldn't check"; } }
     return '<div class="prrow" style="grid-template-columns:minmax(0,1fr) auto auto"><span class="pname">' + esc(label) +
       '<small>' + esc(info) + '</small></span>' + view +
@@ -251,7 +252,18 @@ async function drawDocs() {
   }));
   document.getElementById("vdocs").innerHTML = rows.join("");
 }
-document.getElementById("vdocs").addEventListener("click", e => {
+document.getElementById("vdocs").addEventListener("click", async e => {
+  /* Delete: asks first, then removes the file. Partners fall back to the website copy
+     (insurance, license) or "Request W-9". */
+  const d = e.target.closest("[data-vdel]");
+  if (d) {
+    const label = (VDOCS.find(x => x[0] === d.dataset.vdel) || [, "this document"])[1];
+    if (!confirm("Delete the " + label + "? Partners won't be able to open it until you upload a new one.")) return;
+    vdocNote.classList.remove("err"); vdocNote.textContent = "Deleting…";
+    try { await deleteObject(sref(storage, "vendor-docs/" + d.dataset.vdel)); vdocNote.textContent = "Deleted."; drawDocs(); }
+    catch (ex) { console.error(ex); vdocNote.textContent = "Could not delete: " + ex.message; vdocNote.classList.add("err"); }
+    return;
+  }
   const b = e.target.closest("[data-vdoc]"); if (!b) return;
   vdocPick = b.dataset.vdoc; vdocFile.value = ""; vdocFile.click();
 });
