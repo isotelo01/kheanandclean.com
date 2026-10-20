@@ -238,7 +238,7 @@ async function start(){
       /* Starred photos from the room's other photo spots come along too (Before ones with Before). */
       const starSet = new Set(Array.isArray(j.starred) ? j.starred : []);
       Object.keys(s).filter(f => /^photo/.test(f) && !/Threshold$/.test(f) && Array.isArray(s[f])).forEach(f =>
-        s[f].filter(p => okPath(p) && starSet.has(p)).forEach(p => (/Before|Inspect/i.test(f) ? bef : aft).push(p)));
+        s[f].filter(p => okPath(p) && starSet.has(p) && !bef.includes(p) && !aft.includes(p)).forEach(p => (/Before|Inspect/i.test(f) ? bef : aft).push(p)));
       if (!bef.length && !aft.length) continue;
       rooms.push({ no: rooms.length + 1, bef, aft, on: false });
     }
@@ -282,7 +282,9 @@ async function start(){
     /* To start: the job's starred photos (star on the job sheet), with their rooms ticked.
        No stars on this job: the first three rooms, as before. Ticking a room by hand adds all its photos. */
     const startRooms = stars.size ? rooms.filter(r => r.bef.concat(r.aft).some(p => stars.has(p))) : rooms.slice(0, 3);
-    startRooms.forEach(r => { box.querySelector('[data-room="' + rooms.indexOf(r) + '"]').checked = true; setRoom(r, true).then(() => { starOnly = false; }); });
+    /* starOnly stays on until every starting room has loaded, so no room brings in its unstarred photos. */
+    Promise.all(startRooms.map(r => { box.querySelector('[data-room="' + rooms.indexOf(r) + '"]').checked = true; return setRoom(r, true); }))
+      .then(() => { starOnly = false; });
     roomBtn();
   }
   const ji = Math.max(0, jobs.findIndex(j => j.id === startJob));
