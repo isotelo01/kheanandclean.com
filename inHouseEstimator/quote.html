@@ -102,6 +102,13 @@ br.tl{display:none}
 .sig .box{color:var(--green);font-weight:700;font-size:15px}
 .totals{max-width:280px;flex:0 0 auto;margin-left:auto}
 .totals div{display:flex;justify-content:space-between;gap:24px;padding:4px 0}
+/* Discount line: bigger, in the same shiny green as the Terms of Service button, with a light sweeping across. */
+.totals .disc{font-size:19px;font-weight:800;align-items:baseline}
+.totals .disc span{background:linear-gradient(100deg,#1fae62 0%,#1fae62 40%,#d4ffe6 50%,#1fae62 60%,#1fae62 100%);background-size:250% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:dshine 2.6s ease-in-out infinite}
+@keyframes dshine{0%{background-position:100% 0}60%,100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.totals .disc span{animation:none}}
+@media print{.totals .disc span{background:none;-webkit-text-fill-color:#0F5C3E;color:#0F5C3E}}
 .grand{font-weight:700;border-top:2px solid var(--navy);margin-top:6px;padding-top:8px}
 .notes{background:#f7f8fa;border-left:4px solid var(--gold);padding:12px 16px;margin-top:22px;white-space:pre-wrap}
 .pay{margin-top:26px}
@@ -742,7 +749,7 @@ function render(d){
         <div class="totals">
         <div><span>Subtotal</span><span>${money(d.subtotal)}</span></div>
         ${(d.freeLines || []).map(f => `<div><span>${esc(f.label)}</span><span>&minus;${money(f.amount)}</span></div>`).join("")}
-        ${d.discount > 0 ? `<div><span>${esc(d.discountLabel || "Discount")}</span><span>&minus;${money(d.discount)}</span></div>` : ""}
+        ${d.discount > 0 ? `<div class="disc"><span>${esc(d.discountLabel || "Discount")}</span><span>&minus;${money(d.discount)}</span></div>` : ""}
         ${d.tax ? `<div><span>Tax (${d.taxRate}%)</span><span>${money(d.tax)}</span></div>` : ""}
         <div class="grand"><span>Total</span><span>${money(d.total)}</span></div>
         ${d.cardFee > 0 ? `<div><span>Card fee (3%)</span><span>${money(d.cardFee)}</span></div>` : ""}
