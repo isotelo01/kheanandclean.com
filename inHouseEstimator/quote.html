@@ -12,7 +12,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="1200">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Dancing+Script:wght@600&family=Cormorant+Garamond:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Dancing+Script:wght@600&family=Cormorant+Garamond:wght@700&family=Poppins:wght@600&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
 *{box-sizing:border-box}
@@ -38,6 +38,9 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 .mascot{display:flex;flex-direction:column;align-items:center;text-align:center;align-self:center}
 .mascot img{height:190px;width:auto;display:block}
 .mascot span{margin-top:8px;color:var(--gold);font-size:15px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+/* Paid invoices: "Leave us a Google review" in Google red, Google-style rounded font, links to the review page. */
+.mascot .grev a{color:#EA4335;font:600 1.25em "Poppins",system-ui,sans-serif;letter-spacing:.01em;text-transform:none;text-decoration:none;border-bottom:2px solid rgba(234,67,53,.45)}
+.mascot .grev a:hover{border-bottom-color:#EA4335}
 table{width:100%;border-collapse:collapse}
 th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left}
 th{font-size:13px;color:var(--muted);font-weight:600}
@@ -327,6 +330,7 @@ const db = getFirestore(initializeApp({
 
 const PHONE = "(916) 767-2520", TEL = "+19167672520", EMAIL = "contact@kheanandclean.com";
 const SITE = "kheanandclean.com", SITE_URL = "https://kheanandclean.com";
+const REVIEW_URL = "https://g.page/r/Cc9uhfnSh8zjEBM/review";   /* Google review page (same link as the website's reviews page) */
 
 /* Payment handles. MOCK VALUES - swap these for the real ones before going live.
    PAYPAL_ME: set up a PayPal.Me handle, then put just the handle here.
@@ -715,7 +719,9 @@ function render(d){
     <div class="body">
       <div class="meta">
         <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}<span class="phl">${c.phone ? "<span>" + esc(c.phone) + "</span>" : "<span></span>"}<span class="mdate">${dShort}</span></span></p></div>
-        <div class="mascot"><img src="../images/mascot.webp" alt="Khean &amp; Clean mascot"><span>7-Day Re-Clean Guarantee</span></div>
+        <div class="mascot"><img src="../images/mascot.webp" alt="Khean &amp; Clean mascot">${!isQuote && d.status === "paid"
+          ? `<span class="grev"><a href="${REVIEW_URL}" target="_blank" rel="noopener">Leave us a Google review</a></span>`
+          : `<span>7-Day Re-Clean Guarantee</span>`}</div>
         <div class="r"><h3 class="dfull">Date</h3><p class="dfull">${dateText}</p>${statusHtml ? `<p class="dstat" style="margin-top:10px">${statusHtml}</p>` : ""}</div>
       </div>
       ${(d.onsite || d.spots) && !new URLSearchParams(location.search).has("original")
