@@ -19,6 +19,7 @@
       "#tabbar svg{width:18px;height:18px}" +
       "body{padding-bottom:calc(46px + env(safe-area-inset-bottom))!important}" +
       "#callbar{bottom:calc(58px + env(safe-area-inset-bottom))!important}" +
+      "body.rooms-open .roomsDone{bottom:calc(58px + env(safe-area-inset-bottom))!important}" +   /* room list's Done button sits above the bar */
       ".mhide{display:none!important}" +
     "}";
   document.head.appendChild(css);
