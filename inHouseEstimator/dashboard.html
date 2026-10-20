@@ -511,6 +511,8 @@ async function toInvoice(id, btn){
   const on = d.onsite && Array.isArray(d.onsite.lines) && !ignored ? d.onsite : null;
   const inv = Object.assign({}, d, on ? {
     lines: on.lines, subtotal: on.subtotal ?? null, total: on.total ?? null,
+    /* Job discount from the job sheet: the invoice shows the full amount off (quote discount + job discount). */
+    ...(on.discount != null ? { discount: on.discount, discountLabel: d.discountLabel || "Discount" } : {}),
     /* An on-site update (R1...) already carries the first approved quote: keep that one. */
     originalQuote: d.originalQuote || { number: d.number || "", status: d.status || "accepted", lines: d.lines || [],
       subtotal: d.subtotal ?? null, total: d.total ?? null }

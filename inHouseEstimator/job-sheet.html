@@ -145,6 +145,11 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 /* Not billed (taken off in the estimator): on the job sheet at $0, never in the Summary or the customer's report. */
 .summ .nbill,.pub .nbill{display:none!important}
 @media print{.addsvc,.addfurn{display:none!important}}
+/* Job discount ($ or %), staff only, just above the on-site total. */
+.jdisc{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:14px 0 6px;font-size:15px;font-weight:600}
+.jdisc label{display:inline-flex;align-items:center;gap:4px}
+.jdisc input{width:84px;font:16px "Archivo",sans-serif;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
+.jdisc .off{margin-left:auto;color:var(--green)}
 .jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
 @media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
 .prog{font-size:14px;color:var(--muted);margin-bottom:10px}
@@ -546,8 +551,15 @@ function syncHair(lines, spots){
 }
 async function saveOnsite(){
   const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0));
-  await setDoc(doc(db, cur.place, id), { onsite: { lines: cur.lines, subtotal: sub, total: r2(sub + cur.adj), from: cur.qsig || "", updatedAt: serverTimestamp() } }, { merge: true });
+  await setDoc(doc(db, cur.place, id), { onsite: { lines: cur.lines, subtotal: sub, total: r2(sub + cur.adj), discount: r2(Math.max(0, -cur.adj)), jobDisc: cur.disc, from: cur.qsig || "", updatedAt: serverTimestamp() } }, { merge: true });
 }
+/* Job discount boxes: on change, save the job sheet and redraw it. */
+document.addEventListener("change", e => {
+  if (!cur || (e.target.id !== "jdAmt" && e.target.id !== "jdPct")) return;
+  const a = document.getElementById("jdAmt"), p = document.getElementById("jdPct");
+  cur.disc = { amt: Math.max(0, Number(a && a.value) || 0), pct: Math.min(100, Math.max(0, Number(p && p.value) || 0)) };
+  saveOnsite().then(show).catch(err => { fail(err); show(); });
+});
 const fail = e => { console.error(e); const n = document.getElementById("note"); if (n) { n.textContent = "Could not save: " + e.message; n.classList.add("err"); } };
 
 /* ---- Summarize / Edit: the clean customer view of this same sheet, remembered for this job while the tab is open. ---- */
@@ -1067,7 +1079,13 @@ async function show(){
     if (stale) { rebuilt = reconcile(q.onsite.lines, q.lines, q.spots, !!q.fromJobSheet); lines = rebuilt.lines; if (rebuilt.spots) q.spots = rebuilt.spots; }
     else lines = q.onsite.lines;
   } else lines = onsiteCopy(q.lines);
-  cur = { place, lines, qsig, quoted: Number(q.total) || 0, adj: (Number(q.total) || 0) - (Number(q.subtotal) || Number(q.total) || 0) };
+  const jd = (q.onsite && q.onsite.jobDisc) || {};
+  cur = { place, lines, qsig, quoted: Number(q.total) || 0,
+    baseAdj: (Number(q.total) || 0) - (Number(q.subtotal) || Number(q.total) || 0),   /* the approved quote's own discount */
+    disc: { amt: Math.max(0, Number(jd.amt) || 0), pct: Math.min(100, Math.max(0, Number(jd.pct) || 0)) },   /* Job discount box */
+    /* Everything that reads cur.adj (total, variance, updated quote, invoice) gets both. */
+    get adj(){ const sub = this.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
+      return r2(this.baseAdj - (sub * this.disc.pct / 100 + this.disc.amt)); } };
   if (rebuilt && !PUBLIC) {
     (rebuilt.spots ? updateDoc(doc(db, place, id), { spots: rebuilt.spots }) : Promise.resolve()).then(saveOnsite).catch(fail);
   }
@@ -1319,7 +1337,12 @@ async function show(){
   const sub = lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
   const variance = r2(sub + cur.adj - cur.quoted);
   const showVar = !PUBLIC && (place === "acceptedQuotes" || place === "quotes") && Math.abs(variance) >= 0.01 && q.varianceIgnored !== r2(sub + cur.adj);
-  const jtotal = '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
+  const jdOff = r2(sub * cur.disc.pct / 100 + cur.disc.amt);
+  const jdisc = PUBLIC ? '' : '<div class="jdisc staff"><span>Job discount</span>' +
+    '<label>$<input type="number" id="jdAmt" min="0" step="1" inputmode="decimal" placeholder="0" value="' + (cur.disc.amt || '') + '" aria-label="Job discount in dollars"></label>' +
+    '<label><input type="number" id="jdPct" min="0" max="100" step="1" inputmode="decimal" placeholder="0" value="' + (cur.disc.pct || '') + '" aria-label="Job discount in percent">%</label>' +
+    (jdOff > 0 ? '<span class="off">&minus;' + money(jdOff) + '</span>' : '') + '</div>';
+  const jtotal = jdisc + '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
     /* Original quote: on an on-site update (R1, R2...) it's the first approved one, kept inside as originalQuote. */
     '<div class="meta staff" style="text-align:right"><a href="./quote.html?id=' + encodeURIComponent(id) + (q.originalQuote ? '&original=1' : '') +
       '" target="_blank" rel="noopener">Original quote &middot; ' + money(q.originalQuote ? q.originalQuote.total : cur.quoted) + '</a></div>';
