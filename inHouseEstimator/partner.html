@@ -20,15 +20,15 @@ body{ margin:0; min-height:100svh; background:var(--navy); color:var(--cream);
 .wrap{ max-width:720px; margin:0 auto; padding:24px 16px 60px; }
 .top{ display:flex; align-items:center; gap:12px; margin-bottom:22px; }
 .top img{ width:52px; height:52px; object-fit:contain; flex:none; }
-h1{ font:700 1.5rem/1.2 "Playfair Display",serif; margin:0; }
+h1{ font:700 2.2rem/1.15 "Playfair Display",serif; margin:0; overflow-wrap:anywhere; }
 .hello{ margin:2px 0 0; color:var(--muted); font-size:.92rem; overflow-wrap:anywhere; }
 .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:14px; }
 h2{ font:700 1.1rem "Playfair Display",serif; color:var(--gold); margin:0 0 12px; }
-.actions{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-.act{ display:flex; flex-direction:column; gap:2px; text-decoration:none; color:var(--cream);
-  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:14px; }
+.actions{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.act{ display:flex; align-items:center; justify-content:center; text-align:center; text-decoration:none; color:var(--cream);
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:10px 6px; }
 .act:hover{ border-color:var(--gold); }
-.act b{ color:var(--gold); font-size:1rem; }
+.act b{ color:var(--gold); font-size:.95rem; line-height:1.2; }
 .act span{ color:var(--muted); font-size:.85rem; }
 .perks{ margin:0; padding-left:1.1rem; color:var(--muted); }
 .perks li{ margin:4px 0; }
@@ -60,14 +60,13 @@ dialog#settings .card{ margin:0; position:relative; }
 .close{ position:absolute; top:10px; right:10px; width:36px; height:36px; padding:0; border-radius:50%;
   background:none; color:var(--muted); font-size:1.4rem; line-height:1; }
 .close:hover{ color:var(--cream); }
-@media (max-width:540px){ .actions,.row{ grid-template-columns:1fr; } }
+@media (max-width:540px){ .row{ grid-template-columns:1fr; } h1{ font-size:1.8rem; } .act b{ font-size:.85rem; } }
 </style>
 </head>
 <body>
 <div id="authwait"></div>
 <div class="wrap">
   <div class="top">
-    <img src="../images/icon-180.png" alt="">
     <div>
       <h1 id="bizName">Partner Portal</h1>
       <p class="hello" id="hello"></p>
@@ -80,10 +79,10 @@ dialog#settings .card{ margin:0; position:relative; }
   <section class="card">
     <h2>Book a cleaning</h2>
     <div class="actions">
-      <a class="act" href="../quick-quote.html"><b>Request a quote</b><span>Tell us the property and what it needs</span></a>
-      <a class="act" href="tel:+19167672520"><b>Call (916) 767-2520</b><span>Next-day service for your listings</span></a>
-      <a class="act" href="sms:+19167672520"><b>Text us</b><span>Send the address and a few photos</span></a>
-      <a class="act" href="mailto:contact@kheanandclean.com"><b>Email</b><span>contact@kheanandclean.com</span></a>
+      <a class="act" href="../quick-quote.html"><b>Quote</b></a>
+      <a class="act" href="tel:+19167672520" title="(916) 767-2520"><b>Call</b></a>
+      <a class="act" href="sms:+19167672520" title="(916) 767-2520"><b>Text</b></a>
+      <a class="act" href="mailto:contact@kheanandclean.com" title="contact@kheanandclean.com"><b>Email</b></a>
     </div>
   </section>
 
