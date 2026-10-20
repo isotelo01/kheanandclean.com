@@ -30,7 +30,7 @@ let pending = 0;
 const settle = p => {
   pending++; badge();
   p.then(() => { pending = Math.max(0, pending - 1); badge(); }, e => { pending = Math.max(0, pending - 1); console.error(e); badge(); });
-  return Promise.race([p, new Promise(r => setTimeout(r, navigator.onLine ? 8000 : 400))]);
+  return Promise.race([p, new Promise(r => setTimeout(r, navigator.onLine ? 2000 : 400))]);   /* bad service: no long wait */
 };
 export const setDoc = (...a) => settle(fsSetDoc(...a));
 export const updateDoc = (...a) => settle(fsUpdateDoc(...a));
@@ -51,16 +51,13 @@ const qAll = () => tx("readonly", s => s.getAll());
 let waiting = 0;
 const countQ = async () => { try { waiting = (await qAll()).length; } catch (e) {} badge(); };
 
-/* Same as Firebase's uploadBytes, except with no service the photo is kept on the phone and
-   counts as uploaded (its path is saved on the job like any other photo). */
+/* Instead of Firebase's uploadBytes: every photo is saved on the phone first, so it shows right
+   away with no wait (service or not), and counts as uploaded (its path is saved on the job like
+   any other photo). It then uploads in the background while the job sheet or a room page is open. */
 export async function uploadBytes(r, blob, meta){
-  if (navigator.onLine) {
-    try { return await Promise.race([stUpload(r, blob, meta),
-      new Promise((_, rej) => setTimeout(() => rej(new Error("slow")), 45000))]); }
-    catch (e) { if (navigator.onLine && !/network|retry|slow|offline|unknown/i.test(String(e && (e.code || e.message)))) throw e; }
-  }
   await qPut({ path: r.fullPath, blob, type: (meta && meta.contentType) || "image/jpeg", at: Date.now() });
   countQ();
+  setTimeout(() => flush(r.storage), 0);
   return { ref: r, metadata: { fullPath: r.fullPath }, queued: true };
 }
 /* A photo still waiting on the phone shows from the phone. Otherwise the link is fetched as
@@ -73,9 +70,11 @@ export async function getDownloadURL(r){
 }
 /* Back in service: send the waiting photos up, oldest first. A photo that already made it up
    (a slow upload that finished on its own) just comes off the list. */
-let flushing = false;
+let flushing = false, again = false;
 export async function flush(storage){
-  if (flushing || !navigator.onLine) return; flushing = true;
+  if (!navigator.onLine) return;
+  if (flushing) { again = true; return; }   /* photos taken mid-upload go right after */
+  flushing = true; again = false;
   try {
     const items = (await qAll()).sort((a, b) => a.at - b.at);
     for (const it of items) {
@@ -88,7 +87,7 @@ export async function flush(storage){
       countQ();
     }
   } catch (e) { console.error(e); }
-  finally { flushing = false; countQ(); }
+  finally { flushing = false; countQ(); if (again) flush(storage); }
 }
 
 /* ---- Small gold tag at the bottom: no service / waiting to sync ---- */
