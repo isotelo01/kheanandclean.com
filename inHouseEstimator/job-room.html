@@ -77,6 +77,8 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .actual{display:flex;align-items:center;gap:8px;flex:none;font-size:15px;font-weight:600;color:var(--navy);white-space:nowrap}
 .actual input{width:92px;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 @media (max-width:360px){ .actual input{width:76px} }
+/* "Measure from photos" link under Est / Actual (staff only). */
+.measure{display:inline-block;margin:0 0 10px;font-size:14px;font-weight:600;color:var(--gold);text-decoration:underline}
 /* Fiber type: label, dropdown and (for Other) the text box, side by side on one row. */
 .fibrow{display:flex;align-items:center;gap:8px;margin-top:14px}
 .fiblab{flex:none;font-size:15px;font-weight:700;color:var(--navy)}
@@ -372,7 +374,9 @@ async function show(){
         (spot.isRoom || spot.rug || spot.rugForm   /* rugs too: EST from their size; stretching/pet/stain the same form */
           ? '<div class="sqrow"><div class="svcsub">EST ' + (spot.sqft ? spot.sqft.toLocaleString() + ' sq ft' : '—') + '</div>' +
             '<label class="actual">Actual <input type="number" id="actualSqft" min="0" step="1" inputmode="numeric" placeholder="Measured"' +
-            (Number(st.actualSqft) > 0 ? ' value="' + Number(st.actualSqft) + '"' : '') + '></label></div>'
+            (Number(st.actualSqft) > 0 ? ' value="' + Number(st.actualSqft) + '"' : '') + '></label></div>' +
+            /* Staff only: photo checklist -> measure.html works out the floor size -> comes back into Actual. */
+            (PUBLIC || !spot.isRoom ? '' : '<a class="measure" id="measureLink" href="./measure.html">Measure from photos &rsaquo;</a>')
           : (spot.sqft ? '<div class="svcsub">' + spot.sqft.toLocaleString() + ' sq ft</div>' : '')) +
         /* Fiber type, carpet rooms only. The first room saved sets it for the job, so the other
            rooms open with it filled in; any room can be switched on its own. */
@@ -421,6 +425,23 @@ async function show(){
     if (hairEl) hairEl.addEventListener("change", flag);
     const actualEl = document.getElementById("actualSqft");
     if (actualEl) actualEl.addEventListener("input", flag);
+    /* Back from measure.html with ?measured=<sq ft>: drop it in Actual (not saved until Save). */
+    const measured = Math.round(Number(qs.get("measured")) || 0);
+    if (actualEl && measured > 0) {
+      actualEl.value = measured; flag();
+      note.textContent = "Measured from photos. Tap Save to keep it.";
+      qs.delete("measured");   /* only once, even if the page redraws */
+      const clean = new URL(location.href); clean.searchParams.delete("measured");
+      history.replaceState(null, "", clean.href);
+    }
+    const measureLink = document.getElementById("measureLink");
+    if (measureLink) measureLink.addEventListener("click", e => {
+      e.preventDefault();
+      if (/Not saved/.test(note.textContent) && !confirm("This room has changes that aren't saved. Leave anyway?")) return;
+      const here = new URL(location.href); here.searchParams.delete("measured");
+      location.href = "./measure.html?room=" + encodeURIComponent(spot.name) + "&est=" + (Number(spot.sqft) || 0) +
+        "&back=" + encodeURIComponent(here.href);
+    });
     const otherEl = document.getElementById("fiberOther");
     view.addEventListener("change", e => {
       const r = e.target.id === "fiberSel" ? e.target : null; if (!r) return;

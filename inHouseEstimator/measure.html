@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<title>Measure from photos &middot; Khean &amp; Clean</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Photo checklist -> Claude measures the floor -> "Use this" puts the number in the room's Actual box.
+   Opened from "Measure from photos" on job-room.html. Staff only. */
+:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:640px;margin:0 auto;padding:18px 16px 70px}
+.back{color:var(--muted);font-size:14px;text-decoration:none;background:none;border:0;padding:0;cursor:pointer;font:inherit}
+h1{font:700 26px/1.2 "Playfair Display",Georgia,serif;margin:8px 0 2px}
+.sub{color:var(--muted);margin:0 0 16px;font-size:15px}
+.panel{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 6px rgba(23,34,57,.08)}
+h2{font:700 17px "Archivo",sans-serif;margin:0 0 8px}
+.how{margin:0;padding-left:1.2rem;font-size:15px}
+.how li{margin:5px 0}
+.how b{color:var(--navy)}
+.chk{display:flex;align-items:flex-start;gap:10px;font-size:15px;margin-top:10px;cursor:pointer}
+.chk input{width:20px;height:20px;margin:1px 0 0;flex:none;accent-color:var(--navy)}
+.slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.slot{position:relative;border:2px dashed #b9c0cc;border-radius:10px;min-height:118px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;padding:10px;cursor:pointer;background:#fafbfc;overflow:hidden}
+.slot.req::after{content:"Needed";position:absolute;top:6px;right:8px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#b3261e}
+.slot b{font-size:15px}
+.slot small{color:var(--muted);font-size:12.5px;line-height:1.3;margin-top:2px}
+.slot.has{border-style:solid;border-color:var(--navy);padding:0}
+.slot.has::after{content:"\2713";color:#fff;background:var(--navy);border-radius:999px;width:22px;height:22px;display:grid;place-items:center;font-size:13px;top:6px;right:6px}
+.slot img{width:100%;height:118px;object-fit:cover;display:block}
+.slot .lab{position:absolute;left:0;right:0;bottom:0;background:rgba(23,34,57,.78);color:#fff;font-size:12.5px;font-weight:600;padding:3px 6px}
+.slot input{position:absolute;width:1px;height:1px;opacity:0}
+label.f{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:12px 0 4px}
+input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff;color:var(--ink)}
+.go{width:100%;background:var(--navy);color:var(--gold);border:0;border-radius:999px;padding:14px;font:700 17px "Archivo",sans-serif;cursor:pointer;margin-top:4px}
+.go[disabled]{opacity:.55;cursor:default}
+.msg{min-height:1.2em;margin:10px 0 0;font-size:14.5px;color:var(--muted);text-align:center}
+.msg.bad{color:#b3261e}
+.res{text-align:center}
+.big{font:700 44px/1.1 "Playfair Display",Georgia,serif;color:var(--navy);margin:4px 0}
+.big small{font:600 18px "Archivo",sans-serif}
+.range{color:var(--muted);font-size:15px}
+.conf{display:inline-block;margin:8px 0;padding:3px 12px;border-radius:999px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#fff}
+.conf.high{background:#2e8a57}.conf.medium{background:#c48a12}.conf.low{background:#b3261e}
+.vs{font-size:15px;margin:6px 0}
+.over{color:#b3261e}.under{color:#2e8a57}
+.note{text-align:left;font-size:14.5px;color:var(--ink);background:#f5f6f8;border-radius:8px;padding:10px 12px;margin-top:10px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.ghost{width:100%;background:transparent;color:var(--navy);border:2px solid var(--navy);border-radius:999px;padding:12px;font:700 16px "Archivo",sans-serif;cursor:pointer}
+:where(a,button,.slot):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+[hidden]{display:none!important}
+@media (max-width:360px){ .slots{grid-template-columns:1fr} }
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <button type="button" class="back" id="backTop">&lsaquo; Back to the room</button>
+  <h1 id="title">Measure from photos</h1>
+  <p class="sub" id="sub"></p>
+
+  <div id="form">
+    <section class="panel">
+      <h2>Before you shoot</h2>
+      <ol class="how">
+        <li><b>Lay a sheet of printer paper</b> flat on the floor near the middle of the room. It's the ruler.</li>
+        <li><b>Turn on the lights</b> and open the blinds.</li>
+        <li><b>Hold the phone sideways</b> at chest height and step back into the corner as far as you can.</li>
+        <li><b>Get the floor edges</b> in every shot, where the walls meet the floor, plus the paper.</li>
+        <li>Shoot <b>closets and nooks</b> in the Extra boxes if they're getting cleaned.</li>
+      </ol>
+      <label class="chk"><input type="checkbox" id="paper" checked> <span>A sheet of letter paper (8.5 &times; 11) is on the floor</span></label>
+    </section>
+
+    <section class="panel">
+      <h2>Photos</h2>
+      <div class="slots" id="slots"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Know any size? <span style="font-weight:400;color:var(--muted)">(optional)</span></h2>
+      <input class="t" id="known" maxlength="190" placeholder="e.g. back wall is 12 ft, closet door is 5 ft wide" aria-label="Known measurement">
+      <p style="margin:6px 0 0;font-size:13.5px;color:var(--muted)">One taped measurement makes it a lot more accurate.</p>
+    </section>
+
+    <button type="button" class="go" id="goBtn" disabled>Measure this room</button>
+    <p class="msg" id="msg" role="status">Take the Doorway shot and at least 2 corners.</p>
+  </div>
+
+  <section class="panel res" id="result" hidden>
+    <div class="range">Estimated floor</div>
+    <div class="big" id="rSqft"></div>
+    <div class="range" id="rDims"></div>
+    <div class="range" id="rRange"></div>
+    <span class="conf" id="rConf"></span>
+    <div class="vs" id="rVs"></div>
+    <div class="note" id="rHow"></div>
+    <div class="note" id="rTip" hidden></div>
+    <div class="row2">
+      <button type="button" class="ghost" id="againBtn">Retake</button>
+      <button type="button" class="go" id="useBtn" style="margin:0">Use this</button>
+    </div>
+    <p class="msg">"Use this" puts it in the room's Actual box. Tap Save there to keep it.</p>
+  </section>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), storage = getStorage(app);
+const measureRoom = httpsCallable(getFunctions(app, "us-central1"), "measureRoom", { timeout: 130000 });
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const $ = id => document.getElementById(id);
+
+/* ?room=<name>&est=<quoted sq ft>&back=<room page URL>. Only a page in this app is accepted as "back". */
+const qs = new URLSearchParams(location.search);
+const room = (qs.get("room") || "Room").slice(0, 80);
+const est = Math.round(Number(qs.get("est")) || 0);
+const back = (() => {
+  try { const u = new URL(qs.get("back") || "", location.href);
+    return u.origin === location.origin && /\/job-room\.html$/.test(u.pathname) ? u : null; } catch (e) { return null; }
+})();
+$("title").textContent = "Measure: " + room;
+$("sub").textContent = est ? "Quoted at " + est.toLocaleString() + " sq ft" : "Take the photos below and I'll work out the floor size.";
+const goBack = extra => {
+  if (!back) { history.back(); return; }
+  const u = new URL(back.href);
+  if (extra) u.searchParams.set("measured", String(extra));
+  location.href = u.href;
+};
+$("backTop").onclick = () => goBack();
+
+/* The photo checklist. Tap a box: camera opens (or pick a photo). */
+const SLOTS = [
+  { label: "Doorway",  tip: "Whole room from the doorway", req: true },
+  { label: "Corner 1", tip: "From a corner, aim at the opposite corner", req: true },
+  { label: "Corner 2", tip: "Next corner, aim across the room", req: true },
+  { label: "Corner 3", tip: "Third corner", req: false },
+  { label: "Corner 4", tip: "Last corner", req: false },
+  { label: "Extra 1",  tip: "Closet, nook or odd spot", req: false },
+  { label: "Extra 2",  tip: "Closet, nook or odd spot", req: false }
+];
+const shots = {};   // label -> jpeg Blob
+$("slots").innerHTML = SLOTS.map((s, i) =>
+  '<label class="slot' + (s.req ? ' req' : '') + '" id="slot' + i + '" tabindex="0">' +
+    '<input type="file" accept="image/*" capture="environment" data-i="' + i + '">' +
+    '<b>' + s.label + '</b><small>' + s.tip + '</small></label>').join("");
+
+/* Shrink to 1600 px on the long side before upload (plenty for measuring, fast on cell data). */
+async function shrink(file){
+  const img = await createImageBitmap(file).catch(() => null);
+  if (!img) throw new Error("bad image");
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return await new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
+}
+
+const ready = () => !!shots["Doorway"] && ["Corner 1", "Corner 2", "Corner 3", "Corner 4"].filter(l => shots[l]).length >= 2;
+const refresh = () => {
+  $("goBtn").disabled = !ready();
+  if (!$("msg").classList.contains("bad"))
+    $("msg").textContent = ready() ? Object.keys(shots).length + " photos ready." : "Take the Doorway shot and at least 2 corners.";
+};
+
+$("slots").addEventListener("change", async e => {
+  const inp = e.target.closest("input[type=file]"); if (!inp || !inp.files[0]) return;
+  const s = SLOTS[+inp.dataset.i], box = $("slot" + inp.dataset.i);
+  $("msg").classList.remove("bad");
+  try {
+    const blob = await shrink(inp.files[0]);
+    shots[s.label] = blob;
+    box.classList.add("has");
+    box.querySelectorAll("img,.lab").forEach(x => x.remove());
+    const im = document.createElement("img"); im.alt = s.label; im.src = URL.createObjectURL(blob);
+    const lab = document.createElement("span"); lab.className = "lab"; lab.textContent = s.label + " · tap to retake";
+    box.append(im, lab);
+  } catch (ex) { console.error(ex); $("msg").classList.add("bad"); $("msg").textContent = "Couldn't read that photo. Try again."; }
+  inp.value = "";
+  refresh();
+});
+$("slots").addEventListener("keydown", e => {
+  const box = e.target.closest(".slot");
+  if (box && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); box.querySelector("input").click(); }
+});
+
+let result = null, uid = null;
+$("goBtn").onclick = async () => {
+  if (!ready() || !uid) return;
+  const btn = $("goBtn"), msg = $("msg");
+  btn.disabled = true; msg.classList.remove("bad");
+  try {
+    const stamp = Date.now(), photos = [], labels = Object.keys(shots);
+    for (let i = 0; i < labels.length; i++) {
+      msg.textContent = "Uploading photo " + (i + 1) + " of " + labels.length + "…";
+      const path = "room-measure/" + uid + "/" + stamp + "_" + labels[i].replace(/\s+/g, "") + ".jpg";
+      await uploadBytes(sRef(storage, path), shots[labels[i]], { contentType: "image/jpeg" });
+      photos.push({ path, label: labels[i] });
+    }
+    msg.textContent = "Measuring… this takes about 20–40 seconds.";
+    const { data } = await measureRoom({ photos, room, est, paper: $("paper").checked, known: $("known").value.trim() });
+    show(data);
+  } catch (ex) {
+    console.error(ex);
+    msg.classList.add("bad");
+    msg.textContent = (ex && ex.message && !/^internal$/i.test(ex.message)) ? ex.message : "Couldn't measure. Try again.";
+    btn.disabled = false;
+  }
+};
+
+function show(d){
+  result = d;
+  $("form").hidden = true; $("result").hidden = false;
+  $("rSqft").innerHTML = d.sqft.toLocaleString() + " <small>sq ft</small>";
+  $("rDims").textContent = d.lengthFt && d.widthFt ? "About " + d.lengthFt + " × " + d.widthFt + " ft" + (d.shape ? " · " + d.shape : "") : (d.shape || "");
+  $("rRange").textContent = d.low && d.high ? "Likely between " + d.low.toLocaleString() + " and " + d.high.toLocaleString() + " sq ft" : "";
+  $("rConf").className = "conf " + d.confidence; $("rConf").textContent = d.confidence + " confidence";
+  if (est) {
+    const diff = d.sqft - est;
+    $("rVs").innerHTML = "Quoted " + est.toLocaleString() + " → " + (diff === 0 ? "spot on" :
+      '<span class="' + (diff > 0 ? "over" : "under") + '">' + (diff > 0 ? "+" : "−") + Math.abs(diff).toLocaleString() + " sq ft</span>");
+  } else $("rVs").textContent = "";
+  $("rHow").textContent = d.howMeasured || "";
+  $("rHow").hidden = !d.howMeasured;
+  $("rTip").textContent = d.tip ? "Tip: " + d.tip : ""; $("rTip").hidden = !d.tip;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+$("againBtn").onclick = () => { $("result").hidden = true; $("form").hidden = false; $("goBtn").disabled = !ready(); $("msg").textContent = ""; refresh(); };
+$("useBtn").onclick = () => { if (result) goBack(result.sqft); };
+
+/* Page lock: staff only. */
+onAuthStateChanged(auth, u => {
+  if (!u) { location.replace("./login.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  uid = u.uid; $("authwait")?.remove(); refresh();
+});
+</script>
+</body>
+</html>
