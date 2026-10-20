@@ -1226,6 +1226,9 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qform__fine{ font-size:var(--fs-2xs); color:var(--slate); margin-top:.9rem; line-height:1.6; }
 /* Text-message consent (A2P 10DLC): a lit panel with a Yes / No choice, neither picked to start.
    One must be picked to send; either answer sends the quote, so consent itself is never required. */
+/* Text Yes/No box hides while the form is collapsed (quick quote not expanded, estimator still locked). */
+.qexpand:not(.is-open) ~ .qconsent{ display:none; }
+.est--locked .estConsent{ display:none; }
 .qconsent{ margin-top:1rem; padding:1rem 1rem .85rem; border:1.5px solid var(--jade); border-radius:12px; background:rgba(27,79,160,.05); }
 .qconsent:has([aria-invalid="true"]){ border-color:#A6402F; }
 .qconsent__q{ font-size:1.05rem; font-weight:700; line-height:1.35; margin:0; }
@@ -3033,6 +3036,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     }
   }
   window.quoteSummarize = function(scroll){ summarize(!!scroll); };
+  window.quoteExpand = function(){ if(!qExpand.classList.contains('is-open')) expand(); };
   if(qSummarizeBtn){
     qSummarizeBtn.addEventListener('click', function(){
       summarize(true);
@@ -4585,7 +4589,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       if(eBizEl && eType && eType.value !== 'Residential' && !eBizEl.value.trim()){ eErr(eBizEl,'We need the business name.'); ok = false; }
       /* Text: Yes or No must be picked. Either answer goes through; only skipping the choice blocks it. */
       var smsYes = document.getElementById('eSms');
-      if(smsYes && !eSend.querySelector('input[name="sms_consent"]:checked')){ eErr(smsYes,'Please choose Yes or No.'); ok = false; }
+      if(smsYes && !(eGrid && eGrid.classList.contains('est--locked')) && !eSend.querySelector('input[name="sms_consent"]:checked')){ eErr(smsYes,'Please choose Yes or No.'); ok = false; }
       return ok;
     }
     /* Same rules, but quiet — used to enable the Enter button as they type. */
@@ -5132,6 +5136,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     /* Text: Yes or No must be picked. Either answer sends; only skipping the choice blocks it. */
     if(document.getElementById('qSms') && !form.querySelector('input[name="sms_consent"]:checked')){
       setErr('qSms','Please choose Yes or No.');
+      if(window.quoteExpand) window.quoteExpand();   // the Yes/No box is hidden while collapsed
       ok = false;
     }
     return ok;
