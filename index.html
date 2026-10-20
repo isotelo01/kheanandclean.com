@@ -1355,6 +1355,11 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .est__out{ border-radius:0 var(--r-md) var(--r-md) 0; }
 @media (max-width:900px){ .est__form{ border-radius:var(--r-md) var(--r-md) 0 0; } .est__out{ border-radius:0 0 var(--r-md) var(--r-md); } }
 .hero__photobox{ border-radius:var(--r-md); }
+/* Hero photo edge to edge across the whole screen, and taller. The tagline stays lined up
+   with the page text (side padding = the gap from screen edge to page column + the old padding). */
+.hero__photobox{ width:100vw; margin-left:calc(50% - 50vw); border-radius:0;
+  padding-left:calc(50vw - 50% + clamp(1.6rem,3.5vw,2.75rem)); padding-right:calc(50vw - 50% + clamp(1.6rem,3.5vw,2.75rem));
+  min-height:clamp(24rem, min(58vw, 82vh), 48rem); }
 .roomSummary, .estBox, .estDone{ border-radius:var(--r-sm); }
 
 /* the plate frame and its corner ticks curve together */
