@@ -178,6 +178,8 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
    were; staff-only parts (notes, crew notes, photos, add / delete controls) are hidden. Edit flips back. */
 .sprice{display:none;margin-left:auto;flex:none;font-weight:600;white-space:nowrap}
 .sumonly,.sumword{display:none!important}
+.sdsel{display:block;margin:2px 0 8px 40px;font-family:inherit;font-size:13px;font-weight:600;padding:4px 8px;border:1px solid #d6d6d6;border-radius:8px;background:#fff;color:#333}   /* per-item discount, working sheet only */
+.summ .sdsel,.pub .sdsel{display:none!important}
 .summ .sumonly{display:flex!important}
 .summ .sumword{display:inline!important}
 .summ .sprice{display:inline}
@@ -267,7 +269,7 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 <script src="pricing.js"></script><!-- room sizes and add-on prices, shared with the estimator -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp }
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, updateDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
@@ -371,6 +373,76 @@ function onsiteCopy(src){
     return l;
   });
 }
+/* ---- Estimate edited after the job sheet was started ----
+   The job sheet keeps its own copy (onsite.lines). When the estimate's lines change (Edit and Save
+   on the estimate), the sheet is rebuilt from the new estimate. Rooms and pieces carry over by name,
+   so their photos, notes and Done stay with them. Anything on the old sheet that's no longer on the
+   estimate but has photos / notes / Done stays too, at $0 ("not billed"). onsite.from = which
+   version of the estimate the sheet was built from. */
+const linesSig = ls => JSON.stringify((Array.isArray(ls) ? ls : []).map(l => [l.label, l.cost, (l.items || []).map(it =>
+  [it.label, it.cost, !!it.removed, (it.rooms || []).map(r => [r.name, r.sqft, r.qty])])]));
+const toMs = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
+function reconcile(oldLines, qLines, spotsIn){
+  const spots = spotsIn || {}, fresh = onsiteCopy(qLines), moves = {}, dropped = [];
+  const base = s => String(s || "").split(/\s+[—-]\s+/)[0].replace(/\s*×\s*\d+$/, "").trim().toLowerCase();
+  const hasData = k => { const s = spots[k]; if (!s || typeof s !== "object") return false;
+    return !!(s.done || (s.notes && String(s.notes).trim()) || Object.keys(s).some(f => /^photo/.test(f) && Array.isArray(s[f]) && s[f].length)); };
+  const old = JSON.parse(JSON.stringify(Array.isArray(oldLines) ? oldLines : []));
+  const oldRoomIds = new Set(); old.forEach(l => (l.items || []).forEach(it => (it.rooms || []).forEach(r => oldRoomIds.add(r.id))));
+  const claimed = new Set(), lineOf = [];
+  fresh.forEach((fl, i) => {
+    let oi = old.findIndex(o => !o._u && (o.key || "") === (fl.key || "") && base(o.label) === base(fl.label));
+    if (oi < 0) oi = old.findIndex(o => !o._u && base(o.label) === base(fl.label));
+    const ol = oi >= 0 ? old[oi] : null; if (ol) ol._u = true; lineOf[i] = oi;
+    (fl.items || []).forEach((it, j) => {
+      const oj = ol ? (ol.items || []).findIndex(x => !x._u && base(x.label) === base(it.label)) : -1;
+      const ot = oj >= 0 ? ol.items[oj] : null; if (ot) ot._u = true;
+      if (Array.isArray(it.rooms) && it.rooms.length) {
+        const pool = ot && Array.isArray(ot.rooms) ? ot.rooms : [];
+        it.rooms.forEach(rm => { const m = pool.find(o => !o._u && String(o.name || "").toLowerCase() === String(rm.name || "").toLowerCase());
+          if (m) { m._u = true; rm.id = m.id; rm._m = true; if (m.disc) { rm.disc = m.disc; fl._disc = true; } claimed.add(m.id); } });
+      } else if (ot && !(Array.isArray(ot.rooms) && ot.rooms.length)) {
+        if (ot.disc && it.perSqft == null) {   /* a piece's discount carries over onto its new estimate price */
+          const b = Number(it.cost) || 0, c = r2(b * (1 - ot.disc / 100));
+          it.baseCost = b; it.disc = ot.disc; fl.cost = r2((Number(fl.cost) || 0) - b + c); it.cost = c; }
+        if ((oi + "-" + oj) !== (i + "-" + j)) moves[i + "-" + j] = oi + "-" + oj;
+      }
+    });
+  });
+  fresh.forEach(fl => { if (fl._disc) { delete fl._disc; recalc(fl); } });   /* room discounts carried over: reprice */
+  /* New rooms never take an id an old room used (its photos would show up on the wrong room). */
+  fresh.forEach((fl, i) => (fl.items || []).forEach((it, j) => (it.rooms || []).forEach(rm => {
+    if (rm._m) { delete rm._m; return; }
+    let k = (it.rooms || []).length, id = rm.id;
+    while (claimed.has(id) || oldRoomIds.has(id)) id = i + "-" + j + "-" + (k++);
+    rm.id = id; claimed.add(id); })));
+  /* Old rooms / pieces with photos, notes or Done that the estimate no longer has: kept, not billed. */
+  old.forEach((ol, oi) => (ol.items || []).forEach((ot, oj) => {
+    let fi = lineOf.indexOf(oi);
+    const keepLine = () => { if (fi < 0) { fresh.push({ key: ol.key || "", label: String(ol.label || "Service").split(/\s+[—-]\s+/)[0] + " (not billed)", cost: 0, items: [], addedOnSite: true }); fi = fresh.length - 1; lineOf[fi] = oi; } return fresh[fi]; };
+    if (Array.isArray(ot.rooms) && ot.rooms.length) {
+      const keep = ot.rooms.filter(r => !r._u && hasData(r.id));
+      if (keep.length) { const fl = keepLine();
+        fl.items.push({ label: "Not billed (from before the estimate changed)", cost: 0, track: true,
+          rooms: keep.map(r => ({ id: r.id, name: r.name, sqft: Number(r.sqft) || 0, qty: 1, cost: 0 })) }); }
+    } else if (!ot._u) {
+      const ok = oi + "-" + oj, has = hasData(ok) || Object.keys(spots).some(k => k.indexOf(ok + "-") === 0 && hasData(k));
+      if (has) { const fl = keepLine(); fl.items.push({ label: String(ot.label || "Item").split(/\s+[—-]\s+/)[0].replace(/\s*\$[\d.,]+/g, "") + " (not billed)", cost: 0, kept: true });
+        const nk = fi + "-" + (fl.items.length - 1); if (nk !== ok) moves[nk] = ok; }
+      else dropped.push(ok);
+    }
+  }));
+  /* Photos saved under a piece's old position move with it ("0-2" -> "0-1", and "0-2-0"... for rugs). */
+  let newSpots = null;
+  if (Object.keys(moves).length || dropped.length) {
+    newSpots = Object.assign({}, spots);
+    const srcs = Object.values(moves).concat(dropped);
+    Object.keys(newSpots).forEach(k => { if (srcs.some(s => k === s || k.indexOf(s + "-") === 0)) delete newSpots[k]; });
+    Object.entries(moves).forEach(([nk, ok]) => Object.keys(spots).forEach(k => {
+      if (k === ok) newSpots[nk] = spots[k]; else if (k.indexOf(ok + "-") === 0) newSpots[nk + k.slice(ok.length)] = spots[k]; }));
+  }
+  return { lines: fresh, spots: newSpots };
+}
 /* Reprice one line after a room change: each room at the item's rate, then the item's and the
    line's square feet and cost. Other parts of the line (stairs, rugs...) keep their price. */
 function recalc(l){
@@ -378,7 +450,7 @@ function recalc(l){
   (l.items || []).forEach(it => {
     if (it.perSqft == null) return; any = true;
     const old = Number(it.cost) || 0; let sq = 0, c = 0;
-    it.rooms.forEach(rm => { rm.cost = r2((Number(rm.sqft) || 0) * it.perSqft); sq += Number(rm.sqft) || 0; c += rm.cost; });
+    it.rooms.forEach(rm => { rm.cost = r2((Number(rm.sqft) || 0) * it.perSqft * (1 - (Number(rm.disc) || 0) / 100)); sq += Number(rm.sqft) || 0; c += rm.cost; });   /* rm.disc: % off that room */
     it.cost = r2(c); delta += it.cost - old; lineSq += sq;
     it.label = String(it.label || "").replace(/[\d,]+(\s*sq ft)/i, sq.toLocaleString("en-US") + "$1");
   });
@@ -428,7 +500,7 @@ function syncHair(lines, spots){
 }
 async function saveOnsite(){
   const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0));
-  await setDoc(doc(db, cur.place, id), { onsite: { lines: cur.lines, subtotal: sub, total: r2(sub + cur.adj), updatedAt: serverTimestamp() } }, { merge: true });
+  await setDoc(doc(db, cur.place, id), { onsite: { lines: cur.lines, subtotal: sub, total: r2(sub + cur.adj), from: cur.qsig || "", updatedAt: serverTimestamp() } }, { merge: true });
 }
 const fail = e => { console.error(e); const n = document.getElementById("note"); if (n) { n.textContent = "Could not save: " + e.message; n.classList.add("err"); } };
 
@@ -855,6 +927,22 @@ async function delRoom(row){
   try { await saveOnsite(); setTimeout(show, 200); } catch (err) { fail(err); show(); }
 }
 view.addEventListener("click", e => { const b = e.target.closest("[data-del]"); if (b) { e.preventDefault(); delRoom(b.closest(".srow")); } });
+/* Discount on one room or piece: "Other %" asks for any number; 0 puts the full price back. */
+view.addEventListener("change", async e => {
+  const s = e.target.closest(".sdsel"); if (!s || PUBLIC) return;
+  const l = cur.lines[+s.dataset.dl], it = l && (l.items || [])[+s.dataset.di]; if (!it) return;
+  let p = Number(s.value);
+  if (s.value === "other") { const a = prompt("Percent off this item (0 to 100):", ""); p = Number(String(a || "").replace(/[^\d.]/g, ""));
+    if (a == null || !isFinite(p) || String(a).trim() === "") { show(); return; } }
+  p = Math.max(0, Math.min(100, Math.round(p * 100) / 100));
+  if (s.dataset.dr) { const rm = (it.rooms || []).find(r => r.id === s.dataset.dr); if (!rm) return;
+    if (p) rm.disc = p; else delete rm.disc; recalc(l); }
+  else { const b = it.baseCost != null ? Number(it.baseCost) : (Number(it.cost) || 0), c = r2(b * (1 - p / 100));
+    l.cost = r2((Number(l.cost) || 0) - (Number(it.cost) || 0) + c); it.cost = c;
+    if (p) { it.baseCost = b; it.disc = p; } else { delete it.baseCost; delete it.disc; } }
+  try { await saveOnsite(); } catch (er) { fail(er); }
+  show();
+});
 /* Phones: swipe a room left to show Delete; swipe it most of the way to delete it straight off. */
 let sw = null;
 view.addEventListener("touchstart", e => {
@@ -915,8 +1003,19 @@ async function show(){
      approved quote (lines) is left as it was. Until the first edit, the quote's lines are used,
      with grouped rooms split one per room and each room given a fixed id, so photos and Done
      stay with the right room when others are added or deleted. */
-  const lines = (q.onsite && Array.isArray(q.onsite.lines)) ? q.onsite.lines : onsiteCopy(q.lines);
-  cur = { place, lines, quoted: Number(q.total) || 0, adj: (Number(q.total) || 0) - (Number(q.subtotal) || Number(q.total) || 0) };
+  /* Estimate edited since the sheet was built (onsite.from differs; older sheets: estimate saved after
+     the sheet): rebuild from the new estimate, keeping rooms' photos, and save it (staff only). */
+  const qsig = linesSig(q.lines);
+  let lines, rebuilt = null;
+  if (q.onsite && Array.isArray(q.onsite.lines)) {
+    const stale = q.onsite.from ? q.onsite.from !== qsig : toMs(q.updatedAt) > toMs(q.onsite.updatedAt);
+    if (stale) { rebuilt = reconcile(q.onsite.lines, q.lines, q.spots); lines = rebuilt.lines; if (rebuilt.spots) q.spots = rebuilt.spots; }
+    else lines = q.onsite.lines;
+  } else lines = onsiteCopy(q.lines);
+  cur = { place, lines, qsig, quoted: Number(q.total) || 0, adj: (Number(q.total) || 0) - (Number(q.subtotal) || Number(q.total) || 0) };
+  if (rebuilt && !PUBLIC) {
+    (rebuilt.spots ? updateDoc(doc(db, place, id), { spots: rebuilt.spots }) : Promise.resolve()).then(saveOnsite).catch(fail);
+  }
   let total = 0;
   /* Every line opens its room page (job-room.html): the rooms one by one, no prices. */
   const roomLink = (i, j) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j);
@@ -952,6 +1051,13 @@ async function show(){
       '<span class="spot__name">' + esc(label) + '</span>' + (size ? '<span class="spot__size">' + esc(size) + '</span>' : '') +
       (price != null ? '<span class="sprice">' + money(price) + '</span>' : '') +
       '<span class="spot__go">›</span></a>'; };
+  /* Discount on one room or piece (working sheet only, never the customer's Summary): pick a % and it comes off just that line item. */
+  const DISCS = [0, 10, 25, 50, 75, 100];
+  const discSel = (i, j, roomId, cur) => { const p = Number(cur) || 0;
+    return '<select class="sdsel" data-dl="' + i + '" data-di="' + j + '"' + (roomId ? ' data-dr="' + esc(roomId) + '"' : '') + ' aria-label="Discount">' +
+      (DISCS.includes(p) ? DISCS : DISCS.concat(p).sort((a, b) => a - b)).map(v =>
+        '<option value="' + v + '"' + (v === p ? ' selected' : '') + '>' + (v ? v + "% off" + (v === 100 ? " (free)" : "") : "No discount") + '</option>').join("") +
+      '<option value="other">Other %…</option></select>'; };
   /* Stairs, a rug or an add-on row: same Delete as the rooms (button on desktop, swipe on phones). */
   const delWrap = (kind, i, j, r, inner) =>
     '<div class="srow" data-kind="' + kind + '" data-line="' + i + '" data-item="' + j + '" data-r="' + r + '">' +
@@ -1002,6 +1108,7 @@ async function show(){
       '<div class="srow" data-line="' + i + '" data-item="' + j + '" data-room="' + esc(rm.id) + '">' +
         '<button type="button" class="sdel" data-del>Delete</button>' +
         spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r), it.track ? null : rm.cost, true) +
+        (it.track || it.perSqft == null ? '' : discSel(i, j, rm.id, rm.disc)) +
       '</div>').join("");
     /* Straight by the sq ft: the line is a header; tap it to open its rooms and Add room. */
     if (isFlat(it)) {
@@ -1015,7 +1122,8 @@ async function show(){
       return delWrap("item", i, j, "", head) +
         '<div class="flatsub' + (open ? ' open' : '') + '" data-flatsub="' + fk + '">' + whole + roomRows() + addRoomBox(i, j) + '</div>';
     }
-    if (!rms.length && it.perSqft == null) return delWrap("item", i, j, "", spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j), it.cost));
+    if (!rms.length && it.perSqft == null) return delWrap("item", i, j, "", spotRow(i + "-" + j, noPrice(it.label) || "Area", "", spotLink(i, j), it.cost) +
+      (it.kept ? '' : discSel(i, j, null, it.disc)));
     return roomRows() + addRoomBox(i, j);
   };
   /* Add room: opens the estimator's room table (same rooms and sizes, − / + counts). */
