@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Partner Estimate &middot; Khean &amp; Clean</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600;700&family=Cormorant+Garamond:wght@700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600&family=Dancing+Script:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style id="authwait">body{visibility:hidden}</style>
+</head>
+<body id="estimate">
+<!-- Partner version of the in-house estimator. Same markup and app.js; staff-only parts hidden below. -->
+<header class="appbar">
+  <a class="appbar__home" href="./partner.html" aria-label="Partner portal"><img class="appbar__mark" src="../images/icon-180.png" alt=""></a>
+  <h1>Estimate</h1>
+  <a class="appbar__new" href="./partner.html">Portal</a>
+  <button type="button" class="appbar__new" id="eNewBtn">New</button>
+  <a id="eDashLink" href="./partner.html" hidden></a>
+</header>
+
+<main class="est" id="estGrid">
+  <div class="est__form">
+        <fieldset id="estSend" class="estSend">
+          <legend class="lgnd">Property and contact</legend>
+          <div class="estRow">
+            <div class="estField">
+              <label for="eType">Property type</label>
+              <select id="eType" name="property_type">
+                <option selected>Residential</option>
+                <option>Property management</option>
+                <option>Realtor</option>
+                <option>Commercial</option>
+              </select>
+            </div>
+            <div class="estField" id="eBizField" hidden>
+              <label for="eBiz">Business name</label>
+              <input id="eBiz" name="business" type="text" autocomplete="organization" placeholder="Business name">
+            </div>
+          </div>
+          <div class="estRow">
+            <div class="estField">
+              <label for="eName">Name</label>
+              <input id="eName" name="name" type="text" autocomplete="off" placeholder="Your name">
+              <p id="eCustTag" hidden style="margin:.35rem 0 0;font-size:.8rem;font-weight:600;color:#0F5C3E"></p>
+              <input type="hidden" id="eCustId">
+              <input type="hidden" id="eLeadId">
+            </div>
+            <div class="estField">
+              <label for="ePhone">Phone</label>
+              <input id="ePhone" name="phone" type="tel" autocomplete="off" placeholder="(916) 000-0000">
+            </div>
+          </div>
+          <div class="estRow">
+            <div class="estField">
+              <label for="eEmail">Email</label>
+              <input id="eEmail" name="email" type="email" autocomplete="off" placeholder="you@example.com">
+            </div>
+            <div class="estField">
+              <label for="eAddr">Street</label>
+              <input id="eAddr" name="street" type="text" autocomplete="off" placeholder="123 Main St">
+            </div>
+          </div>
+          <div class="estRow estRow--csz">
+            <div class="estField">
+              <label for="eCity">City</label>
+              <input id="eCity" name="city" type="text" autocomplete="off" placeholder="Folsom">
+            </div>
+            <div class="estField">
+              <label for="eState">State</label>
+              <input id="eState" name="state" type="text" value="CA" readonly tabindex="-1">
+            </div>
+            <div class="estField">
+              <label for="eZip">Zip</label>
+              <input id="eZip" name="zip" type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" autocomplete="off" placeholder="95630">
+            </div>
+          </div>
+          <!-- Texting / Specials answers from a website lead (shown only when the quote came from a lead). -->
+          <div class="estRow" id="eConsentRow" hidden style="display:none">
+            <div class="estField">
+              <label for="eTextOk">Texting</label>
+              <input id="eTextOk" type="text" readonly tabindex="-1">
+            </div>
+            <div class="estField">
+              <label for="eSpecialsOk">Specials</label>
+              <input id="eSpecialsOk" type="text" readonly tabindex="-1">
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset id="svcField" style="scroll-margin-top:calc(var(--bar-h) + 16px)">
+          <legend class="lgnd" id="svcLegend">Cleaning Service</legend>
+          <div class="seg seg--wrap" id="svcRow">
+            <input type="radio" name="svc" id="svcCarpet" value="carpet" checked>
+            <label for="svcCarpet">Carpet</label>
+            <input type="radio" name="svc" id="svcTile" value="tile">
+            <label for="svcTile">Tile &amp; Grout</label>
+            <input type="radio" name="svc" id="svcLvp" value="lvp">
+            <label for="svcLvp">Hardwood/LVP</label>
+            <input type="radio" name="svc" id="svcUph" value="upholstery">
+            <label for="svcUph">Upholstery</label>
+            <input type="radio" name="svc" id="svcStone" value="stone">
+            <label for="svcStone">Natural Stone</label>
+            <input type="radio" name="svc" id="svcCommCarpet" value="commcarpet" hidden>
+            <label for="svcCommCarpet" hidden>Carpet</label>
+            <input type="radio" name="svc" id="svcCommHard" value="commhard" hidden>
+            <label for="svcCommHard" hidden>Hard Floor</label>
+          </div>
+        </fieldset>
+
+        <div id="areaFields">
+          <fieldset id="tierField">
+            <legend class="lgnd">Cleaning Package</legend>
+            <div class="seg seg--half">
+              <input type="radio" name="tier" id="tQuick" value="quickdry">
+              <label for="tQuick">Quick Dry Encapsulation</label>
+              <input type="radio" name="tier" id="tEss" value="essential">
+              <label for="tEss">Essential Cleaning</label>
+              <input type="radio" name="tier" id="tDeep" value="deep" checked>
+              <label for="tDeep"><span class="segGold">Deep</span> Cleaning</label>
+              <input type="radio" name="tier" id="tSig" value="signature">
+              <label for="tSig"><span class="segScript">Signature</span> Cleaning</label>
+            </div>
+          </fieldset>
+
+          <fieldset id="addonsField" style="margin-bottom:1.9rem">
+            <legend class="lgnd">Cleaning Add-ons</legend>
+            <div class="adds" id="addsList"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend class="lgnd">Measure by</legend>
+            <div class="measureRow">
+              <div class="seg">
+                <input type="radio" name="mode" id="mRoom" value="room">
+                <label for="mRoom">Estimate by rooms</label>
+                <input type="radio" name="mode" id="mSqft" value="sqft" checked>
+                <label for="mSqft">Square feet</label>
+              </div>
+              <div class="fld" id="sqftBox" style="margin-bottom:0">
+                <label for="qty">Total square feet</label>
+                <div class="step">
+                  <button type="button" id="minus" aria-label="Decrease">&minus;</button>
+                  <input type="number" id="qty" value="0" min="0" step="50" inputmode="numeric">
+                  <button type="button" id="plus" aria-label="Increase">+</button>
+                </div>
+              </div>
+            </div>
+          </fieldset>
+
+          <div id="roomFields" style="display:none">
+            <fieldset id="roomBlock" style="margin-bottom:1.9rem; scroll-margin-top:calc(var(--bar-h) + 16px)">
+              <legend class="lgnd">Which rooms</legend>
+              <p class="roomNote">Square footage shown is a typical average for that room type — your actual room may run smaller or larger.</p>
+              <div id="roomPicker">
+                <div class="adds" id="roomList"></div>
+                <button type="button" id="roomsOk" class="btn btn--jade roomsOk" style="width:100%; margin-top:1.4rem;">OK</button>
+                <button type="button" id="roomsDone" class="btn btn--jade roomsDone" aria-label="Done choosing rooms">Done</button>
+              </div>
+              <div id="roomSummary" class="roomSummary" style="display:none">
+                <span id="roomSummaryText"></span>
+              </div>
+            </fieldset>
+          </div>
+        </div>
+
+
+        <div id="uphFields" style="display:none">
+          <fieldset style="margin-bottom:1.9rem">
+            <legend class="lgnd">Furniture pieces</legend>
+            <p class="roomNote">Included with every upholstery cleaning:</p>
+            <ul class="uphIncluded">
+              <li>Stain treatment</li>
+              <li>Deodorizer</li>
+              <li>Stain protectant</li>
+            </ul>
+            <div class="adds" id="uphList"></div>
+          </fieldset>
+        </div>
+
+        <!-- Line items: type a description and price, Add puts it in the table, Delete removes the row. -->
+        <fieldset id="liField" style="display:none"><!-- staff only -->
+          <legend class="lgnd">Line items</legend>
+          <div class="estRow">
+            <div class="estField">
+              <label for="liDesc">Description</label>
+              <input id="liDesc" type="text" autocomplete="off" placeholder="e.g. Pet odor treatment">
+            </div>
+            <div class="estField">
+              <label for="liPrice">Price</label>
+              <input id="liPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+            </div>
+          </div>
+          <button type="button" id="liAdd" class="btn btn--jade" style="width:100%;margin-top:.6rem">Add line item</button>
+          <button type="button" id="liSavedBtn" class="btn btn--jade" style="width:100%;margin-top:.5rem">Saved line items</button>
+          <div id="liSaved" hidden style="margin-top:.6rem;max-height:260px;overflow-y:auto;overflow-x:hidden"></div>
+          <table id="liTable" style="width:100%;margin-top:1rem;border-collapse:collapse" hidden>
+            <thead><tr><th style="text-align:left;padding:.4rem">Item</th><th style="text-align:right;padding:.4rem">Price</th><th></th></tr></thead>
+            <tbody id="liBody"></tbody>
+          </table>
+          <!-- Add/Delete is handled in app.js, so these items price into the estimate and save with it. -->
+        </fieldset>
+
+        <fieldset class="disc" style="display:none"><!-- staff only -->
+          <legend class="lgnd">Discount</legend>
+          <div class="disc__row">
+            <label class="disc__box"><span>$</span><input type="number" id="discAmt" min="0" step="1" inputmode="decimal" placeholder="Amount" aria-label="Discount in dollars"></label>
+            <label class="disc__box"><input type="number" id="discPct" min="0" max="100" step="1" inputmode="decimal" placeholder="Percent" aria-label="Discount in percent"><span>%</span></label>
+          </div>
+          <label class="add" style="margin-top:.9rem;border-bottom:0">
+            <input type="checkbox" id="waiveMin"> Waive minimum charge <span class="add__c">No $150 minimum</span>
+          </label>
+          <label class="add" style="border-bottom:0">
+            <input type="checkbox" id="waiveFee"> Waive card fee <span class="add__c">No 3% on card payments</span>
+          </label>
+          <!-- Free pet / stain / stretching: counters, capped at what's on the estimate (app.js). -->
+          <div class="add addQty" style="border-bottom:0"><span>Free pet treatment <span class="add__c" id="free_pet_c"></span></span>
+            <div class="step step--sm" style="margin-left:auto"><button type="button" data-free="pet" data-d="-1" aria-label="Decrease">&minus;</button><input type="number" min="0" step="1" id="free_pet" value="0"><button type="button" data-free="pet" data-d="1" aria-label="Increase">+</button></div>
+          </div>
+          <div class="add addQty" style="border-bottom:0"><span>Free stain treatment <span class="add__c" id="free_stain_c"></span></span>
+            <div class="step step--sm" style="margin-left:auto"><button type="button" data-free="stain" data-d="-1" aria-label="Decrease">&minus;</button><input type="number" min="0" step="1" id="free_stain" value="0"><button type="button" data-free="stain" data-d="1" aria-label="Increase">+</button></div>
+          </div>
+          <div class="add addQty" style="border-bottom:0"><span>Free carpet stretching <span class="add__c" id="free_stretch_c"></span></span>
+            <div class="step step--sm" style="margin-left:auto"><button type="button" data-free="stretch" data-d="-1" aria-label="Decrease">&minus;</button><input type="number" min="0" step="1" id="free_stretch" value="0"><button type="button" data-free="stretch" data-d="1" aria-label="Increase">+</button></div>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="est__out">
+        <header class="qhead">
+          <img class="qhead__logo" src="../images/logo.png" alt="Khean &amp; Clean">
+          <div class="qhead__biz">
+            <p class="qhead__name">Khean &amp; Clean LLC</p>
+            <p class="qhead__contact"><span>(916) 767-2520</span><span>kheanandclean.com</span></p>
+          </div>
+        </header>
+        <div class="qcust">
+          <p class="qcust__k">Prepared for</p>
+          <p class="qcust__biz" id="qCustBiz" hidden></p>
+          <p class="qcust__name" id="qCustName">&mdash;</p>
+          <p class="qcust__addr" id="qCustAddr"></p>
+        </div>
+        <p class="est__k">Your estimate</p>
+        <ul class="est__lines" id="lines"></ul>
+        <p class="est__sqft" id="totalSqft">
+          <span class="est__sqft-num" id="totalSqftNum"></span>
+          <span class="est__sqft-label" id="totalSqftLabel"></span>
+        </p>
+        <ul class="est__disc" id="discLines" hidden></ul>
+        <div class="est__fig">
+          <span class="est__cur">$</span><span class="est__amt num" id="total">0</span>
+        </div>
+        <p class="est__min" id="minNote"></p>
+
+
+        <div class="estField est__leadmsg" id="eLeadMsgField" hidden style="display:none">
+          <label for="eLeadMsg">Lead message</label>
+          <textarea id="eLeadMsg" rows="3"></textarea>
+        </div>
+        <!-- Services the customer ticked on the website quick quote, as chips (only when the quote came from a lead). -->
+        <div class="estField est__svcchips" id="eLeadSvcField" hidden style="display:none">
+          <label>Services requested</label>
+          <div class="svcChips" id="eLeadSvcChips"></div>
+        </div>
+        <div class="estField est__notes">
+          <label for="eNotes">Anything else we should know <span class="opt">(optional)</span></label>
+          <textarea id="eNotes" rows="4" placeholder="Lockbox code, vacant or occupied, pets, move-out deadline, anything we should know"></textarea>
+        </div>
+        <!-- Job date. Saved as scheduledDate, the same field the calendar's Change date
+             writes, so the job lands on the calendar once the customer approves. -->
+        <div class="estField est__when">
+          <label for="eWhen">Job date <span class="opt">(optional)</span></label>
+          <input type="date" id="eWhen" autocomplete="off">
+          <!-- Start time from the open days below (09:00 or 13:00), saved as scheduledTime. Blank = whole day. -->
+          <input type="hidden" id="eWhenTime">
+          <!-- Month calendar of open days, from the booking calendar. Drawn by app.js and opened from
+               the date box; if the days can't load, the plain date box above stays. -->
+          <div id="eOpen" class="jobCal" hidden></div>
+        </div>
+
+        <!-- Customer approval block. Layout only for now: everything is disabled
+             until the customer-link build wires it up. -->
+        <div class="qterms" style="display:none">
+          <p class="est__k">Before you approve</p>
+          <label class="qterms__box">
+            <input type="checkbox" disabled>
+            <span>I have read and agree to the <a class="qterms__link" href="./terms.html" target="_blank" rel="noopener">Service Terms &amp; Conditions</a></span>
+          </label>
+        </div>
+
+
+      <button type="button" class="est__send" id="eSendBtn">Send to Khean &amp; Clean</button>
+      <p class="est__min" id="pMsg" role="status" style="margin-top:.8rem"></p>
+      
+      <p class="est__fine">Based on normal soiling. Heavy soiling, pet urine, stairs or specialty stain removal may change the figure — we will always tell you before we begin.</p>
+    </div>
+</main>
+
+
+<dialog id="estClearDlg" class="estClearDlg" aria-labelledby="estClearTtl">
+  <p class="estClearDlg__ttl" id="estClearTtl">Start a new estimate?</p>
+  <p class="estClearDlg__sub">This cannot be undone.</p>
+  <div class="estClearDlg__acts">
+    <button type="button" class="btn btn--wireDark" data-clear="all">Yes, clear everything</button>
+    <button type="button" class="btn btn--wireDark estClearDlg__cancel" data-clear="cancel">Cancel</button>
+  </div>
+</dialog>
+
+
+<script src="pricing.js"></script><!-- same prices and room sizes as the in-house estimator -->
+<script src="app.js"></script><!-- the in-house estimator itself -->
+<script type="module">
+/* Partner estimate: the in-house estimator (app.js) with a partner Send.
+   Send files a lead (Leads page) carrying the estimate in estimateData, the same saved format the
+   homepage estimator uses, so New quote on that lead rebuilds it in the in-house estimator. */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+}, "partner");
+const auth = getAuth(app), db = getFirestore(app);
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const $ = id => document.getElementById(id);
+let me = null, user = null;
+
+/* Fill the partner's details in. They type the property address. */
+function fill(){
+  const set = (id, v) => { const el = $(id); if (el && v && !el.value) { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); } };
+  const t = $("eType");
+  if (t && me.type) { [...t.options].forEach(o => { if (o.text === me.type) t.value = o.text; }); t.dispatchEvent(new Event("change", { bubbles: true })); }
+  set("eBiz", me.businessName); set("eName", me.contactName); set("ePhone", me.phone); set("eEmail", me.email || (user && user.email));
+}
+
+$("eSendBtn").addEventListener("click", async e => {
+  e.preventDefault(); e.stopImmediatePropagation();
+  const msg = $("pMsg"), btn = $("eSendBtn"), v = id => ($(id) ? $(id).value.trim() : "");
+  const total = v("total") || ($("total") ? $("total").textContent.trim() : "");
+  const lines = [...document.querySelectorAll("#lines li")].map(li => li.textContent.replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (!lines.length) { msg.textContent = "Add a service and rooms first."; return; }
+  if (!v("eAddr")) { msg.textContent = "Add the property street address."; $("eAddr").focus(); return; }
+  btn.disabled = true; btn.textContent = "Sending…"; msg.textContent = "";
+  const text = ["PARTNER ESTIMATE from " + (me.businessName || v("eBiz")) + " (" + (me.type || v("eType")) + ")",
+    ...lines.map(l => "• " + l), "Total shown: $" + total,
+    v("eWhen") ? "Requested date: " + v("eWhen") + (v("eWhenTime") ? " " + v("eWhenTime") : "") : "",
+    v("eNotes") ? "Notes: " + v("eNotes") : ""].filter(Boolean).join("\n");
+  try {
+    await addDoc(collection(db, "leads"), {
+      source: "partner-estimate", page: "partner-portal", status: "new", createdAt: serverTimestamp(),
+      name: (v("eName") || me.contactName || "Partner") + " (" + (me.businessName || v("eBiz") || "Partner") + ")",
+      phone: v("ePhone"), email: v("eEmail"), type: (v("eType") || me.type || "").toLowerCase(),
+      addresses: [{ street: v("eAddr"), city: v("eCity"), state: "CA", zip: v("eZip") }],
+      when: v("eWhen"),
+      estimateData: window.KC_snapshot ? JSON.stringify(window.KC_snapshot()) : "",
+      message: text.slice(0, 4800)
+    });
+    btn.textContent = "Sent ✓";
+    msg.textContent = "Sent! We’ll confirm the price and date with you shortly.";
+  } catch (err) {
+    console.error(err); btn.disabled = false; btn.textContent = "Send to Khean & Clean";
+    msg.textContent = "Couldn’t send. Try again, or call (916) 767-2520.";
+  }
+}, true);
+
+/* Page lock: partners with a profile (staff can open it to check). */
+onAuthStateChanged(auth, async u => {
+  if (!u) { location.replace("./b2b-login.html"); return; }
+  user = u;
+  if (STAFF.includes(u.uid)) me = { businessName: "Staff test", contactName: "", type: "Property management", email: u.email };
+  else {
+    let s = null; try { s = await getDoc(doc(db, "partners", u.uid)); } catch (e) { console.error(e); }
+    if (!s || !s.exists()) { location.replace("./b2b-login.html"); return; }
+    me = s.data();
+  }
+  fill();
+  $("authwait")?.remove();
+});
+</script>
+<script src="places.js" defer></script>
+</body>
+</html>
