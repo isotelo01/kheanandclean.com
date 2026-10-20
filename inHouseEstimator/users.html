@@ -41,6 +41,9 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:8px 0 4px;border-bo
 .u .d a{color:var(--ink);overflow-wrap:anywhere}
 .none{color:var(--muted);background:#fff;border-radius:10px;padding:18px;text-align:center}
 .err{color:#b3261e}
+.del{margin-left:auto;background:transparent;color:#b3261e;border:1px solid #b3261e;border-radius:999px;
+  padding:4px 12px;font:600 13px "Archivo",sans-serif;cursor:pointer}
+.del[disabled]{opacity:.5;cursor:default}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
 </head>
@@ -68,6 +71,7 @@ h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:8px 0 4px;border-bo
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -107,7 +111,8 @@ function draw(){
     const when = u.createdAt && u.createdAt.toDate ? u.createdAt.toDate().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
     const tel = String(u.phone || "").replace(/[^\d+]/g, "");
     return '<div class="u" style="--c:' + c + '"><div class="h"><span class="n">' + esc(u.businessName || "No business name") + '</span>' +
-      '<span class="tag">' + esc(u.type || "Partner") + '</span></div><div class="d">' +
+      '<span class="tag">' + esc(u.type || "Partner") + '</span>' +
+      '<button type="button" class="del" data-del="' + esc(u.id) + '">Delete</button></div><div class="d">' +
       (u.contactName ? '<span>' + esc(u.contactName) + '</span>' : '') +
       (u.email ? '<a href="mailto:' + esc(u.email) + '">' + esc(u.email) + '</a>' : '') +
       (tel ? '<a href="tel:' + esc(tel) + '">' + esc(u.phone) + '</a>' : '') +
@@ -117,6 +122,22 @@ function draw(){
   }).join("");
 }
 $("q").addEventListener("input", draw);
+
+/* Delete: removes their login, profile and phone check (deletePartner). Asks first. */
+const deletePartner = httpsCallable(getFunctions(app, "us-central1"), "deletePartner");
+$("list").addEventListener("click", async e => {
+  const b = e.target.closest("[data-del]"); if (!b) return;
+  const u = users.find(x => x.id === b.dataset.del); if (!u) return;
+  if (!confirm("Delete " + (u.businessName || u.email || "this user") + "? This can't be undone.")) return;
+  b.disabled = true; b.textContent = "Deleting…";
+  try {
+    await deletePartner({ uid: u.id });
+    users = users.filter(x => x.id !== u.id); draw();
+  } catch (ex) {
+    console.error(ex); alert(ex.message || "Could not delete. Try again.");
+    b.disabled = false; b.textContent = "Delete";
+  }
+});
 
 /* Page lock: staff only. A partner who wanders here goes back to their own page. */
 onAuthStateChanged(auth, async u => {
