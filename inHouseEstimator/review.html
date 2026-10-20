@@ -107,6 +107,7 @@ function shrink(blob){
 const qs = new URLSearchParams(location.search);
 const cid = qs.get("c") || "";
 const startText = qs.get("t") || "";
+const startJob = qs.get("j") || "";   /* from a job's Request review button: open on that job */
 
 const $ = id => document.getElementById(id);
 const view = $("view");
@@ -284,7 +285,9 @@ async function start(){
     startRooms.forEach(r => { box.querySelector('[data-room="' + rooms.indexOf(r) + '"]').checked = true; setRoom(r, true).then(() => { starOnly = false; }); });
     roomBtn();
   }
-  showJob(jobs[0]);
+  const ji = Math.max(0, jobs.findIndex(j => j.id === startJob));
+  if ($("job")) $("job").value = String(ji);
+  showJob(jobs[ji]);
   $("job")?.addEventListener("change", e => showJob(jobs[+e.target.value]));
 
   /* Your photos: kept on this page only, for this send. Not saved to the customer. */

@@ -120,6 +120,7 @@ textarea{min-height:90px;resize:vertical}
 .jobcard .jobsheet{margin-left:auto;padding:6px 14px;font-size:13px}
 .jc3{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
 .jc3 a{color:var(--navy);font-weight:600}
+.jc3 .jcrv{margin-left:auto;padding:6px 14px;font-size:13px;color:#fff}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px}
 .new:disabled{opacity:.6;cursor:default}
 .note{font-size:14px;color:var(--muted)}
@@ -671,11 +672,14 @@ async function showProfile(id){
         const rid = encodeURIComponent(r.id);
         const ogs = Array.isArray(r.originals) ? r.originals : (r.originalQuote ? [r.originalQuote] : []);
         const base = r.baseNumber || r.quoteNumber || (ogs[0] && ogs[0].number) || "";
-        const hist = base || ogs.length
-          ? '<div class="jc3">' + (base ? '<span>' + esc(base) + '</span>' : '') +
+        /* Request review: opens review.html on this job (its starred photos), review text already filled in. */
+        const rvTxt = ((TEXTS.find(x => x.label === "Review request") || {}).body || "")
+          .replace(/\{name\}/g, ((c.name || "").trim().split(/\s+/)[0]) || "there");
+        const rv = '<a class="jobsheet jcrv" href="./review.html?c=' + encodeURIComponent(c.id) + '&j=' + rid +
+          '&t=' + encodeURIComponent(rvTxt) + '">Request review</a>';
+        const hist = '<div class="jc3">' + (base ? '<span>' + esc(base) + '</span>' : '') +
               ogs.map((o, i) => '<a href="./quote.html?id=' + rid + '&original=' + (i + 1) + '" target="_blank" rel="noopener">' +
-                esc("OG" + (i ? i + 1 : "")) + ' ' + esc(money(o.total)) + '</a>').join("") + '</div>'
-          : '';
+                esc("OG" + (i ? i + 1 : "")) + ' ' + esc(money(o.total)) + '</a>').join("") + rv + '</div>';
         return '<div class="jobcard">' +
           '<div class="jc1"><a class="jcno" href="./quote.html?id=' + rid + '" target="_blank" rel="noopener">' + esc(r.number || "Invoice") + '</a>' +
             '<span class="jcst' + (r.paid ? ' paid' : '') + '">' + (r.paid ? "Paid" : "Unpaid") + '</span>' +
