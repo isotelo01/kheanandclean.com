@@ -1584,10 +1584,16 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 
             <div id="qExpand" class="qexpand">
               <div class="qexpand__inner">
-                <div class="qfield">
-                  <label for="qAddr">Street</label>
-                  <input id="qAddr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">
-                  <span class="qerr" data-for="qAddr"></span>
+                <div class="qrow" style="grid-template-columns:minmax(0,3fr) minmax(0,1fr)">
+                  <div class="qfield">
+                    <label for="qAddr">Street</label>
+                    <input id="qAddr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">
+                    <span class="qerr" data-for="qAddr"></span>
+                  </div>
+                  <div class="qfield">
+                    <label for="qUnit">Apt / Unit</label>
+                    <input id="qUnit" name="unit" type="text" autocomplete="address-line2" placeholder="Optional">
+                  </div>
                 </div>
                 <div class="qrow">
                   <div class="qfield">
@@ -1933,7 +1939,11 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
               <span class="estErr" data-for="eAddr"></span>
             </div>
           </div>
-          <div class="estRow">
+          <div class="estRow" style="grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr)">
+            <div class="estField">
+              <label for="eUnit">Apt / Unit</label>
+              <input id="eUnit" name="unit" type="text" autocomplete="address-line2" placeholder="Optional">
+            </div>
             <div class="estField">
               <label for="eCity">City</label>
               <input id="eCity" name="city" type="text" autocomplete="address-level2" placeholder="Folsom">
@@ -2634,10 +2644,16 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 <script>
 /* Quick quote address: street, city and ZIP are separate fields; this joins
    them into one line for summaries, the printed sheet and the email. */
+window.kcStreet = function(id){
+  var s = document.getElementById(id), u = document.getElementById(id.replace(/Addr$/, 'Unit'));
+  var st = s && s.value ? s.value.trim() : '', un = u && u.value ? u.value.trim() : '';
+  if(!un) return st;
+  return st + (/^[0-9]/.test(un) ? ' #' : ' ') + un;   /* "4B" -> "#4B", "Apt 4" stays "Apt 4" */
+};
 window.kcQAddr = function(){
   function v(id){ var el = document.getElementById(id); return el && el.value ? el.value.trim() : ''; }
   var z = v('qZip');
-  return [v('qAddr'), v('qCity'), z ? 'CA ' + z : ''].filter(Boolean).join(', ');
+  return [window.kcStreet('qAddr'), v('qCity'), z ? 'CA ' + z : ''].filter(Boolean).join(', ');
 };
 document.getElementById('yr').textContent = new Date().getFullYear();
 
@@ -3022,7 +3038,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     /* The clearing work, lifted out of the old inline confirm so the dialog's
        Yes button can call it. Every step is unchanged. */
     function doClear(){
-      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg','qWhen'].forEach(function(id){
+      ['qName','qPhone','qEmail','qAddr','qUnit','qCity','qZip','qType','qMsg','qWhen'].forEach(function(id){
         var el = document.getElementById(id); if(el) el.value = '';
       });
       var asapBtn = document.getElementById('qAsapBtn');
@@ -4455,7 +4471,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       calc();
     }
     function clearContact(){
-      ['eName','ePhone','eEmail','eAddr','eCity','eZip'].forEach(function(id){
+      ['eName','ePhone','eEmail','eAddr','eUnit','eCity','eZip'].forEach(function(id){
         var el = document.getElementById(id);
         if(el){ el.value = ''; el.removeAttribute('aria-invalid'); }
       });
@@ -4545,7 +4561,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     /* Street, city and ZIP joined into one line for the email. */
     function eFullAddr(){
       var z = eZipEl ? eZipEl.value.trim() : '';
-      return [eAddr.value.trim(), eCity(), z ? 'CA ' + z : ''].filter(Boolean).join(', ');
+      return [window.kcStreet('eAddr'), eCity(), z ? 'CA ' + z : ''].filter(Boolean).join(', ');
     }
     function eSubjectTail(){
       var c = eCity();
@@ -4604,7 +4620,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         fd.append('phone',   ePhone.value.trim());
         fd.append('email',   eEmail.value.trim());
         fd.append('address', eFullAddr());
-        fd.append('street',  eAddr.value.trim());
+        fd.append('street',  window.kcStreet('eAddr'));
         fd.append('city',    eCity());
         fd.append('zip',     eZipEl ? eZipEl.value.trim() : '');
         fd.append('property_type', eType ? eType.value : '');
@@ -4626,7 +4642,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
             phone:     ePhone.value.trim(),
             email:     eEmail.value.trim(),
             addresses: [{
-              street: eAddr.value.trim(),
+              street: window.kcStreet('eAddr'),
               city:   eCity(),
               state:  'CA',
               zip:    eZipEl ? eZipEl.value.trim() : ''
@@ -4698,7 +4714,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       fd.append('phone',   ePhone.value.trim());
       fd.append('email',   eEmail.value.trim());
       fd.append('address', eFullAddr());
-      fd.append('street',  eAddr.value.trim());
+      fd.append('street',  window.kcStreet('eAddr'));
       fd.append('city',    eCity());
       fd.append('zip',     eZipEl ? eZipEl.value.trim() : '');
       fd.append('property_type', eType ? eType.value : '');
@@ -4760,7 +4776,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
           phone:      ePhone.value.trim(),
           email:      eEmail.value.trim(),
           addresses:  [{
-            street: eAddr.value.trim(),
+            street: window.kcStreet('eAddr'),
             city:   eCity(),
             state:  'CA',
             zip:    eZipEl ? eZipEl.value.trim() : ''
@@ -5122,7 +5138,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     fd.append('phone',    document.getElementById('qPhone').value.trim());
     fd.append('email',    document.getElementById('qEmail').value.trim());
     fd.append('address',  window.kcQAddr());
-    fd.append('street',   document.getElementById('qAddr').value.trim());
+    fd.append('street',   window.kcStreet('qAddr'));
     fd.append('city',     document.getElementById('qCity').value.trim());
     fd.append('zip',      document.getElementById('qZip').value.trim());
     fd.append('property_type', document.getElementById('qType').value);
@@ -5173,7 +5189,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
         phone:     document.getElementById('qPhone').value.trim(),
         email:     document.getElementById('qEmail').value.trim(),
         addresses: [{
-          street: document.getElementById('qAddr').value.trim(),
+          street: window.kcStreet('qAddr'),
           city:   document.getElementById('qCity').value.trim(),
           state:  'CA',
           zip:    document.getElementById('qZip').value.trim()
@@ -5227,7 +5243,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
 (function(){
   var KEY = 'kcQuote';
   var form = document.getElementById('quoteForm'); if(!form) return;
-  var fields = ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg'];
+  var fields = ['qName','qPhone','qEmail','qAddr','qUnit','qCity','qZip','qType','qMsg'];
   function store(){ try{ return window.localStorage; }catch(e){ return null; } }
 
   function save(){
@@ -5295,7 +5311,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
    never enter it twice. The field currently being typed in is never overwritten,
    and a guard flag stops the two handlers echoing each other. */
 (function(){
-  var pairs = [['qName','eName'],['qPhone','ePhone'],['qEmail','eEmail'],['qAddr','eAddr'],['qCity','eCity'],['qZip','eZip']];
+  var pairs = [['qName','eName'],['qPhone','ePhone'],['qEmail','eEmail'],['qAddr','eAddr'],['qUnit','eUnit'],['qCity','eCity'],['qZip','eZip']];
   var syncing = false;
 
   function link(aId, bId){

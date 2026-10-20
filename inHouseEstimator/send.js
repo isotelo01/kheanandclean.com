@@ -21,6 +21,8 @@ const db = getFirestore(app);
 
 const $ = (id) => document.getElementById(id);
 const val = (id) => ($(id) ? $(id).value.trim() : '');
+/* Street with the Apt / Unit box on the end ("123 Main St #4B"); see kcStreet in index.html. */
+const streetVal = () => (window.kcStreet ? window.kcStreet('eAddr') : val('eAddr'));
 const btn = $('eSendBtn'), box = $('qLinkBox'), msg = $('qLinkMsg'), url = $('qLinkUrl');
 
 /* 20 random characters: far too many combinations to guess. */
@@ -49,7 +51,7 @@ function fromForm(q){
     customer: {
       name: val('eName'), phone: val('ePhone'), email: val('eEmail'), type: val('eType'),
       business: val('eBiz'),
-      street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip')
+      street: streetVal(), city: val('eCity'), state: val('eState'), zip: val('eZip')
     },
     lines: JSON.parse(JSON.stringify(q.lines)),
     subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel,
@@ -151,7 +153,7 @@ const TYPE_MAP = {
 async function fileCustomer(custId){
   const name = val('eName'), phone = val('ePhone'), email = val('eEmail');
   const pk = phoneKey(phone), ek = emailKey(email);
-  const addr = { street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip') };
+  const addr = { street: streetVal(), city: val('eCity'), state: val('eState'), zip: val('eZip') };
   const hasAddr = !!(addr.street || addr.city || addr.zip);
   try {
     /* Only the customer picked from the name list. */
@@ -189,7 +191,7 @@ async function fileLead(quoteId, number){
     try { await updateDoc(doc(db, 'leads', leadId), link); return leadId; }
     catch (e) { if (e.code !== 'not-found') throw e; }   /* lead was erased: make a fresh one */
   }
-  const addr = { street: val('eAddr'), city: val('eCity'), state: val('eState'), zip: val('eZip') };
+  const addr = { street: streetVal(), city: val('eCity'), state: val('eState'), zip: val('eZip') };
   const id = randomId();
   await setDoc(doc(db, 'leads', id), Object.assign({
     name: val('eName'), phone: val('ePhone'), email: val('eEmail'),
@@ -287,7 +289,7 @@ async function loadForEdit(id, from){
     const snap = await getDoc(doc(db, from, id));
     if (!snap.exists()) { banner.textContent = 'That estimate is no longer there. Go back to the Dashboard and refresh.'; return; }
     const d = snap.data(), c = d.customer || {};
-    [['eName', c.name], ['ePhone', c.phone], ['eEmail', c.email], ['eAddr', c.street],
+    [['eName', c.name], ['ePhone', c.phone], ['eEmail', c.email], ['eAddr', c.street], ['eUnit', ''],
      ['eCity', c.city], ['eZip', c.zip], ['eNotes', d.notes], ['eWhen', d.scheduledDate], ['eWhenTime', d.scheduledTime]].forEach(([fid, v]) => {
       const el = $(fid); if (!el) return;
       el.value = v || '';

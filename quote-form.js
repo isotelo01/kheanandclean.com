@@ -150,10 +150,16 @@
         '<div id="' + p + 'Expand" class="kcq__expand">' +
           '<div class="kcq__expandInner">' +
 
-            '<div class="kcq__field">' +
-              '<label for="' + p + 'Addr">Street</label>' +
-              '<input id="' + p + 'Addr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">' +
-              '<span class="kcq__err" data-for="' + p + 'Addr"></span>' +
+            '<div class="kcq__row" style="grid-template-columns:minmax(0,3fr) minmax(0,1fr)">' +
+              '<div class="kcq__field">' +
+                '<label for="' + p + 'Addr">Street</label>' +
+                '<input id="' + p + 'Addr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">' +
+                '<span class="kcq__err" data-for="' + p + 'Addr"></span>' +
+              '</div>' +
+              '<div class="kcq__field">' +
+                '<label for="' + p + 'Unit">Apt / Unit</label>' +
+                '<input id="' + p + 'Unit" name="unit" type="text" autocomplete="address-line2" placeholder="Optional">' +
+              '</div>' +
             '</div>' +
             '<div class="kcq__row">' +
               '<div class="kcq__field">' +
@@ -424,6 +430,7 @@
         emailEl   = $('Email'),
         typeEl    = $('Type'),
         addrEl    = $('Addr'),
+        unitEl    = $('Unit'),
         cityEl    = $('City'),
         zipEl     = $('Zip'),
         msgEl     = $('Msg'),
@@ -446,10 +453,15 @@
       return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) + (s ? ' ' + (s === 'all' ? 'All day' : s.toUpperCase()) : '') : '';
     }
 
+    /* Street with the Apt / Unit on the end ("123 Main St #4B"), the same way places.js writes units. */
+    function withUnit() {
+      var st = addrEl ? addrEl.value.trim() : '', un = unitEl ? unitEl.value.trim() : '';
+      return un ? st + (/^[0-9]/.test(un) ? ' #' : ' ') + un : st;
+    }
     /* Street, city and ZIP joined into one line for the summary and email. */
     function fullAddr() {
       var z = zipEl ? zipEl.value.trim() : '';
-      return [addrEl ? addrEl.value.trim() : '', cityEl ? cityEl.value.trim() : '', z ? 'CA ' + z : '']
+      return [withUnit(), cityEl ? cityEl.value.trim() : '', z ? 'CA ' + z : '']
         .filter(Boolean).join(', ');
     }
 
@@ -488,7 +500,7 @@
       var prev = readSaved();
       writeSaved({
         name: nameEl.value, phone: phoneEl.value, email: emailEl.value,
-        addr: addrEl.value, city: cityEl.value, zip: zipEl.value, type: typeEl.value, msg: msgEl.value,
+        addr: addrEl.value, unit: unitEl ? unitEl.value : '', city: cityEl.value, zip: zipEl.value, type: typeEl.value, msg: msgEl.value,
         services: Array.prototype.map.call(form.querySelectorAll('input[name="services"]:checked'), function (c) { return c.value; }),
         est: prev && prev.est ? prev.est : null,
         ts: Date.now()
@@ -497,7 +509,7 @@
     function restore() {
       var d = readSaved(); if (!d) return false;
       var touched = false;
-      [['name', nameEl], ['phone', phoneEl], ['email', emailEl], ['addr', addrEl], ['city', cityEl], ['zip', zipEl], ['type', typeEl], ['msg', msgEl]].forEach(function (pair) {
+      [['name', nameEl], ['phone', phoneEl], ['email', emailEl], ['addr', addrEl], ['unit', unitEl], ['city', cityEl], ['zip', zipEl], ['type', typeEl], ['msg', msgEl]].forEach(function (pair) {
         var v = d[pair[0]], el = pair[1];
         if (!el || typeof v !== 'string' || !v) return;
         if (el.tagName === 'SELECT' && !Array.prototype.some.call(el.options, function (o) { return o.value === v; })) return;
@@ -643,7 +655,7 @@
       /* The wipe itself, lifted unchanged out of the old click handler so
          both the dialog's Yes button and the confirm() fallback can call it. */
       var doClear = function () {
-        [nameEl, phoneEl, emailEl, typeEl, addrEl, cityEl, zipEl, msgEl].forEach(function (el) {
+        [nameEl, phoneEl, emailEl, typeEl, addrEl, unitEl, cityEl, zipEl, msgEl].forEach(function (el) {
           if (el) el.value = '';
         });
         Array.prototype.forEach.call(
@@ -825,7 +837,7 @@
       fd.append('phone',   phoneEl.value.trim());
       fd.append('email',   emailEl.value.trim());
       fd.append('address', fullAddr());
-      fd.append('street',  addrEl.value.trim());
+      fd.append('street',  withUnit());
       fd.append('city',    cityEl.value.trim());
       fd.append('zip',     zipEl.value.trim());
       fd.append('property_type', $('Type').value);
@@ -856,7 +868,7 @@
             name:      nameEl.value.trim(),
             phone:     phoneEl.value.trim(),
             email:     emailEl.value.trim(),
-            addresses: [{ street: addrEl.value.trim(), city: cityEl.value.trim(), state: 'CA', zip: zipEl.value.trim() }],
+            addresses: [{ street: withUnit(), city: cityEl.value.trim(), state: 'CA', zip: zipEl.value.trim() }],
             type:      typeEl.value.toLowerCase(),
             services:  services,
             when:      whenVal,

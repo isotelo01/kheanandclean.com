@@ -961,10 +961,16 @@ body{ background:#172239; }
 
             <div id="qExpand" class="qexpand">
               <div class="qexpand__inner">
-                <div class="qfield">
-                  <label for="qAddr">Street</label>
-                  <input id="qAddr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">
-                  <span class="qerr" data-for="qAddr"></span>
+                <div class="qrow" style="grid-template-columns:minmax(0,3fr) minmax(0,1fr)">
+                  <div class="qfield">
+                    <label for="qAddr">Street</label>
+                    <input id="qAddr" name="address" type="text" autocomplete="address-line1" placeholder="123 Main St">
+                    <span class="qerr" data-for="qAddr"></span>
+                  </div>
+                  <div class="qfield">
+                    <label for="qUnit">Apt / Unit</label>
+                    <input id="qUnit" name="unit" type="text" autocomplete="address-line2" placeholder="Optional">
+                  </div>
                 </div>
                 <div class="qrow">
                   <div class="qfield">
@@ -1260,10 +1266,16 @@ body{ background:#172239; }
 <script>
 /* Quick quote address: street, city and ZIP are separate fields; this joins
    them into one line for summaries, the printed sheet and the email. */
+window.kcStreet = function(id){
+  var s = document.getElementById(id), u = document.getElementById(id.replace(/Addr$/, 'Unit'));
+  var st = s && s.value ? s.value.trim() : '', un = u && u.value ? u.value.trim() : '';
+  if(!un) return st;
+  return st + (/^[0-9]/.test(un) ? ' #' : ' ') + un;   /* "4B" -> "#4B", "Apt 4" stays "Apt 4" */
+};
 window.kcQAddr = function(){
   function v(id){ var el = document.getElementById(id); return el && el.value ? el.value.trim() : ''; }
   var z = v('qZip');
-  return [v('qAddr'), v('qCity'), z ? 'CA ' + z : ''].filter(Boolean).join(', ');
+  return [window.kcStreet('qAddr'), v('qCity'), z ? 'CA ' + z : ''].filter(Boolean).join(', ');
 };
 (function(){
   var qEmail = document.getElementById('qEmail'),
@@ -1605,7 +1617,7 @@ window.kcQAddr = function(){
     /* The clearing work, lifted out of the old inline confirm so the dialog's
        Yes button can call it. Every step is unchanged. */
     function doClear(){
-      ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg','qWhen'].forEach(function(id){
+      ['qName','qPhone','qEmail','qAddr','qUnit','qCity','qZip','qType','qMsg','qWhen'].forEach(function(id){
         var el = document.getElementById(id); if(el) el.value = '';
       });
       var asapBtn = document.getElementById('qAsapBtn');
@@ -1997,7 +2009,7 @@ window.kcQAddr = function(){
     fd.append('phone',    document.getElementById('qPhone').value.trim());
     fd.append('email',    document.getElementById('qEmail').value.trim());
     fd.append('address',  window.kcQAddr());
-    fd.append('street',   document.getElementById('qAddr').value.trim());
+    fd.append('street',   window.kcStreet('qAddr'));
     fd.append('city',     document.getElementById('qCity').value.trim());
     fd.append('zip',      document.getElementById('qZip').value.trim());
     fd.append('property_type', document.getElementById('qType').value);
@@ -2038,7 +2050,7 @@ window.kcQAddr = function(){
           phone:         document.getElementById('qPhone').value.trim(),
           email:         document.getElementById('qEmail').value.trim(),
           addresses: [{
-            street: document.getElementById('qAddr').value.trim(),
+            street: window.kcStreet('qAddr'),
             city:   document.getElementById('qCity').value.trim(),
             state:  'CA',
             zip:    document.getElementById('qZip').value.trim()
@@ -2097,7 +2109,7 @@ window.kcQAddr = function(){
 (function(){
   var KEY = 'kcQuote';
   var form = document.getElementById('quoteForm'); if(!form) return;
-  var fields = ['qName','qPhone','qEmail','qAddr','qCity','qZip','qType','qMsg'];
+  var fields = ['qName','qPhone','qEmail','qAddr','qUnit','qCity','qZip','qType','qMsg'];
   function store(){ try{ return window.localStorage; }catch(e){ return null; } }
   function save(){
     var st = store(); if(!st) return;

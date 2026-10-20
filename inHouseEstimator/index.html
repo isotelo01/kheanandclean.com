@@ -65,7 +65,11 @@
             </div>
             <div class="estField">
               <label for="eAddr">Street</label>
-              <input id="eAddr" name="street" type="text" autocomplete="off" placeholder="123 Main St">
+              <!-- Apt / Unit: saved on the end of the street ("123 Main St #4B"), the way places.js writes units. -->
+              <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:.5rem">
+                <input id="eAddr" name="street" type="text" autocomplete="off" placeholder="123 Main St">
+                <input id="eUnit" name="unit" type="text" autocomplete="off" placeholder="Apt / Unit" aria-label="Apt or unit (optional)">
+              </div>
             </div>
           </div>
           <div class="estRow estRow--csz">
@@ -464,6 +468,13 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
 })();
 </script>
 <script>
+/* Street with the Apt / Unit on the end. Used by the letterhead and send.js. */
+window.kcStreet = function(id){
+  var s = document.getElementById(id), u = document.getElementById(id.replace(/Addr$/, 'Unit'));
+  var st = s && s.value ? s.value.trim() : '', un = u && u.value ? u.value.trim() : '';
+  if(!un) return st;
+  return st + (/^[0-9]/.test(un) ? ' #' : ' ') + un;   /* "4B" -> "#4B", "Apt 4" stays "Apt 4" */
+};
 /* Letterhead: mirror customer name + address into the quote panel as you type */
 (function () {
   var n = document.getElementById('eName'), a = document.getElementById('eAddr');
@@ -478,9 +489,9 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
     z.value = z.value.replace(/\D/g, '').slice(0, 5);
     var city = c.value.trim(), tail = ('CA ' + z.value).trim();
     var line2 = city ? city + ', ' + tail : (z.value ? tail : '');
-    oa.textContent = [a.value.trim(), line2].filter(Boolean).join('\n');
+    oa.textContent = [window.kcStreet('eAddr'), line2].filter(Boolean).join('\n');
   }
-  [n, a, c, z, b].forEach(function (el) { if (el) el.addEventListener('input', sync); });
+  [n, a, document.getElementById('eUnit'), c, z, b].forEach(function (el) { if (el) el.addEventListener('input', sync); });
   sync();
 
   /* Phone: format as (916) 767-2520 while typing */

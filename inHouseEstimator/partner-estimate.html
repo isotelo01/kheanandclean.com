@@ -66,7 +66,11 @@
             </div>
             <div class="estField">
               <label for="eAddr">Street</label>
-              <input id="eAddr" name="street" type="text" autocomplete="off" placeholder="123 Main St">
+              <!-- Apt / Unit: saved on the end of the street ("123 Main St #4B"), the way places.js writes units. -->
+              <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:.5rem">
+                <input id="eAddr" name="street" type="text" autocomplete="off" placeholder="123 Main St">
+                <input id="eUnit" name="unit" type="text" autocomplete="off" placeholder="Apt / Unit" aria-label="Apt or unit (optional)">
+              </div>
             </div>
           </div>
           <div class="estRow estRow--csz">
@@ -364,7 +368,7 @@ $("eSendBtn").addEventListener("click", async e => {
       source: "partner-estimate", page: "partner-portal", status: "new", createdAt: serverTimestamp(),
       name: (v("eName") || me.contactName || "Partner") + " (" + (me.businessName || v("eBiz") || "Partner") + ")",
       phone: v("ePhone"), email: v("eEmail"), type: (v("eType") || me.type || "").toLowerCase(),
-      addresses: [{ street: v("eAddr"), city: v("eCity"), state: "CA", zip: v("eZip") }],
+      addresses: [{ street: v("eAddr") + (v("eUnit") ? (/^[0-9]/.test(v("eUnit")) ? " #" : " ") + v("eUnit") : ""), city: v("eCity"), state: "CA", zip: v("eZip") }],
       when: v("eWhen"),
       estimateData: window.KC_snapshot ? JSON.stringify(window.KC_snapshot()) : "",
       message: text.slice(0, 4800)
