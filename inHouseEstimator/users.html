@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<title>Users &middot; Khean &amp; Clean</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Same look as hub.html. Staff only: the B2B partners who signed up through b2b-login.html. */
+:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 16px 60px}
+.back{color:var(--muted);font-size:14px;text-decoration:none}
+h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:8px 0 4px;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.sub{color:var(--muted);margin:4px 0 18px;font-size:15px}
+:where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.linkbox{background:#fff;border-left:4px solid var(--gold);border-radius:10px;padding:14px 16px;margin-bottom:18px;
+  box-shadow:0 1px 6px rgba(23,34,57,.08);display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.linkbox b{display:block;font:700 18px "Playfair Display",Georgia,serif}
+.linkbox code{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.linkbox .grow{flex:1;min-width:200px}
+.btn{display:inline-flex;align-items:center;background:var(--navy);color:var(--gold);border:0;border-radius:999px;
+  padding:9px 16px;font:700 14px "Archivo",sans-serif;cursor:pointer;text-decoration:none}
+.btn.ghost{background:transparent;color:var(--navy);border:1px solid var(--navy)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+.bar input{flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:var(--ink)}
+.count{color:var(--muted);font-size:14px}
+.list{display:grid;gap:10px}
+.u{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 6px rgba(23,34,57,.08);border-left:4px solid var(--c,#999)}
+.u .h{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.u .n{font:700 19px/1.25 "Playfair Display",Georgia,serif;overflow-wrap:anywhere}
+.tag{font:700 11px "Archivo",sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#fff;background:var(--c,#999);border-radius:999px;padding:3px 9px}
+.u .d{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:6px;font-size:14px;color:var(--muted)}
+.u .d a{color:var(--ink);overflow-wrap:anywhere}
+.none{color:var(--muted);background:#fff;border-radius:10px;padding:18px;text-align:center}
+.err{color:#b3261e}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <a class="back" href="./hub.html">&lsaquo; Hub</a>
+  <h1>Users</h1>
+  <p class="sub">Businesses that signed up for the partner portal.</p>
+
+  <div class="linkbox">
+    <div class="grow"><b>B2B login page</b><code id="loginUrl"></code></div>
+    <button type="button" class="btn ghost" id="copyBtn">Copy link</button>
+    <a class="btn" id="openLink" href="./b2b-login.html" target="_blank" rel="noopener">Open &rsaquo;</a>
+  </div>
+
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search business, name, email or phone" aria-label="Search users">
+    <span class="count" id="count"></span>
+  </div>
+  <div class="list" id="list"><div class="none">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app);
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* The link to hand out (business cards, emails, the realtor page). */
+const loginUrl = new URL("./b2b-login.html", location.href).href;
+$("loginUrl").textContent = loginUrl;
+$("copyBtn").onclick = async () => {
+  try { await navigator.clipboard.writeText(loginUrl); $("copyBtn").textContent = "Copied"; }
+  catch (e) { prompt("Copy this link:", loginUrl); }
+  setTimeout(() => $("copyBtn").textContent = "Copy link", 1800);
+};
+
+/* Same colours as the customer type dropdown. */
+const COLORS = { "Property management": "#2f6fb0", "Realtor": "#8a3fb0", "Commercial": "#2e8a57" };
+const HOW = { "google.com": "Google", "password": "Email", "apple.com": "Apple" };
+let users = [];
+
+function draw(){
+  const q = $("q").value.trim().toLowerCase();
+  const rows = users.filter(u => !q ||
+    [u.businessName, u.contactName, u.email, u.phone, u.type].join(" ").toLowerCase().includes(q));
+  $("count").textContent = rows.length + (rows.length === 1 ? " user" : " users");
+  if (!rows.length) { $("list").innerHTML = '<div class="none">' + (users.length ? "No matches." : "Nobody has signed up yet.") + '</div>'; return; }
+  $("list").innerHTML = rows.map(u => {
+    const c = COLORS[u.type] || "#6b7280";
+    const when = u.createdAt && u.createdAt.toDate ? u.createdAt.toDate().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
+    const tel = String(u.phone || "").replace(/[^\d+]/g, "");
+    return '<div class="u" style="--c:' + c + '"><div class="h"><span class="n">' + esc(u.businessName || "No business name") + '</span>' +
+      '<span class="tag">' + esc(u.type || "Partner") + '</span></div><div class="d">' +
+      (u.contactName ? '<span>' + esc(u.contactName) + '</span>' : '') +
+      (u.email ? '<a href="mailto:' + esc(u.email) + '">' + esc(u.email) + '</a>' : '') +
+      (tel ? '<a href="tel:' + esc(tel) + '">' + esc(u.phone) + '</a>' : '') +
+      (when ? '<span>Joined ' + esc(when) + '</span>' : '') +
+      '<span>Signs in with ' + esc(HOW[u.provider] || u.provider || "email") + '</span>' +
+    '</div></div>';
+  }).join("");
+}
+$("q").addEventListener("input", draw);
+
+/* Page lock: staff only. A partner who wanders here goes back to their own page. */
+onAuthStateChanged(auth, async u => {
+  if (!u) { location.replace("./login.html?next=users.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  $("authwait")?.remove();
+  try {
+    const snap = await getDocs(collection(db, "partners"));
+    users = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => ((b.createdAt && b.createdAt.toMillis && b.createdAt.toMillis()) || 0) - ((a.createdAt && a.createdAt.toMillis && a.createdAt.toMillis()) || 0));
+    draw();
+  } catch (e) { console.error(e); $("list").innerHTML = '<div class="none err">Could not load users.</div>'; }
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>

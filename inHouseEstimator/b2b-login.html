@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Partner sign in &middot; Khean &amp; Clean</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0d1b2a">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* B2B partner login (realtors, property managers, commercial). Same look as the staff login.html. */
+:root{ --navy:#0d1b2a; --gold:#e0b64a; --cream:#f4f1ea; }
+*{ box-sizing:border-box; }
+body{ margin:0; min-height:100svh; display:grid; place-items:center;
+  background:var(--navy); color:var(--cream);
+  font:400 16px "Archivo",system-ui,-apple-system,sans-serif; padding:24px 16px; }
+.box{ width:100%; max-width:380px; text-align:center; }
+.box img{ width:64px; height:64px; object-fit:contain; margin-bottom:14px; }
+h1{ font:700 1.35rem "Playfair Display",serif; margin:0 0 4px; }
+.sub{ margin:0 0 22px; font-size:.9rem; color:rgba(244,241,234,.62); }
+label{ display:block; text-align:left; font-size:.72rem; letter-spacing:.09em;
+  text-transform:uppercase; color:rgba(244,241,234,.6); margin:0 0 5px; }
+input,select{ width:100%; background:rgba(255,255,255,.05); color:var(--cream);
+  border:1px solid rgba(255,255,255,.22); border-radius:10px;
+  padding:.72rem .85rem; font:inherit; margin-bottom:14px; }
+select option{ color:#000; }
+input:focus,select:focus{ outline:none; border-color:var(--gold); }
+button{ width:100%; background:var(--gold); color:var(--navy); border:0;
+  border-radius:999px; padding:.8rem; font:700 1rem "Archivo",sans-serif;
+  cursor:pointer; letter-spacing:.04em; }
+button[disabled]{ opacity:.6; cursor:default; }
+.google{ display:flex; align-items:center; justify-content:center; gap:10px;
+  background:#fff; color:#1f1f1f; font-weight:600; letter-spacing:0; }
+.or{ display:flex; align-items:center; gap:10px; margin:18px 0; font-size:.8rem; color:rgba(244,241,234,.5); }
+.or::before,.or::after{ content:""; flex:1; height:1px; background:rgba(255,255,255,.18); }
+.tabs{ display:flex; gap:6px; margin-bottom:16px; background:rgba(255,255,255,.06); border-radius:999px; padding:4px; }
+.tabs button{ background:none; color:rgba(244,241,234,.7); padding:.55rem; font-size:.9rem; letter-spacing:0; }
+.tabs button[aria-selected="true"]{ background:var(--gold); color:var(--navy); }
+.err{ min-height:1.2em; margin:14px 0 0; font-size:.86rem; color:#ff9b8a; }
+.err.ok{ color:#9fd8b8; }
+.linkbtn{ width:auto; background:none; color:rgba(244,241,234,.7); padding:4px 2px; margin-top:12px;
+  border-radius:0; font:500 .85rem "Archivo",sans-serif; letter-spacing:0; text-decoration:underline; }
+:where(button,a):focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+.back{ display:inline-block; margin-top:20px; font-size:.85rem; color:rgba(244,241,234,.55); text-decoration:none; }
+[hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="box">
+  <img src="../images/icon-180.png" alt="">
+  <h1>Khean &amp; Clean Partners</h1>
+  <p class="sub" id="sub">Realtors, property managers and businesses</p>
+
+  <!-- Step 1: sign in or create an account -->
+  <div id="signin">
+    <button type="button" class="google" id="googleBtn">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.7 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.8 6C6.6 42.6 14.6 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <div class="or">or use email</div>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tabIn" aria-selected="true">Sign in</button>
+      <button type="button" role="tab" id="tabUp" aria-selected="false">Create account</button>
+    </div>
+    <form id="emailForm" autocomplete="on">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="pw">Password</label>
+      <input id="pw" type="password" autocomplete="current-password" minlength="6" required>
+      <button type="submit" id="emailBtn">Sign in</button>
+    </form>
+    <button type="button" class="linkbtn" id="forgotBtn">Forgot password?</button>
+  </div>
+
+  <!-- Step 2 (first time only): tell us about your business -->
+  <form id="profileForm" hidden>
+    <label for="biz">Business name</label>
+    <input id="biz" required maxlength="190" autocomplete="organization">
+    <label for="contact">Your name</label>
+    <input id="contact" required maxlength="190" autocomplete="name">
+    <label for="phone">Phone</label>
+    <input id="phone" type="tel" maxlength="40" autocomplete="tel">
+    <label for="type">You are a</label>
+    <select id="type">
+      <option>Property management</option>
+      <option>Realtor</option>
+      <option>Commercial</option>
+    </select>
+    <button type="submit" id="profileBtn">Finish signing up</button>
+  </form>
+
+  <p class="err" id="err" role="status"></p>
+  <a class="back" href="../index.html">Back to the website</a>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
+         createUserWithEmailAndPassword, sendPasswordResetEmail, setPersistence,
+         browserLocalPersistence, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app);
+setPersistence(auth, browserLocalPersistence).catch(console.error);
+
+/* Staff who land here go to the hub instead. (Only a convenience: the database rules are
+   what actually keep partners out of staff data.) */
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+
+const $ = id => document.getElementById(id);
+const err = $("err");
+const say = (t, ok) => { err.textContent = t; err.classList.toggle("ok", !!ok); };
+const SAYS = {
+  "auth/invalid-email": "That email doesn't look right.",
+  "auth/invalid-credential": "Email or password is wrong.",
+  "auth/wrong-password": "Email or password is wrong.",
+  "auth/user-not-found": "Email or password is wrong.",
+  "auth/email-already-in-use": "That email already has an account. Tap Sign in instead.",
+  "auth/weak-password": "Use at least 6 characters for the password.",
+  "auth/too-many-requests": "Too many tries. Wait a minute and try again.",
+  "auth/popup-closed-by-user": "Google sign-in was closed before it finished.",
+  "auth/popup-blocked": "Your browser blocked the Google window. Allow pop-ups and try again.",
+  "auth/unauthorized-domain": "Google sign-in isn't switched on for this site yet. Use email for now.",
+  "auth/operation-not-allowed": "That sign-in method isn't switched on yet. Use the other one for now.",
+  "auth/network-request-failed": "No connection. Check your network."
+};
+const fail = (ex, fallback) => { console.error(ex); say(SAYS[ex.code] || fallback); };
+
+/* Sign in vs Create account tabs (email only; Google does both in one tap). */
+let mode = "in";
+const setMode = m => {
+  mode = m;
+  $("tabIn").setAttribute("aria-selected", String(m === "in"));
+  $("tabUp").setAttribute("aria-selected", String(m === "up"));
+  $("emailBtn").textContent = m === "in" ? "Sign in" : "Create account";
+  $("pw").autocomplete = m === "in" ? "current-password" : "new-password";
+  $("forgotBtn").hidden = m !== "in";
+  say("");
+};
+$("tabIn").onclick = () => setMode("in");
+$("tabUp").onclick = () => setMode("up");
+
+$("googleBtn").onclick = async () => {
+  say(""); $("googleBtn").disabled = true;
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (ex) { fail(ex, "Could not sign in with Google. Try again."); }
+  $("googleBtn").disabled = false;
+};
+
+$("emailForm").addEventListener("submit", async e => {
+  e.preventDefault(); say("");
+  const btn = $("emailBtn"), label = btn.textContent;
+  btn.disabled = true; btn.textContent = "One moment…";
+  const email = $("email").value.trim(), pw = $("pw").value;
+  try {
+    if (mode === "in") await signInWithEmailAndPassword(auth, email, pw);
+    else await createUserWithEmailAndPassword(auth, email, pw);
+  } catch (ex) { fail(ex, "Could not sign in. Try again."); }
+  btn.disabled = false; btn.textContent = label;
+});
+
+$("forgotBtn").onclick = async () => {
+  const email = $("email").value.trim();
+  if (!email) { say("Type your email above first, then tap Forgot password."); $("email").focus(); return; }
+  try { await sendPasswordResetEmail(auth, email); }
+  catch (ex) { if (ex.code !== "auth/user-not-found") return fail(ex, "Could not send the reset email."); }
+  say("If that email has an account, a reset link is on its way. Check spam too.", true);
+};
+
+/* After any sign-in: staff -> hub. Partner with a profile -> their page.
+   New partner -> the business details form (step 2). */
+let user = null;
+onAuthStateChanged(auth, async u => {
+  user = u;
+  if (!u) return;
+  if (STAFF.includes(u.uid)) { location.replace("./hub.html"); return; }
+  try {
+    const snap = await getDoc(doc(db, "partners", u.uid));
+    if (snap.exists()) { location.replace("./partner.html"); return; }
+  } catch (ex) { console.error(ex); }
+  $("signin").hidden = true; $("profileForm").hidden = false;
+  $("sub").textContent = "Almost done. Tell us about your business.";
+  if (u.displayName && !$("contact").value) $("contact").value = u.displayName;
+  $("biz").focus();
+});
+
+$("profileForm").addEventListener("submit", async e => {
+  e.preventDefault(); if (!user) return;
+  const btn = $("profileBtn"); btn.disabled = true; btn.textContent = "Saving…"; say("");
+  try {
+    await setDoc(doc(db, "partners", user.uid), {
+      businessName: $("biz").value.trim(),
+      contactName: $("contact").value.trim(),
+      phone: $("phone").value.trim(),
+      type: $("type").value,
+      email: user.email || "",
+      provider: (user.providerData[0] || {}).providerId || "password",
+      status: "new",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    location.replace("./partner.html");
+  } catch (ex) { fail(ex, "Could not save. Try again."); btn.disabled = false; btn.textContent = "Finish signing up"; }
+});
+</script>
+</body>
+</html>
