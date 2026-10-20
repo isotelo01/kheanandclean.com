@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <style>
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&text=%26&display=swap");
 /* B2B partner login (realtors, property managers, commercial). Same look as the staff login.html. */
 :root{ --navy:#0d1b2a; --gold:#e0b64a; --cream:#f4f1ea; }
 *{ box-sizing:border-box; }
@@ -19,7 +20,7 @@ body{ margin:0; min-height:100svh; display:grid; place-items:center;
   font:400 16px "Archivo",system-ui,-apple-system,sans-serif; padding:24px 16px; }
 .box{ width:100%; max-width:380px; text-align:center; }
 .box img{ width:64px; height:64px; object-fit:contain; margin-bottom:14px; }
-h1{ font:700 1.35rem "Playfair Display",serif; margin:0 0 4px; }
+h1{ font:700 1.35rem "Cinzel","Playfair Display",serif; margin:0 0 4px; }
 .sub{ margin:0 0 22px; font-size:.9rem; color:rgba(244,241,234,.62); }
 label{ display:block; text-align:left; font-size:.72rem; letter-spacing:.09em;
   text-transform:uppercase; color:rgba(244,241,234,.6); margin:0 0 5px; }
@@ -48,6 +49,10 @@ button[disabled]{ opacity:.6; cursor:default; }
 .ghost{ background:none; color:var(--gold); border:1px solid var(--gold); padding:.6rem; font-size:.9rem;
   margin:-4px 0 14px; letter-spacing:0; }
 .verified{ margin:-4px 0 14px; text-align:left; font-size:.9rem; color:#9fd8b8; }
+.pwwrap{ position:relative; }
+.pwwrap input{ padding-right:4.6rem; }
+.pwshow{ position:absolute; right:6px; top:6px; width:auto; padding:.45rem .8rem; font-size:.85rem;
+  background:rgba(255,255,255,.08); color:var(--cream); letter-spacing:0; }
 [hidden]{ display:none !important; }
 </style>
 </head>
@@ -72,7 +77,10 @@ button[disabled]{ opacity:.6; cursor:default; }
       <label for="email">Email</label>
       <input id="email" type="email" autocomplete="username" required>
       <label for="pw">Password</label>
-      <input id="pw" type="password" autocomplete="current-password" minlength="6" required>
+      <div class="pwwrap">
+        <input id="pw" type="password" autocomplete="current-password" minlength="6" required>
+        <button type="button" class="pwshow" id="pwShow" aria-label="Show password" aria-pressed="false">Show</button>
+      </div>
       <button type="submit" id="emailBtn">Sign in</button>
     </form>
     <button type="button" class="linkbtn" id="forgotBtn">Forgot password?</button>
@@ -160,6 +168,14 @@ const setMode = m => {
   $("pw").autocomplete = m === "in" ? "current-password" : "new-password";
   $("forgotBtn").hidden = m !== "in";
   say("");
+};
+/* Show / Hide the password */
+$("pwShow").onclick = () => {
+  const show = $("pw").type === "password";
+  $("pw").type = show ? "text" : "password";
+  $("pwShow").textContent = show ? "Hide" : "Show";
+  $("pwShow").setAttribute("aria-pressed", String(show));
+  $("pwShow").setAttribute("aria-label", show ? "Hide password" : "Show password");
 };
 $("tabIn").onclick = () => setMode("in");
 $("tabUp").onclick = () => setMode("up");
