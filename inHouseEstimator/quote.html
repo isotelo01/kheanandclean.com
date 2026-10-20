@@ -109,7 +109,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 /* phone letterhead: logo spans the full text block (name to phone line); "Invoice #I-1005" becomes one row under a thin rule */
 @media (max-width:560px){.idblock{gap:12px}.idblock img{width:88px;height:88px;border-radius:6px}.contact{font-size:13px}.kind{width:100%;display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid rgba(255,255,255,.18);padding-top:12px}.kind .t{font-size:24px}.kind .n{margin-top:0}}
 .footbtns{display:flex;gap:8px;flex-wrap:wrap}
-.mcbox{flex-basis:100%;display:flex;flex-direction:column;gap:9px;padding:14px;border:1px solid var(--line);border-radius:10px}
+.mcbox{flex-basis:100%;display:flex;flex-direction:column;gap:9px;padding:14px;border:1px solid #E3B64A;border-radius:10px;background:rgba(227,182,74,.06)}
 .mcbox[hidden]{display:none}
 .mcopt{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink);word-break:break-all}
 .mcopt input{flex:none;min-width:0;width:18px;height:18px;margin:0;accent-color:var(--gold)}
@@ -805,13 +805,14 @@ function render(d){
         <div class="mcrow"><button type="button" id="mcSend">Send</button><span id="mcMsg"></span></div>
       </div></div>`;
 
-  if (document.getElementById("photoBox")) wireNote(d, isQuote, num);
+  if (document.getElementById("photoBox")) { try { wireNote(d, isQuote, num); } catch (e) { console.error(e); } }   /* a hiccup there never stops the buttons below */
 
   /* Email me a copy: the email on the quote, or a new one. The email has the link and a Save as PDF button (no attachment). */
   (() => {
     const btn = document.getElementById("mcBtn"), box = document.getElementById("mcBox"); if (!btn || !box) return;
     const nw = document.getElementById("mcNew"), msg = document.getElementById("mcMsg"), send = document.getElementById("mcSend");
-    btn.addEventListener("click", () => { box.hidden = !box.hidden; msg.textContent = ""; });
+    btn.addEventListener("click", () => { box.hidden = !box.hidden; msg.textContent = "";
+      if (!box.hidden) { box.scrollIntoView({ behavior: "smooth", block: "center" }); if (!nw.hidden) nw.focus({ preventScroll: true }); } });   /* the box opens below the bottom of the page: bring it into view */
     box.addEventListener("change", e => { if (e.target.name === "mcTo") { nw.hidden = e.target.value !== "new"; if (!nw.hidden) nw.focus(); } });
     send.addEventListener("click", async () => {
       const pick = box.querySelector('input[name="mcTo"]:checked'), to = (pick && pick.value !== "new" ? pick.value : nw.value).trim();
