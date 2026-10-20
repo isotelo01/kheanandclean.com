@@ -45,6 +45,9 @@ button[disabled]{ opacity:.6; cursor:default; }
   border-radius:0; font:500 .85rem "Archivo",sans-serif; letter-spacing:0; text-decoration:underline; }
 :where(button,a):focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 .back{ display:inline-block; margin-top:20px; font-size:.85rem; color:rgba(244,241,234,.55); text-decoration:none; }
+.ghost{ background:none; color:var(--gold); border:1px solid var(--gold); padding:.6rem; font-size:.9rem;
+  margin:-4px 0 14px; letter-spacing:0; }
+.verified{ margin:-4px 0 14px; text-align:left; font-size:.9rem; color:#9fd8b8; }
 [hidden]{ display:none !important; }
 </style>
 </head>
@@ -82,14 +85,21 @@ button[disabled]{ opacity:.6; cursor:default; }
     <label for="contact">Your name</label>
     <input id="contact" required maxlength="190" autocomplete="name">
     <label for="phone">Phone</label>
-    <input id="phone" type="tel" maxlength="40" autocomplete="tel">
+    <input id="phone" type="tel" maxlength="40" autocomplete="tel" required>
+    <button type="button" class="ghost" id="codeSendBtn">Text me a code</button>
+    <div id="codeBox" hidden>
+      <label for="code">Code from the text</label>
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*">
+      <button type="button" class="ghost" id="codeCheckBtn">Check code</button>
+    </div>
+    <p class="verified" id="phoneOk" hidden>&#10003; Phone verified</p>
     <label for="type">You are a</label>
     <select id="type">
       <option>Property management</option>
       <option>Realtor</option>
       <option>Commercial</option>
     </select>
-    <button type="submit" id="profileBtn">Finish signing up</button>
+    <button type="submit" id="profileBtn" disabled>Finish signing up</button>
   </form>
 
   <p class="err" id="err" role="status"></p>
@@ -104,6 +114,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPasswor
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -201,8 +212,48 @@ onAuthStateChanged(auth, async u => {
   $("biz").focus();
 });
 
+/* Phone check: a 6-digit code texted from the business number (b2bPhoneSend / b2bPhoneCheck).
+   Finish signing up stays off until the number in the Phone box is the one that was verified. */
+const fns = getFunctions(app, "us-central1");
+const sendCode = httpsCallable(fns, "b2bPhoneSend"), checkCode = httpsCallable(fns, "b2bPhoneCheck");
+const digits = v => String(v || "").replace(/\D/g, "").slice(-10);
+let verifiedPhone = "";
+const phoneIsVerified = () => !!verifiedPhone && digits($("phone").value) === verifiedPhone;
+const lockFinish = () => {
+  const ok = phoneIsVerified();
+  $("profileBtn").disabled = !ok; $("phoneOk").hidden = !ok; $("codeSendBtn").hidden = ok;
+};
+$("phone").addEventListener("input", lockFinish);
+$("code").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("codeCheckBtn").click(); } });
+
+$("codeSendBtn").onclick = async () => {
+  const phone = $("phone").value.trim();
+  if (digits(phone).length !== 10) { say("Type your 10-digit phone number first."); $("phone").focus(); return; }
+  const b = $("codeSendBtn"); b.disabled = true; say("");
+  try {
+    await sendCode({ phone });
+    $("codeBox").hidden = false; $("code").value = ""; $("code").focus();
+    b.textContent = "Text me a new code";
+    say("Code sent. It can take a minute to arrive.", true);
+  } catch (ex) { console.error(ex); say(ex.message || "Could not send the code. Try again."); }
+  b.disabled = false;
+};
+
+$("codeCheckBtn").onclick = async () => {
+  const code = $("code").value.trim();
+  if (!/^\d{6}$/.test(code)) { say("Type the 6-digit code from the text."); $("code").focus(); return; }
+  const b = $("codeCheckBtn"); b.disabled = true; say("");
+  try {
+    const r = (await checkCode({ code })).data || {};
+    if (r.verified) { verifiedPhone = digits(r.phone); $("codeBox").hidden = true; lockFinish(); say("Phone verified.", true); }
+    else say("That code isn't right. " + r.left + (r.left === 1 ? " try" : " tries") + " left.");
+  } catch (ex) { console.error(ex); say(ex.message || "Could not check the code. Try again."); }
+  b.disabled = false;
+};
+
 $("profileForm").addEventListener("submit", async e => {
   e.preventDefault(); if (!user) return;
+  if (!phoneIsVerified()) { say("Verify your phone first: tap Text me a code."); return; }
   const btn = $("profileBtn"); btn.disabled = true; btn.textContent = "Saving…"; say("");
   try {
     await setDoc(doc(db, "partners", user.uid), {
