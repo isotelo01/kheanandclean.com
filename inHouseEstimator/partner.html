@@ -96,6 +96,13 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
   .slot{ min-width:62px; }
   .calnav{ margin-left:0; width:100%; justify-content:space-between; }
 }
+/* Delete my account (bottom of the gear menu). */
+.delzone{ margin-top:20px; padding-top:14px; border-top:1px solid rgba(255,255,255,.12); }
+.delbtn{ background:none; color:#ff9b8a; border:1px solid rgba(255,155,138,.6); padding:.55rem 1.1rem; font-size:.88rem; }
+.delwarn{ font-size:.9rem; color:var(--cream); margin:12px 0; }
+.delacts{ display:flex; flex-wrap:wrap; gap:8px; }
+.delgo{ background:#c0392b; color:#fff; }
+.delno{ background:none; color:var(--muted); border:1px solid rgba(255,255,255,.25); }
 /* Estimate button: the big one in Book a cleaning. */
 .act.est{ background:var(--gold); border-color:var(--gold); }
 .act.est b{ color:var(--navy); }
@@ -166,6 +173,19 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
       <button type="submit" id="saveBtn">Save changes</button>
       <p class="msg" id="msg" role="status"></p>
     </form>
+
+    <!-- Delete my account: removes their partner profile and their login. Asks them to confirm,
+         then re-checks it's really them (password, or Google again) before deleting. -->
+    <div class="delzone">
+      <button type="button" class="delbtn" id="delBtn">Delete my account</button>
+      <div id="delBox" hidden>
+        <p class="delwarn">This deletes your partner account and your login for good. Estimates you already sent stay with Khean &amp; Clean.</p>
+        <div id="delPwRow" hidden><label for="delPw">Your password</label><input id="delPw" type="password" autocomplete="current-password"></div>
+        <div class="delacts"><button type="button" class="delgo" id="delGo">Yes, delete my account</button>
+          <button type="button" class="delno" id="delNo">Cancel</button></div>
+        <p class="msg bad" id="delMsg" role="status"></p>
+      </div>
+    </div>
   </section>
   </dialog>
 
@@ -177,8 +197,9 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
+import { getAuth, onAuthStateChanged, signOut, deleteUser, reauthenticateWithPopup, reauthenticateWithCredential,
+  GoogleAuthProvider, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const app = initializeApp({
@@ -232,6 +253,38 @@ $("closeBtn").onclick = () => settings.close();
 settings.addEventListener("click", e => { if (e.target === settings) settings.close(); });
 
 $("signOutBtn").onclick = () => signOut(auth).catch(console.error);
+
+/* Delete my account: confirm, prove it's them again (Google pop-up, or their password), then delete
+   the partner profile and the login. Signed out after, so the page goes back to the login. */
+const usesGoogle = () => (auth.currentUser?.providerData || []).some(p => p.providerId === "google.com");
+$("delBtn").onclick = () => {
+  $("delBox").hidden = false; $("delBtn").hidden = true; $("delMsg").textContent = "";
+  $("delPwRow").hidden = usesGoogle();
+};
+$("delNo").onclick = () => { $("delBox").hidden = true; $("delBtn").hidden = false; $("delPw").value = ""; };
+$("delGo").onclick = async () => {
+  const u = auth.currentUser, msg = $("delMsg"), btn = $("delGo");
+  if (!u) return;
+  msg.textContent = ""; btn.disabled = true; btn.textContent = "Deleting…";
+  try {
+    if (usesGoogle()) await reauthenticateWithPopup(u, new GoogleAuthProvider());
+    else {
+      const pw = $("delPw").value;
+      if (!pw) throw Object.assign(new Error("Type your password first."), { code: "kc/no-password" });
+      await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, pw));
+    }
+    await deleteDoc(doc(db, "partners", u.uid));
+    await deleteUser(u);
+    location.replace("./b2b-login.html");
+  } catch (e) {
+    console.error(e);
+    const SAYS = { "kc/no-password": "Type your password first.", "auth/wrong-password": "That password isn't right.",
+      "auth/invalid-credential": "That password isn't right.", "auth/popup-closed-by-user": "Google sign-in was closed. Try again.",
+      "auth/too-many-requests": "Too many tries. Wait a minute and try again." };
+    msg.textContent = SAYS[e.code] || "Couldn't delete your account. Try again, or call (916) 767-2520.";
+    btn.disabled = false; btn.textContent = "Yes, delete my account";
+  }
+};
 </script>
 <script>
 /* Availability calendar: open / booked AM and PM slots for the next 60 days (getOpenSlots answers
