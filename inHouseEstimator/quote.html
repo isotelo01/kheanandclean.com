@@ -71,22 +71,22 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
   .mascot{display:contents}
   .mascot img{grid-column:2;grid-row:1 / span 2;width:min(45vw,225px);height:auto;align-self:start;margin-top:-10px;margin-right:34px}
   .mascot span{grid-column:1 / -1;grid-row:3;margin-top:0;font-size:17px;letter-spacing:.1em;text-align:center}
+  .meta .jobrep{grid-column:1 / -1;grid-row:4;margin:6px 0 0}   /* Job Report: full width under the guarantee */
 }
 @media (max-width:400px){.mascot img{width:40vw;margin-right:4px}}   /* smaller phones: keep the street on one line */
 /* Computers: Accepted pill right under the phone number; the mascot big on the right with the
    guarantee under him, reaching down beside the (shorter) Job Report button on the left. */
 @media (min-width:561px){
-  .meta{display:block;position:relative}
-  .meta .r{text-align:left;margin-top:10px}
+  /* Grid: left column = Prepared for, the pill, the Job Report button; right column = the mascot
+     with his line under him. The price list always starts below whichever side is taller. */
+  .meta{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto 1fr;column-gap:20px;row-gap:0;align-items:start}
+  .meta > div:first-child{grid-column:1;grid-row:1}
+  .meta .r{grid-column:1;grid-row:2;text-align:left;margin-top:10px}
   .meta .dstat{margin-top:0!important}
-  .mascot{position:absolute;top:-24px;right:70px}
+  .meta .jobrep{grid-column:1;grid-row:3;margin:18px 0 0!important;max-width:380px!important}
+  .mascot{grid-column:2;grid-row:1 / span 3;margin:-24px 70px 0 0}
   .mascot img{height:280px}
   .mascot span{font-size:18px;margin-top:6px}
-  .meta:not(:has(+ .jobrep)){min-height:310px}   /* no Job Report button: keep the price list below him */
-  .jobrep{margin-left:0!important;margin-bottom:56px!important;max-width:380px!important}
-  /* Paid invoice: the review line + thank-you is taller, so a bit more room above the price list. */
-  .meta:has(.grev) + .jobrep{margin-bottom:86px!important}
-  .meta:has(.grev):not(:has(+ .jobrep)){min-height:345px}
 }
 /* Line labels: name and size on one line, phones and computers alike (see twoLine). */
 br.tl{display:none}
@@ -729,9 +729,9 @@ function render(d){
           ? `<span class="grev"><a href="${REVIEW_URL}" target="_blank" rel="noopener">Leave us a <b class="g">Google</b> review</a><small>Your review means the world to us. Thank you so much!</small></span>`
           : `<span>7-Day Re-Clean Guarantee</span>`}</div>
         <div class="r"><h3 class="dfull">Date</h3><p class="dfull">${dateText}</p>${statusHtml ? `<p class="dstat" style="margin-top:10px">${statusHtml}</p>` : ""}</div>
-      </div>
       ${(d.onsite || d.spots) && !new URLSearchParams(location.search).has("original")
         ? `<a class="jobrep" href="./job-sheet.html?id=${encodeURIComponent(id)}&view=customer" target="_blank" rel="noopener"><span class="jrico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9z"/><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" opacity=".7"/></svg></span><span class="jrtxt"><span class="jrt">Your Job Report</span><span class="jrs">Photos &amp; details of your clean</span></span><span class="jrarr" aria-hidden="true">&rsaquo;</span></a>` : ""}
+      </div>
       <table>
         <thead><tr><th>Service</th><th class="r">Amount</th></tr></thead>
         <tbody>${(d.lines || []).map(l => `<tr class="head"><td>${brandTier(twoLine(l.label))}</td><td class="r">${money(l.cost)}</td></tr>` +
