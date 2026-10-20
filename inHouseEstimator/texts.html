@@ -780,20 +780,22 @@ function showCalls() {
 /* ---------- left panel: Leads, Approved leads, Contacts ----------
    Read once when the page opens (same collections leads.html, approved-leads.html and
    customers.html use). Unread counts stay live from smsThreads. */
-const people = {leads: [], approved: [], contacts: []};
+const people = {leads: [], approved: [], contacts: [], prospects: []};
 const nameByKey = {};      // phone key -> name, so texts show a name instead of a number
 let unreadByKey = {}, peopleLoaded = false;
 const GROUPS = [
   {k: "leads", label: "Leads", open: true},
   {k: "approved", label: "Approved leads", open: true},
-  {k: "contacts", label: "Contacts", open: false}
+  {k: "contacts", label: "Contacts", open: false},
+  {k: "prospects", label: "Cold calls", open: false}   // businesses from the Cold Calls page
 ];
 const openState = {};
 GROUPS.forEach(g => { openState[g.k] = g.open; });
 
 async function loadPeople() {
-  const [L, A, C] = await Promise.allSettled([
-    getDocs(collection(db, "leads")), getDocs(collection(db, "acceptedQuotes")), getDocs(collection(db, "customers"))]);
+  const [L, A, C, P] = await Promise.allSettled([
+    getDocs(collection(db, "leads")), getDocs(collection(db, "acceptedQuotes")), getDocs(collection(db, "customers")),
+    getDocs(collection(db, "prospects"))]);
   const seen = new Set();
   const take = (list, rows) => rows.forEach(r => {
     if (!r.k || seen.has(r.k)) return;
@@ -815,7 +817,9 @@ async function loadPeople() {
     const biz = c.type && !/resid/i.test(c.type) && c.business;
     return {k: key(phone), name: (biz ? c.business : c.name) || c.business || "No name", sub: ""};
   }).sort(byName));
-  [L, A, C].forEach(s => { if (s.status === "rejected") console.warn("people load", s.reason); });
+  // Cold calls last: a business that's already a customer or lead shows there instead.
+  take(people.prospects, docs(P).map(p => ({k: key(p.phone), name: p.business || p.contact || "No name", sub: p.contact || ""})).sort(byName));
+  [L, A, C, P].forEach(s => { if (s.status === "rejected") console.warn("people load", s.reason); });
   peopleLoaded = true;
   renderPeople();
   // An open conversation with no saved name picks one up now.
