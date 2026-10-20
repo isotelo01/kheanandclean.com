@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="robots" content="noindex, nofollow">
+<title>Cold Calls &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Cold Calls: business-to-business prospects (property managers, realtors, partner businesses, commercial).
+   One profile per business, stored in Firestore "prospects". Closest towns sort first:
+   Folsom, El Dorado Hills, Granite Bay, Roseville, then everywhere else. Follow-ups due sit at the top. */
+:root{--navy:#172239;--gold:#E3B64A}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#000;z-index:9}
+.wrap{max-width:900px;margin:0 auto;padding:22px 16px 110px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.top img{width:56px;height:56px;border-radius:8px}
+h1{font:700 30px/1.2 "Playfair Display",Georgia,serif;margin:0;color:var(--gold)}
+.back{margin-left:auto;color:var(--gold);text-decoration:none;font-weight:600}
+h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:24px 0 10px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{background:var(--navy);color:#fff;border:1px solid rgba(227,182,74,.5);border-radius:999px;padding:7px 14px;font:600 14px "Archivo",sans-serif;cursor:pointer}
+.chip.on{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+.chip b{font-weight:700;opacity:.75;margin-left:4px}
+input,select,textarea{font:inherit;background:#000;color:#fff;border:1px solid rgba(227,182,74,.5);border-radius:8px;padding:9px 11px;width:100%}
+textarea{min-height:70px;resize:vertical}
+.search{flex:1;min-width:180px}
+.btn{background:var(--gold);color:var(--navy);border:0;border-radius:999px;padding:9px 18px;font:700 15px "Archivo",sans-serif;cursor:pointer;white-space:nowrap}
+.btn.ghost{background:transparent;color:var(--gold);border:1px solid var(--gold)}
+.btn.small{padding:6px 12px;font-size:13px}
+.btn.red{background:transparent;color:#ff8a7a;border:1px solid #ff8a7a}
+.btn:disabled{opacity:.5;cursor:default}
+.msg{color:#ff8a7a;font-size:14px;margin:10px 0}
+.muted{color:rgba(255,255,255,.6)}
+.card{background:var(--navy);border:1px solid rgba(227,182,74,.45);border-left:4px solid var(--gold);border-radius:10px;margin-top:10px}
+.card.due{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.card>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
+.card>summary::-webkit-details-marker{display:none}
+.cn{font:700 17px/1.3 "Archivo",sans-serif}
+.cs{display:block;font-size:13px;color:rgba(255,255,255,.7)}
+.tag{display:inline-block;font:700 11px "Archivo",sans-serif;text-transform:uppercase;letter-spacing:.06em;border-radius:4px;padding:2px 7px;margin-right:6px;vertical-align:2px}
+.t-pm{background:#2f7d5b}.t-realtor{background:#7a3fb0}.t-partner{background:#1f6fb2}.t-commercial{background:#b5651d}
+.st{margin-left:auto;flex:none;font:600 12px "Archivo",sans-serif;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.st.hot{border-color:#7fd6a4;color:#7fd6a4}.st.cold{border-color:#ff8a7a;color:#ff8a7a}.st.warm{border-color:var(--gold);color:var(--gold)}
+.body{padding:0 14px 14px}
+.row{display:grid;grid-template-columns:110px 1fr;gap:4px 12px;font-size:14.5px;margin-top:6px}
+.row dt{color:rgba(255,255,255,.6)}
+.row dd{margin:0;overflow-wrap:anywhere}
+.row a{color:var(--gold)}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+label{display:block;font-size:13px;color:rgba(255,255,255,.7);margin-bottom:3px}
+.notes{margin-top:12px}
+.note{border-left:2px solid rgba(227,182,74,.5);padding:2px 0 2px 10px;margin-top:6px;font-size:14px}
+.note small{display:block;color:rgba(255,255,255,.55);font-size:12px}
+.form{background:var(--navy);border:1px solid var(--gold);border-radius:10px;padding:14px;margin-top:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid .full{grid-column:1/-1}
+.empty{color:rgba(255,255,255,.6);padding:14px 2px}
+@media (max-width:560px){.grid,.two{grid-template-columns:1fr}.row{grid-template-columns:90px 1fr}}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Cold Calls</h1>
+    <a class="back" href="./hub.html">&lsaquo; Hub</a>
+  </div>
+
+  <div class="bar" id="chips"></div>
+  <div class="bar" style="margin-top:10px">
+    <input class="search" id="q" type="search" placeholder="Search name, contact, city, notes">
+    <button type="button" class="btn" id="addBtn">+ Add business</button>
+  </div>
+  <div id="seedBox"></div>
+  <div id="msg" class="msg" hidden></div>
+  <div id="formBox"></div>
+  <div id="list"><div class="empty">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app), COL = "prospects";
+
+const TYPES = { pm: "Property manager", realtor: "Realtor", partner: "Partner", commercial: "Commercial" };
+const STATUSES = ["New", "No answer", "Left message", "Talked", "Follow up", "Interested", "Partner", "Not interested"];
+const statusTone = s => s === "Interested" || s === "Partner" ? "hot" : s === "Not interested" ? "cold" : s === "Follow up" || s === "Talked" ? "warm" : "";
+/* Closest first. Anything not listed sorts after Roseville. */
+const CITY_RANK = { "folsom": 1, "el dorado hills": 2, "granite bay": 3, "roseville": 4 };
+const cityRank = c => CITY_RANK[String(c || "").trim().toLowerCase()] || 9;
+
+/* Starter list from a web search (Oct 2026): business offices only, office numbers where one was found.
+   Blank phone = not found yet; look it up before calling. */
+const SEED = [
+  { type:"pm", business:"Residential Equity Management", city:"Folsom", address:"101 Parkshore Dr #100, Folsom, CA 95630", phone:"(916) 458-5244", website:"https://www.residentialequitymgmt.com" },
+  { type:"pm", business:"Leu Real Estate & Property Management", city:"El Dorado Hills", address:"2201 Francisco Dr Ste 140, El Dorado Hills, CA 95762", info:"Property management + sales, El Dorado / Placer / Sacramento counties" },
+  { type:"pm", business:"Star Home USA", city:"El Dorado Hills", phone:"(916) 678-1818", contact:"Ken Wong (broker / property manager)" },
+  { type:"pm", business:"Expert Property Management", city:"El Dorado Hills", info:"CA DRE 01298055. Manages rentals in EDH." },
+  { type:"pm", business:"Professional Property Management", city:"El Dorado Hills", phone:"(916) 353-1900", info:"Phone taken from one of their EDH rental listings. Check it's the office line." },
+  { type:"pm", business:"Utopia Management", city:"Granite Bay", phone:"(800) 294-4656", website:"https://utopiamanagement.com", info:"Regional company, has Folsom / Granite Bay / EDH pages." },
+  { type:"pm", business:"RentPros Property Management", city:"Roseville", address:"730 Sunrise Ave #140, Roseville, CA 95661", phone:"(916) 789-3500" },
+  { type:"pm", business:"American Horizon Property", city:"Roseville", address:"2310 Professional Dr Ste 100, Roseville, CA 95661", phone:"(916) 781-6858" },
+  { type:"pm", business:"SunCal Real Estate Group", city:"Roseville", address:"1013 Galleria Blvd #290, Roseville, CA 95678", phone:"(916) 788-9700", info:"Apartments, single family, commercial, offices." },
+  { type:"realtor", business:"Keller Williams Realty Folsom", city:"Folsom", info:"Big office, about 177 agents. Ask for the office manager / team leader." },
+  { type:"realtor", business:"Lyon Real Estate (Folsom)", city:"Folsom" },
+  { type:"realtor", business:"Legends Real Estate (The Real Brokerage)", city:"Folsom", info:"Top Folsom team by volume." },
+  { type:"realtor", business:"Moving On Up Real Estate (LPT Realty)", city:"Folsom", info:"Top Folsom team." },
+  { type:"realtor", business:"Donovan Real Estate", city:"Folsom" },
+  { type:"realtor", business:"Coldwell Banker El Dorado Hills", city:"El Dorado Hills", address:"4370 Town Center Blvd Ste 270, El Dorado Hills, CA 95762", phone:"(916) 933-1155" },
+  { type:"realtor", business:"Windermere Signature Properties", city:"El Dorado Hills", address:"3900 Park Dr Ste 100, El Dorado Hills, CA 95762" },
+  { type:"realtor", business:"Keller Williams Realty El Dorado Hills", city:"El Dorado Hills", address:"3907 Park Dr Ste 220, El Dorado Hills, CA 95762" },
+  { type:"partner", business:"Chicago Title (Folsom)", city:"Folsom", address:"2600 E Bidwell St Ste 100, Folsom, CA 95630", phone:"(916) 983-8909", info:"Title / escrow. Realtors pass through here; good for referrals and leaving cards." },
+  { type:"partner", business:"Chicago Title (El Dorado Hills)", city:"El Dorado Hills", address:"4364 Town Center Blvd Ste 310, El Dorado Hills, CA 95762", phone:"(916) 713-4440", info:"Title / escrow." },
+  { type:"partner", business:"Folsom Clean", city:"Folsom", address:"240 Natoma Station Dr, Folsom, CA 95630", phone:"(916) 249-9725", website:"https://folsomclean.com", info:"Maid service, homes + offices + Airbnb + move-outs." },
+  { type:"partner", business:"Home Sweet Clean with Jess", city:"Folsom", phone:"(916) 755-2895", info:"Small house-cleaning outfit, does move-in / move-out." },
+  { type:"partner", business:"Folsom Cleaning Service, Inc", city:"Folsom", info:"Heads up: lists carpet cleaning too, so they may be a competitor rather than a partner." }
+];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2, "0");
+const today = () => { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const fmtDate = k => k ? new Date(k + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
+const fmtWhen = iso => { try { return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; } };
+const digits = p => String(p || "").replace(/[^\d+]/g, "");
+const isDue = p => p.followUp && p.followUp <= today() && p.status !== "Not interested";
+const showMsg = t => { const m = $("msg"); m.textContent = t; m.hidden = !t; };
+const failMsg = e => { console.error(e); showMsg("Couldn't save. " + (e && e.code === "permission-denied"
+  ? "Firestore rules are blocking the \"prospects\" collection." : (e && e.message) || "")); };
+
+let items = [], filter = "all", openId = null, editing = null;
+
+async function load(){
+  try {
+    const s = await getDocs(collection(db, COL));
+    items = s.docs.map(d => ({ ...d.data(), id: d.id }));
+    showMsg("");
+  } catch (e) { console.error(e); items = [];
+    showMsg(e && e.code === "permission-denied" ? "Firestore rules are blocking the \"prospects\" collection." : "Could not load the list."); }
+  render();
+}
+
+function sorted(list){
+  return list.slice().sort((a, b) => cityRank(a.city) - cityRank(b.city) ||
+    String(a.business || "").localeCompare(String(b.business || "")));
+}
+
+function render(){
+  const counts = { all: items.length };
+  Object.keys(TYPES).forEach(t => counts[t] = items.filter(p => p.type === t).length);
+  $("chips").innerHTML = [["all", "All"], ...Object.entries(TYPES).map(([k, v]) => [k, v + (k === "pm" ? "s" : k === "realtor" ? "s" : k === "partner" ? "s" : "")])]
+    .map(([k, v]) => '<button type="button" class="chip' + (filter === k ? ' on' : '') + '" data-f="' + k + '">' + esc(v) + '<b>' + counts[k] + '</b></button>').join("");
+
+  const missing = SEED.filter(s => !items.some(p => String(p.business).toLowerCase() === s.business.toLowerCase()));
+  /* Once the starter list has been added, don't offer it again (so a deleted business stays deleted). */
+  let seeded = false; try { seeded = localStorage.getItem("kcProspectsSeeded") === "1"; } catch (e) {}
+  $("seedBox").innerHTML = missing.length && !seeded
+    ? '<div class="form" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px">' + missing.length +
+      ' researched businesses in Folsom, El Dorado Hills, Granite Bay and Roseville are ready to add.</span>' +
+      '<button type="button" class="btn" id="seedBtn">Add them</button></div>' : "";
+
+  const q = $("q").value.trim().toLowerCase();
+  const shown = items.filter(p => (filter === "all" || p.type === filter) &&
+    (!q || [p.business, p.contact, p.city, p.address, p.phone, p.email, p.info, p.status, ...(p.notes || []).map(n => n.text)]
+      .join(" ").toLowerCase().includes(q)));
+  const due = sorted(shown.filter(isDue)), rest = sorted(shown.filter(p => !isDue(p)));
+
+  $("list").innerHTML = !shown.length ? '<div class="empty">' + (items.length ? "Nothing matches." : "No businesses yet.") + '</div>' :
+    (due.length ? '<h2>Follow-ups due</h2>' + due.map(card).join("") : "") +
+    (rest.length ? '<h2>' + (due.length ? "Everyone else" : "Closest first") + '</h2>' + rest.map(card).join("") : "");
+}
+
+function card(p){
+  const st = p.status || "New", notes = (p.notes || []).slice().reverse();
+  const addrLink = p.address ? '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address) + '" target="_blank" rel="noopener">' + esc(p.address) + '</a>' : "";
+  const site = p.website ? '<a href="' + esc(p.website) + '" target="_blank" rel="noopener">' + esc(p.website.replace(/^https?:\/\/(www\.)?/, "")) + '</a>' : "";
+  const rows = [["Contact", esc(p.contact)], ["Phone", p.phone ? '<a href="tel:' + esc(digits(p.phone)) + '">' + esc(p.phone) + '</a>' : '<span class="muted">Not found yet</span>'],
+    ["Email", p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : ""], ["Website", site], ["Address", addrLink],
+    ["City", esc(p.city)], ["Follow up", p.followUp ? esc(fmtDate(p.followUp)) : ""], ["About", esc(p.info)]].filter(r => r[1]);
+  return '<details class="card' + (isDue(p) ? ' due' : '') + '" data-id="' + esc(p.id) + '"' + (openId === p.id ? ' open' : '') + '>' +
+    '<summary><div><span class="tag t-' + esc(p.type) + '">' + esc(TYPES[p.type] || p.type) + '</span><span class="cn">' + esc(p.business) + '</span>' +
+      '<span class="cs">' + esc([p.city, p.contact, p.phone].filter(Boolean).join(" \u00b7 ")) +
+      (p.followUp ? ' \u00b7 follow up ' + esc(fmtDate(p.followUp)) : '') + '</span></div>' +
+      '<span class="st ' + statusTone(st) + '">' + esc(st) + '</span></summary>' +
+    '<div class="body"><dl class="row">' + rows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join("") + '</dl>' +
+      '<div class="acts">' +
+        (p.phone ? '<a class="btn small" href="tel:' + esc(digits(p.phone)) + '">Call</a>' : '') +
+        '<button type="button" class="btn small ghost" data-log="No answer">No answer</button>' +
+        '<button type="button" class="btn small ghost" data-log="Left message">Left message</button>' +
+        '<button type="button" class="btn small ghost" data-log="Talked">Talked</button></div>' +
+      '<div class="two"><div><label>Status</label><select data-k="status">' +
+        STATUSES.map(s => '<option' + (s === st ? ' selected' : '') + '>' + s + '</option>').join("") + '</select></div>' +
+        '<div><label>Follow-up date</label><input type="date" data-k="followUp" value="' + esc(p.followUp || "") + '"></div></div>' +
+      '<div class="notes"><label>Add a note</label><textarea data-note placeholder="Who you talked to, what they said, what to bring next time"></textarea>' +
+        '<div class="acts"><button type="button" class="btn small" data-addnote>Save note</button>' +
+        '<button type="button" class="btn small ghost" data-edit>Edit profile</button>' +
+        '<button type="button" class="btn small red" data-del>Delete</button></div>' +
+        (notes.length ? notes.map(n => '<div class="note"><small>' + esc(fmtWhen(n.at)) + '</small>' + esc(n.text) + '</div>').join("") : '<div class="note muted">No notes yet.</div>') +
+      '</div></div></details>';
+}
+
+function form(p){
+  p = p || { type: filter !== "all" ? filter : "pm" };
+  const f = (k, label, type, full) => '<div' + (full ? ' class="full"' : '') + '><label>' + label + '</label><input name="' + k + '" type="' + (type || "text") + '" value="' + esc(p[k] || "") + '"></div>';
+  $("formBox").innerHTML = '<form class="form" id="pform"><div class="grid">' +
+    '<div><label>Type</label><select name="type">' + Object.entries(TYPES).map(([k, v]) => '<option value="' + k + '"' + (p.type === k ? ' selected' : '') + '>' + v + '</option>').join("") + '</select></div>' +
+    f("business", "Business name") + f("contact", "Contact person") + f("phone", "Phone", "tel") + f("email", "Email", "email") + f("website", "Website", "url") +
+    f("city", "City") + f("address", "Address") +
+    '<div class="full"><label>About</label><textarea name="info">' + esc(p.info || "") + '</textarea></div></div>' +
+    '<div class="acts"><button class="btn" type="submit">' + (p.id ? "Save changes" : "Add business") + '</button>' +
+    '<button class="btn ghost" type="button" id="cancelForm">Cancel</button></div></form>';
+  editing = p.id || "new";
+  $("pform").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("pform").querySelector('[name="business"]').focus({ preventScroll: true });
+}
+
+/* ---- Saving ---- */
+const find = id => items.find(p => p.id === id);
+async function patch(id, data){
+  const p = find(id); if (!p) return;
+  try { await updateDoc(doc(db, COL, id), { ...data, updatedAt: serverTimestamp() }); Object.assign(p, data); showMsg(""); }
+  catch (e) { failMsg(e); }
+  render();
+}
+async function addNote(id, text, status){
+  const p = find(id); if (!p || !text) return;
+  const notes = [...(p.notes || []), { at: new Date().toISOString(), text }];
+  await patch(id, status ? { notes, status } : { notes });
+}
+
+$("chips").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; filter = b.dataset.f; render(); });
+$("q").addEventListener("input", render);
+$("addBtn").addEventListener("click", () => form());
+
+$("seedBox").addEventListener("click", async e => {
+  if (!e.target.closest("#seedBtn")) return;
+  const btn = $("seedBtn"); btn.disabled = true; btn.textContent = "Adding\u2026";
+  const missing = SEED.filter(s => !items.some(p => String(p.business).toLowerCase() === s.business.toLowerCase()));
+  try {
+    for (const s of missing) {
+      const data = { ...s, status: "New", notes: [], source: "web search Oct 2026", createdAt: serverTimestamp() };
+      const ref = await addDoc(collection(db, COL), data);
+      items.push({ ...data, id: ref.id });
+    }
+    try { localStorage.setItem("kcProspectsSeeded", "1"); } catch (e) {}
+    showMsg("");
+  } catch (e) { failMsg(e); }
+  render();
+});
+
+$("formBox").addEventListener("click", e => { if (e.target.closest("#cancelForm")) { $("formBox").innerHTML = ""; editing = null; } });
+$("formBox").addEventListener("submit", async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target), data = {};
+  ["type", "business", "contact", "phone", "email", "website", "city", "address", "info"].forEach(k => data[k] = String(fd.get(k) || "").trim());
+  if (!data.business) { alert("Add a business name."); return; }
+  if (data.website && !/^https?:\/\//i.test(data.website)) data.website = "https://" + data.website;
+  const btn = e.target.querySelector('[type="submit"]'); btn.disabled = true;
+  try {
+    if (editing && editing !== "new") { await updateDoc(doc(db, COL, editing), { ...data, updatedAt: serverTimestamp() }); Object.assign(find(editing), data); openId = editing; }
+    else { const full = { ...data, status: "New", notes: [], createdAt: serverTimestamp() };
+      const ref = await addDoc(collection(db, COL), full); items.push({ ...full, id: ref.id }); openId = ref.id; }
+    $("formBox").innerHTML = ""; editing = null; showMsg("");
+  } catch (err) { failMsg(err); btn.disabled = false; return; }
+  render();
+});
+
+$("list").addEventListener("toggle", e => { const d = e.target; if (d.matches && d.matches("details.card")) {
+  if (d.open) openId = d.dataset.id; else if (openId === d.dataset.id) openId = null; } }, true);
+$("list").addEventListener("change", e => {
+  const el = e.target.closest("[data-k]"), c = e.target.closest(".card"); if (!el || !c) return;
+  patch(c.dataset.id, { [el.dataset.k]: el.value });
+});
+$("list").addEventListener("click", async e => {
+  const c = e.target.closest(".card"); if (!c) return; const id = c.dataset.id;
+  const log = e.target.closest("[data-log]");
+  if (log) { const t = log.dataset.log; const extra = c.querySelector("[data-note]").value.trim();
+    await addNote(id, t + (extra ? ": " + extra : ""), t); return; }
+  if (e.target.closest("[data-addnote]")) { await addNote(id, c.querySelector("[data-note]").value.trim()); return; }
+  if (e.target.closest("[data-edit]")) { form(find(id)); return; }
+  if (e.target.closest("[data-del]")) {
+    const p = find(id); if (!confirm("Delete " + (p ? p.business : "this business") + "? This can't be undone.")) return;
+    try { await deleteDoc(doc(db, COL, id)); items = items.filter(x => x.id !== id); showMsg(""); } catch (err) { failMsg(err); }
+    render();
+  }
+});
+
+/* Page lock. Not signed in -> login page, then back here. */
+let loaded = false;
+onAuthStateChanged(auth, user => {
+  if (!user) { location.replace("./login.html?next=cold-calls.html"); return; }
+  $("authwait")?.remove();
+  if (!loaded) { loaded = true; load(); }
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
