@@ -99,7 +99,7 @@ button[disabled]{ opacity:.6; cursor:default; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
-         createUserWithEmailAndPassword, sendPasswordResetEmail, setPersistence,
+         createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, setPersistence,
          browserLocalPersistence, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
@@ -167,7 +167,10 @@ $("emailForm").addEventListener("submit", async e => {
   const email = $("email").value.trim(), pw = $("pw").value;
   try {
     if (mode === "in") await signInWithEmailAndPassword(auth, email, pw);
-    else await createUserWithEmailAndPassword(auth, email, pw);
+    else {
+      const cred = await createUserWithEmailAndPassword(auth, email, pw);
+      sendEmailVerification(cred.user).catch(console.error);
+    }
   } catch (ex) { fail(ex, "Could not sign in. Try again."); }
   btn.disabled = false; btn.textContent = label;
 });
@@ -192,7 +195,8 @@ onAuthStateChanged(auth, async u => {
     if (snap.exists()) { location.replace("./partner.html"); return; }
   } catch (ex) { console.error(ex); }
   $("signin").hidden = true; $("profileForm").hidden = false;
-  $("sub").textContent = "Almost done. Tell us about your business.";
+  $("sub").textContent = "Almost done. Tell us about your business." +
+    (u.emailVerified ? "" : " We also emailed you a link to confirm your address. Check spam too.");
   if (u.displayName && !$("contact").value) $("contact").value = u.displayName;
   $("biz").focus();
 });
