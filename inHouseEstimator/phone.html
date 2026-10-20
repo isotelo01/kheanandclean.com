@@ -59,6 +59,13 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .vmerr{grid-column:1 / -1;color:var(--red);font-size:13px}
 .vmtext{grid-column:1 / -1;color:var(--ink);font-size:14px;font-style:italic}
 .call{justify-self:end;font:600 13px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 9px;background:#fff}
+/* Spam / business labels on the call list. */
+.callacts{justify-self:end;display:flex;gap:6px}
+button.call{cursor:pointer}
+button.call[data-spam]{color:var(--red)}
+.tag.typetag{background:#e6ebf3;color:var(--navy)}
+.tag.spamtag{background:var(--red);color:#fff}
+.row.spam{opacity:.6}
 /* Phone pill, call bar, dial pad: same as texts.html. */
 .phone{font:600 14px "Archivo";background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
 .phone.on{color:var(--green);border-color:var(--green)}
@@ -147,7 +154,7 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, updateDoc, getDocs }
+import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, updateDoc, getDocs, setDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
@@ -428,20 +435,42 @@ function vmRow(c) {
     '</div></div>';
 }
 
+/* Caller info (callerInfo/{+1XXXXXXXXXX}): blocked = marked spam (the backend rejects their calls),
+   type = "business" / "consumer" from Twilio's caller lookup. Labels only; nothing is blocked by type. */
+let callerInfo = {};
+const TYPE_TAG = {business: "Business", consumer: "Personal"};
 function callRow(c) {
-  const {k, name} = nameOf(c), out = c.dir === "out", missed = c.status === "missed";
+  const {k, name} = nameOf(c), out = c.dir === "out", missed = c.status === "missed", blockedCall = c.status === "blocked";
   const stale = c.status === "ringing" && Date.now() - ms(c.at) > 120000;
+  const num = !out && /^\+\d{8,15}$/.test(c.from || "") ? c.from : "";
+  const info = (num && callerInfo[num]) || {}, spam = !!info.blocked;
+  const type = TYPE_TAG[c.callerType || info.type] || "";
   const what = (out ? "Outgoing" : "Incoming") + DOT +
-    (c.status === "answered" ? "Answered" + (c.duration ? " " + mmss(c.duration) : "")
-      : missed ? (out ? "No answer" : "Missed") : stale ? "Ended" : "Ringing" + ELLIPSIS);
-  return '<div class="row' + (missed ? ' missed' : '') + '">' +
+    (blockedCall ? "Blocked (spam)"
+      : c.status === "answered" ? "Answered" + (c.duration ? " " + mmss(c.duration) : "")
+      : missed ? (out ? "No answer" : "Missed") : stale ? "Ended" : "Ringing" + ELLIPSIS) +
+    (c.cnam && c.cnam !== name ? DOT + c.cnam : "");
+  return '<div class="row' + (missed ? ' missed' : '') + (spam ? ' spam' : '') + '">' +
     '<span class="who">' + (k ? '<a href="./texts.html#' + esc(k) + '" title="Texts">' + esc(name) + '</a>' : esc(name)) +
-      (isVm(c) ? '<a class="tag" href="#voicemail" style="text-decoration:none">Voicemail</a>' : '') + '</span>' +
+      (isVm(c) ? '<a class="tag" href="#voicemail" style="text-decoration:none">Voicemail</a>' : '') +
+      (spam ? '<span class="tag spamtag">Spam</span>' : type ? '<span class="tag typetag">' + type + '</span>' : '') + '</span>' +
     '<span class="when">' + esc(whenShort(c.at)) + '</span>' +
     '<span class="last">' + esc(what) + '</span>' +
-    (k ? '<a class="call" href="tel:+1' + esc(k) + '">Call</a>' : '<span></span>') +
+    '<span class="callacts">' +
+      (num ? '<button type="button" class="call" data-spam="' + esc(num) + '">' + (spam ? 'Not spam' : 'Spam') + '</button>' : '') +
+      (k ? '<a class="call" href="tel:+1' + esc(k) + '">Call</a>' : '') + '</span>' +
   '</div>';
 }
+
+/* Spam: blocks the number (their calls get rejected without ringing). Not spam: unblocks it. */
+view.addEventListener("click", async e => {
+  const b = e.target.closest("[data-spam]"); if (!b) return;
+  const num = b.dataset.spam, on = !(callerInfo[num] && callerInfo[num].blocked);
+  if (on && !confirm("Mark " + num + " as spam? Their calls will be blocked and won't ring.")) return;
+  b.disabled = true;
+  try { await setDoc(doc(db, "callerInfo", num), {blocked: on}, {merge: true}); }
+  catch (err) { b.disabled = false; alert("Couldn't save that: " + ((err && err.message) || err)); }
+});
 
 // Play: fetch the file's link, swap the button for a player. Played to the end = heard.
 view.addEventListener("click", async e => {
@@ -498,6 +527,10 @@ function startCalls() {
     calls.forEach(c => { const {k} = nameOf(c); if (k && c.name && !nameByKey[k]) nameByKey[k] = c.name; });
     render();
   }, err => { view.innerHTML = '<div class="msg err">Could not load calls: ' + esc(err.message) + '</div>'; });
+  onSnapshot(collection(db, "callerInfo"), snap => {
+    callerInfo = {}; snap.docs.forEach(d => { callerInfo[d.id] = d.data(); });
+    render();
+  }, err => console.warn("callerInfo", err));
 }
 
 /* ---------- which tab ---------- */
