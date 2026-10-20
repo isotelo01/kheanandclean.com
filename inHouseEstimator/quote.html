@@ -108,6 +108,17 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-o
 @media (max-width:560px){.top,.body,.foot{padding-left:18px;padding-right:18px}.kind{text-align:left}.sheet{margin:0;border-radius:0}}
 /* phone letterhead: logo spans the full text block (name to phone line); "Invoice #I-1005" becomes one row under a thin rule */
 @media (max-width:560px){.idblock{gap:12px}.idblock img{width:88px;height:88px;border-radius:6px}.contact{font-size:13px}.kind{width:100%;display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid rgba(255,255,255,.18);padding-top:12px}.kind .t{font-size:24px}.kind .n{margin-top:0}}
+.footbtns{display:flex;gap:8px;flex-wrap:wrap}
+.mcbox{flex-basis:100%;display:flex;flex-direction:column;gap:9px;padding:14px;border:1px solid var(--line);border-radius:10px}
+.mcbox[hidden]{display:none}
+.mcopt{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--ink);word-break:break-all}
+.mcopt input{flex:none;min-width:0;width:18px;height:18px;margin:0;accent-color:var(--gold)}
+#mcNew{font:inherit;font-size:16px;padding:9px 11px;border:1px solid var(--line);border-radius:8px}
+#mcNew[hidden]{display:none}
+.mcrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#mcSend{font-size:15px;font-weight:700;padding:10px 26px}
+#mcMsg{font-size:14px}#mcMsg.err{color:#c0392b}#mcMsg.ok{color:#2e8b57}
+@media print{.mcbox{display:none!important}}
 @media print{body{background:#fff}.sheet{box-shadow:none;margin:0}.accept,.foot button{display:none}.top{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 /* ===== Estimator look: dark sheet, gold accents, serif itemized lines, big gold total.
    Everything below overrides the styles above; delete this block to go back. ===== */
@@ -786,9 +797,36 @@ function render(d){
       </div>` : ""}
       ${sigHtml}
     </div>
-    <div class="foot"><span>Thank you for choosing Khean &amp; Clean.</span><button class="ghost" onclick="print()">Print or save as PDF</button></div>`;
+    <div class="foot"><span>Thank you for choosing Khean &amp; Clean.</span><span class="footbtns"><button class="ghost" onclick="print()">Print or save as PDF</button><button class="ghost" id="mcBtn" type="button">Email me a copy</button></span>
+      <div class="mcbox" id="mcBox" hidden>
+        ${(d.customer || {}).email ? `<label class="mcopt"><input type="radio" name="mcTo" value="${esc(d.customer.email)}" checked> ${esc(d.customer.email)}</label>` : ""}
+        <label class="mcopt"><input type="radio" name="mcTo" value="new"${(d.customer || {}).email ? "" : " checked"}> New email</label>
+        <input type="email" id="mcNew" placeholder="you@example.com" autocomplete="email"${(d.customer || {}).email ? " hidden" : ""}>
+        <div class="mcrow"><button type="button" id="mcSend">Send</button><span id="mcMsg"></span></div>
+      </div></div>`;
 
   if (document.getElementById("photoBox")) wireNote(d, isQuote, num);
+
+  /* Email me a copy: the email on the quote, or a new one. The email has the link and a Save as PDF button (no attachment). */
+  (() => {
+    const btn = document.getElementById("mcBtn"), box = document.getElementById("mcBox"); if (!btn || !box) return;
+    const nw = document.getElementById("mcNew"), msg = document.getElementById("mcMsg"), send = document.getElementById("mcSend");
+    btn.addEventListener("click", () => { box.hidden = !box.hidden; msg.textContent = ""; });
+    box.addEventListener("change", e => { if (e.target.name === "mcTo") { nw.hidden = e.target.value !== "new"; if (!nw.hidden) nw.focus(); } });
+    send.addEventListener("click", async () => {
+      const pick = box.querySelector('input[name="mcTo"]:checked'), to = (pick && pick.value !== "new" ? pick.value : nw.value).trim();
+      if (!/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(to)) { msg.textContent = "Type a full email address."; msg.className = "err"; return; }
+      send.disabled = true; msg.className = ""; msg.textContent = "Sending…";
+      try {
+        const r = await fetch("https://us-central1-khean-estimator-78f3e.cloudfunctions.net/emailQuoteCopy", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, to }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || "It didn't send. Please try again.");
+        msg.className = "ok"; msg.textContent = "Sent to " + to + ". Check your inbox.";
+      } catch (e) { msg.className = "err"; msg.textContent = e.message; }
+      send.disabled = false;
+    });
+  })();
 
   /* Email "Save as PDF" button opens ...&pdf=1: pop the print / save-as-PDF sheet once the page is drawn. */
   if (new URLSearchParams(location.search).get("pdf") === "1" && !window.__pdfOnce) {
