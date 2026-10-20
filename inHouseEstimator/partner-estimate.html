@@ -362,6 +362,15 @@ function fill(){
   set("eBiz", me.businessName); set("eName", me.contactName); set("ePhone", me.phone); set("eEmail", me.email || (user && user.email));
 }
 
+/* Came from the portal calendar (?date=2026-10-28&slot=am): that day and start time are already picked. */
+function pickDay(){
+  const qs = new URLSearchParams(location.search), d = qs.get("date") || "", s = qs.get("slot") || "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+  const w = $("eWhen"), t = $("eWhenTime");
+  if (w) { w.value = d; w.dispatchEvent(new Event("input", { bubbles: true })); w.dispatchEvent(new Event("change", { bubbles: true })); }
+  if (t && (s === "am" || s === "pm")) { t.value = s === "am" ? "09:00" : "13:00"; t.dispatchEvent(new Event("change", { bubbles: true })); }
+}
+
 $("eSendBtn").addEventListener("click", async e => {
   e.preventDefault(); e.stopImmediatePropagation();
   const msg = $("pMsg"), btn = $("eSendBtn"), v = id => ($(id) ? $(id).value.trim() : "");
@@ -403,6 +412,7 @@ onAuthStateChanged(auth, async u => {
     me = s.data();
   }
   fill();
+  pickDay();
   $("authwait")?.remove();
 });
 </script>

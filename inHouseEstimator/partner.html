@@ -83,6 +83,8 @@ dialog#settings .card{ margin:0; position:relative; }
 .slots{ display:flex; flex-direction:column; gap:4px; margin-top:6px; }
 .slot{ font-size:.75rem; font-weight:700; border-radius:999px; padding:2px 8px; text-align:center; }
 .slot.open{ background:rgba(76,175,121,.22); color:#9fe0b9; border:1px solid rgba(76,175,121,.55); }
+a.slot.open{ display:block; text-decoration:none; cursor:pointer; }
+a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
 .slot.busy{ background:rgba(255,255,255,.06); color:rgba(244,241,234,.45); border:1px solid rgba(255,255,255,.12); text-decoration:line-through; }
 .calnote{ margin:10px 0 0; font-size:.82rem; color:var(--muted); }
 @media (max-width:759px){
@@ -120,7 +122,7 @@ dialog#settings .card{ margin:0; position:relative; }
         <span id="calRange"></span><button type="button" id="calNext" aria-label="Later two weeks">Next &rsaquo;</button></div>
     </div>
     <div class="cal" id="cal"><p class="empty">Loading&hellip;</p></div>
-    <p class="calnote">AM starts at 9 AM, PM at 1 PM. Bigger jobs can take the whole day.</p>
+    <p class="calnote">Tap an open AM or PM to start an estimate for that day. AM starts at 9 AM, PM at 1 PM. Bigger jobs can take the whole day.</p>
   </section>
 
   <section class="card">
@@ -250,7 +252,10 @@ $("signOutBtn").onclick = () => signOut(auth).catch(console.error);
     for (var i = 0; i < 14; i++) {
       var d = add(from, i), k = key(d), x = days[k];
       if (!x) { h += '<div class="day blank"></div>'; continue; }
-      var slot = function(open, lab){ return '<span class="slot ' + (open ? "open" : "busy") + '">' + lab + (open ? "" : "") + '</span>'; };
+      /* An open slot is a link: it opens the estimate with that day (and AM or PM) already picked. */
+      var slot = function(open, lab){ return open
+        ? '<a class="slot open" href="./partner-estimate.html?date=' + k + '&amp;slot=' + lab.toLowerCase() + '" title="Start an estimate for this ' + lab + '">' + lab + '</a>'
+        : '<span class="slot busy">' + lab + '</span>'; };
       h += '<div class="day' + (k === first ? " today" : "") + '"><div class="dt"><small>' + DOW[d.getDay()] + '</small>' +
         d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + (k === first ? " · Today" : "") + '</div>' +
         '<div class="slots">' + slot(x.am, "AM") + slot(x.pm, "PM") + '</div></div>';
