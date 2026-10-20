@@ -18,13 +18,15 @@
 body{ margin:0; min-height:100svh; display:grid; place-items:center;
   background:var(--navy); color:var(--cream);
   font:400 16px "Archivo",system-ui,-apple-system,sans-serif; padding:24px 16px; }
-/* Background photo (images/back ground.jpg) at 50% over the navy, fixed behind everything. */
-body::before{ content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
-  background:url("../images/back%20ground.jpg") center / cover no-repeat; opacity:.5; }
+/* Background photo (images/back ground.jpg): heavily blurred, black and white, 25% visible (75% clear)
+   over the navy, fixed behind everything. inset is negative so the blur doesn't leave soft edges. */
+body::before{ content:""; position:fixed; inset:-60px; z-index:-1; pointer-events:none;
+  background:url("../images/back%20ground.jpg") center / cover no-repeat;
+  filter:blur(28px) grayscale(1); opacity:.25; }
 .box{ width:100%; max-width:380px; text-align:center; }
 /* Big logo: 10x the old 64px, capped to the screen width on phones, centered even when wider than the form. */
 .box .logo{ display:block; width:min(640px, 90vw); height:auto; position:relative; left:50%; transform:translateX(-50%);
-  margin-bottom:18px; border-radius:16px; }
+  margin-bottom:18px; }
 h1{ font:700 1.35rem "Cinzel","Playfair Display",serif; margin:0 0 4px; }
 .sub{ margin:0 0 22px; font-size:.9rem; color:rgba(244,241,234,.62); }
 label{ display:block; text-align:left; font-size:.72rem; letter-spacing:.09em;
@@ -64,7 +66,7 @@ button[disabled]{ opacity:.6; cursor:default; }
 </head>
 <body>
 <div class="box">
-  <img class="logo" src="../images/icon-512.png" alt="Khean &amp; Clean Steam Cleaning">
+  <img class="logo" src="../images/logo-clear-1280.png" alt="Khean &amp; Clean Steam Cleaning">
   <h1>Khean &amp; Clean Partners</h1>
   <p class="sub" id="sub">Realtors, property managers and businesses</p>
 
