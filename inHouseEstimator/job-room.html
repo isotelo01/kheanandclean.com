@@ -144,9 +144,11 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getStorage, ref } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+/* Offline versions: work with no service and sync when it's back (offline.js). */
+import { getFirestore, getDoc, setDoc, uploadBytes, getDownloadURL, startOffline } from "./offline.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -594,7 +596,7 @@ if (PUBLIC) { document.getElementById("authwait")?.remove(); started = true; sho
 else onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=job-room.html"); return; }
   document.getElementById("authwait")?.remove();
-  if (!started) { started = true; show(); }
+  if (!started) { started = true; startOffline(storage); show(); }
 });
 </script>
 <script>

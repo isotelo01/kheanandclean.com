@@ -259,6 +259,7 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <h1 id="title">Job Sheet</h1>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
+      <button type="button" class="ghost" id="offlineBtn" hidden>Download offline job sheet</button>
       <button type="button" class="ghost" id="printBtn">Print</button>
       <a class="ghost" id="backBtn" href="./approved-leads.html">Back</a>
     </div>
@@ -269,10 +270,13 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 <script src="pricing.js"></script><!-- room sizes and add-on prices, shared with the estimator -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, updateDoc, serverTimestamp }
+import { doc, deleteDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref, getDownloadURL, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getStorage, ref } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+/* Offline versions: work with no service and sync when it's back (offline.js). */
+import { getFirestore, getDoc, setDoc, updateDoc, getDownloadURL, uploadBytes,
+  startOffline, saveForOffline, offlineJobs, rememberJob } from "./offline.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -971,7 +975,14 @@ view.addEventListener("click", e => {
 });
 
 async function show(){
-  if (!id) { view.innerHTML = '<div class="msg">No job picked. <a href="./approved-leads.html">Go to Approved Leads</a></div>'; return; }
+  if (!id) {
+    /* Jobs downloaded for offline are listed here, so they can be opened with no service. */
+    const off = PUBLIC ? [] : offlineJobs();
+    view.innerHTML = '<div class="msg">No job picked. <a href="./approved-leads.html">Go to Approved Leads</a></div>' +
+      (off.length ? '<div class="msg"><b>Downloaded for offline</b>' + off.map(j =>
+        '<br><a href="./job-sheet.html?id=' + encodeURIComponent(j.id) + '">' + esc(j.name) + '</a>' + (j.addr ? ' · ' + esc(j.addr) : '')).join("") + '</div>' : '');
+    return;
+  }
   let q = null, place = "";
   try {
     for (const p of PLACES) {
@@ -995,6 +1006,8 @@ async function show(){
   const js = q.jobSheet || {};
   const done = new Set(Array.isArray(js.done) ? js.done : []);
   const addr = [c.street, cityLine(c)].filter(Boolean).join(", ");
+  offJob = { id, name, addr };
+  if (!PUBLIC) document.getElementById("offlineBtn").hidden = false;
   const tel = String(c.phone || "").replace(/\D/g, "");
 
   /* One section per service on the quote; its rooms/areas are the checklist.
@@ -1594,6 +1607,19 @@ async function show(){
 
 document.getElementById("printBtn").addEventListener("click", () => window.print());
 
+/* Download offline job sheet: puts this job, its room pages and the app files on the phone,
+   so the sheet opens and saves with no service. Edits and photos sync once service is back. */
+let offJob = null;
+const offBtn = document.getElementById("offlineBtn");
+offBtn.addEventListener("click", async () => {
+  if (!offJob) return;
+  if (!navigator.onLine) { offBtn.textContent = "Needs service to download"; return; }
+  offBtn.disabled = true; offBtn.textContent = "Downloading…";
+  try { await saveForOffline(); rememberJob({ ...offJob, at: Date.now() }); offBtn.textContent = "Ready offline ✓"; }
+  catch (e) { console.error(e); offBtn.textContent = "Download failed — tap to retry"; }
+  finally { offBtn.disabled = false; }
+});
+
 /* ---- Photo viewer: tap a photo to open, tap backdrop, X or Esc to close ---- */
 (function () {
   const lb = document.createElement("div");
@@ -1620,7 +1646,7 @@ if (PUBLIC) { document.getElementById("authwait")?.remove(); started = true; sho
 else onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=job-sheet.html"); return; }
   document.getElementById("authwait")?.remove();
-  if (!started) { started = true; show(); }
+  if (!started) { started = true; startOffline(storage); show(); }
 });
 </script>
 <script src="./tabbar.js" defer></script>
