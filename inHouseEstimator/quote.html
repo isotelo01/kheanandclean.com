@@ -38,9 +38,12 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 .mascot{display:flex;flex-direction:column;align-items:center;text-align:center;align-self:center}
 .mascot img{height:190px;width:auto;display:block}
 .mascot span{margin-top:8px;color:var(--gold);font-size:15px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
-/* Paid invoices: "Leave us a Google review" in Google red, Google-style rounded font, links to the review page. */
-.mascot .grev a{color:#EA4335;font:600 1.25em "Poppins",system-ui,sans-serif;letter-spacing:.01em;text-transform:none;text-decoration:none;border-bottom:2px solid rgba(234,67,53,.45)}
-.mascot .grev a:hover{border-bottom-color:#EA4335}
+/* Paid invoices: "Leave us a Google review" in the gold guarantee style with just "Google" in
+   Google red (Google-style rounded font), linking to the review page; a thank-you line under it. */
+.mascot .grev a{color:inherit;text-decoration:none;border-bottom:2px solid rgba(227,182,74,.4)}
+.mascot .grev a:hover{border-bottom-color:var(--gold)}
+.mascot .grev .g{color:#EA4335;font:600 1.2em "Poppins",system-ui,sans-serif;letter-spacing:.01em;text-transform:none}
+.mascot .grev small{display:block;margin-top:8px;color:#c9d0de;font-size:.8em;font-weight:500;letter-spacing:.01em;text-transform:none}
 table{width:100%;border-collapse:collapse}
 th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left}
 th{font-size:13px;color:var(--muted);font-weight:600}
@@ -81,6 +84,9 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
   .mascot span{font-size:18px;margin-top:6px}
   .meta:not(:has(+ .jobrep)){min-height:310px}   /* no Job Report button: keep the price list below him */
   .jobrep{margin-left:0!important;margin-bottom:56px!important;max-width:380px!important}
+  /* Paid invoice: the review line + thank-you is taller, so a bit more room above the price list. */
+  .meta:has(.grev) + .jobrep{margin-bottom:86px!important}
+  .meta:has(.grev):not(:has(+ .jobrep)){min-height:345px}
 }
 /* Line labels: name and size on one line, phones and computers alike (see twoLine). */
 br.tl{display:none}
@@ -720,7 +726,7 @@ function render(d){
       <div class="meta">
         <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}<span class="phl">${c.phone ? "<span>" + esc(c.phone) + "</span>" : "<span></span>"}<span class="mdate">${dShort}</span></span></p></div>
         <div class="mascot"><img src="../images/mascot.webp" alt="Khean &amp; Clean mascot">${!isQuote && d.status === "paid"
-          ? `<span class="grev"><a href="${REVIEW_URL}" target="_blank" rel="noopener">Leave us a Google review</a></span>`
+          ? `<span class="grev"><a href="${REVIEW_URL}" target="_blank" rel="noopener">Leave us a <b class="g">Google</b> review</a><small>Your review means the world to us. Thank you so much!</small></span>`
           : `<span>7-Day Re-Clean Guarantee</span>`}</div>
         <div class="r"><h3 class="dfull">Date</h3><p class="dfull">${dateText}</p>${statusHtml ? `<p class="dstat" style="margin-top:10px">${statusHtml}</p>` : ""}</div>
       </div>
