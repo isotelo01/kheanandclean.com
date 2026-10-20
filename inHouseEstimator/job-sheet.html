@@ -280,6 +280,7 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 .triplink{background:none;border:0;padding:0;color:var(--gold);text-decoration:underline;font:inherit;cursor:pointer;flex:none!important;min-height:0!important}
 .tripnote{margin-top:10px;font-size:13px;opacity:.8}
 .tripmsg{font-size:13.5px;margin-top:6px;color:var(--gold)}
+#tripText{width:100%;margin-top:8px;font:16px/1.4 "Archivo",sans-serif;padding:10px;border-radius:8px;min-height:84px}
 @media print{ #tripBox{display:none} }
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
@@ -1380,7 +1381,7 @@ async function show(){
     '</div>';
   applyMode();
   const tripBox = document.getElementById("tripBox");
-  if (tripBox) { try { mountTrip({ box: tripBox, db, place, id, addr, trip: q.trip }); } catch (e) { console.error("trip", e); } }
+  if (tripBox) { try { mountTrip({ box: tripBox, db, place, id, addr, trip: q.trip, phone: c.phone || "", custName: c.name || c.business || "" }); } catch (e) { console.error("trip", e); } }
 
   const prog = document.getElementById("prog"), note = document.getElementById("note");
   /* A service was just added: open its Add room / Add furniture table and scroll to it. */

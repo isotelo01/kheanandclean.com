@@ -112,7 +112,7 @@ export async function saveForOffline(){
   const c = await caches.open(OFFLINE_CACHE);
   const pages = ["./job-sheet.html", "./job-room.html"];
   const files = ["./offline.js", "./trip.js", "./pricing.js", "./theme-dark.css", "./tabbar.js", "../images/icon-180.png",
-    FB + "firebase-app.js", FB + "firebase-firestore.js", FB + "firebase-auth.js", FB + "firebase-storage.js"];
+    FB + "firebase-app.js", FB + "firebase-firestore.js", FB + "firebase-auth.js", FB + "firebase-storage.js", FB + "firebase-functions.js"];
   for (const u of pages) {
     const r = await fetch(u, { cache: "reload" }); if (!r.ok) throw new Error("Could not save " + u);
     /* A fresh copy (not marked as redirected), so the phone will open it as a page. */
