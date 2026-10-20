@@ -316,6 +316,19 @@ async function loadForEdit(id, from){
     }
     banner.textContent = note;
     btn.textContent = 'Save changes';
+    /* A quote updated from a job sheet: a way back to its job sheet. Saving here updates the job sheet
+       (it rebuilds from this estimate the next time it opens); anything taken off here stays on the
+       job sheet at $0, not billed, with its photos and notes. */
+    if (d.fromJobSheet || d.revisionOf) {
+      const jsId = d.revisionOf || id;
+      banner.textContent = note + ' Saving updates its job sheet; anything taken off here stays on the job sheet at $0, not billed.' +
+        (d.onsite ? ' Rooms added on the job sheet aren’t in this form.' : '');
+      const jl = document.createElement('a');
+      jl.href = './job-sheet.html?id=' + encodeURIComponent(jsId);
+      jl.textContent = 'Open job sheet ›';
+      jl.style.cssText = 'display:inline-block;margin:6px 0 10px;color:#E3B64A;font-weight:600';
+      banner.after(jl);
+    }
     /* Unpaid invoice or accepted estimate: offer a way back to Estimates. */
     if (from === 'invoices' || from === 'acceptedQuotes') {
       backBtn = document.createElement('button');

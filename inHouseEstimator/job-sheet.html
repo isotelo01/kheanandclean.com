@@ -141,6 +141,8 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .rughead .secdef{text-align:right}
 .rughead > .secdef:has(.secpanel:not([hidden])){flex-basis:100%;text-align:left}
 @media print{.secdef{display:none!important}}
+/* Not billed (taken off in the estimator): on the job sheet at $0, never in the Summary or the customer's report. */
+.summ .nbill,.pub .nbill{display:none!important}
 @media print{.addsvc,.addfurn{display:none!important}}
 .jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
 @media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
@@ -404,7 +406,11 @@ function onsiteCopy(src){
 const linesSig = ls => JSON.stringify((Array.isArray(ls) ? ls : []).map(l => [l.label, l.cost, (l.items || []).map(it =>
   [it.label, it.cost, !!it.removed, (it.rooms || []).map(r => [r.name, r.sqft, r.qty])])]));
 const toMs = t => !t ? 0 : typeof t.toMillis === "function" ? t.toMillis() : (Date.parse(t) || 0);
-function reconcile(oldLines, qLines, spotsIn){
+/* keepAll (a job-sheet quote edited in the estimator): everything on the old sheet the estimate
+   no longer has stays, at $0 and not billed, whether or not it has photos. Not-billed lines and
+   items are flagged notBilled and left out of the Summary and the customer's report. */
+const isNotBilled = x => !!x && (!!x.notBilled || /\(not billed\)|^not billed/i.test(String(x.label || "")));
+function reconcile(oldLines, qLines, spotsIn, keepAll){
   const spots = spotsIn || {}, fresh = onsiteCopy(qLines), moves = {}, dropped = [];
   const base = s => String(s || "").split(/\s+[—-]\s+/)[0].replace(/\s*×\s*\d+$/, "").trim().toLowerCase();
   const hasData = k => { const s = spots[k]; if (!s || typeof s !== "object") return false;
@@ -441,15 +447,17 @@ function reconcile(oldLines, qLines, spotsIn){
   /* Old rooms / pieces with photos, notes or Done that the estimate no longer has: kept, not billed. */
   old.forEach((ol, oi) => (ol.items || []).forEach((ot, oj) => {
     let fi = lineOf.indexOf(oi);
-    const keepLine = () => { if (fi < 0) { fresh.push({ key: ol.key || "", label: String(ol.label || "Service").split(/\s+[—-]\s+/)[0] + " (not billed)", cost: 0, items: [], addedOnSite: true }); fi = fresh.length - 1; lineOf[fi] = oi; } return fresh[fi]; };
+    const keepLine = () => { if (fi < 0) { fresh.push({ key: ol.key || "", label: String(ol.label || "Service").split(/\s+[—-]\s+/)[0].replace(/\s*\(not billed\)/gi, "") + " (not billed)", cost: 0, items: [], addedOnSite: true, notBilled: true }); fi = fresh.length - 1; lineOf[fi] = oi; } return fresh[fi]; };
+    /* keepAll: skip what was already deleted on site, and the hair & debris item the room boxes price. */
+    const keepThis = keepAll && !ot.removed && ot.addonKey !== "hairRoom";
     if (Array.isArray(ot.rooms) && ot.rooms.length) {
-      const keep = ot.rooms.filter(r => !r._u && hasData(r.id));
+      const keep = ot.rooms.filter(r => !r._u && (keepThis || hasData(r.id)));
       if (keep.length) { const fl = keepLine();
-        fl.items.push({ label: "Not billed (from before the estimate changed)", cost: 0, track: true,
+        fl.items.push({ label: "Not billed (from before the estimate changed)", cost: 0, track: true, notBilled: true,
           rooms: keep.map(r => ({ id: r.id, name: r.name, sqft: Number(r.sqft) || 0, qty: 1, cost: 0 })) }); }
     } else if (!ot._u) {
-      const ok = oi + "-" + oj, has = hasData(ok) || Object.keys(spots).some(k => k.indexOf(ok + "-") === 0 && hasData(k));
-      if (has) { const fl = keepLine(); fl.items.push({ label: String(ot.label || "Item").split(/\s+[—-]\s+/)[0].replace(/\s*\$[\d.,]+/g, "") + " (not billed)", cost: 0, kept: true });
+      const ok = oi + "-" + oj, has = keepThis || hasData(ok) || Object.keys(spots).some(k => k.indexOf(ok + "-") === 0 && hasData(k));
+      if (has) { const fl = keepLine(); fl.items.push({ label: String(ot.label || "Item").split(/\s+[—-]\s+/)[0].replace(/\s*\$[\d.,]+/g, "").replace(/\s*\(not billed\)/gi, "") + " (not billed)", cost: 0, kept: true, notBilled: true });
         const nk = fi + "-" + (fl.items.length - 1); if (nk !== ok) moves[nk] = ok; }
       else dropped.push(ok);
     }
@@ -1040,7 +1048,7 @@ async function show(){
   let lines, rebuilt = null;
   if (q.onsite && Array.isArray(q.onsite.lines)) {
     const stale = q.onsite.from ? q.onsite.from !== qsig : toMs(q.updatedAt) > toMs(q.onsite.updatedAt);
-    if (stale) { rebuilt = reconcile(q.onsite.lines, q.lines, q.spots); lines = rebuilt.lines; if (rebuilt.spots) q.spots = rebuilt.spots; }
+    if (stale) { rebuilt = reconcile(q.onsite.lines, q.lines, q.spots, !!q.fromJobSheet); lines = rebuilt.lines; if (rebuilt.spots) q.spots = rebuilt.spots; }
     else lines = q.onsite.lines;
   } else lines = onsiteCopy(q.lines);
   cur = { place, lines, qsig, quoted: Number(q.total) || 0, adj: (Number(q.total) || 0) - (Number(q.subtotal) || Number(q.total) || 0) };
@@ -1196,7 +1204,7 @@ async function show(){
     /* Summary, folded: the first rooms on this line that have a photo (add-ons, rugs, stains
        skipped) — 4 per service, or 6 when the job is just one service. Room's after photo first. */
     const thumbMax = lines.length === 1 ? 6 : 4, thumbs = [];
-    items.forEach(it => { if (it.removed || !Array.isArray(it.rooms)) return;
+    items.forEach(it => { if (it.removed || isNotBilled(it) || !Array.isArray(it.rooms)) return;
       it.rooms.forEach(rm => { if (thumbs.length >= thumbMax) return; const s = spots[rm.id] || {};
         const p = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || []), ...(s.photosBeforeThreshold || []), ...(s.photosBefore || []), ...(s.photoPaths || [])] })[0];
         if (p) thumbs.push(p); }); });
@@ -1209,7 +1217,7 @@ async function show(){
       const a = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || [])] })[0];
       const row = { name, b, a, href };
       if ((b || a) && prev.length < 3) prev.push(row); else roomsAll.push(row); };
-    items.forEach((it, j) => { if (it.removed) return;
+    items.forEach((it, j) => { if (it.removed || isNotBilled(it)) return;   /* not billed: not in the Summary */
       if (Array.isArray(it.rooms) && it.rooms.length) { it.rooms.forEach((rm, r) => addPrev(rm.id, rm.name, spotLink(i, j, r))); return; }
       /* Upholstery pieces and other items with their own page: "i-j", or "i-j-r" for each one of several. */
       const own = Object.keys(spots).filter(k => k === i + "-" + j || k.indexOf(i + "-" + j + "-") === 0)
@@ -1225,7 +1233,7 @@ async function show(){
     const prevBox = (prev.length || roomsAll.length) ? '<div class="sthumbs sprev">' + prev.map(r => rowHtml(r, false)).join("") +
       roomsAll.map(r => rowHtml(r, true)).join("") +
       (roomsAll.length ? '<button type="button" class="smore" data-more>More (' + roomsAll.length + ') ▾</button>' : '') + '</div>' : '';
-    return '<div class="svc' + (openLines.has(String(i)) ? ' open' : '') + (sumOpen.has(String(i)) ? ' sopen' : '') + '" data-line="' + i + '">' +
+    return '<div class="svc' + (isNotBilled(l) ? ' nbill' : '') + (openLines.has(String(i)) ? ' open' : '') + (sumOpen.has(String(i)) ? ' sopen' : '') + '" data-line="' + i + '">' +
       '<div class="svc__headrow">' +
       '<button type="button" class="svc__head" data-toggle="' + i + '" aria-expanded="' + openLines.has(String(i)) + '">' +
         '<span>' + esc(head).replace(/\bDeep(?= Clean)/, '<span class="segGold">Deep</span>').replace(/\bSignature(?= Clean)/, '<span class="segScript">Signature</span>') + '</span><span class="amt">' + (plus ? '<span class="sprice" style="color:var(--ink)">' + money(l.cost) + '</span>' : money(l.cost) + ' ') + '<span class="caret">▾</span></span></button>' +
@@ -1265,7 +1273,8 @@ async function show(){
         /* Area Rugs: a heading above the first rug, with the rugs' own Detergent & material on the right. */
         const isRug = isCarpet(l) && !it.removed && /^Area Rugs\b/i.test(String(it.label || "")) && !(Array.isArray(it.rooms) && it.rooms.length);
         const h = isRug && !rugHead ? (rugHead = true, '<div class="rughead staff"><span class="rugttl">Area Rugs</span>' + secBtn("L" + i + "rug", "carpet") + '</div>') : "";
-        return h + itemRows(it, i, j); }).join("")
+        /* Not billed (taken off in the estimator): stays on the job sheet at $0, left out of the Summary. */
+        return h + (isNotBilled(it) ? '<div class="nbill">' + itemRows(it, i, j) + '</div>' : itemRows(it, i, j)); }).join("")
         : (l.key === "upholstery" ? "" : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i)))) +
       (l.key === "upholstery" ? furnBlock(i) : "") +
       (extras.length ? '<div class="meta staff" style="padding:6px 4px 0">In every room: ' +
@@ -1605,7 +1614,9 @@ async function show(){
         /* The live quote keeps the plain number (Q-1068); only superseded ones get OG labels. */
         type: "quote", status: "sent", fromJobSheet: true, revNo, baseNumber: base, number: base,
         /* Lines as the customer sees them: anything deleted on site left out. */
-        lines: JSON.parse(JSON.stringify(cur.lines)).map(l => ({ ...l, items: (l.items || []).filter(it => !it.removed) })),
+        /* (Not-billed lines and items, at $0, stay on the job sheet only.) */
+        lines: JSON.parse(JSON.stringify(cur.lines)).filter(l => !isNotBilled(l))
+          .map(l => ({ ...l, items: (l.items || []).filter(it => !it.removed && !isNotBilled(it)) })),
         subtotal: adj > 0 ? total : sub, discount: adj < 0 ? -adj : 0, discountLabel: q.discountLabel || "Discount", total,
         originalQuote: orig, originals,
         /* The job sheet as it stands, so R1 opens with the same rooms (and room ids, so photos stay matched). */

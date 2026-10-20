@@ -776,8 +776,8 @@ boardEl.addEventListener("click", e => {
   const ed = e.target.closest(".editbtn");
   if (!ed) return;
   e.preventDefault(); e.stopPropagation();   /* the row is a link; don't follow it */
-  /* An updated quote from a job sheet is changed on its job sheet, not in the estimator. */
-  if (ed.hasAttribute("data-job")) { location.href = "./job-sheet.html?id=" + encodeURIComponent(ed.getAttribute("data-job")); return; }
+  /* An updated quote from a job sheet opens in the estimator too; its job sheet follows the changes
+     (anything taken off stays on the job sheet at $0, not billed). The estimator links back to the job sheet. */
   location.href = "./index.html?edit=" + encodeURIComponent(ed.getAttribute("data-edit")) +
                   "&from=" + encodeURIComponent(ed.getAttribute("data-from"));
 });
