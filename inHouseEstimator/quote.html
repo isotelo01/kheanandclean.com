@@ -36,8 +36,8 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 .meta p{margin:0}
 /* Mascot in the space between Prepared for and the Date, with the guarantee under him. */
 .mascot{display:flex;flex-direction:column;align-items:center;text-align:center;align-self:center}
-.mascot img{height:150px;width:auto;display:block}
-.mascot span{margin-top:6px;color:var(--gold);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.mascot img{height:190px;width:auto;display:block}
+.mascot span{margin-top:8px;color:var(--gold);font-size:15px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
 table{width:100%;border-collapse:collapse}
 th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left}
 th{font-size:13px;color:var(--muted);font-weight:600}
@@ -55,8 +55,14 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
   .meta .dfull{display:none}
   .meta .r{text-align:left}
   .meta .dstat{margin-top:0!important}
-  .mascot{order:3;flex:1 1 100%}   /* phones: under the Accepted pill, centered */
-  .mascot img{height:120px}
+  /* Phones: the mascot up beside Prepared for; the guarantee on its own line across the
+     full width, under the Accepted pill. */
+  .meta{row-gap:12px}
+  .meta > div:first-child{flex:1 1 0;min-width:0;order:1}
+  .mascot{display:contents}
+  .mascot img{order:2;flex:none;width:40%;max-width:170px;height:auto;align-self:center}
+  .meta .r{order:3;flex:1 1 100%}
+  .mascot span{order:4;flex:1 1 100%;margin-top:0;font-size:17px;letter-spacing:.1em;text-align:center}
 }
 /* Line labels: name and size on one line, phones and computers alike (see twoLine). */
 br.tl{display:none}
