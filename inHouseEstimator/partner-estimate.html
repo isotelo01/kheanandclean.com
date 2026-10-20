@@ -222,6 +222,10 @@
           <label class="add" style="margin-top:.9rem;border-bottom:0">
             <input type="checkbox" id="waiveMin"> Waive minimum charge <span class="add__c">No $150 minimum</span>
           </label>
+          <!-- Partner price: the partner portal's prices (25% off, never under $0.34/sq ft). partner-pricing.js. -->
+          <label class="add" style="border-bottom:0">
+            <input type="checkbox" id="partnerPrice"> Partner price <span class="add__c">25% off, never under $0.34/sq ft</span>
+          </label>
           <label class="add" style="border-bottom:0">
             <input type="checkbox" id="waiveFee"> Waive card fee <span class="add__c">No 3% on card payments</span>
           </label>
@@ -322,6 +326,11 @@
 <style>/* Partners don't get Essential Cleaning. */ #tEss, label[for="tEss"]{ display:none !important; }</style>
 <script src="pricing.js"></script><!-- same prices and room sizes as the in-house estimator -->
 <script src="partner-pricing.js"></script><!-- partner prices: 25% off, never under 34 cents / sq ft -->
+<script>
+  /* Partner page: always partner prices. The box is locked on, so New and saved estimates keep it. */
+  window.KC_partnerPrices(true);
+  (function(){ var pp = document.getElementById('partnerPrice'); if(pp){ pp.checked = true; pp.parentNode.setAttribute('data-partner-lock', ''); } })();
+</script>
 <script src="app.js"></script><!-- the in-house estimator itself -->
 <script type="module">
 /* Partner estimate: the in-house estimator (app.js) with a partner Send.

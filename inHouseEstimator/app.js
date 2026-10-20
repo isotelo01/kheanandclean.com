@@ -1106,6 +1106,9 @@
   });
   /* Waive minimum: checked = no $150 floor on this estimate. */
   (function(){ var w = document.getElementById('waiveMin'); if(w) w.addEventListener('change', calc); })();
+  /* Partner price: switches every price to the partner portal's (partner-pricing.js) and reprices. */
+  (function(){ var pp = document.getElementById('partnerPrice'); if(!pp) return;
+    pp.addEventListener('change', function(){ if(window.KC_partnerPrices) window.KC_partnerPrices(pp.checked); syncService(); calc(); }); })();
 
   /* Custom line items: Add (button or Enter) puts it in STATE.custom and reprices; Delete removes it. */
   (function(){
@@ -1267,6 +1270,8 @@
       ['discAmt','discPct'].forEach(function(id){ var d = document.getElementById(id); if(d) d.value = ''; });
       var wm = document.getElementById('waiveMin'); if(wm) wm.checked = false;
       var wf = document.getElementById('waiveFee'); if(wf) wf.checked = false;
+      var pp = document.getElementById('partnerPrice');   // New: back to regular prices
+      if(pp && pp.checked && !pp.closest('[data-partner-lock]')){ pp.checked = false; if(window.KC_partnerPrices) window.KC_partnerPrices(false); }
       syncService();
       calc();
       window.scrollTo({ top:0, behavior:'smooth' });
@@ -1297,7 +1302,8 @@
       v:1, active: activeSvc, state: STATE,
       discAmt: dA ? dA.value : '', discPct: dP ? dP.value : '',
       waiveMin: !!(document.getElementById('waiveMin') || {}).checked,
-      waiveFee: !!(document.getElementById('waiveFee') || {}).checked
+      waiveFee: !!(document.getElementById('waiveFee') || {}).checked,
+      partner: !!(document.getElementById('partnerPrice') || {}).checked
     }));
   };
 
@@ -1318,6 +1324,8 @@
     if(dP) dP.value = form.discPct || '';
     var wm = document.getElementById('waiveMin'); if(wm) wm.checked = !!form.waiveMin;
     var wf = document.getElementById('waiveFee'); if(wf) wf.checked = !!form.waiveFee;
+    var pp = document.getElementById('partnerPrice');   // partner price saved with the quote
+    if(pp && !pp.closest('[data-partner-lock]')){ pp.checked = !!form.partner; if(window.KC_partnerPrices) window.KC_partnerPrices(!!form.partner); }
     var t = STATE.carpet.tier, tid = t==='signature' ? 'tSig' : (t==='quickdry' ? 'tQuick' : (t==='essential' ? 'tEss' : 'tDeep'));
     document.getElementById(tid).checked = true;
     var radio = document.querySelector('input[name="svc"][value="' + (form.active || 'carpet') + '"]');
