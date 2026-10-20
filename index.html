@@ -414,6 +414,12 @@ img{ max-width:100%; display:block; }
 .hero__watermark--before::after{ content:"Before"; }
 .hero__watermark--after::after{ content:"After"; }
 .hero__watermark.is-active{ opacity:1; }
+/* Slideshow controls: back / pause-play / next, bottom-left of the hero photo. */
+.hero__ctrl{ position:absolute; left:1rem; bottom:1rem; z-index:3; display:flex; gap:.4rem; }
+.hero__ctrl button{ width:2.4rem; height:2.4rem; display:grid; place-items:center; padding:0; border-radius:50%; border:1px solid rgba(255,255,255,.55); background:rgba(6,12,10,.5); color:#fff; font:600 1.1rem/1 "Archivo",sans-serif; letter-spacing:-.1em; cursor:pointer; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); -webkit-text-fill-color:#fff; }
+.hero__ctrl button[data-hc="prev"], .hero__ctrl button[data-hc="next"]{ font-size:1.6rem; padding-bottom:.15rem; }
+.hero__ctrl button:hover{ background:rgba(6,12,10,.75); border-color:#fff; }
+.hero__ctrl button:focus-visible{ outline:2px solid var(--brass-lit, #f0c670); outline-offset:2px; }
 .hero h1 > .hero__photobox > .hero__tagline{ position:relative; z-index:2; }
 .hero__let{ display:block; font-size:.5em; line-height:1; margin-bottom:.12em; }
 .hero__brand{ display:block; font-size:var(--fs-display); white-space:nowrap; }
@@ -3168,14 +3174,47 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     { photo: document.querySelector('.hero__photo--carpetAfter'),  wm: document.querySelector('.hero__watermark--after'),  tagline: carpetTagline },
     { photo: document.querySelector('.hero__photo--couch'),  wm: null,                                                tagline: upholsteryTagline }
   ].filter(function(s){ return s.photo; });
-  if(slides.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if(slides.length < 2) return;
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   var idx = 0; // starts on the van shot, matching the is-active markup
   var currentTagline = slides[idx].tagline;
   if(taglineEl) taglineEl.innerHTML = currentTagline;
 
-  setInterval(function(){
-    idx = (idx + 1) % slides.length;
+  /* Controls (bottom-left of the photo): back, pause/play, next. Swipe left/right on phones.
+     Tapping back/next restarts the 4-second timer; paused stays paused. Reduced motion = starts paused. */
+  var box = document.querySelector('.hero__photobox'), timer = null, paused = reduced;
+  var bar = document.createElement('span');
+  bar.className = 'hero__ctrl';
+  bar.innerHTML = '<button type="button" data-hc="prev" aria-label="Previous photo">&#8249;</button>' +
+    '<button type="button" data-hc="pause" aria-label="Pause slideshow"></button>' +
+    '<button type="button" data-hc="next" aria-label="Next photo">&#8250;</button>';
+  if(box) box.appendChild(bar);
+  var pauseBtn = bar.querySelector('[data-hc="pause"]');
+  function drawPause(){
+    pauseBtn.innerHTML = paused ? '&#9654;' : '&#10073;&#10073;';
+    pauseBtn.setAttribute('aria-label', paused ? 'Play slideshow' : 'Pause slideshow');
+  }
+  function restart(){ clearInterval(timer); timer = paused ? null : setInterval(function(){ show(idx + 1); }, 4000); }
+  bar.addEventListener('click', function(e){
+    var b = e.target.closest('[data-hc]'); if(!b) return;
+    e.preventDefault();
+    if(b.dataset.hc === 'pause'){ paused = !paused; drawPause(); restart(); return; }
+    show(idx + (b.dataset.hc === 'next' ? 1 : -1)); restart();
+  });
+  var x0 = null;
+  if(box){
+    box.addEventListener('touchstart', function(e){ x0 = e.touches[0].clientX; }, { passive:true });
+    box.addEventListener('touchend', function(e){
+      if(x0 === null) return;
+      var dx = e.changedTouches[0].clientX - x0; x0 = null;
+      if(Math.abs(dx) > 40){ show(idx + (dx < 0 ? 1 : -1)); restart(); }
+    }, { passive:true });
+  }
+  drawPause(); restart();
+
+  function show(n){
+    idx = (n + slides.length) % slides.length;
     slides.forEach(function(s, i){
       s.photo.classList.toggle('is-active', i === idx);
     });
@@ -3195,7 +3234,7 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       }, 500);
       currentTagline = nextTagline;
     }
-  }, 4000);
+  }
 })();
 
 /* scroll reveals */
