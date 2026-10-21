@@ -14,12 +14,13 @@
     "#tabbar{display:none}" +
     "@media (max-width:759px){" +
       "#tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;background:#172239;border-top:1px solid rgba(255,255,255,.12);padding-bottom:env(safe-area-inset-bottom)}" +
-      "#tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 0 4px;color:rgba(255,255,255,.65);text-decoration:none;font:500 10px/1.1 system-ui,sans-serif}" +
+      /* Two-thirds taller than before (about 77px instead of 46px), bigger icons and labels. */
+      "#tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:76px;padding:12px 0 10px;box-sizing:border-box;color:rgba(255,255,255,.65);text-decoration:none;font:500 12px/1.1 system-ui,sans-serif}" +
       "#tabbar a.on{color:#d9b25f}" +
-      "#tabbar svg{width:18px;height:18px}" +
-      "body{padding-bottom:calc(46px + env(safe-area-inset-bottom))!important}" +
-      "#callbar{bottom:calc(58px + env(safe-area-inset-bottom))!important}" +
-      "body.rooms-open .roomsDone{bottom:calc(58px + env(safe-area-inset-bottom))!important}" +   /* room list's Done button sits above the bar */
+      "#tabbar svg{width:26px;height:26px}" +
+      "body{padding-bottom:calc(77px + env(safe-area-inset-bottom))!important}" +
+      "#callbar{bottom:calc(89px + env(safe-area-inset-bottom))!important}" +
+      "body.rooms-open .roomsDone{bottom:calc(89px + env(safe-area-inset-bottom))!important}" +   /* room list's Done button sits above the bar */
       ".mhide{display:none!important}" +
     "}";
   document.head.appendChild(css);
