@@ -44,6 +44,10 @@ button[disabled]{ opacity:.6; cursor:default; }
 .linkbtn:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 .back{ display:inline-block; margin-top:20px; font-size:.85rem;
   color:rgba(244,241,234,.55); text-decoration:none; }
+/* Pointer for partners who land on the staff login by mistake. */
+.partnerlink{ display:block; margin-top:18px; padding:10px 12px; border:1px solid rgba(224,182,74,.45); border-radius:10px;
+  color:var(--gold); text-decoration:none; font-size:.9rem; font-weight:700; }
+.partnerlink:hover{ background:rgba(224,182,74,.1); }
 </style>
 </head>
 <body>
@@ -65,6 +69,7 @@ button[disabled]{ opacity:.6; cursor:default; }
   <button type="button" class="linkbtn" id="forgotBtn">Forgot password?</button>
 
   <p class="err" id="err"></p>
+  <a class="partnerlink" href="./b2b-login.html">Partner or business? Sign in here &rsaquo;</a>
   <a class="back" href="../index.html">Back to the website</a>
 </div>
 
@@ -105,8 +110,13 @@ showPw.addEventListener("click", () => {
   pw.focus();
 });
 
+/* Staff go to the page they asked for. Anyone else (a partner who signed in here by mistake)
+   goes to the partner login, which sends them to their portal or finishes their sign-up. */
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const go = user => location.replace(STAFF.includes(user.uid) ? "./" + next : "./b2b-login.html");
+
 /* Already signed in? Don't make them do it twice. */
-onAuthStateChanged(auth, user => { if (user) location.replace("./" + next); });
+onAuthStateChanged(auth, user => { if (user) go(user); });
 
 const SAYS = {
   "auth/invalid-email":       "That email doesn't look right.",
@@ -124,10 +134,10 @@ form.addEventListener("submit", async e => {
   try {
     /* Local persistence: stays signed in after the tab closes. */
     await setPersistence(auth, browserLocalPersistence);
-    await signInWithEmailAndPassword(auth,
+    const cred = await signInWithEmailAndPassword(auth,
       document.getElementById("email").value.trim(),
       document.getElementById("pw").value);
-    location.replace("./" + next);
+    go(cred.user);
   } catch (ex) {
     console.error(ex);
     err.textContent = SAYS[ex.code] || "Could not sign in. Try again.";
