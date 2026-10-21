@@ -381,9 +381,10 @@ async function start(){
   setPh(false);   /* starts off (also cleans the line out of older saved wording) */
   $("phBtn").addEventListener("click", () => setPh(!withPh));
   const MSGS = {
-    left: "Hi {name}, thanks for having us out today! If you're happy with how everything turned out, a quick Google review would mean a lot to our small family business: kheanandclean.com/review",
-    follow: "Hi {name}, hope your floors are still looking great! If you get a minute, a quick review would mean a lot: kheanandclean.com/review And if there's anything else we can help with, just let us know.",
-    late: "Hi {name}, it's Israel with Khean & Clean. I know it's been a little while, but I wanted to follow up and see how everything's holding up. If you were happy with the job, a quick Google review would mean a lot to our small family business: kheanandclean.com/review"
+    /* Friendly, short, and every one ends with "Thank you!" on its own line. */
+    left: "Hi {name}, thanks so much for choosing us today! If you loved the results, a quick Google review would mean the world to our small family business: kheanandclean.com/review\n\nThank you!",
+    follow: "Hi {name}, hope your floors are still looking great! If you have a minute, a quick Google review would mean the world to our small family business: kheanandclean.com/review\n\nThank you!",
+    late: "Hi {name}, it's Israel with Khean & Clean. Hope everything's still looking great! If you were happy with the job, a quick Google review would mean the world to our small family business: kheanandclean.com/review\n\nThank you!"
   };
   $("msgPick").addEventListener("click", e => {
     const b = e.target.closest("[data-msg]");
