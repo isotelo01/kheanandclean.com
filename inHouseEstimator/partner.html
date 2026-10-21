@@ -270,7 +270,7 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
     <div class="actions" style="grid-template-columns:repeat(3,minmax(0,1fr))">
       <a class="act" id="doc-insurance" href="../documents/certificate-of-insurance.jpg" target="_blank" rel="noopener"><b>Proof of insurance</b></a>
       <a class="act" id="doc-license" href="../documents/business-license.jpg" target="_blank" rel="noopener"><b>Business license</b></a>
-      <a class="act" id="doc-w9" href="mailto:contact@kheanandclean.com?subject=W-9%20request"><b>Request W-9</b></a>
+      <a class="act" id="doc-w9" href="mailto:contact@kheanandclean.com?subject=W-9%20request"><b>Review W-9</b></a>
     </div>
   </section>
 
@@ -367,7 +367,6 @@ onAuthStateChanged(auth, async u => {
   const st = getStorage(app);
   ["insurance", "license", "w9"].forEach(k => getDownloadURL(sref(st, "vendor-docs/" + k)).then(url => {
     const a = $("doc-" + k); a.href = url; a.target = "_blank"; a.rel = "noopener";
-    if (k === "w9") a.innerHTML = "<b>W-9</b>";
   }).catch(() => {}));
   $("refCode").textContent = refCode();
   refLoad();
@@ -466,7 +465,7 @@ async function dvShow(url, title) {
 ["insurance", "license", "w9"].forEach(k => $("doc-" + k).addEventListener("click", e => {
   const a = e.currentTarget;
   if (/^mailto:/i.test(a.getAttribute("href") || "")) return;
-  e.preventDefault(); dvShow(a.href, a.textContent.trim());
+  e.preventDefault(); dvShow(a.href, a.textContent.trim().replace(/^Review /, ""));
 }));
 $("dvClose").addEventListener("click", () => history.state && history.state.dv ? history.back() : dvShut());
 window.addEventListener("popstate", () => { if (!$("docView").hidden) dvShut(); });
