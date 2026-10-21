@@ -130,6 +130,18 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
 /* Estimate button: the big one in Book a cleaning. */
 .act.est{ background:var(--gold); border-color:var(--gold); }
 .act.est b{ color:var(--navy); }
+/* Vendor document quick view: opens over the portal, X closes it. */
+.dv{ position:fixed; inset:0; z-index:50; background:rgba(5,10,18,.88); display:flex; flex-direction:column; padding:12px; }
+.dv[hidden]{ display:none; }
+.dvbar{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.dvbar h3{ flex:1; margin:0; color:var(--gold); font:700 1.05rem "Cinzel","Playfair Display",serif; }
+.dvbar a, .dvbar button{ text-decoration:none; padding:.5rem .9rem; font-size:.85rem; border-radius:999px; }
+.dvbar a{ color:var(--gold); border:1px solid var(--line); }
+.dvx{ width:44px; height:44px; padding:0 !important; font-size:1.6rem !important; line-height:1; background:var(--cream); color:var(--navy); }
+.dvbody{ flex:1; min-height:0; display:flex; align-items:center; justify-content:center; overflow:auto; }
+.dvbody img{ max-width:100%; max-height:100%; object-fit:contain; background:#fff; border-radius:6px; }
+.dvbody iframe{ width:100%; height:100%; border:0; background:#fff; border-radius:6px; }
+@media (max-width:540px){ .dvbar{ flex-wrap:wrap; } .dvbar h3{ flex-basis:calc(100% - 52px); } }
 </style>
 </head>
 <body>
@@ -221,6 +233,17 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
     </div>
   </section>
 
+  <!-- Quick view for vendor documents: X closes, Open full size and Download beside it. -->
+  <div class="dv" id="docView" hidden role="dialog" aria-modal="true" aria-labelledby="dvTitle">
+    <div class="dvbar">
+      <h3 id="dvTitle">Document</h3>
+      <a id="dvOpen" href="#" target="_blank" rel="noopener">Open full size</a>
+      <button type="button" id="dvSave">Download</button>
+      <button type="button" class="dvx" id="dvClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="dvbody" id="dvBody"></div>
+  </div>
+
   <dialog id="settings" aria-labelledby="settingsTitle">
   <section class="card">
     <button type="button" class="close" id="closeBtn" aria-label="Close">&times;</button>
@@ -305,6 +328,47 @@ onAuthStateChanged(auth, async u => {
     const a = $("doc-" + k); a.href = url; a.target = "_blank"; a.rel = "noopener";
     if (k === "w9") a.innerHTML = "<b>W-9</b>";
   }).catch(() => {}));
+});
+
+/* Vendor document quick view. Opens the file over the portal; X, Esc or Back closes it.
+   The file is fetched as a blob so Download saves it; if that fails it shows the link directly. */
+let dvUrl = "", dvBlob = null, dvName = "";
+function dvShut() {
+  $("docView").hidden = true; $("dvBody").innerHTML = "";
+  if (dvBlob) URL.revokeObjectURL(dvBlob.url); dvBlob = null;
+}
+async function dvShow(url, title) {
+  dvUrl = url; dvName = "Khean-and-Clean-" + title.replace(/[^A-Za-z0-9]+/g, "-");
+  $("dvTitle").textContent = title; $("dvOpen").href = url;
+  $("dvBody").innerHTML = '<p class="empty">Loading&hellip;</p>';
+  $("docView").hidden = false;
+  history.pushState({ dv: 1 }, "");
+  let type = /\.pdf(\?|$)/i.test(url) ? "application/pdf" : /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url) ? "image" : "";
+  try {
+    const r = await fetch(url); if (!r.ok) throw new Error(r.status);
+    const b = await r.blob();
+    dvBlob = { url: URL.createObjectURL(b), type: b.type || type };
+    type = dvBlob.type;
+  } catch (e) { dvBlob = null; }
+  if ($("docView").hidden) return;
+  const src = dvBlob ? dvBlob.url : url;
+  $("dvBody").innerHTML = /^image/.test(type)
+    ? '<img alt="">' : '<iframe title=""></iframe>';
+  const el = $("dvBody").firstChild; el.src = src; el.alt = el.title = title;
+}
+["insurance", "license", "w9"].forEach(k => $("doc-" + k).addEventListener("click", e => {
+  const a = e.currentTarget;
+  if (/^mailto:/i.test(a.getAttribute("href") || "")) return;
+  e.preventDefault(); dvShow(a.href, a.textContent.trim());
+}));
+$("dvClose").addEventListener("click", () => history.state && history.state.dv ? history.back() : dvShut());
+window.addEventListener("popstate", () => { if (!$("docView").hidden) dvShut(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("docView").hidden) $("dvClose").click(); });
+$("dvSave").addEventListener("click", () => {
+  if (!dvBlob) { window.open(dvUrl, "_blank", "noopener"); return; }
+  const ext = /pdf/.test(dvBlob.type) ? ".pdf" : /png/.test(dvBlob.type) ? ".png" : /jpe?g/.test(dvBlob.type) ? ".jpg" : "";
+  const a = document.createElement("a"); a.href = dvBlob.url; a.download = dvName + ext;
+  document.body.appendChild(a); a.click(); a.remove();
 });
 
 $("profile").addEventListener("submit", async e => {
