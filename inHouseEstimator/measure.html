@@ -89,6 +89,15 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
     </section>
 
     <section class="panel">
+      <h2>Room type</h2>
+      <select class="t" id="rtype" aria-label="Room type">
+        <option value="">Pick one</option><option>Bedroom</option><option>Living room</option><option>Family room</option>
+        <option>Dining room</option><option>Hallway</option><option>Stairs</option><option>Office</option><option>Closet</option><option>Other</option>
+      </select>
+      <input class="t" id="rtypeOther" maxlength="50" placeholder="What kind of room?" aria-label="Other room type" style="margin-top:8px" hidden>
+    </section>
+
+    <section class="panel">
       <h2>Know any size? <span style="font-weight:400;color:var(--muted)">(optional)</span></h2>
       <input class="t" id="known" maxlength="190" placeholder="e.g. back wall is 12 ft, closet door is 5 ft wide" aria-label="Known measurement">
       <p style="margin:6px 0 0;font-size:13.5px;color:var(--muted)">One taped measurement makes it a lot more accurate.</p>
@@ -107,6 +116,12 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
     <div class="vs" id="rVs"></div>
     <div class="note" id="rHow"></div>
     <div class="note" id="rTip" hidden></div>
+    <div class="note" id="rAsk" hidden>
+      <b id="rQ"></b>
+      <input class="t" id="ans" maxlength="190" placeholder="Your answer" aria-label="Your answer" style="margin-top:8px">
+      <button type="button" class="ghost" id="ansBtn" style="margin-top:8px">Answer and re-measure</button>
+      <p class="msg" id="askMsg" role="status"></p>
+    </div>
     <div class="row2">
       <button type="button" class="ghost" id="againBtn">Retake</button>
       <button type="button" class="go" id="useBtn" style="margin:0">Use this</button>
@@ -207,6 +222,18 @@ $("slots").addEventListener("keydown", e => {
   if (box && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); box.querySelector("input").click(); }
 });
 
+/* Room type: dropdown, "Other" opens a box. Pre-picked from the room's name when it matches. */
+{ const n = room.toLowerCase(), sel = $("rtype");
+  const hit = [...sel.options].find(o => o.value && o.value !== "Other" && n.includes(o.value.toLowerCase().split(" ")[0]));
+  if (hit) sel.value = hit.value;
+  sel.onchange = () => { $("rtypeOther").hidden = sel.value !== "Other"; }; }
+const roomType = () => $("rtype").value === "Other" ? $("rtypeOther").value.trim() : $("rtype").value;
+
+/* Same photos can be re-measured after answering the measurer's question. */
+let lastPhotos = null, answers = [];
+const payload = () => ({ photos: lastPhotos, room, est, paper: $("paper").checked, known: $("known").value.trim(), roomType: roomType(), answers });
+const errText = ex => (ex && ex.message && !/^internal$/i.test(ex.message)) ? ex.message : "Couldn't measure. Try again.";
+
 let result = null, uid = null;
 $("goBtn").onclick = async () => {
   if (!ready() || !uid) return;
@@ -221,14 +248,26 @@ $("goBtn").onclick = async () => {
       photos.push({ path, label: labels[i] });
     }
     msg.textContent = "Measuring… this takes about 20–40 seconds.";
-    const { data } = await measureRoom({ photos, room, est, paper: $("paper").checked, known: $("known").value.trim() });
+    lastPhotos = photos; answers = [];
+    const { data } = await measureRoom(payload());
     show(data);
   } catch (ex) {
     console.error(ex);
     msg.classList.add("bad");
-    msg.textContent = (ex && ex.message && !/^internal$/i.test(ex.message)) ? ex.message : "Couldn't measure. Try again.";
+    msg.textContent = errText(ex);
     btn.disabled = false;
   }
+};
+
+/* The measurer asked something: answer it and re-measure with the same photos. */
+$("ansBtn").onclick = async () => {
+  const a = $("ans").value.trim(), m = $("askMsg"), b = $("ansBtn");
+  if (!a || !lastPhotos || !result) return;
+  answers.push({ q: result.question, a });
+  b.disabled = true; m.classList.remove("bad"); m.textContent = "Re-measuring… about 20–40 seconds.";
+  try { const { data } = await measureRoom(payload()); $("ans").value = ""; show(data); }
+  catch (ex) { console.error(ex); answers.pop(); m.classList.add("bad"); m.textContent = errText(ex); }
+  b.disabled = false;
 };
 
 function show(d){
@@ -246,6 +285,7 @@ function show(d){
   $("rHow").textContent = d.howMeasured || "";
   $("rHow").hidden = !d.howMeasured;
   $("rTip").textContent = d.tip ? "Tip: " + d.tip : ""; $("rTip").hidden = !d.tip;
+  $("rQ").textContent = d.question || ""; $("rAsk").hidden = !d.question; $("askMsg").textContent = "";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 $("againBtn").onclick = () => { $("result").hidden = true; $("form").hidden = false; $("goBtn").disabled = !ready(); $("msg").textContent = ""; refresh(); };
