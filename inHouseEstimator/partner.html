@@ -462,10 +462,15 @@ async function dvShow(url, title) {
     ? '<img alt="">' : '<iframe title=""></iframe>';
   const el = $("dvBody").firstChild; el.src = src; el.alt = el.title = title;
 }
-["insurance", "license", "w9"].forEach(k => $("doc-" + k).addEventListener("click", e => {
-  const a = e.currentTarget;
-  if (/^mailto:/i.test(a.getAttribute("href") || "")) return;
-  e.preventDefault(); dvShow(a.href, a.textContent.trim().replace(/^Review /, ""));
+["insurance", "license", "w9"].forEach(k => $("doc-" + k).addEventListener("click", async e => {
+  const a = e.currentTarget, title = a.textContent.trim().replace(/^Review /, "");
+  e.preventDefault();
+  /* Uploaded copy not linked yet (page still loading, or it failed): fetch it now. */
+  if (/^mailto:/i.test(a.getAttribute("href") || "")) {
+    try { a.href = await getDownloadURL(sref(getStorage(app), "vendor-docs/" + k)); }
+    catch (ex) { console.error(ex); alert("Couldn't open the " + title + " right now. Try again in a minute."); return; }
+  }
+  dvShow(a.href, title);
 }));
 $("dvClose").addEventListener("click", () => history.state && history.state.dv ? history.back() : dvShut());
 window.addEventListener("popstate", () => { if (!$("docView").hidden) dvShut(); });
