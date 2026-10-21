@@ -112,6 +112,8 @@
             <label for="svcUph">Upholstery</label>
             <input type="radio" name="svc" id="svcStone" value="stone">
             <label for="svcStone">Natural Stone</label>
+            <!-- Not a service tab: asks for square feet and adds a whole-house line (realtor package price). -->
+            <label id="svcWhole" role="button" tabindex="0">Whole House</label>
             <input type="radio" name="svc" id="svcCommCarpet" value="commcarpet" hidden>
             <label for="svcCommCarpet" hidden>Carpet</label>
             <input type="radio" name="svc" id="svcCommHard" value="commhard" hidden>
@@ -363,6 +365,28 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
   try { await signOut(getAuth(app)); } catch (e) { console.error(e); }
   location.replace("./login.html");
 });
+
+/* Whole House button (Cleaning Service row): asks for the home's square feet, then adds one line
+   at the realtor package price, sq ft x $0.39, $150 minimum. Edit or delete it like any line item. */
+(function () {
+  const wire = () => {
+    const b = document.getElementById("svcWhole");
+    if (!b) return;
+    const go = () => {
+      const raw = prompt("Whole-house cleaning: home's square feet?");
+      if (raw == null) return;
+      const sq = Math.round(Number(String(raw).replace(/[^\d.]/g, "")) || 0);
+      if (sq < 100) { alert("Enter the square footage, like 2000."); return; }
+      if (!window.kcAddLine) { alert("The estimator is still loading. Try again in a second."); return; }
+      window.kcAddLine("Whole-house cleaning, " + sq.toLocaleString() + " sq ft × $0.39", Math.max(150, Math.round(sq * 0.39 * 100) / 100));
+      const body = document.getElementById("liBody");
+      if (body) body.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    b.addEventListener("click", go);
+    b.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire();
+})();
 
 /* Prefill from a lead. The leads page stashes the customer fields in
    sessionStorage, then opens this page. Fill the form, let app.js react,

@@ -1,6 +1,6 @@
 /* K&C Estimator service worker — offline-first.
    Bump CACHE when you upload new files, or phones keep the old copy. */
-var CACHE = 'kc-estimator-v104';
+var CACHE = 'kc-estimator-v105';
 /* Saved by "Download offline job sheet" (offline.js). Never cleared on update. */
 var OFFLINE = 'kc-offline-pages';
 var ASSETS = ['./','./index.html','./app.css','./pricing.js','./app.js','./manifest.webmanifest',
