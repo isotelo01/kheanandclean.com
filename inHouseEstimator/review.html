@@ -128,6 +128,7 @@ const okPath = p => typeof p === "string" && p.startsWith("quick-quote-photos/")
 const photos = new Map();
 const picked = new Set();
 let localNo = 0, jobTok = 0;
+let withPh = false;   /* "Add photos to text": off to start. Off = only the header photo goes; the message just asks for the review. */
 
 async function start(){
   if (!cid) { view.innerHTML = '<div class="msg">No customer picked. <a href="./customers.html">Go to Customers</a></div>'; return; }
@@ -166,6 +167,7 @@ async function start(){
     '<button type="button" class="ghost" id="linkBtn">Review link: Google</button>' +
     '<div class="rlist" id="linkList" hidden></div>' +
     '<textarea id="txt" style="margin-top:10px">' + esc(startText) + '</textarea>' +
+    '<div class="padd"><button type="button" class="ghost" id="phBtn" aria-pressed="false">Add photos to text</button></div>' +
     '<h2>Before &amp; after</h2>' +
     (jobs.length > 1
       ? '<select id="job">' + jobs.map((j, i) => '<option value="' + i + '">' +
@@ -188,7 +190,11 @@ async function start(){
   const thumb = (key, o) => '<div class="pcell"><img src="' + esc(o.url) + '" alt="" loading="lazy">' +
     (o.tag ? '<span class="tag">' + esc(o.tag) + '</span>' : '') +
     '<button type="button" class="pdel" data-x="' + esc(key) + '" aria-label="Remove photo">\u00d7</button></div>';
-  const sayCount = () => say(picked.size ? picked.size + " photo" + (picked.size === 1 ? "" : "s") + " in this send. Tap \u00d7 to take one out." : "No photos in this send yet.");
+  const sayCount = () => {
+    const n = [...picked].filter(k => k !== "h:card").length;
+    say(!withPh ? "Photos off: just the header photo and your message. Tap Add photos to text to send the job photos."
+      : n ? n + " photo" + (n === 1 ? "" : "s") + " go in a second text. Tap \u00d7 to take one out." : "Photos on, but none picked yet.");
+  };
 
   /* Header photo: a saved preset (settings/reviewRequest.headerPath, the file in Storage presets/).
      Until one is saved it's the thank-you card on the website (images/thank-you-card.jpg).
@@ -220,6 +226,7 @@ async function start(){
     } catch (err) { console.error(err); say("Couldn't save the header photo: " + ((err && err.message) || err), true); }
   });
   const inOrder = () => [...picked].sort((a, b) => (b === CARD) - (a === CARD));   // card first, then the rest as picked
+  const sendKeys = () => inOrder().filter(k => withPh || k === CARD);              // photos off: header only
   const blobOf = async o => o.file || (o.src ? await (await fetch(o.src)).blob() : await getBlob(ref(storage, o.path)));
 
   /* One row per room: its Threshold Before and After photos. Rooms are saved by a code, so they show as Room 1, 2... */
@@ -304,8 +311,8 @@ async function start(){
     files.forEach(f => { const key = "l:" + (++localNo); photos.set(key, { url: URL.createObjectURL(f), file: f }); picked.add(key); });
     showMine(); sayCount();
   };
-  $("addBtn").addEventListener("click", () => $("addIn").click());
-  $("camBtn").addEventListener("click", () => $("camIn").click());
+  $("addBtn").addEventListener("click", () => { setPh(true); $("addIn").click(); });
+  $("camBtn").addEventListener("click", () => { setPh(true); $("camIn").click(); });
   $("addIn").addEventListener("change", onPick);
   $("camIn").addEventListener("change", onPick);
 
@@ -347,10 +354,21 @@ async function start(){
   /* Message buttons: fill the box with one of the saved review messages (first name filled in).
      The review link in it follows whatever site is picked above. You can still edit it after. */
   const first = ((c.name || "").trim().split(/\s+/)[0]) || "there";
-  /* The second text's line, only sent when there are job photos. */
-  const PHOTO_LINE = "Here are a few photos from your job if you'd like to add them to your review.";
-  /* Older saved text still says it in the message: take it out (it rides with the photos now). */
-  $("txt").value = $("txt").value.replace(/\s*I've included a few photos from your job if you'd like to add them( to your review)?\./, "");
+  /* "Add photos to text" on: this line goes at the end of the message and the photos go in a second text.
+     Off: the line comes out and only the header photo goes. */
+  const PHOTO_LINE = "I've included a few photos from your job if you'd like to add them to your review.";
+  const PHOTO_RX = /\s*I've included a few photos from your job if you'd like to add them( to your review)?\./g;
+  const setPh = on => {
+    withPh = on;
+    const t = $("txt"), base = t.value.replace(PHOTO_RX, "").trimEnd();
+    t.value = on ? (base ? base + " " : "") + PHOTO_LINE : base;
+    $("phBtn").classList.toggle("new", on);
+    $("phBtn").setAttribute("aria-pressed", String(on));
+    $("phBtn").textContent = on ? "\u2713 Photos added to text" : "Add photos to text";
+    sayCount();
+  };
+  setPh(false);   /* starts off (also cleans the line out of older saved wording) */
+  $("phBtn").addEventListener("click", () => setPh(!withPh));
   const MSGS = {
     left: "Hi {name}, thanks for having us out today! If you're happy with how everything turned out, a quick Google review would mean a lot to our small family business: kheanandclean.com/review",
     follow: "Hi {name}, hope your floors are still looking great! If you get a minute, a quick review would mean a lot: kheanandclean.com/review And if there's anything else we can help with, just let us know.",
@@ -360,6 +378,7 @@ async function start(){
     const b = e.target.closest("[data-msg]");
     if (!b) return;
     $("txt").value = MSGS[b.dataset.msg].replace(/\{name\}/g, first).replace(LINKS[0][1], curLink);
+    setPh(withPh);   /* keeps the photo line in step with the switch */
     $("msgPick").querySelectorAll("[data-msg]").forEach(x => x.classList.toggle("new", x === b));
   });
 
@@ -373,7 +392,7 @@ async function start(){
     try {
       const uid = getAuth(app).currentUser.uid, paths = [];
       let n = 0;
-      for (const k of inOrder()) {
+      for (const k of sendKeys()) {
         const o = photos.get(k);
         if (!o) continue;
         n++;
@@ -389,7 +408,7 @@ async function start(){
       const hasHead = picked.has(CARD);
       const texts = [{ body: text, media: hasHead ? paths.slice(0, 1) : [] }];
       const rest = hasHead ? paths.slice(1) : paths;
-      if (rest.length) texts.push({ body: PHOTO_LINE, media: rest.slice(0, 10) });   // Twilio: 10 pictures max per text
+      if (rest.length) texts.push({ body: "", media: rest.slice(0, 10) });   // photo line is already in the message; Twilio: 10 pictures max per text
       for (let i = 0; i < texts.length; i++) {
         say("Sending" + (texts.length > 1 ? " text " + (i + 1) + " of " + texts.length : "") + "...");
         await smsSend({ to: tel, body: texts[i].body, media: texts[i].media });
@@ -415,7 +434,7 @@ async function start(){
     try {
       const files = [];
       let n = 0;
-      for (const k of inOrder()) {
+      for (const k of sendKeys()) {
         const o = photos.get(k);
         if (!o) continue;
         n++;
@@ -446,7 +465,7 @@ async function start(){
     try {
       const uid = getAuth(app).currentUser.uid, attachments = [];
       let n = 0;
-      for (const k of inOrder()) {
+      for (const k of sendKeys()) {
         const o = photos.get(k);
         if (!o) continue;
         n++;
