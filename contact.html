@@ -329,6 +329,24 @@ document.addEventListener('click', function (e) {
     .cardCta a::after{ animation:none; opacity:0; }
   }
 
+/* B2B Login: shimmering green button (same glint as the gold one), note underneath */
+.actions a.b2b{
+    position:relative; overflow:hidden; isolation:isolate;
+    background:linear-gradient(135deg,#0f7a4a 0%,#19a463 50%,#0f7a4a 100%);
+    color:#fff; border-color:#2fd38a;
+    box-shadow:0 0 14px rgba(47,211,138,.35);
+  }
+.actions a.b2b:hover{ background:linear-gradient(135deg,#12894f 0%,#1fb870 50%,#12894f 100%); border-color:#2fd38a; }
+.actions a.b2b::after{
+    content:""; position:absolute; top:0; bottom:0; left:-60%; width:45%;
+    background:linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.5) 50%, rgba(255,255,255,0) 100%);
+    transform:skewX(-18deg); pointer-events:none; z-index:1;
+    animation:kcShine 5s ease-in-out infinite;
+  }
+.actions a.b2b > *{ position:relative; z-index:2; }
+.b2bnote{ margin:-4px 0 6px; text-align:center; font-size:13px; color:#9fe3c2; letter-spacing:.02em; }
+@media (prefers-reduced-motion:reduce){ .actions a.b2b::after{ animation:none; opacity:0; } }
+
 /* social row shown inside the card on mobile only; header row hides there */
 .cardSoc{ display:none; }
 
@@ -703,6 +721,11 @@ document.addEventListener('click', function (e) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M15 21V10h3a2 2 0 0 1 2 2v9"/><path d="M8 7h3M8 11h3M8 15h3"/></svg>
           <span>Property Managers &amp; Realtors</span>
         </a>
+        <a class="secondary b2b" href="inHouseEstimator/b2b-login.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+          <span>B2B Login</span>
+        </a>
+        <p class="b2bnote">Join our program for special pricing and online scheduling</p>
         <a class="secondary" href="index.html#quote">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M15 9h-4.25a1.75 1.75 0 0 0 0 3.5h2.5a1.75 1.75 0 0 1 0 3.5H9"/></svg>
           <span>In-Depth Estimation Tool</span>
