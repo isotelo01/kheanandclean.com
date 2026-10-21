@@ -54,6 +54,8 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:16px}
 .chead{display:flex;align-items:baseline;justify-content:space-between;gap:6px 12px;flex-wrap:wrap;border-bottom:2px solid var(--gold);padding-bottom:8px;margin-bottom:12px}
 .chead h2{font:700 22px "Archivo",system-ui,sans-serif;margin:0}
+#cname{cursor:pointer}
+#cname:hover{text-decoration:underline;text-decoration-color:var(--gold);text-underline-offset:4px}
 .chead a{color:var(--navy);font-weight:600;text-decoration:none}
 .banner{background:#f9e7e6;color:var(--red);border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;margin-bottom:12px}
 .thread{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto;padding:4px 2px 8px}
@@ -789,6 +791,13 @@ function showCalls() {
    customers.html use). Unread counts stay live from smsThreads. */
 const people = {leads: [], approved: [], contacts: [], prospects: []};
 const nameByKey = {};      // phone key -> name, so texts show a name instead of a number
+const profileByKey = {};   // phone key -> their customer profile (or lead if not a customer yet)
+// Tap the name at the top of a conversation to open their profile.
+document.addEventListener("click", e => {
+  if (!e.target.closest("#cname")) return;
+  const u = profileByKey[location.hash.slice(1)];
+  if (u) location.href = u;
+});
 let unreadByKey = {}, peopleLoaded = false;
 const GROUPS = [
   {k: "leads", label: "Leads", open: true},
@@ -826,6 +835,11 @@ async function loadPeople() {
   }).sort(byName));
   // Cold calls last: a business that's already a customer or lead shows there instead.
   take(people.prospects, docs(P).map(p => ({k: key(p.phone), name: p.business || p.contact || "No name", sub: p.contact || ""})).sort(byName));
+  // Profile links: customers win over leads.
+  docs(L).filter(l => !l.trashed).forEach(l => { const k = key(l.phone); if (k) profileByKey[k] = "./leads.html#" + encodeURIComponent(l.id); });
+  docs(C).filter(c => !c.trashed).forEach(c => {
+    [].concat(Array.isArray(c.phones) ? c.phones : [], c.phone || []).forEach(ph => { const k = key(ph); if (k) profileByKey[k] = "./customers.html#" + encodeURIComponent(c.id); });
+  });
   [L, A, C, P].forEach(s => { if (s.status === "rejected") console.warn("people load", s.reason); });
   peopleLoaded = true;
   renderPeople();
