@@ -242,7 +242,7 @@
         /* Text consent (A2P 10DLC): a Yes / No choice, neither picked to start. One must be picked
            to send, but "No thanks" still sends the quote, so consent itself is never required.
            The promo checkbox under it is optional; unticked = No. Same wording as the homepage. */
-        '<div class="kcq__consent" role="radiogroup" aria-labelledby="' + p + 'SmsQ" aria-describedby="' + p + 'SmsWhat" aria-required="true">' +
+        '<div class="kcq__consent kcq__consent--wait" role="radiogroup" aria-labelledby="' + p + 'SmsQ" aria-describedby="' + p + 'SmsWhat" aria-required="true">' +
           '<p class="kcq__consentQ" id="' + p + 'SmsQ">Can we text you about your quote?</p>' +
           '<p class="kcq__consentWhat" id="' + p + 'SmsWhat">If you say yes, Khean &amp; Clean will text you quote links, appointment confirmations and reminders. Choose Yes or No to send. Either way, you get your quote.</p>' +
           '<div class="kcq__consentOpts">' +
@@ -487,7 +487,14 @@
       if (editBtn)  editBtn.hidden  = open;
       if (clearBtn) clearBtn.hidden = !open;
     }
+    /* "Can we text you" box: hidden until the form opens up (or comes back already filled in),
+       then it stays. Submit opens the form, so it is always showing before a send. */
+    function showConsent() {
+      var c = form.querySelector('.kcq__consent');
+      if (c) c.classList.remove('kcq__consent--wait');
+    }
     function openUp() {
+      showConsent();
       expand.classList.add('is-open');
       if (summary) summary.hidden = true;
       syncTools();
@@ -525,7 +532,7 @@
     }
     form.addEventListener('input',  save);
     form.addEventListener('change', save);
-    restore();
+    if (restore()) showConsent();
 
     // Land collapsed in the summary view — the same state the summarize button
     // produces. No validation here on purpose: whatever is saved gets rendered,
