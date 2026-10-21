@@ -1175,5 +1175,19 @@ onAuthStateChanged(getAuth(app), async user => {
 });
 </script>
 <script src="./tabbar.js" defer></script>
+<script>
+/* Desktop: scale the whole page up proportionally so it fills 90% of the screen width (phones untouched). */
+(function(){
+  var w = document.querySelector('.wrap');
+  if (!w) return;
+  function fit(){
+    if (innerWidth < 760) { w.style.zoom = ''; return; }
+    var z = innerWidth * 0.9 / 1200;
+    w.style.zoom = z > 1 ? z : '';
+  }
+  fit();
+  addEventListener('resize', fit);
+})();
+</script>
 </body>
 </html>
