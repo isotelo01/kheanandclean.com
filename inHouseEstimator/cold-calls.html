@@ -162,7 +162,14 @@ async function load(){
     showMsg("");
   } catch (e) { console.error(e); items = [];
     showMsg(e && e.code === "permission-denied" ? "Firestore rules are blocking the \"prospects\" collection." : "Could not load the list."); }
+  // Opened from Texts as cold-calls.html#<id>: open that business's card and scroll to it.
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h && items.some(p => p.id === h)) openId = h;
   render();
+  if (h && openId === h) {
+    const card = document.querySelector('.card[data-id="' + CSS.escape(h) + '"]');
+    if (card) card.scrollIntoView({ block: "start" });
+  }
 }
 
 function sorted(list){

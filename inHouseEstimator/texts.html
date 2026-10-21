@@ -835,7 +835,8 @@ async function loadPeople() {
   }).sort(byName));
   // Cold calls last: a business that's already a customer or lead shows there instead.
   take(people.prospects, docs(P).map(p => ({k: key(p.phone), name: p.business || p.contact || "No name", sub: p.contact || ""})).sort(byName));
-  // Profile links: customers win over leads.
+  // Profile links: customers win over leads, leads over cold calls.
+  docs(P).forEach(p => { const k = key(p.phone); if (k) profileByKey[k] = "./cold-calls.html#" + encodeURIComponent(p.id); });
   docs(L).filter(l => !l.trashed).forEach(l => { const k = key(l.phone); if (k) profileByKey[k] = "./leads.html#" + encodeURIComponent(l.id); });
   docs(C).filter(c => !c.trashed).forEach(c => {
     [].concat(Array.isArray(c.phones) ? c.phones : [], c.phone || []).forEach(ph => { const k = key(ph); if (k) profileByKey[k] = "./customers.html#" + encodeURIComponent(c.id); });
