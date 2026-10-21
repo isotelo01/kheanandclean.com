@@ -461,6 +461,8 @@ function readBlock(c){
         (emailsOf(c).length ? '<a class="ghost" href="./email.html#with/' + encodeURIComponent(emailsOf(c)[0]) + '">Email history</a>' : "") +
       '</div>' : "") +
     '</div>' +
+    /* Partner referral: Convert on the Leads page puts "Referred by X (code KC…)" in their notes. */
+    (String(c.notes || "").match(/^Referred by (.+)$/m) ? rrow("Referred by", String(c.notes).match(/^Referred by (.+)$/m)[1]) : "") +
     rrow("Notes", c.notes) +
   '</div>';
 }

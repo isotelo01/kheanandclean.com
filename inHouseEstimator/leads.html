@@ -44,6 +44,7 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .meta{color:var(--muted);font-size:14px}
 /* A customer's change to a quote they were sent ("Edit date or message"): needs approving. */
 .meta.chg{color:var(--ink);font-weight:700}
+.meta.ref{color:#b8860b;font-weight:700}
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
 .panel h2{font:700 20px "Cinzel","Playfair Display",Georgia,serif;margin:24px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
@@ -179,6 +180,12 @@ const cityLine = a => [[a.city, a.state].filter(Boolean).join(", "), a.zip].filt
 const typeLabel = l => {
   const t = String(l.type || l.property_type || "residential").toLowerCase();
   return t.charAt(0).toUpperCase() + t.slice(1);
+};
+/* Partner referral: business name and code, read from the "REFERRAL from X (code KC…)" line
+   the partner portal writes, so older referral leads work too. null for every other lead. */
+const refOf = l => {
+  const m = String(l.message || "").match(/^REFERRAL from (.+?) \(code ([A-Z0-9]+)\)/m);
+  return m ? { from: m[1], code: m[2] } : null;
 };
 const servicesOf = l => Array.isArray(l.services) ? l.services.join(", ") : String(l.services || "");
 /* The website's Yes / No text-message choice (smsConsent). If the database refused that
@@ -340,6 +347,7 @@ async function showList(){
     return '<a class="row ' + (inHistory(l) ? "done" : tintOf(l)) + '" href="#' + encodeURIComponent(l.id) + '">' +
       (String(l.when || "").trim() ? '<span class="star" title="Wants ' + esc(wantsDay(l)) + '" aria-label="Wants ' + esc(wantsDay(l)) + '">\u2605</span>' : '') +
       '<div class="who">' + esc(l.name || "No name") + '</div>' +
+      (refOf(l) ? '<div class="meta ref">Referral from ' + esc(refOf(l).from) + '</div>' : '') +
       (l.editOfNumber ? '<div class="meta chg">Change request \u00b7 ' + esc(l.editOfNumber) + '</div>' : '') +
       lines.filter(x => x && String(x).trim()).map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
       (inHistory(l) ? '<div class="exp">' + esc(leftLabel(l)) + '</div>' : '') +
@@ -429,6 +437,7 @@ async function showLead(id){
         /* A change to a quote already sent: approve it by updating that quote and resending it. */
         (l.editOf ? '<div class="rrow"><div class="rlab">Changes</div><div class="rval">Quote ' + esc(l.editOfNumber || "") +
           ' \u00b7 <a href="./index.html?edit=' + encodeURIComponent(l.editOf) + '&amp;from=quotes">Open it to update and resend</a></div></div>' : "") +
+        (refOf(l) ? rrow("Referred by", refOf(l).from + " \u00b7 code " + refOf(l).code) : "") +
         rrow("Type", typeLabel(l)) +
         (String(l.when || "").trim() ? rrow("Wants", wantsDay(l)) : "") +
         rrow("Services", servicesOf(l)) +
@@ -624,6 +633,12 @@ async function showLead(id){
           try { await updateDoc(doc(db, "customers", customerId), { smsConsent: textOk(l), updatedAt: serverTimestamp() }); }
           catch (e) { console.error("Could not update the customer's text choice", e); }
         }
+        /* Existing customer sent by a partner: add who referred them to their notes. */
+        if (refOf(l) && !/^Referred by /m.test(String(dup.notes || ""))) {
+          const line = "Referred by " + refOf(l).from + " (code " + refOf(l).code + ")";
+          try { await updateDoc(doc(db, "customers", customerId), { notes: line + (dup.notes ? "\n\n" + dup.notes : ""), updatedAt: serverTimestamp() }); }
+          catch (e) { console.error("Could not add the referral to the customer's notes", e); }
+        }
       } else {
         say("Creating customer…");
         const a = addrOf(l);
@@ -631,6 +646,7 @@ async function showLead(id){
           ? [{ street: a.street || "", city: a.city || "", state: a.state || "CA", zip: a.zip || "" }] : [];
         const t = String(l.type || l.property_type || "residential").toLowerCase();
         const notes = [
+          refOf(l) ? "Referred by " + refOf(l).from + " (code " + refOf(l).code + ")" : "",
           l.message ? String(l.message).trim() : "",
           servicesOf(l) ? "Asked about: " + servicesOf(l) : "",
           "From website lead" + (when(l) ? ", " + when(l) : "") + "."
