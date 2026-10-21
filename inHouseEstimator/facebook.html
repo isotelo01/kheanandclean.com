@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="robots" content="noindex, nofollow">
+<title>Facebook &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Facebook suite: one place for everything on the K&C Facebook page. Each tile opens the right
+   spot in Meta Business Suite (or the page itself) in a new tab. Same dark navy + gold as the hub,
+   with Facebook blue for the accents. */
+:root{--navy:#0d1b2a;--card:#172239;--gold:#E3B64A;--fb:#1877F2;--fb2:#4f9bff;--muted:#aab3c5}
+*{box-sizing:border-box}
+html{background:#000}
+body{margin:0;min-height:100vh;color:#fff;font:16px/1.55 "Archivo",system-ui,sans-serif;
+  background:radial-gradient(1200px 600px at 10% -10%,rgba(24,119,242,.28),transparent 60%),
+             radial-gradient(900px 500px at 110% 0%,rgba(227,182,74,.14),transparent 60%),#05080f}
+#authwait{position:fixed;inset:0;background:#05080f;z-index:9}
+.wrap{max-width:1040px;margin:0 auto;padding:22px 18px 60px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.top .home img{display:block;width:44px;height:44px;border-radius:10px}
+.back{margin-left:auto;color:var(--muted);text-decoration:none;font-weight:600;font-size:14px;border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:7px 14px}
+.back:hover{color:var(--gold);border-color:var(--gold)}
+:where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* Hero */
+.hero{position:relative;overflow:hidden;border-radius:18px;padding:26px 24px;margin-bottom:26px;
+  background:linear-gradient(135deg,#1877F2 0%,#0e4fb5 55%,#0b2c63 100%);box-shadow:0 10px 40px rgba(24,119,242,.25)}
+.hero::after{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%)}
+.hero .f{width:58px;height:58px;border-radius:16px;background:#fff;display:grid;place-items:center;margin-bottom:14px}
+.hero .f svg{width:34px;height:34px;fill:var(--fb)}
+.hero h1{font:700 34px/1.1 "Playfair Display",Georgia,serif;margin:0}
+.hero p{margin:6px 0 0;color:rgba(255,255,255,.85)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;position:relative;z-index:1}
+.pill{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font:600 15px "Archivo",sans-serif;border-radius:999px;padding:10px 18px;cursor:pointer;border:0}
+.pill.w{background:#fff;color:#0b2c63}
+.pill.o{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35)}
+.pill:hover{transform:translateY(-1px)}
+
+/* Groups of tiles */
+.grp{margin-bottom:24px;animation:rise .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0ms)}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}}
+.gh{display:flex;align-items:center;gap:10px;margin:0 0 12px;font:700 12.5px/1 "Archivo",sans-serif;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
+.gh::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(227,182,74,.5),transparent)}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.tile{position:relative;display:flex;flex-direction:column;gap:4px;min-height:128px;padding:16px 18px;border-radius:14px;
+  text-decoration:none;color:#fff;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.1);box-shadow:0 1px 0 rgba(255,255,255,.05) inset;transition:transform .18s,border-color .18s,box-shadow .18s}
+.tile:hover{transform:translateY(-3px);border-color:rgba(79,155,255,.7);box-shadow:0 10px 26px rgba(24,119,242,.25)}
+.ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;margin-bottom:8px;
+  background:rgba(24,119,242,.16);color:var(--fb2);border:1px solid rgba(79,155,255,.35)}
+.ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tn{font:700 18px/1.2 "Playfair Display",Georgia,serif}
+.td{color:var(--muted);font-size:14px;line-height:1.4}
+.go{position:absolute;right:14px;top:14px;color:rgba(255,255,255,.35);font-size:22px;transition:color .18s,transform .18s}
+.tile:hover .go{color:var(--fb2);transform:translateX(3px)}
+.soon{border-style:dashed;cursor:default}
+.soon:hover{transform:none;border-color:rgba(227,182,74,.6);box-shadow:none}
+.soon .ic{background:rgba(227,182,74,.12);color:var(--gold);border-color:rgba(227,182,74,.4)}
+.tag{display:inline-block;align-self:flex-start;margin-top:6px;font:700 11px "Archivo";letter-spacing:.12em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(227,182,74,.5);border-radius:999px;padding:2px 9px}
+.note{color:var(--muted);font-size:13px;margin-top:6px;text-align:center}
+@media (max-width:860px){ .tiles{grid-template-columns:repeat(2,minmax(0,1fr))} }
+/* Phones: icon + title only, same as the hub. */
+@media (max-width:759px){ .td{display:none} .tile{min-height:0;padding:12px 14px} .hero h1{font-size:28px} }
+@media (prefers-reduced-motion:reduce){ .grp{animation:none} .tile,.go{transition:none} }
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <a class="back" href="./hub.html">&lsaquo; Hub</a>
+  </div>
+
+  <div class="hero">
+    <div class="f" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13.5 22v-8h2.7l.4-3.2h-3.1V8.8c0-.9.3-1.6 1.6-1.6h1.7V4.3c-.3 0-1.3-.1-2.5-.1-2.4 0-4.1 1.5-4.1 4.2v2.4H7.5V14h2.7v8z"/></svg></div>
+    <h1>Facebook</h1>
+    <p>Messages, posts, ads and reviews for Khean &amp; Clean, all in one place.</p>
+    <div class="acts">
+      <a class="pill w" href="https://business.facebook.com/latest/inbox/all" target="_blank" rel="noopener">Open inbox</a>
+      <a class="pill o" href="https://business.facebook.com/latest/composer" target="_blank" rel="noopener">+ New post</a>
+      <button type="button" class="pill o" id="copyBtn">Copy page link</button>
+    </div>
+  </div>
+
+  <section class="grp" style="--d:60ms">
+    <h2 class="gh">Talk to customers</h2>
+    <div class="tiles">
+      <a class="tile" href="https://business.facebook.com/latest/inbox/all" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3C7 3 3 6.7 3 11.3c0 2.6 1.3 4.9 3.3 6.4V21l3-1.7c.9.3 1.8.4 2.7.4 5 0 9-3.7 9-8.4S17 3 12 3z"/><path d="M8 12.5l3-3 2.2 2.2L16 9"/></svg></span><span class="tn">Inbox</span><span class="td">Messenger and Instagram messages</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+      <a class="tile" href="https://business.facebook.com/latest/inbox/facebook" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M7 9h10M7 13h6"/></svg></span><span class="tn">Comments</span><span class="td">Answer comments on your posts and ads</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+      <a class="tile" href="https://www.facebook.com/kheanandclean/reviews/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></span><span class="tn">Reviews</span><span class="td">Recommendations on your page</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+    </div>
+  </section>
+
+  <section class="grp" style="--d:120ms">
+    <h2 class="gh">Post</h2>
+    <div class="tiles">
+      <a class="tile" href="https://business.facebook.com/latest/composer" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class="tn">Create a post</span><span class="td">Photos, before &amp; afters, specials</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+      <a class="tile" href="https://business.facebook.com/latest/planner" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><span class="tn">Planner</span><span class="td">Schedule posts ahead of time</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+      <a class="tile" href="https://business.facebook.com/latest/posts" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="16" cy="8" r="1.5"/></svg></span><span class="tn">Posts &amp; reels</span><span class="td">Everything you've posted</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+    </div>
+  </section>
+
+  <section class="grp" style="--d:180ms">
+    <h2 class="gh">Grow</h2>
+    <div class="tiles">
+      <a class="tile" href="https://business.facebook.com/latest/ads_summary" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span><span class="tn">Boost &amp; ads</span><span class="td">Boost a post or check your ads</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+      <a class="tile" href="https://adsmanager.facebook.com/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="tn">Ads Manager</span><span class="td">Full ad campaigns and budgets</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+      <a class="tile" href="https://business.facebook.com/latest/insights" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><span class="tn">Insights</span><span class="td">Reach, followers, what's working</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+    </div>
+  </section>
+
+  <section class="grp" style="--d:240ms">
+    <h2 class="gh">Your page</h2>
+    <div class="tiles">
+      <a class="tile" href="https://www.facebook.com/kheanandclean/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span><span class="tn">View page</span><span class="td">See it the way customers do</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+      <a class="tile" href="https://business.facebook.com/latest/settings" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><span class="tn">Page settings</span><span class="td">Hours, info, who can manage it</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+      <div class="tile soon"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg></span><span class="tn">Messenger in the app</span><span class="td">Facebook chats right in Texts, next to your text messages</span><span class="tag">Coming soon</span></div>
+    </div>
+  </section>
+  <p class="note" id="msg" role="status"></p>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+const auth = getAuth(initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+}));
+/* Staff page: not signed in -> login, then back here. */
+onAuthStateChanged(auth, user => {
+  if (!user) { location.replace("./login.html?next=facebook.html"); return; }
+  document.getElementById("authwait")?.remove();
+});
+/* Copy page link: for texts, emails, business cards. */
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  const msg = document.getElementById("msg"), url = "https://www.facebook.com/kheanandclean/";
+  try { await navigator.clipboard.writeText(url); msg.textContent = "Copied: " + url; }
+  catch (e) { msg.textContent = url; }
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
