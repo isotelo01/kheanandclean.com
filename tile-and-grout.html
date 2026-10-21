@@ -578,27 +578,8 @@ document.addEventListener('click', function (e) {
 .ba__tag--after{ background:var(--gold-btn); color:var(--btn-ink); }
 .ba__cap{ margin:14px auto 0; font-size:17px; color:var(--ink-dim); }
 @media (max-width:520px){ .ba__tag{ top:8px; left:8px; padding:4px 9px; font-size:10px; } }
-/* ══ Ceramic vs. Porcelain section: cards, callout, photos, pull quote, big stat ══ */
-.story__lead{ font-size:clamp(19px,1.6vw,22px); color:#fff; max-width:62ch; }
-.tcards{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:clamp(12px,1.6vw,22px); margin:26px 0 28px; }
-.tcard{ padding:22px 22px 24px; border-radius:var(--r-md); background:rgba(255,255,255,.04);
-  border:1px solid rgba(217,169,74,.3); box-shadow:0 18px 40px -24px rgba(0,0,0,.8); }
-.tcard__ico{ width:48px; height:48px; display:block; margin-bottom:10px; }
-.tcard h4{ margin:0 0 8px; color:var(--gold-lite); font-size:clamp(20px,2vw,24px); }
-.tcard p{ margin:0; font-size:17px; color:var(--ink-dim); }
-.callout{ margin:30px 0; padding:24px clamp(20px,2.4vw,34px); border-radius:var(--r-md);
-  background:linear-gradient(135deg, rgba(217,169,74,.18), rgba(217,169,74,.04));
-  border-left:5px solid var(--gold-mid); }
-.callout__big{ margin:0 0 10px; color:#fff; font-size:clamp(24px,2.4vw,32px); font-weight:600; line-height:1.2; }
-.callout p + p{ margin-top:0; }
+/* Bathroom before/after, placed inside the Ceramic vs. Porcelain text */
 .ba--mid{ padding-top:0; text-align:center; margin:clamp(36px,4vw,56px) auto clamp(8px,1vw,16px); }
-.pull{ margin:26px 0 !important; padding-left:20px; border-left:3px solid var(--gold-mid);
-  font-size:clamp(22px,2vw,28px); font-style:italic; color:var(--gold-lite); line-height:1.35; }
-.stat{ display:flex; align-items:center; gap:18px; margin:10px 0 18px; }
-.stat__num{ font:600 clamp(64px,6vw,96px)/1 "Cormorant Garamond","Playfair Display",Georgia,serif; color:var(--gold-mid);
-  text-shadow:0 0 30px rgba(217,169,74,.35); }
-.stat__txt{ font-size:clamp(18px,1.6vw,22px); color:#fff; max-width:18ch; line-height:1.3; }
-@media (max-width:520px){ .tcards{ grid-template-columns:1fr; } }
 /* Big screens: page fills ~90% of the width. Text keeps its normal size and line length
    (paragraphs are capped in ch), so only the layout and photos spread out. Title a bit bigger. */
 @media (min-width:1100px){
@@ -610,10 +591,14 @@ document.addEventListener('click', function (e) {
   section.ba{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:clamp(28px,3vw,56px); }
   section.ba > h2, section.ba > .ba__sub{ grid-column:1 / -1; }
   section.ba > .ba__set, section.ba > .ba__set + .ba__set{ max-width:none; margin:clamp(28px,3vw,44px) 0 0; }
-  /* Ceramic vs. Porcelain: cards and callout keep a readable width; photos go big. */
-  .tcards{ max-width:1100px; }
-  .callout{ max-width:1100px; }
-  .ba--mid{ max-width:min(70vw,1300px); }
+  /* Ceramic vs. Porcelain reads like a newspaper: text in two columns across the page,
+     title and the bathroom photos spanning both columns. */
+  .news{ column-count:2; column-gap:clamp(40px,4vw,72px); column-rule:1px solid rgba(217,169,74,.18); }
+  .news > h2, .news > .ba--mid{ column-span:all; }
+  .news p{ max-width:none; }
+  .news h3{ break-after:avoid; }
+  .news > h3:first-of-type{ margin-top:clamp(28px,3vw,40px); }
+  .ba--mid{ max-width:min(72vw,1300px); margin-bottom:clamp(28px,3vw,40px); }
 
   /* Process steps: three boxes across, number on top. */
   .process{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; align-items:stretch; }
@@ -743,33 +728,16 @@ document.addEventListener('click', function (e) {
     </div>
   </section>
 
-  <section class="wrap learn">
+  <section class="wrap learn news">
     <h2>Ceramic vs. Porcelain (and Why It Matters for Sealing)</h2>
 
-    <p class="story__lead">Both are clay tiles fired in a kiln. The difference is heat: porcelain is fired hotter, which makes it denser and harder.</p>
-
-    <!-- ceramic / porcelain as two side-by-side cards -->
-    <div class="tcards">
-      <div class="tcard">
-        <svg class="tcard__ico" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="10" width="36" height="28" rx="3" fill="#8a6a3a"/><rect x="6" y="10" width="36" height="9" rx="3" fill="#f3e3b8"/><path d="M12 15h14" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".8"/></svg>
-        <h4>Ceramic</h4>
-        <p>Usually glazed. Often shinier, and can be more slippery when wet. A chip may show a different color underneath.</p>
-      </div>
-      <div class="tcard">
-        <svg class="tcard__ico" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="10" width="36" height="28" rx="3" fill="#cfd3d8"/><rect x="6" y="10" width="36" height="28" rx="3" fill="none" stroke="#9aa1aa" stroke-width="1.5"/><path d="M6 24h36" stroke="#b5bbc3" stroke-width="1" stroke-dasharray="2 3"/></svg>
-        <h4>Porcelain</h4>
-        <p>Often the same color all the way through, and tends to hide everyday soil better.</p>
-      </div>
-    </div>
-
+    <p>Both are clay tiles fired in a kiln. The difference is heat: porcelain is fired hotter, which makes it denser and harder.</p>
+    <p class="tip"><strong>Ceramic</strong> is usually glazed. It&rsquo;s often shinier and can be more slippery when wet. A chip may show a different color underneath.</p>
+    <p class="tip"><strong>Porcelain</strong> is often the same color all the way through, and it tends to hide everyday soil better.</p>
     <p>Here&rsquo;s what they have in common: the tile face on both is dense and barely absorbs anything. Grout is the opposite. It&rsquo;s porous, sits lower than the tile, and drinks in whatever touches it.</p>
+    <p><strong>That&rsquo;s why you should never seal the whole floor.</strong> Sealer is meant to soak into something porous. Grout takes it in. A glazed or porcelain tile face can&rsquo;t, so the sealer just sits on top, dries into a cloudy haze, and collects dirt. On ceramic and porcelain, sealer belongs in the grout lines only, applied line by line, never mopped across the tile.</p>
 
-    <div class="callout">
-      <p class="callout__big">Never seal the whole floor.</p>
-      <p>Sealer is meant to soak into something porous. Grout takes it in. A glazed or porcelain tile face can&rsquo;t, so the sealer just sits on top, dries into a cloudy haze, and collects dirt. On ceramic and porcelain, sealer belongs in the grout lines only, applied line by line, never mopped across the tile.</p>
-    </div>
-
-    <!-- third before/after pair, big, between the sections -->
+    <!-- third before/after pair: big, across both newspaper columns on desktop -->
     <div class="ba ba__set ba--mid">
       <div class="ba__pair">
         <figure>
@@ -786,14 +754,10 @@ document.addEventListener('click', function (e) {
 
     <h3>Why Grout Gets Dirty (Even in Clean Homes)</h3>
     <p>Grout is naturally porous, a bit like a hard sponge. Every time a floor is mopped, a little dirty water settles into it. Spills, kitchen grease, and everyday foot traffic soak in too. Over time, that soil builds up below the surface.</p>
-    <p class="pull">This happens to every tile floor. It&rsquo;s simply how grout is made.</p>
+    <p>This happens to every tile floor. It&rsquo;s simply how grout is made.</p>
     <p>Because the dirt sits below the surface, a mop can&rsquo;t reach it. Mopping often pushes dirty water deeper into the grout lines, which is why grout slowly darkens over the years even when the tile itself still looks fine.</p>
 
     <h3>Why Heat Matters</h3>
-    <div class="stat">
-      <span class="stat__num">2&times;</span>
-      <span class="stat__txt">cleaning power for about every 18&deg;F hotter</span>
-    </div>
     <p>Hot water does much more than cold water. As cleaning solution heats up, it works harder: chemical cleaning activity roughly doubles with every 18&deg;F increase in temperature. Heat, the right cleaner, enough time for it to work, and strong suction together lift soil out of the grout&rsquo;s pores. Household mopping can&rsquo;t match that.</p>
   </section>
 
