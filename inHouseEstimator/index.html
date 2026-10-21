@@ -448,6 +448,17 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
       try { window.KC_restore(JSON.parse(data.estimateData)); }
       catch (e) { console.error("Could not rebuild the homepage estimate", e); }
     }
+    /* Whole-house quick quote lead: one line at the realtor package price, sq ft x $0.39, $150 minimum
+       (same as the partner portal's quick quote). It's an ordinary line item, so it can be edited or deleted. */
+    const whSq = Math.round(Number(data.wholeHouseSqft) || 0);
+    if (whSq > 0) {
+      const addWh = (tries) => {
+        if (!window.kcAddLine) { if (tries < 40) setTimeout(() => addWh(tries + 1), 50); return; }
+        window.kcAddLine("Whole-house cleaning, " + whSq.toLocaleString() + " sq ft × $0.39",
+          Math.max(150, Math.round(whSq * 0.39 * 100) / 100));
+      };
+      addWh(0);
+    }
     /* The day the customer asked for on the website ("10/05/26 AM", "PM",
        "All day" or just the date) goes into Job date with its 9:00 or 1:00 start;
        All day or no time = whole day. Past days and anything else ("ASAP") stay
