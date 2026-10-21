@@ -19,6 +19,9 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
 #authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+/* Van photo behind the whole page, heavily blurred and dimmed so it only gives a hint of colour */
+body::before{content:"";position:fixed;inset:-60px;z-index:-1;pointer-events:none;
+  background:url("../images/hero-van.jpg") center/cover no-repeat;filter:blur(28px) brightness(.45);opacity:.55}
 .wrap{max-width:1200px;margin:0 auto;padding:22px 18px 60px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px}
 .home{display:flex;flex:none;border-radius:8px}
