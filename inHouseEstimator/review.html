@@ -356,12 +356,12 @@ async function start(){
   const first = ((c.name || "").trim().split(/\s+/)[0]) || "there";
   /* "Add photos to text" on: this line goes at the end of the message and the photos go in a second text.
      Off: the line comes out and only the header photo goes. */
-  const PHOTO_LINE = "I've included a few photos from your job if you'd like to add them to your review.";
-  const PHOTO_RX = /\s*I've included a few photos from your job if you'd like to add them( to your review)?\./g;
+  const PHOTO_LINE = "If you'd like, you can save these photos to your phone and add them to your Google review.";
+  const PHOTO_RX = /\s*(I've included a few photos from your job if you'd like to add them( to your review)?\.|If you'd like, you can save these photos to your phone and add them to your Google review\.)/g;
   const setPh = on => {
     withPh = on;
     const t = $("txt"), base = t.value.replace(PHOTO_RX, "").trimEnd();
-    t.value = on ? (base ? base + " " : "") + PHOTO_LINE : base;
+    t.value = on ? (base ? base + "\n\n" : "") + PHOTO_LINE : base;   // its own paragraph
     $("phBtn").classList.toggle("new", on);
     $("phBtn").setAttribute("aria-pressed", String(on));
     $("phBtn").textContent = on ? "\u2713 Photos added to text" : "Add photos to text";
@@ -403,13 +403,9 @@ async function start(){
         await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
         paths.push(p);
       }
-      /* Two texts: 1) header photo + message + review link, 2) the job photos with one line about them.
-         No job photos: just text 1, and nothing in it mentions photos. */
-      const hasHead = picked.has(CARD);
-      const texts = [{ body: text, media: hasHead ? paths.slice(0, 1) : [] }];
-      const rest = hasHead ? paths.slice(1) : paths;
-      // One photo per text, like the Texts page: carriers deliver a multi-photo text but the iPhone only shows the first picture.
-      rest.slice(0, 10).forEach((p, i) => texts.push({ body: i ? "" : "If you'd like, you can save these photos to your phone and add them to your Google review.", media: [p] }));
+      // One text: the message, with the logo card first and the job photos after it.
+      // smsSend takes 5 pictures max per text, so the logo card + up to 4 job photos.
+      const texts = [{ body: text, media: paths.slice(0, 5) }];
       for (let i = 0; i < texts.length; i++) {
         if (i === 1) await new Promise(r => setTimeout(r, 3000));   // 3 seconds after the review text so it lands first
         say("Sending" + (texts.length > 1 ? " text " + (i + 1) + " of " + texts.length : "") + "...");
