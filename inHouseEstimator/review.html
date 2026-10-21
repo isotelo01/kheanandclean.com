@@ -413,14 +413,15 @@ async function start(){
             '<div class="body">' + esc(PHOTO_LINE) + '</div></div>'
         : '<div class="msg" style="margin-bottom:12px">No job photos, so just text 1.</div>') +
       '<div class="actions"><button type="button" class="ghost" data-sum="edit">Edit</button>' +
-        '<button type="button" class="new" data-sum="send">Send</button></div>' +
+        '<button type="button" class="new" data-sum="sendBtn">Text from business</button>' +
+        '<button type="button" class="new" data-sum="myBtn">Text from my phone</button></div>' +
     '</div>';
     const close = () => { bg.remove(); document.removeEventListener("keydown", onKey); };
     const onKey = e => { if (e.key === "Escape") close(); };
     bg.addEventListener("click", e => {
       const b = e.target.closest("[data-sum]");
       if (e.target === bg || (b && b.dataset.sum === "edit")) close();
-      else if (b && b.dataset.sum === "send") { close(); $("sendBtn").click(); }
+      else if (b) { close(); $(b.dataset.sum).click(); }   // business line or your own phone
     });
     document.addEventListener("keydown", onKey);
     document.body.appendChild(bg);
