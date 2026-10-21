@@ -160,6 +160,20 @@ body.dayMode #backBtn{display:inline-flex}
   #mlabel[data-fest="11"]{color:#e0a25a;text-shadow:0 0 6px #000,0 0 22px rgba(176,96,40,.8)}   #mlabel[data-fest="11"]::before{content:"\1F983"}
   #mlabel[data-fest="12"]{color:#ff4d4d;text-shadow:0 0 6px #fff,0 0 24px rgba(40,190,90,.95)}  #mlabel[data-fest="12"]::before{content:"\1F384"}
 }
+/* Rain chance chip (all screens) */
+.cwx .rain{font-style:normal;font-weight:700;color:#8fd0ff;background:rgba(60,150,255,.18);border:1px solid rgba(110,180,255,.45);border-radius:999px;padding:1px 7px}
+.cwx .lo{color:#8f9bb3}
+/* Desktop (wide screens): bigger weekday names, bigger dates, nicer weather pill */
+@media (min-width:1100px){
+  .dow{font-size:19px;letter-spacing:.06em;padding:14px 0;font-weight:700}
+  .chead{min-height:46px}
+  .dnum{font-size:30px;width:46px;height:46px}
+  .cwx{gap:7px;font-size:13px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:4px 10px 4px 6px}
+  .cwx i{font-size:26px;filter:saturate(1.5) brightness(1.15) drop-shadow(0 1px 3px rgba(0,0,0,.5))}
+  .cwx b{font-size:17px;color:#fff}
+  .cwx .lo{font-size:13px}
+  .cwx .rain{font-size:13px}
+}
 /* Click a day box (or its date) to open that day */
 .cell{cursor:pointer}
 .cell:hover{filter:brightness(1.25)}
@@ -610,18 +624,24 @@ const wxIcon = c => c === 0 ? "\u2600\uFE0F" : c <= 2 ? "\u{1F324}\uFE0F" : c ==
   : c <= 67 ? "\u{1F327}\uFE0F" : c <= 77 ? "\u{1F328}\uFE0F" : c <= 82 ? "\u{1F326}\uFE0F" : c <= 86 ? "\u{1F328}\uFE0F" : "\u26C8\uFE0F";
 async function loadWeather(){
   const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=38.678&longitude=-121.176" +
-    "&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit" +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit" +
     "&timezone=America%2FLos_Angeles&past_days=31&forecast_days=16");
   if (!r.ok) throw new Error("weather " + r.status);
   const d = (await r.json()).daily || {};
   (d.time || []).forEach((k, i) => {
     if (d.temperature_2m_max[i] == null) return;
-    wxByDay.set(k, { icon: wxIcon(d.weather_code[i]), hi: Math.round(d.temperature_2m_max[i]), lo: Math.round(d.temperature_2m_min[i]) });
+    const pp = (d.precipitation_probability_max || [])[i];
+    wxByDay.set(k, { icon: wxIcon(d.weather_code[i]), hi: Math.round(d.temperature_2m_max[i]), lo: Math.round(d.temperature_2m_min[i]),
+      rain: pp == null ? null : Math.round(pp) });
   });
 }
+/* Rain chance shows only when it's 20% or more */
 const wxTag = k => { const w = wxByDay.get(k);
-  return w ? '<span class="cwx" title="' + w.hi + '\u00b0 high, ' + w.lo + '\u00b0 low"><i aria-hidden="true">' + w.icon + '</i>' +
-    '<b>' + w.hi + '\u00b0</b>' + w.lo + '\u00b0</span>' : ''; };
+  const rain = w && w.rain != null && w.rain >= 20 ? w.rain : null;
+  return w ? '<span class="cwx" title="' + w.hi + '\u00b0 high, ' + w.lo + '\u00b0 low' + (rain != null ? ', ' + rain + '% chance of rain' : '') + '">' +
+    (rain != null ? '<em class="rain">\u{1F4A7}' + rain + '%</em>' : '') +
+    '<i aria-hidden="true">' + w.icon + '</i>' +
+    '<b>' + w.hi + '\u00b0</b><span class="lo">' + w.lo + '\u00b0</span></span>' : ''; };
 /* Heat colour for a day box, from its high: 50\u00b0 or less = blue (205), 75\u00b0 = brass (42), 100\u00b0+ = orange-red (8). */
 const heatHue = hi => { const t = Math.max(50, Math.min(100, hi));
   return Math.round(t <= 75 ? 205 - (t - 50) / 25 * 163 : 42 - (t - 75) / 25 * 34); };
