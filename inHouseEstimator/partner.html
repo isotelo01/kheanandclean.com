@@ -130,6 +130,19 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
 /* Estimate button: the big one in Book a cleaning. */
 .act.est{ background:var(--gold); border-color:var(--gold); }
 .act.est b{ color:var(--navy); }
+/* Referrals bubble: code row, past referrals list with status pills. */
+.refcode{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px dashed var(--gold); border-radius:12px; padding:10px 14px; }
+.refcode span{ color:var(--muted); font-size:.85rem; }
+.refcode b{ flex:1; color:var(--gold); font:700 1.35rem "Archivo",system-ui,sans-serif; letter-spacing:.08em; }
+.refcode button{ padding:.45rem 1rem; font-size:.85rem; }
+.refh{ color:var(--cream); font-size:.95rem; margin:6px 0 8px; }
+.refrow{ display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--line); }
+.refrow div{ flex:1; min-width:0; }
+.refrow b{ display:block; color:var(--cream); }
+.refrow small{ color:var(--muted); }
+.refst{ font-size:.75rem; font-weight:700; padding:3px 9px; border-radius:999px; background:rgba(255,255,255,.08); color:var(--cream); white-space:nowrap; }
+.refst.booked{ background:#38bdf8; color:#0d1b2a; } .refst.done{ background:#e0b64a; color:#0d1b2a; }
+.refst.paid{ background:#4ade80; color:#0d1b2a; } .refst.closed{ opacity:.55; }
 /* Vendor document quick view: opens over the portal, X closes it. */
 .dv{ position:fixed; inset:0; z-index:50; background:rgba(5,10,18,.88); display:flex; flex-direction:column; padding:12px; }
 .dv[hidden]{ display:none; }
@@ -217,6 +230,31 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
     </div>
   </section>
 
+  <!-- Referrals: the partner's code, a form that sends a referral (files a referral + a lead for
+       Khean & Clean), and their past referrals with status. -->
+  <section class="card" id="refCard">
+    <h2>Referrals</h2>
+    <div class="refcode"><span>Your referral code</span><b id="refCode">&hellip;</b>
+      <button type="button" id="refCopy">Copy</button></div>
+    <p class="qqfine">Send us someone who needs a cleaning and earn money back when the job is done. Give them your code, or send them to us below.</p>
+    <form id="refForm" class="qq">
+      <div class="row">
+        <div><label for="refName">Their name</label><input id="refName" required maxlength="190"></div>
+        <div><label for="refPhone">Phone</label><input id="refPhone" type="tel" maxlength="40"></div>
+      </div>
+      <div class="row">
+        <div><label for="refEmail">Email (optional)</label><input id="refEmail" type="email" maxlength="190"></div>
+        <div><label for="refAddr">Address (optional)</label><input id="refAddr" maxlength="200"></div>
+      </div>
+      <label for="refNotes">What they need (optional)</label>
+      <input id="refNotes" maxlength="500" placeholder="Carpet, tile, upholstery, move-out, best time to call">
+      <button type="submit" id="refSend">Send referral</button>
+      <p class="msg" id="refMsg" role="status"></p>
+    </form>
+    <h3 class="refh">Your referrals</h3>
+    <div id="refList"><p class="empty">Loading&hellip;</p></div>
+  </section>
+
   <section class="card">
     <h2>Your jobs</h2>
     <p class="empty">Your jobs, reports and before-and-after photos will show up here.</p>
@@ -287,7 +325,7 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut, deleteUser, reauthenticateWithPopup, reauthenticateWithCredential,
   GoogleAuthProvider, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, addDoc }
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, addDoc, query, where, getDocs }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getStorage, ref as sref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
@@ -328,6 +366,57 @@ onAuthStateChanged(auth, async u => {
     const a = $("doc-" + k); a.href = url; a.target = "_blank"; a.rel = "noopener";
     if (k === "w9") a.innerHTML = "<b>W-9</b>";
   }).catch(() => {}));
+  $("refCode").textContent = refCode();
+  refLoad();
+});
+
+/* Referrals. Code = "KC" + the first 6 characters of the partner's login ID: never changes, even if
+   they rename their business. Status (submitted / booked / done / paid / closed) is set by staff. */
+const refCode = () => "KC" + (auth.currentUser?.uid || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 6).toUpperCase();
+const refEsc = s => String(s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const REF_ST = { submitted: "Submitted", booked: "Booked", done: "Job done", paid: "Paid out", closed: "Closed" };
+async function refLoad() {
+  const box = $("refList");
+  try {
+    const s = await getDocs(query(collection(db, "referrals"), where("partnerId", "==", auth.currentUser.uid)));
+    const rows = s.docs.map(d => d.data()).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    box.innerHTML = rows.length ? rows.map(r => {
+      const st = REF_ST[r.status] ? r.status : "submitted";
+      const day = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Just now";
+      return '<div class="refrow"><div><b>' + refEsc(r.name) + '</b><small>' + day + (r.address ? " · " + refEsc(r.address) : "") + '</small></div>'
+        + '<span class="refst ' + st + '">' + REF_ST[st] + '</span></div>';
+    }).join("") : '<p class="empty">No referrals yet. Your first one will show up here.</p>';
+  } catch (ex) { console.error(ex); box.innerHTML = '<p class="empty">Couldn\'t load your referrals.</p>'; }
+}
+$("refCopy").onclick = async () => {
+  try { await navigator.clipboard.writeText(refCode()); $("refCopy").textContent = "Copied"; }
+  catch (e) { $("refCopy").textContent = "Hold to copy"; }
+  setTimeout(() => { $("refCopy").textContent = "Copy"; }, 1800);
+};
+$("refForm").addEventListener("submit", async e => {
+  e.preventDefault(); if (!me) return;
+  const msg = $("refMsg"), btn = $("refSend");
+  const name = $("refName").value.trim(), phone = $("refPhone").value.trim(), email = $("refEmail").value.trim();
+  const address = $("refAddr").value.trim(), notes = $("refNotes").value.trim(), code = refCode();
+  msg.classList.remove("bad"); msg.textContent = "";
+  if (!name) { msg.classList.add("bad"); msg.textContent = "Enter their name."; return; }
+  if (!phone && !email) { msg.classList.add("bad"); msg.textContent = "Add a phone or email so we can reach them."; return; }
+  btn.disabled = true; btn.textContent = "Sending…";
+  const from = me.businessName || me.contactName || "partner";
+  try {
+    await addDoc(collection(db, "referrals"), { partnerId: auth.currentUser.uid, partnerName: from, code,
+      name, phone, email, address, notes, status: "submitted", createdAt: serverTimestamp() });
+    /* Also lands in Leads so it shows up with everything else. */
+    await addDoc(collection(db, "leads"), {
+      name, phone, email, type: "referral", services: [],
+      addresses: address ? [{ street: address, city: "", state: "CA", zip: "" }] : [],
+      message: "REFERRAL from " + from + " (code " + code + ")" + (notes ? "\nNotes: " + notes : ""),
+      source: "partner-referral", page: "partner-portal", status: "new", createdAt: serverTimestamp()
+    }).catch(ex => console.error(ex));
+    msg.textContent = "Sent. Thanks! We'll reach out to them.";
+    $("refForm").reset(); refLoad();
+  } catch (ex) { console.error(ex); msg.classList.add("bad"); msg.textContent = "Couldn't send. Try again, or call (916) 767-2520."; }
+  btn.disabled = false; btn.textContent = "Send referral";
 });
 
 /* Vendor document quick view. Opens the file over the portal; X, Esc or Back closes it.
