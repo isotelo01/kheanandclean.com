@@ -56,6 +56,16 @@ textarea{min-height:130px;resize:vertical}
 .rpk small{color:var(--muted)}
 .rpk small.lurl{overflow-wrap:anywhere;text-align:right}
 .padd,.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+/* Summarize: preview of text 1 and text 2 before sending. */
+.sumbg{position:fixed;inset:0;background:rgba(10,14,22,.6);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:24px 14px;overflow-y:auto}
+.sumbox{background:#172239;color:#fff;border:1px solid var(--gold);border-radius:12px;max-width:520px;width:100%;padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.sumbox h3{font:700 20px "Cinzel","Playfair Display",Georgia,serif;margin:0 0 12px}
+.stext{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.stext .lab{font:700 12px "Archivo";letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.stext .body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px}
+.stext .pics{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.stext .pics img{width:84px;height:84px;object-fit:cover;border-radius:8px;background:#eef0f4}
+.stext .pics img.card{width:auto;max-width:120px;height:120px;object-fit:contain}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
 </head>
@@ -180,7 +190,8 @@ async function start(){
       '<button type="button" class="ghost" id="camBtn">Take photo</button>' +
       '<input type="file" id="addIn" accept="image/*" multiple hidden>' +
       '<input type="file" id="camIn" accept="image/*" capture="environment" hidden></div>' +
-    '<div class="actions"><button type="button" class="new" id="sendBtn">Text from business</button>' +
+    '<div class="actions"><button type="button" class="ghost" id="sumBtn">Summarize</button>' +
+      '<button type="button" class="new" id="sendBtn">Text from business</button>' +
       '<button type="button" class="new" id="myBtn">Text from my phone</button>' +
       '<button type="button" class="new" id="mailBtn">Send email</button></div>' +
     '<div class="note" id="say" style="margin-top:8px">No photos in this send yet.</div>' +
@@ -382,8 +393,40 @@ async function start(){
     $("msgPick").querySelectorAll("[data-msg]").forEach(x => x.classList.toggle("new", x === b));
   });
 
-  /* Send: texts the message and the picked photos from the business line (916) 767-2520.
-     Up to 5 photos ride in each picture text; more than 5 go in follow-up texts. */
+  /* Summarize: shows text 1 (header card + message) and text 2 (job photos + the save-photos line).
+     Edit closes it and you're back on the builder; Send sends from the business line. */
+  $("sumBtn").addEventListener("click", () => {
+    const text = $("txt").value.trim(), keys = sendKeys();
+    const head = keys.includes(CARD) ? photos.get(CARD) : null, rest = keys.filter(k => k !== CARD).map(k => photos.get(k)).filter(Boolean);
+    const img = (o, cls) => '<img' + (cls ? ' class="' + cls + '"' : '') + ' src="' + esc(o.url) + '" alt="">';
+    const bg = document.createElement("div");
+    bg.className = "sumbg";
+    bg.innerHTML = '<div class="sumbox" role="dialog" aria-label="Summary">' +
+      '<h3>Summary</h3>' +
+      '<div class="msg" style="margin:-6px 0 12px">To ' + esc(c.name || "the customer") + ' &middot; ' + esc(phonesOf(c)[0] || "no phone on file") + '</div>' +
+      '<div class="stext"><div class="lab">Text 1</div>' +
+        (head ? '<div class="pics">' + img(head, "card") + '</div>' : '') +
+        '<div class="body">' + esc(text.split(PHOTO_LINE).join("").trim() || "(no message)") + '</div></div>' +
+      (rest.length
+        ? '<div class="stext"><div class="lab">Text 2 &middot; ' + rest.length + ' photo' + (rest.length === 1 ? '' : 's') + '</div>' +
+            '<div class="pics">' + rest.slice(0, 10).map(o => img(o)).join("") + '</div>' +
+            '<div class="body">' + esc(PHOTO_LINE) + '</div></div>'
+        : '<div class="msg" style="margin-bottom:12px">No job photos, so just text 1.</div>') +
+      '<div class="actions"><button type="button" class="ghost" data-sum="edit">Edit</button>' +
+        '<button type="button" class="new" data-sum="send">Send</button></div>' +
+    '</div>';
+    const close = () => { bg.remove(); document.removeEventListener("keydown", onKey); };
+    const onKey = e => { if (e.key === "Escape") close(); };
+    bg.addEventListener("click", e => {
+      const b = e.target.closest("[data-sum]");
+      if (e.target === bg || (b && b.dataset.sum === "edit")) close();
+      else if (b && b.dataset.sum === "send") { close(); $("sendBtn").click(); }
+    });
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(bg);
+  });
+
+  /* Send: texts the message and the picked photos from the business line (916) 767-2520. */
   $("sendBtn").addEventListener("click", async () => {
     const btn = $("sendBtn"), text = $("txt").value.trim();
     if (!tel) { say("No phone on file.", true); return; }
@@ -403,13 +446,13 @@ async function start(){
         await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
         paths.push(p);
       }
-      /* Two texts: 1) logo card + message + review link, 2) 3 seconds later, the job photos with the
-         "If you'd like..." line. No job photos: just text 1. smsSend takes 5 pictures max per text. */
-      const LINE = "If you'd like, you can save these photos to your phone and add them to your Google review.";
+      /* 1) logo card + message + review link. 2) 3 seconds later, the job photos with the "If you'd like..."
+         line, sent like the Texts page does it: one picture per text, back to back, the line on the first.
+         (A multi-picture text arrives, but the iPhone only shows one of the pictures.) */
       const hasHead = picked.has(CARD);
       const rest = hasHead ? paths.slice(1) : paths;
-      const texts = [{ body: text.split(LINE).join("").trim(), media: hasHead ? paths.slice(0, 1) : [] }];
-      if (rest.length) texts.push({ body: LINE, media: rest.slice(0, 5) });
+      const texts = [{ body: text.split(PHOTO_LINE).join("").trim(), media: hasHead ? paths.slice(0, 1) : [] }];
+      rest.slice(0, 10).forEach((p, i) => texts.push({ body: i ? "" : PHOTO_LINE, media: [p] }));
       for (let i = 0; i < texts.length; i++) {
         if (i === 1) await new Promise(r => setTimeout(r, 3000));   // 3 seconds after the review text so it lands first
         say("Sending" + (texts.length > 1 ? " text " + (i + 1) + " of " + texts.length : "") + "...");
