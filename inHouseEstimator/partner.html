@@ -391,6 +391,14 @@ async function refLoad() {
     }).join("") : '<p class="empty">No referrals yet. Your first one will show up here.</p>';
   } catch (ex) { console.error(ex); box.innerHTML = '<p class="empty">Couldn\'t load your referrals.</p>'; }
 }
+/* Phone formats itself as typed: (939) 459-5959. A leading 1 is dropped. */
+$("refPhone").addEventListener("input", e => {
+  let d = e.target.value.replace(/\D/g, "");
+  if (d.length > 10 && d[0] === "1") d = d.slice(1);
+  d = d.slice(0, 10);
+  e.target.value = d.length > 6 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6)
+    : d.length > 3 ? "(" + d.slice(0, 3) + ") " + d.slice(3) : d;
+});
 /* Create a referral: opens / closes the form under the button. */
 $("refOpen").onclick = () => {
   const open = $("refForm").hidden;
