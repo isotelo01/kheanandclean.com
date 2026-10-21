@@ -1367,6 +1367,10 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .hero__photobox{ width:100vw; margin-left:calc(50% - 50vw); border-radius:0;
   padding-left:calc(50vw - 50% + clamp(1.6rem,3.5vw,2.75rem)); padding-right:calc(50vw - 50% + clamp(1.6rem,3.5vw,2.75rem));
   min-height:clamp(24rem, min(58vw, 82vh), 48rem); }
+/* Show the whole photo (no cropping) with a blurred copy of the same photo filling the sides */
+.hero__photo::before, .hero__photo::after{ content:""; position:absolute; background-image:inherit; background-repeat:no-repeat; }
+.hero__photo::before{ inset:-40px; background-size:cover; background-position:center; filter:blur(26px) brightness(.6); }
+.hero__photo::after{ inset:0; background-size:contain; background-position:center; }
 }
 .roomSummary, .estBox, .estDone{ border-radius:var(--r-sm); }
 
