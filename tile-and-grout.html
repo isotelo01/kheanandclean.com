@@ -578,12 +578,22 @@ document.addEventListener('click', function (e) {
 .ba__tag--after{ background:var(--gold-btn); color:var(--btn-ink); }
 .ba__cap{ margin:14px auto 0; font-size:17px; color:var(--ink-dim); }
 @media (max-width:520px){ .ba__tag{ top:8px; left:8px; padding:4px 9px; font-size:10px; } }
+/* third pair, moved into the Ceramic vs. Porcelain section */
+.ba--side{ padding-top:0; margin-bottom:clamp(24px,3vw,36px); }
 /* Big screens: page fills ~90% of the width. Text keeps its normal size and line length
    (paragraphs are capped in ch), so only the layout and photos spread out. Title a bit bigger. */
 @media (min-width:1100px){
   .wrap{ width:min(90vw, 2000px); }
   .ba__set{ max-width:min(62vw, 1200px); }
   .intro h1{ font-size:clamp(68px,4.6vw,92px); max-width:24ch; }
+
+  /* Before/after: the first two pairs side by side, full width. */
+  section.ba{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:clamp(28px,3vw,56px); }
+  section.ba > h2, section.ba > .ba__sub{ grid-column:1 / -1; }
+  section.ba > .ba__set, section.ba > .ba__set + .ba__set{ max-width:none; margin:clamp(28px,3vw,44px) 0 0; }
+  /* Third pair floats beside the Ceramic vs. Porcelain text, which wraps around it. */
+  .learn{ display:flow-root; }
+  .ba--side{ float:right; width:min(46%,900px); max-width:none; margin:4px 0 28px clamp(32px,3vw,60px); }
 
   /* Process steps: three boxes across, number on top. */
   .process{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; align-items:stretch; }
@@ -711,8 +721,13 @@ document.addEventListener('click', function (e) {
       </div>
       <p class="ba__cap">Tile &amp; grout cleaning &middot; Folsom</p>
     </div>
+  </section>
 
-    <div class="ba__set">
+  <section class="wrap learn">
+    <h2>Ceramic vs. Porcelain (and Why It Matters for Sealing)</h2>
+
+    <!-- third before/after pair: sits beside this text on desktop, text wraps around it -->
+    <div class="ba ba__set ba--side">
       <div class="ba__pair">
         <figure>
           <img src="images/bathroom-tile-cleaning-folsom-before.jpg" alt="Bathroom tile floor in Folsom before professional tile and grout cleaning" loading="lazy" decoding="async">
@@ -725,10 +740,6 @@ document.addEventListener('click', function (e) {
       </div>
       <p class="ba__cap">Bathroom tile cleaning &middot; Folsom</p>
     </div>
-  </section>
-
-  <section class="wrap learn">
-    <h2>Ceramic vs. Porcelain (and Why It Matters for Sealing)</h2>
     <p>Both are clay tiles fired in a kiln. The difference is heat: porcelain is fired hotter, which makes it denser and harder.</p>
     <p class="tip"><strong>Ceramic</strong> is usually glazed. It&rsquo;s often shinier and can be more slippery when wet. A chip may show a different color underneath.</p>
     <p class="tip"><strong>Porcelain</strong> is often the same color all the way through, and it tends to hide everyday soil better.</p>
