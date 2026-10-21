@@ -1421,6 +1421,12 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .qqLook .qform__ttl{ font-size:clamp(2.8rem, 11vw, 4.8rem); line-height:1.1; }
 .qqLook .qform__book{ margin:.35rem 0 0; text-align:center; color:#fff; font-family:"Archivo",system-ui,sans-serif;
   font-size:clamp(1rem, 3.6vw, 1.25rem); font-weight:600; letter-spacing:.02em; }
+/* Shimmer green: a light band sweeps across the green words. */
+.qqLook .qform__book{ background:linear-gradient(100deg, #22c55e 0%, #4ade80 40%, #dcfce7 50%, #4ade80 60%, #22c55e 100%);
+  background-size:250% 100%; -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:bookShimmer 3.2s linear infinite; }
+@keyframes bookShimmer{ from{ background-position:100% 0; } to{ background-position:-150% 0; } }
+@media (prefers-reduced-motion:reduce){ .qqLook .qform__book{ animation:none; background-position:50% 0; } }
 @media (max-width:520px){ .qqLook .qform__ttl{ padding:0 44px; } }
 .qqLook label, .qqLook legend{ color:#E3B64A; }
 .qqLook p, .qqLook small{ color:rgba(255,255,255,.82); }
