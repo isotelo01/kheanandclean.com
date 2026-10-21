@@ -1,6 +1,6 @@
 /* K&C Estimator service worker — offline-first.
    Bump CACHE when you upload new files, or phones keep the old copy. */
-var CACHE = 'kc-estimator-v91';
+var CACHE = 'kc-estimator-v92';
 /* Saved by "Download offline job sheet" (offline.js). Never cleared on update. */
 var OFFLINE = 'kc-offline-pages';
 var ASSETS = ['./','./index.html','./app.css','./pricing.js','./app.js','./manifest.webmanifest',
@@ -34,6 +34,8 @@ self.addEventListener('fetch', function(e){
     }));
     return;
   }
+  /* Photos from Firebase Storage and other outside files: never answer with the estimator page. */
+  if(url.origin !== self.location.origin) return;
   e.respondWith(caches.open(CACHE).then(function(c){ return c.match(e.request); }).then(function(hit){
     /* No service: files saved for offline, otherwise the estimator page as before. */
     return hit || fetch(e.request).catch(function(){
