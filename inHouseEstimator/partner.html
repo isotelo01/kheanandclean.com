@@ -136,6 +136,8 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
 .refcode b{ flex:1; color:var(--gold); font:700 1.35rem "Archivo",system-ui,sans-serif; letter-spacing:.08em; }
 .refcode button{ padding:.45rem 1rem; font-size:.85rem; }
 .refh{ color:var(--cream); font-size:.95rem; margin:6px 0 8px; }
+#refOpen{ display:block; width:100%; margin:0 0 12px; }
+#refOpen[aria-expanded="true"]{ background:transparent; color:var(--gold); border:1px solid var(--line); }
 .refrow{ display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--line); }
 .refrow div{ flex:1; min-width:0; }
 .refrow b{ display:block; color:var(--cream); }
@@ -237,7 +239,8 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
     <div class="refcode"><span>Your referral code</span><b id="refCode">&hellip;</b>
       <button type="button" id="refCopy">Copy</button></div>
     <p class="qqfine">Send us someone who needs a cleaning and earn money back when the job is done. Give them your code, or send them to us below.</p>
-    <form id="refForm" class="qq">
+    <button type="button" id="refOpen" aria-expanded="false" aria-controls="refForm">Create a referral</button>
+    <form id="refForm" class="qq" hidden>
       <div class="row">
         <div><label for="refName">Their name</label><input id="refName" required maxlength="190"></div>
         <div><label for="refPhone">Phone</label><input id="refPhone" type="tel" maxlength="40"></div>
@@ -388,6 +391,13 @@ async function refLoad() {
     }).join("") : '<p class="empty">No referrals yet. Your first one will show up here.</p>';
   } catch (ex) { console.error(ex); box.innerHTML = '<p class="empty">Couldn\'t load your referrals.</p>'; }
 }
+/* Create a referral: opens / closes the form under the button. */
+$("refOpen").onclick = () => {
+  const open = $("refForm").hidden;
+  $("refForm").hidden = !open; $("refOpen").setAttribute("aria-expanded", String(open));
+  $("refOpen").textContent = open ? "Close" : "Create a referral";
+  if (open) $("refName").focus();
+};
 $("refCopy").onclick = async () => {
   try { await navigator.clipboard.writeText(refCode()); $("refCopy").textContent = "Copied"; }
   catch (e) { $("refCopy").textContent = "Hold to copy"; }
