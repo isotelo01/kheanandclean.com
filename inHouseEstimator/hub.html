@@ -117,6 +117,61 @@ button.tile{font:inherit;text-align:left;cursor:pointer;width:100%}
 /* Hub background: Zay Zay photo, darkened so the tiles stay readable. After theme-dark.css so it wins. */
 html{background:none}
 body{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)) fixed,#000 url("../images/zay%20zay%20pic.jpg") center/cover no-repeat fixed}
+
+/* ===== Hub v2: grouped, colour-coded sections, glass tiles, glow on hover ===== */
+@media (min-width:1000px){ .wrap{max-width:1140px} }
+h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 70%,#c9962e 100%);background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:kcShine 9s linear infinite}
+@keyframes kcShine{to{background-position:-220% 0}}
+.date{color:rgba(255,255,255,.75)}
+.date b{color:var(--gold);font-weight:600}
+.groups{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:28px 22px;margin-top:28px}
+.grp{grid-column:span 12;display:flex;flex-direction:column;gap:12px;animation:kcRise .6s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0ms)}
+@keyframes kcRise{from{opacity:0;transform:translateY(14px)}}
+.ghead{display:flex;align-items:center;gap:10px;margin:0;font:700 12.5px/1 "Archivo",sans-serif;letter-spacing:.22em;text-transform:uppercase;color:var(--c)}
+.gdot{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 22%,transparent),0 0 14px var(--c)}
+.gline{flex:1;height:1px;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 60%,transparent),transparent)}
+.gtiles{flex:1;display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));grid-auto-rows:1fr}
+.groups .tile{position:relative;overflow:hidden;justify-content:flex-start;gap:3px;min-height:132px;padding:16px 18px 18px;color:#fff;
+  background:linear-gradient(160deg,rgba(23,34,57,.88),rgba(10,16,30,.92));border:1px solid rgba(255,255,255,.09);border-top:2px solid var(--c);
+  border-radius:14px;box-shadow:0 10px 30px -18px rgba(0,0,0,.9);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.groups .tile::before{content:"";position:absolute;right:-60px;bottom:-90px;width:200px;height:200px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,color-mix(in srgb,var(--c) 32%,transparent),transparent 70%);opacity:.35;transition:opacity .25s,transform .25s}
+.groups .tile:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--c) 70%,transparent);
+  box-shadow:0 18px 40px -16px color-mix(in srgb,var(--c) 55%,transparent),0 0 0 1px color-mix(in srgb,var(--c) 40%,transparent)}
+.groups .tile:hover::before{opacity:.9;transform:scale(1.25)}
+.groups .ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;margin-bottom:10px;color:var(--c);
+  background:color-mix(in srgb,var(--c) 15%,transparent);border:1px solid color-mix(in srgb,var(--c) 35%,transparent)}
+.ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.groups .tname{font-size:20px;color:#fff}
+.groups .tdesc{color:rgba(255,255,255,.66);font-size:13.5px}
+.groups .go{position:absolute;right:16px;bottom:10px;font-size:24px;line-height:1;color:var(--c);opacity:0;transform:translateX(-6px);transition:.2s}
+.groups .tile:hover .go{opacity:1;transform:none}
+.groups .tile .kcBadge{z-index:2}
+@media (min-width:1000px){
+  .g-sales,.g-inbox{grid-column:span 6}
+  .g-mkt{grid-column:span 8}
+  .g-money{grid-column:span 4}
+  .g-work .gtiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .g-sales .gtiles,.g-inbox .gtiles,.g-mkt .gtiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .g-money .gtiles{grid-template-columns:1fr}
+}
+@media (max-width:540px){
+  .gtiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .groups .tile{min-height:118px;padding:14px}
+  .groups .tname{font-size:17px}
+  .groups .ic{width:36px;height:36px;margin-bottom:6px}
+}
+@media (prefers-reduced-motion:reduce){ .grp,h1{animation:none} .groups .tile,.groups .tile::before{transition:none} }
+/* Settings moved to a small gear next to Sign out */
+.foot{align-items:center;gap:16px}
+.gear{display:inline-flex;align-items:center;gap:7px;color:rgba(255,255,255,.75);text-decoration:none;font:500 14px "Archivo",sans-serif;
+  padding:7px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.3)}
+.gear:hover{color:var(--gold);border-color:var(--gold)}
+.gear svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .5s}
+.gear:hover svg{transform:rotate(90deg)}
+.signout{color:rgba(255,255,255,.7)}
 </style>
 </head>
 <body>
@@ -149,26 +204,51 @@ body{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)) fixed,#000 url(
         <div class="five" id="five"><div class="pnone">Loading&hellip;</div></div>
       </div>
     </div>
-    <div class="rest">
-      <a class="tile" href="./index.html"><span class="tname">Estimator</span><span class="tdesc">Build an estimate and send it</span></a>
-      <button type="button" class="tile" id="jsdTile" aria-expanded="false" aria-controls="jsdPanel"><span class="tname">Job Site Data</span><span class="tdesc" id="jsdMini">Chemicals, estimated vs actual</span></button>
-      <a class="tile" href="./leads.html"><span class="tname">Leads</span><span class="tdesc">Quick quotes from the website</span></a>
-      <a class="tile" href="./cold-calls.html"><span class="tname">Cold Calls</span><span class="tdesc">Property managers, realtors, partners, commercial</span></a>
-      <a class="tile" href="./users.html"><span class="tname">Users</span><span class="tdesc">Businesses signed up for the partner portal</span></a>
-      <a class="tile" href="./articles.html"><span class="tname">Articles</span><span class="tdesc">SEO article ideas, notes and drafts</span></a>
-      <a class="tile" href="./promotions.html"><span class="tname">Promotions</span><span class="tdesc">Links to share: Contact, Quick Quote, B2B Login</span></a>
-      <a class="tile" href="./campaigns.html"><span class="tname">Campaigns</span><span class="tdesc">Ads for Facebook, Instagram, Google, Nextdoor, flyers, website</span></a>
-      <a class="tile" href="./photo-cache.html"><span class="tname">Photo &amp; Video Cache</span><span class="tdesc">Full-quality photos and videos from your iPhone and Google Photos</span></a>
-      <a class="tile" href="./texts.html"><span class="tname">Texts</span><span class="tdesc">Customer texts to (916) 767-2520</span></a>
-      <a class="tile mail" href="./email.html"><span class="micon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span><span class="tname">Mail</span><span class="tdesc">Your kheanandclean.com inbox</span></a>
-      <a class="tile" href="./phone.html"><span class="tname">Phone</span><span class="tdesc">Voicemail, call log and dial pad</span></a>
-      <a class="tile" href="./approved-leads.html"><span class="tname">Approved Leads</span><span class="tdesc">Approved jobs waiting to be done</span></a>
-      <a class="tile" href="./dashboard.html"><span class="tname">Dashboard</span><span class="tdesc">Estimates, invoices and payments</span></a>
-      <a class="tile" href="./customers.html"><span class="tname">Customers</span><span class="tdesc">Customer records and job history</span></a>
-      <a class="tile" href="./expenses.html"><span class="tname">Expenses</span><span class="tdesc">Bills and supplier invoices you paid</span></a>
-      <a class="tile" href="./settings.html"><span class="tname">Settings</span><span class="tdesc">Chemicals and what they cost you</span></a>
-      <a class="tile" href="https://kheanandclean.com/" target="_blank" rel="noopener"><span class="tname">Website</span><span class="tdesc">kheanandclean.com</span></a>
-      <a class="tile" href="./socials.html"><span class="tname">Socials</span><span class="tdesc">Google, Facebook, Instagram, TikTok, YouTube, Yelp, Nextdoor</span></a>
+    <!-- Hub v2: tiles grouped into colour-coded sections (Work, Sales, Inbox, Marketing, Money). -->
+    <div class="groups">
+      <section class="grp g-work" style="--c:#E3B64A;--d:0ms" aria-labelledby="g-work">
+        <h2 class="ghead" id="g-work"><span class="gdot"></span>Work<span class="gline"></span></h2>
+        <div class="gtiles">
+          <a class="tile" href="./index.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M8 6h8M8 11h1M12 11h1M15 11h1M8 15h1M12 15h1M15 15h1M8 19h1M12 19h1M15 19h1"/></svg></span><span class="tname">Estimator</span><span class="tdesc">Build an estimate and send it</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./approved-leads.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></span><span class="tname">Approved Leads</span><span class="tdesc">Approved jobs waiting to be done</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./customers.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6 6 0 0 1 3.5 5.5"/></svg></span><span class="tname">Customers</span><span class="tdesc">Customer records and job history</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <button type="button" class="tile" id="jsdTile" aria-expanded="false" aria-controls="jsdPanel"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3M7 15h10"/></svg></span><span class="tname">Job Site Data</span><span class="tdesc" id="jsdMini">Chemicals, estimated vs actual</span><span class="go" aria-hidden="true">&rsaquo;</span></button>
+        </div>
+      </section>
+      <section class="grp g-sales" style="--c:#fb923c;--d:80ms" aria-labelledby="g-sales">
+        <h2 class="ghead" id="g-sales"><span class="gdot"></span>Sales<span class="gline"></span></h2>
+        <div class="gtiles">
+          <a class="tile" href="./leads.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></span><span class="tname">Leads</span><span class="tdesc">Quick quotes from the website</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./cold-calls.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/><path d="M16 2h6v6M22 2l-6 6"/></svg></span><span class="tname">Cold Calls</span><span class="tdesc">Property managers, realtors, partners, commercial</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./users.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg></span><span class="tname">Users</span><span class="tdesc">Businesses signed up for the partner portal</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+        </div>
+      </section>
+      <section class="grp g-inbox" style="--c:#38bdf8;--d:160ms" aria-labelledby="g-inbox">
+        <h2 class="ghead" id="g-inbox"><span class="gdot"></span>Inbox<span class="gline"></span></h2>
+        <div class="gtiles">
+          <a class="tile" href="./texts.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg></span><span class="tname">Texts</span><span class="tdesc">Customer texts to (916) 767-2520</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./email.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span><span class="tname">Mail</span><span class="tdesc">Your kheanandclean.com inbox</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./phone.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg></span><span class="tname">Phone</span><span class="tdesc">Voicemail, call log and dial pad</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+        </div>
+      </section>
+      <section class="grp g-mkt" style="--c:#f472b6;--d:240ms" aria-labelledby="g-mkt">
+        <h2 class="ghead" id="g-mkt"><span class="gdot"></span>Marketing<span class="gline"></span></h2>
+        <div class="gtiles">
+          <a class="tile" href="./campaigns.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6l-6 4H4a1 1 0 0 0-1 1zM17 9a4 4 0 0 1 0 6M7 14l1.5 5H11l-1-4.5"/></svg></span><span class="tname">Campaigns</span><span class="tdesc">Ads for Facebook, Instagram, Google, Nextdoor, flyers, website</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./promotions.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></span><span class="tname">Promotions</span><span class="tdesc">Links to share: Contact, Quick Quote, B2B Login</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./articles.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5"/></svg></span><span class="tname">Articles</span><span class="tdesc">SEO article ideas, notes and drafts</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./socials.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></span><span class="tname">Socials</span><span class="tdesc">Google, Facebook, Instagram, TikTok, YouTube, Yelp, Nextdoor</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./photo-cache.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg></span><span class="tname">Photo &amp; Video Cache</span><span class="tdesc">Full-quality photos and videos from your iPhone and Google Photos</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="https://kheanandclean.com/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><span class="tname">Website</span><span class="tdesc">kheanandclean.com</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+        </div>
+      </section>
+      <section class="grp g-money" style="--c:#4ade80;--d:320ms" aria-labelledby="g-money">
+        <h2 class="ghead" id="g-money"><span class="gdot"></span>Money<span class="gline"></span></h2>
+        <div class="gtiles">
+          <a class="tile" href="./dashboard.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18M6 17v-5M11 17V5M16 17V9M20 17v-3"/></svg></span><span class="tname">Dashboard</span><span class="tdesc">Estimates, invoices and payments</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./expenses.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></svg></span><span class="tname">Expenses</span><span class="tdesc">Bills and supplier invoices you paid</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+        </div>
+      </section>
     </div>
     <section class="tile jsd" id="jsdPanel" aria-label="Job Site Data" hidden>
       <div class="ptitle"><span class="tname">Job Site Data</span><span class="tdesc">Estimated vs actual, chemicals and costs. Just for you.</span></div>
@@ -177,7 +257,7 @@ body{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)) fixed,#000 url(
     </section>
   </nav>
 
-  <div class="foot"><button type="button" class="signout" id="signOutBtn">Sign out</button></div>
+  <div class="foot"><a class="gear" href="./settings.html" title="Settings: chemicals and what they cost you"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</a><button type="button" class="signout" id="signOutBtn">Sign out</button></div>
 </div>
 
 <script type="module">
@@ -194,8 +274,9 @@ const auth = getAuth(initializeApp({
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 }));
 
-document.getElementById("date").textContent =
-  new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+{ const hr = new Date().getHours();   // greeting by time of day, then the date
+  document.getElementById("date").innerHTML = '<b>' + (hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening") + '</b> \u00b7 ' +
+    new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }); }
 
 /* ---- Calendar tile: today + the next 4 days. Reads the same places calendar.html does: jobs with a
    scheduledDate in acceptedQuotes (to do), invoices / paidInvoices (done, faded), plus his own
