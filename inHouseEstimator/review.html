@@ -208,16 +208,16 @@ async function start(){
   };
 
   /* Header photo: a saved preset (settings/reviewRequest.headerPath, the file in Storage presets/).
-     Until one is saved it's the K&C logo the estimates use (images/quote-preview.png).
+     Until one is saved it's the thank-you card on the website (images/thank-you-card.jpg).
      Picked to start on every review request; it always goes out first. */
   const CARD = "h:card", HEAD_REF = doc(db, "settings", "reviewRequest");
   const setHead = o => {
-    photos.set(CARD, Object.assign({ tag: "Header" }, o));
+    photos.set(CARD, Object.assign({ tag: "Thank you" }, o));
     picked.add(CARD);
     $("head").innerHTML = thumb(CARD, photos.get(CARD));
     sayCount();
   };
-  setHead({ url: "../images/quote-preview.png", src: "../images/quote-preview.png" });   /* K&C logo, same as estimates */
+  setHead({ url: "../images/thank-you-card.jpg", src: "../images/thank-you-card.jpg" });
   getDoc(HEAD_REF).then(async s => {
     const p = s.exists() && s.data().headerPath;
     if (p && p.startsWith("presets/")) setHead({ url: await getDownloadURL(ref(storage, p)), path: p });
