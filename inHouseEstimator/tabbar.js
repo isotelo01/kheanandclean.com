@@ -37,4 +37,18 @@
   var live = document.createElement("script");
   live.type = "module"; live.src = "./live.js";
   document.body.appendChild(live);
+  // Keep the screen on while any app page is open (so the phone stays ready). Phones drop the lock
+  // when you leave the app or lock the screen, so it's asked for again whenever the page is back.
+  // Phones/browsers without wake lock just ignore this.
+  var lock = null;
+  function keepAwake() {
+    if (!("wakeLock" in navigator) || document.visibilityState !== "visible" || lock) return;
+    navigator.wakeLock.request("screen").then(function (l) {
+      lock = l; l.addEventListener("release", function () { lock = null; });
+    }).catch(function () {});
+  }
+  keepAwake();
+  document.addEventListener("visibilitychange", keepAwake);
+  // Some phones only allow it after a tap: try again on the first touch.
+  document.addEventListener("pointerdown", keepAwake, { passive: true });
 })();
