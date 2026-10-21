@@ -72,6 +72,15 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .st.out{align-self:flex-end;text-align:right}
 .st.bad{color:var(--red);font-weight:600}
 .reply{margin-top:12px;display:grid;gap:8px}
+/* Reply assistant: offer bar, its question, and the 3 suggested replies. */
+#ai{margin-top:12px}
+.aibar{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;border:1px solid var(--gold);border-radius:10px;padding:10px 12px;font-size:14px}
+.aibar b{color:var(--gold)}
+.aibtns{display:flex;gap:8px;flex-wrap:wrap}
+.aiq{display:grid;gap:8px}
+.aiq input{font:15px "Archivo",system-ui,sans-serif;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:#000;color:#fff}
+.aisug{display:block;width:100%;text-align:left;font:15px/1.4 "Archivo",system-ui,sans-serif;padding:10px 12px;margin-top:8px;border-radius:10px;border:1px solid var(--line);background:rgba(227,182,74,.08);color:inherit;cursor:pointer}
+.aisug:hover{border-color:var(--gold)}
 textarea,.field input{width:100%;font:inherit;padding:10px 12px;border:1px solid #c9cedb;border-radius:8px;resize:vertical;background:#fff;color:var(--ink)}
 textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold)}
 .ractions{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -234,6 +243,7 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
+const smsSuggest = httpsCallable(getFunctions(app, "us-central1"), "smsSuggest");   // reply assistant
 const storage = getStorage(app);
 
 /* Photos / videos on a text. Photos are shrunk to 1600px JPEGs; videos go as-is (texting limit is 5 MB).
@@ -377,11 +387,13 @@ function fillPreviews(box) {
 /* ---------- one conversation ---------- */
 function showThread(id) {
   let t = {}, first = true, sending = false;
+  let aiFor = "", aiSug = "", aiAnswers = [];   // reply assistant: which text it's on, the reply you picked, your answers
   view.innerHTML =
     '<div class="panel">' +
       '<div class="chead"><h2 id="cname">' + esc(pretty(id)) + '</h2><a id="ctel" href="tel:+1' + esc(id) + '">' + esc(pretty(id)) + '</a></div>' +
       '<div id="banner"></div>' +
       '<div class="thread" id="thread"><div class="msg">Loading&hellip;</div></div>' +
+      '<div id="ai"></div>' +
       '<form class="reply" id="replyForm">' +
         '<textarea id="body" rows="3" maxlength="' + MAX + '" placeholder="Type a reply' + ELLIPSIS + '" aria-label="Reply"></textarea>' +
         '<div id="attList" style="display:flex;flex-wrap:wrap;gap:6px"></div>' +
@@ -438,6 +450,7 @@ function showThread(id) {
     fillPreviews(box);
     if (first || atBottom) box.scrollTop = box.scrollHeight;
     first = false;
+    aiOffer(snap.docs[snap.docs.length - 1]);
   }, err => {
     const box = document.getElementById("thread");
     if (box) box.innerHTML = '<div class="msg err">Could not load this conversation: ' + esc(err.message) + '</div>';
@@ -486,6 +499,9 @@ function showThread(id) {
       for (let i = 1; i < media.length; i++) r = await smsSend({to: t.phone || id, body: "", media: [media[i]]});
       body.value = ""; count.textContent = "0 / " + MAX; picks = []; drawPicks();
       if (r && r.data && r.data.saved === false) note.textContent = "Sent, but it didn't save here. Don't send it again.";
+      // Reply assistant learns: what it suggested next to what you actually sent.
+      if (aiSug && text) smsSuggest({learn: {suggested: aiSug, sent: text}}).catch(e => console.warn("assistant learn", e));
+      aiSug = ""; aiAnswers = []; document.getElementById("ai").innerHTML = "";
     } catch (err) {
       note.className = "msg err"; note.textContent = friendly(err);   // your text stays in the box
     } finally {
@@ -493,6 +509,73 @@ function showThread(id) {
     }
   });
   body.focus({preventScroll: true});
+
+  /* ---------- reply assistant ----------
+     Newest text is from the customer -> ask "Suggest a reply?". Suggest: it either asks you one question
+     (your answer is remembered for next time) or gives 3 replies; tap one to put it in the box.
+     Nothing is sent until you press Send. No thanks hides it for that text. */
+  const aiBox = () => document.getElementById("ai");
+  const aiKey = mid => "kcAiNo:" + id + ":" + mid;
+  function aiOffer(last) {
+    const box = aiBox();
+    if (!box || !last) return;
+    const m = last.data();
+    if (m.dir === "out") { if (!aiSug) box.innerHTML = ""; return; }   // you already answered
+    if (aiFor === last.id) return;                                      // already offered / working on it
+    aiFor = last.id; aiSug = ""; aiAnswers = [];
+    try { if (sessionStorage.getItem(aiKey(last.id))) { box.innerHTML = ""; return; } } catch (e) {}
+    const who = (t.name || nameByKey[id] || "").split(" ")[0] || "them";
+    box.innerHTML = '<div class="aibar"><span>New text from <b>' + esc(who) + '</b>. Suggest a reply?</span>' +
+      '<span class="aibtns"><button type="button" class="new" data-ai="go">Suggest</button>' +
+      '<button type="button" class="ghost" data-ai="no">No thanks</button></span></div>';
+  }
+  async function aiRun() {
+    const box = aiBox();
+    box.innerHTML = '<div class="aibar"><span>Thinking' + ELLIPSIS + '</span></div>';
+    try {
+      const r = (await smsSuggest({thread: id, answers: aiAnswers})).data || {};
+      if (r.question) {
+        box.innerHTML = '<div class="aibar aiq"><span><b>Quick question:</b> ' + esc(r.question) + '</span>' +
+          '<input id="aiA" type="text" maxlength="500" placeholder="Your answer" aria-label="Your answer">' +
+          '<span class="aibtns"><button type="button" class="new" data-ai="ans">Answer</button>' +
+          '<button type="button" class="ghost" data-ai="no">Cancel</button></span></div>';
+        box.dataset.q = r.question;
+        const inp = document.getElementById("aiA");
+        inp.focus();
+        inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); aiAnswer(); } });
+        return;
+      }
+      box.innerHTML = '<div class="aibar" style="display:block"><span><b>Pick a reply</b> (you can edit it before sending)</span>' +
+        (r.replies || []).map((x, i) => '<button type="button" class="aisug" data-sug="' + i + '">' + esc(x) + '</button>').join("") +
+        '<div class="aibtns" style="margin-top:8px"><button type="button" class="ghost" data-ai="go">New ideas</button>' +
+        '<button type="button" class="ghost" data-ai="no">Close</button></div></div>';
+      box._sugs = r.replies || [];
+    } catch (err) {
+      box.innerHTML = '<div class="aibar"><span class="err">' + esc(friendly(err)) + '</span>' +
+        '<span class="aibtns"><button type="button" class="ghost" data-ai="go">Try again</button>' +
+        '<button type="button" class="ghost" data-ai="no">Close</button></span></div>';
+    }
+  }
+  function aiAnswer() {
+    const box = aiBox(), a = (document.getElementById("aiA") || {}).value || "";
+    if (!a.trim()) return;
+    aiAnswers.push({q: box.dataset.q || "", a: a.trim()});
+    aiRun();
+  }
+  aiBox().addEventListener("click", e => {
+    const b = e.target.closest("[data-ai],[data-sug]");
+    if (!b) return;
+    if (b.dataset.sug != null) {   // tapped a suggestion: into the reply box
+      aiSug = (aiBox()._sugs || [])[+b.dataset.sug] || "";
+      body.value = aiSug.slice(0, MAX); count.textContent = body.value.length + " / " + MAX;
+      body.focus();
+      return;
+    }
+    const a = b.dataset.ai;
+    if (a === "go") aiRun();
+    else if (a === "ans") aiAnswer();
+    else if (a === "no") { try { sessionStorage.setItem(aiKey(aiFor), "1"); } catch (e) {} aiBox().innerHTML = ""; aiSug = ""; }
+  });
 }
 
 /* ---------- new text ----------
