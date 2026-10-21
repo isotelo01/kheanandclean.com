@@ -454,6 +454,13 @@ async function showLead(id){
       (l.quoteId
         ? '<div class="actions" id="quoteLinks" style="margin-top:22px"></div>'
         : '<h2>Status</h2><div class="actions"><span class="new" id="stLabel" style="cursor:default">' + esc(statusOf(l).label) + '</span></div>') +
+      /* Partner referral: the status the partner sees in their portal's Referrals list. */
+      (l.referralId
+        ? '<h2>Referral</h2><div class="actions"><select id="refSt" disabled>' +
+            [["submitted","Submitted"],["booked","Booked"],["done","Job done"],["paid","Paid out"],["closed","Closed"]]
+              .map(o => '<option value="' + o[0] + '">' + o[1] + '</option>').join("") +
+          '</select><span class="note" id="refStMsg">The partner sees this in their portal.</span></div>'
+        : "") +
       '<h2>Notes</h2>' +
       '<div class="notesbox">' +
         '<textarea id="staffNotes" rows="4" placeholder="Notes about this lead\u2026">' + esc(l.staffNotes || "") + '</textarea>' +
@@ -735,6 +742,22 @@ async function showLead(id){
     } catch (e) { console.error(e); msg.classList.add("err"); msg.textContent = "Could not save: " + e.message; }
     saveNotesBtn.disabled = false;
   });
+
+  /* Referral status: read the partner's referral, then each change saves straight to it. */
+  const refSt = document.getElementById("refSt");
+  if (refSt && l.referralId) {
+    const rDoc = doc(db, "referrals", l.referralId), rMsg = document.getElementById("refStMsg");
+    getDoc(rDoc).then(s => {
+      if (!s.exists()) { rMsg.textContent = "The partner's referral isn\u2019t on file anymore."; return; }
+      refSt.value = s.data().status || "submitted"; refSt.disabled = false;
+    }).catch(e => { console.error(e); rMsg.textContent = "Could not load: " + e.message; });
+    refSt.addEventListener("change", async () => {
+      refSt.disabled = true; rMsg.classList.remove("err"); rMsg.textContent = "Saving\u2026";
+      try { await updateDoc(rDoc, { status: refSt.value, updatedAt: serverTimestamp() }); rMsg.textContent = "Saved. The partner sees it now."; }
+      catch (e) { console.error(e); rMsg.classList.add("err"); rMsg.textContent = "Could not save: " + e.message; }
+      refSt.disabled = false;
+    });
+  }
 }
 
 /* ---- Photo lightbox: tap a photo to open over the page, tap backdrop or X to close ---- */

@@ -404,11 +404,11 @@ $("refForm").addEventListener("submit", async e => {
   btn.disabled = true; btn.textContent = "Sending…";
   const from = me.businessName || me.contactName || "partner";
   try {
-    await addDoc(collection(db, "referrals"), { partnerId: auth.currentUser.uid, partnerName: from, code,
+    const rRef = await addDoc(collection(db, "referrals"), { partnerId: auth.currentUser.uid, partnerName: from, code,
       name, phone, email, address, notes, status: "submitted", createdAt: serverTimestamp() });
-    /* Also lands in Leads so it shows up with everything else. */
+    /* Also lands in Leads so it shows up with everything else (referralId lets staff set its status there). */
     await addDoc(collection(db, "leads"), {
-      name, phone, email, type: "referral", services: [],
+      name, phone, email, type: "referral", services: [], referralId: rRef.id,
       addresses: address ? [{ street: address, city: "", state: "CA", zip: "" }] : [],
       message: "REFERRAL from " + from + " (code " + code + ")" + (notes ? "\nNotes: " + notes : ""),
       source: "partner-referral", page: "partner-portal", status: "new", createdAt: serverTimestamp()
