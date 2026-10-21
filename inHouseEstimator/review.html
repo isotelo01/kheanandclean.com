@@ -403,9 +403,13 @@ async function start(){
         await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
         paths.push(p);
       }
-      // One text: the message, with the logo card first and the job photos after it.
-      // smsSend takes 5 pictures max per text, so the logo card + up to 4 job photos.
-      const texts = [{ body: text, media: paths.slice(0, 5) }];
+      /* Two texts: 1) logo card + message + review link, 2) 3 seconds later, the job photos with the
+         "If you'd like..." line. No job photos: just text 1. smsSend takes 5 pictures max per text. */
+      const LINE = "If you'd like, you can save these photos to your phone and add them to your Google review.";
+      const hasHead = picked.has(CARD);
+      const rest = hasHead ? paths.slice(1) : paths;
+      const texts = [{ body: text.split(LINE).join("").trim(), media: hasHead ? paths.slice(0, 1) : [] }];
+      if (rest.length) texts.push({ body: LINE, media: rest.slice(0, 5) });
       for (let i = 0; i < texts.length; i++) {
         if (i === 1) await new Promise(r => setTimeout(r, 3000));   // 3 seconds after the review text so it lands first
         say("Sending" + (texts.length > 1 ? " text " + (i + 1) + " of " + texts.length : "") + "...");
