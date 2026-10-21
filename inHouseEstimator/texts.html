@@ -322,7 +322,7 @@ function showList() {
 /* ---------- links in texts ----------
    Links become tappable. Links to kheanandclean.com also get a small preview card, like Messages:
    an estimate / invoice link shows its number, total and name (read from the app's own records);
-   the review link shows the thank-you card. Other websites stay plain links (no outside lookups). */
+   the review link shows the K&C logo (same picture as /review's link preview). Other websites stay plain links (no outside lookups). */
 const LINK_RX = /(https?:\/\/[^\s<]+|(?:www\.)?kheanandclean\.com\/?[^\s<]*)/gi;
 const fullUrl = s => (/^https?:\/\//i.test(s) ? s : "https://" + s).replace(/[.,!?)]+$/, "");
 function linkify(text) {
@@ -343,7 +343,7 @@ const lpCache = {};
 const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 async function previewOf(u) {
   const url = new URL(u), card = (img, title, sub) => ({img, title, sub});
-  if (/\/review\/?$/i.test(url.pathname)) return card("../images/review-card.jpg", "How did we do? Leave Khean & Clean a review", "kheanandclean.com");
+  if (/\/review\/?$/i.test(url.pathname)) return card("../images/quote-preview.png", "How did we do? Leave Khean & Clean a review", "kheanandclean.com");
   const id = url.searchParams.get("id");
   if (/quote(\.html)?$/i.test(url.pathname) && id) {
     for (const [col, kind] of [["quotes", "estimate"], ["acceptedQuotes", "approved estimate"], ["invoices", "invoice"], ["paidInvoices", "paid invoice"]]) {
