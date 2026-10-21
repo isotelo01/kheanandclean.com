@@ -530,15 +530,19 @@ document.addEventListener('click', function (e) {
 
 /* ══ review seal between the closing card and the footer (desktop only) ══ */
 .sealRow{ display:none; }
+/* Desktop: its own centered spot above the footer, with a line of text and a soft gold glow. */
 @media (min-width:941px){
-  .sealRow{ display:flex; justify-content:flex-start; margin:-60px 0 -140px;
-    padding-left:clamp(212px,6vw + 200px,290px); position:relative; z-index:6;
-    pointer-events:none; }
-  .sealRow__link{ display:block; line-height:0; transition:transform .18s ease;
-    pointer-events:auto; }
-  .sealRow__link img{ display:block; width:auto; height:200px; max-width:none;
-    filter:drop-shadow(0 3px 10px rgba(0,0,0,.55)); }
-  .sealRow__link:hover{ transform:rotate(-4deg) scale(1.04); }
+  .sealRow{ display:flex; flex-direction:column; align-items:center; gap:18px;
+    padding:clamp(48px,5vw,80px) 20px clamp(56px,6vw,96px); position:relative;
+    background:radial-gradient(ellipse 40% 70% at 50% 62%, rgba(217,169,74,.16), transparent 70%); }
+  .sealRow__line{ margin:0; max-width:none; text-align:center; color:#fff;
+    font:500 clamp(28px,2.6vw,40px)/1.2 "Cormorant Garamond","Playfair Display",Georgia,serif; }
+  .sealRow__line span{ color:var(--gold-lite); font-style:italic; }
+  .sealRow__link{ display:block; line-height:0; transition:transform .25s ease, filter .25s ease; }
+  .sealRow__link img{ display:block; width:auto; height:230px; max-width:none;
+    filter:drop-shadow(0 6px 18px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(217,169,74,.28)); }
+  .sealRow__link:hover{ transform:translateY(-6px) rotate(-4deg) scale(1.05); }
+  .sealRow__link:hover img{ filter:drop-shadow(0 10px 22px rgba(0,0,0,.6)) drop-shadow(0 0 34px rgba(217,169,74,.5)); }
   .sealRow__link:focus-visible{ outline:2px solid #fff; outline-offset:6px; border-radius:8px; }
 }
 @media (prefers-reduced-motion:reduce){ .sealRow__link{ transition:none; } }
@@ -580,6 +584,32 @@ document.addEventListener('click', function (e) {
   .wrap{ width:min(90vw, 2000px); }
   .ba__set{ max-width:min(62vw, 1200px); }
   .intro h1{ font-size:clamp(68px,4.6vw,92px); max-width:24ch; }
+
+  /* Process steps: three boxes across, number on top. */
+  .process{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; align-items:stretch; }
+  .process > h2{ grid-column:1 / -1; margin-bottom:8px; }
+  .process .step, .process .step:nth-of-type(odd){
+    grid-template-columns:1fr; gap:18px 0; margin:0; padding:30px 30px 34px;
+    background:linear-gradient(160deg, rgba(15,92,62,.55), rgba(18,18,20,.92) 70%);
+    border:1px solid rgba(217,169,74,.32); border-radius:var(--r-md);
+    box-shadow:0 18px 40px -22px rgba(0,0,0,.8);
+    transition:transform .2s ease, border-color .2s ease; }
+  .process .step:hover{ transform:translateY(-4px); border-color:rgba(217,169,74,.7); }
+  .process .step .n{ width:58px; height:58px; font-size:26px; }
+
+  /* Restore + FAQ: each item in its own box, side by side. */
+  .cards{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:22px; }
+  .faq.cards{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .cards > h2{ grid-column:1 / -1; margin-bottom:8px; }
+  .cards .qa{ padding:28px 30px 30px; background:rgba(255,255,255,.035);
+    border:1px solid rgba(217,169,74,.28); border-top:3px solid var(--gold-mid); border-radius:var(--r-md);
+    box-shadow:0 18px 40px -24px rgba(0,0,0,.8); transition:transform .2s ease, border-color .2s ease; }
+  .cards .qa:hover{ transform:translateY(-4px); border-color:rgba(217,169,74,.6); }
+  .cards .qa h3{ margin-top:0; }
+  .cards .qa p{ max-width:none; font-size:18px; }
+}
+@media (min-width:1100px) and (prefers-reduced-motion:reduce){
+  .process .step, .cards .qa, .sealRow__link{ transition:none; }
 }
 </style>
 <link rel="stylesheet" href="quote-form.css">
@@ -766,21 +796,29 @@ document.addEventListener('click', function (e) {
     </div>
   </section>
 
-  <section class="wrap learn">
+  <section class="wrap learn cards">
     <h2>How We Restore Your Grout</h2>
 
+    <div class="qa">
     <h3>Deep Cleaning</h3>
     <p>We use high-heat cleaning and powerful extraction to pull trapped soil out of the grout&rsquo;s pores, bringing it back toward its original color.</p>
+    </div>
 
+    <div class="qa">
     <h3>Grout Sealing</h3>
     <p>Freshly cleaned grout is still porous, so we seal it. A clear sealer fills the pores so spills and dirt stay on the surface, where they wipe away easily. On ceramic and porcelain, we seal the grout lines only, never the tile face, so your tile stays clear with no haze.</p>
+    </div>
 
+    <div class="qa">
     <h3>Color Sealing</h3>
     <p>Some grout becomes permanently stained or uneven over the years, and cleaning alone can&rsquo;t fully fix it. Color sealing gives every grout line one uniform, like-new color you choose, and protects it at the same time.</p>
+    </div>
 
+    <div class="qa">
     <h3>A Note on Color Sealing</h3>
     <p>Color sealing sometimes gets a bad reputation, usually from do-it-yourself kits or rushed jobs that peel within a year or two. The results depend almost entirely on preparation. If grout isn&rsquo;t thoroughly cleaned, cleared of old sealer, and fully dry, the color seal has nothing to bond to.</p>
     <p>With proper professional prep and normal care, color sealing is widely reported to last 10 to 15 years. Clear sealers typically need reapplying every few years.</p>
+    </div>
   </section>
 
   <!-- ══ QUICK ONLINE QUOTE — shared component ══
@@ -815,23 +853,33 @@ document.addEventListener('click', function (e) {
     </div>
   </section>
 
-  <section class="wrap learn faq">
+  <section class="wrap learn faq cards">
     <h2>Frequently Asked Questions</h2>
 
+    <div class="qa">
     <h3>Why is my grout darker than my tile?</h3>
     <p>Grout is porous and sits slightly lower than the tile, so it collects soil and mop water. Darkening is normal and usually comes from buildup, not damage.</p>
+    </div>
 
+    <div class="qa">
     <h3>Does sealing grout really help?</h3>
     <p>Yes. Sealing fills the grout&rsquo;s pores, so spills and dirt stay on the surface. That makes everyday cleaning easier and keeps the grout looking clean longer.</p>
+    </div>
 
+    <div class="qa">
     <h3>Should the whole tile floor be sealed?</h3>
     <p>On ceramic and porcelain, only the grout should be sealed. The glazed tile face doesn&rsquo;t need it, and sealer on the tile can leave a haze. Natural stone is different and is sealed across the whole surface.</p>
+    </div>
 
+    <div class="qa">
     <h3>How often should grout be professionally cleaned?</h3>
     <p>It depends on traffic, pets, and kids. Many homes benefit from a deep clean every 12 to 24 months, with regular maintenance in between.</p>
+    </div>
 
+    <div class="qa">
     <h3>Can stained grout be fixed without replacing it?</h3>
     <p>Often, yes. Deep cleaning removes most buildup. For stains that won&rsquo;t come out, color sealing restores a uniform, like-new look.</p>
+    </div>
   </section>
 </main>
 
@@ -849,6 +897,7 @@ document.addEventListener('click', function (e) {
 <script src="quote-form.js" defer></script>
 
 <div class="sealRow">
+  <p class="sealRow__line">Love your floors? <span>Tell your neighbors.</span></p>
   <a class="sealRow__link" href="reviews.html" aria-label="Leave us a review">
     <img src="images/review-seal-400.png" alt="Leave us a review" width="365" height="400">
   </a>
