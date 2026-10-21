@@ -521,12 +521,14 @@ function showThread(id) {
     const box = aiBox();
     if (!box || !last) return;
     const m = last.data();
-    if (m.dir === "out") { if (!aiSug) box.innerHTML = ""; return; }   // you already answered
     if (aiFor === last.id) return;                                      // already offered / working on it
     aiFor = last.id; aiSug = ""; aiAnswers = [];
     try { if (sessionStorage.getItem(aiKey(last.id))) { box.innerHTML = ""; return; } } catch (e) {}
     const who = (t.name || nameByKey[id] || "").split(" ")[0] || "them";
-    box.innerHTML = '<div class="aibar"><span>New text from <b>' + esc(who) + '</b>. Suggest a reply?</span>' +
+    /* Always something to say: their text -> a reply; your text last -> a follow-up or check-in. */
+    box.innerHTML = '<div class="aibar"><span>' + (m.dir === "out"
+        ? 'Waiting on <b>' + esc(who) + '</b>. Suggest a follow-up?'
+        : 'New text from <b>' + esc(who) + '</b>. Suggest a reply?') + '</span>' +
       '<span class="aibtns"><button type="button" class="new" data-ai="go">Suggest</button>' +
       '<button type="button" class="ghost" data-ai="no">No thanks</button></span></div>';
   }
