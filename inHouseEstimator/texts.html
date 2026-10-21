@@ -400,6 +400,7 @@ function showThread(id) {
         '<div class="ractions"><span class="count" id="count">0 / ' + MAX + '</span>' +
           '<span style="display:flex;gap:8px;align-items:center">' +
             '<label class="ghost" style="cursor:pointer;margin:0">Photo / video<input type="file" id="attIn" accept="image/*,video/*" multiple hidden></label>' +
+            '<button class="ghost" type="button" id="checkBtn" title="Check my reply">Check</button>' +
             '<button class="new" type="submit" id="sendBtn">Send</button></span></div>' +
         '<div class="msg" id="note" role="status"></div>' +
       '</form>' +
@@ -556,6 +557,30 @@ function showThread(id) {
         '<button type="button" class="ghost" data-ai="no">Close</button></span></div>';
     }
   }
+  /* Check my reply: reads what you typed against the conversation, lists anything missing,
+     and offers a better version that ends with something to keep them talking. Use this swaps it in. */
+  document.getElementById("checkBtn").addEventListener("click", async () => {
+    const draft = body.value.trim(), box = aiBox(), cb = document.getElementById("checkBtn");
+    if (!draft) { note.className = "msg err"; note.textContent = "Type your reply first, then tap Check."; return; }
+    note.className = "msg"; note.textContent = "";
+    cb.disabled = true; box.innerHTML = '<div class="aibar"><span>Checking your reply' + ELLIPSIS + '</span></div>';
+    try {
+      const r = (await smsSuggest({thread: id, draft})).data || {};
+      box.innerHTML = '<div class="aibar" style="display:block">' +
+        ((r.notes || []).length
+          ? '<b>You might be missing:</b><ul style="margin:6px 0 4px;padding-left:20px">' + r.notes.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul>'
+          : '<b>Looks good.</b> Nothing missing.') +
+        '<div style="margin-top:6px"><b>Try this:</b></div>' +
+        '<button type="button" class="aisug" data-better="1">' + esc(r.better) + '</button>' +
+        '<div class="aibtns" style="margin-top:8px"><button type="button" class="new" data-better="1">Use this</button>' +
+        '<button type="button" class="ghost" data-ai="no">Keep mine</button></div></div>';
+      box._better = r.better || "";
+    } catch (err) {
+      box.innerHTML = '<div class="aibar"><span class="err">' + esc(friendly(err)) + '</span>' +
+        '<span class="aibtns"><button type="button" class="ghost" data-ai="no">Close</button></span></div>';
+    }
+    cb.disabled = false;
+  });
   function aiAnswer() {
     const box = aiBox(), a = (document.getElementById("aiA") || {}).value || "";
     if (!a.trim()) return;
@@ -563,8 +588,14 @@ function showThread(id) {
     aiRun();
   }
   aiBox().addEventListener("click", e => {
-    const b = e.target.closest("[data-ai],[data-sug]");
+    const b = e.target.closest("[data-ai],[data-sug],[data-better]");
     if (!b) return;
+    if (b.dataset.better) {   // Check my reply: use the better version (logged like a suggestion when sent)
+      aiSug = aiBox()._better || "";
+      body.value = aiSug.slice(0, MAX); count.textContent = body.value.length + " / " + MAX;
+      aiBox().innerHTML = ""; body.focus();
+      return;
+    }
     if (b.dataset.sug != null) {   // tapped a suggestion: into the reply box
       aiSug = (aiBox()._sugs || [])[+b.dataset.sug] || "";
       body.value = aiSug.slice(0, MAX); count.textContent = body.value.length + " / " + MAX;
