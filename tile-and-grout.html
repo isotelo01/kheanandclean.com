@@ -578,8 +578,8 @@ document.addEventListener('click', function (e) {
 .ba__tag--after{ background:var(--gold-btn); color:var(--btn-ink); }
 .ba__cap{ margin:14px auto 0; font-size:17px; color:var(--ink-dim); }
 @media (max-width:520px){ .ba__tag{ top:8px; left:8px; padding:4px 9px; font-size:10px; } }
-/* Bathroom before/after, placed inside the Ceramic vs. Porcelain text */
-.ba--mid{ padding-top:0; text-align:center; margin:clamp(36px,4vw,56px) auto clamp(8px,1vw,16px); }
+/* Bathroom before (left) and after (right), placed inside the Ceramic vs. Porcelain text */
+.news__ph{ padding-top:0; text-align:center; margin:24px auto; max-width:520px; }
 /* Big screens: page fills ~90% of the width. Text keeps its normal size and line length
    (paragraphs are capped in ch), so only the layout and photos spread out. Title a bit bigger. */
 @media (min-width:1100px){
@@ -591,14 +591,14 @@ document.addEventListener('click', function (e) {
   section.ba{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:clamp(28px,3vw,56px); }
   section.ba > h2, section.ba > .ba__sub{ grid-column:1 / -1; }
   section.ba > .ba__set, section.ba > .ba__set + .ba__set{ max-width:none; margin:clamp(28px,3vw,44px) 0 0; }
-  /* Ceramic vs. Porcelain reads like a newspaper: text in two columns across the page,
-     title and the bathroom photos spanning both columns. */
-  .news{ column-count:2; column-gap:clamp(40px,4vw,72px); column-rule:1px solid rgba(217,169,74,.18); }
-  .news > h2, .news > .ba--mid{ column-span:all; }
+  /* Ceramic vs. Porcelain reads like a newspaper: Before photo on the left, After on the
+     right further down, text wrapping tight around both so there is no empty space. */
+  .news{ display:flow-root; max-width:1500px; }
   .news p{ max-width:none; }
-  .news h3{ break-after:avoid; }
-  .news > h3:first-of-type{ margin-top:clamp(28px,3vw,40px); }
-  .ba--mid{ max-width:min(72vw,1300px); margin-bottom:clamp(28px,3vw,40px); }
+  .news__ph{ width:34%; max-width:none; margin:6px 0 20px; }
+  .news__ph--l{ float:left;  margin-right:clamp(28px,2.6vw,44px); }
+  .news__ph--r{ float:right; margin-left:clamp(28px,2.6vw,44px); }
+  .news__ph img{ aspect-ratio:4/5; }
 
   /* Process steps: three boxes across, number on top. */
   .process{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px; align-items:stretch; }
@@ -731,25 +731,28 @@ document.addEventListener('click', function (e) {
   <section class="wrap learn news">
     <h2>Ceramic vs. Porcelain (and Why It Matters for Sealing)</h2>
 
+    <!-- bathroom BEFORE: left, text wraps around it -->
+    <div class="ba news__ph news__ph--l">
+      <figure>
+        <img src="images/bathroom-tile-cleaning-folsom-before.jpg" alt="Bathroom tile floor in Folsom before professional tile and grout cleaning" loading="lazy" decoding="async">
+        <span class="ba__tag">Before</span>
+      </figure>
+      <p class="ba__cap">Bathroom tile, before &middot; Folsom</p>
+    </div>
+
     <p>Both are clay tiles fired in a kiln. The difference is heat: porcelain is fired hotter, which makes it denser and harder.</p>
     <p class="tip"><strong>Ceramic</strong> is usually glazed. It&rsquo;s often shinier and can be more slippery when wet. A chip may show a different color underneath.</p>
     <p class="tip"><strong>Porcelain</strong> is often the same color all the way through, and it tends to hide everyday soil better.</p>
     <p>Here&rsquo;s what they have in common: the tile face on both is dense and barely absorbs anything. Grout is the opposite. It&rsquo;s porous, sits lower than the tile, and drinks in whatever touches it.</p>
     <p><strong>That&rsquo;s why you should never seal the whole floor.</strong> Sealer is meant to soak into something porous. Grout takes it in. A glazed or porcelain tile face can&rsquo;t, so the sealer just sits on top, dries into a cloudy haze, and collects dirt. On ceramic and porcelain, sealer belongs in the grout lines only, applied line by line, never mopped across the tile.</p>
 
-    <!-- third before/after pair: big, across both newspaper columns on desktop -->
-    <div class="ba ba__set ba--mid">
-      <div class="ba__pair">
-        <figure>
-          <img src="images/bathroom-tile-cleaning-folsom-before.jpg" alt="Bathroom tile floor in Folsom before professional tile and grout cleaning" loading="lazy" decoding="async">
-          <span class="ba__tag">Before</span>
-        </figure>
-        <figure>
-          <img src="images/bathroom-tile-cleaning-folsom-after.jpg" alt="The same Folsom bathroom tile floor after Khean &amp; Clean tile and grout cleaning" loading="lazy" decoding="async">
-          <span class="ba__tag ba__tag--after">After</span>
-        </figure>
-      </div>
-      <p class="ba__cap">Bathroom tile cleaning &middot; Folsom</p>
+    <!-- bathroom AFTER: right, text wraps around it -->
+    <div class="ba news__ph news__ph--r">
+      <figure>
+        <img src="images/bathroom-tile-cleaning-folsom-after.jpg" alt="The same Folsom bathroom tile floor after Khean &amp; Clean tile and grout cleaning" loading="lazy" decoding="async">
+        <span class="ba__tag ba__tag--after">After</span>
+      </figure>
+      <p class="ba__cap">Same bathroom, after &middot; Folsom</p>
     </div>
 
     <h3>Why Grout Gets Dirty (Even in Clean Homes)</h3>
