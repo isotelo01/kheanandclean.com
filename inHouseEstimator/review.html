@@ -347,9 +347,13 @@ async function start(){
   /* Message buttons: fill the box with one of the saved review messages (first name filled in).
      The review link in it follows whatever site is picked above. You can still edit it after. */
   const first = ((c.name || "").trim().split(/\s+/)[0]) || "there";
+  /* The second text's line, only sent when there are job photos. */
+  const PHOTO_LINE = "Here are a few photos from your job if you'd like to add them to your review.";
+  /* Older saved text still says it in the message: take it out (it rides with the photos now). */
+  $("txt").value = $("txt").value.replace(/\s*I've included a few photos from your job if you'd like to add them( to your review)?\./, "");
   const MSGS = {
-    left: "Hi {name}, thanks for having us out today! If you're happy with how everything turned out, a quick Google review would mean a lot to our small family business: kheanandclean.com/review I've included a few photos from your job if you'd like to add them.",
-    follow: "Hi {name}, hope your floors are still looking great! If you get a minute, a quick review would mean a lot: kheanandclean.com/review I've included a few photos from your job if you'd like to add them. And if there's anything else we can help with, just let us know.",
+    left: "Hi {name}, thanks for having us out today! If you're happy with how everything turned out, a quick Google review would mean a lot to our small family business: kheanandclean.com/review",
+    follow: "Hi {name}, hope your floors are still looking great! If you get a minute, a quick review would mean a lot: kheanandclean.com/review And if there's anything else we can help with, just let us know.",
     late: "Hi {name}, it's Israel with Khean & Clean. I know it's been a little while, but I wanted to follow up and see how everything's holding up. If you were happy with the job, a quick Google review would mean a lot to our small family business: kheanandclean.com/review"
   };
   $("msgPick").addEventListener("click", e => {
@@ -380,12 +384,15 @@ async function start(){
         await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
         paths.push(p);
       }
-      const batches = [];
-      for (let i = 0; i < paths.length; i++) batches.push([paths[i]]);   // one photo per text: phones only showed the first of several
-      if (!batches.length) batches.push([]);
-      for (let i = 0; i < batches.length; i++) {
-        say("Sending" + (batches.length > 1 ? " text " + (i + 1) + " of " + batches.length : "") + "...");
-        await smsSend({ to: tel, body: i === 0 ? text : "", media: batches[i] });
+      /* Two texts: 1) header photo + message + review link, 2) the job photos with one line about them.
+         No job photos: just text 1, and nothing in it mentions photos. */
+      const hasHead = picked.has(CARD);
+      const texts = [{ body: text, media: hasHead ? paths.slice(0, 1) : [] }];
+      const rest = hasHead ? paths.slice(1) : paths;
+      if (rest.length) texts.push({ body: PHOTO_LINE, media: rest.slice(0, 10) });   // Twilio: 10 pictures max per text
+      for (let i = 0; i < texts.length; i++) {
+        say("Sending" + (texts.length > 1 ? " text " + (i + 1) + " of " + texts.length : "") + "...");
+        await smsSend({ to: tel, body: texts[i].body, media: texts[i].media });
       }
       say("Sent from (916) 767-2520. It's in Texts.");
       btn.textContent = "Sent";
