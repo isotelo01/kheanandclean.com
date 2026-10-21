@@ -1360,16 +1360,6 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
 .est__out{ border-radius:0 var(--r-md) var(--r-md) 0; }
 @media (max-width:900px){ .est__form{ border-radius:var(--r-md) var(--r-md) 0 0; } .est__out{ border-radius:0 0 var(--r-md) var(--r-md); } }
 .hero__photobox{ border-radius:var(--r-md); }
-/* Hero photo edge to edge across the whole screen, and taller. The tagline stays lined up
-   with the page text (side padding = the gap from screen edge to page column + the old padding).
-   Desktop/tablet only; phones keep the original rounded box. */
-@media (min-width:761px){
-/* (Edge-to-edge hero removed 2026-10-20: carousel is back in the rounded box inside the page column) */
-/* Show the whole photo (no cropping) with a blurred copy of the same photo filling the sides */
-.hero__photo::before, .hero__photo::after{ content:""; position:absolute; background-image:inherit; background-repeat:no-repeat; }
-.hero__photo::before{ inset:-40px; background-size:cover; background-position:center; filter:blur(26px) brightness(.6); }
-.hero__photo::after{ inset:0; background-size:contain; background-position:center; }
-}
 .roomSummary, .estBox, .estDone{ border-radius:var(--r-sm); }
 
 /* the plate frame and its corner ticks curve together */
