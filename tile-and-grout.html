@@ -574,6 +574,13 @@ document.addEventListener('click', function (e) {
 .ba__tag--after{ background:var(--gold-btn); color:var(--btn-ink); }
 .ba__cap{ margin:14px auto 0; font-size:17px; color:var(--ink-dim); }
 @media (max-width:520px){ .ba__tag{ top:8px; left:8px; padding:4px 9px; font-size:10px; } }
+/* Big screens: page fills ~90% of the width. Text keeps its normal size and line length
+   (paragraphs are capped in ch), so only the layout and photos spread out. Title a bit bigger. */
+@media (min-width:1100px){
+  .wrap{ width:min(90vw, 2000px); }
+  .ba__set{ max-width:min(62vw, 1200px); }
+  .intro h1{ font-size:clamp(68px,4.6vw,92px); max-width:24ch; }
+}
 </style>
 <link rel="stylesheet" href="quote-form.css">
 <link rel="stylesheet" href="footer.css">
