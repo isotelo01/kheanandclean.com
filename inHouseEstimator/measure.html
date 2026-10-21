@@ -83,8 +83,14 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
       <label class="chk"><input type="checkbox" id="paper" checked> <span>A sheet of letter paper (8.5 &times; 11) is on the floor</span></label>
     </section>
 
+    <section class="panel" id="roomPanel" hidden>
+      <h2>This room's photos</h2>
+      <p style="margin:0 0 8px;font-size:14px;color:var(--muted)" id="roomPhotoNote"></p>
+      <div class="slots" id="roomSlots"></div>
+    </section>
+
     <section class="panel">
-      <h2>Photos</h2>
+      <h2 id="photosHead">Photos</h2>
       <div class="slots" id="slots"></div>
     </section>
 
@@ -133,7 +139,7 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
@@ -194,11 +200,33 @@ async function shrink(file){
   return await new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
 }
 
-const ready = () => !!shots["Doorway"] && ["Corner 1", "Corner 2", "Corner 3", "Corner 4"].filter(l => shots[l]).length >= 2;
+/* Opened from a room page: that room's Before + Inspection photos come along (job-room.html puts
+   them in sessionStorage), so the measurer uses them and the checklist below is only extras. */
+const roomPhotos = (() => {
+  try { const s = JSON.parse(sessionStorage.getItem("kcMeasurePhotos") || "{}");
+    return back && Array.isArray(s.photos) ? s.photos.filter(p => p && /^quick-quote-photos\/job_/.test(String(p.path))).slice(0, 8) : []; }
+  catch (e) { return []; }
+})();
+if (roomPhotos.length) {
+  $("roomPanel").hidden = false;
+  $("roomPhotoNote").textContent = roomPhotos.length + " photo" + (roomPhotos.length > 1 ? "s" : "") + " from this room will be used. Add more below if you want.";
+  $("photosHead").textContent = "More photos (optional)";
+  $("roomSlots").innerHTML = roomPhotos.map((p, i) =>
+    '<div class="slot has" id="rp' + i + '"><span class="lab">' + p.label.replace(/[<>&]/g, "") + '</span></div>').join("");
+  roomPhotos.forEach((p, i) => getDownloadURL(sRef(storage, p.path)).then(u => {
+    const im = document.createElement("img"); im.alt = p.label; im.src = u; $("rp" + i).prepend(im);
+  }).catch(e => console.error(e)));
+  document.querySelectorAll("#slots .slot.req").forEach(s => s.classList.remove("req"));
+  $("paper").checked = false;   /* inspection photos usually have no paper in them; tick it if they do */
+}
+
+const ready = () => (roomPhotos.length + Object.keys(shots).length >= 2) &&
+  (roomPhotos.length > 0 || (!!shots["Doorway"] && ["Corner 1", "Corner 2", "Corner 3", "Corner 4"].filter(l => shots[l]).length >= 2));
 const refresh = () => {
   $("goBtn").disabled = !ready();
   if (!$("msg").classList.contains("bad"))
-    $("msg").textContent = ready() ? Object.keys(shots).length + " photos ready." : "Take the Doorway shot and at least 2 corners.";
+    $("msg").textContent = ready() ? (roomPhotos.length + Object.keys(shots).length) + " photos ready." :
+      roomPhotos.length ? "Add at least one more photo (Doorway is best)." : "Take the Doorway shot and at least 2 corners.";
 };
 
 $("slots").addEventListener("change", async e => {
@@ -240,7 +268,7 @@ $("goBtn").onclick = async () => {
   const btn = $("goBtn"), msg = $("msg");
   btn.disabled = true; msg.classList.remove("bad");
   try {
-    const stamp = Date.now(), photos = [], labels = Object.keys(shots);
+    const stamp = Date.now(), photos = roomPhotos.slice(), labels = Object.keys(shots).slice(0, Math.max(0, 8 - roomPhotos.length));
     for (let i = 0; i < labels.length; i++) {
       msg.textContent = "Uploading photo " + (i + 1) + " of " + labels.length + "…";
       const path = "room-measure/" + uid + "/" + stamp + "_" + labels[i].replace(/\s+/g, "") + ".jpg";

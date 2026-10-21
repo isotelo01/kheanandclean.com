@@ -1395,8 +1395,11 @@ async function show(){
          (saved as varianceIgnored = the total ignored; the invoice then uses the original quote). */
       (showVar ? '<div class="varbox"><div>Variance <b>' + (variance > 0 ? '+' : '&minus;') + money(Math.abs(variance)) + '</b></div>' +
         '<div class="meta">Quote ' + money(cur.quoted) + ' &rarr; Job sheet ' + money(r2(sub + cur.adj)) + '</div>' +
-        '<div class="varacts"><button type="button" class="new" id="revBtn">Resend estimate</button>' +
-        '<button type="button" class="new" id="ignVarBtn">Ignore variance</button></div></div>' : '') +
+        /* On-site estimate (blank sheet started from Create lead), not sent yet: just Send estimate. */
+        (q.onsiteEstimate && q.status === "draft"
+          ? '<div class="varacts"><button type="button" class="new" id="revBtn">Send estimate</button></div></div>'
+          : '<div class="varacts"><button type="button" class="new" id="revBtn">Resend estimate</button>' +
+            '<button type="button" class="new" id="ignVarBtn">Ignore variance</button></div></div>') : '') +
       /* Save sits at the very bottom, on the left of the Summarize line. */
       '<div class="sumrow"><div class="actions" id="saveRow" style="margin:0 auto 0 0"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
         '<button type="button" class="new" id="sumBtn"></button></div>' +
@@ -1670,6 +1673,7 @@ async function show(){
         acceptedName: "", acceptedAt: null, termsAccepted: false,
         date: new Date().toISOString().slice(0, 10), createdAt: inPlace ? (q.createdAt || serverTimestamp()) : serverTimestamp()
       });
+      if (!orig) delete rev.originalQuote;   /* on-site estimate: nothing approved before it */
       await setDoc(doc(db, "quotes", rid), rev);
       /* Back to waiting on approval: the lead comes out of Trash into Leads as "Quoted, not hired",
          pointing at the updated quote. leadTrashed off, so approving it again trashes the lead again. */

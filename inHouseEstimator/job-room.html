@@ -440,6 +440,10 @@ async function show(){
       e.preventDefault();
       if (/Not saved/.test(note.textContent) && !confirm("This room has changes that aren't saved. Leave anyway?")) return;
       const here = new URL(location.href); here.searchParams.delete("measured");
+      /* Hand this room's Before + Inspection photos to the measurer so they don't get taken twice. */
+      const lab = { bThr: "Threshold", bAdj: "Threshold adjacent", inspection: "Inspection", before: "Room photo" };
+      const roomPhotos = Object.keys(lab).flatMap(g => (groups[g] || []).map(path => ({ path, label: lab[g] }))).slice(0, 8);
+      ss.set("kcMeasurePhotos", JSON.stringify({ key: spot.key, id, photos: roomPhotos }));
       location.href = "./measure.html?room=" + encodeURIComponent(spot.name) + "&est=" + (Number(spot.sqft) || 0) +
         "&back=" + encodeURIComponent(here.href);
     });

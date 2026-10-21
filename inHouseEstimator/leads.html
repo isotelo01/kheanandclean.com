@@ -97,6 +97,7 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <h1 id="title">Leads</h1>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
+      <button type="button" class="new" id="createLead">Create lead</button>
       <a class="ghost" href="./dashboard.html">Dashboard</a>
       <a class="ghost" href="./approved-leads.html">Approved</a>
       <a class="ghost" href="./customers.html">Customers</a>
@@ -108,7 +109,7 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp }
+import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
@@ -126,6 +127,34 @@ const storage = getStorage(app);
 
 const view = document.getElementById("view"), titleEl = document.getElementById("title");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* Create lead: on-site estimate. Asks for a name (the only thing needed), files it as a lead,
+   and opens a blank job sheet (a draft quote in "quotes" marked fromJobSheet + onsiteEstimate).
+   Add services and rooms there; Summarize > Send estimate turns it into a normal sent quote. */
+document.getElementById("createLead").addEventListener("click", async e => {
+  const name = (prompt("Customer name") || "").trim().slice(0, 80);
+  if (!name) return;
+  const b = e.currentTarget; b.disabled = true; b.textContent = "Creating\u2026";
+  try {
+    /* Same Q- numbers as the estimator (meta/counters.quote). */
+    const n = await runTransaction(db, async tx => {
+      const ref = doc(db, "meta", "counters"), s = await tx.get(ref);
+      const next = (s.exists() && s.data().quote ? s.data().quote : 1000) + 1;
+      tx.set(ref, { quote: next }, { merge: true });
+      return next;
+    });
+    const number = "Q-" + n, qRef = doc(collection(db, "quotes")), lRef = doc(collection(db, "leads"));
+    await setDoc(lRef, { name, source: "onsite", status: "quoted", quoteId: qRef.id, quoteNumber: number,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    await setDoc(qRef, { number, type: "quote", status: "draft", fromJobSheet: true, onsiteEstimate: true,
+      customer: { name }, leadId: lRef.id, lines: [], subtotal: 0, total: 0,
+      date: new Date().toISOString().slice(0, 10), createdAt: serverTimestamp() });
+    location.href = "./job-sheet.html?id=" + encodeURIComponent(qRef.id);
+  } catch (err) {
+    console.error(err); alert("Couldn't create the lead: " + err.message);
+    b.disabled = false; b.textContent = "Create lead";
+  }
+});
 
 /* Lead status. No status on file = new. */
 const STATUSES = [
