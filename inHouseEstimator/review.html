@@ -408,10 +408,10 @@ async function start(){
       const hasHead = picked.has(CARD);
       const texts = [{ body: text, media: hasHead ? paths.slice(0, 1) : [] }];
       const rest = hasHead ? paths.slice(1) : paths;
-      // Words go with the photos: a picture-only text was showing "delivered" but never appeared on the iPhone. Twilio: 10 pictures max per text.
-      if (rest.length) texts.push({ body: "If you'd like, you can save these photos to your phone and add them to your Google review.", media: rest.slice(0, 10) });
+      // One photo per text, like the Texts page: carriers deliver a multi-photo text but the iPhone only shows the first picture.
+      rest.slice(0, 10).forEach((p, i) => texts.push({ body: i ? "" : "If you'd like, you can save these photos to your phone and add them to your Google review.", media: [p] }));
       for (let i = 0; i < texts.length; i++) {
-        if (i) await new Promise(r => setTimeout(r, 3000));   // 3 seconds between texts so they land in order
+        if (i === 1) await new Promise(r => setTimeout(r, 3000));   // 3 seconds after the review text so it lands first
         say("Sending" + (texts.length > 1 ? " text " + (i + 1) + " of " + texts.length : "") + "...");
         await smsSend({ to: tel, body: texts[i].body, media: texts[i].media });
       }
