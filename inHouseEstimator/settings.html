@@ -91,20 +91,51 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
   </div>
 
   <div class="panel">
-    <h2>General chemicals</h2>
-    <p class="sub">Pre-spray, rinse and the rest. Enter what one ounce or one quart costs you.</p>
+    <h2>Pre-sprays &amp; detergents</h2>
+    <p class="sub">Pre-sprays, traffic lane cleaners, detergents and encapsulation. Enter what one ounce or one quart costs you.</p>
     <div id="list-general"><div class="empty">Loading&hellip;</div></div>
     <button type="button" class="ghost add" data-add="general">+ Add chemical</button>
   </div>
+  <div class="panel">
+    <h2>Rinses</h2>
+    <p class="sub">Acid rinses and fiber rinses.</p>
+    <div id="list-rinse"><div class="empty">Loading&hellip;</div></div>
+    <button type="button" class="ghost add" data-add="rinse">+ Add rinse</button>
+  </div>
 
   <div class="panel">
-    <h2>Stain treatments</h2>
+    <h2>Stain removers &amp; spotters</h2>
     <p class="sub">Stain products, kept separate so stain-heavy jobs show their real cost.</p>
     <div id="list-stain"><div class="empty">Loading&hellip;</div></div>
     <button type="button" class="ghost add" data-add="stain">+ Add stain product</button>
   </div>
+  <div class="panel">
+    <h2>Deodorizers &amp; protectors</h2>
+    <p class="sub">Odor treatments, deodorizers and carpet protectors.</p>
+    <div id="list-deo"><div class="empty">Loading&hellip;</div></div>
+    <button type="button" class="ghost add" data-add="deo">+ Add deodorizer or protector</button>
+  </div>
+  <div class="panel">
+    <h2>Tile &amp; hard floor</h2>
+    <p class="sub">Tile, grout and hard floor cleaners.</p>
+    <div id="list-floor"><div class="empty">Loading&hellip;</div></div>
+    <button type="button" class="ghost add" data-add="floor">+ Add hard floor product</button>
+  </div>
+  <div class="panel">
+    <h2>Machine care</h2>
+    <p class="sub">Truckmount and equipment maintenance.</p>
+    <div id="list-machine"><div class="empty">Loading&hellip;</div></div>
+    <button type="button" class="ghost add" data-add="machine">+ Add machine product</button>
+  </div>
 
   <div class="actions"><button type="button" class="new" id="saveBtn">Save changes</button><span class="note" id="note"></span></div>
+  <!-- SDS binder: one PDF with every product's Safety Data Sheet (also on the Vendor Documents page). -->
+  <div class="panel" style="margin-top:28px">
+    <h2>Safety Data Sheets</h2>
+    <p class="sub">The SDS binder: every product above in one PDF with a clickable index. Property managers can open it from the Vendor Documents page on the website.</p>
+    <div class="actions"><a class="new" href="../documents/sds-binder.pdf" target="_blank" rel="noopener" style="text-decoration:none">Open SDS binder</a>
+      <a class="ghost" href="../vendor-forms.html" target="_blank" rel="noopener" style="text-decoration:none">Vendor Documents page</a></div>
+  </div>
 
   <div class="panel" style="margin-top:28px">
     <h2>Prices</h2>
@@ -155,8 +186,10 @@ const perOzTxt = it => { const c = Number(it.cost) || 0;
   return it.unit === "qt" && c > 0 ? "$" + (c / OZ.qt).toFixed(3) + " per oz" : ""; };
 let items = [];
 
+/* Chemical sections, in page order. The job sheet lists them the same way. */
+const GROUPS = ["general", "rinse", "stain", "deo", "floor", "machine"];
 function draw() {
-  ["general", "stain"].forEach(g => {
+  GROUPS.forEach(g => {
     const box = document.getElementById("list-" + g), rows = items.filter(it => it.group === g);
     box.innerHTML = rows.length
       ? '<div class="chrow chhead"><span>Product</span><span>Cost</span><span>Per</span><span></span></div>' +
@@ -206,7 +239,7 @@ document.querySelector(".wrap").addEventListener("click", e => {
 saveBtn.addEventListener("click", async () => {
   saveBtn.disabled = true; note.textContent = "Saving\u2026"; note.classList.remove("err");
   try {
-    const clean = items.map(it => ({ id: it.id, group: it.group === "stain" ? "stain" : "general",
+    const clean = items.map(it => ({ id: it.id, group: GROUPS.includes(it.group) ? it.group : "general",
       name: String(it.name || "").trim(), cost: Number(it.cost) > 0 ? Number(it.cost) : null,
       unit: it.unit === "qt" ? "qt" : "oz" })).filter(it => it.name);
     const dropped = items.length - clean.length;
@@ -234,7 +267,7 @@ onAuthStateChanged(auth, async user => {
 
 /* Vendor documents: one fixed file per document in vendor-docs/ (partner.html reads the same names). */
 const storage = getStorage(app);
-const VDOCS = [["w9", "W-9"], ["insurance", "Proof of insurance"], ["license", "Business license"]];
+const VDOCS = [["w9", "W-9"], ["insurance", "Proof of insurance"], ["license", "Business license"], ["iicrc", "IICRC certification"]];
 const vdocNote = document.getElementById("vdocNote"), vdocFile = document.getElementById("vdocFile");
 let vdocPick = null;
 async function drawDocs() {

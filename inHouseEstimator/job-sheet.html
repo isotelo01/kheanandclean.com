@@ -1516,8 +1516,12 @@ async function show(){
     if (!chemBox.isConnected) return;
     if (!list.length) { chemBox.innerHTML = '<div class="msg">No detergents set up yet. Add them in <a href="./settings.html">Settings</a>.</div>'; return; }
     const sel = 'style="font:16px Archivo;padding:6px 4px;border:1px solid var(--line);border-radius:6px"';
-    chemBox.innerHTML = [["general", "General"], ["stain", "Stain treatments"]].map(([g, label]) => {
-      const rows = list.filter(c => (c.group === "stain" ? "stain" : "general") === g); if (!rows.length) return "";
+    /* Same sections as Settings; anything unknown counts as a pre-spray / detergent. */
+    const CHEM_GROUPS = [["general", "Pre-sprays & detergents"], ["rinse", "Rinses"], ["stain", "Stain removers & spotters"],
+      ["deo", "Deodorizers & protectors"], ["floor", "Tile & hard floor"], ["machine", "Machine care"]];
+    const groupOf = c => CHEM_GROUPS.some(x => x[0] === c.group) ? c.group : "general";
+    chemBox.innerHTML = CHEM_GROUPS.map(([g, label]) => {
+      const rows = list.filter(c => groupOf(c) === g); if (!rows.length) return "";
       return '<div class="rphead" style="margin-top:8px">' + label + '</div>' + rows.map(c => {
         const u = used.get(c.id) || {};
         return '<div class="rprow chemrow" style="cursor:default" data-chem="' + esc(c.id) + '" data-name="' + esc(c.name) + '" data-group="' + g +
