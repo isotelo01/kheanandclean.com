@@ -101,6 +101,18 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .rpstep button{width:34px;height:34px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:18px;line-height:1;cursor:pointer;color:var(--navy)}
 .rpstep input{width:52px;text-align:center;font:16px "Archivo";padding:6px 4px;border:1px solid var(--line);border-radius:6px}
 .rpfoot{display:flex;gap:10px;padding:10px;border-top:1px solid var(--line);background:#f6f7fa}
+/* Detergents used: tap to open the sections, tap a section to open its products; Select marks one used. */
+.chemfold>summary,.chemgrp>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.chemfold>summary::-webkit-details-marker,.chemgrp>summary::-webkit-details-marker{display:none}
+.chemfold>summary::before,.chemgrp>summary::before{content:"\25B8";color:var(--navy);transition:transform .15s}
+.chemfold[open]>summary::before,.chemgrp[open]>summary::before{transform:rotate(90deg)}
+.chemfold>summary h2{margin:0}
+.chemsum,.chemcnt{margin-left:auto;font-size:14px;color:var(--muted);font-weight:600}
+.chemgrp{border:1px solid var(--line);border-radius:8px;margin-top:8px}
+.chemgrp>summary{padding:10px 12px;font-weight:700;font-size:15px}
+.chemrow:not([data-sel]) .rpstep{display:none}
+.chemsel{font:600 14px "Archivo";border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--navy);padding:6px 12px;cursor:pointer;flex:none}
+.chemrow[data-sel] .chemsel{background:var(--green);border-color:var(--green);color:#fff}
 /* Service header row: the header (tap to open) and, on carpet, the + for add-ons. */
 .svc__headrow{display:flex;align-items:center;gap:10px}
 .svc__headrow .svc__head{flex:1;min-width:0}
@@ -1385,7 +1397,8 @@ async function show(){
       '<div style="margin-top:24px">' +
       photoBox("job", "Job photos") +   /* shown read-only in the Summary */
       /* Chemicals used: staff only, saved with the Save button under Crew notes. */
-      '<div class="staff" style="margin-top:24px"><h2>Detergents used</h2><div id="chems"><div class="msg">Loading&hellip;</div></div></div>' +
+      '<div class="staff" style="margin-top:24px"><details class="chemfold"><summary><h2>Detergents used</h2><span class="chemsum" id="chemSum"></span></summary>' +
+        '<div id="chems"><div class="msg">Loading&hellip;</div></div></details></div>' +
       /* Crew notes: in the Summary, the saved text read-only; nothing at all when there's none. */
       '<div class="crewbox' + (String(js.crewNotes || "").trim() ? '' : ' empty') + '" style="margin-top:24px"><h2>Crew notes</h2>' +
       '<div class="crewro">' + esc(js.crewNotes || "") + '</div>' +
@@ -1499,12 +1512,18 @@ async function show(){
   };
   const readChems = () => [...chemBox.querySelectorAll(".chemrow")].map(chemCostOf).filter(c => c.amount > 0);
   const calcChems = () => {
-    let sum = 0;
+    let sum = 0, n = 0;
     chemBox.querySelectorAll(".chemrow").forEach(r => {
       const c = chemCostOf(r); sum += c.cost;
+      if (c.amount > 0) r.dataset.sel = "1";   // anything with an amount counts as selected
+      if (r.dataset.sel) n++;
+      r.querySelector(".chemsel").textContent = r.dataset.sel ? "Selected" : "Select";
       r.querySelector(".chemcost").textContent = !c.amount ? "" : c.unitCost ? money(c.cost) : "No price set in Settings";
     });
+    chemBox.querySelectorAll(".chemgrp").forEach(g => { const k = g.querySelectorAll(".chemrow[data-sel]").length;
+      g.querySelector(".chemcnt").textContent = k ? k + " selected" : ""; });
     const t = document.getElementById("chemTotal"); if (t) t.textContent = money(sum);
+    const s = document.getElementById("chemSum"); if (s) s.textContent = n ? n + " used · " + money(sum) : "";
   };
   (async () => {
     const saved = Array.isArray(js.chemicals) ? js.chemicals : [];
@@ -1522,21 +1541,31 @@ async function show(){
     const groupOf = c => CHEM_GROUPS.some(x => x[0] === c.group) ? c.group : "general";
     chemBox.innerHTML = CHEM_GROUPS.map(([g, label]) => {
       const rows = list.filter(c => groupOf(c) === g); if (!rows.length) return "";
-      return '<div class="rphead" style="margin-top:8px">' + label + '</div>' + rows.map(c => {
+      const anyUsed = rows.some(c => Number((used.get(c.id) || {}).amount) > 0);
+      return '<details class="chemgrp"' + (anyUsed ? ' open' : '') + '><summary>' + label + '<span class="chemcnt"></span></summary>' + rows.map(c => {
         const u = used.get(c.id) || {};
         return '<div class="rprow chemrow" style="cursor:default" data-chem="' + esc(c.id) + '" data-name="' + esc(c.name) + '" data-group="' + g +
           '" data-cost="' + (Number(c.cost) || 0) + '" data-punit="' + (c.unit === "qt" ? "qt" : "oz") + '">' +
           '<span class="rpname">' + esc(c.name) + '<span class="rpcap chemcost"></span></span>' +
+          '<button type="button" class="chemsel">Select</button>' +
           '<span class="rpstep"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0" value="' + (Number(u.amount) || "") +
             '" aria-label="How much ' + esc(c.name) + '">' +
           '<select ' + sel + ' aria-label="Ounces or quarts"><option value="oz"' + (u.unit === "qt" ? "" : " selected") + '>oz</option>' +
             '<option value="qt"' + (u.unit === "qt" ? " selected" : "") + '>qt</option></select></span></div>';
-      }).join("");
+      }).join("") + '</details>';
     }).join("") + '<div class="jtotal" style="font-size:16px"><span>Chemical cost for this job</span><b id="chemTotal">$0.00</b></div>';
     calcChems(); chemReady = true;
   })();
   chemBox.addEventListener("input", e => {
     if (!e.target.closest(".chemrow")) return;
+    calcChems(); note.textContent = "Not saved yet."; note.classList.remove("err");
+  });
+  /* Select shows the amount box; tapping Selected again clears it. */
+  chemBox.addEventListener("click", e => {
+    const b = e.target.closest(".chemsel"); if (!b) return;
+    const r = b.closest(".chemrow");
+    if (r.dataset.sel) { delete r.dataset.sel; r.querySelector("input").value = ""; }
+    else { r.dataset.sel = "1"; setTimeout(() => r.querySelector("input").focus(), 0); }
     calcChems(); note.textContent = "Not saved yet."; note.classList.remove("err");
   });
 
