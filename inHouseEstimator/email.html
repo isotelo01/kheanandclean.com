@@ -261,6 +261,7 @@ function showCompose(reply, preTo) {
       '<label class="fld"><span>From</span><select id="cFrom">' +
         froms.map(a => '<option value="' + esc(a) + '"' + (a === fromPick ? ' selected' : '') + '>' + esc(a) + '</option>').join("") + '</select></label>' +
       '<label class="fld"><span>To</span><input id="cTo" type="email" multiple autocomplete="email" value="' + esc(to) + '" placeholder="customer@example.com"></label>' +
+      '<label class="fld"><span>CC</span><input id="cCc" type="email" multiple autocomplete="email" placeholder="optional, separate with commas"></label>' +
       '<label class="fld"><span>Subject</span><input id="cSubj" type="text" maxlength="300" value="' + esc(subject) + '"></label>' +
       '<label class="fld"><span>Message</span><textarea id="cBody">' + esc(body) + '</textarea></label>' +
       '<div id="cAtts" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px"></div>' +
@@ -286,6 +287,7 @@ function showCompose(reply, preTo) {
     e.preventDefault();
     const btn = document.getElementById("cSend"), err = document.getElementById("cErr");
     const data = {from: document.getElementById("cFrom").value, to: document.getElementById("cTo").value.trim(),
+      cc: document.getElementById("cCc").value.trim(),
       subject: document.getElementById("cSubj").value.trim(), text: ta.value};
     if (!data.to) { err.textContent = "Add who it's going to."; return; }
     if (!data.text.trim()) { err.textContent = "Type a message first."; return; }
