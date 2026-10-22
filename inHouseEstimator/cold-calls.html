@@ -206,11 +206,15 @@ function card(p){
   const st = p.status || "New", notes = (p.notes || []).slice().reverse();
   const addrLink = p.address ? '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address) + '" target="_blank" rel="noopener">' + esc(p.address) + '</a>' : "";
   const site = p.website ? '<a href="' + esc(p.website) + '" target="_blank" rel="noopener">' + esc(p.website.replace(/^https?:\/\/(www\.)?/, "")) + '</a>' : "";
+  const so = p.social || {};
+  const social = Object.keys(so).map(k => '<a href="' + esc(so[k]) + '" target="_blank" rel="noopener">' + esc(k[0].toUpperCase() + k.slice(1)) + '</a>').join(" · ");
+  const vendor = p.vendorForm ? '<a href="' + esc(p.vendorForm) + '" target="_blank" rel="noopener">Vendor sign-up form</a>' : "";
   const rows = [["Contact", esc(p.contact)], ["Phone", p.phone ? '<a href="tel:' + esc(digits(p.phone)) + '">' + esc(p.phone) + '</a>' : '<span class="muted">Not found yet</span>'],
     ["Email", p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : ""], ["Website", site], ["Address", addrLink],
+    ["Social", social], ["Vendor", vendor],
     ["City", esc(p.city)], ["Follow up", p.followUp ? esc(fmtDate(p.followUp)) : ""], ["About", esc(p.info)]].filter(r => r[1]);
   return '<details class="card' + (isDue(p) ? ' due' : '') + '" data-id="' + esc(p.id) + '"' + (openId === p.id ? ' open' : '') + '>' +
-    '<summary><div><span class="tag t-' + esc(p.type) + '">' + esc(TYPES[p.type] || p.type) + '</span><span class="cn">' + esc(p.business) + '</span>' +
+    '<summary>' + (p.logo ? '<img src="' + esc(p.logo) + '" alt="" loading="lazy" onerror="this.remove()" style="height:28px;max-width:90px;object-fit:contain;margin-right:10px;background:#fff;border-radius:4px;padding:2px;flex:none">' : '') + '<div><span class="tag t-' + esc(p.type) + '">' + esc(TYPES[p.type] || p.type) + '</span><span class="cn">' + esc(p.business) + '</span>' +
       '<span class="cs">' + esc([p.city, p.contact, p.phone].filter(Boolean).join(" \u00b7 ")) +
       (p.followUp ? ' \u00b7 follow up ' + esc(fmtDate(p.followUp)) : '') + '</span></div>' +
       '<span class="st ' + statusTone(st) + '">' + esc(st) + '</span></summary>' +
