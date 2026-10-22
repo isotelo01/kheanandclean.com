@@ -55,6 +55,14 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .subj{grid-column:1/-1;color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row.unread .subj{color:var(--ink)}
 .toaddr{color:var(--muted);font-size:12px;font-weight:500;margin-left:6px}
+/* Which of our addresses it came to: a soft color per address, same color on its filter chip. */
+.atag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:1px 9px;margin-left:8px;vertical-align:1px}
+.aliases{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 12px}
+.achip{font:600 13px "Archivo";border:2px solid transparent;border-radius:999px;padding:5px 13px;cursor:pointer}
+.achip.on{border-color:var(--navy)}
+.rwrap{position:relative}
+.rwrap .subj{padding-right:70px}
+.rdel{position:absolute;right:12px;bottom:9px;font:600 12px "Archivo";background:#fff;color:var(--red);border:1px solid var(--line);border-radius:6px;padding:3px 9px;cursor:pointer}
 
 /* One message */
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:16px}
@@ -109,6 +117,7 @@ const fns = getFunctions(app, "us-central1");
 const mailList = httpsCallable(fns, "mailList"), mailRead = httpsCallable(fns, "mailRead");
 const mailMove = httpsCallable(fns, "mailMove"), mailSend = httpsCallable(fns, "mailSend");
 const mailWith = httpsCallable(fns, "mailWith");
+const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailUnsub = httpsCallable(fns, "mailUnsub");
 const storage = getStorage(app);
 /* Quick-attach docs: [key mailSend knows, button label, file name they'll see]. The files themselves are kept
    with the backend (functions/vendor-docs/), not on the public site. */
@@ -133,6 +142,15 @@ const FOLDERS = [["INBOX", "Inbox"], ["Sent", "Sent"], ["Spam", "Spam"], ["Archi
 // for that reply (the third alias), so replies go out from the address the customer wrote to.
 const FROMS = ["israel@kheanandclean.com", "contact@kheanandclean.com"];
 const OURS = a => /@kheanandclean\.com$/i.test(a) && !/^tydakhean@/i.test(a);
+/* Soft colors for our addresses: [background, text]. israel@ and contact@ always get the first two. */
+const ALIAS_COLORS = [["#dbe8f6", "#2b5c8a"], ["#dcefe3", "#2f6b45"], ["#f7dfe2", "#8a3b48"], ["#e9e1f5", "#5b468a"], ["#f6ead2", "#7a5a1c"]];
+const aliasList = [...FROMS];
+const aliasColor = a => { a = (a || "").toLowerCase(); if (!aliasList.includes(a)) aliasList.push(a);
+  return ALIAS_COLORS[aliasList.indexOf(a) % ALIAS_COLORS.length]; };
+const aliasTag = a => { const [bg, fg] = aliasColor(a);
+  return '<span class="atag" style="background:' + bg + ';color:' + fg + '">' + esc(a.split("@")[0]) + '@</span>'; };
+let aliasFilter = "";   // "" = All (what the page opens on)
+let aiDraft = "";       // AI Response text waiting to go into Reply
 
 const view = document.getElementById("view");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
@@ -167,19 +185,44 @@ async function showList(f, force) {
     renderFolders();
   }
   if (folder !== f) return;   // switched folders while it loaded
-  const list = cache[f].messages || [];
-  if (!list.length) { view.innerHTML = '<div class="msg">Nothing here.</div>'; return; }
+  const all = cache[f].messages || [];
   const sentLike = f === "Sent" || f === "Drafts";
-  view.innerHTML = '<div class="list">' + list.map(m => {
-    const p = sentLike ? (m.to || [])[0] : (m.from || [])[0];
-    const ourTo = !sentLike && (m.to || []).map(a => a.address).find(OURS);
-    return '<a class="row' + (m.seen || sentLike ? '' : ' unread') + '" href="#' + f + '/' + m.uid + '">' +
-      '<span class="who">' + (sentLike ? "To: " : "") + esc(who(p) || "(no sender)") +
-        (ourTo && f === "INBOX" ? '<span class="toaddr">to ' + esc(ourTo.split("@")[0]) + '@</span>' : '') + '</span>' +
+  // Which of our addresses each one came to (Sent: which one it went out from).
+  const ourOf = m => ((sentLike ? m.from : [...(m.to || []), ...(m.cc || [])]) || []).map(a => (a.address || "").toLowerCase()).find(OURS) || "";
+  const here = [...new Set(all.map(ourOf).filter(Boolean))];
+  here.forEach(aliasColor);   // gives every address its color, in a steady order
+  if (aliasFilter && !here.includes(aliasFilter)) aliasFilter = "";
+  const list = aliasFilter ? all.filter(m => ourOf(m) === aliasFilter) : all;
+  const chips = here.length > 1 ? '<div class="aliases">' +
+    '<button type="button" class="achip' + (aliasFilter ? '' : ' on') + '" data-alias="" style="background:#fff;color:var(--navy)">All</button>' +
+    aliasList.filter(a => here.includes(a)).map(a => { const [bg, fg] = aliasColor(a);
+      return '<button type="button" class="achip' + (aliasFilter === a ? ' on' : '') + '" data-alias="' + esc(a) + '" style="background:' + bg + ';color:' + fg + '">' +
+        esc(a.split("@")[0]) + '@</button>'; }).join("") + '</div>' : '';
+  if (!list.length) { view.innerHTML = chips + '<div class="msg">Nothing here.</div>'; return; }
+  view.innerHTML = chips + '<div class="list">' + list.map(m => {
+    const p = sentLike ? (m.to || [])[0] : (m.from || [])[0], ourTo = ourOf(m);
+    return '<div class="rwrap"><a class="row' + (m.seen || sentLike ? '' : ' unread') + '" href="#' + f + '/' + m.uid + '">' +
+      '<span class="who">' + (sentLike ? "To: " : "") + esc(who(p) || "(no sender)") + (ourTo ? aliasTag(ourTo) : '') + '</span>' +
       '<span class="when">' + esc(whenShort(m.date)) + '</span>' +
-      '<span class="subj">' + esc(m.subject || "(no subject)") + '</span></a>';
+      '<span class="subj">' + esc(m.subject || "(no subject)") + '</span></a>' +
+      (f === "Trash" ? '' : '<button type="button" class="rdel" data-del="' + m.uid + '">Delete</button>') + '</div>';
   }).join("") + '</div>';
 }
+/* List clicks: an address chip filters; Delete moves that email to Trash without opening it. */
+view.addEventListener("click", async e => {
+  const chip = e.target.closest("[data-alias]");
+  if (chip) { aliasFilter = chip.dataset.alias; showList(folder); return; }
+  const del = e.target.closest("[data-del]"); if (!del) return;
+  if (!confirm("Move this email to Trash?")) return;
+  const uid = Number(del.dataset.del), f = folder; del.disabled = true; del.textContent = "…";
+  try {
+    await mailMove({folder: f, uid, to: "Trash"});
+    if (cache[f]) { const gone = cache[f].messages.find(x => x.uid === uid);
+      cache[f].messages = cache[f].messages.filter(x => x.uid !== uid);
+      if (f === "INBOX" && gone && !gone.seen && cache.INBOX.unseen) cache.INBOX.unseen--; }
+    delete cache.Trash; showList(f);
+  } catch (err) { del.disabled = false; del.textContent = "Delete"; alert(friendly(err)); }
+});
 
 /* #with/<address>: every email from them (Inbox) and to them (Sent), newest first. From a customer's Email history. */
 async function showWith(addr) {
@@ -216,6 +259,8 @@ async function showMessage(f, uid) {
       '<div class="mmeta">' + esc(whenLong(m.date)) + '</div></div>' +
     '<div class="acts"><a class="ghost" href="#' + f + '">&larr; ' + esc((FOLDERS.find(x => x[0] === f) || [, f])[1]) + '</a>' +
       (f === "Sent" ? '' : '<a class="new" href="#reply">Reply</a>') +
+      (f === "Sent" ? '' : '<button type="button" class="ghost" id="aiBtn">AI Response</button>') +
+      (f === "Sent" || f === "Trash" ? '' : '<button type="button" class="ghost" id="unsubBtn">Unsubscribe</button>') +
       (f === "Trash" ? '<button type="button" class="ghost" id="moveBtn" data-to="INBOX">Move to Inbox</button>'
         : '<button type="button" class="ghost danger" id="moveBtn" data-to="Trash">Delete</button>') + '</div>' +
     (m.html ? '<iframe class="body" id="mbody" title="Email" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"></iframe>'
@@ -233,6 +278,32 @@ async function showMessage(f, uid) {
       try { fr.style.height = Math.min(Math.max(fr.contentDocument.documentElement.scrollHeight + 20, 300), 6000) + "px"; } catch (e) { /* keep default */ }
     });
   }
+  /* AI Response: drafts a reply and opens it in Reply to edit. Nothing is sent until you press Send. */
+  document.getElementById("aiBtn")?.addEventListener("click", async e => {
+    const b = e.currentTarget, er = document.getElementById("mErr");
+    b.disabled = true; b.textContent = "Writing…"; er.textContent = "";
+    try { aiDraft = (await mailAi({folder: f, uid})).data.reply || ""; location.hash = "reply"; }
+    catch (err) { er.textContent = friendly(err); }
+    finally { b.disabled = false; b.textContent = "AI Response"; }
+  });
+  /* Unsubscribe: a real mailing list gets unsubscribed (then Trash); junk with no unsubscribe goes to Spam,
+     and nothing is sent back to it. */
+  document.getElementById("unsubBtn")?.addEventListener("click", async e => {
+    const b = e.currentTarget, er = document.getElementById("mErr");
+    if (!confirm("Unsubscribe from " + (who((m.from || [])[0]) || "this sender") + "?\n\nIf it's junk with no unsubscribe, it goes to Spam instead.")) return;
+    b.disabled = true; b.textContent = "Working…"; er.textContent = "";
+    try {
+      const r = (await mailUnsub({folder: f, uid})).data;
+      delete cache[f]; delete cache.Trash; delete cache.Spam;
+      if (r.method === "link") {
+        b.disabled = false; b.textContent = "Unsubscribe";
+        er.innerHTML = 'This sender only unsubscribes on their website: <a href="' + esc(r.link) + '" target="_blank" rel="noopener">open their unsubscribe page</a>.';
+        return;
+      }
+      alert(r.method === "spam" ? "No unsubscribe in this one, so it's junk: moved to Spam." : "Unsubscribed. The email went to Trash.");
+      location.hash = f;
+    } catch (err) { b.disabled = false; b.textContent = "Unsubscribe"; er.textContent = friendly(err); }
+  });
   document.getElementById("moveBtn").addEventListener("click", async e => {
     const b = e.currentTarget, to = b.dataset.to;
     if (to === "Trash" && !confirm("Move this email to Trash?")) return;
@@ -259,8 +330,9 @@ function showCompose(reply, preTo) {
     to = ((m.replyTo && m.replyTo[0]) || (m.from && m.from[0]) || {}).address || "";
     subject = /^re:/i.test(m.subject || "") ? m.subject : "Re: " + (m.subject || "");
     const quoted = String(m.text || "").trim().split("\n").slice(0, 200).map(l => "> " + l).join("\n");
-    body = "\n\n\nOn " + whenLong(m.date) + ", " + full((m.from || [])[0]) + " wrote:\n" + quoted;
+    body = (aiDraft ? aiDraft.trim() + "\n" : "") + "\n\n\nOn " + whenLong(m.date) + ", " + full((m.from || [])[0]) + " wrote:\n" + quoted;
   }
+  aiDraft = "";
   view.innerHTML = '<div class="panel"><div class="mhead"><h2>' + (m ? "Reply" : "New email") + '</h2></div>' +
     '<form id="cForm" novalidate>' +
       '<label class="fld"><span>From</span><select id="cFrom">' +
