@@ -110,6 +110,10 @@ const mailList = httpsCallable(fns, "mailList"), mailRead = httpsCallable(fns, "
 const mailMove = httpsCallable(fns, "mailMove"), mailSend = httpsCallable(fns, "mailSend");
 const mailWith = httpsCallable(fns, "mailWith");
 const storage = getStorage(app);
+/* Quick-attach docs: [key mailSend knows, button label, file name they'll see]. The files themselves are kept
+   with the backend (functions/vendor-docs/), not on the public site. */
+const QUICK_DOCS = [["w9", "W-9", "W-9 - Khean & Clean LLC.pdf"], ["coi", "Insurance (COI)", "Certificate of Insurance - Khean & Clean LLC.pdf"],
+  ["license", "Business license", "Business License - Khean & Clean LLC.jpg"], ["iicrc", "IICRC cert", "IICRC Certification - Israel Sotelo.pdf"]];
 /* Attachments: uploaded to mail-out/<you>/ when you press Send; mailSend attaches them. 20 MB total, 10 files. */
 const ATT_TOTAL = 20 * 1024 * 1024;
 async function uploadMailFiles(files) {
@@ -265,7 +269,15 @@ function showCompose(reply, preTo) {
       '<label class="fld"><span>Subject</span><input id="cSubj" type="text" maxlength="300" value="' + esc(subject) + '"></label>' +
       '<label class="fld"><span>Message</span><textarea id="cBody">' + esc(body) + '</textarea></label>' +
       '<div id="cAtts" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px"></div>' +
+      /* Quick attach: tap to pick (turns blue), tap again to drop. The files live on the server, not here. */
+      '<style>.dchip{border:1px solid rgba(255,255,255,.4);background:transparent;color:inherit;border-radius:999px;padding:6px 12px;font-weight:600;font-size:13px;cursor:pointer}' +
+        '.dchip[aria-pressed="true"]{background:#1f6fb2;border-color:#1f6fb2;color:#fff}' +
+        '.pv{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}' +
+        '.pv>div{background:#fff;color:#111;border-radius:10px;max-width:640px;width:100%;padding:16px 18px}</style>' +
+      '<div id="cDocs" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span style="font-size:13px;opacity:.75">Quick attach:</span>' +
+        QUICK_DOCS.map(q => '<button type="button" class="dchip" data-doc="' + q[0] + '" aria-pressed="false">' + q[1] + '</button>').join("") + '</div>' +
       '<div class="acts"><button type="submit" class="new" id="cSend">Send</button>' +
+        '<button type="button" class="ghost" id="cPrev">Preview</button>' +
         '<label class="ghost" style="cursor:pointer">Attach<input type="file" id="cFiles" multiple hidden></label>' +
         '<a class="ghost" href="#' + (m ? folder + "/" + m.uid : folder) + '">Cancel</a></div>' +
       '<p class="msg err" id="cErr" role="alert"></p>' +
@@ -283,11 +295,33 @@ function showCompose(reply, preTo) {
   };
   cFiles.addEventListener("change", () => { files = files.concat([...cFiles.files]).slice(0, 10); cFiles.value = ""; drawAtts(); });
   cAtts.addEventListener("click", e => { const x = e.target.closest("[data-x]"); if (x) { files.splice(+x.dataset.x, 1); drawAtts(); } });
+  const pickedDocs = () => [...document.querySelectorAll("#cDocs [aria-pressed='true']")].map(b => b.dataset.doc);
+  document.getElementById("cDocs").addEventListener("click", e => {
+    const b = e.target.closest("[data-doc]"); if (b) b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true");
+  });
+  // Preview: the email as they'll see it (same logo header the server adds), plus what's attached.
+  document.getElementById("cPrev").addEventListener("click", () => {
+    const v = id => document.getElementById(id).value.trim();
+    const atts = files.map(f => f.name).concat(pickedDocs().map(k => (QUICK_DOCS.find(q => q[0] === k) || [, k])[2]));
+    const body = esc(ta.value).replace(/(https?:\/\/[^\s<]+|(?:[a-z0-9-]+\.)+(?:com|net|org)(?:\/[^\s<]*)?)/gi, '<a style="color:#1a56db">$1</a>');
+    const pv = document.createElement("div"); pv.className = "pv";
+    pv.innerHTML = '<div><div style="font-size:13px;color:#555;line-height:1.6;border-bottom:1px solid #ddd;padding-bottom:8px;margin-bottom:14px">' +
+      '<b>From:</b> Israel Sotelo - Khean &amp; Clean &lt;' + esc(v("cFrom")) + '&gt;<br><b>To:</b> ' + esc(v("cTo")) +
+      (v("cCc") ? '<br><b>CC:</b> ' + esc(v("cCc")) : '') + '<br><b>Subject:</b> ' + esc(v("cSubj")) + '</div>' +
+      '<table style="border-collapse:collapse;margin:0 0 18px"><tr><td style="background:#0d1b2a;border-radius:10px;padding:10px 16px 10px 10px">' +
+      '<img src="https://kheanandclean.com/images/quote-preview.png" width="56" height="56" alt="K&amp;C" style="vertical-align:middle;border-radius:8px">' +
+      '<span style="vertical-align:middle;margin-left:12px;font:bold 20px Georgia,serif;color:#E3B64A">Khean &amp; Clean</span></td></tr></table>' +
+      '<div style="font:15px/1.5 Arial,Helvetica,sans-serif;white-space:pre-wrap">' + body + '</div>' +
+      '<div style="margin-top:16px;font-size:13px;color:#333"><b>Attached (' + atts.length + '):</b> ' + (atts.length ? atts.map(esc).join(", ") : "nothing") + '</div>' +
+      '<div style="margin-top:14px;text-align:right"><button type="button" class="new" data-close>Close</button></div></div>';
+    pv.addEventListener("click", e => { if (e.target === pv || e.target.closest("[data-close]")) pv.remove(); });
+    document.body.appendChild(pv);
+  });
   document.getElementById("cForm").addEventListener("submit", async e => {
     e.preventDefault();
     const btn = document.getElementById("cSend"), err = document.getElementById("cErr");
     const data = {from: document.getElementById("cFrom").value, to: document.getElementById("cTo").value.trim(),
-      cc: document.getElementById("cCc").value.trim(),
+      cc: document.getElementById("cCc").value.trim(), docs: pickedDocs(),
       subject: document.getElementById("cSubj").value.trim(), text: ta.value};
     if (!data.to) { err.textContent = "Add who it's going to."; return; }
     if (!data.text.trim()) { err.textContent = "Type a message first."; return; }
