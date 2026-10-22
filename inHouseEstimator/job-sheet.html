@@ -307,6 +307,7 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 </div>
 
 <script src="pricing.js"></script><!-- room sizes and add-on prices, shared with the estimator -->
+<script src="pricing-live.js"></script><!-- the prices saved on the Settings page, laid over pricing.js -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { doc, deleteDoc, serverTimestamp }
@@ -318,6 +319,9 @@ import { getFirestore, getDoc, setDoc, updateDoc, getDownloadURL, uploadBytes,
   startOffline, saveForOffline, offlineJobs, rememberJob } from "./offline.js";
 /* Trip: Drive / I'm here / Done (go home or next job), saved on the job as `trip` (trip.js). */
 import { mountTrip } from "./trip.js";
+
+/* Wait for the Settings prices (pricing-live.js; 3 s at most, none offline) before anything is priced. */
+await (window.KC_PRICING_READY || null);
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",

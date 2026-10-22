@@ -31,7 +31,10 @@
         if ('text' in ox) x.text = on ? text(ox.text) : ox.text;
       });
     });
-    P.ROOM_TYPES.forEach(function(r, i){ var or = ORIGINAL.ROOM_TYPES[i]; if (typeof or.flat === 'number') r.flat = on ? cut(or.flat) : or.flat; });
+    P.ROOM_TYPES.forEach(function(r, i){ var or = ORIGINAL.ROOM_TYPES[i]; if (or && typeof or.flat === 'number') r.flat = on ? cut(or.flat) : or.flat; });
     window.KC_partnerOn = on;
   };
+  /* New Settings prices arrived: pricing-live.js switches partner prices off, writes the new regular
+     prices in, calls this to remember them, then switches partner prices back on if they were. */
+  window.KC_partnerRebase = function(){ ORIGINAL = JSON.parse(JSON.stringify(P)); };
 })();

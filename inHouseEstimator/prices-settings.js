@@ -1,7 +1,8 @@
 /* Prices section of the Settings page (settings.html).
    Saves to Firestore settings/pricing. The first time, it starts from the prices in pricing.js.
-   STEP 1: this is the editor only. The estimators do not read settings/pricing yet,
-   so saving here does not change any quote until step 2 is wired in. */
+   STEP 2 is in: pricing-live.js lays these saved prices over pricing.js on the estimator, partner
+   estimate, job sheet and the website (homepage estimator and listed prices), so a price saved here
+   is the price everywhere. Quotes already sent keep their prices. */
 import { getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -156,6 +157,8 @@ btn.addEventListener("click", async () => {
     clean.rooms = named(clean.rooms);
     Object.values(clean.services).forEach(s => { if (s.items) s.items = named(s.items); });
     await setDoc(REF, { ...clean, updatedAt: serverTimestamp() });
+    /* This device uses the new prices on its next page load right away (pricing-live.js reads this). */
+    try { localStorage.setItem("kcPricesLive", JSON.stringify(clean)); } catch (e) {}
     P = merge(seed(), clean); draw(); dirty = false; msg("Saved.");
   } catch (e) { console.error(e); msg("Could not save: " + e.message, true); }
   finally { btn.disabled = false; }

@@ -1,5 +1,6 @@
 (function(){
   var MIN_JOB = 150;              // confirmed — matches your price sheet
+  if (window.KC_MINJOB != null) MIN_JOB = window.KC_MINJOB;   // the Settings minimum (pricing-live.js)
 
   /* Room sizes and service prices live in pricing.js (shared with the job sheet). */
   var ROOM_TYPES = window.KC_PRICING.ROOM_TYPES;
@@ -371,7 +372,7 @@
         if(dryLabel) dryLabel.style.opacity = (t === 'deep' && dryInput.checked) ? '.7' : '';
         if(dryCaption){
           if(t === 'deep'){
-            dryCaption.textContent = dryInput.checked ? 'Included in this package' : 'Skipped \u2014 saves $0.03 / sq ft';
+            dryCaption.textContent = dryInput.checked ? 'Included in this package' : 'Skipped \u2014 saves $' + SERVICES.carpet.addons.dry.sqft.toFixed(2) + ' / sq ft';
           } else {
             dryCaption.textContent = addonPriceTxt(SERVICES.carpet.addons.dry);
           }
@@ -1251,6 +1252,19 @@
   /* Calls syncService() itself, after picking the right group for the property
      type the form loaded with. */
   syncSvcGroup();
+
+  /* Settings prices came in after the page drew (pricing-live.js already wrote them into
+     ROOM_TYPES / SERVICES): new rooms or furniture start at 0, then redraw and reprice. */
+  window.addEventListener('kc:prices', function(e){
+    if (e.detail && e.detail.minJob != null) MIN_JOB = e.detail.minJob;
+    Object.keys(STATE).forEach(function(k){
+      var st = STATE[k];
+      if (st && st.rooms) ROOM_TYPES.forEach(function(rt){ if (st.rooms[rt.key] == null) st.rooms[rt.key] = 0; });
+    });
+    if (STATE.upholstery) SERVICES.upholstery.items.forEach(function(it){
+      if (STATE.upholstery.items[it.key] == null) STATE.upholstery.items[it.key] = 0; });
+    renderRoomList(); syncService(); calc();   /* syncService puts the room counts, furniture and add-ons back */
+  });
 
 
   /* ---- New estimate: one button, resets every service to zero ---- */

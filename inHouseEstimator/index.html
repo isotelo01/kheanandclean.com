@@ -221,7 +221,7 @@
             <label class="disc__box"><input type="number" id="discPct" min="0" max="100" step="1" inputmode="decimal" placeholder="Percent" aria-label="Discount in percent"><span>%</span></label>
           </div>
           <label class="add" style="margin-top:.9rem;border-bottom:0">
-            <input type="checkbox" id="waiveMin"> Waive minimum charge <span class="add__c">No $150 minimum</span>
+            <input type="checkbox" id="waiveMin"> Waive minimum charge <span class="add__c">No <span data-kcp="minJob">$150</span> minimum</span>
           </label>
           <!-- Partner price: the partner portal's prices (25% off, never under $0.34/sq ft). partner-pricing.js. -->
           <label class="add" style="border-bottom:0">
@@ -342,6 +342,7 @@
 </dialog>
 
 <script src="pricing.js"></script><!-- prices and room sizes, shared with the job sheet -->
+<script src="pricing-live.js"></script><!-- the prices saved on the Settings page, laid over pricing.js -->
 <script src="partner-pricing.js"></script><!-- the Partner price box (Discount section) -->
 <script src="app.js"></script>
 <script type="module" src="send.js"></script>
@@ -378,7 +379,7 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
       const sq = Math.round(Number(String(raw).replace(/[^\d.]/g, "")) || 0);
       if (sq < 100) { alert("Enter the square footage, like 2000."); return; }
       if (!window.kcAddLine) { alert("The estimator is still loading. Try again in a second."); return; }
-      window.kcAddLine("Whole-house cleaning, " + sq.toLocaleString() + " sq ft × $0.39", Math.max(150, Math.round(sq * 0.39 * 100) / 100));
+      window.kcAddLine("Whole-house cleaning, " + sq.toLocaleString() + " sq ft × $0.39", Math.max(window.KC_MINJOB || 150, Math.round(sq * 0.39 * 100) / 100));
       const body = document.getElementById("liBody");
       if (body) body.scrollIntoView({ behavior: "smooth", block: "center" });
     };
@@ -479,7 +480,7 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
       const addWh = (tries) => {
         if (!window.kcAddLine) { if (tries < 40) setTimeout(() => addWh(tries + 1), 50); return; }
         window.kcAddLine("Whole-house cleaning, " + whSq.toLocaleString() + " sq ft × $0.39",
-          Math.max(150, Math.round(whSq * 0.39 * 100) / 100));
+          Math.max(window.KC_MINJOB || 150, Math.round(whSq * 0.39 * 100) / 100));
       };
       addWh(0);
     }

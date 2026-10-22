@@ -1,9 +1,9 @@
 /* K&C Estimator service worker — offline-first.
    Bump CACHE when you upload new files, or phones keep the old copy. */
-var CACHE = 'kc-estimator-v116';
+var CACHE = 'kc-estimator-v117';
 /* Saved by "Download offline job sheet" (offline.js). Never cleared on update. */
 var OFFLINE = 'kc-offline-pages';
-var ASSETS = ['./','./index.html','./app.css','./pricing.js','./app.js','./manifest.webmanifest',
+var ASSETS = ['./','./index.html','./app.css','./pricing.js','./pricing-live.js','./partner-pricing.js','./app.js','./manifest.webmanifest',
               '../images/icon-180.png','../images/icon-192.png','../images/icon-512.png'];
 
 self.addEventListener('install', function(e){
