@@ -471,6 +471,16 @@ function wireNote(d, isQuote, num){
   cam.onchange = () => { add(cam.files); cam.value = ""; };
   msg.oninput = sync;
   label(); draw(); sync();
+  /* Saved photos: ask the backend for viewing links for this quote's own photos (anyone with this
+     quote's link sees them), then redraw with the real pictures instead of the placeholder icon. */
+  if (paths.length) {
+    fetch("https://us-central1-khean-estimator-78f3e.cloudfunctions.net/quoteNotePhotos?id=" + encodeURIComponent(id))
+      .then(r => r.ok ? r.json() : {}).then(j => {
+        let any = false;
+        for (const [p, u] of Object.entries((j && j.photos) || {})) if (!seen[p]) { seen[p] = u; any = true; }
+        if (any) draw();
+      }).catch(() => {});
+  }
 
   /* Send saves the box and emails a heads-up. Accepting the quote also saves whatever is in the
      box (text and unsent photos) first, without the email, so it rides along to the job sheet. */
