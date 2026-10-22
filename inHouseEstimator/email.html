@@ -112,6 +112,7 @@ const mailWith = httpsCallable(fns, "mailWith");
 const storage = getStorage(app);
 /* Quick-attach docs: [key mailSend knows, button label, file name they'll see]. The files themselves are kept
    with the backend (functions/vendor-docs/), not on the public site. */
+const mailDoc = httpsCallable(fns, "mailDoc");
 const QUICK_DOCS = [["w9", "W-9", "W-9 - Khean & Clean LLC.pdf"], ["coi", "Insurance (COI)", "Certificate of Insurance - Khean & Clean LLC.pdf"],
   ["license", "Business license", "Business License - Khean & Clean LLC.jpg"], ["iicrc", "IICRC cert", "IICRC Certification - Israel Sotelo.pdf"]];
 /* Attachments: uploaded to mail-out/<you>/ when you press Send; mailSend attaches them. 20 MB total, 10 files. */
@@ -276,8 +277,7 @@ function showCompose(reply, preTo) {
         '.pv>div{background:#fff;color:#111;border-radius:10px;max-width:640px;width:100%;padding:16px 18px}</style>' +
       '<div id="cDocs" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span style="font-size:13px;opacity:.75">Quick attach:</span>' +
         QUICK_DOCS.map(q => '<button type="button" class="dchip" data-doc="' + q[0] + '" aria-pressed="false">' + q[1] + '</button>').join("") + '</div>' +
-      '<div class="acts"><button type="submit" class="new" id="cSend">Send</button>' +
-        '<button type="button" class="ghost" id="cPrev">Preview</button>' +
+      '<div class="acts"><button type="button" class="new" id="cPrev">Preview &amp; send</button>' +
         '<label class="ghost" style="cursor:pointer">Attach<input type="file" id="cFiles" multiple hidden></label>' +
         '<a class="ghost" href="#' + (m ? folder + "/" + m.uid : folder) + '">Cancel</a></div>' +
       '<p class="msg err" id="cErr" role="alert"></p>' +
@@ -296,13 +296,31 @@ function showCompose(reply, preTo) {
   cFiles.addEventListener("change", () => { files = files.concat([...cFiles.files]).slice(0, 10); cFiles.value = ""; drawAtts(); });
   cAtts.addEventListener("click", e => { const x = e.target.closest("[data-x]"); if (x) { files.splice(+x.dataset.x, 1); drawAtts(); } });
   const pickedDocs = () => [...document.querySelectorAll("#cDocs [aria-pressed='true']")].map(b => b.dataset.doc);
+  // Each quick doc is pulled from the server when its button is turned on (once), so the preview can open it.
+  const docUrl = {};
+  const pullDoc = k => docUrl[k] || (docUrl[k] = mailDoc({doc: k}).then(r => {
+    const bytes = Uint8Array.from(atob(r.data.b64), c => c.charCodeAt(0));
+    return URL.createObjectURL(new Blob([bytes], {type: r.data.type}));
+  }).catch(x => { delete docUrl[k]; throw x; }));
   document.getElementById("cDocs").addEventListener("click", e => {
-    const b = e.target.closest("[data-doc]"); if (b) b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true");
+    const b = e.target.closest("[data-doc]"); if (!b) return;
+    const on = b.getAttribute("aria-pressed") !== "true";
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    if (on) pullDoc(b.dataset.doc).catch(() => {});
   });
-  // Preview: the email as they'll see it (same logo header the server adds), plus what's attached.
-  document.getElementById("cPrev").addEventListener("click", () => {
-    const v = id => document.getElementById(id).value.trim();
-    const atts = files.map(f => f.name).concat(pickedDocs().map(k => (QUICK_DOCS.find(q => q[0] === k) || [, k])[2]));
+  // Preview & send: the only way to send. Shows the email as they'll see it (same logo header the
+  // server adds) with every attachment openable; Send is inside the preview.
+  let approved = false;
+  const openPreview = async () => {
+    const v = id => document.getElementById(id).value.trim(), err = document.getElementById("cErr");
+    if (!v("cTo")) { err.textContent = "Add who it's going to."; return; }
+    if (!ta.value.trim()) { err.textContent = "Type a message first."; return; }
+    err.textContent = "";
+    let links;
+    try {
+      links = files.map(f => [f.name, URL.createObjectURL(f)]).concat(await Promise.all(pickedDocs().map(async k =>
+        [(QUICK_DOCS.find(q => q[0] === k) || [, , k])[2], await pullDoc(k)])));
+    } catch (x) { err.textContent = "Couldn't load an attachment. " + friendly(x); return; }
     const body = esc(ta.value).replace(/(https?:\/\/[^\s<]+|(?:[a-z0-9-]+\.)+(?:com|net|org)(?:\/[^\s<]*)?)/gi, '<a style="color:#1a56db">$1</a>');
     const pv = document.createElement("div"); pv.className = "pv";
     pv.innerHTML = '<div><div style="font-size:13px;color:#555;line-height:1.6;border-bottom:1px solid #ddd;padding-bottom:8px;margin-bottom:14px">' +
@@ -312,14 +330,24 @@ function showCompose(reply, preTo) {
       '<img src="https://kheanandclean.com/images/quote-preview.png" width="56" height="56" alt="K&amp;C" style="vertical-align:middle;border-radius:8px">' +
       '<span style="vertical-align:middle;margin-left:12px;font:bold 20px Georgia,serif;color:#E3B64A">Khean &amp; Clean</span></td></tr></table>' +
       '<div style="font:15px/1.5 Arial,Helvetica,sans-serif;white-space:pre-wrap">' + body + '</div>' +
-      '<div style="margin-top:16px;font-size:13px;color:#333"><b>Attached (' + atts.length + '):</b> ' + (atts.length ? atts.map(esc).join(", ") : "nothing") + '</div>' +
-      '<div style="margin-top:14px;text-align:right"><button type="button" class="new" data-close>Close</button></div></div>';
-    pv.addEventListener("click", e => { if (e.target === pv || e.target.closest("[data-close]")) pv.remove(); });
+      '<div style="margin-top:16px;font-size:13px;color:#333;line-height:1.7"><b>Attached (' + links.length + '):</b> ' +
+        (links.length ? links.map(l => '<a href="' + l[1] + '" target="_blank" rel="noopener" style="color:#1a56db">' + esc(l[0]) + '</a>').join(" &middot; ") : "nothing") +
+        (links.length ? '<br><span style="color:#777">Tap a file to open it.</span>' : '') + '</div>' +
+      '<div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">' +
+        '<button type="button" data-close style="background:none;border:1px solid #999;border-radius:999px;padding:9px 18px;cursor:pointer">Back to edit</button>' +
+        '<button type="button" class="new" data-send>Send</button></div></div>';
+    pv.addEventListener("click", e => {
+      if (e.target.closest("[data-send]")) { approved = true; pv.remove(); document.getElementById("cForm").requestSubmit(); return; }
+      if (e.target === pv || e.target.closest("[data-close]")) pv.remove();
+    });
     document.body.appendChild(pv);
-  });
+  };
+  document.getElementById("cPrev").addEventListener("click", openPreview);
   document.getElementById("cForm").addEventListener("submit", async e => {
     e.preventDefault();
-    const btn = document.getElementById("cSend"), err = document.getElementById("cErr");
+    if (!approved) { openPreview(); return; } // Enter key etc.: preview first, always
+    approved = false;
+    const btn = document.getElementById("cPrev"), err = document.getElementById("cErr");
     const data = {from: document.getElementById("cFrom").value, to: document.getElementById("cTo").value.trim(),
       cc: document.getElementById("cCc").value.trim(), docs: pickedDocs(),
       subject: document.getElementById("cSubj").value.trim(), text: ta.value};
@@ -327,14 +355,14 @@ function showCompose(reply, preTo) {
     if (!data.text.trim()) { err.textContent = "Type a message first."; return; }
     if (m && m.messageId) { data.inReplyTo = m.messageId; data.references = m.references || []; }
     btn.disabled = true; btn.textContent = "Sending\u2026"; err.textContent = "";
-    if (files.reduce((n, f) => n + f.size, 0) > ATT_TOTAL) { btn.disabled = false; btn.textContent = "Send"; err.textContent = "Attachments are too big (20 MB total max)."; return; }
+    if (files.reduce((n, f) => n + f.size, 0) > ATT_TOTAL) { btn.disabled = false; btn.textContent = "Preview & send"; err.textContent = "Attachments are too big (20 MB total max)."; return; }
     try {
       if (files.length) data.attachments = await uploadMailFiles(files);
       await mailSend(data);
       delete cache.Sent;
       view.innerHTML = '<div class="panel"><div class="msg">Sent \u2713 from ' + esc(data.from) + '</div>' +
         '<div class="acts"><a class="ghost" href="#' + folder + '">Back to ' + esc((FOLDERS.find(x => x[0] === folder) || [, "Inbox"])[1]) + '</a></div></div>';
-    } catch (x) { btn.disabled = false; btn.textContent = "Send"; err.textContent = friendly(x); }
+    } catch (x) { btn.disabled = false; btn.textContent = "Preview & send"; err.textContent = friendly(x); }
   });
 }
 
