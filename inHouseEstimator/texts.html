@@ -49,6 +49,18 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .row.unread .last{color:var(--ink)}
 .badge{justify-self:end;min-width:22px;height:22px;border-radius:11px;background:var(--gold);color:var(--navy);font:700 12px/22px "Archivo";text-align:center;padding:0 6px}
 .stop{color:var(--red);font-size:12px;font-weight:700;margin-left:8px}
+/* Delete a conversation: small X under the time (desktop) or swipe left (phone). Both send it to Trash. */
+.rside{display:flex;align-items:center;gap:8px;justify-self:end}
+.tdel{width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--red);font:700 15px/1 "Archivo";cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.tres{font:600 13px "Archivo";border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:6px;padding:3px 10px;cursor:pointer}
+@media (hover:none){.tdel{display:none}}
+.swipe{position:relative;border-radius:10px;overflow:hidden;background:var(--red)}
+.swipe::after{content:"Trash";position:absolute;right:18px;top:50%;transform:translateY(-50%);color:#fff;font-weight:700;font-size:14px}
+.swipe .row{position:relative;z-index:1;transition:transform .2s;touch-action:pan-y}
+.swipe.dragging .row{transition:none}
+.trashlink{display:inline-block;margin-top:14px;font-size:14px;color:var(--muted)}
+.undo{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--navy);color:#fff;border-radius:8px;padding:10px 14px;font-size:14px;z-index:60;display:flex;gap:14px;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.undo button{background:none;border:0;color:var(--gold);font:700 14px "Archivo";cursor:pointer}
 
 /* One conversation: their texts on the left, yours on the right in navy. */
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:16px}
@@ -312,6 +324,11 @@ let stop = [];   // live listeners for the screen showing now
 const clearScreen = () => { stop.forEach(f => f()); stop = []; };
 
 /* ---------- all conversations ---------- */
+/* Trash: a conversation is hidden by stamping trashedAt (nothing is erased). If they text again after that,
+   it comes back on its own. The Trash link at the bottom shows them, with Restore. */
+let showTrash = false;
+const msOf = v => v && typeof v.toMillis === "function" ? v.toMillis() : (Number(v) || 0);
+const isTrashed = t => !!t.trashedAt && msOf(t.lastAt) <= t.trashedAt;
 function showList() {
   view.innerHTML = '<div class="msg">Loading&hellip;</div>';
   stop.push(onSnapshot(query(collection(db, "smsThreads"), orderBy("lastAt", "desc"), limit(200)), snap => {
@@ -320,17 +337,66 @@ function showList() {
         'Tap <b>New text</b> to start one.</div>';
       return;
     }
-    view.innerHTML = '<div class="list">' + snap.docs.map(d => {
+    const all = snap.docs.filter(d => d.data().lastAt !== undefined);
+    const shown = all.filter(d => showTrash ? isTrashed(d.data()) : !isTrashed(d.data()));
+    const nTrash = all.filter(d => isTrashed(d.data())).length;
+    view.innerHTML = (showTrash ? '<div class="msg">Trash &middot; <a href="#" data-trashview="0">Back to texts</a></div>' : '') +
+      '<div class="list">' + shown.map(d => {
       const t = d.data(), n = Number(t.unread) || 0;
-      return '<a class="row' + (n ? ' unread' : '') + '" href="#' + esc(d.id) + '">' +
+      return '<div class="swipe" data-id="' + esc(d.id) + '" data-last="' + msOf(t.lastAt) + '">' +
+        '<a class="row' + (n ? ' unread' : '') + '" href="#' + esc(d.id) + '">' +
         '<span class="who">' + esc(t.name || nameByKey[d.id] || pretty(t.phone || d.id)) + (t.optedOut ? '<span class="stop">STOP</span>' : '') + '</span>' +
         '<span class="when">' + esc(whenShort(t.lastAt)) + '</span>' +
         '<span class="last">' + (t.lastDir === "out" ? "You: " : "") + esc(t.lastBody || "") + '</span>' +
-        (n ? '<span class="badge" title="' + n + ' unread">' + n + '</span>' : '<span></span>') +
-      '</a>';
-    }).join('') + '</div>';
+        '<span class="rside">' + (n ? '<span class="badge" title="' + n + ' unread">' + n + '</span>' : '') +
+          (showTrash ? '<button type="button" class="tres" data-restore>Restore</button>'
+            : '<button type="button" class="tdel" data-tdel title="Delete" aria-label="Delete conversation">&times;</button>') + '</span>' +
+      '</a></div>';
+    }).join('') + '</div>' +
+      (shown.length ? '' : '<div class="msg">' + (showTrash ? 'Trash is empty.' : 'No conversations.') + '</div>') +
+      (!showTrash && nTrash ? '<a href="#" class="trashlink" data-trashview="1">Trash (' + nTrash + ')</a>' : '');
   }, err => { view.innerHTML = '<div class="msg err">Could not load texts: ' + esc(err.message) + '</div>'; }));
 }
+async function trashThread(sw) {
+  const id = sw.dataset.id, ref = doc(db, "smsThreads", id);
+  try {
+    await updateDoc(ref, {trashedAt: Math.max(Date.now(), Number(sw.dataset.last) || 0) + 1});
+    const u = document.createElement("div"); u.className = "undo";
+    u.innerHTML = '<span>Moved to Trash.</span><button type="button">Undo</button>';
+    u.querySelector("button").addEventListener("click", () => { updateDoc(ref, {trashedAt: 0}).catch(() => {}); u.remove(); });
+    document.querySelectorAll(".undo").forEach(x => x.remove()); document.body.appendChild(u); setTimeout(() => u.remove(), 6000);
+  } catch (e) { sw.querySelector(".row").style.transform = ""; alert("Couldn't delete it: " + e.message); }
+}
+view.addEventListener("click", e => {
+  const tv = e.target.closest("[data-trashview]");
+  if (tv) { e.preventDefault(); showTrash = tv.dataset.trashview === "1"; clearScreen(); showList(); return; }
+  const sw = e.target.closest(".swipe"); if (!sw) return;
+  if (e.target.closest("[data-tdel]")) { e.preventDefault(); e.stopPropagation(); trashThread(sw); return; }
+  if (e.target.closest("[data-restore]")) { e.preventDefault(); e.stopPropagation(); updateDoc(doc(db, "smsThreads", sw.dataset.id), {trashedAt: 0}).catch(x => alert(x.message)); return; }
+  if (sw.dataset.swiped) { e.preventDefault(); delete sw.dataset.swiped; }   // the tap that ended a swipe doesn't open it
+});
+/* Phone: swipe a conversation left to send it to Trash. */
+let sx = 0, sy = 0, dx = 0, swEl = null, horiz = null;
+view.addEventListener("touchstart", e => {
+  swEl = showTrash ? null : e.target.closest(".swipe"); if (!swEl) return;
+  sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = 0; horiz = null;
+}, {passive: true});
+view.addEventListener("touchmove", e => {
+  if (!swEl) return;
+  const mx = e.touches[0].clientX - sx, my = e.touches[0].clientY - sy;
+  if (horiz === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) horiz = Math.abs(mx) > Math.abs(my);
+  if (!horiz) return;
+  e.preventDefault(); dx = Math.min(0, mx); swEl.classList.add("dragging");
+  swEl.querySelector(".row").style.transform = "translateX(" + dx + "px)";
+}, {passive: false});
+view.addEventListener("touchend", () => {
+  if (!swEl) return;
+  const sw = swEl, row = sw.querySelector(".row"); swEl = null; sw.classList.remove("dragging");
+  if (!horiz) return;
+  sw.dataset.swiped = "1";
+  if (dx < -Math.min(110, sw.offsetWidth * 0.35)) { row.style.transform = "translateX(-100%)"; setTimeout(() => trashThread(sw), 180); }
+  else row.style.transform = "";
+});
 
 /* ---------- links in texts ----------
    Links become tappable. Links to kheanandclean.com also get a small preview card, like Messages:
