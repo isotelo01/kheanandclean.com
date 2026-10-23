@@ -210,6 +210,11 @@ if (roomPhotos.length) {
   $("roomPanel").hidden = false;
   $("roomPhotoNote").textContent = roomPhotos.length + " photo" + (roomPhotos.length > 1 ? "s" : "") + " from this room will be used. Add more below if you want.";
   $("photosHead").textContent = "More photos (optional)";
+  /* Folded away behind one button; tap to open the photo boxes. */
+  $("photosHead").hidden = true; $("slots").hidden = true;
+  const addB = document.createElement("button"); addB.type = "button"; addB.className = "ghost"; addB.textContent = "+ Add photo";
+  addB.onclick = () => { addB.remove(); $("photosHead").hidden = false; $("slots").hidden = false; };
+  $("slots").before(addB);
   $("roomSlots").innerHTML = roomPhotos.map((p, i) =>
     '<div class="slot has" id="rp' + i + '"><span class="lab">' + p.label.replace(/[<>&]/g, "") + '</span></div>').join("");
   roomPhotos.forEach((p, i) => getDownloadURL(sRef(storage, p.path)).then(u => {
@@ -323,7 +328,10 @@ $("useBtn").onclick = () => { if (result) goBack(result.sqft); };
 onAuthStateChanged(auth, u => {
   if (!u) { location.replace("./login.html"); return; }
   if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  const first = !uid;
   uid = u.uid; $("authwait")?.remove(); refresh();
+  /* Came with the room's photos: start measuring right away (one press), once. */
+  if (first && roomPhotos.length && ready() && !result) $("goBtn").onclick();
 });
 </script>
 </body>
