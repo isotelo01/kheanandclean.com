@@ -49,6 +49,7 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .row.unread .last{color:var(--ink)}
 .badge{justify-self:end;min-width:22px;height:22px;border-radius:11px;background:var(--gold);color:var(--navy);font:700 12px/22px "Archivo";text-align:center;padding:0 6px}
 .stop{color:var(--red);font-size:12px;font-weight:700;margin-left:8px}
+.fbtag{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:#0866ff;border-radius:999px;padding:1px 8px;margin-left:8px;vertical-align:2px}
 /* Delete a conversation: small X under the time (desktop) or swipe left (phone). Both send it to Trash. */
 .rside{display:flex;align-items:center;gap:8px;justify-self:end}
 .tdel{width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--red);font:700 15px/1 "Archivo";cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
@@ -257,6 +258,8 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
+const fbSend = httpsCallable(getFunctions(app, "us-central1"), "fbSend");   // Messenger replies (threads "fb_<id>")
+const isFb = id => /^fb_\d+$/.test(id);
 const smsSuggest = httpsCallable(getFunctions(app, "us-central1"), "smsSuggest");   // reply assistant
 const storage = getStorage(app);
 
@@ -347,7 +350,8 @@ function showList() {
       const t = d.data(), n = Number(t.unread) || 0;
       return '<div class="swipe" data-id="' + esc(d.id) + '" data-last="' + msOf(t.lastAt) + '">' +
         '<a class="row' + (n ? ' unread' : '') + '" href="#' + esc(d.id) + '">' +
-        '<span class="who">' + esc(t.name || nameByKey[d.id] || pretty(t.phone || d.id)) + (t.optedOut ? '<span class="stop">STOP</span>' : '') + '</span>' +
+        '<span class="who">' + esc(t.name || nameByKey[d.id] || (isFb(d.id) ? "Facebook user" : pretty(t.phone || d.id))) +
+          (isFb(d.id) ? '<span class="fbtag">Messenger</span>' : '') + (t.optedOut ? '<span class="stop">STOP</span>' : '') + '</span>' +
         '<span class="when">' + esc(whenShort(t.lastAt)) + '</span>' +
         '<span class="last">' + (t.lastDir === "out" ? "You: " : "") + esc(t.lastBody || "") + '</span>' +
         '<span class="rside">' + (n ? '<span class="badge" title="' + n + ' unread">' + n + '</span>' : '') +
@@ -477,12 +481,19 @@ function showThread(id) {
   // Name, phone link, STOP warning; opening the conversation marks it read.
   stop.push(onSnapshot(doc(db, "smsThreads", id), s => {
     t = s.exists() ? s.data() : {};
-    document.getElementById("cname").textContent = t.name || nameByKey[id] || pretty(t.phone || id);
     const tel = document.getElementById("ctel");
+    if (isFb(id)) {   // Messenger: no phone number; Facebook only allows replies within 24 hours of their last message
+      document.getElementById("cname").textContent = t.name || "Facebook user";
+      tel.textContent = "Messenger"; tel.removeAttribute("href");
+      document.getElementById("banner").innerHTML = t.lastInAt && Date.now() - t.lastInAt > 24 * 3600 * 1000
+        ? '<div class="banner">It’s been over 24 hours since their last message, so Facebook won’t let you reply here. Reply from Messenger on your phone.</div>' : '';
+    } else {
+    document.getElementById("cname").textContent = t.name || nameByKey[id] || pretty(t.phone || id);
     tel.textContent = pretty(t.phone || id);
     tel.href = "tel:" + (t.phone || "+1" + id);
     document.getElementById("banner").innerHTML = t.optedOut
       ? '<div class="banner">They replied STOP. Texts to this number are blocked until they reply START.</div>' : '';
+    }
     if (Number(t.unread) > 0) updateDoc(doc(db, "smsThreads", id), {unread: 0}).catch(e => console.warn("mark read failed", e));
   }, err => console.warn("thread", err)));
 
@@ -558,6 +569,18 @@ function showThread(id) {
     const text = body.value.trim();
     if ((!text && !picks.length) || sending) return;
     if (t.optedOut) { note.className = "msg err"; note.textContent = "They replied STOP, so this can't be sent."; return; }
+    if (isFb(id)) {   // Messenger reply: words only for now
+      if (picks.length) { note.className = "msg err"; note.textContent = "Photos can't go to Messenger from here yet. Send the words, or use Messenger on your phone."; return; }
+      sending = true; btn.disabled = true; btn.textContent = "Sending" + ELLIPSIS; note.className = "msg"; note.textContent = "";
+      try {
+        await fbSend({thread: id, body: text});
+        body.value = ""; count.textContent = "0 / " + MAX;
+        if (aiSug && text) smsSuggest({learn: {suggested: aiSug, sent: text}}).catch(e => console.warn("assistant learn", e));
+        aiSug = ""; aiAnswers = []; document.getElementById("ai").innerHTML = "";
+      } catch (err) { note.className = "msg err"; note.textContent = friendly(err); }
+      finally { sending = false; btn.disabled = false; btn.textContent = "Send"; }
+      return;
+    }
     sending = true; btn.disabled = true; btn.textContent = (picks.length ? "Uploading" : "Sending") + ELLIPSIS;
     note.className = "msg"; note.textContent = "";
     try {
@@ -1086,7 +1109,7 @@ const route = () => {
   renderPeople();
   if (isNew) showNew(h.slice(4));
   else if (h === "calls") showCalls();
-  else if (/^\d{5,15}$/.test(h)) showThread(h);
+  else if (/^\d{5,15}$/.test(h) || isFb(h)) showThread(h);
   else showList();
 };
 
