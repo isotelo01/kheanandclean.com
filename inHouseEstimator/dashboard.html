@@ -263,6 +263,9 @@ const card = r =>
   (r.source === "invoices"
     ? '<button type="button" class="paidbtn" data-paid="' + esc(r.id) + '">Paid</button>'
     : '') +
+  (r.source === "paidInvoices"
+    ? '<button type="button" class="paidbtn unpaidbtn" data-unpaid="' + esc(r.id) + '">Mark unpaid</button>'
+    : '') +
   '</div>';
 
 /* Paid Invoices shows only this month; older ones stay in Firestore, customer history, and Income & Expenses. */
@@ -547,6 +550,17 @@ async function toPaid(id){
   await deleteDoc(doc(db, "invoices", id));
 }
 
+/* Paid -> back to Invoices (undo). Same id and number, so the customer's link still works.
+   It leaves paidInvoices, so it drops off Income & Expenses until marked paid again. */
+async function toUnpaid(id){
+  const src = await getDoc(doc(db, "paidInvoices", id));
+  if (!src.exists()) { alert("That invoice is no longer there. Refresh the page."); return; }
+  const d = Object.assign({}, src.data(), { status: "unpaid" });
+  delete d.paidAt; delete d.dashHidden; delete d.dashHiddenAt;
+  await setDoc(doc(db, "invoices", id), d);
+  await deleteDoc(doc(db, "paidInvoices", id));
+}
+
 /* Text: tapping it opens a small choice.
    "Business line" sends through the app from (916) 767-2520 (smsSend), and it shows on the Texts page.
    "My phone" opens the phone's own messaging app (personal number) with the number and link filled in.
@@ -635,6 +649,21 @@ boardEl.addEventListener("click", async e => {
 });
 
 boardEl.addEventListener("click", async e => {
+  const unpaid = e.target.closest(".unpaidbtn");
+  if (unpaid) {
+    e.preventDefault(); e.stopPropagation();
+    const id = unpaid.getAttribute("data-unpaid");
+    const row = (data.paidInvoices || []).find(r => r.id === id);
+    if (!confirm("Mark " + (row ? row.number : "this invoice") + " as unpaid?\n\nIt moves back to Invoices and comes off Income & Expenses.")) return;
+    unpaid.disabled = true; unpaid.textContent = "Working\u2026";
+    try { await toUnpaid(id); await load(); }
+    catch (err) {
+      console.error(err);
+      unpaid.disabled = false; unpaid.textContent = "Mark unpaid";
+      alert("That didn't go through. If it keeps failing, check the Firestore Rules \u2014 writes to \"invoices\" or deletes from \"paidInvoices\" may be blocked.");
+    }
+    return;
+  }
   const paid = e.target.closest(".paidbtn");
   if (paid) {
     e.preventDefault(); e.stopPropagation();
