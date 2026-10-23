@@ -451,7 +451,7 @@ $("list").addEventListener("click", e => {
     line("Date", md) + line("Category", r.category) + line("Paid with", r.paidWith) + line("Ref #", r.ref) +
     (items.length ? '<div class="rsub">Items</div><ul class="ritems">' + items.map(i => '<li>' + esc(i) + '</li>').join("") + '</ul>' : '') +
     '<div class="rl rtotal"><span>Total</span><b>' + money(r.amount) + '</b></div>' +
-    (r.receiptPath ? '<button type="button" class="ghost rcpt" data-path="' + esc(r.receiptPath) + '">View receipt photo</button>' : '') +
+    (r.receiptPath ? '<button type="button" class="ghost rcpt" data-path="' + esc(r.receiptPath) + '">View receipt</button>' : '') +
     '<label class="rmemo">Notes<textarea id="memoText" rows="4" placeholder="Add a note">' + esc(r.memo || "") + '</textarea></label>' +
     '<div class="actions"><button type="button" class="new" id="memoSave" data-id="' + esc(r.id) + '">Save note</button><span id="memoMsg" class="msg"></span></div>' +
     '<div class="actions" style="margin-top:18px"><button type="button" class="ghost" id="rDel" data-id="' + esc(r.id) + '" style="color:var(--red)">Delete (move to Trash)</button></div>';
