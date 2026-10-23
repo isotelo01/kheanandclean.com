@@ -20,7 +20,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Archivo",syst
 #authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
 .wrap{max-width:640px;margin:0 auto;padding:18px 16px 70px}
 .back{color:var(--muted);font-size:14px;text-decoration:none;background:none;border:0;padding:0;cursor:pointer;font:inherit}
-h1{font:700 26px/1.2 "Cinzel","Playfair Display",Georgia,serif;margin:8px 0 2px}
+h1{font:700 26px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 2px}
 .sub{color:var(--muted);margin:0 0 16px;font-size:15px}
 .panel{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 6px rgba(23,34,57,.08)}
 h2{font:700 17px "Archivo",sans-serif;margin:0 0 8px}
@@ -47,7 +47,7 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
 .msg{min-height:1.2em;margin:10px 0 0;font-size:14.5px;color:var(--muted);text-align:center}
 .msg.bad{color:#b3261e}
 .res{text-align:center}
-.big{font:700 44px/1.1 "Cinzel","Playfair Display",Georgia,serif;color:var(--navy);margin:4px 0}
+.big{font:700 32px/1.15 "Archivo",system-ui,sans-serif;font-variant-numeric:tabular-nums lining-nums;color:var(--navy);margin:4px 0}
 .big small{font:600 18px "Archivo",sans-serif}
 .range{color:var(--muted);font-size:15px}
 .conf{display:inline-block;margin:8px 0;padding:3px 12px;border-radius:999px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#fff}
@@ -68,6 +68,10 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
 .res .note{background:rgba(255,255,255,.07)!important;color:#e8ebf2!important}
 .res .note b{color:#fff!important}
 .res .go{background:var(--gold)!important;color:#172239!important}
+/* Sketch editor: "Edit sketch" opens it full screen so it's big enough to work on. */
+#rShape.skFull{position:fixed;inset:0;z-index:60;max-width:none!important;margin:0!important;background:#0b1220;
+  padding:12px 12px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;overflow:auto}
+#rShape.skFull #skSvg{flex:1 1 auto;width:100%;height:100%;min-height:0}
 </style>
 </head>
 <body>
@@ -320,36 +324,50 @@ const snap = v => Math.round(v * 2) / 2;
 function initSketch(d){
   let pts = Array.isArray(d.outline) && d.outline.length >= 3 ? d.outline.map(p => [+p[0], +p[1]]) : null;
   if (!pts) { const L = d.lengthFt || Math.sqrt(d.sqft), Wd = d.widthFt || d.sqft / L; pts = [[0, 0], [snap(L), 0], [snap(L), snap(Wd)], [0, snap(Wd)]]; }
-  const cuts = (Array.isArray(d.cutouts) ? d.cutouts : []).map(c => ({ x: +c[0], y: +c[1], w: +c[2], h: +c[3] }));
+  /* Cutouts are shapes with corners (start as boxes) so they can be dragged into any shape. */
+  const cuts = (Array.isArray(d.cutouts) ? d.cutouts : []).map(c => { const x = +c[0], y = +c[1], w = +c[2], h = +c[3];
+    return { pts: [[x, y], [x + w, y], [x + w, y + h], [x, y + h]] }; });
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
   const minX = Math.min(...xs), minY = Math.min(...ys), w = (Math.max(...xs) - minX) || 1, h = (Math.max(...ys) - minY) || 1;
   const k = 240 / Math.max(w, h), pad = 44;
-  sk = { pts, cuts, doors: Number.isInteger(d.door) && d.door >= 0 && d.door < pts.length ? [{ w: d.door, t: 0.3 }] : [], placing: false, k, ox: minX - pad / k, oy: minY - pad / k,
+  sk = { pts, cuts, doors: Number.isInteger(d.door) && d.door >= 0 && d.door < pts.length ? [{ w: d.door, t: 0.3 }] : [], placing: false, editing: false, k, ox: minX - pad / k, oy: minY - pad / k,
          W: w * k + pad * 2, H: h * k + pad * 2, sel: null, edited: false, orig: d.orig || JSON.parse(JSON.stringify(d)) };
   $("rShape").innerHTML =
     '<svg id="skSvg" viewBox="0 0 ' + sk.W + ' ' + sk.H + '" width="100%" style="touch-action:none;user-select:none" role="img" aria-label="Floor sketch"></svg>' +
-    '<div class="range" style="font-size:13px" id="skHelp">' + SK_HELP + '</div>' +
-    '<div class="row2" style="grid-template-columns:1fr 1fr;margin-top:8px">' +
+    '<div class="range" style="font-size:13px" id="skHelp" hidden>' + SK_HELP + '</div>' +
+    '<button type="button" class="ghost" id="skEdit" style="margin-top:8px">✎ Edit sketch</button>' +
+    '<div id="skTools" hidden><div class="row2" style="grid-template-columns:1fr 1fr;margin-top:8px">' +
       '<button type="button" class="ghost" id="skCut">+ Cutout</button>' +
       '<button type="button" class="ghost" id="skDoor">+ Door</button>' +
       '<button type="button" class="ghost" id="skDel" disabled>Remove</button>' +
       '<button type="button" class="ghost" id="skReset">Reset</button>' +
-      '<button type="button" class="ghost" id="skMic" style="grid-column:1/-1">🎤 Say wall sizes</button></div>';
-  $("rShape").hidden = false;
+      '<button type="button" class="ghost" id="skMic" style="grid-column:1/-1">🎤 Say wall sizes</button>' +
+      '<button type="button" class="go" id="skDone" style="grid-column:1/-1;margin:0">Done</button></div></div>';
+  $("rShape").hidden = false; $("rShape").classList.remove("skFull"); document.body.style.overflow = "";
   const svg = $("skSvg");
   const toFt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
     const m = p.matrixTransform(svg.getScreenCTM().inverse());
     return [Math.min(Math.max(m.x, 0), sk.W) / sk.k + sk.ox, Math.min(Math.max(m.y, 0), sk.H) / sk.k + sk.oy]; };
   svg.addEventListener("pointerdown", e => {
+    if (!sk.editing) return;   /* locked until "Edit sketch" */
     if (sk.placing) {   /* "+ Door": the next tap puts a door on the nearest wall */
       const w = nearestWall(toFt(e)); sk.placing = false;
       sk.doors.push({ w: w.i, t: w.t }); sk.sel = { type: "door", i: sk.doors.length - 1 }; sk.edited = true;
       $("skHelp").textContent = SK_HELP; drawSketch(); return;
     }
-    const t = e.target.closest("[data-pt],[data-mid],[data-cut],[data-rs],[data-door]");
+    const t = e.target.closest("[data-pt],[data-mid],[data-cut],[data-cp],[data-cm],[data-door]");
     if (!t) { sk.sel = null; drawSketch(); return; }
     e.preventDefault();
     const p = toFt(e);
+    if (t.dataset.cm != null || t.dataset.cp != null) {   /* cutout corner: drag it; + adds a corner on that side */
+      let [ci, j] = (t.dataset.cm || t.dataset.cp).split(":").map(Number);
+      if (t.dataset.cm != null) {
+        const c = sk.cuts[ci].pts, a = c[j], b = c[(j + 1) % c.length];
+        c.splice(j + 1, 0, [snap((a[0] + b[0]) / 2), snap((a[1] + b[1]) / 2)]); j++; sk.edited = true;
+      }
+      skDrag = { type: "cp", ci, j }; sk.sel = { type: "cp", ci, i: j };
+      svg.setPointerCapture(e.pointerId); drawSketch(); return;
+    }
     if (t.dataset.door != null) {
       skDrag = { type: "door", i: +t.dataset.door }; sk.sel = { type: "door", i: skDrag.i };
       svg.setPointerCapture(e.pointerId); drawSketch(); return;
@@ -360,8 +378,7 @@ function initSketch(d){
       sk.doors.forEach(o => { if (o.w > i) o.w++; else if (o.w === i) { if (o.t >= 0.5) { o.w = i + 1; o.t = (o.t - 0.5) * 2; } else o.t *= 2; } });
       skDrag = { type: "pt", i: i + 1 }; sk.edited = true;
     } else if (t.dataset.pt != null) skDrag = { type: "pt", i: +t.dataset.pt };
-    else if (t.dataset.rs != null) skDrag = { type: "rs", i: +t.dataset.rs };
-    else { const c = sk.cuts[+t.dataset.cut]; skDrag = { type: "cut", i: +t.dataset.cut, dx: p[0] - c.x, dy: p[1] - c.y }; }
+    else skDrag = { type: "cut", i: +t.dataset.cut, last: p };
     sk.sel = { type: skDrag.type === "pt" ? "pt" : "cut", i: skDrag.i };
     svg.setPointerCapture(e.pointerId); drawSketch();
   });
@@ -370,8 +387,11 @@ function initSketch(d){
     const p = toFt(e);
     if (skDrag.type === "door") sk.doors[skDrag.i].t = wallT(sk.doors[skDrag.i].w, p).t;
     else if (skDrag.type === "pt") sk.pts[skDrag.i] = [snap(p[0]), snap(p[1])];
-    else if (skDrag.type === "cut") { const c = sk.cuts[skDrag.i]; c.x = snap(p[0] - skDrag.dx); c.y = snap(p[1] - skDrag.dy); }
-    else { const c = sk.cuts[skDrag.i]; c.w = Math.max(1, snap(p[0] - c.x)); c.h = Math.max(1, snap(p[1] - c.y)); }
+    else if (skDrag.type === "cp") sk.cuts[skDrag.ci].pts[skDrag.j] = [snap(p[0]), snap(p[1])];
+    else if (skDrag.type === "cut") {   /* move the whole cutout in half-foot steps */
+      const dx = snap(p[0] - skDrag.last[0]), dy = snap(p[1] - skDrag.last[1]);
+      if (dx || dy) { sk.cuts[skDrag.i].pts.forEach(o => { o[0] += dx; o[1] += dy; }); skDrag.last = [skDrag.last[0] + dx, skDrag.last[1] + dy]; }
+    }
     sk.edited = true; drawSketch();
   });
   const end = () => { skDrag = null; };
@@ -379,13 +399,15 @@ function initSketch(d){
   $("skCut").onclick = () => {
     const xs = sk.pts.map(p => p[0]), ys = sk.pts.map(p => p[1]);
     const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-    sk.cuts.push({ x: snap(cx - 2), y: snap(cy - 1.5), w: 4, h: 3 });
+    const x0 = snap(cx - 2), y0 = snap(cy - 1.5);
+    sk.cuts.push({ pts: [[x0, y0], [x0 + 4, y0], [x0 + 4, y0 + 3], [x0, y0 + 3]] });
     sk.sel = { type: "cut", i: sk.cuts.length - 1 }; sk.edited = true; drawSketch();
   };
   $("skDel").onclick = () => {
     if (!sk.sel) return;
     if (sk.sel.type === "cut") sk.cuts.splice(sk.sel.i, 1);
     else if (sk.sel.type === "door") sk.doors.splice(sk.sel.i, 1);
+    else if (sk.sel.type === "cp") { const c = sk.cuts[sk.sel.ci].pts; if (c.length > 3) c.splice(sk.sel.i, 1); }
     else if (sk.pts.length > 3) {
       const i = sk.sel.i, prev = (i - 1 + sk.pts.length) % sk.pts.length;
       sk.pts.splice(i, 1);
@@ -393,6 +415,8 @@ function initSketch(d){
     }
     sk.sel = null; sk.edited = true; drawSketch();
   };
+  $("skEdit").onclick = () => setEditing(true);
+  $("skDone").onclick = () => setEditing(false);
   $("skDoor").onclick = () => { sk.placing = true; $("skHelp").textContent = "Tap a wall to put the door there"; };
   $("skMic").onclick = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition, mic = $("skMic");
@@ -406,10 +430,20 @@ function initSketch(d){
     rec.start();
   };
   $("skReset").onclick = () => { const o = sk.orig; o.orig = o; Object.assign(result, { sqft: o.sqft }); initSketch(o); showSqft(o.sqft, false);
-    $("rDims").textContent = o.lengthFt && o.widthFt ? "About " + o.lengthFt + " × " + o.widthFt + " ft" + (o.shape ? " · " + o.shape : "") : (o.shape || ""); };
+    $("rDims").textContent = o.lengthFt && o.widthFt ? "About " + o.lengthFt + " × " + o.widthFt + " ft" + (o.shape ? " · " + o.shape : "") : (o.shape || ""); setEditing(true); };
   drawSketch();
 }
-const SK_HELP = "Drag a corner · tap + on a wall to add one · your changes are final";
+const SK_HELP = "Drag a corner · tap + to add one · tap a cutout to reshape it · your changes are final";
+const polyA = pts => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+/* Edit mode: full screen, handles showing. Done shrinks it back and locks it again. */
+function setEditing(on){
+  sk.editing = on; sk.placing = false; if (!on) sk.sel = null;
+  $("rShape").classList.toggle("skFull", on);
+  $("skTools").hidden = !on; $("skHelp").hidden = !on; $("skEdit").hidden = on;
+  if (on) $("skHelp").textContent = SK_HELP;
+  document.body.style.overflow = on ? "hidden" : "";
+  drawSketch();
+}
 /* Where a point lands along wall i: t = 0 at its start corner, 1 at its end; d = distance in feet. */
 function wallT(i, p){
   const a = sk.pts[i], b = sk.pts[(i + 1) % sk.pts.length], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1;
@@ -440,7 +474,7 @@ function setWall(side, L){
   if (hi - lo < 0.1) return false;
   const delta = L - (hi - lo), mid = (lo + hi) / 2;
   sk.pts.forEach(o => { if (o[ax] > mid) o[ax] = Math.round((o[ax] + delta) * 100) / 100; });
-  sk.cuts.forEach(c => { if (ax ? c.y > mid : c.x > mid) { if (ax) c.y += delta; else c.x += delta; } });
+  sk.cuts.forEach(c => c.pts.forEach(o => { if (o[ax] > mid) o[ax] += delta; }));
   return true;
 }
 function sayWalls(text){
@@ -460,18 +494,30 @@ function sayWalls(text){
 function skArea(){
   let a = 0;
   sk.pts.forEach((p, i) => { const q = sk.pts[(i + 1) % sk.pts.length]; a += p[0] * q[1] - q[0] * p[1]; });
-  return Math.max(0, Math.abs(a) / 2 - sk.cuts.reduce((s, c) => s + c.w * c.h, 0));
+  return Math.max(0, Math.abs(a) / 2 - sk.cuts.reduce((s, c) => s + polyA(c.pts), 0));
 }
 function drawSketch(){
   const X = x => (x - sk.ox) * sk.k, Y = y => (y - sk.oy) * sk.k, P = sk.pts.map(p => [X(p[0]), Y(p[1])]);
   const cx = P.reduce((s, p) => s + p[0], 0) / P.length, cy = P.reduce((s, p) => s + p[1], 0) / P.length;
   let g = '<polygon points="' + P.map(p => p.join(",")).join(" ") + '" fill="rgba(227,182,74,.12)"/>';
+  let cg = "";   /* cutout handles, drawn on top later (edit mode only) */
   sk.cuts.forEach((c, i) => {
-    const on = sk.sel && sk.sel.type === "cut" && sk.sel.i === i;
-    g += '<g data-cut="' + i + '" style="cursor:move"><rect x="' + X(c.x) + '" y="' + Y(c.y) + '" width="' + c.w * sk.k + '" height="' + c.h * sk.k +
+    const on = sk.sel && ((sk.sel.type === "cut" && sk.sel.i === i) || (sk.sel.type === "cp" && sk.sel.ci === i));
+    const C = c.pts.map(p => [X(p[0]), Y(p[1])]), mx0 = C.reduce((s, p) => s + p[0], 0) / C.length, my0 = C.reduce((s, p) => s + p[1], 0) / C.length;
+    g += '<g data-cut="' + i + '" style="cursor:move"><polygon points="' + C.map(p => p.join(",")).join(" ") +
       '" fill="rgba(0,0,0,.6)" stroke="' + (on ? "#fff" : "#E3B64A") + '" stroke-width="2" stroke-dasharray="5 4"/>' +
-      '<text x="' + (X(c.x) + c.w * sk.k / 2) + '" y="' + (Y(c.y) + c.h * sk.k / 2 + 4) + '" text-anchor="middle" font-size="11" fill="#e8ebf2">' + c.w + '×' + c.h + '</text></g>' +
-      '<circle data-rs="' + i + '" cx="' + (X(c.x) + c.w * sk.k) + '" cy="' + (Y(c.y) + c.h * sk.k) + '" r="9" fill="#E3B64A" stroke="#172239" stroke-width="2" style="cursor:nwse-resize"/>';
+      '<text x="' + mx0 + '" y="' + (my0 + 4) + '" text-anchor="middle" font-size="11" fill="#e8ebf2">' + Math.round(polyA(c.pts)) + ' sf</text></g>';
+    if (on) C.forEach((a, j) => {   /* + on each side of the selected cutout adds a corner */
+      const b = C[(j + 1) % C.length], x = (a[0] + b[0]) / 2, y = (a[1] + b[1]) / 2;
+      cg += '<g data-cm="' + i + ':' + j + '" style="cursor:copy"><circle cx="' + x + '" cy="' + y + '" r="12" fill="rgba(0,0,0,0)"/>' +
+        '<circle cx="' + x + '" cy="' + y + '" r="6" fill="#172239" stroke="#fff" stroke-width="1.5"/>' +
+        '<text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">+</text></g>';
+    });
+    C.forEach((a, j) => {
+      const pick = sk.sel && sk.sel.type === "cp" && sk.sel.ci === i && sk.sel.i === j;
+      cg += '<g data-cp="' + i + ':' + j + '" style="cursor:grab"><circle cx="' + a[0] + '" cy="' + a[1] + '" r="14" fill="rgba(0,0,0,0)"/>' +
+        '<circle cx="' + a[0] + '" cy="' + a[1] + '" r="' + (pick ? 8 : 6) + '" fill="' + (pick ? "#fff" : "#E3B64A") + '" stroke="#172239" stroke-width="2"/></g>';
+    });
   });
   let dg = "", mg = "";
   const wl = (s, e2) => '<line x1="' + s[0] + '" y1="' + s[1] + '" x2="' + e2[0] + '" y2="' + e2[1] + '" stroke="#E3B64A" stroke-width="3" stroke-linecap="round"/>';
@@ -504,14 +550,14 @@ function drawSketch(){
       '<circle cx="' + mx + '" cy="' + my + '" r="7" fill="#172239" stroke="#E3B64A" stroke-width="1.5"/>' +
       '<text x="' + mx + '" y="' + (my + 4) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#E3B64A">+</text></g>';
   });
-  g += dg + mg;
-  P.forEach((a, i) => {
+  g += dg + (sk.editing ? mg + cg : "");
+  if (sk.editing) P.forEach((a, i) => {
     const on = sk.sel && sk.sel.type === "pt" && sk.sel.i === i;
     g += '<g data-pt="' + i + '" style="cursor:grab"><circle cx="' + a[0] + '" cy="' + a[1] + '" r="16" fill="transparent"/>' +
       '<circle cx="' + a[0] + '" cy="' + a[1] + '" r="' + (on ? 9 : 7) + '" fill="' + (on ? "#fff" : "#E3B64A") + '" stroke="#172239" stroke-width="2"/></g>';
   });
   $("skSvg").innerHTML = g;
-  $("skDel").disabled = !sk.sel || (sk.sel.type === "pt" && sk.pts.length <= 3);
+  $("skDel").disabled = !sk.sel || (sk.sel.type === "pt" && sk.pts.length <= 3) || (sk.sel.type === "cp" && sk.cuts[sk.sel.ci].pts.length <= 3);
   if (sk.edited) showSqft(Math.round(skArea()), true);
 }
 /* Big number + "Quoted → diff" line; from the sketch once edited. */
