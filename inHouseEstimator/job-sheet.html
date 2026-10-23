@@ -75,6 +75,9 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .srow .spot{border-top:0;background:#fff;position:relative;z-index:1;transition:transform .2s}
 .srow.swiped .spot{transform:translateX(-88px)}
 .srow.gone{max-height:0;opacity:0}
+.srow.grayed .spot{opacity:.45}
+.srow.grayed .sprice{visibility:hidden}
+.srow.grayed .spot__name::after{content:" (no charge)";font-weight:400}
 .srow.gone .spot{transform:translateX(-100%)}
 .sdel{position:absolute;right:0;top:0;bottom:0;width:88px;border:0;background:var(--red);color:#fff;font:600 15px "Archivo";cursor:pointer}
 /* Desktop (mouse): a Delete button at the end of each room row instead of swiping. */
@@ -969,6 +972,14 @@ async function delRoom(row){
   if (!cur || row.dataset.busy) return; row.dataset.busy = "1";
   const i = Number(row.dataset.line), j = Number(row.dataset.item), l = cur.lines[i], it = l.items[j];
   const kind = row.dataset.kind || "room";
+  /* Invoiced or paid: the price is locked, so Delete just grays the row out as no charge (tap Undo to bring it back). */
+  if (cur.place === "invoices" || cur.place === "paidInvoices") {
+    const key = kind === "room" ? row.dataset.room : kind + ":" + row.dataset.r;
+    const g = Array.isArray(it.grayed) ? it.grayed : [];
+    it.grayed = g.includes(key) ? g.filter(x => x !== key) : g.concat([key]);
+    try { await saveOnsite(); show(); } catch (err) { fail(err); show(); }
+    return;
+  }
   if (kind === "room") {
     it.rooms = it.rooms.filter(rm => rm.id !== row.dataset.room);
     recalc(l);
@@ -1151,10 +1162,14 @@ async function show(){
       (DISCS.includes(p) ? DISCS : DISCS.concat(p).sort((a, b) => a - b)).map(v =>
         '<option value="' + v + '"' + (v === p ? ' selected' : '') + '>' + (v ? v + "% off" + (v === 100 ? " (free)" : "") : "No discount") + '</option>').join("") +
       '<option value="other">Other %…</option></select>'; };
+  /* Grayed out (deleted on an invoiced or paid job): still listed, no charge, price unchanged. */
+  const grayOf = (i, j, key) => { const it = cur && cur.lines[i] && cur.lines[i].items[j];
+    return !!it && Array.isArray(it.grayed) && it.grayed.includes(String(key)); };
   /* Stairs, a rug or an add-on row: same Delete as the rooms (button on desktop, swipe on phones). */
   const delWrap = (kind, i, j, r, inner) =>
-    '<div class="srow" data-kind="' + kind + '" data-line="' + i + '" data-item="' + j + '" data-r="' + r + '">' +
-      '<button type="button" class="sdel" data-del>Delete</button>' + inner + '</div>';
+    (g => '<div class="srow' + (g ? ' grayed' : '') + '" data-kind="' + kind + '" data-line="' + i + '" data-item="' + j + '" data-r="' + r + '">' +
+      '<button type="button" class="sdel" data-del>' + (g ? 'Undo' : 'Delete') + '</button>' + inner + '</div>')
+    (grayOf(i, j, kind + ":" + r));
   /* Upholstery line: Add furniture opens the estimator's furniture table. */
   const furnBlock = i =>
     '<div class="addfurn" data-line="' + i + '">' +
@@ -1197,12 +1212,12 @@ async function show(){
       '<div class="srow sumonly"><div class="spot"><span class="spot__name">' + esc(noPrice(it.label)) + '</span><span class="sprice">' + money(it.cost) + '</span></div></div>';
     /* Rooms: one row each, with Delete (a button on desktop, swipe left on phones), then Add room.
        Tracking rooms (straight-sq-ft service) show no price: they add no money. */
-    const roomRows = () => rms.map((rm, r) =>
-      '<div class="srow" data-line="' + i + '" data-item="' + j + '" data-room="' + esc(rm.id) + '">' +
-        '<button type="button" class="sdel" data-del>Delete</button>' +
-        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r), it.track ? null : rm.cost, true) +
+    const roomRows = () => rms.map((rm, r) => { const g = grayOf(i, j, rm.id); return '' +
+      '<div class="srow' + (g ? ' grayed' : '') + '" data-line="' + i + '" data-item="' + j + '" data-room="' + esc(rm.id) + '">' +
+        '<button type="button" class="sdel" data-del>' + (g ? 'Undo' : 'Delete') + '</button>' +
+        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r), it.track || g ? null : rm.cost, true) +
         (it.track || it.perSqft == null ? '' : discSel(i, j, rm.id, rm.disc)) +
-      '</div>').join("");
+      '</div>'; }).join("");
     /* Straight by the sq ft: the line is a header; tap it to open its rooms and Add room. */
     if (isFlat(it)) {
       const fk = i + "-" + j, open = openFlat.has(fk);
