@@ -68,6 +68,10 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .racts{display:flex;gap:8px;flex-wrap:wrap;padding:0 14px 12px}
 .racts button{font:600 14px "Archivo";background:rgba(255,255,255,.8);color:var(--navy);border:1px solid rgba(23,34,57,.2);border-radius:8px;padding:7px 14px;cursor:pointer}
 .racts button.del{color:var(--red)}
+.racts .ibtn{width:40px;height:40px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
+.racts .ibtn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.racts .ibtn[data-act="ai"]{color:#b8860b}
+.racts .ibtn[data-act="spam"]{color:#8a3b48}
 .racts button:disabled{opacity:.6;cursor:default}
 /* Spam check (asks first) and the little notice after something is done. */
 .pv{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}
@@ -225,12 +229,21 @@ async function showList(f, force) {
   if (f === "INBOX" && !swept) sweepJunk();
 }
 /* The buttons under each email. Trash: just Move to Inbox. Sent: Delete and Archive. */
+/* Round icon buttons: X in a circle = Delete, archive box = Archive, sparkle = AI Response, no sign = Spam. */
+const ICONS = {
+  del: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
+  arch: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg>',
+  ai: '<svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z"/></svg>',
+  spam: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>'
+};
+const iconBtn = (act, label, cls) => '<button type="button" class="ibtn' + (cls ? ' ' + cls : '') + '" data-act="' + act +
+  '" title="' + label + '" aria-label="' + label + '">' + ICONS[act] + '</button>';
 function rowButtons(f) {
   if (f === "Trash") return '<button type="button" data-act="inbox">Move to Inbox</button>';
-  return '<button type="button" class="del" data-act="del">Delete</button>' +
-    (f === "Archive" ? '' : '<button type="button" data-act="arch">Archive</button>') +
-    (f === "Sent" ? '' : '<button type="button" data-act="ai">AI Response</button>') +
-    (f === "Sent" || f === "Spam" ? '' : '<button type="button" data-act="spam">Spam</button>');
+  return iconBtn("del", "Delete", "del") +
+    (f === "Archive" ? '' : iconBtn("arch", "Archive")) +
+    (f === "Sent" ? '' : iconBtn("ai", "AI Response")) +
+    (f === "Sent" || f === "Spam" ? '' : iconBtn("spam", "Spam"));
 }
 const toast = t => { const el = document.createElement("div"); el.className = "toast"; el.textContent = t;
   document.body.appendChild(el); setTimeout(() => el.remove(), 5000); };
@@ -298,8 +311,7 @@ view.addEventListener("click", async e => {
   const act = b.dataset.act, uid = Number(b.closest(".racts").dataset.uid), f = folder;
   if (act === "ai") { aiAfterOpen = true; location.hash = f + "/" + uid; return; }   // opens it, then writes the reply
   if (act === "spam") { runSpam(f, uid, b); return; }
-  const to = act === "del" ? "Trash" : act === "arch" ? "Archive" : "INBOX";
-  if (to === "Trash" && !confirm("Move this email to Trash?")) return;
+  const to = act === "del" ? "Trash" : act === "arch" ? "Archive" : "INBOX";   // no "are you sure": it's all in Trash
   b.disabled = true;
   try {
     await mailMove({folder: f, uid, to});
@@ -384,7 +396,6 @@ async function showMessage(f, uid) {
   if (aiAfterOpen) { aiAfterOpen = false; document.getElementById("aiBtn")?.click(); }   // AI Response tapped in the list
   document.getElementById("moveBtn").addEventListener("click", async e => {
     const b = e.currentTarget, to = b.dataset.to;
-    if (to === "Trash" && !confirm("Move this email to Trash?")) return;
     b.disabled = true;
     try {
       await mailMove({folder: f, uid, to});
