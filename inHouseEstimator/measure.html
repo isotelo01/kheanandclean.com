@@ -267,6 +267,7 @@ $("slots").addEventListener("keydown", e => {
 { const n = room.toLowerCase(), sel = $("rtype");
   const hit = [...sel.options].find(o => o.value && o.value !== "Other" && n.includes(o.value.toLowerCase().split(" ")[0]));
   if (hit) sel.value = hit.value;
+  else if (room && room !== "Room") { sel.value = "Other"; $("rtypeOther").value = room.slice(0, 50); $("rtypeOther").hidden = false; }   /* e.g. "Large Loft" */
   sel.onchange = () => { $("rtypeOther").hidden = sel.value !== "Other"; }; }
 const roomType = () => $("rtype").value === "Other" ? $("rtypeOther").value.trim() : $("rtype").value;
 
