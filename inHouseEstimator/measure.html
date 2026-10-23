@@ -324,29 +324,40 @@ function initSketch(d){
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
   const minX = Math.min(...xs), minY = Math.min(...ys), w = (Math.max(...xs) - minX) || 1, h = (Math.max(...ys) - minY) || 1;
   const k = 240 / Math.max(w, h), pad = 44;
-  sk = { pts, cuts, door: Number.isInteger(d.door) ? d.door : -1, k, ox: minX - pad / k, oy: minY - pad / k,
+  sk = { pts, cuts, doors: Number.isInteger(d.door) && d.door >= 0 && d.door < pts.length ? [{ w: d.door, t: 0.3 }] : [], placing: false, k, ox: minX - pad / k, oy: minY - pad / k,
          W: w * k + pad * 2, H: h * k + pad * 2, sel: null, edited: false, orig: d.orig || JSON.parse(JSON.stringify(d)) };
   $("rShape").innerHTML =
     '<svg id="skSvg" viewBox="0 0 ' + sk.W + ' ' + sk.H + '" width="100%" style="touch-action:none;user-select:none" role="img" aria-label="Floor sketch"></svg>' +
-    '<div class="range" style="font-size:13px" id="skHelp">Drag a corner · tap + on a wall to add one · dashed wall = entry</div>' +
-    '<div class="row2" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px">' +
+    '<div class="range" style="font-size:13px" id="skHelp">' + SK_HELP + '</div>' +
+    '<div class="row2" style="grid-template-columns:1fr 1fr;margin-top:8px">' +
       '<button type="button" class="ghost" id="skCut">+ Cutout</button>' +
+      '<button type="button" class="ghost" id="skDoor">+ Door</button>' +
       '<button type="button" class="ghost" id="skDel" disabled>Remove</button>' +
-      '<button type="button" class="ghost" id="skReset">Reset</button></div>';
+      '<button type="button" class="ghost" id="skReset">Reset</button>' +
+      '<button type="button" class="ghost" id="skMic" style="grid-column:1/-1">🎤 Say wall sizes</button></div>';
   $("rShape").hidden = false;
   const svg = $("skSvg");
   const toFt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
     const m = p.matrixTransform(svg.getScreenCTM().inverse());
     return [Math.min(Math.max(m.x, 0), sk.W) / sk.k + sk.ox, Math.min(Math.max(m.y, 0), sk.H) / sk.k + sk.oy]; };
   svg.addEventListener("pointerdown", e => {
-    const t = e.target.closest("[data-pt],[data-mid],[data-cut],[data-rs]");
+    if (sk.placing) {   /* "+ Door": the next tap puts a door on the nearest wall */
+      const w = nearestWall(toFt(e)); sk.placing = false;
+      sk.doors.push({ w: w.i, t: w.t }); sk.sel = { type: "door", i: sk.doors.length - 1 }; sk.edited = true;
+      $("skHelp").textContent = SK_HELP; drawSketch(); return;
+    }
+    const t = e.target.closest("[data-pt],[data-mid],[data-cut],[data-rs],[data-door]");
     if (!t) { sk.sel = null; drawSketch(); return; }
     e.preventDefault();
     const p = toFt(e);
+    if (t.dataset.door != null) {
+      skDrag = { type: "door", i: +t.dataset.door }; sk.sel = { type: "door", i: skDrag.i };
+      svg.setPointerCapture(e.pointerId); drawSketch(); return;
+    }
     if (t.dataset.mid != null) {
       const i = +t.dataset.mid, a = sk.pts[i], b = sk.pts[(i + 1) % sk.pts.length];
       sk.pts.splice(i + 1, 0, [snap((a[0] + b[0]) / 2), snap((a[1] + b[1]) / 2)]);
-      if (sk.door > i) sk.door++;
+      sk.doors.forEach(o => { if (o.w > i) o.w++; else if (o.w === i) { if (o.t >= 0.5) { o.w = i + 1; o.t = (o.t - 0.5) * 2; } else o.t *= 2; } });
       skDrag = { type: "pt", i: i + 1 }; sk.edited = true;
     } else if (t.dataset.pt != null) skDrag = { type: "pt", i: +t.dataset.pt };
     else if (t.dataset.rs != null) skDrag = { type: "rs", i: +t.dataset.rs };
@@ -357,7 +368,8 @@ function initSketch(d){
   svg.addEventListener("pointermove", e => {
     if (!skDrag) return;
     const p = toFt(e);
-    if (skDrag.type === "pt") sk.pts[skDrag.i] = [snap(p[0]), snap(p[1])];
+    if (skDrag.type === "door") sk.doors[skDrag.i].t = wallT(sk.doors[skDrag.i].w, p).t;
+    else if (skDrag.type === "pt") sk.pts[skDrag.i] = [snap(p[0]), snap(p[1])];
     else if (skDrag.type === "cut") { const c = sk.cuts[skDrag.i]; c.x = snap(p[0] - skDrag.dx); c.y = snap(p[1] - skDrag.dy); }
     else { const c = sk.cuts[skDrag.i]; c.w = Math.max(1, snap(p[0] - c.x)); c.h = Math.max(1, snap(p[1] - c.y)); }
     sk.edited = true; drawSketch();
@@ -373,12 +385,77 @@ function initSketch(d){
   $("skDel").onclick = () => {
     if (!sk.sel) return;
     if (sk.sel.type === "cut") sk.cuts.splice(sk.sel.i, 1);
-    else if (sk.pts.length > 3) { sk.pts.splice(sk.sel.i, 1); if (sk.door >= sk.sel.i && sk.door > 0) sk.door--; }
+    else if (sk.sel.type === "door") sk.doors.splice(sk.sel.i, 1);
+    else if (sk.pts.length > 3) {
+      const i = sk.sel.i, prev = (i - 1 + sk.pts.length) % sk.pts.length;
+      sk.pts.splice(i, 1);
+      sk.doors = sk.doors.filter(o => o.w !== i && o.w !== prev).map(o => ({ w: o.w > i ? o.w - 1 : o.w, t: o.t }));
+    }
     sk.sel = null; sk.edited = true; drawSketch();
+  };
+  $("skDoor").onclick = () => { sk.placing = true; $("skHelp").textContent = "Tap a wall to put the door there"; };
+  $("skMic").onclick = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition, mic = $("skMic");
+    if (!SR) { $("skHelp").textContent = "Voice isn't available here. Drag the corners instead."; return; }
+    const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
+    mic.textContent = "🎤 Listening…"; mic.disabled = true;
+    rec.onresult = ev => { const said = ev.results[0][0].transcript, n = sayWalls(said);
+      $("skHelp").textContent = '"' + said + '"' + (n ? " ✓" : " — try: top wall 14 feet, left wall 13 feet"); };
+    rec.onerror = ev => { $("skHelp").textContent = ev.error === "not-allowed" ? "Allow the microphone to use voice." : "Didn't catch that. Try again."; };
+    rec.onend = () => { mic.textContent = "🎤 Say wall sizes"; mic.disabled = false; };
+    rec.start();
   };
   $("skReset").onclick = () => { const o = sk.orig; o.orig = o; Object.assign(result, { sqft: o.sqft }); initSketch(o); showSqft(o.sqft, false);
     $("rDims").textContent = o.lengthFt && o.widthFt ? "About " + o.lengthFt + " × " + o.widthFt + " ft" + (o.shape ? " · " + o.shape : "") : (o.shape || ""); };
   drawSketch();
+}
+const SK_HELP = "Drag a corner · tap + on a wall to add one · your changes are final";
+/* Where a point lands along wall i: t = 0 at its start corner, 1 at its end; d = distance in feet. */
+function wallT(i, p){
+  const a = sk.pts[i], b = sk.pts[(i + 1) % sk.pts.length], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1;
+  const t = Math.min(1, Math.max(0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2));
+  return { i, t, d: Math.hypot(a[0] + dx * t - p[0], a[1] + dy * t - p[1]) };
+}
+function nearestWall(p){ return sk.pts.map((_, i) => wallT(i, p)).sort((u, v) => u.d - v.d)[0]; }
+/* Re-fit the drawing after a big size change (e.g. from voice). */
+function fitView(){
+  const xs = sk.pts.map(p => p[0]), ys = sk.pts.map(p => p[1]);
+  const minX = Math.min(...xs), minY = Math.min(...ys), w = (Math.max(...xs) - minX) || 1, h = (Math.max(...ys) - minY) || 1;
+  const k = 240 / Math.max(w, h), pad = 44;
+  Object.assign(sk, { k, ox: minX - pad / k, oy: minY - pad / k, W: w * k + pad * 2, H: h * k + pad * 2 });
+  $("skSvg").setAttribute("viewBox", "0 0 " + sk.W + " " + sk.H);
+}
+/* Voice: "top wall 14 feet, left wall 13 feet 6 inches". Stretches the room so that wall is that long. */
+function setWall(side, L){
+  const n = sk.pts.length, hor = side === "top" || side === "bottom", ax = hor ? 0 : 1;
+  let best = -1, bestS = 0, bestLen = 0;
+  sk.pts.forEach((p, i) => {
+    const q = sk.pts[(i + 1) % n], dx = q[0] - p[0], dy = q[1] - p[1];
+    if (hor ? Math.abs(dx) <= Math.abs(dy) : Math.abs(dy) <= Math.abs(dx)) return;
+    const v = hor ? (p[1] + q[1]) / 2 : (p[0] + q[0]) / 2, s = side === "top" || side === "left" ? -v : v, len = Math.hypot(dx, dy);
+    if (best < 0 || s > bestS + 0.3 || (Math.abs(s - bestS) <= 0.3 && len > bestLen)) { best = i; bestS = s; bestLen = len; }
+  });
+  if (best < 0) return false;
+  const p = sk.pts[best], q = sk.pts[(best + 1) % n], lo = Math.min(p[ax], q[ax]), hi = Math.max(p[ax], q[ax]);
+  if (hi - lo < 0.1) return false;
+  const delta = L - (hi - lo), mid = (lo + hi) / 2;
+  sk.pts.forEach(o => { if (o[ax] > mid) o[ax] = Math.round((o[ax] + delta) * 100) / 100; });
+  sk.cuts.forEach(c => { if (ax ? c.y > mid : c.x > mid) { if (ax) c.y += delta; else c.x += delta; } });
+  return true;
+}
+function sayWalls(text){
+  const W = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
+              fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20 };
+  const s = text.toLowerCase().replace(/[a-z]+/g, w => W[w] != null ? String(W[w]) : w);
+  const rx = /(top|bottom|left|right|front|back)\D*?(\d+(?:\.\d+)?)\s*(?:feet|foot|ft|')?\s*(?:(?:and\s*)?(\d+)\s*(?:inches|inch|in\b|")|(and a half))?/g;
+  let m, n = 0;
+  while ((m = rx.exec(s))) {
+    const ft = parseFloat(m[2]) + (m[3] ? parseInt(m[3], 10) / 12 : 0) + (m[4] ? 0.5 : 0);
+    const side = m[1] === "front" ? "bottom" : m[1] === "back" ? "top" : m[1];
+    if (ft >= 1 && ft < 300 && setWall(side, ft)) n++;
+  }
+  if (n) { sk.edited = true; fitView(); drawSketch(); }
+  return n;
 }
 function skArea(){
   let a = 0;
@@ -396,20 +473,38 @@ function drawSketch(){
       '<text x="' + (X(c.x) + c.w * sk.k / 2) + '" y="' + (Y(c.y) + c.h * sk.k / 2 + 4) + '" text-anchor="middle" font-size="11" fill="#e8ebf2">' + c.w + '×' + c.h + '</text></g>' +
       '<circle data-rs="' + i + '" cx="' + (X(c.x) + c.w * sk.k) + '" cy="' + (Y(c.y) + c.h * sk.k) + '" r="9" fill="#E3B64A" stroke="#172239" stroke-width="2" style="cursor:nwse-resize"/>';
   });
+  let dg = "", mg = "";
+  const wl = (s, e2) => '<line x1="' + s[0] + '" y1="' + s[1] + '" x2="' + e2[0] + '" y2="' + e2[1] + '" stroke="#E3B64A" stroke-width="3" stroke-linecap="round"/>';
   P.forEach((a, i) => {
     const b = P[(i + 1) % P.length], q = sk.pts[i], r = sk.pts[(i + 1) % sk.pts.length];
-    const ft = Math.round(Math.hypot(r[0] - q[0], r[1] - q[1]) * 2) / 2;
-    g += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="#E3B64A" stroke-width="3"' + (i === sk.door ? ' stroke-dasharray="8 6"' : '') + '/>';
+    const len = Math.hypot(r[0] - q[0], r[1] - q[1]) || 1, ft = Math.round(len * 2) / 2;
+    /* Wall drawn in pieces with a 3 ft gap + swing for each door on it */
+    const hw = Math.max(0.05, Math.min(1.5, len / 2 - 0.25)) / len, at = t => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    let from = 0;
+    sk.doors.map((o, j) => ({ o, j })).filter(x => x.o.w === i).sort((u, v) => u.o.t - v.o.t).forEach(({ o, j }) => {
+      const t0 = Math.max(0, Math.min(1 - 2 * hw, o.t - hw)), t1 = t0 + 2 * hw;
+      if (t0 > from) g += wl(at(from), at(t0));
+      from = Math.max(from, t1);
+      const h = at(t0), e3 = at(t1), ddx = e3[0] - h[0], ddy = e3[1] - h[1];
+      let nx = -ddy, ny = ddx; if ((cx - h[0]) * nx + (cy - h[1]) * ny < 0) { nx = -nx; ny = -ny; }
+      const lf = [h[0] + nx, h[1] + ny], col = sk.sel && sk.sel.type === "door" && sk.sel.i === j ? "#fff" : "#9fb3d1";
+      dg += '<g data-door="' + j + '" style="cursor:ew-resize">' +
+        '<polygon points="' + [h, e3, [e3[0] + nx, e3[1] + ny], lf].map(v => v.join(",")).join(" ") + '" fill="rgba(0,0,0,0)"/>' +
+        '<line x1="' + h[0] + '" y1="' + h[1] + '" x2="' + lf[0] + '" y2="' + lf[1] + '" stroke="' + col + '" stroke-width="2"/>' +
+        '<path d="M' + lf[0] + ',' + lf[1] + ' Q' + (lf[0] + ddx) + ',' + (lf[1] + ddy) + ' ' + e3[0] + ',' + e3[1] + '" fill="none" stroke="' + col + '" stroke-width="1.2" stroke-dasharray="3 3"/></g>';
+    });
+    if (from < 1) g += wl(at(from), b);
     let mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
     if (ft >= 1) {
       const dx = mx - cx, dy = my - cy, L = Math.hypot(dx, dy) || 1;
       g += '<text x="' + (mx + dx / L * 20) + '" y="' + (my + dy / L * 20 + 4) + '" text-anchor="middle" font-size="13" fill="#e8ebf2">' + ft + ' ft</text>';
     }
     /* + on the middle of each wall: tap to add a corner there, then drag it */
-    g += '<g data-mid="' + i + '" style="cursor:copy"><circle cx="' + mx + '" cy="' + my + '" r="14" fill="transparent"/>' +
+    mg += '<g data-mid="' + i + '" style="cursor:copy"><circle cx="' + mx + '" cy="' + my + '" r="14" fill="transparent"/>' +
       '<circle cx="' + mx + '" cy="' + my + '" r="7" fill="#172239" stroke="#E3B64A" stroke-width="1.5"/>' +
       '<text x="' + mx + '" y="' + (my + 4) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#E3B64A">+</text></g>';
   });
+  g += dg + mg;
   P.forEach((a, i) => {
     const on = sk.sel && sk.sel.type === "pt" && sk.sel.i === i;
     g += '<g data-pt="' + i + '" style="cursor:grab"><circle cx="' + a[0] + '" cy="' + a[1] + '" r="16" fill="transparent"/>' +
@@ -437,7 +532,9 @@ function show(d){
   $("rSqft").innerHTML = d.sqft.toLocaleString() + " <small>sq ft</small>";
   $("rDims").textContent = d.lengthFt && d.widthFt ? "About " + d.lengthFt + " × " + d.widthFt + " ft" + (d.shape ? " · " + d.shape : "") : (d.shape || "");
   $("rRange").textContent = d.low && d.high ? "Likely between " + d.low.toLocaleString() + " and " + d.high.toLocaleString() + " sq ft" : "";
-  try { initSketch(d); } catch (e) { console.error(e); $("rShape").hidden = true; }
+  /* Once you've changed the sketch it's your official size: re-measuring never replaces it (Reset does). */
+  if (sk && sk.edited) { d.sqft = Math.round(skArea()); showSqft(d.sqft, true); }
+  else { try { initSketch(d); } catch (e) { console.error(e); $("rShape").hidden = true; } }
   $("rConf").className = "conf " + d.confidence; $("rConf").textContent = d.confidence + " confidence";
   if (est) {
     const diff = d.sqft - est;
