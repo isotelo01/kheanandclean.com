@@ -14,6 +14,7 @@ const PAD_MIN = 10;
 
 const ROAD = 1.25;
 const HOME_KEY = "kcHomeSpot";
+const HOME_ADDR = "116 Framingham Way, Folsom, CA 95630";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const clock = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const dur = ms => { const m = Math.max(0, Math.round(ms / 60000)); return m < 60 ? m + " min" : Math.floor(m / 60) + "h " + (m % 60) + "m"; };
@@ -86,8 +87,7 @@ export function mountTrip({ box, db, place, id, addr, trip, phone, custName }){
         (t.finished.then === "home" ? 'Then home' + (t.homeMiles != null ? ' ≈ ' + t.homeMiles + ' mi' : '') : 'Then the next job') + '</div>' +
         '<div class="tripbtns"><button type="button" data-t="reset" class="triplink">Start over</button></div>';
     }
-    html += '<div class="tripnote">' + (h ? 'Home is saved. <button type="button" data-t="sethome" class="triplink">Update home to this spot</button>'
-      : 'Miles home need your home spot. <button type="button" data-t="sethome" class="triplink">I’m home: save this spot</button>') + '</div>' +
+    html += '<div class="tripbtns"><button type="button" data-t="gohome">Home</button></div>' +
       '<div class="tripmsg" role="status"></div></div>';
     box.innerHTML = html;
   }
@@ -96,6 +96,7 @@ export function mountTrip({ box, db, place, id, addr, trip, phone, custName }){
     const b = e.target.closest("button[data-t]"); if (!b) return;
     const act = b.dataset.t;
     if (act === "maps" || act === "go") { location.href = gmaps(addr || ""); return; }
+    if (act === "gohome") { location.href = gmaps(HOME_ADDR); return; }
     if (act === "sendgo") {
       const body = (box.querySelector("#tripText") || {}).value || "";
       b.disabled = true; say("Sending…");
@@ -136,9 +137,13 @@ export function mountTrip({ box, db, place, id, addr, trip, phone, custName }){
       t.finished = { ...s, then: act };
       t.onSiteMin = Math.round((s.at - t.arrived.at) / 60000);
       const h = home();
-      t.homeMiles = act === "home" ? miles(s, h) : null;
+      t.homeMiles = null;
+      if (act === "home" && s.lat != null) {
+        try { const { data } = await driveEta({ lat: s.lat, lng: s.lng, to: HOME_ADDR }); t.homeMiles = data.miles; }
+        catch (err) { t.homeMiles = miles(s, h); }
+      }
       save();
-      if (act === "home" && h) location.href = gmaps(h.lat + "," + h.lng);
+      if (act === "home") location.href = gmaps(HOME_ADDR);
       if (act === "next") say("Saved. Open the next job and tap Drive.");
     } else if (act === "sethome") {
       if (s.lat == null) { b.disabled = false; return; }
