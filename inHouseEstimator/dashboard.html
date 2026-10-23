@@ -264,7 +264,8 @@ const card = r =>
     ? '<button type="button" class="paidbtn" data-paid="' + esc(r.id) + '">Paid</button>'
     : '') +
   (r.source === "paidInvoices"
-    ? '<button type="button" class="paidbtn unpaidbtn" data-unpaid="' + esc(r.id) + '">Mark unpaid</button>'
+    ? '<button type="button" class="paidbtn unpaidbtn" data-unpaid="' + esc(r.id) + '">Mark unpaid</button>' +
+      '<button type="button" class="paidbtn copyjob" data-copy="' + esc(r.id) + '">Copy job</button>'
     : '') +
   '</div>';
 
@@ -649,6 +650,13 @@ boardEl.addEventListener("click", async e => {
 });
 
 boardEl.addEventListener("click", async e => {
+  /* Copy job: opens the estimator filled in from this paid job, as a new estimate for the same customer. */
+  const cj = e.target.closest(".copyjob");
+  if (cj) {
+    e.preventDefault(); e.stopPropagation();
+    location.href = "./index.html?edit=" + encodeURIComponent(cj.getAttribute("data-copy")) + "&from=paidInvoices&copy=1";
+    return;
+  }
   const unpaid = e.target.closest(".unpaidbtn");
   if (unpaid) {
     e.preventDefault(); e.stopPropagation();

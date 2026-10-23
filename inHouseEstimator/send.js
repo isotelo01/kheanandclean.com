@@ -278,7 +278,7 @@ const signedIn = () => new Promise(res => {
   const off = onAuthStateChanged(getAuth(app), u => { if (u) { off(); res(u); } });
 });
 
-async function loadForEdit(id, from){
+async function loadForEdit(id, from, copy){
   banner = document.createElement('p');
   banner.className = 'qlink__k';
   banner.textContent = 'Loading estimate\u2026';
@@ -303,11 +303,27 @@ async function loadForEdit(id, from){
     if (d.form) window.KC_restore(d.form);
     /* The saved doc decides the card fee, so a Dashboard "Waive fee" tap isn't undone by editing. */
     if ($('waiveFee')) { $('waiveFee').checked = !!d.feeWaived; $('waiveFee').dispatchEvent(new Event('change', { bubbles: true })); }
-    edit = { id, from, data: d };
+    if (!copy) edit = { id, from, data: d };
     /* Keep the estimate filed under the same customer or lead as before. */
     if ($('eCustId')) $('eCustId').value = d.customerId || '';
     if ($('eLeadId')) $('eLeadId').value = d.leadId || '';
     if ($('eCustTag')) { $('eCustTag').textContent = 'Existing customer'; $('eCustTag').hidden = !d.customerId; }
+
+    /* Copy job (Dashboard, paid invoices): same customer and rooms at today's prices, no date,
+       not in edit mode, so Send Estimate makes a brand-new estimate. The paid invoice is untouched. */
+    if (copy) {
+      ['eWhen', 'eWhenTime'].forEach(fid => {
+        const el = $(fid); if (!el) return;
+        el.value = '';
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      if ($('waiveFee')) { $('waiveFee').checked = false; $('waiveFee').dispatchEvent(new Event('change', { bubbles: true })); }
+      history.replaceState(null, '', location.pathname);
+      banner.textContent = 'Copy of ' + (d.number || 'this job') + ' for the same customer. Pick a date, check it over, then Send Estimate to make a new estimate.' +
+        (d.form ? '' : ' It has no saved form, so add the rooms again.');
+      return;
+    }
 
     let note = 'Editing ' + (d.number || 'this estimate') + '.';
     if (!d.form) {
@@ -399,7 +415,7 @@ async function saveEdit(q, backToEstimates){
 
 {
   const p = new URLSearchParams(location.search);
-  if (p.get('edit') && EDITABLE.includes(p.get('from'))) loadForEdit(p.get('edit'), p.get('from'));
+  if (p.get('edit') && EDITABLE.includes(p.get('from'))) loadForEdit(p.get('edit'), p.get('from'), p.get('copy') === '1');
 }
 
 btn.addEventListener('click', async () => {
