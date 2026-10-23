@@ -161,7 +161,7 @@ const room = (qs.get("room") || "Room").slice(0, 80);
 const est = Math.round(Number(qs.get("est")) || 0);
 const back = (() => {
   try { const u = new URL(qs.get("back") || "", location.href);
-    return u.origin === location.origin && /\/job-room\.html$/.test(u.pathname) ? u : null; } catch (e) { return null; }
+    return u.origin === location.origin && /\/job-room(\.html)?$/.test(u.pathname) ? u : null; } catch (e) { return null; }
 })();
 $("title").textContent = "Measure: " + room;
 $("sub").textContent = est ? "Quoted at " + est.toLocaleString() + " sq ft" : "Take the photos below and I'll work out the floor size.";
