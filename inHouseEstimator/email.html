@@ -124,6 +124,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -385,7 +386,11 @@ async function showMessage(f, uid) {
   document.getElementById("aiBtn")?.addEventListener("click", async e => {
     const b = e.currentTarget, er = document.getElementById("mErr");
     b.disabled = true; b.textContent = "Writing…"; er.textContent = "";
-    try { aiDraft = (await mailAi({folder: f, uid})).data.reply || ""; location.hash = "reply"; }
+    try {
+      const r = (await mailAi({folder: f, uid})).data;
+      if (r.receipt) saveExpenseBox(r.receipt, m, f);   // a receipt or bill: offer to save it as an expense
+      else { aiDraft = r.reply || ""; location.hash = "reply"; }
+    }
     catch (err) { er.textContent = friendly(err); }
     finally { b.disabled = false; b.textContent = "AI Response"; }
   });
@@ -406,6 +411,46 @@ async function showMessage(f, uid) {
       location.hash = f;
     } catch (err) { b.disabled = false; document.getElementById("mErr").textContent = friendly(err); }
   });
+}
+
+/* Receipt or bill email + sparkle: the AI fills this in; Save puts it in Income & Expenses (the same "expenses"
+   list the receipt scanner there uses), linked back to the email. Nothing saves until Save. */
+const EXP_CATS = ["Supplies", "Chemicals", "Equipment", "Fuel", "Vehicle", "Insurance", "Marketing", "Software / subscriptions", "Repairs", "Other"];
+const PAID_WITH = ["Card", "Cash", "Check", "Bank transfer", "Other"];
+function saveExpenseBox(rc, m, f) {
+  const today = new Date().toLocaleDateString("en-CA");
+  const fld = (label, html) => '<label class="fld"><span>' + label + '</span>' + html + '</label>';
+  const pv = document.createElement("div"); pv.className = "pv";
+  pv.innerHTML = '<div><h3>Save as expense?</h3><div class="msg" style="padding:0 0 10px">Read from “' + esc(m.subject || "") + '”. Check it, then Save.</div>' +
+    fld("Date", '<input id="xDate" type="date" value="' + esc(rc.date || today) + '">') +
+    fld("Vendor", '<input id="xVendor" type="text" value="' + esc(rc.vendor || "") + '">') +
+    fld("Amount", '<input id="xAmount" type="number" step="0.01" min="0" inputmode="decimal" value="' + (rc.total ? rc.total.toFixed(2) : "") + '">') +
+    fld("Category", '<select id="xCat">' + EXP_CATS.map(c => '<option' + (c === rc.category ? ' selected' : '') + '>' + esc(c) + '</option>').join("") + '</select>') +
+    fld("Paid with", '<select id="xPaid">' + PAID_WITH.map(c => '<option>' + esc(c) + '</option>').join("") + '</select>') +
+    fld("Invoice / order #", '<input id="xRef" type="text" value="' + esc(rc.ref || "") + '">') +
+    fld("Notes", '<input id="xNotes" type="text" value="' + esc((rc.items || []).join(", ")) + '">') +
+    '<p class="msg err" id="xErr"></p><div class="pvacts"><button type="button" class="ghost" data-x="close">Cancel</button>' +
+    '<button type="button" class="new" data-x="save">Save</button></div></div>';
+  pv.addEventListener("click", async e => {
+    const x = e.target.closest("[data-x]");
+    if (e.target === pv || (x && x.dataset.x === "close")) { pv.remove(); return; }
+    if (!x) return;
+    const v = id => pv.querySelector("#" + id).value.trim(), err = pv.querySelector("#xErr");
+    const date = v("xDate"), vendor = v("xVendor"), amount = Math.round(parseFloat(v("xAmount")) * 100) / 100;
+    if (!date || !vendor || !(amount > 0)) { err.textContent = "Date, vendor and amount are required."; return; }
+    x.disabled = true; x.textContent = "Saving…";
+    try {
+      const u = getAuth(app).currentUser;
+      await addDoc(collection(getFirestore(app), "expenses"), {
+        date, month: date.slice(0, 7), vendor, amount, category: v("xCat"), paidWith: v("xPaid"),
+        ref: v("xRef"), notes: v("xNotes"), receiptPath: "",
+        fromEmail: {folder: f, uid: m.uid, subject: m.subject || "", from: ((m.from || [])[0] || {}).address || "", messageId: m.messageId || ""},
+        createdBy: u ? u.email || u.uid : "", createdAt: serverTimestamp()
+      });
+      pv.remove(); toast("Saved to Income & Expenses: " + vendor + " $" + amount.toFixed(2));
+    } catch (y) { x.disabled = false; x.textContent = "Save"; err.textContent = "Could not save: " + friendly(y); }
+  });
+  document.body.appendChild(pv);
 }
 
 /* New email, or Reply to the open message. A reply goes out from the address the customer wrote to. */
