@@ -73,7 +73,7 @@ document.addEventListener('click', function (e) {
   "aggregateRating": {
     "@type": "AggregateRating",
     "ratingValue": "5.0",
-    "reviewCount": "6"
+    "reviewCount": "12"
   },
   "address": {
     "@type": "PostalAddress",
@@ -2543,6 +2543,13 @@ body.rooms-open .roomsDone{ display:block; position:sticky; bottom:calc(.75rem +
       if (d.rating) {
         document.getElementById("gScore").textContent = Number(d.rating).toFixed(1);
         document.getElementById("gScoreT").innerHTML = "Google &middot; " + esc(d.count) + " reviews &middot; 5.0 on Yelp";
+        try {
+          var ld = document.querySelector('script[type="application/ld+json"]');
+          var j = JSON.parse(ld.textContent);
+          j.aggregateRating.ratingValue = String(d.rating);
+          j.aggregateRating.reviewCount = String(d.count);
+          ld.textContent = JSON.stringify(j);
+        } catch (e) {}
       }
       document.getElementById("gRevs").innerHTML = d.reviews.map(function (v) {
         var name = v.authorUrl
