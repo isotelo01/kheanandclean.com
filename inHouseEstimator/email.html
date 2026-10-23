@@ -60,9 +60,22 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .aliases{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 12px}
 .achip{font:600 13px "Archivo";border:2px solid transparent;border-radius:999px;padding:5px 13px;cursor:pointer}
 .achip.on{border-color:var(--navy)}
-.rwrap{position:relative}
-.rwrap .subj{padding-right:70px}
-.rdel{position:absolute;right:12px;bottom:9px;font:600 12px "Archivo";background:#fff;color:var(--red);border:1px solid var(--line);border-radius:6px;padding:3px 9px;cursor:pointer}
+/* Each email is a card in its address's color: the email (tap to open) and a row of buttons under it. */
+.rwrap{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);border-left:4px solid transparent;overflow:hidden}
+.rwrap:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
+.rwrap.unread{border-left-color:var(--gold)}
+.rwrap .row,.rwrap .row:hover{background:transparent;box-shadow:none;border-left:0;border-radius:0;padding-bottom:6px}
+.racts{display:flex;gap:8px;flex-wrap:wrap;padding:0 14px 12px}
+.racts button{font:600 14px "Archivo";background:rgba(255,255,255,.8);color:var(--navy);border:1px solid rgba(23,34,57,.2);border-radius:8px;padding:7px 14px;cursor:pointer}
+.racts button.del{color:var(--red)}
+.racts button:disabled{opacity:.6;cursor:default}
+/* Spam check (asks first) and the little notice after something is done. */
+.pv{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}
+.pv>div{background:#fff;color:var(--ink);border-radius:10px;max-width:560px;width:100%;padding:18px}
+.pv h3{font:700 19px "Archivo";margin:0 0 6px}
+.pv ul{margin:8px 0;padding-left:18px;font-size:14px;color:var(--muted);max-height:220px;overflow:auto}
+.pvacts{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--navy);color:#fff;border-radius:8px;padding:10px 16px;font-size:14px;z-index:60;max-width:92vw;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 
 /* One message */
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:16px}
@@ -117,7 +130,7 @@ const fns = getFunctions(app, "us-central1");
 const mailList = httpsCallable(fns, "mailList"), mailRead = httpsCallable(fns, "mailRead");
 const mailMove = httpsCallable(fns, "mailMove"), mailSend = httpsCallable(fns, "mailSend");
 const mailWith = httpsCallable(fns, "mailWith");
-const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailUnsub = httpsCallable(fns, "mailUnsub");
+const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailSpam = httpsCallable(fns, "mailSpam", {timeout: 130000});
 const storage = getStorage(app);
 /* Quick-attach docs: [key mailSend knows, button label, file name they'll see]. The files themselves are kept
    with the backend (functions/vendor-docs/), not on the public site. */
@@ -201,28 +214,101 @@ async function showList(f, force) {
   if (!list.length) { view.innerHTML = chips + '<div class="msg">Nothing here.</div>'; return; }
   view.innerHTML = chips + '<div class="list">' + list.map(m => {
     const p = sentLike ? (m.to || [])[0] : (m.from || [])[0], ourTo = ourOf(m);
-    return '<div class="rwrap"><a class="row' + (m.seen || sentLike ? '' : ' unread') + '" href="#' + f + '/' + m.uid + '"' +
-      (ourTo ? ' style="background:' + aliasColor(ourTo)[0] + '"' : '') + '>' +
+    const unread = !(m.seen || sentLike);
+    return '<div class="rwrap' + (unread ? ' unread' : '') + '"' + (ourTo ? ' style="background:' + aliasColor(ourTo)[0] + '"' : '') + '>' +
+      '<a class="row' + (unread ? ' unread' : '') + '" href="#' + f + '/' + m.uid + '">' +
       '<span class="who">' + (sentLike ? "To: " : "") + esc(who(p) || "(no sender)") + (ourTo ? aliasTag(ourTo) : '') + '</span>' +
       '<span class="when">' + esc(whenShort(m.date)) + '</span>' +
       '<span class="subj">' + esc(m.subject || "(no subject)") + '</span></a>' +
-      (f === "Trash" ? '' : '<button type="button" class="rdel" data-del="' + m.uid + '">Delete</button>') + '</div>';
+      '<div class="racts" data-uid="' + m.uid + '">' + rowButtons(f) + '</div></div>';
   }).join("") + '</div>';
+  if (f === "INBOX" && !swept) sweepJunk();
 }
-/* List clicks: an address chip filters; Delete moves that email to Trash without opening it. */
+/* The buttons under each email. Trash: just Move to Inbox. Sent: Delete and Archive. */
+function rowButtons(f) {
+  if (f === "Trash") return '<button type="button" data-act="inbox">Move to Inbox</button>';
+  return '<button type="button" class="del" data-act="del">Delete</button>' +
+    (f === "Archive" ? '' : '<button type="button" data-act="arch">Archive</button>') +
+    (f === "Sent" ? '' : '<button type="button" data-act="ai">AI Response</button>') +
+    (f === "Sent" || f === "Spam" ? '' : '<button type="button" data-act="spam">Spam</button>');
+}
+const toast = t => { const el = document.createElement("div"); el.className = "toast"; el.textContent = t;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 5000); };
+/* Known junk (anything he has banned before) gets swept out of the Inbox once each time the page opens. */
+let swept = false;
+async function sweepJunk() {
+  swept = true;
+  try {
+    const r = (await mailSpam({sweep: true})).data;
+    if (r.moved) { toast("Moved " + r.moved + " junk email" + (r.moved === 1 ? "" : "s") + " to Spam."); delete cache.Spam;
+      cache.INBOX = null; if (folder === "INBOX" && !current) showList("INBOX", true); }
+  } catch (e) { /* quiet: the inbox still works */ }
+}
+/* Spam (AI): it decides junk / mailing list / real email and finds look-alikes. It asks the first few times;
+   once he has confirmed a couple, a sure call (or junk he already banned) is done on its own. */
+async function runSpam(f, uid, btn) {
+  const label0 = btn.textContent; btn.disabled = true; btn.textContent = "Checking…";
+  const done = r => {
+    delete cache[f]; delete cache.Spam; delete cache.Trash;
+    if (r.method === "link") { toast("This list only unsubscribes on their website. Opening it…"); window.open(r.link, "_blank", "noopener"); }
+    else if (r.kind === "junk") toast((r.auto ? "Automatic: " : "") + "banned" + (r.label ? " “" + r.label + "”" : "") + ", " + r.moved + " email" + (r.moved === 1 ? "" : "s") + " moved to Spam.");
+    else if (r.kind === "list") toast((r.auto ? "Automatic: " : "") + "unsubscribed" + (r.moved > 1 ? ", " + (r.moved - 1) + " more from them moved to Trash." : "."));
+    if (location.hash.slice(1) === f) showList(f, true); else location.hash = f;
+  };
+  let r;
+  try { r = (await mailSpam({folder: f, uid})).data; }
+  catch (e) { btn.disabled = false; btn.textContent = label0; toast(friendly(e)); return; }
+  btn.disabled = false; btn.textContent = label0;
+  if (r.auto) { done(r); return; }
+  const others = r.matches || [], froms = new Set(others.map(x => x.from).filter(Boolean));
+  const pv = document.createElement("div"); pv.className = "pv";
+  const lines = others.slice(0, 15).map(x => '<li>' + esc(x.from) + ' &mdash; ' + esc(x.subject || "(no subject)") + '</li>').join("") +
+    (others.length > 15 ? '<li>and ' + (others.length - 15) + ' more</li>' : '');
+  const head = r.kind === "junk" ? "Junk" : r.kind === "list" ? "Mailing list" : "Looks like a real email";
+  pv.innerHTML = '<div><h3>' + head + (r.label ? ': ' + esc(r.label) : '') + '</h3>' +
+    '<div class="msg" style="padding:0">' + esc(r.reason || "") + '</div>' +
+    (others.length ? '<div style="margin-top:10px;font-weight:600">' + others.length + ' more like it' +
+      (froms.size > 1 ? ' from ' + froms.size + ' different addresses' : '') + ':</div><ul>' + lines + '</ul>' : '') +
+    '<div class="pvacts">' +
+      (r.kind === "junk" ? '<button type="button" class="ghost" data-a="keep">Not junk</button>' +
+          (others.length ? '<button type="button" class="ghost" data-a="junk1">Just this one</button>' : '') +
+          '<button type="button" class="new" data-a="junkall">Ban' + (others.length ? ' all ' + (others.length + 1) : '') + '</button>'
+        : r.kind === "list" ? '<button type="button" class="ghost" data-a="keep">Keep it</button>' +
+          '<button type="button" class="new" data-a="listall">Unsubscribe' + (others.length ? ' + clear ' + others.length + ' more' : '') + '</button>'
+        : '<button type="button" class="ghost" data-a="keep">Leave it</button><button type="button" class="ghost danger" data-a="junk1">Ban it anyway</button>') +
+    '</div></div>';
+  pv.addEventListener("click", async e => {
+    if (e.target === pv) { pv.remove(); return; }
+    const a = e.target.closest("[data-a]"); if (!a) return;
+    const k = a.dataset.a, apply = k.startsWith("junk") ? "junk" : k.startsWith("list") ? "list" : "keep";
+    const uids = k.endsWith("all") ? others.map(x => x.uid) : [];
+    pv.querySelectorAll("button").forEach(b => b.disabled = true); a.textContent = "Working…";
+    try { const res = (await mailSpam({folder: f, uid, apply, uids, label: r.label, phrase: r.phrase})).data; pv.remove();
+      if (apply === "keep") toast("Got it, left alone. It'll remember that."); else done(res); }
+    catch (x) { pv.remove(); toast(friendly(x)); }
+  });
+  document.body.appendChild(pv);
+}
+/* List clicks: an address chip filters; the buttons under each email work without opening it. */
+let aiAfterOpen = false;
 view.addEventListener("click", async e => {
   const chip = e.target.closest("[data-alias]");
   if (chip) { aliasFilter = chip.dataset.alias; showList(folder); return; }
-  const del = e.target.closest("[data-del]"); if (!del) return;
-  if (!confirm("Move this email to Trash?")) return;
-  const uid = Number(del.dataset.del), f = folder; del.disabled = true; del.textContent = "…";
+  const b = e.target.closest(".racts [data-act]"); if (!b) return;
+  const act = b.dataset.act, uid = Number(b.closest(".racts").dataset.uid), f = folder;
+  if (act === "ai") { aiAfterOpen = true; location.hash = f + "/" + uid; return; }   // opens it, then writes the reply
+  if (act === "spam") { runSpam(f, uid, b); return; }
+  const to = act === "del" ? "Trash" : act === "arch" ? "Archive" : "INBOX";
+  if (to === "Trash" && !confirm("Move this email to Trash?")) return;
+  b.disabled = true;
   try {
-    await mailMove({folder: f, uid, to: "Trash"});
+    await mailMove({folder: f, uid, to});
     if (cache[f]) { const gone = cache[f].messages.find(x => x.uid === uid);
       cache[f].messages = cache[f].messages.filter(x => x.uid !== uid);
       if (f === "INBOX" && gone && !gone.seen && cache.INBOX.unseen) cache.INBOX.unseen--; }
-    delete cache.Trash; showList(f);
-  } catch (err) { del.disabled = false; del.textContent = "Delete"; alert(friendly(err)); }
+    delete cache[to]; showList(f);
+    toast(to === "Trash" ? "Moved to Trash." : to === "Archive" ? "Archived." : "Moved to Inbox.");
+  } catch (err) { b.disabled = false; toast(friendly(err)); }
 });
 
 /* #with/<address>: every email from them (Inbox) and to them (Sent), newest first. From a customer's Email history. */
@@ -261,7 +347,8 @@ async function showMessage(f, uid) {
     '<div class="acts"><a class="ghost" href="#' + f + '">&larr; ' + esc((FOLDERS.find(x => x[0] === f) || [, f])[1]) + '</a>' +
       (f === "Sent" ? '' : '<a class="new" href="#reply">Reply</a>') +
       (f === "Sent" ? '' : '<button type="button" class="ghost" id="aiBtn">AI Response</button>') +
-      (f === "Sent" || f === "Trash" ? '' : '<button type="button" class="ghost" id="unsubBtn">Unsubscribe</button>') +
+      (f === "Sent" || f === "Trash" || f === "Spam" ? '' : '<button type="button" class="ghost" id="spamBtn">Spam</button>') +
+      (f === "Trash" || f === "Archive" ? '' : '<button type="button" class="ghost" id="archBtn">Archive</button>') +
       (f === "Trash" ? '<button type="button" class="ghost" id="moveBtn" data-to="INBOX">Move to Inbox</button>'
         : '<button type="button" class="ghost danger" id="moveBtn" data-to="Trash">Delete</button>') + '</div>' +
     (m.html ? '<iframe class="body" id="mbody" title="Email" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"></iframe>'
@@ -287,24 +374,14 @@ async function showMessage(f, uid) {
     catch (err) { er.textContent = friendly(err); }
     finally { b.disabled = false; b.textContent = "AI Response"; }
   });
-  /* Unsubscribe: a real mailing list gets unsubscribed (then Trash); junk with no unsubscribe goes to Spam,
-     and nothing is sent back to it. */
-  document.getElementById("unsubBtn")?.addEventListener("click", async e => {
-    const b = e.currentTarget, er = document.getElementById("mErr");
-    if (!confirm("Unsubscribe from " + (who((m.from || [])[0]) || "this sender") + "?\n\nIf it's junk with no unsubscribe, it goes to Spam instead.")) return;
-    b.disabled = true; b.textContent = "Working…"; er.textContent = "";
-    try {
-      const r = (await mailUnsub({folder: f, uid})).data;
-      delete cache[f]; delete cache.Trash; delete cache.Spam;
-      if (r.method === "link") {
-        b.disabled = false; b.textContent = "Unsubscribe";
-        er.innerHTML = 'This sender only unsubscribes on their website: <a href="' + esc(r.link) + '" target="_blank" rel="noopener">open their unsubscribe page</a>.';
-        return;
-      }
-      alert(r.method === "spam" ? "No unsubscribe in this one, so it's junk: moved to Spam." : "Unsubscribed. The email went to Trash.");
-      location.hash = f;
-    } catch (err) { b.disabled = false; b.textContent = "Unsubscribe"; er.textContent = friendly(err); }
+  /* Spam (AI) and Archive, same as the buttons in the list. */
+  document.getElementById("spamBtn")?.addEventListener("click", e => runSpam(f, uid, e.currentTarget));
+  document.getElementById("archBtn")?.addEventListener("click", async e => {
+    const b = e.currentTarget; b.disabled = true;
+    try { await mailMove({folder: f, uid, to: "Archive"}); delete cache[f]; delete cache.Archive; toast("Archived."); location.hash = f; }
+    catch (err) { b.disabled = false; document.getElementById("mErr").textContent = friendly(err); }
   });
+  if (aiAfterOpen) { aiAfterOpen = false; document.getElementById("aiBtn")?.click(); }   // AI Response tapped in the list
   document.getElementById("moveBtn").addEventListener("click", async e => {
     const b = e.currentTarget, to = b.dataset.to;
     if (to === "Trash" && !confirm("Move this email to Trash?")) return;
@@ -460,6 +537,22 @@ let started = false;
 onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=email.html"); return; }
   document.getElementById("authwait")?.remove();
+  /* Personal Emails (hub link: email.html?acct=personal). Same page and buttons; the Yahoo hookup comes next,
+     once there's a Yahoo app password to plug in. */
+  if (new URLSearchParams(location.search).get("acct") === "personal") {
+    document.title = "Personal Email · Khean & Clean";
+    document.querySelector("h1").textContent = "Personal Email";
+    ["refreshBtn", "newBtn", "folders"].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });
+    view.innerHTML = '<div class="panel"><div class="mhead"><h2>Yahoo isn’t plugged in yet</h2></div>' +
+      '<div class="plain">This page will show your Yahoo inbox with the same Delete, Archive, AI Response and Spam buttons, ' +
+      'kept separate from your business mail.\n\nTo plug it in:\n' +
+      '1. Sign in at login.yahoo.com, open Account Info, then Account Security.\n' +
+      '2. Tap “Generate app password” (or “Manage app passwords”), name it “Khean app” and copy the password it shows.\n' +
+      '3. Tell Claude “Yahoo is ready” with your Yahoo address. Claude will give you one command to paste the password in safely, ' +
+      'so it is never typed into a chat.</div>' +
+      '<div class="acts"><a class="ghost" href="./email.html">Business email</a><a class="ghost" href="./hub.html">Hub</a></div></div>';
+    return;
+  }
   if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
 });
 </script>
