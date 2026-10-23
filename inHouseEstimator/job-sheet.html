@@ -306,6 +306,17 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 @media print{ #tripBox{display:none} }
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
+<style>
+/* Room / item rows as one card across the area: thumbnail on the left, then the discount and Delete inside it.
+   Working sheet only (the Summary keeps its own look). */
+body:not(.summ) .srow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:6px 10px 6px 6px;
+  border:1px solid rgba(227,182,74,.35);border-radius:10px;max-height:none;overflow:visible}
+body:not(.summ) .srow:hover{background:rgba(255,255,255,.05)}
+body:not(.summ) .srow .spot,body:not(.summ) .srow .spot:hover{flex:1 1 220px;min-width:0;order:1;background:transparent;border:0;padding:4px;transform:none}
+body:not(.summ) .srow .sdsel{order:2;margin:0;flex:none}
+body:not(.summ) .srow .sdel{position:static;order:3;width:auto;flex:none;padding:6px 12px;margin:0;border:1px solid #4a5878;border-radius:6px;background:transparent;color:#ff6b6b}
+body:not(.summ) .srow.gone{opacity:0}
+</style>
 </head>
 <body>
 <div id="authwait"></div>
@@ -1030,6 +1041,12 @@ async function delRoom(row){
   try { await saveOnsite(); setTimeout(show, 200); } catch (err) { fail(err); show(); }
 }
 view.addEventListener("click", e => { const b = e.target.closest("[data-del]"); if (b) { e.preventDefault(); delRoom(b.closest(".srow")); } });
+/* The whole room card opens the room, not just its name (Delete and the discount still work on their own). */
+view.addEventListener("click", e => {
+  if (summ || e.target.closest("a,button,select,input")) return;
+  const row = e.target.closest(".srow"), a = row && row.querySelector("a.spot[href]");
+  if (a && !a.getAttribute("href").startsWith("#")) location.href = a.href;
+});
 /* Discount on one room or piece: "Other %" asks for any number; 0 puts the full price back. */
 view.addEventListener("change", async e => {
   const s = e.target.closest(".sdsel"); if (!s || PUBLIC) return;
