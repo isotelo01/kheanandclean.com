@@ -312,10 +312,21 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 body:not(.summ) .srow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;padding:6px 10px 6px 6px;
   border:1px solid rgba(227,182,74,.35);border-radius:10px;max-height:none;overflow:visible}
 body:not(.summ) .srow:hover{background:rgba(255,255,255,.05)}
-body:not(.summ) .srow .spot,body:not(.summ) .srow .spot:hover{flex:1 1 220px;min-width:0;order:1;background:transparent;border:0;padding:4px;transform:none}
+body:not(.summ) .srow .spot,body:not(.summ) .srow .spot:hover{flex:1 1 220px;min-width:0;order:1;border:0;padding:4px}
 body:not(.summ) .srow .sdsel{order:2;margin:0;flex:none}
-body:not(.summ) .srow .sdel{position:static;order:3;width:auto;flex:none;padding:6px 12px;margin:0;border:1px solid #4a5878;border-radius:6px;background:transparent;color:#ff6b6b}
 body:not(.summ) .srow.gone{opacity:0}
+/* Computer (mouse): Delete is a button inside the card. */
+@media (hover:hover) and (pointer:fine){
+  body:not(.summ) .srow .spot,body:not(.summ) .srow .spot:hover{background:transparent;transform:none}
+  body:not(.summ) .srow .sdel{position:static;order:3;width:auto;flex:none;padding:6px 12px;margin:0;border:1px solid #4a5878;border-radius:6px;background:transparent;color:#ff6b6b}
+}
+/* Phones (touch): swipe left to show Delete, the default for lists. */
+@media not all and (hover:hover) and (pointer:fine){
+  body:not(.summ) .srow{position:relative;overflow:hidden;background:#000}
+  body:not(.summ) .srow .spot{background:#000;position:relative;z-index:1}
+  body:not(.summ) .srow .sdsel{position:relative;z-index:1}
+  body:not(.summ) .srow .sdel{border-radius:0 10px 10px 0}
+}
 </style>
 </head>
 <body>
