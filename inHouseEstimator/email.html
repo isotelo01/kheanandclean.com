@@ -201,7 +201,8 @@ async function showList(f, force) {
   if (!list.length) { view.innerHTML = chips + '<div class="msg">Nothing here.</div>'; return; }
   view.innerHTML = chips + '<div class="list">' + list.map(m => {
     const p = sentLike ? (m.to || [])[0] : (m.from || [])[0], ourTo = ourOf(m);
-    return '<div class="rwrap"><a class="row' + (m.seen || sentLike ? '' : ' unread') + '" href="#' + f + '/' + m.uid + '">' +
+    return '<div class="rwrap"><a class="row' + (m.seen || sentLike ? '' : ' unread') + '" href="#' + f + '/' + m.uid + '"' +
+      (ourTo ? ' style="background:' + aliasColor(ourTo)[0] + '"' : '') + '>' +
       '<span class="who">' + (sentLike ? "To: " : "") + esc(who(p) || "(no sender)") + (ourTo ? aliasTag(ourTo) : '') + '</span>' +
       '<span class="when">' + esc(whenShort(m.date)) + '</span>' +
       '<span class="subj">' + esc(m.subject || "(no subject)") + '</span></a>' +
