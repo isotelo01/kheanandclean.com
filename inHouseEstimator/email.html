@@ -158,7 +158,7 @@ async function uploadMailFiles(files) {
   return out;
 }
 
-const FOLDERS = [["INBOX", "Inbox"], ["Sent", "Sent"], ["Spam", "Spam"], ["Archive", "Archive"], ["Trash", "Trash"]];
+const FOLDERS = [["INBOX", "Inbox"], ["Sent", "Sent"], ["Spam", "Spam"], ["Archive", "Archive"], ["Receipts", "Receipts"], ["Trash", "Trash"]];
 // Addresses he can send from. Any other @kheanandclean.com address a message was sent to gets added
 // for that reply (the third alias), so replies go out from the address the customer wrote to.
 const FROMS = ["israel@kheanandclean.com", "contact@kheanandclean.com"];
@@ -449,6 +449,11 @@ function saveExpenseBox(rc, m, f) {
         createdBy: u ? u.email || u.uid : "", createdAt: serverTimestamp()
       });
       pv.remove(); toast("Saved to Income & Expenses: " + vendor + " $" + amount.toFixed(2));
+      // Saved receipts leave the inbox: the email goes to the Receipts folder.
+      if (f !== "Receipts") {
+        try { await mailMove({folder: f, uid: m.uid, to: "Receipts"}); delete cache[f]; delete cache.Receipts; location.hash = f; }
+        catch (y) { toast("Saved, but couldn't move the email to Receipts: " + friendly(y)); }
+      }
     } catch (y) { x.disabled = false; x.textContent = "Save"; err.textContent = "Could not save: " + friendly(y); }
   });
   document.body.appendChild(pv);
