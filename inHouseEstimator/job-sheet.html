@@ -742,10 +742,14 @@ view.addEventListener("click", async e => {
   }
   if (!e.target.closest("[data-rpadd]")) return;
   const i = Number(box.dataset.line), l0 = cur.lines[i];
+  /* Invoiced or paid: the price is locked, so new rooms go on a no-charge "Warranty / re-clean" list on this line. */
+  const LOCKED = cur.place === "invoices" || cur.place === "paidInvoices";
+  const wj = LOCKED ? l0.items.findIndex(x => x && x.warranty) : -1;
   /* "new": the line has no rooms yet (only rugs / add-ons), so start a rooms item at its package's rate. */
-  const fresh = box.dataset.item === "new";
-  const j = fresh ? l0.items.length : Number(box.dataset.item);
-  let it = fresh ? null : l0.items[j];
+  const fresh = !LOCKED && box.dataset.item === "new";
+  const j = LOCKED ? (wj >= 0 ? wj : l0.items.length) : fresh ? l0.items.length : Number(box.dataset.item);
+  let it = LOCKED ? (wj >= 0 ? l0.items[wj] : { label: "Warranty / re-clean rooms (no charge)", cost: 0, rooms: [], track: true, warranty: true })
+         : fresh ? null : l0.items[j];
   if (fresh) { const T = TIERS[tierOf(l0)] || {}, rate = Number(T.sqft) || 0;
     it = { label: (T.name || "Carpet Cleaning") + " - 0 sq ft @ $" + rate.toFixed(2) + "/sq ft", cost: 0, rooms: [], perSqft: rate }; }
   /* Straight-sq-ft service: rooms for tracking only, $0 each, the quoted price stays. */
@@ -762,7 +766,7 @@ view.addEventListener("click", async e => {
     for (let k = 1; k <= n; k++) mk(have + n > 1 ? rt.name + " " + (have + k) : rt.name, rt.sqft);
   });
   if (!added) { pick.hidden = true; return; }
-  if (fresh) l0.items.push(it);
+  if (fresh || (LOCKED && wj < 0)) l0.items.push(it);
   recalc(cur.lines[i]); e.target.disabled = true;
   try { await saveOnsite(); show(); } catch (err) { fail(err); e.target.disabled = false; }
 });
