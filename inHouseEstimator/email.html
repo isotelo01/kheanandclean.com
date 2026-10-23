@@ -64,12 +64,15 @@ h1{font:700 30px "Cinzel","Playfair Display",Georgia,serif;margin:0;border-botto
 .rwrap{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);border-left:4px solid transparent;overflow:hidden}
 .rwrap:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
 .rwrap.unread{border-left-color:var(--gold)}
-.rwrap .row,.rwrap .row:hover{background:transparent;box-shadow:none;border-left:0;border-radius:0;padding-bottom:6px}
-.racts{display:flex;gap:8px;flex-wrap:wrap;padding:0 14px 12px}
+.rwrap .row,.rwrap .row:hover{background:transparent;box-shadow:none;border-left:0;border-radius:0}
+/* The buttons sit at the right end of the subject line. */
+.rwrap{position:relative}
+.rwrap .subj{padding-right:150px;align-self:center;min-height:32px;line-height:32px}
+.racts{position:absolute;right:12px;bottom:12px;display:flex;gap:6px}
 .racts button{font:600 14px "Archivo";background:rgba(255,255,255,.8);color:var(--navy);border:1px solid rgba(23,34,57,.2);border-radius:8px;padding:7px 14px;cursor:pointer}
 .racts button.del{color:var(--red)}
-.racts .ibtn{width:40px;height:40px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
-.racts .ibtn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.racts .ibtn{width:32px;height:32px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
+.racts .ibtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .racts .ibtn[data-act="ai"]{color:#b8860b}
 .racts .ibtn[data-act="spam"]{color:#8a3b48}
 .racts button:disabled{opacity:.6;cursor:default}
