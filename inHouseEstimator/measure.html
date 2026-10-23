@@ -71,14 +71,13 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
   <p class="sub" id="sub"></p>
 
   <div id="form">
-    <section class="panel">
+    <section class="panel" id="howPanel">
       <h2>Before you shoot</h2>
       <ol class="how">
-        <li><b>Lay a sheet of printer paper</b> flat on the floor near the middle of the room. It's the ruler.</li>
-        <li><b>Turn on the lights</b> and open the blinds.</li>
-        <li><b>Hold the phone sideways</b> at chest height and step back into the corner as far as you can.</li>
-        <li><b>Get the floor edges</b> in every shot, where the walls meet the floor, plus the paper.</li>
-        <li>Shoot <b>closets and nooks</b> in the Extra boxes if they're getting cleaned.</li>
+        <li>Paper flat on the floor, middle of the room.</li>
+        <li>Lights on, blinds open.</li>
+        <li>Phone sideways, back into the corner.</li>
+        <li>Floor edges in every shot.</li>
       </ol>
       <label class="chk"><input type="checkbox" id="paper" checked> <span>A sheet of letter paper (8.5 &times; 11) is on the floor</span></label>
     </section>
@@ -218,6 +217,7 @@ if (roomPhotos.length) {
   }).catch(e => console.error(e)));
   document.querySelectorAll("#slots .slot.req").forEach(s => s.classList.remove("req"));
   $("paper").checked = false;   /* inspection photos usually have no paper in them; tick it if they do */
+  $("howPanel").querySelector("h2").hidden = true; $("howPanel").querySelector("ol").hidden = true;   /* photos already taken: tips not needed */
 }
 
 const ready = () => (roomPhotos.length + Object.keys(shots).length >= 2) &&
