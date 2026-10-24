@@ -882,6 +882,26 @@ function goToday(){
 const openDlg = html => { dlgBody.innerHTML = html; if (!dlg.open) dlg.showModal(); dlgBody.scrollTop = 0; };
 const rrow = (lab, html) => html ? '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval">' + html + '</div></div>' : '';
 
+/* Google Calendar "add event" link for a job. With a start time it's a 3-hour block (Pacific time);
+   without one it's an all-day event. Opens Google with everything filled in; tap Save there. */
+function gcalLink(j, addr){
+  const c = j.customer || {}, d = j.scheduledDate.replace(/-/g, "");
+  let dates;
+  if (isTime(j.scheduledTime)) {
+    const [h, m] = j.scheduledTime.split(":").map(Number), e = h + 3;
+    const hm = (H, M) => String(H).padStart(2, "0") + String(M).padStart(2, "0") + "00";
+    dates = e < 24 ? d + "T" + hm(h, m) + "/" + d + "T" + hm(e, m) : d + "T" + hm(h, m) + "/" + d + "T235900";
+  } else {
+    const n = new Date(j.scheduledDate + "T12:00:00"); n.setDate(n.getDate() + 1);
+    dates = d + "/" + n.getFullYear() + String(n.getMonth() + 1).padStart(2, "0") + String(n.getDate()).padStart(2, "0");
+  }
+  const details = [j.number ? "Job " + j.number : "", c.phone ? "Phone: " + c.phone : "",
+    ...(Array.isArray(j.lines) ? j.lines.map(l => "- " + (l.label || "Service")) : []), j.notes || ""].filter(Boolean).join("\n");
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&ctz=America/Los_Angeles" +
+    "&text=" + encodeURIComponent("Khean & Clean: " + displayName(c)) + "&dates=" + dates +
+    "&location=" + encodeURIComponent(addr || "") + "&details=" + encodeURIComponent(details);
+}
+
 function showJob(j){
   const c = j.customer || {}, addr = [c.street, cityLine(c)].filter(Boolean).join(", ");
   const tel = String(c.phone || "").replace(/\D/g, "");
@@ -908,6 +928,7 @@ function showJob(j){
       '<a class="new" href="./job-sheet.html?id=' + encodeURIComponent(j.id) + '">Job sheet</a>' +
       '<a class="ghost" href="./quote.html?id=' + encodeURIComponent(j.id) + '" target="_blank" rel="noopener">Open quote</a>' +
       (j._place === "acceptedQuotes" ? '<button type="button" class="ghost" data-sched="' + esc(jobKey(j)) + '">Change date</button>' : '') +
+      (isKey(j.scheduledDate) ? '<a class="ghost" href="' + esc(gcalLink(j, addr)) + '" target="_blank" rel="noopener">Add to Google Calendar</a>' : '') +
       '<button type="button" class="ghost danger" data-deljob="' + esc(jobKey(j)) + '">Delete job</button>' +
     '</div>' +
     '<p class="err" id="sErr" role="alert"></p>');
