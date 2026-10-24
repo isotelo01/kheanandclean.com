@@ -80,6 +80,7 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 @media (max-width:360px){ .actual input{width:76px} }
 /* "Measure from photos" link under Est / Actual (staff only). */
 .measure{display:inline-block;margin:0 0 10px;font-size:14px;font-weight:600;color:var(--gold);text-decoration:underline}
+.skThumb{display:block;width:100%;max-width:240px;height:auto;margin:0 0 6px;background:#0b1220;border-radius:8px;padding:6px}
 /* Fiber type: label, dropdown and (for Other) the text box, side by side on one row. */
 .fibrow{display:flex;align-items:center;gap:8px;margin-top:14px}
 .fiblab{flex:none;font-size:15px;font-weight:700;color:var(--navy)}
@@ -377,7 +378,12 @@ async function show(){
             '<label class="actual">Actual <input type="number" id="actualSqft" min="0" step="1" inputmode="numeric" placeholder="Measured"' +
             (Number(st.actualSqft) > 0 ? ' value="' + Number(st.actualSqft) + '"' : '') + '></label></div>' +
             /* Staff only: photo checklist -> measure.html works out the floor size -> comes back into Actual. */
-            (PUBLIC || !spot.isRoom ? '' : '<a class="measure" id="measureLink" href="./measure.html">Measure from photos &rsaquo;</a>')
+            (PUBLIC || !spot.isRoom ? '' : '<a class="measure" id="measureLink" href="./measure.html">' + (st.sketch ? 'Open saved sketch' : 'Measure from photos') + ' &rsaquo;</a>' +
+              /* Saved floor sketch from measure.html: small picture + floor type/condition */
+              (typeof st.sketchSvg === "string" && st.sketchSvg.startsWith("<svg")
+                ? '<img class="skThumb" alt="Floor sketch" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(st.sketchSvg) + '">' +
+                  '<div class="svcsub" style="margin:0 0 10px">' + esc((Number(st.sketchSqft) > 0 ? Number(st.sketchSqft).toLocaleString() + ' sq ft sketch' : 'Sketch') + (st.sketchFloor ? ' · ' + st.sketchFloor : '')) + '</div>'
+                : ''))
           : (spot.sqft ? '<div class="svcsub">' + spot.sqft.toLocaleString() + ' sq ft</div>' : '')) +
         /* Fiber type, carpet rooms only. The first room saved sets it for the job, so the other
            rooms open with it filled in; any room can be switched on its own. */
@@ -443,7 +449,7 @@ async function show(){
       /* Hand this room's Before + Inspection photos to the measurer so they don't get taken twice. */
       const lab = { bThr: "Threshold", bAdj: "Threshold adjacent", inspection: "Inspection", before: "Room photo" };
       const roomPhotos = Object.keys(lab).flatMap(g => (groups[g] || []).map(path => ({ path, label: lab[g] }))).slice(0, 8);
-      ss.set("kcMeasurePhotos", JSON.stringify({ key: spot.key, id, photos: roomPhotos }));
+      ss.set("kcMeasurePhotos", JSON.stringify({ key: spot.key, id, place, photos: roomPhotos, sketch: typeof st.sketch === "string" ? st.sketch : "" }));
       location.href = "./measure.html?room=" + encodeURIComponent(spot.name) + "&est=" + (Number(spot.sqft) || 0) +
         "&back=" + encodeURIComponent(here.href);
     });

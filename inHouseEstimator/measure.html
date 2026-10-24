@@ -131,6 +131,7 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
     <div id="rShape" style="margin:10px auto 0;max-width:380px" hidden></div>
     <span class="conf" id="rConf"></span>
     <div class="vs" id="rVs"></div>
+    <div class="note" id="rFloor" hidden></div>
     <div class="note" id="rHow"></div>
     <div class="note" id="rTip" hidden></div>
     <div class="note" id="rAsk" hidden>
@@ -143,6 +144,8 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
       <button type="button" class="ghost" id="againBtn">Retake</button>
       <button type="button" class="go" id="useBtn" style="margin:0">Use this</button>
     </div>
+    <button type="button" class="ghost" id="saveBtn" style="margin-top:10px" hidden>Save sketch to this room</button>
+    <p class="msg" id="saveMsg" role="status"></p>
     <p class="msg">"Use this" puts it in the room's Actual box. Tap Save there to keep it.</p>
   </section>
 </div>
@@ -152,6 +155,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -161,7 +165,7 @@ const app = initializeApp({
   messagingSenderId: "581692353222",
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 });
-const auth = getAuth(app), storage = getStorage(app);
+const auth = getAuth(app), storage = getStorage(app), db = getFirestore(app);
 const measureRoom = httpsCallable(getFunctions(app, "us-central1"), "measureRoom", { timeout: 130000 });
 const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
 const $ = id => document.getElementById(id);
@@ -217,6 +221,12 @@ const roomPhotos = (() => {
   try { const s = JSON.parse(sessionStorage.getItem("kcMeasurePhotos") || "{}");
     return back && Array.isArray(s.photos) ? s.photos.filter(p => p && /^quick-quote-photos\/job_/.test(String(p.path))).slice(0, 8) : []; }
   catch (e) { return []; }
+})();
+/* Which job + room this is (for "Save sketch"), and that room's saved sketch if there is one. */
+const handoff = (() => {
+  try { const s = JSON.parse(sessionStorage.getItem("kcMeasurePhotos") || "{}");
+    return back && s.id && s.key && ["acceptedQuotes", "invoices", "paidInvoices", "quotes"].includes(s.place) ? s : null; }
+  catch (e) { return null; }
 })();
 if (roomPhotos.length) {
   $("roomPanel").hidden = false;
@@ -439,7 +449,7 @@ function initSketch(d){
     const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
     mic.textContent = "🎤 Listening…"; mic.disabled = true;
     rec.onresult = ev => { const said = ev.results[0][0].transcript, n = sayWalls(said);
-      $("skHelp").textContent = '"' + said + '"' + (n ? " ✓" : " — try: top wall 14 feet, left wall 13 feet"); };
+      $("skHelp").textContent = '"' + said + '"' + (n ? " ✓" : " — try: top wall 14 feet, left wall 13 feet, or island 4 by 6"); };
     rec.onerror = ev => { $("skHelp").textContent = ev.error === "not-allowed" ? "Allow the microphone to use voice." : "Didn't catch that. Try again."; };
     rec.onend = () => { mic.textContent = "🎤 Say wall sizes"; mic.disabled = false; };
     rec.start();
@@ -510,6 +520,18 @@ function sayWalls(text){
     const ft = parseFloat(m[2]) + (m[3] ? parseInt(m[3], 10) / 12 : 0) + (m[4] ? 0.5 : 0);
     const side = m[1] === "front" ? "bottom" : m[1] === "back" ? "top" : m[1];
     if (ft >= 1 && ft < 300 && setWall(side, ft)) n++;
+  }
+  /* "island 4 by 6", "fireplace 5 by 2": resizes the cutout you tapped, or adds one in the middle. */
+  const crx = /(island|cut ?out|fireplace|hearth|counter|stairs?)\D*?(\d+(?:\.\d+)?)\s*(?:feet|foot|ft|')?\s*(?:by|x|times)\s*(\d+(?:\.\d+)?)/g;
+  while ((m = crx.exec(s))) {
+    const a = snap(parseFloat(m[2])), b = snap(parseFloat(m[3]));
+    if (!(a >= 1 && b >= 1 && a < 100 && b < 100)) continue;
+    const selC = sk.sel && sk.sel.type === "cut" ? sk.cuts[sk.sel.i] : null, src = selC ? selC.pts : sk.pts;
+    const xs = src.map(p => p[0]), ys = src.map(p => p[1]);
+    const x0 = snap((Math.min(...xs) + Math.max(...xs)) / 2 - a / 2), y0 = snap((Math.min(...ys) + Math.max(...ys)) / 2 - b / 2);
+    const box = [[x0, y0], [x0 + a, y0], [x0 + a, y0 + b], [x0, y0 + b]];
+    if (selC) selC.pts = box; else { sk.cuts.push({ pts: box }); sk.sel = { type: "cut", i: sk.cuts.length - 1 }; }
+    n++;
   }
   if (n) { sk.edited = true; fitView(); drawSketch(); }
   return n;
@@ -635,7 +657,51 @@ function show(d){
   $("rHow").hidden = !d.howMeasured;
   $("rTip").textContent = d.tip ? "Tip: " + d.tip : ""; $("rTip").hidden = !d.tip;
   $("rQ").textContent = d.question || ""; $("rAsk").hidden = !d.question; $("askMsg").textContent = "";
+  /* Floor type, style and condition from the photos. */
+  const f = d.floor || {}, H = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const fl = [];
+  if (f.type && f.type !== "unknown") fl.push("<b>Floor: " + H(f.type) + (f.detail ? " · " + H(f.detail) : "") + "</b>");
+  [["Pile", f.pile], ["Fiber (guess)", f.fiber], ["Color", f.color], ["Tile size", f.tileSize], ["Grout", f.grout], ["Rugs", f.rug], ["Condition", f.condition]]
+    .forEach(([k, v]) => { if (v) fl.push(k + ": " + H(v)); });
+  $("rFloor").innerHTML = fl.join("<br>"); $("rFloor").hidden = !fl.length;
+  $("saveBtn").hidden = !handoff; $("saveMsg").textContent = "";
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+/* Save sketch: keeps the shape, doors, openings, closets, cutouts, sq ft and floor info with this room on the job,
+   plus a picture of the sketch for the room page. Opening Measure for the room again brings it back. */
+$("saveBtn").onclick = async () => {
+  const m = $("saveMsg"), b = $("saveBtn");
+  if (!result || !sk || !handoff) return;
+  b.disabled = true; m.classList.remove("bad"); m.textContent = "Saving…";
+  try {
+    const was = sk.editing, sel = sk.sel; sk.editing = false; sk.sel = null; drawSketch();
+    const pic = $("skSvg").cloneNode(true);
+    pic.setAttribute("xmlns", "http://www.w3.org/2000/svg"); pic.removeAttribute("style"); pic.removeAttribute("id");
+    pic.setAttribute("width", Math.round(sk.W)); pic.setAttribute("height", Math.round(sk.H)); pic.setAttribute("font-family", "Arial, sans-serif");
+    sk.editing = was; sk.sel = sel; drawSketch();
+    const { orig, ...d } = result, f = result.floor || {};
+    await setDoc(doc(db, handoff.place, handoff.id), { spots: { [handoff.key]: {
+      sketch: JSON.stringify({ d, pts: sk.pts, cuts: sk.cuts, doors: sk.doors }),
+      sketchSvg: pic.outerHTML, sketchSqft: Math.round(result.sqft),
+      sketchFloor: [[f.type, f.detail].filter(Boolean).join(" · "), f.condition].filter(Boolean).join(" · ").slice(0, 300),
+      sketchAt: serverTimestamp() } } }, { merge: true });
+    handoff.sketch = JSON.stringify({ d, pts: sk.pts, cuts: sk.cuts, doors: sk.doors });
+    try { sessionStorage.setItem("kcMeasurePhotos", JSON.stringify(handoff)); } catch (e) {}
+    m.textContent = "Saved to this room.";
+  } catch (ex) { console.error(ex); m.classList.add("bad"); m.textContent = "Couldn't save. Try again."; }
+  b.disabled = false;
+};
+/* This room already has a saved sketch: open straight to it instead of measuring again. */
+function restoreSaved(){
+  try {
+    const s = JSON.parse(handoff && handoff.sketch || "null");
+    if (!s || !s.d || !Array.isArray(s.pts) || s.pts.length < 3) return false;
+    show(s.d);
+    sk.pts = s.pts; sk.cuts = Array.isArray(s.cuts) ? s.cuts : []; sk.doors = Array.isArray(s.doors) ? s.doors : []; sk.edited = true;
+    fitView(); drawSketch();
+    $("saveMsg").textContent = "This is the saved sketch. Retake to measure again.";
+    return true;
+  } catch (e) { console.error(e); return false; }
 }
 $("againBtn").onclick = () => { $("result").hidden = true; $("form").hidden = false; $("goBtn").disabled = !ready(); $("msg").textContent = ""; refresh(); };
 $("useBtn").onclick = () => { if (result) goBack(result.sqft); };
@@ -647,6 +713,7 @@ onAuthStateChanged(auth, u => {
   const first = !uid;
   uid = u.uid; $("authwait")?.remove(); refresh();
   /* Came with the room's photos: start measuring right away (one press), once. */
+  if (first && !result && restoreSaved()) return;
   if (first && roomPhotos.length && ready() && !result) $("goBtn").onclick();
 });
 </script>
