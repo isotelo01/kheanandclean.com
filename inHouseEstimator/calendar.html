@@ -94,6 +94,9 @@ body.dayMode #backBtn{display:inline-flex}
 .b-misc{background:#eaf4ff;border-color:#3d8fe0;color:#1b4a7a}
 .b-job{background:#e4f5e8;border-color:#2e9e4f;color:#17603a}
 .b-edh{background:#fcf0c8;border-color:var(--gold);color:#6b4e0e}
+/* From his personal Google Calendar (read only): grey. */
+.gev{background:#eef0f3;border-color:#8a94a6;color:#3b4250}
+.dview .dcard.gev{background:#2a3140}
 .blk.carry,.dview .dcard.carry{border-left-style:dashed}
 
 /* Desktop: month grid. "Brass & Steam": navy day boxes on brass hairlines. Each day with a forecast
@@ -387,9 +390,10 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, updateDoc, deleteField, serverTimestamp, addDoc, deleteDoc }
+import { getFirestore, collection, getDocs, getDoc, doc, updateDoc, deleteField, serverTimestamp, addDoc, deleteDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -549,9 +553,16 @@ const clashes = (k, t, e) => {
 let blocks = [];             // every Misc / EDH entry
 let blocksByDay = new Map(); // "2026-10-08" -> entries starting that day
 let carryByDay = new Map();  // "2026-10-09" -> late EDH shifts from the night before
+/* His personal Google Calendar, copied by the backend into meta/gcalPersonal (read only here).
+   { id, title, day, time, end, allDay, lastDay, location }. A multi-day all-day event shows on each day. */
+let gEvents = [], gByDay = new Map();
+const loadGcal = () => getDoc(doc(db, "meta", "gcalPersonal"))
+  .then(s => { gEvents = ((s.data() || {}).events || []).filter(g => isKey(g.day) && (g.allDay || isTime(g.time))); })
+  .catch(e => console.error("gcalPersonal", e));
 
 async function load(){
   const failed = [];
+  const gotGcal = loadGcal();
   const gotBlocks = getDocs(collection(db, "calendarBlocks"))
     .then(s => s.docs.map(d => ({ ...d.data(), id: d.id })).filter(b => KINDS[b.kind] && isKey(b.date) && isTime(b.time)))
     .catch(e => { console.error("calendarBlocks", e); failed.push("Misc/EDH entries (" + (e.code || e.message) + ")"); return []; });
@@ -561,6 +572,7 @@ async function load(){
       .catch(e => { console.error(p.key, e); failed.push(p.key + " (" + (e.code || e.message) + ")"); return []; })));
   const all = got.flat().filter(j => !j.revisionOf);   /* an approved job-sheet update isn't a second job */
   blocks = await gotBlocks;
+  await gotGcal;
   jobs = all.filter(j => isKey(j.scheduledDate));
   needDate = all.filter(j => j._place === "acceptedQuotes" && !isKey(j.scheduledDate))
     .sort((a, b) => ms(a.acceptedAt) - ms(b.acceptedAt));
@@ -585,6 +597,16 @@ function index(){
       const n = keyOf(addDays(fromKey(b.date), 1));
       if (!carryByDay.has(n)) carryByDay.set(n, []);
       carryByDay.get(n).push(b);
+    }
+  }
+  gByDay = new Map();
+  for (const g of gEvents) {
+    let k = g.day;
+    for (let i = 0; i < 31; i++) {
+      if (!gByDay.has(k)) gByDay.set(k, []);
+      gByDay.get(k).push(g);
+      if (!g.allDay || !isKey(g.lastDay) || k >= g.lastDay) break;
+      k = keyOf(addDays(fromKey(k), 1));
     }
   }
   const needCount = needDate.length;   // phone shows just the number, red; empty when nothing needs a date
@@ -616,8 +638,17 @@ const blkChip = (b, full) => '<button type="button" class="job blk b-' + b.kind 
 const carryChip = (b, full) => '<button type="button" class="job blk b-edh carry" data-blk="' + esc(b.id) + '">' +
   '<span class="tm">AM</span>Blocked' + (full ? '<span class="sub">EDH ' + time12(b.time) + ' shift the night before</span>' : '') + '</button>';
 /* Everything on one day in time order: the carried-over morning first, then entries and jobs by start time. */
+/* Google Calendar events: grey, marked G. All-day ones sort first. */
+const gChip = (g, full) => '<button type="button" class="job gev" data-gev="' + esc(g.id) + '">' +
+  '<span class="tm">' + (g.allDay ? "G" : "G " + time12(g.time)) + '</span>' + esc(g.title) +
+  (full && g.location ? '<span class="sub">' + esc(g.location) + '</span>' : '') + '</button>';
+const gCard = g => '<article class="dcard gev">' +
+  '<div class="dctime">' + (g.allDay ? "All day" : time12(g.time) + " \u2013 " + endText(g.end)) + '</div>' +
+  '<div><button type="button" class="dcname" data-gev="' + esc(g.id) + '">' + esc(g.title) + '</button>' +
+    '<div class="dcsvc">Google Calendar' + (g.location ? " \u00b7 " + esc(g.location) : "") + '</div></div></article>';
 function dayItems(k, full){
   return [
+    ...(gByDay.get(k) || []).map(g => [g.allDay ? "00:00" : g.time, gChip(g, full)]),
     ...(carryByDay.get(k) || []).map(b => ["00:00", carryChip(b, full)]),
     ...(blocksByDay.get(k) || []).map(b => [b.time, blkChip(b, full)]),
     ...(byDay.get(k) || []).map(j => [isTime(j.scheduledTime) ? j.scheduledTime : "99", chip(j, full)])
@@ -789,7 +820,9 @@ function fitHours(){
 function renderDay(){
   const list = byDay.get(dayKey) || [], own = blocksByDay.get(dayKey) || [];
   const sum = list.reduce((s, j) => s + (Number(j.total) || 0), 0);
+  const gl = gByDay.get(dayKey) || [];
   const top = [
+    ...gl.filter(g => g.allDay || !hourOf(g.time)).map(gCard),
     ...(carryByDay.get(dayKey) || []).map(carryCard),
     ...list.filter(j => !hourOf(j.scheduledTime)).map(dayCard)
   ].join("");
@@ -797,6 +830,7 @@ function renderDay(){
     .filter(b => b.kind === "edh" && endOf(b) > "24:00");   // late EDH shifts still running after midnight
   const rows = HOURS.map(h => {
     const here = [
+      ...gl.filter(g => !g.allDay && hourOf(g.time) === h).map(g => [g.time, gCard(g)]),
       ...own.filter(b => hourOf(b.time) === h).map(b => [b.time, blkCard(b)]),
       ...list.filter(j => hourOf(j.scheduledTime) === h).map(j => [j.scheduledTime, dayCard(j)])
     ].sort((a, b) => a[0].localeCompare(b[0])).map(x => x[1]).join("");
@@ -882,24 +916,16 @@ function goToday(){
 const openDlg = html => { dlgBody.innerHTML = html; if (!dlg.open) dlg.showModal(); dlgBody.scrollTop = 0; };
 const rrow = (lab, html) => html ? '<div class="rrow"><div class="rlab">' + lab + '</div><div class="rval">' + html + '</div></div>' : '';
 
-/* Google Calendar "add event" link for a job. With a start time it's a 3-hour block (Pacific time);
-   without one it's an all-day event. Opens Google with everything filled in; tap Save there. */
-function gcalLink(j, addr){
-  const c = j.customer || {}, d = j.scheduledDate.replace(/-/g, "");
-  let dates;
-  if (isTime(j.scheduledTime)) {
-    const [h, m] = j.scheduledTime.split(":").map(Number), e = h + 3;
-    const hm = (H, M) => String(H).padStart(2, "0") + String(M).padStart(2, "0") + "00";
-    dates = e < 24 ? d + "T" + hm(h, m) + "/" + d + "T" + hm(e, m) : d + "T" + hm(h, m) + "/" + d + "T235900";
-  } else {
-    const n = new Date(j.scheduledDate + "T12:00:00"); n.setDate(n.getDate() + 1);
-    dates = d + "/" + n.getFullYear() + String(n.getMonth() + 1).padStart(2, "0") + String(n.getDate()).padStart(2, "0");
-  }
-  const details = [j.number ? "Job " + j.number : "", c.phone ? "Phone: " + c.phone : "",
-    ...(Array.isArray(j.lines) ? j.lines.map(l => "- " + (l.label || "Service")) : []), j.notes || ""].filter(Boolean).join("\n");
-  return "https://calendar.google.com/calendar/render?action=TEMPLATE&ctz=America/Los_Angeles" +
-    "&text=" + encodeURIComponent("Khean & Clean: " + displayName(c)) + "&dates=" + dates +
-    "&location=" + encodeURIComponent(addr || "") + "&details=" + encodeURIComponent(details);
+/* A Google Calendar event: read only here; change it in Google Calendar. */
+function showGev(g){
+  openDlg('<h3>' + esc(g.title) + '</h3>' +
+    '<p class="when">' + esc(longDay(g.day) + (g.allDay ? (g.lastDay && g.lastDay !== g.day ? " to " + longDay(g.lastDay) : ", all day")
+      : ", " + time12(g.time) + " \u2013 " + endText(g.end))) + '</p>' +
+    '<p class="state">From your Google Calendar</p>' +
+    rrow("Where", g.location ? '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(g.location) +
+      '" target="_blank" rel="noopener">' + esc(g.location) + '</a>' : "") +
+    '<div class="acts"><a class="ghost" href="https://calendar.google.com/calendar/r/day/' + g.day.replace(/-/g, "/") +
+      '" target="_blank" rel="noopener">Open in Google Calendar</a></div>');
 }
 
 function showJob(j){
@@ -928,7 +954,6 @@ function showJob(j){
       '<a class="new" href="./job-sheet.html?id=' + encodeURIComponent(j.id) + '">Job sheet</a>' +
       '<a class="ghost" href="./quote.html?id=' + encodeURIComponent(j.id) + '" target="_blank" rel="noopener">Open quote</a>' +
       (j._place === "acceptedQuotes" ? '<button type="button" class="ghost" data-sched="' + esc(jobKey(j)) + '">Change date</button>' : '') +
-      (isKey(j.scheduledDate) ? '<a class="ghost" href="' + esc(gcalLink(j, addr)) + '" target="_blank" rel="noopener">Add to Google Calendar</a>' : '') +
       '<button type="button" class="ghost danger" data-deljob="' + esc(jobKey(j)) + '">Delete job</button>' +
     '</div>' +
     '<p class="err" id="sErr" role="alert"></p>');
@@ -1230,6 +1255,8 @@ document.addEventListener("click", e => {
   if (un) { const j = findJob(un.dataset.unsched); if (j) saveDate(j, true); return; }
   const jb = t.closest("[data-job]");
   if (jb) { const j = findJob(jb.dataset.job); if (j) showJob(j); return; }
+  const gv = t.closest("[data-gev]");
+  if (gv) { const g = gEvents.find(x => x.id === gv.dataset.gev); if (g) showGev(g); return; }
   const bl = t.closest("[data-blk]");
   if (bl) { const b = blocks.find(x => x.id === bl.dataset.blk); if (b) showBlock(b); return; }
   const del = t.closest("[data-delblk]");
@@ -1283,6 +1310,10 @@ onAuthStateChanged(getAuth(app), async user => {
   if (phone() && !dayKey) goToday();
   /* Weather comes in after the calendar; if it fails, the calendar just shows without it. */
   loadWeather().then(() => { if (!dayKey) render(); }).catch(e => console.error(e));
+  /* Ask the backend for a fresh copy of the Google Calendar, then redraw with it. */
+  httpsCallable(getFunctions(app), "refreshGoogleCalendar")()
+    .then(() => loadGcal()).then(() => { index(); render(); })
+    .catch(e => console.error("refreshGoogleCalendar", e));
 });
 </script>
 <script src="./tabbar.js" defer></script>
