@@ -333,12 +333,14 @@ function initSketch(d){
   sk = { pts, cuts, doors: Number.isInteger(d.door) && d.door >= 0 && d.door < pts.length ? [{ w: d.door, t: 0.3 }] : [], placing: false, editing: false, k, ox: minX - pad / k, oy: minY - pad / k,
          W: w * k + pad * 2, H: h * k + pad * 2, sel: null, edited: false, orig: d.orig || JSON.parse(JSON.stringify(d)) };
   $("rShape").innerHTML =
-    '<svg id="skSvg" viewBox="0 0 ' + sk.W + ' ' + sk.H + '" width="100%" style="touch-action:none;user-select:none" role="img" aria-label="Floor sketch"></svg>' +
+    '<svg id="skSvg" viewBox="0 0 ' + sk.W + ' ' + sk.H + '" width="100%" style="touch-action:none;user-select:none;overflow:visible" role="img" aria-label="Floor sketch"></svg>' +
     '<div class="range" style="font-size:13px" id="skHelp" hidden>' + SK_HELP + '</div>' +
     '<button type="button" class="ghost" id="skEdit" style="margin-top:8px">✎ Edit sketch</button>' +
     '<div id="skTools" hidden><div class="row2" style="grid-template-columns:1fr 1fr;margin-top:8px">' +
       '<button type="button" class="ghost" id="skCut">+ Cutout</button>' +
       '<button type="button" class="ghost" id="skDoor">+ Door</button>' +
+      '<button type="button" class="ghost" id="skOpen">+ Opening</button>' +
+      '<button type="button" class="ghost" id="skCloset">+ Closet</button>' +
       '<button type="button" class="ghost" id="skDel" disabled>Remove</button>' +
       '<button type="button" class="ghost" id="skReset">Reset</button>' +
       '<button type="button" class="ghost" id="skMic" style="grid-column:1/-1">🎤 Say wall sizes</button>' +
@@ -351,14 +353,19 @@ function initSketch(d){
   svg.addEventListener("pointerdown", e => {
     if (!sk.editing) return;   /* locked until "Edit sketch" */
     if (sk.placing) {   /* "+ Door": the next tap puts a door on the nearest wall */
-      const w = nearestWall(toFt(e)); sk.placing = false;
-      sk.doors.push({ w: w.i, t: w.t }); sk.sel = { type: "door", i: sk.doors.length - 1 }; sk.edited = true;
+      const w = nearestWall(toFt(e)), kind = sk.placing; sk.placing = false;
+      /* doors, openings and closets all live on a wall; openings/closets have a width (wd), closets a depth (dp) */
+      sk.doors.push(kind === "open" ? { w: w.i, t: w.t, k: "open", wd: 6 } : kind === "closet" ? { w: w.i, t: w.t, k: "closet", wd: 6, dp: 2 } : { w: w.i, t: w.t }); sk.sel = { type: "door", i: sk.doors.length - 1 }; sk.edited = true;
       $("skHelp").textContent = SK_HELP; drawSketch(); return;
     }
-    const t = e.target.closest("[data-pt],[data-mid],[data-cut],[data-cp],[data-cm],[data-door]");
+    const t = e.target.closest("[data-pt],[data-mid],[data-cut],[data-cp],[data-cm],[data-sz],[data-door]");
     if (!t) { sk.sel = null; drawSketch(); return; }
     e.preventDefault();
     const p = toFt(e);
+    if (t.dataset.sz != null) {   /* end of an opening / outside corner of a closet: resize it */
+      skDrag = { type: "size", i: +t.dataset.sz }; sk.sel = { type: "door", i: skDrag.i };
+      svg.setPointerCapture(e.pointerId); drawSketch(); return;
+    }
     if (t.dataset.cm != null || t.dataset.cp != null) {   /* cutout corner: drag it; + adds a corner on that side */
       let [ci, j] = (t.dataset.cm || t.dataset.cp).split(":").map(Number);
       if (t.dataset.cm != null) {
@@ -386,6 +393,11 @@ function initSketch(d){
     if (!skDrag) return;
     const p = toFt(e);
     if (skDrag.type === "door") sk.doors[skDrag.i].t = wallT(sk.doors[skDrag.i].w, p).t;
+    else if (skDrag.type === "size") {
+      const o = sk.doors[skDrag.i], q = sk.pts[o.w], r = sk.pts[(o.w + 1) % sk.pts.length], len = Math.hypot(r[0] - q[0], r[1] - q[1]) || 1, w = wallT(o.w, p);
+      o.wd = Math.max(1.5, Math.min(snap(len - 0.5), snap(2 * Math.abs(w.t - o.t) * len)));
+      if (o.k === "closet") o.dp = Math.max(1, snap(w.d));
+    }
     else if (skDrag.type === "pt") sk.pts[skDrag.i] = squareSnap(sk.pts, skDrag.i, p);
     else if (skDrag.type === "cp") sk.cuts[skDrag.ci].pts[skDrag.j] = squareSnap(sk.cuts[skDrag.ci].pts, skDrag.j, p);
     else if (skDrag.type === "cut") {   /* move the whole cutout in half-foot steps */
@@ -411,13 +423,16 @@ function initSketch(d){
     else if (sk.pts.length > 3) {
       const i = sk.sel.i, prev = (i - 1 + sk.pts.length) % sk.pts.length;
       sk.pts.splice(i, 1);
-      sk.doors = sk.doors.filter(o => o.w !== i && o.w !== prev).map(o => ({ w: o.w > i ? o.w - 1 : o.w, t: o.t }));
+      sk.doors = sk.doors.filter(o => o.w !== i && o.w !== prev).map(o => ({ ...o, w: o.w > i ? o.w - 1 : o.w }));
     }
     sk.sel = null; sk.edited = true; drawSketch();
   };
   $("skEdit").onclick = () => setEditing(true);
   $("skDone").onclick = () => setEditing(false);
-  $("skDoor").onclick = () => { sk.placing = true; $("skHelp").textContent = "Tap a wall to put the door there"; };
+  const place = (kind, msg) => { sk.placing = kind; $("skHelp").textContent = msg; };
+  $("skDoor").onclick = () => place("door", "Tap a wall to put the door there");
+  $("skOpen").onclick = () => place("open", "Tap a wall to put the opening there");
+  $("skCloset").onclick = () => place("closet", "Tap the wall the closet is on");
   $("skMic").onclick = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition, mic = $("skMic");
     if (!SR) { $("skHelp").textContent = "Voice isn't available here. Drag the corners instead."; return; }
@@ -502,7 +517,8 @@ function sayWalls(text){
 function skArea(){
   let a = 0;
   sk.pts.forEach((p, i) => { const q = sk.pts[(i + 1) % sk.pts.length]; a += p[0] * q[1] - q[0] * p[1]; });
-  return Math.max(0, Math.abs(a) / 2 - sk.cuts.reduce((s, c) => s + polyA(c.pts), 0));
+  return Math.max(0, Math.abs(a) / 2 - sk.cuts.reduce((s, c) => s + polyA(c.pts), 0)) +
+    sk.doors.reduce((s, o) => s + (o.k === "closet" ? o.wd * o.dp : 0), 0);   /* closets add floor */
 }
 function drawSketch(){
   const X = x => (x - sk.ox) * sk.k, Y = y => (y - sk.oy) * sk.k, P = sk.pts.map(p => [X(p[0]), Y(p[1])]);
@@ -536,12 +552,32 @@ function drawSketch(){
     const hw = Math.max(0.05, Math.min(1.5, len / 2 - 0.25)) / len, at = t => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
     let from = 0;
     sk.doors.map((o, j) => ({ o, j })).filter(x => x.o.w === i).sort((u, v) => u.o.t - v.o.t).forEach(({ o, j }) => {
+      const hw = Math.max(0.05, Math.min((o.wd || 3) / 2, len / 2 - 0.25)) / len;   /* door 3 ft; openings/closets their own width */
       const t0 = Math.max(0, Math.min(1 - 2 * hw, o.t - hw)), t1 = t0 + 2 * hw;
       if (t0 > from) g += wl(at(from), at(t0));
       from = Math.max(from, t1);
       const h = at(t0), e3 = at(t1), ddx = e3[0] - h[0], ddy = e3[1] - h[1];
       let nx = -ddy, ny = ddx; if ((cx - h[0]) * nx + (cy - h[1]) * ny < 0) { nx = -nx; ny = -ny; }
-      const lf = [h[0] + nx, h[1] + ny], col = sk.sel && sk.sel.type === "door" && sk.sel.i === j ? "#fff" : "#9fb3d1";
+      const lf = [h[0] + nx, h[1] + ny], on = sk.sel && sk.sel.type === "door" && sk.sel.i === j, col = on ? "#fff" : "#9fb3d1";
+      const knob = (x, y) => '<g data-sz="' + j + '" style="cursor:nwse-resize"><circle cx="' + x + '" cy="' + y + '" r="14" fill="rgba(0,0,0,0)"/>' +
+        '<circle cx="' + x + '" cy="' + y + '" r="7" fill="#fff" stroke="#172239" stroke-width="2"/></g>';
+      if (o.k === "open") {   /* opening: gap with a dashed line across, drag its ends to widen */
+        const L = Math.hypot(ddx, ddy) || 1, sx = nx / L * 12, sy = ny / L * 12;
+        dg += '<g data-door="' + j + '" style="cursor:ew-resize"><polygon points="' + [[h[0] - sx, h[1] - sy], [e3[0] - sx, e3[1] - sy], [e3[0] + sx, e3[1] + sy], [h[0] + sx, h[1] + sy]].map(v => v.join(",")).join(" ") + '" fill="rgba(0,0,0,0)"/>' +
+          '<line x1="' + h[0] + '" y1="' + h[1] + '" x2="' + e3[0] + '" y2="' + e3[1] + '" stroke="' + col + '" stroke-width="2" stroke-dasharray="6 4"/></g>' +
+          (on && sk.editing ? knob(h[0], h[1]) + knob(e3[0], e3[1]) : "");
+        return;
+      }
+      if (o.k === "closet") {   /* closet: box outside the wall, adds its floor; drag the outside corner to size it */
+        const L = Math.hypot(ddx, ddy) || 1, D = (o.dp || 2) * sk.k, ux = -nx / L * D, uy = -ny / L * D;
+        const c1 = [e3[0] + ux, e3[1] + uy], c2 = [h[0] + ux, h[1] + uy], gold = on ? "#fff" : "#E3B64A";
+        dg += '<g data-door="' + j + '" style="cursor:ew-resize"><polygon points="' + [h, e3, c1, c2].map(v => v.join(",")).join(" ") + '" fill="rgba(227,182,74,.12)"/>' +
+          '<polyline points="' + [h, c2, c1, e3].map(v => v.join(",")).join(" ") + '" fill="none" stroke="' + gold + '" stroke-width="3" stroke-linejoin="round"/>' +
+          '<line x1="' + h[0] + '" y1="' + h[1] + '" x2="' + e3[0] + '" y2="' + e3[1] + '" stroke="' + col + '" stroke-width="1.5" stroke-dasharray="4 3"/>' +
+          '<text x="' + (h[0] + e3[0] + ux) / 2 + '" y="' + ((h[1] + e3[1] + uy) / 2 + 4) + '" text-anchor="middle" font-size="10" fill="#e8ebf2">Closet ' + o.wd + '×' + o.dp + '</text></g>' +
+          (on && sk.editing ? knob(c1[0], c1[1]) : "");
+        return;
+      }
       dg += '<g data-door="' + j + '" style="cursor:ew-resize">' +
         '<polygon points="' + [h, e3, [e3[0] + nx, e3[1] + ny], lf].map(v => v.join(",")).join(" ") + '" fill="rgba(0,0,0,0)"/>' +
         '<line x1="' + h[0] + '" y1="' + h[1] + '" x2="' + lf[0] + '" y2="' + lf[1] + '" stroke="' + col + '" stroke-width="2"/>' +
