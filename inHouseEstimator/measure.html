@@ -485,7 +485,7 @@ function initSketch(d){
     const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
     mic.textContent = "🎤 Listening…"; mic.disabled = true;
     rec.onresult = ev => { const said = ev.results[0][0].transcript, n = sayWalls(said);
-      $("skHelp").textContent = '"' + said + '"' + (n ? " ✓" : " — try: top wall 14 feet, left wall 13 feet, or island 4 by 6"); };
+      $("skHelp").textContent = '"' + said + '"' + (n ? " ✓" : " — try: Cat 14, Dog 9 and a half, corner 3 45, or island 4 by 6"); };
     rec.onerror = ev => { $("skHelp").textContent = ev.error === "not-allowed" ? "Allow the microphone to use voice." : "Didn't catch that. Try again."; };
     rec.onend = () => { mic.textContent = "🎤 Say wall sizes"; mic.disabled = false; };
     rec.start();
@@ -568,6 +568,26 @@ function setWall(side, L){
   sk.cuts.forEach(c => c.pts.forEach(o => { if (o[ax] > mid) o[ax] += delta; }));
   return true;
 }
+/* Wall i (A = 0) to L feet: everything past the middle of that wall slides along it, so the other walls follow. */
+function setWallLen(i, L){
+  const n = sk.pts.length, p = sk.pts[i], q = sk.pts[(i + 1) % n], len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+  if (len < 0.1) return false;
+  const ux = (q[0] - p[0]) / len, uy = (q[1] - p[1]) / len, dl = L - len, p0 = [p[0], p[1]];
+  const move = o => { if ((o[0] - p0[0]) * ux + (o[1] - p0[1]) * uy > len / 2) { o[0] = Math.round((o[0] + ux * dl) * 100) / 100; o[1] = Math.round((o[1] + uy * dl) * 100) / 100; } };
+  sk.pts.forEach(move); sk.cuts.forEach(c => c.pts.forEach(move)); sk.doors.forEach(o => { if (o.pts) o.pts.forEach(move); });
+  return true;
+}
+/* Corner c (1 = index 0): the wall after it turns deg degrees off the wall before it (90 = square, 45 = angled), same length. */
+function setCornerTurn(c, deg){
+  const n = sk.pts.length, a = sk.pts[(c - 1 + n) % n], p = sk.pts[c], q = sk.pts[(c + 1) % n];
+  const ix = p[0] - a[0], iy = p[1] - a[1], il = Math.hypot(ix, iy), ox = q[0] - p[0], oy = q[1] - p[1], ol = Math.hypot(ox, oy);
+  if (il < 0.1 || ol < 0.1) return false;
+  let sg = Math.sign(ix * oy - iy * ox);
+  if (!sg) sg = Math.sign(sk.pts.reduce((s, v, j) => { const w = sk.pts[(j + 1) % n]; return s + v[0] * w[1] - w[0] * v[1]; }, 0)) || 1;
+  const r = sg * deg * Math.PI / 180, ux = ix / il, uy = iy / il;
+  sk.pts[(c + 1) % n] = [Math.round((p[0] + (ux * Math.cos(r) - uy * Math.sin(r)) * ol) * 100) / 100, Math.round((p[1] + (ux * Math.sin(r) + uy * Math.cos(r)) * ol) * 100) / 100];
+  return true;
+}
 function sayWalls(text){
   const W = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
               fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20 };
@@ -578,6 +598,25 @@ function sayWalls(text){
     const ft = parseFloat(m[2]) + (m[3] ? parseInt(m[3], 10) / 12 : 0) + (m[4] ? 0.5 : 0);
     const side = m[1] === "front" ? "bottom" : m[1] === "back" ? "top" : m[1];
     if (ft >= 1 && ft < 300 && setWall(side, ft)) n++;
+  }
+  /* Walls have letters: any word stands for its first letter, so "Cat 12" or "Charlie is 9 and a half" sets wall C.
+     Filler words are skipped so normal talk around it is ignored. */
+  const SKIP = new Set(("top bottom left right front back island cutout cut out fireplace hearth counter stair stairs corner by x times and feet foot ft " +
+    "inches inch in is wall walls the a an at to was it its that about around like okay ok so um uh make set put change of be should will then also " +
+    "now plus minus over half degrees degree number side long length wide width this one let me i say said go with for").split(" "));
+  const lrx = /\b([a-z]+)\s+(?:(?:is|at|to|equals|was|be)\s+)?(\d+(?:\.\d+)?)\s*(?:feet|foot|ft|')?\s*(?:(?:and\s*)?(\d+)\s*(?:inches|inch|in\b|")|(and a half))?/g;
+  while ((m = lrx.exec(s))) {
+    if (SKIP.has(m[1])) { lrx.lastIndex = m.index + m[1].length; continue; }
+    const i = m[1].charCodeAt(0) - 97, ft = parseFloat(m[2]) + (m[3] ? parseInt(m[3], 10) / 12 : 0) + (m[4] ? 0.5 : 0);
+    if (i >= 0 && i < sk.pts.length && ft >= 1 && ft < 300 && setWallLen(i, ft)) n++;
+  }
+  /* Corners have numbers: "corner 3, 45" turns the wall after corner 3 by 45 degrees (90 = square). */
+  const krx = /corner\s*(?:number\s*)?(\d+)(?:[^\d]{1,15}?(\d+(?:\.\d+)?))?/g;
+  while ((m = krx.exec(s))) {
+    let c = m[1], deg = m[2];
+    if (!deg && c.length >= 2) { deg = c.slice(1); c = c[0]; }   /* "corner 345" heard as one number */
+    const ci = parseInt(c, 10) - 1, d = parseFloat(deg);
+    if (ci >= 0 && ci < sk.pts.length && d > 0 && d < 180 && setCornerTurn(ci, d)) n++;
   }
   /* "island 4 by 6", "fireplace 5 by 2": resizes the cutout you tapped, or adds one in the middle. */
   const crx = /(island|cut ?out|fireplace|hearth|counter|stairs?)\D*?(\d+(?:\.\d+)?)\s*(?:feet|foot|ft|')?\s*(?:by|x|times)\s*(\d+(?:\.\d+)?)/g;
@@ -675,7 +714,7 @@ function drawSketch(){
     let mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
     if (ft >= 1) {
       const dx = mx - cx, dy = my - cy, L = Math.hypot(dx, dy) || 1;
-      g += '<text x="' + (mx + dx / L * 20) + '" y="' + (my + dy / L * 20 + 4) + '" text-anchor="middle" font-size="13" fill="#e8ebf2">' + ft + ' ft</text>';
+      g += '<text x="' + (mx + dx / L * 20) + '" y="' + (my + dy / L * 20 + 4) + '" text-anchor="middle" font-size="13" fill="#e8ebf2"><tspan font-weight="700" fill="#E3B64A">' + String.fromCharCode(65 + i) + '</tspan> ' + ft + ' ft</text>';
     }
     /* + on the middle of each wall: tap to add a corner there, then drag it */
     mg += '<g data-mid="' + i + '" style="cursor:copy"><circle cx="' + mx + '" cy="' + my + '" r="14" fill="transparent"/>' +
@@ -683,6 +722,10 @@ function drawSketch(){
       '<text x="' + mx + '" y="' + (my + 4) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#E3B64A">+</text></g>';
   });
   g += dg + (sk.editing ? mg + cg : "");
+  if (sk.editing) P.forEach((a, i) => {   /* corner numbers, just outside each corner */
+    const dx = a[0] - cx, dy = a[1] - cy, L = Math.hypot(dx, dy) || 1;
+    g += '<text x="' + (a[0] + dx / L * 20) + '" y="' + (a[1] + dy / L * 20 + 4) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#9fb3d1">' + (i + 1) + '</text>';
+  });
   if (sk.editing) P.forEach((a, i) => {
     const on = sk.sel && sk.sel.type === "pt" && sk.sel.i === i;
     g += '<g data-pt="' + i + '" style="cursor:grab"><circle cx="' + a[0] + '" cy="' + a[1] + '" r="16" fill="transparent"/>' +
