@@ -194,6 +194,11 @@ textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1
 body.menu-open #people{display:block;position:fixed;right:12px;z-index:20;width:min(360px,calc(100% - 24px));max-height:70vh;overflow-y:auto;
   background:#172239;border:1px solid var(--gold);border-radius:12px;padding:6px 12px 10px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
 #menuBtn{font-size:20px;line-height:1;padding:8px 12px}
+/* Top buttons: one line, icon + word. Phones: icons only so they still fit on one line. */
+.nav{flex-wrap:nowrap}
+.nav a,.nav button{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.nav .ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:600px){.nav{margin-left:0;width:100%;justify-content:space-between}.nav .lbl{display:none}.nav a,.nav button{padding:10px 14px}}
 @media(min-width:1024px){.cols{grid-template-columns:minmax(0,1fr) 290px}}
 @media(max-width:820px){body.in-thread.menu-open .side{display:block}body.in-thread .side #find{display:none}}
 /* Conversations: no boxes, a purple line over each one. */
@@ -212,13 +217,12 @@ body.menu-open #people{display:block;position:fixed;right:12px;z-index:20;width:
     <h1>Texts</h1>
     <div class="nav">
       <button type="button" class="phone" id="phoneBtn" style="display:none">Phone off</button><!-- always on now; green Phone tab / pill shows it (live.js) -->
-      <a class="ghost" id="allBtn" href="#" hidden>All texts</a>
-      <a class="ghost" id="callsBtn" href="#calls">Calls</a>
-      <button type="button" class="ghost" id="dialBtn">Dial</button>
-      <a class="ghost" href="./leads.html">Leads</a>
-      <a class="ghost" href="./customers.html">Customers</a>
-      <a class="new" id="newBtn" href="#new">New text</a>
-      <button type="button" class="ghost" id="menuBtn" aria-expanded="false" aria-label="Leads, approved leads and contacts">&#9776;</button>
+      <a class="ghost" id="allBtn" href="#" aria-label="All texts" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="lbl">All texts</span></a>
+      <a class="ghost" id="callsBtn" href="#calls" aria-label="Calls"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg><span class="lbl">Calls</span></a>
+      <a class="ghost" href="./leads.html" aria-label="Leads"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg><span class="lbl">Leads</span></a>
+      <a class="ghost" href="./customers.html" aria-label="Customers"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg><span class="lbl">Customers</span></a>
+      <a class="new" id="newBtn" href="#new" aria-label="New text"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span class="lbl">New text</span></a>
+      <button type="button" class="ghost" id="menuBtn" aria-expanded="false" aria-label="Leads, approved leads and contacts"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
     </div>
   </div>
   <div class="cols">
@@ -227,17 +231,7 @@ body.menu-open #people{display:block;position:fixed;right:12px;z-index:20;width:
       <div id="people"><div class="none">Loading&hellip;</div></div>
     </aside>
     <div id="view"><div class="msg">Loading&hellip;</div></div>
-<div id="dialer" role="dialog" aria-label="Dial a number" hidden>
-  <div class="dh">Phone <button type="button" class="dx" id="dialX" aria-label="Close">&times;</button></div>
-  <input id="dialNum" type="tel" inputmode="tel" autocomplete="off" placeholder="Enter number" aria-label="Number to call">
-  <div class="keys">
-    <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
-    <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
-    <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
-    <button type="button" data-k="*">*</button><button type="button" data-k="0">0</button><button type="button" data-k="#">#</button>
-  </div>
-  <div class="drow"><button type="button" id="dialCall">Call</button><button type="button" id="dialBack" aria-label="Delete">&#9003;</button></div>
-  <div id="dialMsg"></div>
+<div id="dialer" aria-label="Reminders" hidden>
   <!-- Reminders: PLACEHOLDER, nothing sends yet. Later these send through the same texting setup as this
        page (from (916) 767-2520): the day-before reminder, and "on my way" (asked Yes/No when he taps a
        job's address to navigate). data-remind names which one, for wiring later. -->
@@ -890,88 +884,8 @@ async function callOut(k) {
   }
 }
 
-/* ---------- dial pad: call any number without opening a customer ----------
-   Dial (top bar) opens it. Type or tap a number, then Call or Enter. If the phone is off it
-   turns on first. During a call the keys send tones (for "press 1" menus). Shows the phone's
-   status in plain words, including the error if it won't turn on. */
-const dialer = document.getElementById("dialer"), dialNum = document.getElementById("dialNum"),
-  dialMsg = document.getElementById("dialMsg");
-function syncDial(note) {
-  if (!dialer || dialer.hidden) return;
-  if (note) { dialMsg.textContent = note; dialMsg.className = ""; return; }
-  const bad = phoneBtn.classList.contains("bad");
-  dialMsg.className = bad ? "bad" : "";
-  dialMsg.textContent = bad ? phoneBtn.textContent + (phoneBtn.title ? " (" + phoneBtn.title + ")" : "")
-    : device && ready ? "Phone on. People see (916) 767-2520."
-    : "Phone is off. It turns on when you press Call.";
-}
-// Open/closed is remembered. Starts open, except on phone-size screens where it would cover the texts.
-const dialPref = {
-  get: () => { try { return localStorage.getItem("kcDial"); } catch { return null; } },
-  set: v => { try { localStorage.setItem("kcDial", v); } catch { /* private mode */ } }
-};
-// Desktop (1024px+): the pad is pinned on the page and never closes.
-const deskDial = window.matchMedia("(min-width:1024px)");
-const closeDial = () => { if (deskDial.matches) return; dialer.hidden = true; dialPref.set("closed"); };
-function openDial(focus) { dialer.hidden = false; dialPref.set("open"); syncDial(); if (focus !== false) dialNum.focus(); }
-document.getElementById("dialBtn").addEventListener("click", () => dialer.hidden ? openDial() : closeDial());
-document.getElementById("dialX").addEventListener("click", closeDial);
-
-// (279) 321-2944 as you type. Anything with * or # (phone menus) stays as typed.
-const dialDigits = () => dialNum.value.replace(/[^0-9*#]/g, "");
-function fmtDial(d) {
-  if (/[*#]/.test(d)) return d;
-  let pre = "";
-  if (d.length > 10 && d[0] === "1") { pre = "1 "; d = d.slice(1); }
-  if (d.length > 10) return pre + d;   // too long to be a US number: show it plain
-  if (d.length > 6) return pre + "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6);
-  if (d.length > 3) return pre + "(" + d.slice(0, 3) + ") " + d.slice(3);
-  return pre + d;
-}
-const setDial = d => { dialNum.value = fmtDial(d); };
-dialNum.addEventListener("input", () => setDial(dialDigits()));
-
-// One key in: during a call it's a tone, otherwise it goes on the number.
-function dialKey(k) {
-  if (live && typeof live === "object" && live.sendDigits) {
-    try { live.sendDigits(k); } catch (err) { console.warn("tone", err); }
-  } else setDial(dialDigits() + k);
-}
-const dialDel = () => setDial(dialDigits().slice(0, -1));
-dialer.querySelector(".keys").addEventListener("click", e => {
-  const b = e.target.closest("button[data-k]");
-  if (!b) return;
-  dialKey(b.dataset.k);
-  dialNum.focus();
-});
-document.getElementById("dialBack").addEventListener("click", () => { dialDel(); dialNum.focus(); });
-async function dialGo() {
-  if (live) { syncDial("You're already on a call."); return; }
-  const k = key(dialNum.value);
-  if (!k) { syncDial("Enter a 10-digit number."); return; }
-  if (!device || !ready) { syncDial("Turning the phone on" + ELLIPSIS); await phoneOn(); }
-  if (!device || !ready) { syncDial(); return; }   // couldn't turn on: shows why
-  callOut(k);
-}
-document.getElementById("dialCall").addEventListener("click", dialGo);
-dialNum.addEventListener("keydown", e => {
-  if (e.key === "Enter") { e.preventDefault(); dialGo(); }
-  else if (e.key === "Escape") closeDial();
-});
-
-// Your keyboard, anywhere on the page: digits go to the dialer, Backspace deletes, Enter calls.
-// Leaves the keys alone while you're typing in the search box, a text message, or any other field.
-document.addEventListener("keydown", e => {
-  if (dialer.hidden || e.ctrlKey || e.metaKey || e.altKey) return;
-  const t = e.target;
-  if (t && (t === dialNum || t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-  if (/^[0-9*#]$/.test(e.key)) { e.preventDefault(); dialKey(e.key); }
-  else if (e.key === "Backspace") { e.preventDefault(); dialDel(); }
-  else if (e.key === "Enter" && dialDigits()) { e.preventDefault(); dialGo(); }
-});
-if (deskDial.matches || (dialPref.get() !== "closed" && !window.matchMedia("(max-width:820px)").matches)) openDial(false);
-// Window stretched wide enough: pin the pad open.
-deskDial.addEventListener("change", e => { if (e.matches) openDial(false); });
+/* Dial pad removed from Texts (calling lives on the Phone page). Kept so phoneState() still works. */
+function syncDial() {}
 
 // Phone on: every Call / phone-number link on this page dials through the computer.
 document.addEventListener("click", e => {
