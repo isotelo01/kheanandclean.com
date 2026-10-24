@@ -72,7 +72,7 @@ textarea{resize:vertical;min-height:110px}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, getDocs, addDoc, setDoc, deleteDoc, doc, serverTimestamp }
+import { getFirestore, collection, getDocs, getDoc, addDoc, setDoc, deleteDoc, doc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const app = initializeApp({
@@ -172,7 +172,41 @@ $("newBtn").onclick = async () => {
   catch (e) { console.error(e); alert("Couldn't add a neighborhood."); }
 };
 
+/* Folsom starter list (researched Oct 2026 from listing sites). Years are the main build era; sq ft is a typical
+   house there and is a rough guess unless the note says it's an average. Floors left "Not sure yet" to fill in from jobs. */
+const S = (name, yearFrom, yearTo, homeSqft, streets, notes) => ({ name, zip: "95630", yearFrom, yearTo, homeSqft, floor: "", streets, notes });
+const STARTERS = [
+  S("Historic Folsom / Central", "1890", "1965", "1400", "Sutter St, Figueroa St, Natoma St, Riley St, Leidesdorf St, Duchow Way",
+    "Oldest part of town. Some homes from the late 1800s; most are post-war 1950s ranch and tri-level homes. Sq ft is a rough guess."),
+  S("Willow Creek Estates", "1978", "1990", "2200", "", "Large Willow Creek development started late 1970s / early 1980s. Sq ft is a rough guess."),
+  S("American River Canyon", "1982", "1998", "2400", "", "Original American River Canyon, south of Oak Avenue Pkwy, built early 1980s into the 1990s. North section is newer. Sq ft is a rough guess."),
+  S("Lexington Hills", "1983", "1993", "2000", "", "East of Oak Avenue Pkwy, south of Blue Ravine Rd; built 1980s and early 1990s. Sq ft is a rough guess."),
+  S("Briggs Ranch", "1986", "1999", "2400", "Briggs Ranch Dr, Darrington Dr",
+    "Late 1980s and 1990s; semi-custom, custom and large tract plans, big lots, mature oaks, near Folsom Lake. No HOA. Sq ft is a rough guess."),
+  S("Natoma Station", "1988", "1999", "1950", "Coventry Cir",
+    "Mostly 1990s Spanish-style ranch and two-story homes, median built 1993. Average house about 1,950 sq ft. Tight yards, many remodeled."),
+  S("Broadstone", "1991", "2013", "2000", "Broadstone Pkwy, Withers Ct",
+    "Built entirely by Elliott Homes, 1991 to 2013, near East Bidwell and Hwy 50. Also has condos. Sq ft is a rough guess."),
+  S("Willow Springs", "1990", "2000", "2000", "", "Near Natoma Station and Prairie Oaks. Years and sq ft are rough guesses."),
+  S("The Parkway", "1995", "2010", "2500", "", "Planned development with HOA, building started mid-1990s. Sq ft is a rough guess."),
+  S("Prairie Oaks", "1997", "2002", "2600", "Williams St, Travis St, Rogers Cir",
+    "Northeast of Natoma Station, east of Prairie City Rd, south of Blue Ravine. Listings built 1998 to 2001, mostly 2,500 to 3,600 sq ft."),
+  S("Empire Ranch", "1997", "2010", "2600", "Empire Ranch Rd",
+    "Master-planned around Empire Ranch Golf Club; mostly late 1990s through 2000s, plus gated areas and condos. Sq ft is a rough guess."),
+  S("Lakeview Oaks", "2015", "2022", "3000", "Swingle Rd, Oliver Ct", "Gated custom-home community; listings built 2019 to 2020, 2,500 to 3,100 sq ft."),
+  S("Folsom Ranch (incl. Russell Ranch)", "2018", "2026", "2400", "",
+    "New master plan south of Hwy 50, building since 2018, median built 2022. Average house about 2,400 sq ft. Still building.")
+];
+
 async function load(){
+  /* Starters: each added once (remembered in meta/neighborhoodsSeeded), so a deleted one never comes back. */
+  const seedRef = doc(db, "meta", "neighborhoodsSeeded");
+  const seeded = new Set(((await getDoc(seedRef)).data() || {}).names || []);
+  const todo = STARTERS.filter(s => !seeded.has(s.name));
+  if (todo.length) {
+    for (const s of todo) { await addDoc(collection(db, "neighborhoods"), { ...s, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }); seeded.add(s.name); }
+    await setDoc(seedRef, { names: [...seeded] }, { merge: true });
+  }
   const snap = await getDocs(collection(db, "neighborhoods"));
   items = snap.docs.map(d => ({ id: d.id, ...BLANK, ...d.data() }));
   drawFilters(); drawList();
