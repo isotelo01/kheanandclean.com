@@ -538,8 +538,9 @@ const after24 = (h, e) => pad(Number(h.slice(0, 2)) + 24) + ":00" < e;   // next
 function takenOn(k){
   const set = new Set();
   if (!isKey(k)) return set;
-  for (const b of blocksByDay.get(k) || []) rowsOf(b.time, endOf(b)).forEach(h => set.add(h));
-  for (const b of blocksByDay.get(keyOf(addDays(fromKey(k), -1))) || [])
+  const prev = keyOf(addDays(fromKey(k), -1));
+  for (const b of (blocksByDay.get(k) || []).concat(gBlocks(k))) rowsOf(b.time, endOf(b)).forEach(h => set.add(h));
+  for (const b of (blocksByDay.get(prev) || []).concat(gBlocks(prev)))
     HOURS.forEach(h => { if (after24(h, endOf(b))) set.add(h); });
   return set;
 }
@@ -556,6 +557,10 @@ let carryByDay = new Map();  // "2026-10-09" -> late EDH shifts from the night b
 /* His personal Google Calendar, copied by the backend into meta/gcalPersonal (read only here).
    { id, title, day, time, end, allDay, lastDay, location }. A multi-day all-day event shows on each day. */
 let gEvents = [], gByDay = new Map();
+/* Timed Google events take hours like his own entries (same rules the booking backend uses):
+   "EDH" in the title = an EDH shift from its start; anything else = Misc over its own start and end. */
+const gBlocks = k => (gByDay.get(k) || []).filter(g => !g.allDay && g.day === k && isTime(g.time))
+  .map(g => /\bedh\b/i.test(g.title || "") ? { kind: "edh", date: k, time: g.time } : { kind: "misc", date: k, time: g.time, end: g.end });
 const loadGcal = () => getDoc(doc(db, "meta", "gcalPersonal"))
   .then(s => { gEvents = ((s.data() || {}).events || []).filter(g => isKey(g.day) && (g.allDay || isTime(g.time))); })
   .catch(e => console.error("gcalPersonal", e));
