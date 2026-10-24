@@ -97,6 +97,11 @@ body.dayMode #backBtn{display:inline-flex}
 /* From his personal Google Calendar (read only): grey. */
 .gev{background:#eef0f3;border-color:#8a94a6;color:#3b4250}
 .dview .dcard.gev{background:#2a3140}
+/* Cleaning jobs (customer jobs + Job entries): shimmery green. */
+.job[class*="k-"],.dcard[class*="k-"],.b-job{background:linear-gradient(110deg,#d4f3df 35%,#f4fff8 50%,#d4f3df 65%) 0 0/300% 100%;border-color:#1f9d55;color:#0b4a2a;animation:kcShimmer 3.5s linear infinite}
+.dview .dcard[class*="k-"],.dview .dcard.b-job{background:linear-gradient(110deg,#174a30 35%,#2a7a50 50%,#174a30 65%) 0 0/300% 100%;color:#e6fff0}
+@keyframes kcShimmer{from{background-position:150% 0}to{background-position:-150% 0}}
+@media (prefers-reduced-motion:reduce){.job[class*="k-"],.dcard[class*="k-"],.b-job{animation:none}}
 .blk.carry,.dview .dcard.carry{border-left-style:dashed}
 
 /* Desktop: month grid. "Brass & Steam": navy day boxes on brass hairlines. Each day with a forecast
@@ -643,11 +648,12 @@ const blkChip = (b, full) => '<button type="button" class="job blk b-' + b.kind 
 const carryChip = (b, full) => '<button type="button" class="job blk b-edh carry" data-blk="' + esc(b.id) + '">' +
   '<span class="tm">AM</span>Blocked' + (full ? '<span class="sub">EDH ' + time12(b.time) + ' shift the night before</span>' : '') + '</button>';
 /* Everything on one day in time order: the carried-over morning first, then entries and jobs by start time. */
-/* Google Calendar events: grey, marked G. All-day ones sort first. */
-const gChip = (g, full) => '<button type="button" class="job gev" data-gev="' + esc(g.id) + '">' +
+/* Google Calendar events: grey, marked G (EDH shifts gold). All-day ones sort first. */
+const gCls = g => /\bedh\b/i.test(g.title || "") ? "b-edh" : "gev";
+const gChip = (g, full) => '<button type="button" class="job ' + gCls(g) + '" data-gev="' + esc(g.id) + '">' +
   '<span class="tm">' + (g.allDay ? "G" : "G " + time12(g.time)) + '</span>' + esc(g.title) +
   (full && g.location ? '<span class="sub">' + esc(g.location) + '</span>' : '') + '</button>';
-const gCard = g => '<article class="dcard gev">' +
+const gCard = g => '<article class="dcard ' + gCls(g) + '">' +
   '<div class="dctime">' + (g.allDay ? "All day" : time12(g.time) + " \u2013 " + endText(g.end)) + '</div>' +
   '<div><button type="button" class="dcname" data-gev="' + esc(g.id) + '">' + esc(g.title) + '</button>' +
     '<div class="dcsvc">Google Calendar' + (g.location ? " \u00b7 " + esc(g.location) : "") + '</div></div></article>';
