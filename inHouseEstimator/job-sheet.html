@@ -343,6 +343,7 @@ body:not(.summ) .srow.gone{opacity:0}
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
       <button type="button" class="ghost" id="offlineBtn" hidden>Download offline job sheet</button>
       <button type="button" class="ghost" id="printBtn">Print</button>
+      <button type="button" class="ghost" id="refreshBtn">Refresh</button>
       <a class="ghost" id="backBtn" href="./approved-leads.html">Back</a>
     </div>
   </div>
@@ -1970,6 +1971,19 @@ else onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=job-sheet.html"); return; }
   document.getElementById("authwait")?.remove();
   if (!started) { started = true; startOffline(storage); show(); }
+});
+
+/* Refresh: saves first (same as the Save button) when the sheet has loaded, then reloads.
+   If the save fails it stays here with the error showing, so nothing typed is lost. */
+document.getElementById("refreshBtn").addEventListener("click", async e => {
+  const b = e.currentTarget, s = document.getElementById("saveBtn"), n = document.getElementById("note");
+  b.disabled = true;
+  if (s && !s.disabled) {
+    b.textContent = "Saving…"; s.click();
+    for (let i = 0; i < 50 && s.disabled; i++) await new Promise(r => setTimeout(r, 200));
+    if (n && n.classList.contains("err")) { b.disabled = false; b.textContent = "Refresh"; return; }
+  }
+  location.reload();
 });
 </script>
 <script src="./tabbar.js" defer></script>

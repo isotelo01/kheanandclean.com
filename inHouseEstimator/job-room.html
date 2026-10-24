@@ -140,6 +140,7 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <h1 id="title">Rooms</h1>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
+      <button type="button" class="ghost" id="refreshBtn">Refresh</button>
       <a class="ghost" id="backBtn" href="./job-sheet.html">Back to Job Sheet</a>
     </div>
   </div>
@@ -630,6 +631,12 @@ document.getElementById("backBtn").addEventListener("click", async e => {
   const ok = await saveBefore();
   if (ok) { location.href = href; return; }
   a.style.pointerEvents = ""; a.textContent = "Back to Job Sheet";
+});
+/* Refresh: saves first (same as Back to Job Sheet) when there's something to save, then reloads. */
+document.getElementById("refreshBtn").addEventListener("click", async e => {
+  const b = e.currentTarget; b.disabled = true;
+  if (saveBefore) { b.textContent = "Saving…"; if (!(await saveBefore())) { b.disabled = false; b.textContent = "Refresh"; return; } }
+  location.reload();
 });
 
 /* Page lock. Not signed in -> login page, then back here. */
