@@ -386,8 +386,8 @@ function initSketch(d){
     if (!skDrag) return;
     const p = toFt(e);
     if (skDrag.type === "door") sk.doors[skDrag.i].t = wallT(sk.doors[skDrag.i].w, p).t;
-    else if (skDrag.type === "pt") sk.pts[skDrag.i] = [snap(p[0]), snap(p[1])];
-    else if (skDrag.type === "cp") sk.cuts[skDrag.ci].pts[skDrag.j] = [snap(p[0]), snap(p[1])];
+    else if (skDrag.type === "pt") sk.pts[skDrag.i] = squareSnap(sk.pts, skDrag.i, p);
+    else if (skDrag.type === "cp") sk.cuts[skDrag.ci].pts[skDrag.j] = squareSnap(sk.cuts[skDrag.ci].pts, skDrag.j, p);
     else if (skDrag.type === "cut") {   /* move the whole cutout in half-foot steps */
       const dx = snap(p[0] - skDrag.last[0]), dy = snap(p[1] - skDrag.last[1]);
       if (dx || dy) { sk.cuts[skDrag.i].pts.forEach(o => { o[0] += dx; o[1] += dy; }); skDrag.last = [skDrag.last[0] + dx, skDrag.last[1] + dy]; }
@@ -434,6 +434,14 @@ function initSketch(d){
   drawSketch();
 }
 const SK_HELP = "Drag a corner · tap + to add one · tap a cutout to reshape it · your changes are final";
+/* Square corners: a dragged corner sticks in line with the corners next to it (walls stay straight
+   across / straight up and down) when it's within ~16px. Drag further to pull it off for an angled wall. */
+function squareSnap(arr, j, p){
+  const n = arr.length, a = arr[(j - 1 + n) % n], b = arr[(j + 1) % n], tol = 16 / sk.k;
+  const near = (v, ax) => [a[ax], b[ax]].sort((u, w) => Math.abs(v - u) - Math.abs(v - w))[0];
+  const nx = near(p[0], 0), ny = near(p[1], 1);
+  return [Math.abs(p[0] - nx) < tol ? nx : snap(p[0]), Math.abs(p[1] - ny) < tol ? ny : snap(p[1])];
+}
 const polyA = pts => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
 /* Edit mode: full screen, handles showing. Done shrinks it back and locks it again. */
 function setEditing(on){
