@@ -4,7 +4,7 @@
    - Photos taken with no service are held on the phone and show right away; they upload on
      their own once service is back (next time a job sheet or room page is open).
    - "Download offline job sheet" saves the pages and app files to the phone. */
-import { initializeFirestore, getFirestore as fsGetFirestore, persistentLocalCache, persistentMultipleTabManager,
+import { initializeFirestore, getFirestore as fsGetFirestore, persistentLocalCache, persistentSingleTabManager,
   getDoc as fsGetDoc, getDocFromCache, setDoc as fsSetDoc, updateDoc as fsUpdateDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { uploadBytes as stUpload, getDownloadURL as stUrl, ref as stRef }
@@ -14,8 +14,11 @@ const FB = "https://www.gstatic.com/firebasejs/12.19.0/";
 export const OFFLINE_CACHE = "kc-offline-pages";   /* sw.js reads this one and never clears it */
 
 /* ---- Firestore with the on-phone copy ---- */
+/* One-tab mode, and the page just opened takes over the on-phone copy right away. The shared
+   multi-tab mode hung on iPhone/iPad going job sheet -> room page (stuck on Loading): Safari
+   still held the job sheet's copy, and the room page waited on it forever. */
 export function getFirestore(app){
-  try { return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+  try { return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({ forceOwnership: true }) }) }); }
   catch (e) { console.error(e); return fsGetFirestore(app); }
 }
 /* No service and the job isn't on the phone either: treat it as not found instead of failing. */
