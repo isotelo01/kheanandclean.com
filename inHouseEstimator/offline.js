@@ -20,9 +20,12 @@ export function getFirestore(app){
 }
 /* No service and the job isn't on the phone either: treat it as not found instead of failing. */
 const missing = { exists: () => false, data: () => undefined };
+/* iPhone: the on-phone copy can get stuck and never answer, leaving the page on Loading. Don't wait forever. */
+const SLOW = "Took too long to load. Tap Refresh.";
+const within = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(SLOW)), ms))]);
 export async function getDoc(r){
-  try { return await fsGetDoc(r); }
-  catch (e) { try { return await getDocFromCache(r); } catch (e2) { return missing; } }
+  try { return await within(fsGetDoc(r), 10000); }
+  catch (e) { try { return await within(getDocFromCache(r), 3000); } catch (e2) { if (e.message === SLOW) throw e; return missing; } }
 }
 /* With no service a write is kept on the phone right away, but Firestore only says "done" once
    the server has it. Don't make the page wait for that: after a short wait it counts as saved. */
@@ -63,9 +66,9 @@ export async function uploadBytes(r, blob, meta){
 /* A photo still waiting on the phone shows from the phone. Otherwise the link is fetched as
    usual and remembered, so its link is still known with no service. */
 export async function getDownloadURL(r){
-  try { const q = await qGet(r.fullPath); if (q && q.blob) return URL.createObjectURL(q.blob); } catch (e) {}
+  try { const q = await within(qGet(r.fullPath), 2000); if (q && q.blob) return URL.createObjectURL(q.blob); } catch (e) {}
   const k = "kcUrl:" + r.fullPath;
-  try { const u = await stUrl(r); try { localStorage.setItem(k, u); } catch (e) {} return u; }
+  try { const u = await within(stUrl(r), 15000); try { localStorage.setItem(k, u); } catch (e) {} return u; }
   catch (e) { let u = null; try { u = localStorage.getItem(k); } catch (x) {} if (u) return u; throw e; }
 }
 /* Back in service: send the waiting photos up, oldest first. A photo that already made it up
