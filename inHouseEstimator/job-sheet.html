@@ -667,7 +667,7 @@ const ROOM_TYPES = PRICING.ROOM_TYPES.filter(rt => rt.key !== "stairs");
 /* Add-ons offered by the + on each service line, straight from the estimator's list in
    pricing.js (Flight of Stairs and Area Rugs are already on the job). */
 /* Hair & debris isn't in the + list: it's the checkbox on each carpet room's page. */
-const ADDON_KEYS = { carpet: ["deo", "prot", "filter", "stretch", "pet", "stain"], tile: ["seal", "acid"] };
+const ADDON_KEYS = { carpet: ["deo", "prot", "filter", "stretch", "pet", "stain"], tile: ["clearseal", "seal", "acid"] };
 const addonsFor = svc => (ADDON_KEYS[svc] || [])
   .map(k => ({ key: k, svc, ...(((PRICING.SERVICES[svc] || {}).addons || {})[k] || {}) })).filter(a => a.name);
 const CARPET_ADDONS = addonsFor("carpet");

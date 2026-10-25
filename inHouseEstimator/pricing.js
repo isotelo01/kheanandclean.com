@@ -69,7 +69,9 @@
       addons: {
         stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
                    text:'$100 per flight' },
-        seal: { name:'Grout color seal', linear:1.00, needsQty:true, qtyDefault:0, qtyStep:10, text:'$1.00 / sq ft',
+        clearseal: { name:'Grout clear seal', linear:1.50, needsQty:true, qtyDefault:0, qtyStep:10, text:'$1.50 / sq ft',
+                 allTileLabel:'All Grout' },
+        seal: { name:'Grout color seal', linear:1.50, needsQty:true, qtyDefault:0, qtyStep:10, text:'$1.50 / sq ft',
                  allTileLabel:'All Grout' },
         acid: { name:'Acid treatment',  linear:1.00, needsQty:true, qtyDefault:0, qtyStep:10, text:'$1.00 / sq ft' }
       },

@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-lotus-192.png">
+<title>Quote Finder &middot; Khean &amp; Clean</title>
+<meta name="description" content="Answer a few quick questions and get your carpet, tile, upholstery or hard floor cleaning price in about two minutes.">
+<meta name="theme-color" content="#0A0A0B">
+<meta property="og:title" content="Get your cleaning price in 2 minutes · Khean & Clean">
+<meta property="og:image" content="https://kheanandclean.com/images/hero-van.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Quote Finder: the guided walkthrough. One question at a time; the answers fill the
+   same estimate the homepage and the in-house estimator use (pricing.js + the Settings
+   prices via pricing-live.js), and the lead it files carries estimateData, so New quote
+   on the Leads page rebuilds it in the estimator. Plain Archivo everywhere. */
+:root{
+  --ink:#0A0A0B; --ink-2:#161310; --card:#1b1814; --line:rgba(244,239,226,.16);
+  --gold:#E3B64A; --gold-d:#b98f2e; --ivory:#F4EFE2; --muted:rgba(244,239,226,.62);
+  --green:#7fd1a4; --red:#ff9b8a;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; }
+body{ min-height:100svh; background:var(--ink); color:var(--ivory);
+  font:400 17px/1.45 "Archivo",system-ui,-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
+[hidden]{ display:none !important; }
+a{ color:var(--gold); }
+.wrap{ max-width:560px; margin:0 auto; padding:16px 16px calc(32px + env(safe-area-inset-bottom)); }
+/* Letterhead */
+.head{ text-align:center; padding:6px 0 14px; border-bottom:1px solid var(--line); margin-bottom:18px; }
+.head img{ display:block; width:min(300px,48vw); height:auto; margin:0 auto 4px; }
+.head p{ margin:0; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+.head a{ color:var(--muted); text-decoration:none; }
+/* Progress */
+.bar{ height:4px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden; margin:0 0 20px; }
+.bar i{ display:block; height:100%; width:0; background:var(--gold); transition:width .3s ease; }
+/* Screens */
+.step h1{ font-size:1.55rem; line-height:1.2; margin:0 0 8px; font-weight:700; }
+.step .lead{ margin:0 0 18px; color:var(--muted); }
+.step .pitch{ margin:0 0 18px; padding:12px 14px; border-left:3px solid var(--gold); background:rgba(227,182,74,.07); border-radius:0 10px 10px 0; }
+.opts{ display:grid; gap:10px; }
+.opt{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; text-align:left;
+  background:var(--card); color:var(--ivory); border:1px solid var(--line); border-radius:14px;
+  padding:15px 16px; font:600 1.02rem "Archivo",sans-serif; cursor:pointer; }
+.opt small{ display:block; font-weight:400; font-size:.85rem; color:var(--muted); margin-top:2px; }
+.opt:hover{ border-color:var(--gold-d); }
+.opt[aria-pressed="true"]{ border-color:var(--gold); background:rgba(227,182,74,.12); }
+.opt[aria-pressed="true"]::after{ content:"\2713"; color:var(--gold); font-size:1.1rem; }
+/* Counter rows */
+.row{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--card);
+  border:1px solid var(--line); border-radius:14px; padding:12px 12px 12px 16px; }
+.row.on{ border-color:var(--gold); }
+.row .nm{ font-weight:600; }
+.row .nm small{ display:block; font-weight:400; font-size:.83rem; color:var(--muted); }
+.ctr{ display:flex; align-items:center; gap:4px; flex:none; }
+.ctr button{ width:42px; height:42px; border-radius:50%; border:1px solid var(--line); background:transparent;
+  color:var(--ivory); font:700 1.3rem "Archivo",sans-serif; cursor:pointer; line-height:1; }
+.ctr button:disabled{ opacity:.3; cursor:default; }
+.ctr output{ min-width:30px; text-align:center; font-weight:700; font-size:1.1rem; font-variant-numeric:tabular-nums; }
+.seg{ display:flex; gap:6px; flex:none; }
+.seg button{ border:1px solid var(--line); background:transparent; color:var(--ivory); border-radius:999px;
+  padding:9px 12px; font:600 .9rem "Archivo",sans-serif; cursor:pointer; }
+.seg button[aria-pressed="true"]{ background:var(--gold); color:var(--ink); border-color:var(--gold); }
+/* Buttons */
+.go{ display:block; width:100%; margin-top:18px; background:var(--gold); color:var(--ink); border:0; border-radius:999px;
+  padding:16px; font:700 1.05rem "Archivo",sans-serif; cursor:pointer; }
+.go:disabled{ opacity:.5; cursor:default; }
+.go.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold); }
+.back{ background:none; border:0; color:var(--muted); font:500 .9rem "Archivo",sans-serif; padding:6px 0; margin:0 0 10px; cursor:pointer; }
+:where(button,a,input,select):focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+/* Photos */
+.tips{ margin:0 0 16px; padding-left:20px; color:var(--muted); }
+.tips li{ margin:3px 0; }
+.pbtns{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.thumbs{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+.thumbs div{ position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; background:#222; }
+.thumbs img{ width:100%; height:100%; object-fit:cover; display:block; }
+.thumbs button{ position:absolute; top:4px; right:4px; width:26px; height:26px; border-radius:50%; border:0;
+  background:rgba(0,0,0,.7); color:#fff; font-size:1rem; line-height:1; cursor:pointer; }
+/* Estimate */
+.est{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; }
+.est .svc{ padding:10px 0; border-bottom:1px solid var(--line); }
+.est .svc:last-of-type{ border-bottom:0; }
+.est .ln{ display:flex; justify-content:space-between; gap:12px; }
+.est .ln b{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+.est .sub{ font-size:.88rem; color:var(--muted); }
+.est .tot{ display:flex; justify-content:space-between; align-items:baseline; margin-top:10px; padding-top:12px; border-top:2px solid var(--gold); }
+.est .tot b{ font-size:1.9rem; color:var(--gold); font-variant-numeric:tabular-nums; }
+.note{ font-size:.86rem; color:var(--muted); margin:10px 0 0; }
+.checks{ display:grid; gap:8px; margin-top:8px; }
+.checks label{ display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line);
+  border-radius:12px; padding:12px 14px; cursor:pointer; }
+.checks input{ width:20px; height:20px; accent-color:var(--gold); }
+h2{ font-size:1.1rem; margin:22px 0 4px; }
+/* Contact form */
+label.f{ display:block; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:12px 0 5px; }
+input.t{ width:100%; background:rgba(255,255,255,.05); color:var(--ivory); border:1px solid var(--line);
+  border-radius:12px; padding:13px 14px; font:inherit; }
+input.t:focus{ outline:none; border-color:var(--gold); }
+.two{ display:grid; grid-template-columns:2fr 1fr; gap:10px; }
+.consent{ margin-top:18px; padding:14px; border:1px solid var(--line); border-radius:14px; }
+.consent p{ margin:0 0 8px; }
+.consent .q{ font-weight:700; }
+.consent .fine{ font-size:.78rem; color:var(--muted); margin:10px 0 0; }
+.consent .yn{ display:flex; gap:10px; }
+.consent .yn label, .consent .promo{ display:flex; align-items:center; gap:8px; cursor:pointer; }
+.consent .yn label{ flex:1; border:1px solid var(--line); border-radius:12px; padding:11px 12px; }
+.consent .promo{ margin-top:10px; font-size:.92rem; }
+.consent input{ width:20px; height:20px; accent-color:var(--gold); }
+.err{ color:var(--red); font-size:.88rem; min-height:1.2em; margin:8px 0 0; }
+.hp{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+.done{ text-align:center; }
+.done .big{ font-size:3rem; color:var(--green); line-height:1; margin:10px 0; }
+@media (min-width:640px){ body{ font-size:18px; } .wrap{ padding-top:28px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <a href="/"><img src="/images/logo-clear-1280.png" alt="Khean &amp; Clean Steam Cleaning" width="1280" height="420"></a>
+    <p><a href="tel:+19167672520">Folsom &middot; (916) 767-2520</a></p>
+  </header>
+  <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+  <button type="button" class="back" id="back" hidden>&larr; Back</button>
+  <main id="screen" aria-live="polite"></main>
+</div>
+
+<!-- Prices: pricing.js holds the starting prices, pricing-live.js lays the Settings prices over them. -->
+<script src="/inHouseEstimator/pricing.js"></script>
+<script src="/inHouseEstimator/pricing-live.js"></script>
+<script>
+(function(){
+  'use strict';
+  var P = window.KC_PRICING, S = P.SERVICES;
+  var screen = document.getElementById('screen'), backBtn = document.getElementById('back'), bar = document.getElementById('bar');
+
+  /* Bedroom sizes for this walkthrough: a standard bedroom is 10x12, the master is
+     12x14 (medium) or 14x16 (large). They go into the estimate as square feet. */
+  var BED = 120, MASTER = { med:{ label:'Medium', dims:'about 12×14', sqft:168 }, lg:{ label:'Large', dims:'about 14×16', sqft:224 } };
+
+  /* Room lists per floor type. Each key is a room from pricing.js / Settings (its size comes
+     from there); 'beds' is the standard bedroom above. */
+  var LISTS = {
+    carpet: ['beds','living','hallway','stairs','den','loft','closet','dining'],
+    tile:   ['kitchen','fullBath','masterBath','halfBath','foyer','grandFoyer','laundry'],
+    lvp:    ['kitchen','living','dining','foyer','hallway','beds','fullBath','laundry','stairs'],
+    stone:  ['kitchen','foyer','fullBath','masterBath','halfBath','dining','living','laundry','stairs']
+  };
+  var NAMES = { beds:'Bedrooms', living:'Living / family rooms', hallway:'Hallways', stairs:'Flights of stairs',
+    den:'Office / den', loft:'Loft / bonus room', closet:'Walk-in closets', dining:'Dining room',
+    kitchen:'Kitchen', fullBath:'Bathrooms', masterBath:'Master bathroom', halfBath:'Half bath / powder room',
+    foyer:'Entry / foyer', grandFoyer:'Grand foyer', laundry:'Laundry room' };
+  var SVC = {
+    carpet:{ name:'Carpet', word:'carpet' }, tile:{ name:'Tile & grout', word:'tile' },
+    upholstery:{ name:'Upholstery', word:'furniture' }, lvp:{ name:'Hardwood / LVP', word:'hardwood' },
+    stone:{ name:'Natural stone', word:'stone' }
+  };
+  var ORDER = ['carpet','tile','lvp','stone','upholstery'];
+
+  var room = function(k){ var r = null; P.ROOM_TYPES.forEach(function(x){ if(x.key === k) r = x; }); return r; };
+  var sqftOf = function(k){ return k === 'beds' ? BED : ((room(k) || {}).sqft || 0); };
+  var stairsPrice = function(){ var r = room('stairs'); return r && r.flat != null ? r.flat : S.carpet.addons.stairs.linear; };
+  var money = function(n){ return '$' + Math.round(n).toLocaleString('en-US'); };
+  var cents = function(n){ return '$' + n.toFixed(2); };
+  var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+
+  /* Everything the customer answers. */
+  var A = { problem:'', svcs:[], story:'', rooms:{}, master:{}, rugs:{ med:0, lg:0 }, pet:0, stain:0,
+            vacuum:'', tier:'', matters:'', seal:'', uph:{}, uphPets:'', photos:[], skippedPhotos:false, disc:{} };
+  ORDER.forEach(function(k){ A.rooms[k] = {}; });
+
+  function sqftFor(svc){
+    var t = 0, r = A.rooms[svc] || {};
+    Object.keys(r).forEach(function(k){ if(k !== 'stairs') t += (r[k] || 0) * sqftOf(k); });
+    if(svc === 'carpet' && A.master.carpet) t += MASTER[A.master.carpet].sqft;
+    return t;
+  }
+
+  /* ---- The estimate: the same STATE the estimators use, priced the same way ---- */
+  function buildState(){
+    var st = {};
+    ['carpet','tile','stone','lvp','commcarpet','commhard'].forEach(function(k){
+      var rooms = {}, addons = {}, defs = S[k].addons || {};
+      P.ROOM_TYPES.forEach(function(rt){ rooms[rt.key] = 0; });
+      Object.keys(defs).forEach(function(a){
+        addons[a] = { on:false };
+        if(defs[a].needsQty) addons[a].qty = defs[a].qtyDefault;
+        if(defs[a].sizes){ addons[a].sizes = {}; defs[a].sizes.forEach(function(z){ addons[a].sizes[z.key] = 0; }); }
+      });
+      st[k] = { mode:'sqft', sqft:0, rooms:rooms, collapsed:false, addons:addons, touched:false };
+    });
+    st.upholstery = { items:{}, touched:false };
+    S.upholstery.items.forEach(function(it){ st.upholstery.items[it.key] = A.uph[it.key] || 0; });
+
+    ['carpet','tile','lvp','stone'].forEach(function(k){
+      if(A.svcs.indexOf(k) < 0) return;
+      var s = st[k], r = A.rooms[k], extra = 0;
+      s.mode = 'room';
+      Object.keys(r).forEach(function(rk){
+        if(!r[rk]) return;
+        if(rk === 'beds') extra += r[rk] * BED;               /* bedrooms ride in as square feet */
+        else if(s.rooms[rk] != null) s.rooms[rk] = r[rk];
+        else extra += r[rk] * sqftOf(rk);
+      });
+      if(k === 'carpet' && A.master.carpet) extra += MASTER[A.master.carpet].sqft;
+      if(extra) s.rooms.addSqft = (s.rooms.addSqft || 0) + extra;
+      s.touched = true;
+    });
+    var c = st.carpet;
+    c.tier = A.tier || 'deep';
+    c.addons.dry.on = c.tier !== 'essential';
+    c.dryDefaultApplied = true;
+    if(A.rugs.med || A.rugs.lg){ c.addons.rug.on = true; c.addons.rug.sizes.med = A.rugs.med; c.addons.rug.sizes.lg = A.rugs.lg; }
+    if(A.pet){ c.addons.pet.on = true; c.addons.pet.qty = A.pet; }
+    if(A.stain){ c.addons.stain.on = true; c.addons.stain.qty = A.stain; }
+    if(A.vacuum === 'us' && c.addons.hair) c.addons.hair.on = true;
+    if(A.seal && st.tile.addons[A.seal]){ st.tile.addons[A.seal].on = true; st.tile.addons[A.seal].qty = sqftFor('tile'); }
+    if(A.svcs.indexOf('upholstery') > -1) st.upholstery.touched = true;
+    return st;
+  }
+
+  /* Same rules as computeServiceItems on the homepage and in app.js. */
+  function items(k, st){
+    var s = S[k], x = st[k], out = [];
+    if(s.mode !== 'area'){
+      s.items.forEach(function(it){ var q = x.items[it.key] || 0; if(q > 0) out.push({ label: it.name + (q > 1 ? ' × ' + q : ''), cost: q * it.ft * s.rate }); });
+      return out;
+    }
+    var sqft = 0, flat = 0;
+    P.ROOM_TYPES.forEach(function(rt){ var q = x.rooms[rt.key] || 0; if(rt.flat != null) flat += q * rt.flat; else sqft += q * rt.sqft; });
+    var rate = k === 'carpet' ? s.tiers[x.tier || 'essential'].sqft : s.rate;
+    if(sqft > 0) out.push({ label: (k === 'carpet' ? s.tiers[x.tier].name : s.name) + ' — ' + sqft.toLocaleString() + ' sq ft', cost: sqft * rate });
+    if(flat > 0) out.push({ label: (x.rooms.stairs >= 2 ? 'Flights of Stairs × ' + x.rooms.stairs : 'Flight of Stairs'), cost: flat });
+    Object.keys(s.addons || {}).forEach(function(a){
+      var d = s.addons[a], o = x.addons[a];
+      if(a === 'stairs') return;
+      if(k === 'carpet' && x.tier === 'signature' && ['dry','deo','prot'].indexOf(a) > -1) return;
+      if(k === 'carpet' && x.tier === 'essential' && ['prot','filter'].indexOf(a) > -1) return;
+      if(k === 'carpet' && x.tier === 'quickdry' && ['dry','prot'].indexOf(a) > -1) return;
+      if(k === 'carpet' && x.tier === 'deep' && a === 'dry'){ out.push({ label: d.name, cost: 0, included: true }); return; }
+      if(!o || !o.on) return;
+      if(d.sizes){ d.sizes.forEach(function(z){ var n = (o.sizes || {})[z.key] || 0; if(n > 0) out.push({ label: d.name + ' — ' + z.label + ' × ' + n, cost: n * z.price }); }); return; }
+      var cost = d.needsQty ? (o.qty || 0) * d.linear : d.flat ? d.flat : sqft * d.sqft;
+      var nm = d.name;
+      if((a === 'pet' || a === 'stain') && o.qty > 1) nm += ' × ' + o.qty;
+      if(cost > 0) out.push({ label: nm, cost: cost });
+    });
+    return out;
+  }
+  function estimate(){
+    var st = buildState(), rows = [], sum = 0;
+    ORDER.forEach(function(k){
+      if(!st[k].touched) return;
+      var it = items(k, st), cost = it.reduce(function(t, i){ return t + i.cost; }, 0);
+      if(cost <= 0) return;
+      rows.push({ key:k, name:S[k].name, cost:cost, items:it }); sum += cost;
+    });
+    var min = window.KC_MINJOB != null ? window.KC_MINJOB : 150;
+    return { st:st, rows:rows, sum:sum, total: rows.length ? Math.max(sum, min) : 0, min:min };
+  }
+
+  /* ---- Screens ---- */
+  var hist = [];
+  function show(fn, push){
+    if(push !== false && cur) hist.push(cur);
+    cur = fn;
+    backBtn.hidden = !hist.length;
+    screen.innerHTML = '';
+    var el = document.createElement('section'); el.className = 'step';
+    screen.appendChild(el);
+    fn(el);
+    var i = FLOW().indexOf(fn); bar.style.width = (i < 0 ? 100 : Math.round(100 * i / (FLOW().length - 1))) + '%';
+    window.scrollTo(0, 0);
+    var h = el.querySelector('h1'); if(h){ h.tabIndex = -1; h.focus({ preventScroll:true }); }
+  }
+  var cur = null;
+  backBtn.onclick = function(){ if(hist.length) show(hist.pop(), false); };
+
+  /* The order of screens, worked out from the answers so far. */
+  function FLOW(){
+    var f = [sProblem, sServices];
+    var floors = A.svcs.some(function(k){ return k !== 'upholstery'; });
+    if(floors) f.push(sStory);
+    if(has('carpet')){
+      f.push(sRooms('carpet'));
+      /* The quick checks stay in the flow once shown, so answering them doesn't reshuffle the order. */
+      if(A.story === '2' && (!(A.rooms.carpet.stairs > 0) || A.askedStairs)) f.push(sStairsCheck);
+      if(!(A.rooms.carpet.hallway > 0) || A.askedHall) f.push(sHallCheck);
+      f.push(sRugs, sSpots, sVacuum, sMatters);
+    }
+    if(has('tile')) f.push(sRooms('tile'), sSeal);
+    if(has('lvp')) f.push(sRooms('lvp'));
+    if(has('stone')) f.push(sRooms('stone'));
+    if(has('upholstery')) f.push(sUph, sUphPets);
+    f.push(sPhotos, sPrice, sContact);
+    return f;
+  }
+  var cache = {};
+  function sRooms(k){ return cache['rooms_' + k] || (cache['rooms_' + k] = function(el){ roomsScreen(el, k); }); }
+  function has(k){ return A.svcs.indexOf(k) > -1; }
+  function next(){
+    var f = FLOW(), i = f.indexOf(cur);
+    show(f[i + 1] || sPrice);
+  }
+
+  function h(el, title, lead){ el.innerHTML = '<h1>' + title + '</h1>' + (lead ? '<p class="lead">' + lead + '</p>' : ''); }
+  /* One-tap choices: tapping moves on by itself. */
+  function choices(el, list, pick, picked){
+    var box = document.createElement('div'); box.className = 'opts';
+    list.forEach(function(o){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+      b.innerHTML = '<span>' + o.t + (o.s ? '<small>' + o.s + '</small>' : '') + '</span>';
+      if(picked === o.v) b.setAttribute('aria-pressed', 'true');
+      b.onclick = function(){ pick(o.v); next(); };
+      box.appendChild(b);
+    });
+    el.appendChild(box);
+  }
+  function goBtn(el, text, fn, ghost){
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'go' + (ghost ? ' ghost' : '');
+    b.textContent = text; b.onclick = fn || next; el.appendChild(b); return b;
+  }
+  function counter(name, sub, get, set, max){
+    var row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = '<span class="nm">' + name + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
+      '<span class="ctr"><button type="button" aria-label="One less ' + esc(name) + '">&minus;</button><output>0</output>' +
+      '<button type="button" aria-label="One more ' + esc(name) + '">+</button></span>';
+    var bs = row.querySelectorAll('button'), out = row.querySelector('output');
+    var draw = function(){ var v = get(); out.textContent = v; bs[0].disabled = v <= 0; bs[1].disabled = v >= (max || 20); row.classList.toggle('on', v > 0); };
+    bs[0].onclick = function(){ set(Math.max(0, get() - 1)); draw(); };
+    bs[1].onclick = function(){ set(Math.min(max || 20, get() + 1)); draw(); };
+    /* Tapping the row itself adds one. */
+    row.querySelector('.nm').onclick = function(){ bs[1].click(); };
+    draw(); return row;
+  }
+
+  function sProblem(el){
+    h(el, 'We’re here for you. What can we help with?', 'Pick the one that sounds most like your home.');
+    choices(el, [
+      { v:'Pet odor', t:'Pet odor' }, { v:'Pet stains', t:'Pet stains' }, { v:'Spots and stains', t:'Spots and stains' },
+      { v:'Dull traffic lanes', t:'Dull, matted traffic lanes' }, { v:'Hasn’t been cleaned in a long time', t:'It hasn’t been cleaned in a long time' },
+      { v:'Looks fine, just want a refresh', t:'It looks fine, I just want a refresh', s:'Even clean-looking carpet holds body oils a vacuum can’t lift. A deep clean stands the fibers back up.' }
+    ], function(v){ A.problem = v; }, A.problem);
+  }
+
+  function sServices(el){
+    h(el, 'What would you like cleaned?', 'Tap as many as you like.');
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    var go;
+    ORDER.forEach(function(k){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+      b.innerHTML = '<span>' + SVC[k].name + '</span>';
+      b.setAttribute('aria-pressed', String(has(k)));
+      b.onclick = function(){
+        var on = !has(k);
+        A.svcs = on ? A.svcs.concat(k) : A.svcs.filter(function(x){ return x !== k; });
+        A.svcs.sort(function(a, c){ return ORDER.indexOf(a) - ORDER.indexOf(c); });
+        b.setAttribute('aria-pressed', String(on)); go.disabled = !A.svcs.length;
+      };
+      box.appendChild(b);
+    });
+    go = goBtn(el, 'Next'); go.disabled = !A.svcs.length;
+  }
+
+  function sStory(el){
+    h(el, 'Is your home one story or two?');
+    choices(el, [{ v:'1', t:'One story' }, { v:'2', t:'Two stories' }], function(v){ A.story = v; }, A.story);
+  }
+
+  function roomsScreen(el, k){
+    var lead = { carpet:'Let’s map out your carpet so we can price it. Tap the rooms you want cleaned.',
+      tile:'Now your tile. Tap the rooms with tile you want cleaned.',
+      lvp:'Now your hardwood or LVP. Tap the rooms you want cleaned.',
+      stone:'Now your natural stone. Tap the rooms you want cleaned.' }[k];
+    h(el, k === 'carpet' ? 'Which rooms have carpet?' : 'Which rooms have ' + SVC[k].word + '?', lead);
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    var r = A.rooms[k];
+    LISTS[k].forEach(function(key){
+      if(key !== 'beds' && !room(key)) return;   /* a room hidden or removed on the Settings page */
+      var sub = key === 'beds' ? 'about 10×12 each' : key === 'stairs' ? money(stairsPrice()) + ' a flight' : '';
+      box.appendChild(counter(NAMES[key], sub, function(){ return r[key] || 0; }, function(v){ r[key] = v; }, key === 'beds' ? 8 : 10));
+      /* Master bedroom: its own size question, right under the bedrooms. */
+      if(k === 'carpet' && key === 'beds'){
+        var row = document.createElement('div'); row.className = 'row' + (A.master.carpet ? ' on' : '');
+        row.innerHTML = '<span class="nm">Master bedroom<small>' + (A.master.carpet ? MASTER[A.master.carpet].dims : 'medium or large') + '</small></span>';
+        var seg = document.createElement('span'); seg.className = 'seg';
+        [['', 'None'], ['med', 'Medium'], ['lg', 'Large']].forEach(function(o){
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1];
+          b.setAttribute('aria-pressed', String((A.master.carpet || '') === o[0]));
+          b.onclick = function(){
+            A.master.carpet = o[0];
+            seg.querySelectorAll('button').forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
+            row.classList.toggle('on', !!o[0]);
+            row.querySelector('small').textContent = o[0] ? MASTER[o[0]].dims : 'medium or large';
+          };
+          seg.appendChild(b);
+        });
+        row.appendChild(seg); box.appendChild(row);
+      }
+    });
+    goBtn(el, 'That’s all the ' + SVC[k].word);
+  }
+
+  function sStairsCheck(el){
+    A.askedStairs = true;
+    h(el, 'Any carpeted stairs?', 'Two-story homes usually have a staircase. ' + money(stairsPrice()) + ' a flight.');
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    var r = A.rooms.carpet;
+    box.appendChild(counter('Flights of stairs', '', function(){ return r.stairs || 0; }, function(v){ r.stairs = v; }, 6));
+    goBtn(el, 'Next');
+  }
+  function sHallCheck(el){
+    A.askedHall = true;
+    h(el, 'Is there a carpeted hallway?', 'Easy to forget, and it usually gets the most foot traffic.');
+    choices(el, [{ v:1, t:'Yes, add a hallway' }, { v:0, t:'No hallway' }], function(v){ A.rooms.carpet.hallway = v; });
+  }
+
+  function sRugs(el){
+    h(el, 'Any area rugs you want cleaned?');
+    var sizes = S.carpet.addons.rug.sizes, box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    sizes.forEach(function(z){
+      box.appendChild(counter(z.label, money(z.price) + ' each', function(){ return A.rugs[z.key] || 0; }, function(v){ A.rugs[z.key] = v; }, 10));
+    });
+    goBtn(el, 'Next');
+    goBtn(el, 'No area rugs', function(){ A.rugs = { med:0, lg:0 }; next(); }, true);
+  }
+
+  function sSpots(el){
+    h(el, 'Any pet accidents or stains we should treat?', 'A rough count is fine. We confirm on site.');
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    box.appendChild(counter('Pet odor spots', S.carpet.addons.pet.text, function(){ return A.pet; }, function(v){ A.pet = v; }, 30));
+    box.appendChild(counter('Stains / spots', S.carpet.addons.stain.text, function(){ return A.stain; }, function(v){ A.stain = v; }, 30));
+    goBtn(el, 'Next');
+    goBtn(el, 'None', function(){ A.pet = 0; A.stain = 0; next(); }, true);
+  }
+
+  function sVacuum(el){
+    var rate = S.carpet.addons.hair ? S.carpet.addons.hair.sqft : 0.14, sq = sqftFor('carpet');
+    h(el, 'Will you vacuum before we arrive?');
+    var p = document.createElement('p'); p.className = 'pitch';
+    p.textContent = 'A thorough vacuum can double the time of a cleaning. Vacuum it yourself and save, or let us handle it for ' +
+      cents(rate) + ' a square foot' + (sq ? ' (' + money(sq * rate) + ' for your rooms)' : '') + '. Either way, all our time goes into the deep clean.';
+    el.appendChild(p);
+    choices(el, [
+      { v:'me', t:'I’ll vacuum first', s:'Saves you money' },
+      { v:'us', t:'You handle it', s:'+' + (sq ? money(sq * rate) : cents(rate) + ' a sq ft') }
+    ], function(v){ A.vacuum = v; }, A.vacuum);
+  }
+
+  function sMatters(el){
+    h(el, 'What matters most to you?', 'We’ll match you with the right package.');
+    var T = S.carpet.tiers;
+    choices(el, [
+      { v:'quickdry', t:'Dry fast', s:T.quickdry.name + ', our fastest-drying clean' },
+      { v:'deep', t:'The deepest clean', s:T.deep.name },
+      { v:'signature', t:'Keep it clean longer', s:T.signature.name + ', with deodorizer and stain protector' },
+      { v:'essential', t:'The best price', s:T.essential.name }
+    ], function(v){ A.tier = v; A.matters = v; }, A.tier);
+  }
+
+  function sSeal(el){
+    var sq = sqftFor('tile'), a = S.tile.addons;
+    h(el, 'Want your grout sealed so it stays clean longer?');
+    var p = document.createElement('p'); p.className = 'pitch';
+    p.textContent = 'We come in and make your kitchen and entry look brand new in just a few hours. Sealing locks it in.';
+    el.appendChild(p);
+    var list = [];
+    if(a.clearseal) list.push({ v:'clearseal', t:'Clear seal', s:'Protects the grout you have. ' + (sq ? '+' + money(sq * a.clearseal.linear) : a.clearseal.text) });
+    if(a.seal) list.push({ v:'seal', t:'Color seal', s:'Even, like-new grout color. ' + (sq ? '+' + money(sq * a.seal.linear) : a.seal.text) });
+    list.push({ v:'', t:'No thanks' });
+    choices(el, list, function(v){ A.seal = v; }, A.seal);
+  }
+
+  function sUph(el){
+    h(el, 'What furniture would you like cleaned?', 'Tap each piece.');
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    S.upholstery.items.forEach(function(it){
+      box.appendChild(counter(it.name, '', function(){ return A.uph[it.key] || 0; }, function(v){ A.uph[it.key] = v; }, 20));
+    });
+    goBtn(el, 'That’s all the furniture');
+  }
+  function sUphPets(el){
+    h(el, 'Any pets or stains on the fabric?', 'Helps us bring the right treatment.');
+    choices(el, [{ v:'Yes', t:'Yes' }, { v:'No', t:'No' }], function(v){ A.uphPets = v; }, A.uphPets);
+  }
+
+  /* Photos: optional, never block anything. */
+  function sPhotos(el){
+    h(el, 'Want a more exact price? Snap a few photos.', 'Photos let us price your home exactly. Totally optional.');
+    el.insertAdjacentHTML('beforeend',
+      '<ul class="tips"><li>Stand in each corner of the room and shoot toward the opposite corner</li>' +
+      '<li>Aim at the floor and baseboards</li><li>Use the 0.5 (wide) zoom if your phone has it</li>' +
+      '<li>Add close-ups of any stains or pet spots</li></ul>' +
+      '<div class="pbtns"><button type="button" class="go ghost" id="cam" style="margin:0">Take photo</button>' +
+      '<button type="button" class="go ghost" id="pick" style="margin:0">Choose photos</button></div>' +
+      '<input type="file" id="camIn" accept="image/*" capture="environment" hidden>' +
+      '<input type="file" id="pickIn" accept="image/*" multiple hidden>' +
+      '<div class="thumbs" id="thumbs"></div><p class="note" id="pnote"></p>');
+    var thumbs = el.querySelector('#thumbs'), urls = [];
+    function draw(){
+      urls.forEach(URL.revokeObjectURL); urls = []; thumbs.innerHTML = '';
+      A.photos.forEach(function(f, i){
+        var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
+        img.src = URL.createObjectURL(f); urls.push(img.src); img.alt = 'Photo ' + (i + 1);
+        x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
+        x.onclick = function(){ A.photos.splice(i, 1); draw(); };
+        d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
+      });
+      el.querySelector('#pnote').textContent = A.photos.length ? A.photos.length + ' of 10 photos' : '';
+      go.textContent = A.photos.length ? 'Add these to my quote' : 'Next';
+    }
+    function add(inp){
+      Array.prototype.forEach.call(inp.files, function(f){ if(A.photos.length < 10 && /^image\//.test(f.type)) A.photos.push(f); });
+      inp.value = ''; draw();
+    }
+    el.querySelector('#camIn').onchange = function(){ add(this); };
+    el.querySelector('#pickIn').onchange = function(){ add(this); };
+    el.querySelector('#cam').onclick = function(){ el.querySelector('#camIn').click(); };
+    el.querySelector('#pick').onclick = function(){ el.querySelector('#pickIn').click(); };
+    var go = goBtn(el, 'Next', function(){ A.skippedPhotos = !A.photos.length; next(); });
+    goBtn(el, 'I can’t do this right now', function(){ A.skippedPhotos = true; next(); }, true);
+    draw();
+  }
+
+  function sPrice(el){
+    var e = estimate();
+    if(!e.rows.length){
+      h(el, 'We’ll price this one by phone', 'Send us your details and we’ll call you with your price.');
+    } else {
+      h(el, 'Here’s your estimate', has('carpet') && A.tier ? 'Your package: <b>' + esc(S.carpet.tiers[A.tier].name) + '</b>' : '');
+      var html = '<div class="est">' + e.rows.map(function(r){
+        return '<div class="svc"><div class="ln"><span><b>' + esc(r.name) + '</b></span><b>' + money(r.cost) + '</b></div>' +
+          r.items.map(function(i){ return '<div class="ln sub"><span>' + esc(i.label) + '</span><span>' + (i.included ? 'Included' : money(i.cost)) + '</span></div>'; }).join('') + '</div>';
+      }).join('') + '<div class="tot"><span>Estimated total</span><b>' + money(e.total) + '</b></div></div>';
+      if(e.total > e.sum) html += '<p class="note">Minimum service charge of ' + money(e.min) + ' applied.</p>';
+      html += '<p class="note">' + (A.photos.length ? 'We’ll check your photos and confirm the exact price.' : 'Final price is confirmed on site.') + '</p>';
+      el.insertAdjacentHTML('beforeend', html);
+    }
+    el.insertAdjacentHTML('beforeend', '<h2>Do any of these apply?</h2><p class="lead" style="margin:0">Check any that fit and we’ll call with your discounted price.</p><div class="checks" id="disc"></div>');
+    var d = el.querySelector('#disc');
+    ['Veteran', 'Senior', 'Whole house', 'Move-out'].forEach(function(t){
+      var l = document.createElement('label');
+      l.innerHTML = '<input type="checkbox"' + (A.disc[t] ? ' checked' : '') + '> ' + t;
+      l.querySelector('input').onchange = function(){ A.disc[t] = this.checked; };
+      d.appendChild(l);
+    });
+    goBtn(el, 'Get my quote');
+  }
+
+  function sContact(el){
+    h(el, 'Where should we send your quote?');
+    el.insertAdjacentHTML('beforeend',
+      '<form id="f" novalidate>' +
+      '<label class="f" for="nm">Name</label><input class="t" id="nm" autocomplete="name" autocapitalize="words" maxlength="120">' +
+      '<label class="f" for="ph">Phone</label><input class="t" id="ph" type="tel" inputmode="tel" autocomplete="tel" maxlength="20">' +
+      '<label class="f" for="em">Email</label><input class="t" id="em" type="email" autocomplete="email" maxlength="160">' +
+      '<label class="f" for="st">Street address</label><input class="t" id="st" autocomplete="street-address" maxlength="160">' +
+      '<div class="two"><div><label class="f" for="ct">City</label><input class="t" id="ct" autocomplete="address-level2" maxlength="80"></div>' +
+      '<div><label class="f" for="zp">Zip</label><input class="t" id="zp" inputmode="numeric" autocomplete="postal-code" maxlength="10"></div></div>' +
+      '<div class="consent" role="radiogroup" aria-labelledby="smsQ">' +
+        '<p class="q" id="smsQ">Can we text you about your quote?</p>' +
+        '<p>If you say yes, Khean &amp; Clean will text you quote links, appointment confirmations and reminders. Choose Yes or No to send. Either way, you get your quote.</p>' +
+        '<div class="yn"><label><input type="radio" name="sms" value="Yes"> Yes, text me</label><label><input type="radio" name="sms" value="No"> No thanks</label></div>' +
+        '<label class="promo"><input type="checkbox" id="promo"> Also text me occasional specials &amp; promotions (optional)</label>' +
+        '<p class="fine">Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. Consent isn’t required to get a quote. <a href="privacy.html">Privacy Policy</a> &middot; <a href="sms-terms.html">SMS Terms</a></p>' +
+      '</div>' +
+      '<label class="hp" aria-hidden="true">Leave empty <input type="checkbox" id="hp" tabindex="-1"></label>' +
+      '<p class="err" id="err" role="alert"></p>' +
+      '<button type="submit" class="go" id="send">Send my quote</button></form>');
+    var $ = function(id){ return el.querySelector('#' + id); };
+    var C = A.contact || {};
+    ['nm','ph','em','st','ct','zp'].forEach(function(id){ if(C[id]) $(id).value = C[id]; $(id).addEventListener('input', function(){ (A.contact = A.contact || {})[id] = this.value; }); });
+    /* Name: first letter of each word capitalized as they type. */
+    $('nm').addEventListener('input', function(){
+      var at = this.selectionStart, v = this.value.replace(/(^|[\s'-])(\p{Ll})/gu, function(m, a, b){ return a + b.toUpperCase(); });
+      if(v !== this.value){ this.value = v; this.setSelectionRange(at, at); }
+    });
+    /* Phone: (916) 767-2520 as they type. */
+    $('ph').addEventListener('input', function(e){
+      var del = e.inputType && e.inputType.indexOf('delete') === 0, d = this.value.replace(/\D/g, '');
+      if(d.length > 10 && d.charAt(0) === '1') d = d.slice(1);
+      d = d.slice(0, 10);
+      this.value = !d ? '' : d.length < 4 ? (del ? d : '(' + d) : d.length < 7 ? '(' + d.slice(0,3) + ') ' + d.slice(3) : '(' + d.slice(0,3) + ') ' + d.slice(3,6) + '-' + d.slice(6);
+    });
+    $('f').addEventListener('submit', function(ev){ ev.preventDefault(); send(el, $); });
+  }
+
+  function sDone(el, booked){
+    bar.style.width = '100%'; backBtn.hidden = true; hist = [];
+    el.className = 'step done';
+    el.innerHTML = '<div class="big">✓</div><h1>Got it, thank you!</h1>' +
+      '<p class="lead">We’ll reach out shortly to confirm your price and pick a day.' +
+      (A.skippedPhotos ? ' Want to add photos later? Text them to <a href="sms:+19167672520">(916) 767-2520</a>.' : '') + '</p>' +
+      '<a class="go ghost" href="/" style="text-decoration:none;text-align:center">Back to the website</a>';
+  }
+
+  /* ---- Send: photos to Storage, the lead to the Leads page (green: it carries the estimate),
+     then the email notice. A failed upload or save never blocks the email. ---- */
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function summary(e){
+    var L = [];
+    L.push('From the Quote Finder walkthrough');
+    if(A.problem) L.push('Main concern: ' + A.problem);
+    L.push('Services: ' + A.svcs.map(function(k){ return SVC[k].name; }).join(', '));
+    if(A.story) L.push('Home: ' + (A.story === '2' ? 'two story' : 'one story'));
+    ['carpet','tile','lvp','stone'].forEach(function(k){
+      if(!has(k)) return;
+      var r = A.rooms[k], parts = [];
+      LISTS[k].forEach(function(key){ if(r[key]) parts.push(NAMES[key] + ' × ' + r[key] + (key === 'beds' ? ' (10×12)' : '')); });
+      if(k === 'carpet' && A.master.carpet) parts.push('Master bedroom: ' + MASTER[A.master.carpet].label.toLowerCase() + ' (' + MASTER[A.master.carpet].dims.replace('about ', '') + ')');
+      L.push(SVC[k].name + ' rooms: ' + (parts.join(', ') || 'none picked'));
+    });
+    if(has('carpet')){
+      L.push('Pre-vacuum: ' + (A.vacuum === 'us' ? 'NO, we vacuum (hair & debris added)' : A.vacuum === 'me' ? 'yes, customer vacuums' : 'not answered'));
+      if(A.tier) L.push('Package: ' + S.carpet.tiers[A.tier].name);
+    }
+    if(has('tile')) L.push('Grout seal: ' + (A.seal === 'seal' ? 'color seal' : A.seal === 'clearseal' ? 'clear seal' : 'no'));
+    if(has('upholstery')) L.push('Pets or stains on fabric: ' + (A.uphPets || 'not answered'));
+    var dq = Object.keys(A.disc).filter(function(k){ return A.disc[k]; });
+    if(dq.length) L.push('DISCOUNTS TO CHECK: ' + dq.join(', '));
+    L.push(A.photos.length ? 'Photos: ' + A.photos.length + ' sent' : 'Photos: skipped');
+    L.push('Walkthrough total: ' + (e.rows.length ? money(e.total) : 'no price, call'));
+    return L.join('\n');
+  }
+  function estText(e){
+    return e.rows.map(function(r){ return r.name + ': ' + money(r.cost) + '\n' + r.items.map(function(i){ return '  ' + i.label + ': ' + (i.included ? 'Included' : money(i.cost)); }).join('\n'); }).join('\n') +
+      '\nTOTAL: ' + money(e.total);
+  }
+
+  var fbReady = null;
+  function firebase(){
+    if(!fbReady){
+      var base = 'https://www.gstatic.com/firebasejs/10.12.0/', imp = function(u){ return (new Function('u', 'return import(u)'))(u); };
+      fbReady = Promise.all([imp(base + 'firebase-app.js'), imp(base + 'firebase-storage.js'), imp(base + 'firebase-firestore.js')]).then(function(m){
+        var cfg = { apiKey:'AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg', authDomain:'khean-estimator-78f3e.firebaseapp.com',
+          projectId:'khean-estimator-78f3e', storageBucket:'khean-estimator-78f3e.firebasestorage.app',
+          messagingSenderId:'581692353222', appId:'1:581692353222:web:21f62f057ac5506bbb45c7' };
+        var app = m[0].getApps().length ? m[0].getApp() : m[0].initializeApp(cfg);
+        return { st:m[1], fs:m[2], storage:m[1].getStorage(app), db:m[2].getFirestore(app) };
+      });
+      fbReady.catch(function(){ fbReady = null; });
+    }
+    return fbReady;
+  }
+  function shrink(file){
+    return new Promise(function(resolve){
+      if(file.size < 400 * 1024){ resolve(file); return; }
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function(){
+        URL.revokeObjectURL(url);
+        var w = img.width, hh = img.height, k = 2400 / Math.max(w, hh);
+        if(k < 1){ w = Math.round(w * k); hh = Math.round(hh * k); }
+        var c = document.createElement('canvas'); c.width = w; c.height = hh;
+        c.getContext('2d').drawImage(img, 0, 0, w, hh);
+        c.toBlob(function(b){ resolve(b && b.size < file.size ? b : file); }, 'image/jpeg', 0.85);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+  function upload(fb, key){
+    var paths = [];
+    return A.photos.reduce(function(chain, f, i){
+      return chain.then(function(){ return shrink(f); }).then(function(b){
+        if(b.size > 10 * 1024 * 1024) return;
+        var path = 'quick-quote-photos/' + key + '/' + Date.now() + '_' + i + '_walkthrough.jpg';
+        return fb.st.uploadBytes(fb.st.ref(fb.storage, path), b, { contentType:'image/jpeg' })
+          .then(function(s){ paths.push(s.ref.fullPath); }).catch(function(err){ console.error('Photo upload failed', err); });
+      });
+    }, Promise.resolve()).then(function(){ return paths; });
+  }
+  function saveLead(fb, lead){
+    var row = Object.assign({}, lead, { status:'new', source:'estimator', createdAt: fb.fs.serverTimestamp() });
+    var leads = fb.fs.collection(fb.db, 'leads');
+    return fb.fs.addDoc(leads, row).then(function(r){ return r.id; }, function(err){
+      /* Same fallback as the homepage: if the database won't take the texting answers, they go at the top of the message. */
+      if(!err || err.code !== 'permission-denied') throw err;
+      var plain = Object.assign({}, row), top = [];
+      delete plain.smsConsent; delete plain.marketingConsent;
+      if(lead.smsConsent) top.push('OK to text: yes');
+      if(lead.marketingConsent) top.push('OK to text specials: yes');
+      plain.message = top.join('\n') + (top.length ? '\n\n' : '') + plain.message;
+      return fb.fs.addDoc(leads, plain).then(function(r){ return r.id; });
+    });
+  }
+
+  function send(el, $){
+    var err = $('err'), btn = $('send'), sms = el.querySelector('input[name="sms"]:checked');
+    var name = $('nm').value.trim(), phone = $('ph').value.trim(), email = $('em').value.trim();
+    var bad = !name ? ['nm', 'Please tell us your name.']
+      : phone.replace(/\D/g, '').length < 10 ? ['ph', 'Please give us a 10-digit phone number.']
+      : !EMAIL_RE.test(email) ? ['em', 'Please check your email address.']
+      : !$('st').value.trim() ? ['st', 'Please give us the street address.']
+      : !sms ? ['smsQ', 'Please choose Yes or No for texting.'] : null;
+    if(bad){ err.textContent = bad[1]; var t = $(bad[0]); if(t.focus) t.focus(); t.scrollIntoView({ block:'center' }); return; }
+    err.textContent = '';
+    btn.disabled = true; btn.textContent = A.photos.length ? 'Uploading photos…' : 'Sending…';
+    var e = estimate(), msg = summary(e), smsYes = sms.value === 'Yes', promoYes = $('promo').checked;
+    var key = Date.now() + '_' + Math.random().toString(36).slice(2, 8), isBot = $('hp').checked;
+    var addr = { street: $('st').value.trim(), city: $('ct').value.trim(), state:'CA', zip: $('zp').value.trim() };
+    var fd = new FormData();
+    fd.append('access_key', '2e49144b-d36b-4e13-bec4-aad215f7abc6');
+    fd.append('subject', 'Walkthrough quote from ' + name + (e.rows.length ? ' — ' + money(e.total) : ''));
+    fd.append('from_name', 'Khean & Clean estimator');
+    fd.append('name', name); fd.append('phone', phone); fd.append('email', email);
+    fd.append('address', [addr.street, addr.city, 'CA ' + addr.zip].filter(Boolean).join(', '));
+    fd.append('message', msg);
+    if(e.rows.length) fd.append('estimate', estText(e));
+    fd.append('sms_consent', smsYes ? 'Yes' : 'No'); fd.append('marketing_consent', promoYes ? 'Yes' : 'No');
+    if(isBot) fd.append('botcheck', 'true');
+
+    (isBot ? Promise.resolve() : firebase().then(function(fb){
+      return (A.photos.length ? upload(fb, key) : Promise.resolve([])).then(function(paths){
+        fd.append('photo_count', String(paths.length));
+        btn.textContent = 'Sending…';
+        return saveLead(fb, {
+          page:'quote-finder', photoPaths: paths, when:'', name:name, phone:phone, email:email,
+          addresses:[addr], type:'residential', smsConsent: smsYes, marketingConsent: promoYes,
+          /* The estimate in the estimators' own snapshot format, so New quote rebuilds it. */
+          estimateData: e.rows.length ? JSON.stringify({ v:1, active: e.rows[0].key, state: e.st, discAmt:'', discPct:'', waiveMin:false }) : '',
+          message: msg
+        });
+      });
+    })).catch(function(x){ console.error('Lead save failed', x); })
+    .then(function(){ return fetch('https://api.web3forms.com/submit', { method:'POST', headers:{ Accept:'application/json' }, body: fd }); })
+    .then(function(r){ return r.json().catch(function(){ return { success: r.ok }; }); })
+    .then(function(res){
+      if(!res || !res.success) throw new Error((res && res.message) || 'failed');
+      if(typeof gtag === 'function') gtag('event', 'generate_lead', { form_name:'quote_finder' });
+      show(sDone, false);
+    })
+    .catch(function(x){
+      console.error(x);
+      err.innerHTML = 'Something went wrong sending that. Please call <a href="tel:+19167672520">(916) 767-2520</a> and we’ll sort it out.';
+      btn.disabled = false; btn.textContent = 'Send my quote';
+    });
+  }
+
+  /* Fresh Settings prices came in: redraw the screen that's open so its prices match. */
+  window.addEventListener('kc:prices', function(){ if(cur && cur !== sContact) show(cur, false); });
+  show(sProblem, false);
+})();
+</script>
+</body>
+</html>

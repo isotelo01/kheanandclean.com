@@ -859,7 +859,7 @@
         var n = k === 'stairs' ? (st.rooms.stairs || 0) : (a.needsQty ? (+ast.qty || 0) : 0);
         var nm = (k === 'stairs' && n > 1) ? 'Flights of Stairs' : a.name;
         if(k === 'filter' && n > 0) nm += ' \u2014 ' + n + ' ft';
-        else if((k === 'seal' || k === 'acid') && n > 0) nm += ' \u2014 ' + n + ' sq ft';
+        else if((k === 'seal' || k === 'clearseal' || k === 'acid') && n > 0) nm += ' \u2014 ' + n + ' sq ft';
         else if(n > 1) nm += ' \u00d7 ' + n;
         if(cost > 0) items.push({ label: nm, cost: cost });
       });
