@@ -20,6 +20,9 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 #authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
 .wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.nav{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;margin-left:auto}
+.nav a,.nav button{display:inline-flex;align-items:center;padding:10px 14px}
+.nav .ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .home{display:flex;flex:none;border-radius:6px}
 .home img{display:block;width:34px;height:34px;border-radius:6px}
 h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
@@ -97,12 +100,11 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
   <div class="top">
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <h1 id="title">Leads</h1>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
-      <button type="button" class="new" id="createLead">Create lead</button>
-      <a class="ghost" href="./dashboard.html">Dashboard</a>
-      <a class="ghost" href="./approved-leads.html">Approved</a>
-      <a class="ghost" href="./customers.html">Customers</a>
-      <a class="ghost" id="navSwap" href="#trash">Trash</a>
+    <div class="nav">
+      <button type="button" class="new" id="createLead" aria-label="Create lead"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <a class="ghost" href="./approved-leads.html" aria-label="Approved"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14l-3-3"/></svg></a>
+      <a class="ghost" href="./customers.html" aria-label="Customers"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg></a>
+      <a class="ghost" id="navSwap" href="#trash" aria-label="Trash"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></a>
     </div>
   </div>
   <div id="view"><div class="msg">Loading&hellip;</div></div>
@@ -142,7 +144,7 @@ const wholeSqft = l => {
 document.getElementById("createLead").addEventListener("click", async e => {
   const name = (prompt("Customer name") || "").trim().slice(0, 80);
   if (!name) return;
-  const b = e.currentTarget; b.disabled = true; b.textContent = "Creating\u2026";
+  const b = e.currentTarget, orig = b.innerHTML; b.disabled = true; b.textContent = "Creating\u2026";
   try {
     /* Same Q- numbers as the estimator (meta/counters.quote). */
     const n = await runTransaction(db, async tx => {
@@ -160,7 +162,7 @@ document.getElementById("createLead").addEventListener("click", async e => {
     location.href = "./job-sheet.html?id=" + encodeURIComponent(qRef.id);
   } catch (err) {
     console.error(err); alert("Couldn't create the lead: " + err.message);
-    b.disabled = false; b.textContent = "Create lead";
+    b.disabled = false; b.innerHTML = orig;
   }
 });
 
@@ -811,7 +813,13 @@ const route = () => {
   window.scrollTo(0, 0);
   /* Header button: Trash on the list; Leads everywhere else. */
   const sw = document.getElementById("navSwap");
-  if (sw) { sw.textContent = h ? "Leads" : "Trash"; sw.setAttribute("href", h ? "#" : "#trash"); }
+  if (sw) {
+    sw.innerHTML = h
+      ? '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>'
+      : '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
+    sw.setAttribute("aria-label", h ? "Leads" : "Trash");
+    sw.setAttribute("href", h ? "#" : "#trash");
+  }
   if (h === "trash") showTrash(); else if (h) showLead(h); else showList();
 };
 
