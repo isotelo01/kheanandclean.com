@@ -57,6 +57,12 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px s
 .calbtn{justify-self:start;display:inline-flex;align-items:center;gap:6px;background:var(--gold);color:var(--navy);text-decoration:none;
   border-radius:999px;padding:9px 20px;font:700 15px "Archivo",sans-serif;box-shadow:0 2px 10px rgba(227,182,74,.25)}
 .calbtn:hover{background:#f0c75e}
+/* Open full calendar + the round gold + (new lead for a brand-new customer) beside it. */
+.calrow{justify-self:start;display:flex;align-items:center;gap:10px}
+.newlead{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:0;cursor:pointer;
+  background:var(--gold);color:var(--navy);box-shadow:0 2px 10px rgba(227,182,74,.25)}
+.newlead:hover{background:#f0c75e}
+.newlead svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round}
 .ptitle{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;text-decoration:none}
 .five{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;align-items:stretch;flex:1}
 .pday{background:transparent;border:0;border-left:1px solid rgba(227,182,74,.35);border-radius:0;padding:14px 12px 16px;min-height:230px;min-width:0;display:flex;flex-direction:column;gap:7px;
@@ -253,7 +259,17 @@ h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 
 
   <nav aria-label="App pages">
     <div class="main">
-      <a class="calbtn" href="./calendar.html">Open full calendar &rsaquo;</a>
+      <div class="calrow">
+        <a class="calbtn" href="./calendar.html">Open full calendar &rsaquo;</a>
+        <button type="button" class="newlead" id="newLeadBtn" aria-label="New lead" title="New lead"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <script>
+      /* New lead: same as Create lead on the Leads page (name, then a blank on-site job sheet). */
+      document.getElementById("newLeadBtn").addEventListener("click", function () {
+        var name = (prompt("Customer name") || "").trim().slice(0, 80);
+        if (name) location.href = "./leads.html?create=" + encodeURIComponent(name);
+      });
+      </script>
       <div class="tile cal" id="calTile">
         <div class="five" id="five"><div class="pnone">Loading&hellip;</div></div>
       </div>

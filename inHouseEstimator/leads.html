@@ -143,10 +143,13 @@ const wholeSqft = l => {
 /* Create lead: on-site estimate. Asks for a name (the only thing needed), files it as a lead,
    and opens a blank job sheet (a draft quote in "quotes" marked fromJobSheet + onsiteEstimate).
    Add services and rooms there; Summarize > Send estimate turns it into a normal sent quote. */
-document.getElementById("createLead").addEventListener("click", async e => {
+document.getElementById("createLead").addEventListener("click", e => {
   const name = (prompt("Customer name") || "").trim().slice(0, 80);
-  if (!name) return;
-  const b = e.currentTarget, orig = b.innerHTML; b.disabled = true; b.textContent = "Creating\u2026";
+  if (name) createLead(name, e.currentTarget);
+});
+/* The hub's + (next to Open full calendar) asks for the name there and comes here as ?create=<name>. */
+async function createLead(name, b) {
+  const orig = b.innerHTML; b.disabled = true; b.textContent = "Creating\u2026";
   try {
     /* Same Q- numbers as the estimator (meta/counters.quote). */
     const n = await runTransaction(db, async tx => {
@@ -166,7 +169,7 @@ document.getElementById("createLead").addEventListener("click", async e => {
     console.error(err); alert("Couldn't create the lead: " + err.message);
     b.disabled = false; b.innerHTML = orig;
   }
-});
+}
 
 /* Lead status. No status on file = new. */
 const STATUSES = [
@@ -830,7 +833,11 @@ let started = false;
 onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=" + encodeURIComponent("leads.html" + location.hash)); return; }
   document.getElementById("authwait")?.remove();
-  if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
+  if (!started) {
+    started = true; window.addEventListener("hashchange", route); route();
+    const fromHub = (new URLSearchParams(location.search).get("create") || "").trim().slice(0, 80);
+    if (fromHub) { history.replaceState(null, "", location.pathname + location.hash); createLead(fromHub, document.getElementById("createLead")); }
+  }
 });
 </script>
 <script src="./tabbar.js" defer></script>
