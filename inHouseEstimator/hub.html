@@ -218,13 +218,24 @@ h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 
   .pnone{margin:0;text-align:left}
 }
 @media (prefers-reduced-motion:reduce){ .pday{transition:none} .pday:hover{transform:none} }
-/* Money moved to the top of the hub, full width; Marketing now fills its row. */
-.groups.gtop{margin:0 0 22px}
+/* Money sits right under the calendar, full width; Marketing now fills its row. */
+.groups.gtop{margin:28px 0 0}
 @media (min-width:1000px){
   .gtop .g-money{grid-column:span 12}
   .gtop .g-money .gtiles{grid-template-columns:repeat(2,minmax(0,1fr))}
   .g-mkt{grid-column:span 12}
   .g-mkt .gtiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+/* Desktop: the hub fills the whole screen, edge to edge, instead of a narrow centered column. */
+@media (min-width:1000px){
+  .wrap{max-width:none;padding:26px clamp(24px,3vw,56px) 60px}
+}
+/* Wide monitors: more tiles per row so nothing gets stretched. */
+@media (min-width:1700px){
+  .g-sales{grid-column:span 5}
+  .g-inbox{grid-column:span 7}
+  .g-inbox .gtiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .g-mkt .gtiles{grid-template-columns:repeat(8,minmax(0,1fr))}
 }
 </style>
 </head>
@@ -252,7 +263,13 @@ h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 
   </script>
 
   <nav aria-label="App pages">
-    <!-- Money sits at the very top, above the calendar. -->
+    <div class="main">
+      <a class="calbtn" href="./calendar.html">Open full calendar &rsaquo;</a>
+      <div class="tile cal" id="calTile">
+        <div class="five" id="five"><div class="pnone">Loading&hellip;</div></div>
+      </div>
+    </div>
+    <!-- Money sits right under the calendar, above Work. -->
     <div class="groups gtop">
       <section class="grp g-money" style="--c:#4ade80;--d:0ms" aria-labelledby="g-money">
         <h2 class="ghead" id="g-money"><span class="gdot"></span>Money<span class="gline"></span></h2>
@@ -261,12 +278,6 @@ h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 
           <a class="tile" href="./expenses.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></svg></span><span class="tname">Expenses</span><span class="tdesc">Bills and supplier invoices you paid</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
         </div>
       </section>
-    </div>
-    <div class="main">
-      <a class="calbtn" href="./calendar.html">Open full calendar &rsaquo;</a>
-      <div class="tile cal" id="calTile">
-        <div class="five" id="five"><div class="pnone">Loading&hellip;</div></div>
-      </div>
     </div>
     <!-- Hub v2: tiles grouped into colour-coded sections (Work, Sales, Inbox, Marketing, Money). -->
     <div class="groups">
