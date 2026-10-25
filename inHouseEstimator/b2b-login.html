@@ -257,7 +257,7 @@ $("codeSendBtn").onclick = async () => {
   if (digits(phone).length !== 10) { say("Type your 10-digit phone number first."); $("phone").focus(); return; }
   const b = $("codeSendBtn"); b.disabled = true; say("");
   try {
-    await sendCode({ phone });
+    await sendCode({ phone: digits(phone) });
     $("codeBox").hidden = false; $("code").value = ""; $("code").focus();
     b.textContent = "Text me a new code";
     say("Code sent. It can take a minute to arrive.", true);
@@ -297,5 +297,6 @@ $("profileForm").addEventListener("submit", async e => {
   } catch (ex) { fail(ex, "Could not save. Try again."); btn.disabled = false; btn.textContent = "Finish signing up"; }
 });
 </script>
+<script src="./phone-format.js"></script>
 </body>
 </html>

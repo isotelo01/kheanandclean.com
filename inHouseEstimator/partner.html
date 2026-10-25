@@ -361,7 +361,7 @@ onAuthStateChanged(auth, async u => {
   $("hello").textContent = "Welcome, " + (me.contactName || u.email || "partner");
   $("biz").value = me.businessName || "";
   $("contact").value = me.contactName || "";
-  $("phone").value = me.phone || "";
+  $("phone").value = (window.kcFormatPhone || String)(me.phone || "");
   $("type").value = me.type || "Property management";
   $("email").value = u.email || me.email || "";
   $("authwait").remove();
@@ -619,5 +619,6 @@ $("qqBox").addEventListener("submit", async e => {
     .catch(function(e){ console.error(e); cal.innerHTML = '<p class="empty">Couldn’t load the calendar. Call (916) 767-2520 to check a date.</p>'; });
 })();
 </script>
+<script src="./phone-format.js"></script>
 </body>
 </html>
