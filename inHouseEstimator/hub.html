@@ -218,6 +218,14 @@ h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 
   .pnone{margin:0;text-align:left}
 }
 @media (prefers-reduced-motion:reduce){ .pday{transition:none} .pday:hover{transform:none} }
+/* Money moved to the top of the hub, full width; Marketing now fills its row. */
+.groups.gtop{margin:0 0 22px}
+@media (min-width:1000px){
+  .gtop .g-money{grid-column:span 12}
+  .gtop .g-money .gtiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g-mkt{grid-column:span 12}
+  .g-mkt .gtiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
 </style>
 </head>
 <body>
@@ -244,6 +252,16 @@ h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 
   </script>
 
   <nav aria-label="App pages">
+    <!-- Money sits at the very top, above the calendar. -->
+    <div class="groups gtop">
+      <section class="grp g-money" style="--c:#4ade80;--d:0ms" aria-labelledby="g-money">
+        <h2 class="ghead" id="g-money"><span class="gdot"></span>Money<span class="gline"></span></h2>
+        <div class="gtiles">
+          <a class="tile" href="./dashboard.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18M6 17v-5M11 17V5M16 17V9M20 17v-3"/></svg></span><span class="tname">Dashboard</span><span class="tdesc">Estimates, invoices and payments</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+          <a class="tile" href="./expenses.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></svg></span><span class="tname">Expenses</span><span class="tdesc">Bills and supplier invoices you paid</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
+        </div>
+      </section>
+    </div>
     <div class="main">
       <a class="calbtn" href="./calendar.html">Open full calendar &rsaquo;</a>
       <div class="tile cal" id="calTile">
@@ -289,13 +307,6 @@ h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 
           <a class="tile" href="./socials.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></span><span class="tname">Socials</span><span class="tdesc">Google, Facebook, Instagram, TikTok, YouTube, Yelp, Nextdoor</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
           <a class="tile" href="./photo-cache.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="4"/></svg></span><span class="tname">Photo &amp; Video Cache</span><span class="tdesc">Full-quality photos and videos from your iPhone and Google Photos</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
           <a class="tile" href="https://kheanandclean.com/" target="_blank" rel="noopener"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><span class="tname">Website</span><span class="tdesc">kheanandclean.com</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
-        </div>
-      </section>
-      <section class="grp g-money" style="--c:#4ade80;--d:320ms" aria-labelledby="g-money">
-        <h2 class="ghead" id="g-money"><span class="gdot"></span>Money<span class="gline"></span></h2>
-        <div class="gtiles">
-          <a class="tile" href="./dashboard.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18M6 17v-5M11 17V5M16 17V9M20 17v-3"/></svg></span><span class="tname">Dashboard</span><span class="tdesc">Estimates, invoices and payments</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
-          <a class="tile" href="./expenses.html"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></svg></span><span class="tname">Expenses</span><span class="tdesc">Bills and supplier invoices you paid</span><span class="go" aria-hidden="true">&rsaquo;</span></a>
         </div>
       </section>
     </div>
