@@ -58,6 +58,9 @@ button[disabled]{ opacity:.6; cursor:default; }
 .ghost{ background:none; color:var(--gold); border:1px solid var(--gold); padding:.6rem; font-size:.9rem;
   margin:-4px 0 14px; letter-spacing:0; }
 .verified{ margin:-4px 0 14px; text-align:left; font-size:.9rem; color:#9fd8b8; }
+/* Phone code: one box per digit, side by side */
+.otp{ display:flex; gap:8px; margin-bottom:14px; }
+.otp input{ flex:1; min-width:0; margin:0; padding:.7rem 0; text-align:center; font-size:1.3rem; font-weight:700; }
 .pwwrap{ position:relative; }
 .pwwrap input{ padding-right:4.6rem; }
 /* Show / Hide: solid gold pill so it stays visible even when Chrome autofill turns the box light blue. */
@@ -101,14 +104,20 @@ button[disabled]{ opacity:.6; cursor:default; }
     <label for="biz">Business name</label>
     <input id="biz" required maxlength="190" autocomplete="organization">
     <label for="contact">Your name</label>
-    <input id="contact" required maxlength="190" autocomplete="name">
+    <input id="contact" required maxlength="190" autocomplete="name" autocapitalize="words">
     <label for="phone">Phone</label>
     <input id="phone" type="tel" maxlength="40" autocomplete="tel" required>
     <button type="button" class="ghost" id="codeSendBtn">Text me a code</button>
     <div id="codeBox" hidden>
-      <label for="code">Code from the text</label>
-      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*">
-      <button type="button" class="ghost" id="codeCheckBtn">Check code</button>
+      <label for="otp0">Code from the text</label>
+      <div class="otp" id="otp">
+        <input id="otp0" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 1">
+        <input inputmode="numeric" autocomplete="off" aria-label="Digit 2">
+        <input inputmode="numeric" autocomplete="off" aria-label="Digit 3">
+        <input inputmode="numeric" autocomplete="off" aria-label="Digit 4">
+        <input inputmode="numeric" autocomplete="off" aria-label="Digit 5">
+        <input inputmode="numeric" autocomplete="off" aria-label="Digit 6">
+      </div>
     </div>
     <p class="verified" id="phoneOk" hidden>&#10003; Phone verified</p>
     <label for="type">You are a</label>
@@ -250,7 +259,36 @@ const lockFinish = () => {
   $("profileBtn").disabled = !ok; $("phoneOk").hidden = !ok; $("codeSendBtn").hidden = ok;
 };
 $("phone").addEventListener("input", lockFinish);
-$("code").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("codeCheckBtn").click(); } });
+
+/* Your name: capitalize the first letter of each word as they type (israel sotelo -> Israel Sotelo). */
+$("contact").addEventListener("input", () => {
+  const el = $("contact"), at = el.selectionStart;
+  const fixed = el.value.replace(/(^|[\s'-])(\p{Ll})/gu, (m, a, b) => a + b.toUpperCase());
+  if (fixed !== el.value) { el.value = fixed; el.setSelectionRange(at, at); }
+});
+
+/* Code boxes: one digit each, jump forward as they type, back on Backspace,
+   a pasted or auto-filled code spreads across the boxes, and the last digit checks it automatically. */
+const boxes = [...document.querySelectorAll("#otp input")];
+const codeNow = () => boxes.map(b => b.value).join("");
+const clearBoxes = () => { boxes.forEach(b => b.value = ""); boxes[0].focus(); };
+let checking = false;
+boxes.forEach((box, i) => {
+  box.addEventListener("input", () => {
+    const d = box.value.replace(/\D/g, "");
+    if (d.length > 1) {                       // paste or autofill
+      d.slice(0, 6 - i).split("").forEach((c, k) => boxes[i + k].value = c);
+      boxes[Math.min(i + d.length, 5)].focus();
+    } else {
+      box.value = d;
+      if (d && i < 5) boxes[i + 1].focus();
+    }
+    if (/^\d{6}$/.test(codeNow())) runCheck();
+  });
+  box.addEventListener("keydown", e => {
+    if (e.key === "Backspace" && !box.value && i > 0) { boxes[i - 1].value = ""; boxes[i - 1].focus(); e.preventDefault(); }
+  });
+});
 
 $("codeSendBtn").onclick = async () => {
   const phone = $("phone").value.trim();
@@ -258,24 +296,25 @@ $("codeSendBtn").onclick = async () => {
   const b = $("codeSendBtn"); b.disabled = true; say("");
   try {
     await sendCode({ phone: digits(phone) });
-    $("codeBox").hidden = false; $("code").value = ""; $("code").focus();
+    $("codeBox").hidden = false; clearBoxes();
     b.textContent = "Text me a new code";
     say("Code sent. It can take a minute to arrive.", true);
   } catch (ex) { console.error(ex); say(ex.message || "Could not send the code. Try again."); }
   b.disabled = false;
 };
 
-$("codeCheckBtn").onclick = async () => {
-  const code = $("code").value.trim();
-  if (!/^\d{6}$/.test(code)) { say("Type the 6-digit code from the text."); $("code").focus(); return; }
-  const b = $("codeCheckBtn"); b.disabled = true; say("");
+async function runCheck() {
+  if (checking) return;
+  const code = codeNow();
+  checking = true; boxes.forEach(b => b.disabled = true); say("Checking…", true);
   try {
     const r = (await checkCode({ code })).data || {};
     if (r.verified) { verifiedPhone = digits(r.phone); $("codeBox").hidden = true; lockFinish(); say("Phone verified.", true); }
-    else say("That code isn't right. " + r.left + (r.left === 1 ? " try" : " tries") + " left.");
-  } catch (ex) { console.error(ex); say(ex.message || "Could not check the code. Try again."); }
-  b.disabled = false;
-};
+    else { say("That code isn't right. " + r.left + (r.left === 1 ? " try" : " tries") + " left."); boxes.forEach(b => b.disabled = false); clearBoxes(); }
+  } catch (ex) { console.error(ex); say(ex.message || "Could not check the code. Try again."); boxes.forEach(b => b.disabled = false); clearBoxes(); }
+  boxes.forEach(b => b.disabled = false);
+  checking = false;
+}
 
 $("profileForm").addEventListener("submit", async e => {
   e.preventDefault(); if (!user) return;
