@@ -181,6 +181,41 @@ h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 
 .gear svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .5s}
 .gear:hover svg{transform:rotate(90deg)}
 .signout{color:rgba(255,255,255,.7)}
+
+/* ===== Calendar tile v2: glass box, five separate day cards, today glows gold, jobs as chips. Plain Archivo only. ===== */
+.main{gap:14px}
+.main .tile.cal{background:linear-gradient(160deg,rgba(23,34,57,.82),rgba(8,13,26,.9));border:1px solid rgba(255,255,255,.09);
+  border-top:2px solid var(--gold);border-radius:18px;padding:14px;box-shadow:0 18px 50px -24px rgba(0,0,0,.95),0 0 40px -28px var(--gold);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.main .tile.cal:hover{background:linear-gradient(160deg,rgba(23,34,57,.82),rgba(8,13,26,.9))}
+.five{gap:10px}
+.pday,.pday:first-child{border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.035);padding:12px 12px 14px;min-height:240px;
+  transition:background .2s,transform .2s,border-color .2s,box-shadow .2s}
+.pday:hover{background:rgba(255,255,255,.07);border-color:rgba(227,182,74,.45);transform:translateY(-3px);box-shadow:0 12px 26px -16px rgba(227,182,74,.6)}
+.pday.today{background:linear-gradient(180deg,rgba(227,182,74,.2),rgba(227,182,74,.04) 60%);border-color:rgba(227,182,74,.7);
+  box-shadow:0 0 0 1px rgba(227,182,74,.35),0 14px 34px -18px rgba(227,182,74,.8)}
+.pday.pressing{transform:scale(.97)}
+.phead{padding-bottom:9px;margin-bottom:3px;border-bottom:1px solid rgba(255,255,255,.08)}
+.pdate{font-size:16px;letter-spacing:.01em}
+.pday.today .pdate{color:var(--gold)}
+.pdate small{margin-top:2px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.wx{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.wx .wxi{font-size:28px}
+.wx .wxt{font-size:12px;color:rgba(255,255,255,.75);white-space:nowrap}
+.pj{background:rgba(227,182,74,.1);border-left:3px solid var(--gold);border-radius:0 9px 9px 0;padding:7px 9px;font-size:13.5px;transition:background .15s}
+.pj:hover{background:rgba(227,182,74,.2)}
+.pj .tm{display:block;margin:0 0 1px;font-size:11.5px;letter-spacing:.04em}
+.pa{margin:4px 0 2px 12px;opacity:.85}
+.pa:hover{opacity:1;text-decoration:underline}
+.pb{background:rgba(255,255,255,.05);border-left:3px solid rgba(147,197,253,.6);border-radius:0 9px 9px 0;padding:6px 9px}
+.pnone{margin:auto 0;text-align:center;color:rgba(255,255,255,.35);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase}
+@media (max-width:759px){
+  .five{gap:8px}
+  .pday,.pday:first-child{min-height:0;border:1px solid rgba(255,255,255,.08);padding:11px 12px}
+  .pday.today{border-color:rgba(227,182,74,.7)}
+  .pnone{margin:0;text-align:left}
+}
+@media (prefers-reduced-motion:reduce){ .pday{transition:none} .pday:hover{transform:none} }
 </style>
 </head>
 <body>
