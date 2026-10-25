@@ -959,7 +959,8 @@ document.getElementById("newQuote").addEventListener("click", async e => {
     const prefill = { type: typeOf(c).v, business: c.business || "", name: c.name || "",
       phone: phonesOf(c)[0] || "", email: emailsOf(c)[0] || "",
       street: a.street || "", city: a.city || "", state: a.state || "", zip: a.zip || "",
-      customerId: c.id, acctNo: c.acctNo || "" };
+      customerId: c.id, acctNo: c.acctNo || "",
+      texting: c.smsConsent === true ? true : null, specials: c.marketingConsent === true ? true : null };
     try { sessionStorage.setItem("kc_prefill", JSON.stringify(prefill)); } catch (ex) {}
   }
   location.href = "./index.html";

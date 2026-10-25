@@ -88,16 +88,12 @@
               <input id="eZip" name="zip" type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" autocomplete="off" placeholder="95630">
             </div>
           </div>
-          <!-- Texting / Specials answers from a website lead (shown only when the quote came from a lead). -->
-          <div class="estRow" id="eConsentRow" hidden>
-            <div class="estField">
-              <label for="eTextOk">Texting</label>
-              <input id="eTextOk" type="text" readonly tabindex="-1">
-            </div>
-            <div class="estField">
-              <label for="eSpecialsOk">Specials</label>
-              <input id="eSpecialsOk" type="text" readonly tabindex="-1">
-            </div>
+          <!-- Texting / Specials: two checkboxes. A website lead ticks them from the customer's answers;
+               tick them yourself when the customer says yes. Saved with the quote (customer.textOk /
+               customer.specialsOk), and a tick is remembered on the customer record. -->
+          <div id="eConsentRow" style="display:flex;flex-wrap:wrap;gap:0 1.5rem">
+            <label class="add" style="border-bottom:0"><input type="checkbox" id="eTextOk"> OK to text</label>
+            <label class="add" style="border-bottom:0"><input type="checkbox" id="eSpecialsOk"> OK to text specials</label>
           </div>
         </fieldset>
 
@@ -449,13 +445,8 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
         return false; }
       return !/^Opened the estimator \(details only, no estimate yet\)$/i.test(s);
     }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
-    if (txt != null || spc != null) {
-      const label = v => v === true ? "OK" : v === false ? "No" : "Not recorded";
-      set("eTextOk", label(txt));
-      set("eSpecialsOk", label(spc));
-      const row = document.getElementById("eConsentRow");
-      if (row) row.hidden = false;
-    }
+    if (txt === true) document.getElementById("eTextOk").checked = true;
+    if (spc === true) document.getElementById("eSpecialsOk").checked = true;
     const notes = document.getElementById("eNotes");
     if (notes && msgBody && !notes.value.trim()) notes.value = msgBody;
     /* Services the customer ticked on the quick quote, as chips above "Anything else". */

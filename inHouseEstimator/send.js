@@ -51,7 +51,8 @@ function fromForm(q){
     customer: {
       name: val('eName'), phone: val('ePhone'), email: val('eEmail'), type: val('eType'),
       business: val('eBiz'),
-      street: streetVal(), city: val('eCity'), state: val('eState'), zip: val('eZip')
+      street: streetVal(), city: val('eCity'), state: val('eState'), zip: val('eZip'),
+      textOk: !!($('eTextOk') || {}).checked, specialsOk: !!($('eSpecialsOk') || {}).checked
     },
     lines: JSON.parse(JSON.stringify(q.lines)),
     subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel,
@@ -175,6 +176,12 @@ async function fileCustomer(custId){
           phoneKey: phoneKey(phones[0]), emailKey: emailKey(emails[0]) });
       if (d.trashed) Object.assign(patch, { trashed: false, trashedAt: null });   /* estimating for them again means they're active */
       if (Object.keys(patch).length) await setDoc(hit.ref, Object.assign(patch, { updatedAt: serverTimestamp() }), { merge: true });
+      /* A ticked OK to text / specials is remembered on the customer (a yes is never taken back here).
+         Each on its own, so a refused field can't stop the rest. */
+      if (($('eTextOk') || {}).checked && d.smsConsent !== true)
+        await setDoc(hit.ref, { smsConsent: true }, { merge: true }).catch(e => console.error('Texting OK not saved:', e));
+      if (($('eSpecialsOk') || {}).checked && d.marketingConsent !== true)
+        await setDoc(hit.ref, { marketingConsent: true }, { merge: true }).catch(e => console.error('Specials OK not saved:', e));
     }
   } catch (e) {
     console.error('Customer not filed:', e);   /* the quote is already saved; don't fail the send */
@@ -295,6 +302,8 @@ async function loadForEdit(id, from, copy){
       el.value = v || '';
       el.dispatchEvent(new Event('input', { bubbles: true }));   /* keeps the letterhead in sync */
     });
+    if ($('eTextOk')) $('eTextOk').checked = c.textOk === true;
+    if ($('eSpecialsOk')) $('eSpecialsOk').checked = c.specialsOk === true;
     if ($('eType') && c.type) { $('eType').value = c.type; $('eType').dispatchEvent(new Event('change', { bubbles: true })); }
     /* After the change event, since that handler clears the field when the type
        is Residential — setting it earlier would be wiped. */
