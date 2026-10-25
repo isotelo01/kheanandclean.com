@@ -5,7 +5,7 @@
 <link rel="icon" href="../favicon.ico" sizes="48x48">
 <link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Partner sign in &middot; Khean &amp; Clean</title>
+<title>Sign in &middot; Khean &amp; Clean</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0d1b2a">
 <link rel="apple-touch-icon" href="../images/icon-180.png">
@@ -72,8 +72,8 @@ button[disabled]{ opacity:.6; cursor:default; }
 <body>
 <div class="box">
   <img class="logo" src="../images/logo-clear-1280.png" alt="Khean &amp; Clean Steam Cleaning">
-  <h1>Khean &amp; Clean Partners</h1>
-  <p class="sub" id="sub">Realtors, property managers and businesses</p>
+  <h1>Khean &amp; Clean</h1>
+  <p class="sub" id="sub">Sign in, or create a partner account for realtors, property managers and businesses</p>
 
   <!-- Step 1: sign in or create an account -->
   <div id="signin">
@@ -154,9 +154,15 @@ const app = initializeApp({
 const auth = getAuth(app), db = getFirestore(app);
 setPersistence(auth, browserLocalPersistence).catch(console.error);
 
-/* Staff who land here go to the hub instead. (Only a convenience: the database rules are
-   what actually keep partners out of staff data.) */
+/* Staff who land here go to the hub, or to the page they were headed to (?next=dashboard.html,
+   passed along by the old login.html). Only a local page name is accepted, so the link can't
+   bounce anyone off-site. (Only a convenience: the database rules are what actually keep
+   partners out of staff data.) */
 const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const next = (() => {
+  const raw = new URLSearchParams(location.search).get("next") || "hub.html";
+  return /^[\w.-]+\.html(#[\w%.-]*)?$/.test(raw) ? raw : "hub.html";
+})();
 
 const $ = id => document.getElementById(id);
 const err = $("err");
@@ -229,13 +235,13 @@ $("forgotBtn").onclick = async () => {
   say("If that email has an account, a reset link is on its way. Check spam too.", true);
 };
 
-/* After any sign-in: staff -> hub. Partner with a profile -> their page.
+/* After any sign-in: staff -> hub (or ?next). Partner with a profile -> their page.
    New partner -> the business details form (step 2). */
 let user = null;
 onAuthStateChanged(auth, async u => {
   user = u;
   if (!u) return;
-  if (STAFF.includes(u.uid)) { location.replace("./hub.html"); return; }
+  if (STAFF.includes(u.uid)) { location.replace("./" + next); return; }
   try {
     const snap = await getDoc(doc(db, "partners", u.uid));
     if (snap.exists()) { location.replace("./partner.html"); return; }
