@@ -469,6 +469,12 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
     /* Remember the lead, so Send marks this lead quoted instead of making a new one. */
     const lid = document.getElementById("eLeadId");
     if (lid && data.leadId) lid.value = data.leadId;
+    /* New quote from a customer's page: link this estimate to that customer (shows "Customer KC-…"). */
+    if (data.customerId) {
+      const cid = document.getElementById("eCustId"), tag = document.getElementById("eCustTag");
+      if (cid) cid.value = data.customerId;
+      if (tag) { tag.textContent = data.acctNo ? "Customer KC-" + data.acctNo : "Existing customer"; tag.hidden = false; }
+    }
     /* Lead from the homepage estimator: put the customer's rooms, service,
        package and add-ons back on screen and reprice. */
     if (data.estimateData && window.KC_restore) {
