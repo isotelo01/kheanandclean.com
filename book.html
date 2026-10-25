@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-lotus-192.png">
+<title>Book a Cleaning &middot; Khean &amp; Clean</title>
+<meta name="description" content="Get your price in under a minute and pick an open day. Carpet, tile and grout, hardwood and LVP, natural stone and upholstery cleaning in Folsom and nearby.">
+<link rel="canonical" href="https://kheanandclean.com/book.html">
+<meta property="og:title" content="Book a Cleaning · Khean & Clean">
+<meta property="og:description" content="Get your price in under a minute and pick an open day.">
+<meta property="og:image" content="https://kheanandclean.com/images/van-sky.jpg">
+<meta name="theme-color" content="#0a0f1c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="quote-form.css"><!-- the open-days calendar look (scoped to .kcq) -->
+<style>
+/* =============================================================================
+   BOOK A CLEANING: one short path. What are we cleaning -> which rooms -> your
+   price -> pick an open day -> your details -> booked.
+   Prices: /inHouseEstimator/pricing.js + pricing-live.js (the Settings prices),
+   the same numbers the homepage estimator and the in-house estimator use.
+   Open days: getOpenSlots (day-picker.js). Booking: bookWebSlot, against the lead.
+   The lead lands on the Leads page with the estimate in estimateData, so
+   "New quote" rebuilds it in the estimator.
+   ============================================================================= */
+:root{
+  --bg:#0a0f1c; --card:#121a2c; --card2:#18223a; --line:rgba(255,255,255,.1);
+  --ink:#f3efe4; --dim:#a7afc0; --gold:#E3B64A; --gold2:#f3d27c; --navy:#172239; --ok:#5fd08a; --bad:#ff8a7a;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;color:var(--ink);font:16px/1.5 "Archivo",system-ui,-apple-system,sans-serif;
+  background:radial-gradient(1200px 600px at 50% -200px,rgba(227,182,74,.14),transparent 70%),var(--bg);
+  padding-bottom:110px}
+a{color:var(--gold)}
+button{font:inherit}
+:where(a,button,input,select,label):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+h1:focus{outline:none}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:760px;margin:0 auto;padding:18px 16px 6px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.brand img{width:44px;height:44px;border-radius:10px}
+.brand b{font-weight:800;font-size:17px;letter-spacing:.01em}
+.brand small{display:block;color:var(--dim);font-size:12px;font-weight:500}
+.call{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid rgba(227,182,74,.5);
+  color:var(--gold);text-decoration:none;font-weight:700;font-size:14px;white-space:nowrap}
+
+.wrap{max-width:760px;margin:0 auto;padding:6px 16px 24px}
+.steps{display:flex;gap:6px;margin:14px 0 22px}
+.steps i{flex:1;height:5px;border-radius:9px;background:rgba(255,255,255,.1);transition:background .3s}
+.steps i.on{background:var(--gold)}
+h1{font-size:clamp(26px,5vw,34px);line-height:1.15;margin:0 0 6px;font-weight:800}
+.sub{color:var(--dim);margin:0 0 20px}
+.step[hidden]{display:none}
+.step{animation:rise .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}}
+
+/* Step 1: service cards */
+.svcs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.svc{position:relative;display:flex;flex-direction:column;gap:4px;text-align:left;padding:18px 16px;border-radius:16px;cursor:pointer;
+  color:var(--ink);background:var(--card);border:1.5px solid var(--line);transition:border-color .2s,transform .2s,background .2s}
+.svc:hover{border-color:rgba(227,182,74,.6);transform:translateY(-2px)}
+.svc[aria-pressed="true"]{border-color:var(--gold);background:linear-gradient(160deg,rgba(227,182,74,.16),var(--card) 70%)}
+.svc .ico{font-size:26px;line-height:1;margin-bottom:6px}
+.svc b{font-size:17px}
+.svc span{color:var(--dim);font-size:13.5px}
+.svc.wide{grid-column:1 / -1}
+
+/* Step 2: rooms */
+.group{margin:0 0 18px}
+.ghead{font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
+.rows{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .nm{flex:1;min-width:0}
+.row .nm b{display:block;font-weight:600}
+.row .nm small{color:var(--dim);font-size:12.5px}
+.row.on{background:rgba(227,182,74,.07)}
+.tick{display:flex;align-items:center;gap:4px}
+.tick button{width:40px;height:40px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:var(--card2);color:var(--ink);
+  font-size:22px;line-height:1;cursor:pointer}
+.tick button:hover{border-color:var(--gold)}
+.tick button:disabled{opacity:.3;cursor:default}
+.tick output{min-width:28px;text-align:center;font-weight:700;font-size:17px;font-variant-numeric:tabular-nums}
+.more{display:block;width:100%;margin-top:8px;padding:11px;border-radius:12px;border:1px dashed rgba(255,255,255,.22);background:none;
+  color:var(--dim);cursor:pointer;font-weight:600}
+.more:hover{color:var(--gold);border-color:var(--gold)}
+
+/* Carpet package */
+.tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tier{text-align:left;padding:14px 12px;border-radius:14px;cursor:pointer;color:var(--ink);background:var(--card);border:1.5px solid var(--line)}
+.tier[aria-pressed="true"]{border-color:var(--gold);background:linear-gradient(160deg,rgba(227,182,74,.16),var(--card) 70%)}
+.tier b{display:block;font-size:15px}
+.tier small{display:block;color:var(--dim);font-size:12.5px;margin-top:2px}
+.tier .pop{display:inline-block;margin-top:6px;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--navy);
+  background:var(--gold);border-radius:999px;padding:2px 8px}
+
+/* Step 3: price */
+.price{background:linear-gradient(160deg,#1a2540,#0f1626);border:1px solid rgba(227,182,74,.35);border-radius:20px;padding:22px 20px;
+  box-shadow:0 20px 50px -30px rgba(227,182,74,.6)}
+.price .big{font-size:clamp(44px,10vw,60px);font-weight:800;line-height:1;color:var(--gold2);font-variant-numeric:tabular-nums}
+.price .lbl{color:var(--dim);font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-bottom:6px}
+.lines{list-style:none;margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--line)}
+.lines li{display:flex;justify-content:space-between;gap:12px;padding:4px 0;font-size:14.5px}
+.lines li span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+.lines li.inc span:last-child{color:var(--ok)}
+.fine{color:var(--dim);font-size:13px;margin:12px 0 0}
+
+/* Step 4: day */
+.kcq{margin:0}
+.kcq .jobCal{max-width:none}
+.picked{margin:14px 0 0;padding:12px 14px;border-radius:12px;background:rgba(95,208,138,.1);border:1px solid rgba(95,208,138,.4);color:#c9f2d8}
+.picked[hidden]{display:none}
+
+/* Step 5: details */
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.f{display:flex;flex-direction:column;gap:5px}
+.f.full{grid-column:1 / -1}
+.f label{font-size:13.5px;font-weight:600;color:var(--dim)}
+.f input,.f textarea{width:100%;padding:13px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:var(--card);color:var(--ink);font:16px "Archivo",system-ui,sans-serif}
+.f textarea{min-height:84px;resize:vertical}
+.f input:focus,.f textarea:focus{outline:none;border-color:var(--gold)}
+.f input[aria-invalid="true"]{border-color:var(--bad)}
+.err{color:var(--bad);font-size:13px;min-height:0}
+.check{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:13.5px;color:var(--dim);cursor:pointer}
+.check input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--gold);flex:none}
+.hp{position:absolute;left:-9999px}
+
+/* Bottom bar: running price + Back / Next */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:rgba(10,15,28,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-top:1px solid rgba(227,182,74,.25)}
+.bar .in{max-width:760px;margin:0 auto;padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:10px}
+.run{flex:1;min-width:0}
+.run small{display:block;color:var(--dim);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700}
+.run b{font-size:24px;font-weight:800;color:var(--gold2);font-variant-numeric:tabular-nums}
+.btn{border:0;border-radius:14px;padding:14px 22px;font-weight:800;font-size:16px;cursor:pointer}
+.btn.go{background:var(--gold);color:var(--navy);box-shadow:0 8px 24px -10px rgba(227,182,74,.8)}
+.btn.go:hover{background:var(--gold2)}
+.btn.go:disabled{opacity:.4;cursor:default;box-shadow:none}
+.btn.back{background:transparent;color:var(--dim);border:1px solid rgba(255,255,255,.18);padding:14px 16px}
+.btn.back[hidden]{display:none}
+.status{margin:14px 0 0;font-size:14px}
+.status.bad{color:var(--bad)}
+
+/* Done */
+.done{text-align:center;padding:30px 10px}
+.done .ck{width:76px;height:76px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;background:rgba(95,208,138,.15);
+  border:2px solid var(--ok);color:var(--ok);font-size:38px;animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+.done p{color:var(--dim);max-width:30rem;margin:8px auto}
+.done p strong{color:var(--ink)}
+
+@media (max-width:440px){ .brand small{display:none} .call{padding:7px 11px;font-size:13px} }
+@media (max-width:540px){
+  .tiers{grid-template-columns:1fr}
+  .fields{grid-template-columns:1fr}
+  .svc{padding:15px 14px}
+}
+@media (prefers-reduced-motion:reduce){ .step,.done .ck{animation:none} .svc{transition:none} }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><img src="/images/icon-180.png" alt=""><span><b>Khean &amp; Clean</b><small>Folsom &middot; Steam cleaning</small></span></a>
+  <a class="call" href="tel:+19167672520"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>(916) 767-2520</a>
+</header>
+
+<main class="wrap">
+  <div class="steps" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+
+  <!-- 1. What are we cleaning? -->
+  <section class="step" data-step="1" aria-labelledby="h1">
+    <h1 id="h1">What are we cleaning?</h1>
+    <p class="sub">Your price in under a minute, then pick an open day.</p>
+    <div class="svcs" id="svcs"></div>
+    <p class="fine">For a business, an office or something not listed, use our <a href="/quick-quote.html">quick quote</a> or call <a href="tel:+19167672520">(916) 767-2520</a>.</p>
+  </section>
+
+  <!-- 2. Which rooms / which furniture? -->
+  <section class="step" data-step="2" aria-labelledby="h2" hidden>
+    <h1 id="h2">Which rooms?</h1>
+    <p class="sub" id="roomsSub">Tap + for each room. Rooms that usually have this floor are first.</p>
+    <div id="tierBox" class="group" hidden>
+      <p class="ghead">Pick your clean</p>
+      <div class="tiers" id="tiers"></div>
+    </div>
+    <div id="roomBox"></div>
+  </section>
+
+  <!-- 3. Your price -->
+  <section class="step" data-step="3" aria-labelledby="h3" hidden>
+    <h1 id="h3">Here&rsquo;s your price</h1>
+    <p class="sub">No surprises. We confirm it when we walk the job, before we start.</p>
+    <div class="price">
+      <div class="lbl">Your estimate</div>
+      <div class="big" id="bigPrice">$0</div>
+      <ul class="lines" id="lines"></ul>
+    </div>
+    <p class="fine">Based on typical room sizes. Large rooms, heavy soiling or pet spots can change it, and we&rsquo;ll always tell you first.</p>
+  </section>
+
+  <!-- 4. Pick a day -->
+  <section class="step" data-step="4" aria-labelledby="h4" hidden>
+    <h1 id="h4">Pick a day</h1>
+    <p class="sub" id="daySub">Mornings are 9&ndash;1, afternoons 1&ndash;6. Grey is already booked.</p>
+    <div class="kcq">
+      <div class="qWhen">
+        <label for="bWhen" class="ghead" style="display:block">Open days</label>
+        <input id="bWhen" type="date">
+        <div id="bOpen" class="jobCal" hidden></div>
+      </div>
+    </div>
+    <p class="picked" id="picked" hidden></p>
+  </section>
+
+  <!-- 5. Your details -->
+  <section class="step" data-step="5" aria-labelledby="h5" hidden>
+    <h1 id="h5">Where are we headed?</h1>
+    <p class="sub">So we can confirm and show up at the right door.</p>
+    <form id="who" novalidate autocomplete="on">
+      <div class="fields">
+        <div class="f full"><label for="bName">Your name</label><input id="bName" autocomplete="name" autocapitalize="words" required><span class="err" id="bNameErr"></span></div>
+        <div class="f"><label for="bPhone">Phone</label><input id="bPhone" type="tel" autocomplete="tel" placeholder="(916) 000-0000" required><span class="err" id="bPhoneErr"></span></div>
+        <div class="f"><label for="bEmail">Email</label><input id="bEmail" type="email" autocomplete="email" required><span class="err" id="bEmailErr"></span></div>
+        <div class="f full"><label for="bStreet">Street address</label><input id="bStreet" autocomplete="street-address" required><span class="err" id="bStreetErr"></span></div>
+        <div class="f"><label for="bCity">City</label><input id="bCity" autocomplete="address-level2" value="Folsom" required><span class="err" id="bCityErr"></span></div>
+        <div class="f"><label for="bZip">ZIP</label><input id="bZip" inputmode="numeric" maxlength="5" autocomplete="postal-code" required><span class="err" id="bZipErr"></span></div>
+        <div class="f full"><label for="bNotes">Anything we should know? <span style="font-weight:400">(optional)</span></label><textarea id="bNotes" placeholder="Pets, stains, gate code, parking..."></textarea></div>
+      </div>
+      <label class="check"><input type="checkbox" id="bSms"> <span>Text me about this appointment (reminders and when we&rsquo;re on the way). Msg &amp; data rates may apply. Reply STOP to opt out. <a href="/sms-terms.html" target="_blank" rel="noopener">Terms</a></span></label>
+      <input class="hp" type="checkbox" id="bHp" tabindex="-1" aria-hidden="true">
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <!-- Done -->
+  <section class="step done" data-step="6" hidden>
+    <div class="ck" aria-hidden="true">&#10003;</div>
+    <h1 id="doneTitle">You&rsquo;re booked!</h1>
+    <p id="doneMsg"></p>
+    <p><a href="/">Back to kheanandclean.com</a></p>
+  </section>
+</main>
+
+<div class="bar" id="bar">
+  <div class="in">
+    <button type="button" class="btn back" id="backBtn" hidden>Back</button>
+    <div class="run"><small>Your price</small><b id="runPrice">&mdash;</b></div>
+    <button type="button" class="btn go" id="nextBtn" disabled>Next</button>
+  </div>
+</div>
+
+<script src="/inHouseEstimator/pricing.js"></script>
+<script src="/inHouseEstimator/pricing-live.js"></script>
+<script src="/day-picker.js"></script>
+<script src="/inHouseEstimator/phone-format.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var P = window.KC_PRICING, R = P.ROOM_TYPES, S = P.SERVICES;
+  var MIN = function(){ return window.KC_MINJOB != null ? window.KC_MINJOB : 150; };
+  var WHOLE_DAY_AT = 450;   // same line as the backend: a job this size takes the whole day
+
+  /* What a customer can pick. Floors price by room; upholstery by piece. */
+  var CHOICES = [
+    { key:'carpet',     ico:'🧶', title:'Carpet',            desc:'Bedrooms, stairs, living areas' },
+    { key:'tile',       ico:'✨',       title:'Tile & grout',      desc:'Kitchens, baths, entries' },
+    { key:'lvp',        ico:'🪵', title:'Hardwood & LVP',    desc:'Wood, laminate, vinyl plank' },
+    { key:'stone',      ico:'🪨', title:'Natural stone',     desc:'Travertine, marble, slate' },
+    { key:'upholstery', ico:'🛋️', title:'Upholstery',  desc:'Couches, sectionals, chairs', wide:true }
+  ];
+  /* Rooms that usually have each floor go first; every other room is one tap away. */
+  var LIKELY = {
+    carpet: ['masterBed','smallBed','den','loft','living','closet','hallway','stairs'],
+    tile:   ['kitchen','masterBath','fullBath','halfBath','laundry','foyer','grandFoyer','stairs'],
+    lvp:    ['greatRoom','living','kitchen','dining','loft','hallway','foyer','den','stairs'],
+    stone:  ['foyer','grandFoyer','kitchen','masterBath','fullBath','halfBath','laundry','stairs']
+  };
+  var TIERS = [
+    { key:'essential', blurb:'A solid hot-water clean' },
+    { key:'deep',      blurb:'Pre-treat, scrub and fast drying', pop:true },
+    { key:'signature', blurb:'Deep + deodorizer + protector' }
+  ];
+
+  var st = { step:1, svc:'', rooms:{}, items:{}, tier:'deep', more:false };
+  var fmt = function(n){ return '$' + Math.round(n).toLocaleString('en-US'); };
+  var roomOf = function(k){ for (var i = 0; i < R.length; i++) if (R[i].key === k) return R[i]; return null; };
+
+  /* ---- Price: same math as the homepage estimator (computeServiceItems), room mode. ---- */
+  function lines(){
+    var s = S[st.svc], out = [];
+    if (!s) return out;
+    if (s.mode === 'items') {
+      s.items.forEach(function(it){ var q = st.items[it.key] || 0;
+        if (q > 0) out.push({ label: it.name + (q > 1 ? ' × ' + q : ''), cost: q * it.ft * s.rate }); });
+      return out;
+    }
+    var sqft = 0, flat = 0;
+    R.forEach(function(rt){ var q = st.rooms[rt.key] || 0; if (!q) return;
+      if (rt.flat != null) flat += q * rt.flat; else sqft += q * rt.sqft; });
+    var rate = st.svc === 'carpet' ? s.tiers[st.tier].sqft : s.rate;
+    var name = st.svc === 'carpet' ? s.tiers[st.tier].name : s.name;
+    if (sqft > 0) out.push({ label: name + ' — about ' + sqft.toLocaleString() + ' sq ft', cost: sqft * rate });
+    if (flat > 0) out.push({ label: (st.rooms.stairs || 0) >= 2 ? (st.rooms.stairs + ' flights of stairs') : 'Flight of stairs', cost: flat });
+    if (st.svc === 'carpet' && st.tier === 'deep' && sqft > 0) out.push({ label: 'Fast drying', cost: 0, inc: true });
+    if (st.svc === 'carpet' && st.tier === 'signature' && sqft > 0) out.push({ label: 'Drying, deodorizer & stain protector', cost: 0, inc: true });
+    return out;
+  }
+  function sum(){ return lines().reduce(function(a, l){ return a + l.cost; }, 0); }
+  function total(){ var t = sum(); return t > 0 ? Math.max(t, MIN()) : 0; }
+  window.kcBookTotal = total;
+
+  /* ---- Step 1 ---- */
+  $('svcs').innerHTML = CHOICES.map(function(c){
+    return '<button type="button" class="svc' + (c.wide ? ' wide' : '') + '" data-svc="' + c.key + '" aria-pressed="false">' +
+      '<span class="ico" aria-hidden="true">' + c.ico + '</span><b>' + c.title + '</b><span>' + c.desc + '</span></button>';
+  }).join('');
+  $('svcs').addEventListener('click', function(e){
+    var b = e.target.closest('[data-svc]'); if (!b) return;
+    if (st.svc !== b.dataset.svc) { st.svc = b.dataset.svc; st.rooms = {}; st.items = {}; st.more = false; }
+    paintSvcs(); drawRooms(); refresh(); go(2);
+  });
+  function paintSvcs(){ document.querySelectorAll('[data-svc]').forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.svc === st.svc)); }); }
+
+  /* ---- Step 2 ---- */
+  function tickRow(key, name, note, n){
+    return '<div class="row' + (n ? ' on' : '') + '"><div class="nm"><b>' + name + '</b>' + (note ? '<small>' + note + '</small>' : '') + '</div>' +
+      '<div class="tick"><button type="button" data-k="' + key + '" data-d="-1" aria-label="One less ' + name + '"' + (n ? '' : ' disabled') + '>&minus;</button>' +
+      '<output aria-live="polite">' + n + '</output>' +
+      '<button type="button" data-k="' + key + '" data-d="1" aria-label="One more ' + name + '">+</button></div></div>';
+  }
+  function drawRooms(){
+    var s = S[st.svc], box = $('roomBox');
+    $('tierBox').hidden = st.svc !== 'carpet';
+    if (st.svc === 'carpet') {
+      $('tiers').innerHTML = TIERS.map(function(t){
+        var tr = s.tiers[t.key];
+        return '<button type="button" class="tier" data-tier="' + t.key + '" aria-pressed="' + (st.tier === t.key) + '"><b>' + tr.name.replace(' Cleaning', '') + '</b>' +
+          '<small>' + t.blurb + '</small>' + (t.pop ? '<span class="pop">Most popular</span>' : '') + '</button>';
+      }).join('');
+    }
+    if (s.mode === 'items') {
+      $('h2').textContent = 'Which pieces?';
+      $('roomsSub').textContent = 'Tap + for each piece of furniture.';
+      box.innerHTML = '<div class="group"><div class="rows">' + s.items.filter(function(it){ return it.key !== 'misc'; }).map(function(it){
+        return tickRow(it.key, it.name, '', st.items[it.key] || 0); }).join('') + '</div></div>';
+      return;
+    }
+    $('h2').textContent = 'Which rooms?';
+    $('roomsSub').textContent = 'Tap + for each room. Rooms that usually have this floor are first.';
+    var likely = (LIKELY[st.svc] || []).map(roomOf).filter(Boolean);
+    var rest = R.filter(function(rt){ return rt.key !== 'addSqft' && likely.indexOf(rt) < 0; });
+    var row = function(rt){
+      var note = rt.flat != null ? '' : (rt.dims && /\d/.test(rt.dims) ? rt.dims + ' (about ' + rt.sqft + ' sq ft)' : 'about ' + rt.sqft + ' sq ft');
+      return tickRow(rt.key, rt.key === 'stairs' ? 'Flights of stairs' : rt.name, note, st.rooms[rt.key] || 0);
+    };
+    var anyRest = rest.some(function(rt){ return st.rooms[rt.key]; });
+    box.innerHTML = '<div class="group"><p class="ghead">Most common</p><div class="rows">' + likely.map(row).join('') + '</div></div>' +
+      (st.more || anyRest
+        ? '<div class="group"><p class="ghead">Other rooms</p><div class="rows">' + rest.map(row).join('') + '</div></div>'
+        : '<button type="button" class="more" id="moreBtn">+ Show other rooms</button>');
+  }
+  $('tiers').addEventListener('click', function(e){
+    var b = e.target.closest('[data-tier]'); if (!b) return;
+    st.tier = b.dataset.tier; drawRooms(); refresh();
+  });
+  $('roomBox').addEventListener('click', function(e){
+    if (e.target.id === 'moreBtn') { st.more = true; drawRooms(); return; }
+    var b = e.target.closest('[data-k]'); if (!b) return;
+    var bag = S[st.svc].mode === 'items' ? st.items : st.rooms, k = b.dataset.k;
+    bag[k] = Math.max(0, Math.min(20, (bag[k] || 0) + Number(b.dataset.d)));
+    var r = b.closest('.row'); r.classList.toggle('on', !!bag[k]);
+    r.querySelector('output').textContent = bag[k];
+    r.querySelector('[data-d="-1"]').disabled = !bag[k];
+    refresh();
+  });
+
+  /* ---- Step 3 ---- */
+  function drawPrice(){
+    var ls = lines(), t = sum(), shown = total();
+    $('bigPrice').textContent = fmt(shown);
+    $('lines').innerHTML = ls.map(function(l){
+      return '<li' + (l.inc ? ' class="inc"' : '') + '><span>' + l.label + '</span><span>' + (l.inc ? 'Included' : fmt(l.cost)) + '</span></li>';
+    }).join('') + (shown > t ? '<li><span>Minimum service charge</span><span>' + fmt(shown) + '</span></li>' : '');
+  }
+
+  /* ---- Step 4: the open-days calendar (same one the homepage and quick quote use) ---- */
+  var when = $('bWhen'), pick = null, LABEL = { am:'Morning (9–1)', pm:'Afternoon (1–6)', all:'All day' };
+  var t0 = new Date();
+  when.min = t0.getFullYear() + '-' + String(t0.getMonth() + 1).padStart(2, '0') + '-' + String(t0.getDate()).padStart(2, '0');
+  if (window.kcDayPicker) pick = window.kcDayPicker({
+    when: when, box: $('bOpen'), id: 'bWhenBtn', label: document.querySelector('label[for="bWhen"]'),
+    big: function(){ return total() >= WHOLE_DAY_AT; },
+    hint: function(big){ return big ? 'Your job takes the whole day. Tap an open day; grey days are booked.'
+      : 'Tap a morning (9–1) or afternoon (1–6). Grey is booked.'; }
+  });
+  function dayLabel(){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value); if (!m) return '';
+    var d = new Date(+m[1], +m[2] - 1, +m[3]), s = pick ? pick.slot() : '';
+    return d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }) + (s ? ', ' + LABEL[s] : '');
+  }
+  function hasDay(){ return /^\d{4}-\d{2}-\d{2}$/.test(when.value) && (!pick || !!pick.slot() || $('bWhenBtn').hidden); }
+  function paintDay(){
+    var ok = hasDay(); $('picked').hidden = !ok;
+    if (ok) $('picked').innerHTML = '&#10003; ' + dayLabel();
+    $('daySub').innerHTML = total() >= WHOLE_DAY_AT ? 'A job this size takes the whole day, so pick an open day. Grey is already booked.'
+      : 'Mornings are 9&ndash;1, afternoons 1&ndash;6. Grey is already booked.';
+  }
+  ['click', 'change'].forEach(function(t){ document.addEventListener(t, function(){ setTimeout(function(){ paintDay(); refresh(); }, 0); }); });
+
+  /* ---- Steps / bottom bar ---- */
+  function canNext(){
+    if (st.step === 1) return !!st.svc;
+    if (st.step === 2 || st.step === 3) return sum() > 0;
+    if (st.step === 4) return hasDay();
+    return true;
+  }
+  function refresh(){
+    var t = total();
+    $('runPrice').textContent = t ? fmt(t) : '—';
+    if (st.step === 3) drawPrice();
+    var nb = $('nextBtn');
+    nb.disabled = !canNext() || nb.dataset.busy === '1';
+    if (nb.dataset.busy !== '1') nb.textContent = st.step === 3 ? 'Pick a day' : st.step === 5 ? 'Book it' : 'Next';
+  }
+  function go(n){
+    st.step = n;
+    document.querySelectorAll('.step').forEach(function(s){ s.hidden = Number(s.dataset.step) !== n; });
+    document.querySelectorAll('.steps i').forEach(function(b, i){ b.classList.toggle('on', i < n); });
+    $('backBtn').hidden = n === 1 || n === 6;
+    $('bar').hidden = n === 6;
+    if (n === 3) drawPrice();
+    if (n === 4) { paintDay();
+      /* Open the month right away (after this click finishes, or the picker's tap-outside would fold it back). */
+      setTimeout(function(){ var b = $('bWhenBtn'); if (st.step === 4 && b && !b.hidden && $('bOpen').hidden && !hasDay()) b.click(); }, 50); }
+    refresh();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    var h = document.querySelector('.step[data-step="' + n + '"] h1'); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+  }
+  $('backBtn').addEventListener('click', function(){ go(Math.max(1, st.step - 1)); });
+  $('nextBtn').addEventListener('click', function(){
+    if (!canNext()) return;
+    if (st.step < 5) go(st.step + 1); else submit();
+  });
+  window.addEventListener('kc:prices', function(){ if (st.svc) drawRooms(); refresh(); });   // fresh Settings prices arrived
+
+  /* ---- Step 5: details + send ---- */
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function err(id, msg){ $(id + 'Err').textContent = msg; $(id).setAttribute('aria-invalid', msg ? 'true' : 'false'); return !msg; }
+  /* A field's red note goes away as soon as it's fixed. */
+  $('who').addEventListener('input', function(e){
+    var el = e.target; if (el.getAttribute('aria-invalid') !== 'true') return;
+    var note = $(el.id + 'Err'); if (note) note.textContent = ''; el.setAttribute('aria-invalid', 'false');
+  });
+  function valid(){
+    var ok = true, v = function(id){ return $(id).value.trim(); };
+    ok = err('bName', v('bName').length >= 2 ? '' : 'Please tell us your name.') && ok;
+    ok = err('bPhone', v('bPhone').replace(/\D/g, '').length === 10 ? '' : 'Enter a 10-digit phone number.') && ok;
+    ok = err('bEmail', EMAIL_RE.test(v('bEmail')) ? '' : 'Check the email address.') && ok;
+    ok = err('bStreet', v('bStreet').length >= 4 ? '' : 'Enter your street address.') && ok;
+    ok = err('bCity', v('bCity') ? '' : 'Enter your city.') && ok;
+    ok = err('bZip', /^\d{5}$/.test(v('bZip')) ? '' : 'Enter a 5-digit ZIP.') && ok;
+    if (!ok) { var bad = document.querySelector('[aria-invalid="true"]'); if (bad) bad.focus(); }
+    return ok;
+  }
+  /* The estimate in the in-house estimator's own saved format (KC_restore merges it),
+     so New quote on the Leads page rebuilds it exactly. */
+  function snapshot(){
+    var s = S[st.svc], one = { touched: true };
+    if (s.mode === 'items') one.items = Object.assign({}, st.items);
+    else {
+      one.mode = 'room'; one.sqft = 0; one.rooms = Object.assign({}, st.rooms);
+      if (st.svc === 'carpet') { one.tier = st.tier; one.addons = { dry: { on: st.tier === 'deep' } }; one.dryDefaultApplied = true; }
+    }
+    var state = {}; state[st.svc] = one;
+    return { v: 1, active: st.svc, state: state, discAmt: '', discPct: '', waiveMin: false };
+  }
+  function summary(){
+    var t = sum(), shown = total();
+    return lines().map(function(l){ return l.label + ' — ' + (l.inc ? 'Included' : fmt(l.cost)); }).join('\n') +
+      '\n\nESTIMATED TOTAL: ' + fmt(shown) + (shown > t ? '\n(Minimum service charge applied.)' : '');
+  }
+  function whenText(){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.value), s = pick ? pick.slot() : '';
+    return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) + (s ? ' ' + ({ am:'AM', pm:'PM', all:'All day' })[s] : '') : '';
+  }
+
+  function submit(){
+    if (!valid()) { $('status').textContent = 'Please fix the highlighted fields.'; $('status').className = 'status bad'; return; }
+    var bot = $('bHp').checked, nb = $('nextBtn');
+    nb.dataset.busy = '1'; nb.disabled = true; nb.textContent = 'Booking…';
+    $('status').textContent = ''; $('status').className = 'status';
+    var v = function(id){ return $(id).value.trim(); };
+    var svcName = (S[st.svc] && S[st.svc].quoteValue) || st.svc;
+    var slot = pick ? pick.slot() : '', date = when.value, wtxt = whenText(), shown = total();
+    var booked = false, bookErr = '';
+
+    var lead = {
+      source: 'booking', page: 'book', when: wtxt, services: [svcName],
+      name: v('bName'), phone: v('bPhone'), email: v('bEmail'),
+      addresses: [{ street: v('bStreet'), city: v('bCity'), state: 'CA', zip: v('bZip') }],
+      type: 'residential', smsConsent: $('bSms').checked, marketingConsent: false,
+      estimateData: JSON.stringify(snapshot()),
+      message: 'Booked online: ' + svcName + ', ' + fmt(shown) + (v('bNotes') ? '\n\n' + v('bNotes') : '')
+    };
+    var save = (!bot && window.kcSaveLead) ? window.kcSaveLead(lead).catch(function(e){ console.error('Lead save failed', e); return null; }) : Promise.resolve(null);
+
+    save.then(function(leadId){
+      if (!leadId || !slot) { if (slot) bookErr = 'error'; return; }
+      return fetch('https://us-central1-khean-estimator-78f3e.cloudfunctions.net/bookWebSlot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: leadId, date: date, slot: slot, total: shown })
+      }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){
+        if (r.ok) booked = true; else bookErr = (j && j.code) || 'error'; }); })
+        .catch(function(){ bookErr = 'error'; });
+    }).then(function(){
+      /* Email to contact@, same service the homepage estimator uses. */
+      var fd = new FormData();
+      fd.append('access_key', '2e49144b-d36b-4e13-bec4-aad215f7abc6');
+      fd.append('subject', (booked ? 'BOOKED online — ' : 'Booking request — ') + svcName + ', ' + fmt(shown) + ', ' + wtxt);
+      fd.append('from_name', 'Khean & Clean booking page');
+      fd.append('name', v('bName')); fd.append('phone', v('bPhone')); fd.append('email', v('bEmail'));
+      fd.append('address', v('bStreet') + ', ' + v('bCity') + ', CA ' + v('bZip'));
+      fd.append('estimate', summary());
+      fd.append('when', wtxt + (booked ? ' (BOOKED on the calendar)' : bookErr ? ' (NOT booked: ' + ({ taken:'slot was just taken', phone:'this phone already has a booking', done:'already booked' }[bookErr] || 'booking failed') + ', call to set a day)' : ''));
+      fd.append('notes', v('bNotes'));
+      fd.append('sms_consent', $('bSms').checked ? 'Yes' : 'No');
+      if (bot) fd.append('botcheck', 'true');
+      return fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { 'Accept': 'application/json' }, body: fd })
+        .then(function(r){ return r.ok; }).catch(function(){ return false; });
+    }).then(function(mailed){
+      if (!booked && !mailed && !bot) throw new Error('nothing went through');
+      var call = '<a href="tel:+19167672520">(916)&nbsp;767-2520</a>';
+      $('doneTitle').textContent = booked ? 'You’re booked!' : 'Got it!';
+      $('doneMsg').innerHTML = booked
+        ? 'See you <strong>' + dayLabel() + '</strong>. Your estimate is <strong>' + fmt(shown) + '</strong>. We&rsquo;ll reach out to confirm. To change anything, call ' + call + '.'
+        : (bookErr === 'taken' ? 'That time was just taken, so we' : bookErr === 'phone' ? 'Your number already has a booking with us, so we' : 'We')
+          + ' will call you shortly to lock in a day. Your estimate is <strong>' + fmt(shown) + '</strong>. If it&rsquo;s urgent, call ' + call + '.';
+      if (typeof gtag === 'function') gtag('event', 'generate_lead', { form_name: 'book_page' });
+      go(6);
+    }).catch(function(){
+      nb.dataset.busy = ''; refresh();
+      $('status').innerHTML = 'Something went wrong. Please call <a href="tel:+19167672520">(916) 767-2520</a> and we&rsquo;ll book you by phone.';
+      $('status').className = 'status bad';
+    });
+  }
+
+  go(1);
+})();
+</script>
+<script type="module">
+/* Saves the booking on the Leads page: same Firebase project and "leads" collection as the homepage. */
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+const app = initializeApp({
+  apiKey: 'AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg',
+  authDomain: 'khean-estimator-78f3e.firebaseapp.com',
+  projectId: 'khean-estimator-78f3e',
+  storageBucket: 'khean-estimator-78f3e.firebasestorage.app',
+  messagingSenderId: '581692353222',
+  appId: '1:581692353222:web:21f62f057ac5506bbb45c7'
+});
+const db = getFirestore(app);
+window.kcSaveLead = async function(lead){
+  const row = Object.assign({}, lead, { status: 'new', source: lead.source || 'booking', createdAt: serverTimestamp() });
+  try { return (await addDoc(collection(db, 'leads'), row)).id; }
+  catch (err) {
+    /* Same fallback as the homepage: if the database won't take the text consent, the lead still goes in. */
+    if (err.code !== 'permission-denied') throw err;
+    const plain = Object.assign({}, row); delete plain.smsConsent; delete plain.marketingConsent;
+    if (lead.smsConsent) plain.message = 'OK to text: yes\n\n' + (plain.message || '');
+    return (await addDoc(collection(db, 'leads'), plain)).id;
+  }
+};
+</script>
+</body>
+</html>
