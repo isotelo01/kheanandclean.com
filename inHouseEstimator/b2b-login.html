@@ -66,6 +66,14 @@ button[disabled]{ opacity:.6; cursor:default; }
 /* Show / Hide: solid gold pill so it stays visible even when Chrome autofill turns the box light blue. */
 .pwshow{ position:absolute; right:6px; top:6px; width:auto; padding:.45rem .9rem; font-size:.85rem; font-weight:700;
   background:var(--gold); color:var(--navy); letter-spacing:0; border-radius:999px; }
+/* Verify steps under the form: a soft gold box for the email wait and the code boxes. */
+.vstep{ margin:4px 0 14px; padding:14px; text-align:left; border:1px solid rgba(224,182,74,.45); border-radius:12px; background:rgba(224,182,74,.07); }
+.vstep p{ margin:0 0 12px; font-size:.92rem; line-height:1.45; }
+.vstep .ghost{ margin:0; }
+.vstep .linkbtn{ display:block; margin:10px auto 0; }
+.vstep .otp{ margin-bottom:8px; }
+.vstep .otp input{ background:#000; border-color:rgba(224,182,74,.6); }
+.hint{ margin:0 !important; font-size:.8rem !important; color:rgba(244,241,234,.6); }
 [hidden]{ display:none !important; }
 </style>
 </head>
@@ -107,9 +115,21 @@ button[disabled]{ opacity:.6; cursor:default; }
     <input id="contact" required maxlength="190" autocomplete="name" autocapitalize="words">
     <label for="phone">Phone</label>
     <input id="phone" type="tel" maxlength="40" autocomplete="tel" required>
-    <button type="button" class="ghost" id="codeSendBtn">Text me a code</button>
-    <div id="codeBox" hidden>
-      <label for="otp0">Code from the text</label>
+    <label for="type">You are a</label>
+    <select id="type">
+      <option>Property management</option>
+      <option>Realtor</option>
+      <option>Commercial</option>
+    </select>
+    <!-- One button does it all: email first, then the texted code, then they're in. -->
+    <div class="vstep" id="emailStep" hidden>
+      <p>&#9993;&#65039; We emailed a link to <b id="emailTo"></b>. Open it and tap the link to confirm it&rsquo;s you, then come back here. Check spam too.</p>
+      <button type="button" class="ghost" id="emailDoneBtn">I confirmed my email</button>
+      <button type="button" class="linkbtn" id="emailAgainBtn">Send the email again</button>
+    </div>
+    <p class="verified" id="emailOk" hidden>&#10003; Email verified</p>
+    <div class="vstep" id="codeBox" hidden>
+      <label for="otp0">Code we texted you</label>
       <div class="otp" id="otp">
         <input id="otp0" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 1">
         <input inputmode="numeric" autocomplete="off" aria-label="Digit 2">
@@ -118,15 +138,11 @@ button[disabled]{ opacity:.6; cursor:default; }
         <input inputmode="numeric" autocomplete="off" aria-label="Digit 5">
         <input inputmode="numeric" autocomplete="off" aria-label="Digit 6">
       </div>
+      <p class="hint">On iPhone, the code pops up above the keyboard. Tap it to fill the boxes.</p>
+      <button type="button" class="linkbtn" id="codeAgainBtn">Text me a new code</button>
     </div>
     <p class="verified" id="phoneOk" hidden>&#10003; Phone verified</p>
-    <label for="type">You are a</label>
-    <select id="type">
-      <option>Property management</option>
-      <option>Realtor</option>
-      <option>Commercial</option>
-    </select>
-    <button type="submit" id="profileBtn" disabled>Finish signing up</button>
+    <button type="submit" id="profileBtn">Verify email &amp; phone, then finish</button>
   </form>
 
   <p class="err" id="err" role="status"></p>
@@ -137,7 +153,7 @@ button[disabled]{ opacity:.6; cursor:default; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
          createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, setPersistence,
-         browserLocalPersistence, onAuthStateChanged }
+         browserLocalPersistence, onAuthStateChanged, reload }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -247,24 +263,77 @@ onAuthStateChanged(auth, async u => {
     if (snap.exists()) { location.replace("./partner.html"); return; }
   } catch (ex) { console.error(ex); }
   $("signin").hidden = true; $("profileForm").hidden = false;
-  $("sub").textContent = "Almost done. Tell us about your business." +
-    (u.emailVerified ? "" : " We also emailed you a link to confirm your address. Check spam too.");
+  $("sub").textContent = "Almost done. Tell us about your business.";
   if (u.displayName && !$("contact").value) $("contact").value = u.displayName;
   $("biz").focus();
 });
 
-/* Phone check: a 6-digit code texted from the business number (b2bPhoneSend / b2bPhoneCheck).
-   Finish signing up stays off until the number in the Phone box is the one that was verified. */
+/* One button: "Verify email & phone, then finish".
+   1. Email: a Google sign-in is already confirmed. Otherwise Firebase emails a link; we watch for
+      the tap (every 4 s, or "I confirmed my email").
+   2. Phone: a 6-digit code texted from the business number (b2bPhoneSend / b2bPhoneCheck).
+      It fills the black boxes, and the last digit checks it.
+   3. Both done: the profile saves and they're in their portal. */
 const fns = getFunctions(app, "us-central1");
 const sendCode = httpsCallable(fns, "b2bPhoneSend"), checkCode = httpsCallable(fns, "b2bPhoneCheck");
 const digits = v => String(v || "").replace(/\D/g, "").slice(-10);
-let verifiedPhone = "";
+let verifiedPhone = "", emailSentAt = 0, emailWatch = null, codeSentTo = "";
 const phoneIsVerified = () => !!verifiedPhone && digits($("phone").value) === verifiedPhone;
-const lockFinish = () => {
-  const ok = phoneIsVerified();
-  $("profileBtn").disabled = !ok; $("phoneOk").hidden = !ok; $("codeSendBtn").hidden = ok;
+const emailIsVerified = () => !!user && !!user.emailVerified;
+const btnSay = (t, off) => { $("profileBtn").textContent = t; $("profileBtn").disabled = !!off; };
+/* Changing the phone after it was checked: the check no longer counts. */
+$("phone").addEventListener("input", () => {
+  const ok = phoneIsVerified(); $("phoneOk").hidden = !ok;
+  if (!ok && codeSentTo && digits($("phone").value) !== codeSentTo) { $("codeBox").hidden = true; codeSentTo = ""; btnSay("Verify email & phone, then finish"); }
+});
+
+function fieldsOk() {
+  if ($("biz").value.trim().length < 2) { say("Type your business name."); $("biz").focus(); return false; }
+  if ($("contact").value.trim().length < 2) { say("Type your name."); $("contact").focus(); return false; }
+  if (digits($("phone").value).length !== 10) { say("Type your 10-digit phone number."); $("phone").focus(); return false; }
+  return true;
+}
+async function sendEmail() {
+  if (Date.now() - emailSentAt < 60000) return;   // one email a minute at most
+  emailSentAt = Date.now();
+  try { await sendEmailVerification(user); }
+  catch (ex) { if (ex.code !== "auth/too-many-requests") throw ex; }   // already sent a few: the last one still works
+}
+async function checkEmail() {
+  try { await reload(user); } catch (ex) { console.error(ex); }
+  if (!emailIsVerified()) return false;
+  clearInterval(emailWatch); emailWatch = null;
+  $("emailStep").hidden = true; $("emailOk").hidden = false;
+  return true;
+}
+async function startEmail() {
+  $("emailTo").textContent = user.email || "your email";
+  $("emailStep").hidden = false;
+  btnSay("Waiting for your email\u2026", true); say("");
+  try { await sendEmail(); } catch (ex) { fail(ex, "Could not send the email. Try again."); btnSay("Verify email & phone, then finish"); return; }
+  clearInterval(emailWatch);
+  emailWatch = setInterval(async () => { if (await checkEmail()) startText(); }, 4000);
+}
+async function startText() {
+  const phone = digits($("phone").value);
+  btnSay("Texting your code\u2026", true); say("");
+  try {
+    await sendCode({ phone });
+    codeSentTo = phone;
+    $("codeBox").hidden = false; clearBoxes();
+    btnSay("Type the code above", true);
+    say("Code sent to " + $("phone").value.trim() + ". It can take a minute.", true);
+  } catch (ex) { console.error(ex); say(ex.message || "Could not send the code. Try again."); btnSay("Verify email & phone, then finish"); }
+}
+$("emailDoneBtn").onclick = async () => {
+  if (await checkEmail()) startText();
+  else say("Not confirmed yet. Tap the link in the email (check spam), then try again.");
 };
-$("phone").addEventListener("input", lockFinish);
+$("emailAgainBtn").onclick = async () => {
+  emailSentAt = 0;
+  try { await sendEmail(); say("Sent again. Check spam too.", true); } catch (ex) { fail(ex, "Could not send the email. Try again."); }
+};
+$("codeAgainBtn").onclick = () => startText();
 
 /* Your name: capitalize the first letter of each word as they type (israel sotelo -> Israel Sotelo). */
 $("contact").addEventListener("input", () => {
@@ -296,26 +365,13 @@ boxes.forEach((box, i) => {
   });
 });
 
-$("codeSendBtn").onclick = async () => {
-  const phone = $("phone").value.trim();
-  if (digits(phone).length !== 10) { say("Type your 10-digit phone number first."); $("phone").focus(); return; }
-  const b = $("codeSendBtn"); b.disabled = true; say("");
-  try {
-    await sendCode({ phone: digits(phone) });
-    $("codeBox").hidden = false; clearBoxes();
-    b.textContent = "Text me a new code";
-    say("Code sent. It can take a minute to arrive.", true);
-  } catch (ex) { console.error(ex); say(ex.message || "Could not send the code. Try again."); }
-  b.disabled = false;
-};
-
 async function runCheck() {
   if (checking) return;
   const code = codeNow();
   checking = true; boxes.forEach(b => b.disabled = true); say("Checking…", true);
   try {
     const r = (await checkCode({ code })).data || {};
-    if (r.verified) { verifiedPhone = digits(r.phone); $("codeBox").hidden = true; lockFinish(); say("Phone verified.", true); }
+    if (r.verified) { verifiedPhone = digits(r.phone); $("codeBox").hidden = true; $("phoneOk").hidden = false; say("Phone verified.", true); checking = false; finish(); return; }
     else { say("That code isn't right. " + r.left + (r.left === 1 ? " try" : " tries") + " left."); boxes.forEach(b => b.disabled = false); clearBoxes(); }
   } catch (ex) { console.error(ex); say(ex.message || "Could not check the code. Try again."); boxes.forEach(b => b.disabled = false); clearBoxes(); }
   boxes.forEach(b => b.disabled = false);
@@ -323,8 +379,13 @@ async function runCheck() {
 }
 
 $("profileForm").addEventListener("submit", async e => {
-  e.preventDefault(); if (!user) return;
-  if (!phoneIsVerified()) { say("Verify your phone first: tap Text me a code."); return; }
+  e.preventDefault(); if (!user || !fieldsOk()) return;
+  if (!emailIsVerified() && !(await checkEmail())) { startEmail(); return; }
+  if (!phoneIsVerified()) { startText(); return; }
+  finish();
+});
+async function finish() {
+  if (!fieldsOk() || !phoneIsVerified()) return;
   const btn = $("profileBtn"); btn.disabled = true; btn.textContent = "Saving…"; say("");
   try {
     await setDoc(doc(db, "partners", user.uid), {
@@ -340,7 +401,7 @@ $("profileForm").addEventListener("submit", async e => {
     });
     location.replace("./partner.html");
   } catch (ex) { fail(ex, "Could not save. Try again."); btn.disabled = false; btn.textContent = "Finish signing up"; }
-});
+}
 </script>
 <script src="./phone-format.js"></script>
 </body>
