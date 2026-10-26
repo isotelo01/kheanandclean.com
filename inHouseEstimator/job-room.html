@@ -252,7 +252,9 @@ async function show(){
   const isCarpet = /carpet/i.test(String(line.key || "")) ||
     /carpet|essential cleaning|deep cleaning|signature cleaning|quick dry|encapsulation/i.test(String(line.label || ""));
   /* Tile & grout line: Material type and Pre-Spray / Rinse on its pages. */
-  const isTile = line.key ? line.key === "tile" : /tile/i.test(String(line.label || ""));
+  /* Commercial hard floor gets the same page as tile (material, Pre-Spray / Rinse), with its own materials. */
+  const isHardComm = line.key === "commhard";
+  const isTile = line.key ? (line.key === "tile" || isHardComm) : /tile/i.test(String(line.label || ""));
   const extras = isCarpet ? items.filter(isExtra).map(it => splitLabel(it.label)[0]) : [];
   const checks = new Set(Array.isArray(q.roomChecks) ? q.roomChecks : []);
   const slug = s => s.toLowerCase().replace(/[^a-z]+/g, "-");
@@ -347,7 +349,8 @@ async function show(){
        Sheet charges the checked rooms' sq ft; it replaces any whole-line hair & debris, so no double charge. */
     /* Quoted with hair & debris: the box starts checked. Once this room is saved, its own setting wins. */
     const lineHair = !!line.hairQuoted || items.some(it => !it.removed && it.addonKey !== "hairRoom" && /^hair & debris/i.test(String(it.label || "")));
-    const showHair = spot.isRoom && isCarpet && !spot.track;   /* tracking rooms (straight-sq-ft line) add no money */
+    /* Commercial areas (tracking rooms) get it too, same as residential; tracking rooms add no money for it. */
+    const showHair = spot.isRoom && isCarpet && (!spot.track || /^comm/i.test(String(line.key || "")));
     const hairOn = typeof st.hair === "boolean" ? st.hair : lineHair;
     /* This room's fiber if it has one, otherwise the job's (set by the first room saved). */
     const FIBERS = ["Nylon", "Polyester", "Olefin", "Other"];
@@ -364,7 +367,7 @@ async function show(){
     const fibFromJob = !(st.fiber && st.fiber.type) && !!(secFib || jobFibHere);
     const fromWhere = secFib ? "Filled in from the section on the Job Sheet." : "Filled in from the first room.";
     /* Tile: this room's material, otherwise the section's, otherwise the job's (set by the first tile room saved). */
-    const MATERIALS = ["Porcelain", "Ceramic"];
+    const MATERIALS = isHardComm ? ["Porcelain", "Ceramic", "VCT", "Vinyl plank", "Concrete"] : ["Porcelain", "Ceramic"];
     const mat = st.material || secMat || q.jobMaterial || "";
     const matFromJob = !st.material && !!(secMat || q.jobMaterial);
     const matWhere = secMat ? "Filled in from the section on the Job Sheet." : "Filled in from the first room.";
@@ -407,7 +410,7 @@ async function show(){
           : '') +
         /* Pre-Spray and Rinse: every page on a carpet or tile line (rooms, stairs, rugs and the
            add-ons with their own photo page). */
-        ((isCarpet || isTile || line.key === "commhard") && !spot.noChem   /* Carpet Stretching: no Pre-Spray / Rinse; commercial hard floor gets them like tile */
+        ((isCarpet || isTile) && !spot.noChem   /* Carpet Stretching: no Pre-Spray / Rinse */
           ? '<div class="chemrow">' +
               '<label class="chem">Pre-Spray <input type="text" id="preSpray" value="' + esc(st.preSpray || secPre) + '"></label>' +
               '<label class="chem">Rinse <input type="text" id="rinse" value="' + esc(st.rinse || secRinse) + '"></label>' +

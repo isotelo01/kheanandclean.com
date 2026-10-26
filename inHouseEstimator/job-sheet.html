@@ -1338,7 +1338,7 @@ async function show(){
   const secBtn = (key, kind) => '<div class="secdef staff" data-sec="' + key + '" data-kind="' + kind + '">' +
     '<button type="button" class="pkgbtn" data-secopen>Detergent &amp; material</button>' +
     '<span class="secsum">' + esc(secSummary(secDefsNow[key])) + '</span><div class="secpanel" hidden></div></div>';
-  const isTileLine = l => l.key ? l.key === "tile" : /tile/i.test(String(l.label || ""));
+  const isTileLine = l => l.key ? (l.key === "tile" || l.key === "commhard") : /tile/i.test(String(l.label || ""));
   const sections = lines.map((l, i) => {
     const items = Array.isArray(l.items) ? l.items : [];
     let rugHead = false;
@@ -1417,7 +1417,7 @@ async function show(){
         '</div>' : '') +
       /* Tile (or a carpet line with no package row): Detergent & material at the top of its rooms. */
       (isCarpetLine(l) && tierOf(l) ? '' : isCarpet(l) ? '<div class="pkgrow staff">' + secBtn("L" + i, "carpet") + '</div>'
-        : isTileLine(l) ? '<div class="pkgrow staff">' + secBtn("L" + i, "tile") + '</div>' : '') +
+        : isTileLine(l) ? '<div class="pkgrow staff">' + secBtn("L" + i, l.key === "commhard" ? "hard" : "tile") + '</div>' : '') +
       (shown.length ? shown.map(([it, j]) => {
         /* Area Rugs: a heading above the first rug, with the rugs' own Detergent & material on the right. */
         const isRug = isCarpet(l) && !it.removed && /^Area Rugs\b/i.test(String(it.label || "")) && !(Array.isArray(it.rooms) && it.rooms.length);
@@ -1679,7 +1679,8 @@ async function show(){
      its own page. Amounts feed Detergents used below: each product's amount there becomes the total
      across the sections, and the sheet saves. ---- */
   const secDefs = { ...secDefsNow };
-  const MATS = { carpet: ["Nylon", "Polyester", "Olefin", "Other"], tile: ["Porcelain", "Ceramic"] };
+  const MATS = { carpet: ["Nylon", "Polyester", "Olefin", "Other"], tile: ["Porcelain", "Ceramic"],
+    hard: ["Porcelain", "Ceramic", "VCT", "Vinyl plank", "Concrete"] };   /* commercial hard floor */
   const toOz = (a, u) => (Number(a) || 0) * (u === "qt" ? 32 : 1);
   view.querySelectorAll(".secdef").forEach(box => {
     const key = box.dataset.sec, kind = box.dataset.kind, panel = box.querySelector(".secpanel"), sumEl = box.querySelector(".secsum");
