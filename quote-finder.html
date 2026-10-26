@@ -390,7 +390,11 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var r = A.rooms[k];
     LISTS[k].forEach(function(key){
       if(key !== 'beds' && !room(key)) return;   /* a room hidden or removed on the Settings page */
-      var sub = key === 'beds' ? 'about 10×12 each' : key === 'stairs' ? money(stairsPrice()) + ' a flight' : '';
+      /* Every room shows its size, like the bedrooms: the room's measurements from Settings / pricing.js,
+         or its square feet when there are no measurements. */
+      var rt = room(key), dims = rt && rt.dims && /\d/.test(rt.dims) ? rt.dims.replace(/\s*\u00d7\s*/, '×') : '';
+      var sub = key === 'beds' ? 'about 10×12 each' : key === 'stairs' ? money(stairsPrice()) + ' a flight'
+        : dims ? 'about ' + dims + (rt.sqft ? ' (' + rt.sqft + ' sq ft)' : '') : rt && rt.sqft ? 'about ' + rt.sqft + ' sq ft' : '';
       box.appendChild(counter(NAMES[key], sub, function(){ return r[key] || 0; }, function(v){ r[key] = v; }, key === 'beds' ? 8 : 10));
       /* Master bedroom: its own size question, right under the bedrooms. */
       if(k === 'carpet' && key === 'beds'){
