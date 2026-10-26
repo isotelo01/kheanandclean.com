@@ -107,6 +107,9 @@ h1{font:700 80px/1.2 "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px s
 .aisaid{font-size:13px;color:var(--muted);font-style:italic}
 textarea,.field input{width:100%;font:inherit;padding:10px 12px;border:1px solid #c9cedb;border-radius:8px;resize:vertical;background:#fff;color:var(--ink)}
 textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold)}
+#replyForm #body{min-height:120px;max-height:60vh;overflow-y:auto;line-height:1.45}
+/* Check: "What's this reply about?" chips before it checks. */
+.aitopics{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .ractions{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .count{font-size:13px;color:var(--muted)}
 .field{display:grid;gap:4px;margin-bottom:10px}
@@ -559,6 +562,11 @@ function showThread(id) {
   const form = document.getElementById("replyForm"), body = document.getElementById("body"),
         btn = document.getElementById("sendBtn"), note = document.getElementById("note"), count = document.getElementById("count");
   body.addEventListener("input", () => { count.textContent = body.value.length + " / " + MAX; });
+  /* The reply box opens up to fit the whole message (up to most of the screen, then it scrolls).
+     It also refits whenever a suggestion or a checked version is dropped in. */
+  const fitBody = () => { body.style.height = "auto"; body.style.height = Math.min(body.scrollHeight + 2, Math.round(window.innerHeight * 0.6)) + "px"; };
+  body.addEventListener("input", fitBody);
+  new MutationObserver(fitBody).observe(document.getElementById("count"), { childList: true, characterData: true, subtree: true });
   // Opened from a "Text" button with a ready-made message (?body=...): put it in the box once, unsent.
   const pre = new URLSearchParams(location.search).get("body");
   if (pre) {
@@ -758,10 +766,32 @@ function showThread(id) {
   }
   /* Check my reply: reads what you typed against the conversation, lists anything missing,
      and offers a better version that ends with something to keep them talking. Use this swaps it in. */
-  document.getElementById("checkBtn").addEventListener("click", async () => {
-    const draft = body.value.trim(), box = aiBox(), cb = document.getElementById("checkBtn");
+  /* Check asks what the reply is about first, so it stops bringing up scheduling when the job is
+     already booked. Your pick rides along with your reply as a note the assistant reads (it isn't
+     part of the text). */
+  const TOPICS = [
+    { t: "Photos", note: "this reply is about photos. Don't bring up scheduling unless my reply does." },
+    { t: "Scheduling", note: "this reply is about picking a day or time." },
+    { t: "Price / estimate", note: "this reply is about the price or the estimate. Don't bring up scheduling unless my reply does." },
+    { t: "Already booked, just following up", note: "the job is already on the calendar. Don't ask about scheduling, days or times." },
+    { t: "Something else", note: "" }
+  ];
+  document.getElementById("checkBtn").addEventListener("click", () => {
+    const draft = body.value.trim(), box = aiBox();
     if (!draft) { note.className = "msg err"; note.textContent = "Type your reply first, then tap Check."; return; }
     note.className = "msg"; note.textContent = "";
+    box.innerHTML = '<div class="aibar" style="display:block"><b>What\u2019s this reply about?</b><div class="aitopics">' +
+      TOPICS.map((x, i) => '<button type="button" class="ghost" data-topic="' + i + '">' + esc(x.t) + '</button>').join("") +
+      '<button type="button" class="ghost" data-ai="no">Cancel</button></div></div>';
+  });
+  aiBox().addEventListener("click", e => {
+    const tb = e.target.closest("[data-topic]");
+    if (tb) runCheck(TOPICS[+tb.dataset.topic]);
+  });
+  async function runCheck(topic) {
+    const mine = body.value.trim(), box = aiBox(), cb = document.getElementById("checkBtn");
+    if (!mine) return;
+    const draft = topic && topic.note ? "(Note for you, not part of my text: " + topic.note + ")\n\nMy reply: " + mine : mine;
     cb.disabled = true; box.innerHTML = '<div class="aibar"><span>Checking your reply' + ELLIPSIS + '</span></div>';
     try {
       const r = (await smsSuggest({thread: id, draft})).data || {};
@@ -779,7 +809,7 @@ function showThread(id) {
         '<span class="aibtns"><button type="button" class="ghost" data-ai="no">Close</button></span></div>';
     }
     cb.disabled = false;
-  });
+  }
   function aiAnswer() {
     const box = aiBox(), a = (document.getElementById("aiA") || {}).value || "";
     if (!a.trim()) return;
