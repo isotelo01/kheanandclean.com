@@ -101,7 +101,8 @@ h1{font:700 80px/1.2 "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px s
 /* Say it (voice): mic button, red while listening, and the "You said" line. */
 .aimic{display:inline-flex;align-items:center;gap:6px}
 .aimic svg{width:16px;height:16px;flex:none}
-.aimic.on{border-color:#ff6b6b;color:#ff6b6b;animation:aiPulse 1s ease-in-out infinite}
+.aimic.on{border-color:#ff6b6b;color:#fff;background:#c0392b;animation:aiPulse 1s ease-in-out infinite}
+.aimic.done{border-color:#2ecc71;color:#fff;background:#1e8f4e}
 @keyframes aiPulse{50%{box-shadow:0 0 0 6px rgba(255,107,107,.25)}}
 .aisaid{font-size:13px;color:var(--muted);font-style:italic}
 textarea,.field input{width:100%;font:inherit;padding:10px 12px;border:1px solid #c9cedb;border-radius:8px;resize:vertical;background:#fff;color:var(--ink)}
@@ -647,29 +648,62 @@ function showThread(id) {
      the carpets"). Your words go to the assistant the same way Check does (as a draft), and it hands
      back a ready reply built from them. Nothing is saved or sent. Phones without browser speech
      recognition get a box instead: tap the keyboard's mic there. */
+  /* Listening: the button is red ("Tap to stop" with a countdown) and keeps listening through pauses.
+     Tap it to stop, or it stops by itself after 15 seconds. Then it turns green and writes the reply. */
+  let aiRec = null, aiStop = null, aiCancel = null;
   function aiVoice() {
     const box = aiBox();
     box.innerHTML = '<div class="aibar aiq"><span><b>Say what you want to tell them</b></span>' +
       '<input id="aiSay" type="text" maxlength="500" placeholder="Listening' + ELLIPSIS + '" aria-label="What you want to say">' +
-      '<span class="aibtns"><button type="button" class="new" data-ai="say">Write it</button>' +
-      '<button type="button" class="ghost aimic" data-ai="mic" aria-label="Talk again">' + MIC_SVG + 'Talk again</button>' +
+      '<span class="aibtns"><button type="button" class="ghost aimic" data-ai="stop" id="aiMicBtn">' + MIC_SVG + '<span>Tap to stop</span></button>' +
+      '<button type="button" class="new" data-ai="say">Write it</button>' +
       '<button type="button" class="ghost" data-ai="no">Cancel</button></span></div>';
-    const inp = document.getElementById("aiSay");
+    const inp = document.getElementById("aiSay"), micBtn = document.getElementById("aiMicBtn"), lbl = micBtn.querySelector("span");
     inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); aiSay(); } });
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { inp.placeholder = "Type it, or tap your keyboard's mic"; inp.focus(); return; }
+    const idle = () => { micBtn.dataset.ai = "mic"; micBtn.classList.remove("on", "done"); lbl.textContent = "Talk again"; };
+    if (!SR) { idle(); inp.placeholder = "Type it, or tap your keyboard's mic"; inp.focus(); return; }
+    const LIMIT = 15000, t0 = Date.now();
+    let heard = "", stopped = false, failed = false;
     const rec = new SR();
-    rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
-    const micBtn = box.querySelector('[data-ai="mic"]');
+    rec.lang = "en-US"; rec.interimResults = true; rec.continuous = true;
+    aiRec = rec;
     micBtn.classList.add("on");
-    rec.onresult = e => { inp.value = Array.from(e.results).map(r => r[0].transcript).join(" ").trim(); };
-    rec.onerror = e => { inp.placeholder = e.error === "not-allowed" ? "Mic is blocked. Type it, or tap your keyboard's mic" : "Didn't catch that. Type it or tap Talk again"; };
-    rec.onend = () => { micBtn.classList.remove("on"); if (inp.value.trim()) aiSay(); else inp.focus(); };
-    try { rec.start(); } catch (e) { micBtn.classList.remove("on"); inp.focus(); }
+    const tick = setInterval(() => {
+      const left = Math.max(0, Math.ceil((LIMIT - (Date.now() - t0)) / 1000));
+      lbl.textContent = "Tap to stop \u00b7 " + left;
+      if (left <= 0) aiStop();
+    }, 250);
+    aiStop = () => { if (stopped) return; stopped = true; clearInterval(tick); try { rec.stop(); } catch (e) {} };
+    /* Cancel, or Write it while still listening: stop for good, without writing a second time. */
+    aiCancel = () => { stopped = true; failed = true; clearInterval(tick); aiRec = null; aiCancel = null; try { rec.abort(); } catch (e) {} };
+    rec.onresult = e => {
+      let live = "";
+      for (let k = e.resultIndex; k < e.results.length; k++) {
+        const t = e.results[k][0].transcript;
+        if (e.results[k].isFinal) heard = (heard + " " + t).trim(); else live += t;
+      }
+      inp.value = (heard + " " + live).trim();
+    };
+    rec.onerror = e => {
+      if (e.error === "no-speech" || e.error === "aborted") return;   // a pause: keep going until stopped
+      failed = true; stopped = true; clearInterval(tick);
+      inp.placeholder = e.error === "not-allowed" ? "Mic is blocked. Type it, or tap your keyboard's mic" : "Didn't catch that. Type it or tap Talk again";
+    };
+    rec.onend = () => {
+      /* Some phones end on a pause even in continuous mode: start again until tapped or 15 s. */
+      if (!stopped && Date.now() - t0 < LIMIT) { try { rec.start(); return; } catch (e) {} }
+      clearInterval(tick); stopped = true; aiRec = null; aiCancel = null;
+      if (failed || !inp.value.trim()) { idle(); inp.focus(); return; }
+      micBtn.classList.remove("on"); micBtn.classList.add("done"); lbl.textContent = "Got it";
+      setTimeout(aiSay, 600);
+    };
+    try { rec.start(); } catch (e) { clearInterval(tick); idle(); inp.focus(); }
   }
   async function aiSay() {
     const box = aiBox(), said = ((document.getElementById("aiSay") || {}).value || "").trim();
     if (!said) return;
+    if (aiCancel) aiCancel();   // tapped Write it while still listening
     box.innerHTML = '<div class="aibar"><span>Writing your reply' + ELLIPSIS + '</span></div>';
     try {
       const r = (await smsSuggest({thread: id, draft: said})).data || {};
@@ -761,8 +795,10 @@ function showThread(id) {
     if (a === "go") aiRun();
     else if (a === "ans") aiAnswer();
     else if (a === "mic") aiVoice();
+    else if (a === "stop") { if (aiStop) aiStop(); }
     else if (a === "say") aiSay();
-    else if (a === "no") { try { sessionStorage.setItem(aiKey(aiFor), "1"); } catch (e) {} aiBox().innerHTML = ""; aiSug = ""; }
+    else if (a === "no" && aiCancel) aiCancel();
+    if (a === "no") { try { sessionStorage.setItem(aiKey(aiFor), "1"); } catch (e) {} aiBox().innerHTML = ""; aiSug = ""; }
   });
 }
 
