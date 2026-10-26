@@ -348,20 +348,39 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   function sProblem(el){
-    h(el, 'We’re here for you. What can we help with?', 'Pick the one that sounds most like your home.');
-    choices(el, [
-      { v:'Dull traffic lanes', t:'Dull, matted traffic lanes' }, { v:'Hasn’t been cleaned in a long time', t:'It hasn’t been cleaned in a long time' },
+    h(el, 'We’re here for you. What can we help with?', 'Pick all that apply.');
+    var list = [
+      { v:'Dull traffic lanes', t:'Dull, matted traffic lanes' },
       { v:'Looks fine, just want a refresh', t:'It looks fine, I just want a refresh', s:'Even clean-looking carpet holds body oils a vacuum can’t lift. A deep clean stands the fibers back up.' },
       { v:'Upholstery', t:'My couch or furniture needs cleaning', s:'Couches, sectionals, chairs' },
       { v:'Area rugs', t:'I have area rugs to clean' },
       { v:'Other', t:'Something else' },
-      { v:'Pet odor', t:'Pet odor' }, { v:'Pet stains', t:'Pet stains' }, { v:'Spots and stains', t:'Spots and stains' }
-    ], function(v){
-      A.problem = v;
-      /* Furniture: tick Upholstery on the next screen for them. */
-      if(v === 'Upholstery' && !has('upholstery')) A.svcs = A.svcs.concat('upholstery');
-      if(v === 'Area rugs' && !has('rugs')) A.svcs = A.svcs.concat('rugs');
-    }, A.problem);
+      { v:'Pet stains', t:'Pet stains' }, { v:'Spots and stains', t:'Spots and stains' }
+    ];
+    /* Tap as many as fit, then Done. Couch and area rugs tick Upholstery / Area rugs on the next screen. */
+    A.problems = A.problems || [];
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    var done;
+    list.forEach(function(o){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+      b.innerHTML = '<span>' + o.t + (o.s ? '<small>' + o.s + '</small>' : '') + '</span>';
+      b.setAttribute('aria-pressed', String(A.problems.indexOf(o.v) > -1));
+      b.onclick = function(){
+        var on = A.problems.indexOf(o.v) < 0;
+        A.problems = on ? A.problems.concat(o.v) : A.problems.filter(function(x){ return x !== o.v; });
+        b.setAttribute('aria-pressed', String(on));
+        done.disabled = !A.problems.length;
+      };
+      box.appendChild(b);
+    });
+    done = goBtn(el, 'Done', function(){
+      A.problem = A.problems.join(', ');
+      if(A.problems.indexOf('Upholstery') > -1 && !has('upholstery')) A.svcs = A.svcs.concat('upholstery');
+      if(A.problems.indexOf('Area rugs') > -1 && !has('rugs')) A.svcs = A.svcs.concat('rugs');
+      A.svcs.sort(function(a, c){ return PICKS.indexOf(a) - PICKS.indexOf(c); });
+      next();
+    });
+    done.disabled = !A.problems.length;
   }
 
   function sServices(el){
@@ -660,7 +679,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function summary(e){
     var L = [];
     L.push('From the Quote Finder walkthrough');
-    if(A.problem) L.push('Main concern: ' + A.problem);
+    if(A.problem) L.push('Main concerns: ' + A.problem);
     L.push('Services: ' + A.svcs.map(function(k){ return SVC[k].name; }).join(', '));
     if(A.story) L.push('Home: ' + (A.story === '2' ? 'two story' : 'one story'));
     ['carpet','tile','lvp','stone'].forEach(function(k){
