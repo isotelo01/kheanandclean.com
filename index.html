@@ -3470,7 +3470,12 @@ document.getElementById('yr').textContent = new Date().getFullYear();
   var COMM_AREAS = [
     { key:'mainRoom', name:'Main Room' },
     { key:'clubRoom', name:'Club Room' },
-    { key:'office',   name:'Office' }
+    { key:'office',   name:'Office' },
+    { key:'lobby',    name:'Lobby' },
+    { key:'confRoom', name:'Conference Room' },
+    { key:'breakRoom',name:'Break Room' },
+    { key:'restroom', name:'Restroom' },
+    { key:'hallway',  name:'Hallway' }
   ];
   function defaultAreas(){ var o = {}; COMM_AREAS.forEach(function(a){ o[a.key] = 0; }); return o; }
   function areaNames(st){
@@ -4174,8 +4179,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       areaBlock = document.createElement('fieldset');
       areaBlock.id = 'commAreaField';
       areaBlock.style.marginBottom = '1.9rem';
-      areaBlock.innerHTML = '<legend class="lgnd">Areas</legend>'+
-        '<p class="roomNote">Which areas need cleaning? Your price comes from the total square feet above.</p>'+
+      areaBlock.innerHTML = '<button type="button" class="btn btn--jade" data-areatoggle style="width:100%">Areas list</button>'+
+        '<div data-arealist hidden style="margin-top:1rem">'+
+        '<p class="roomNote" style="margin-top:0">Which areas need cleaning? Your price comes from the total square footage above.</p>'+
         '<div class="adds">'+COMM_AREAS.map(function(a){
           return '<div class="add" data-arearow="'+a.key+'" style="cursor:pointer">'+
                  '<span>'+a.name+'</span>'+
@@ -4184,14 +4190,16 @@ document.getElementById('yr').textContent = new Date().getFullYear();
                    '<input type="number" data-area="'+a.key+'" value="0" min="0" step="1" inputmode="numeric">'+
                    '<button type="button" data-areaplus="'+a.key+'" aria-label="Increase">+</button>'+
                  '</div></div>';
-        }).join('')+'</div>';
+        }).join('')+'</div></div>';
       roomFields.parentNode.insertBefore(areaBlock, roomFields);
+      var aList = areaBlock.querySelector('[data-arealist]');
+      areaBlock.querySelector('[data-areatoggle]').addEventListener('click', function(){ aList.hidden = !aList.hidden; areaBtnText(); });
       var setA = function(k, v){
         var st = STATE[activeSvc]; if(!st || !st.areas) return;
         v = Math.max(0, Math.round(+v || 0));
         st.areas[k] = v;
         var inp = areaBlock.querySelector('[data-area="'+k+'"]'); if(inp) inp.value = v;
-        calc();
+        areaBtnText(); calc();
       };
       areaBlock.querySelectorAll('[data-area]').forEach(function(el){
         el.addEventListener('focus', function(){ if(el.value === '0') el.value = ''; });
@@ -4217,6 +4225,14 @@ document.getElementById('yr').textContent = new Date().getFullYear();
       var inp = areaBlock.querySelector('[data-area="'+a.key+'"]');
       if(inp) inp.value = STATE[activeSvc].areas[a.key] || 0;
     });
+    areaBtnText();
+  }
+  /* The button shows how many areas are picked, and opens / closes the list. */
+  function areaBtnText(){
+    if(!areaBlock) return;
+    var st = STATE[activeSvc], n = (st && st.areas) ? areaNames(st).length : 0,
+        open = !areaBlock.querySelector('[data-arealist]').hidden;
+    areaBlock.querySelector('[data-areatoggle]').textContent = (open ? 'Close areas list' : 'Areas list') + (n ? ' (' + n + ')' : '');
   }
 
   function syncSvcGroup(){
@@ -4266,8 +4282,9 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     if(isComm(activeSvc)) STATE[activeSvc].mode = 'sqft';
     /* Commercial: the box says what it's measuring, and the Areas list shows. */
     var qLbl = document.querySelector('label[for="qty"]');
-    if(qLbl) qLbl.textContent = activeSvc === 'commcarpet' ? 'Total sq ft of carpet'
-      : activeSvc === 'commhard' ? 'Total sq ft of hard floor' : 'Total square feet';
+    if(qLbl) qLbl.textContent = isComm(activeSvc) ? 'Total square footage' : 'Total square feet';
+    var mRow = document.querySelector('.measureRow'), mLgnd = mRow && mRow.parentNode.querySelector('legend');
+    if(mLgnd) mLgnd.style.display = isComm(activeSvc) ? 'none' : '';   /* no "Measure by" on commercial */
     syncAreaBlock();
 
     if(isArea){
