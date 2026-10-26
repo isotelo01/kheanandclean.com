@@ -407,7 +407,7 @@ async function show(){
           : '') +
         /* Pre-Spray and Rinse: every page on a carpet or tile line (rooms, stairs, rugs and the
            add-ons with their own photo page). */
-        ((isCarpet || isTile) && !spot.noChem   /* Carpet Stretching: no Pre-Spray / Rinse */
+        ((isCarpet || isTile || line.key === "commhard") && !spot.noChem   /* Carpet Stretching: no Pre-Spray / Rinse; commercial hard floor gets them like tile */
           ? '<div class="chemrow">' +
               '<label class="chem">Pre-Spray <input type="text" id="preSpray" value="' + esc(st.preSpray || secPre) + '"></label>' +
               '<label class="chem">Rinse <input type="text" id="rinse" value="' + esc(st.rinse || secRinse) + '"></label>' +

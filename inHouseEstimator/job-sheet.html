@@ -671,6 +671,14 @@ view.addEventListener("click", e => {
    own add-on on the job. */
 const PRICING = window.KC_PRICING || { ROOM_TYPES: [], SERVICES: {} };
 const ROOM_TYPES = PRICING.ROOM_TYPES.filter(rt => rt.key !== "stairs");
+/* Commercial lines: Add room offers these areas instead of the house rooms. No sq ft; they track
+   the job (photos, notes, Done) and add no money. Same list as the estimator's Areas list. */
+const COMM_AREAS = [
+  { key: "mainRoom", name: "Main Room" }, { key: "clubRoom", name: "Club Room" }, { key: "office", name: "Office" },
+  { key: "lobby", name: "Lobby" }, { key: "confRoom", name: "Conference Room" }, { key: "breakRoom", name: "Break Room" },
+  { key: "restroom", name: "Restroom" }, { key: "hallway", name: "Hallway" }
+];
+const isCommLine = l => !!l && /^comm/i.test(String(l.key || ""));
 /* Add-ons offered by the + on each service line, straight from the estimator's list in
    pricing.js (Flight of Stairs and Area Rugs are already on the job). */
 /* Hair & debris isn't in the + list: it's the checkbox on each carpet room's page. */
@@ -797,14 +805,17 @@ view.addEventListener("click", async e => {
   const j = LOCKED ? (wj >= 0 ? wj : l0.items.length) : fresh ? l0.items.length : Number(box.dataset.item);
   let it = LOCKED ? (wj >= 0 ? l0.items[wj] : { label: "Warranty / re-clean rooms (no charge)", cost: 0, rooms: [], track: true, warranty: true })
          : fresh ? null : l0.items[j];
-  if (fresh) { const T = TIERS[tierOf(l0)] || {}, rate = Number(T.sqft) || 0;
+  if (fresh && isCommLine(l0)) it = { label: "Areas", cost: 0, rooms: [], track: true };   /* commercial: tracking areas, no money */
+  else if (fresh) { const T = TIERS[tierOf(l0)] || {}, rate = Number(T.sqft) || 0;
     it = { label: (T.name || "Carpet Cleaning") + " - 0 sq ft @ $" + rate.toFixed(2) + "/sq ft", cost: 0, rooms: [], perSqft: rate }; }
   /* Straight-sq-ft service: rooms for tracking only, $0 each, the quoted price stays. */
   if (isFlat(it)) { it.track = true; if (!Array.isArray(it.rooms)) it.rooms = []; }
   else if (it.perSqft == null) it.perSqft = rateOf(it);
   let added = 0;
   pick.querySelectorAll(".rprow").forEach(r => {
-    const rt = ROOM_TYPES.find(x => x.key === r.dataset.rt), n = Math.max(0, Math.round(Number(r.querySelector("input").value) || 0));
+    const ca = String(r.dataset.rt || "").indexOf("ca:") === 0 ? COMM_AREAS.find(x => "ca:" + x.key === r.dataset.rt) : null;
+    const rt = ca ? { key: ca.key, name: ca.name, sqft: 0 } : ROOM_TYPES.find(x => x.key === r.dataset.rt),
+          n = Math.max(0, Math.round(Number(r.querySelector("input").value) || 0));
     if (!rt || !n) return;
     const mk = (name, sqft) => { it.rooms.push({ id: i + "-" + j + "-n" + Date.now().toString(36) + (added++), name, sqft, qty: 1, cost: 0 }); };
     if (rt.key === "addSqft") { mk(rt.name, n); return; }
@@ -1301,13 +1312,20 @@ async function show(){
       '<div class="addroom' + (top ? ' addtop' : '') + '" data-line="' + i + '" data-item="' + j + '">' +
         '<button type="button" class="' + (top ? 'pkgbtn' : 'new') + '" data-pick>Add room</button>' +
         '<div class="rpick" hidden>' +
+          (isCommLine(lines[i]) ? COMM_AREAS.map(a =>   /* commercial: areas, no sq ft */
+            '<div class="rprow" data-rt="ca:' + a.key + '">' +
+              '<span class="rpname">' + esc(a.name) + '</span>' +
+              '<span class="rpstep"><button type="button" data-rpminus aria-label="Fewer">&minus;</button>' +
+              '<input type="number" min="0" step="1" value="0" inputmode="numeric" aria-label="' + esc(a.name) + '">' +
+              '<button type="button" data-rpplus aria-label="More">+</button></span>' +
+            '</div>').join("") :
           ROOM_TYPES.map(rt =>
             '<div class="rprow" data-rt="' + rt.key + '">' +
               '<span class="rpname">' + esc(rt.name) + ' <span class="rpcap">' + esc(rt.sqft === 1 ? "sq ft, in 10s" : rt.sqft + " sq ft" + (rt.dims ? " (" + rt.dims + ")" : "")) + '</span></span>' +
               '<span class="rpstep"><button type="button" data-rpminus aria-label="Fewer">&minus;</button>' +
               '<input type="number" min="0" step="' + (rt.step || 1) + '" value="0" inputmode="numeric" aria-label="' + esc(rt.name) + '">' +
               '<button type="button" data-rpplus aria-label="More">+</button></span>' +
-            '</div>').join("") +
+            '</div>').join("")) +
           '<div class="rpfoot"><button type="button" class="new" data-rpadd>Add room</button></div>' +
         '</div>' +
       '</div>';
