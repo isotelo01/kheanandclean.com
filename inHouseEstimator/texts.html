@@ -98,6 +98,12 @@ h1{font:700 80px/1.2 "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px s
 .aiq input{font:15px "Archivo",system-ui,sans-serif;padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:#000;color:#fff}
 .aisug{display:block;width:100%;text-align:left;font:15px/1.4 "Archivo",system-ui,sans-serif;padding:10px 12px;margin-top:8px;border-radius:10px;border:1px solid var(--line);background:rgba(227,182,74,.08);color:inherit;cursor:pointer}
 .aisug:hover{border-color:var(--gold)}
+/* Say it (voice): mic button, red while listening, and the "You said" line. */
+.aimic{display:inline-flex;align-items:center;gap:6px}
+.aimic svg{width:16px;height:16px;flex:none}
+.aimic.on{border-color:#ff6b6b;color:#ff6b6b;animation:aiPulse 1s ease-in-out infinite}
+@keyframes aiPulse{50%{box-shadow:0 0 0 6px rgba(255,107,107,.25)}}
+.aisaid{font-size:13px;color:var(--muted);font-style:italic}
 textarea,.field input{width:100%;font:inherit;padding:10px 12px;border:1px solid #c9cedb;border-radius:8px;resize:vertical;background:#fff;color:var(--ink)}
 textarea:focus,.field input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold)}
 .ractions{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -309,6 +315,7 @@ async function uploadAttachments(files) {
 const view = document.getElementById("view");
 const MAX = 1600;
 const ELLIPSIS = "…", DOT = " · ";
+const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 // Same key the functions use: the last 10 digits.
 const key = p => { const d = String(p || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
@@ -633,7 +640,50 @@ function showThread(id) {
         ? 'Waiting on <b>' + esc(who) + '</b>. Suggest a follow-up?'
         : 'New text from <b>' + esc(who) + '</b>. Suggest a reply?') + '</span>' +
       '<span class="aibtns"><button type="button" class="new" data-ai="go">Suggest</button>' +
+      '<button type="button" class="ghost aimic" data-ai="mic" aria-label="Say what you want to tell them">' + MIC_SVG + 'Say it</button>' +
       '<button type="button" class="ghost" data-ai="no">No thanks</button></span></div>';
+  }
+  /* Say it: tap the mic and say what you want to tell them ("she was supposed to send me pictures of
+     the carpets"). Your words go to the assistant the same way Check does (as a draft), and it hands
+     back a ready reply built from them. Nothing is saved or sent. Phones without browser speech
+     recognition get a box instead: tap the keyboard's mic there. */
+  function aiVoice() {
+    const box = aiBox();
+    box.innerHTML = '<div class="aibar aiq"><span><b>Say what you want to tell them</b></span>' +
+      '<input id="aiSay" type="text" maxlength="500" placeholder="Listening' + ELLIPSIS + '" aria-label="What you want to say">' +
+      '<span class="aibtns"><button type="button" class="new" data-ai="say">Write it</button>' +
+      '<button type="button" class="ghost aimic" data-ai="mic" aria-label="Talk again">' + MIC_SVG + 'Talk again</button>' +
+      '<button type="button" class="ghost" data-ai="no">Cancel</button></span></div>';
+    const inp = document.getElementById("aiSay");
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); aiSay(); } });
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { inp.placeholder = "Type it, or tap your keyboard's mic"; inp.focus(); return; }
+    const rec = new SR();
+    rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
+    const micBtn = box.querySelector('[data-ai="mic"]');
+    micBtn.classList.add("on");
+    rec.onresult = e => { inp.value = Array.from(e.results).map(r => r[0].transcript).join(" ").trim(); };
+    rec.onerror = e => { inp.placeholder = e.error === "not-allowed" ? "Mic is blocked. Type it, or tap your keyboard's mic" : "Didn't catch that. Type it or tap Talk again"; };
+    rec.onend = () => { micBtn.classList.remove("on"); if (inp.value.trim()) aiSay(); else inp.focus(); };
+    try { rec.start(); } catch (e) { micBtn.classList.remove("on"); inp.focus(); }
+  }
+  async function aiSay() {
+    const box = aiBox(), said = ((document.getElementById("aiSay") || {}).value || "").trim();
+    if (!said) return;
+    box.innerHTML = '<div class="aibar"><span>Writing your reply' + ELLIPSIS + '</span></div>';
+    try {
+      const r = (await smsSuggest({thread: id, draft: said})).data || {};
+      box.innerHTML = '<div class="aibar" style="display:block"><div class="aisaid">You said: \u201c' + esc(said) + '\u201d</div>' +
+        '<button type="button" class="aisug" data-better="1">' + esc(r.better || said) + '</button>' +
+        '<div class="aibtns" style="margin-top:8px"><button type="button" class="new" data-better="1">Use this</button>' +
+        '<button type="button" class="ghost aimic" data-ai="mic">' + MIC_SVG + 'Say it again</button>' +
+        '<button type="button" class="ghost" data-ai="no">Close</button></div></div>';
+      box._better = r.better || said;
+    } catch (err) {
+      box.innerHTML = '<div class="aibar"><span class="err">' + esc(friendly(err)) + '</span>' +
+        '<span class="aibtns"><button type="button" class="ghost aimic" data-ai="mic">' + MIC_SVG + 'Try again</button>' +
+        '<button type="button" class="ghost" data-ai="no">Close</button></span></div>';
+    }
   }
   async function aiRun() {
     const box = aiBox();
@@ -710,6 +760,8 @@ function showThread(id) {
     const a = b.dataset.ai;
     if (a === "go") aiRun();
     else if (a === "ans") aiAnswer();
+    else if (a === "mic") aiVoice();
+    else if (a === "say") aiSay();
     else if (a === "no") { try { sessionStorage.setItem(aiKey(aiFor), "1"); } catch (e) {} aiBox().innerHTML = ""; aiSug = ""; }
   });
 }
