@@ -160,9 +160,13 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   var SVC = {
     carpet:{ name:'Carpet', word:'carpet' }, tile:{ name:'Tile & grout', word:'tile' },
     upholstery:{ name:'Upholstery', word:'furniture' }, lvp:{ name:'Hardwood / LVP', word:'hardwood' },
+    rugs:{ name:'Area rugs', word:'rugs' },
     stone:{ name:'Natural stone', word:'stone' }
   };
   var ORDER = ['carpet','tile','lvp','stone','upholstery'];
+  /* What they can pick on "What would you like cleaned?". Area rugs price as the carpet rug add-on,
+     so someone who only wants rugs skips the carpet questions. */
+  var PICKS = ['carpet','rugs','tile','lvp','stone','upholstery'];
 
   var room = function(k){ var r = null; P.ROOM_TYPES.forEach(function(x){ if(x.key === k) r = x; }); return r; };
   var sqftOf = function(k){ return k === 'beds' ? BED : ((room(k) || {}).sqft || 0); };
@@ -217,6 +221,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     c.tier = A.tier || 'deep';
     c.addons.dry.on = c.tier !== 'essential';
     c.dryDefaultApplied = true;
+    if(has('rugs') && (A.rugs.med || A.rugs.lg)) c.touched = true;   /* rugs only: they ride on the carpet line */
     if(A.rugs.med || A.rugs.lg){ c.addons.rug.on = true; c.addons.rug.sizes.med = A.rugs.med; c.addons.rug.sizes.lg = A.rugs.lg; }
     if(A.pet){ c.addons.pet.on = true; c.addons.pet.qty = A.pet; }
     if(A.stain){ c.addons.stain.on = true; c.addons.stain.qty = A.stain; }
@@ -244,7 +249,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(k === 'carpet' && x.tier === 'signature' && ['dry','deo','prot'].indexOf(a) > -1) return;
       if(k === 'carpet' && x.tier === 'essential' && ['prot','filter'].indexOf(a) > -1) return;
       if(k === 'carpet' && x.tier === 'quickdry' && ['dry','prot'].indexOf(a) > -1) return;
-      if(k === 'carpet' && x.tier === 'deep' && a === 'dry'){ out.push({ label: d.name, cost: 0, included: true }); return; }
+      if(k === 'carpet' && x.tier === 'deep' && a === 'dry'){ if(!sqft) return; out.push({ label: d.name, cost: 0, included: true }); return; }
       if(!o || !o.on) return;
       if(d.sizes){ d.sizes.forEach(function(z){ var n = (o.sizes || {})[z.key] || 0; if(n > 0) out.push({ label: d.name + ' — ' + z.label + ' × ' + n, cost: n * z.price }); }); return; }
       var cost = d.needsQty ? (o.qty || 0) * d.linear : d.flat ? d.flat : sqft * d.sqft;
@@ -260,7 +265,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(!st[k].touched) return;
       var it = items(k, st), cost = it.reduce(function(t, i){ return t + i.cost; }, 0);
       if(cost <= 0) return;
-      rows.push({ key:k, name:S[k].name, cost:cost, items:it }); sum += cost;
+      rows.push({ key:k, name: k === 'carpet' && !has('carpet') ? 'Area Rug Cleaning' : S[k].name, cost:cost, items:it }); sum += cost;
     });
     var min = window.KC_MINJOB != null ? window.KC_MINJOB : 150;
     return { st:st, rows:rows, sum:sum, total: rows.length ? Math.max(sum, min) : 0, min:min };
@@ -286,7 +291,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   /* The order of screens, worked out from the answers so far. */
   function FLOW(){
     var f = [sProblem, sServices];
-    var floors = A.svcs.some(function(k){ return k !== 'upholstery'; });
+    var floors = A.svcs.some(function(k){ return k !== 'upholstery' && k !== 'rugs'; });
     if(floors) f.push(sStory);
     if(has('carpet')){
       f.push(sRooms('carpet'));
@@ -295,6 +300,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(!(A.rooms.carpet.hallway > 0) || A.askedHall) f.push(sHallCheck);
       f.push(sRugs, sSpots, sVacuum, sMatters);
     }
+    if(has('rugs') && !has('carpet')) f.push(sRugs);   /* with carpet, the rug question is already in the carpet steps */
     if(has('tile')) f.push(sRooms('tile'), sSeal);
     if(has('lvp')) f.push(sRooms('lvp'));
     if(has('stone')) f.push(sRooms('stone'));
@@ -347,12 +353,14 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       { v:'Dull traffic lanes', t:'Dull, matted traffic lanes' }, { v:'Hasn’t been cleaned in a long time', t:'It hasn’t been cleaned in a long time' },
       { v:'Looks fine, just want a refresh', t:'It looks fine, I just want a refresh', s:'Even clean-looking carpet holds body oils a vacuum can’t lift. A deep clean stands the fibers back up.' },
       { v:'Upholstery', t:'My couch or furniture needs cleaning', s:'Couches, sectionals, chairs' },
+      { v:'Area rugs', t:'I have area rugs to clean' },
       { v:'Other', t:'Something else' },
       { v:'Pet odor', t:'Pet odor' }, { v:'Pet stains', t:'Pet stains' }, { v:'Spots and stains', t:'Spots and stains' }
     ], function(v){
       A.problem = v;
       /* Furniture: tick Upholstery on the next screen for them. */
       if(v === 'Upholstery' && !has('upholstery')) A.svcs = A.svcs.concat('upholstery');
+      if(v === 'Area rugs' && !has('rugs')) A.svcs = A.svcs.concat('rugs');
     }, A.problem);
   }
 
@@ -360,14 +368,14 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     h(el, 'What would you like cleaned?', 'Tap as many as you like.');
     var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
     var go;
-    ORDER.forEach(function(k){
+    PICKS.forEach(function(k){
       var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
       b.innerHTML = '<span>' + SVC[k].name + '</span>';
       b.setAttribute('aria-pressed', String(has(k)));
       b.onclick = function(){
         var on = !has(k);
         A.svcs = on ? A.svcs.concat(k) : A.svcs.filter(function(x){ return x !== k; });
-        A.svcs.sort(function(a, c){ return ORDER.indexOf(a) - ORDER.indexOf(c); });
+        A.svcs.sort(function(a, c){ return PICKS.indexOf(a) - PICKS.indexOf(c); });
         b.setAttribute('aria-pressed', String(on)); go.disabled = !A.svcs.length;
       };
       box.appendChild(b);
@@ -666,6 +674,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       L.push('Pre-vacuum: ' + (A.vacuum === 'us' ? 'NO, we vacuum (hair & debris added)' : A.vacuum === 'me' ? 'yes, customer vacuums' : 'not answered'));
       if(A.tier) L.push('Package: ' + S.carpet.tiers[A.tier].name);
     }
+    if(A.rugs.med || A.rugs.lg) L.push('Area rugs: ' + [A.rugs.med ? 'medium × ' + A.rugs.med : '', A.rugs.lg ? 'large × ' + A.rugs.lg : ''].filter(Boolean).join(', '));
     if(has('tile')) L.push('Grout seal: ' + (A.seal === 'seal' ? 'color seal' : A.seal === 'clearseal' ? 'clear seal' : 'no'));
     if(has('upholstery')) L.push('Pets or stains on fabric: ' + (A.uphPets || 'not answered'));
     var dq = Object.keys(A.disc).filter(function(k){ return A.disc[k]; });
