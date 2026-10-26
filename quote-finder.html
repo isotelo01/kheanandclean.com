@@ -28,6 +28,7 @@ html,body{ margin:0; }
 body{ min-height:100svh; background:var(--ink); color:var(--ivory);
   font:400 17px/1.45 "Archivo",system-ui,-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
 [hidden]{ display:none !important; }
+h1:focus{ outline:none; }
 a{ color:var(--gold); }
 .wrap{ max-width:560px; margin:0 auto; padding:16px 16px calc(32px + env(safe-area-inset-bottom)); }
 /* Letterhead */
@@ -130,6 +131,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
 </div>
 
 <!-- Prices: pricing.js holds the starting prices, pricing-live.js lays the Settings prices over them. -->
+<link rel="stylesheet" href="/quote-form.css"><!-- the open-days calendar look (scoped to .kcq) -->
+<script src="/day-picker.js"></script>
 <script src="/inHouseEstimator/pricing.js"></script>
 <script src="/inHouseEstimator/pricing-live.js"></script>
 <script>
@@ -296,7 +299,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(has('lvp')) f.push(sRooms('lvp'));
     if(has('stone')) f.push(sRooms('stone'));
     if(has('upholstery')) f.push(sUph, sUphPets);
-    f.push(sPhotos, sPrice, sContact);
+    f.push(sPhotos, sPrice, sWhen, sContact);
     return f;
   }
   var cache = {};
@@ -343,8 +346,14 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     choices(el, [
       { v:'Pet odor', t:'Pet odor' }, { v:'Pet stains', t:'Pet stains' }, { v:'Spots and stains', t:'Spots and stains' },
       { v:'Dull traffic lanes', t:'Dull, matted traffic lanes' }, { v:'Hasn’t been cleaned in a long time', t:'It hasn’t been cleaned in a long time' },
-      { v:'Looks fine, just want a refresh', t:'It looks fine, I just want a refresh', s:'Even clean-looking carpet holds body oils a vacuum can’t lift. A deep clean stands the fibers back up.' }
-    ], function(v){ A.problem = v; }, A.problem);
+      { v:'Looks fine, just want a refresh', t:'It looks fine, I just want a refresh', s:'Even clean-looking carpet holds body oils a vacuum can’t lift. A deep clean stands the fibers back up.' },
+      { v:'Upholstery', t:'My couch or furniture needs cleaning', s:'Couches, sectionals, chairs' },
+      { v:'Other', t:'Something else' }
+    ], function(v){
+      A.problem = v;
+      /* Furniture: tick Upholstery on the next screen for them. */
+      if(v === 'Upholstery' && !has('upholstery')) A.svcs = A.svcs.concat('upholstery');
+    }, A.problem);
   }
 
   function sServices(el){
@@ -551,6 +560,41 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     goBtn(el, 'Get my quote');
   }
 
+  /* When would you like it done? The open-days calendar (same one as the Quick Quote, from the booking
+     calendar). Only a request: nothing is booked here. $450+ takes the whole day. The calendar is built
+     once and moved onto this screen each time, so going Back and forth doesn't stack copies. */
+  var whenBox = null, whenPick = null, WHEN_TXT = { am:'AM', pm:'PM', all:'All day' };
+  function whenValue(){
+    if(A.whenFlex) return 'Flexible';
+    var inp = whenBox && whenBox.querySelector('#qfWhen'), m = inp && /^(\d{4})-(\d{2})-(\d{2})$/.exec(inp.value), sl = whenPick ? whenPick.slot() : '';
+    return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) + (sl ? ' ' + WHEN_TXT[sl] : '') : '';
+  }
+  function sWhen(el){
+    h(el, 'When would you like it done?', 'Tap a morning (9–1) or afternoon (1–6). Grey is booked. We’ll confirm the day with you.');
+    if(!whenBox){
+      whenBox = document.createElement('div'); whenBox.className = 'kcq';
+      whenBox.innerHTML = '<div class="qWhen"><label for="qfWhen" class="f">Pick a day</label><input id="qfWhen" class="t" type="date"><div id="qfOpen" class="jobCal" hidden></div></div>';
+      var t = new Date(), inp = whenBox.querySelector('#qfWhen');
+      inp.min = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+      el.appendChild(whenBox);
+      if(window.kcDayPicker) whenPick = window.kcDayPicker({
+        when: inp, box: whenBox.querySelector('#qfOpen'), id: 'qfWhenBtn', label: whenBox.querySelector('label'),
+        big: function(){ return estimate().total >= 450; },
+        hint: function(big){ return big ? 'Your job takes the whole day. Tap an open day; grey days are booked.' : 'Tap a morning (9–1) or afternoon (1–6). Grey is booked.'; }
+      });
+    } else el.appendChild(whenBox);
+    var go = goBtn(el, 'Next', function(){ A.whenFlex = false; A.when = whenValue(); next(); });
+    goBtn(el, 'I’m flexible, just call me', function(){ A.whenFlex = true; A.when = 'Flexible'; next(); }, true);
+    /* Next lights up once a day is picked. */
+    var sync = function(){ if(cur !== sWhen) return; go.disabled = !whenValue(); };
+    A.whenFlex = false; sync();
+    el.addEventListener('click', function(){ setTimeout(sync, 0); });
+    whenBox.addEventListener('change', sync);
+    /* Open the month right away (after this tap finishes, or the calendar's tap-outside folds it back). */
+    setTimeout(function(){ var b = document.getElementById('qfWhenBtn'); if(cur === sWhen && b && !b.hidden && whenBox.querySelector('#qfOpen').hidden && !whenValue()) b.click(); }, 60);
+    setTimeout(sync, 400);
+  }
+
   function sContact(el){
     h(el, 'Where should we send your quote?');
     el.insertAdjacentHTML('beforeend',
@@ -622,6 +666,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(has('upholstery')) L.push('Pets or stains on fabric: ' + (A.uphPets || 'not answered'));
     var dq = Object.keys(A.disc).filter(function(k){ return A.disc[k]; });
     if(dq.length) L.push('DISCOUNTS TO CHECK: ' + dq.join(', '));
+    L.push('When: ' + (A.when || 'not answered'));
     L.push(A.photos.length ? 'Photos: ' + A.photos.length + ' sent' : 'Photos: skipped');
     L.push('Walkthrough total: ' + (e.rows.length ? money(e.total) : 'no price, call'));
     return L.join('\n');
@@ -709,6 +754,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     fd.append('name', name); fd.append('phone', phone); fd.append('email', email);
     fd.append('address', [addr.street, addr.city, 'CA ' + addr.zip].filter(Boolean).join(', '));
     fd.append('message', msg);
+    fd.append('when', A.when || '');
     if(e.rows.length) fd.append('estimate', estText(e));
     fd.append('sms_consent', smsYes ? 'Yes' : 'No'); fd.append('marketing_consent', promoYes ? 'Yes' : 'No');
     if(isBot) fd.append('botcheck', 'true');
@@ -718,7 +764,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
         fd.append('photo_count', String(paths.length));
         btn.textContent = 'Sending…';
         return saveLead(fb, {
-          page:'quote-finder', photoPaths: paths, when:'', name:name, phone:phone, email:email,
+          page:'quote-finder', photoPaths: paths, when: A.when && A.when !== 'Flexible' ? A.when : '', name:name, phone:phone, email:email,
           addresses:[addr], type:'residential', smsConsent: smsYes, marketingConsent: promoYes,
           /* The estimate in the estimators' own snapshot format, so New quote rebuilds it. */
           estimateData: e.rows.length ? JSON.stringify({ v:1, active: e.rows[0].key, state: e.st, discAmt:'', discPct:'', waiveMin:false }) : '',
