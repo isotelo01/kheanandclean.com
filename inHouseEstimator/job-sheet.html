@@ -1133,7 +1133,10 @@ async function show(){
       if (s.exists()) { q = { id, ...s.data() }; place = p; break; }
     }
   } catch (e) { console.error(e); view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>'; return; }
-  if (q && place === "quotes" && !q.fromJobSheet) q = null;   /* a plain estimate isn't a job yet */
+  /* Staff can open the job sheet as soon as an estimate is saved (it carries over when the customer
+     approves, since the approval copies the whole record). The customer's Job Report link still
+     waits until it's a real job. */
+  if (q && place === "quotes" && !q.fromJobSheet && PUBLIC) q = null;
   if (!q) { view.innerHTML = PUBLIC   /* the customer's Job Report link: no staff page to send them to */
     ? '<div class="msg">This job report isn\u2019t available. Call Khean &amp; Clean at (916) 767-2520 and we\u2019ll sort it out.</div>'
     : '<div class="msg">That job isn\u2019t on file. <a href="./approved-leads.html">Back to Approved Leads</a></div>'; return; }

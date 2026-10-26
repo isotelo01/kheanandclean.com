@@ -105,6 +105,9 @@ function askHowToSend(id, number, link, body){
     mine.addEventListener('click', () => setTimeout(() => dlg.close(), 400), { once: true });
   }
   if (!phone && !email) sub.textContent = 'No phone or email on the estimate, so there is nobody to send it to. The link is on the Dashboard.';
+  /* The job sheet is ready as soon as the estimate is saved: rooms and areas already on it. */
+  const js = $('sendDlgJs');
+  if (js) js.href = './job-sheet.html?id=' + encodeURIComponent(id);
 
   /* One tap sends; the box stays open so you can do the other one too. */
   const sendVia = (a, label, fn) => a.onclick = async (e) => {
