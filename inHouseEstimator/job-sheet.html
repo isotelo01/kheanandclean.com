@@ -1217,6 +1217,7 @@ async function show(){
   let doneCount = 0;
   const spotLink = (i, j, r) => './job-room.html?id=' + encodeURIComponent(id) + '&line=' + i + (j == null ? '' : '&item=' + j) + (r == null ? '' : '&room=' + r) + (PUBLIC ? '&view=customer' : '');
   /* price: shown only in the Summarize view, where the Delete button was. */
+  const actualOf = k => Math.round(Number((spots[k] || {}).actualSqft) || 0);   /* Actual box on the room page */
   const spotRow = (key, label, size, href, price, isRoom) => { total++;
     const d = !!(spots[key] && spots[key].done); if (d) doneCount++;
     /* Thumbnail: a room's After Threshold photo; stairs / rugs (no Threshold) use their first After photo only,
@@ -1288,7 +1289,10 @@ async function show(){
     const roomRows = () => rms.map((rm, r) => { const g = grayOf(i, j, rm.id); return '' +
       '<div class="srow' + (g ? ' grayed' : '') + '" data-line="' + i + '" data-item="' + j + '" data-room="' + esc(rm.id) + '">' +
         '<button type="button" class="sdel" data-del>' + (g ? 'Undo' : 'Delete') + '</button>' +
-        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft" : "", spotLink(i, j, r), it.track || g ? null : rm.cost, true) +
+        spotRow(rm.id, rm.name, Number(rm.sqft) ? Number(rm.sqft).toLocaleString() + " sq ft"
+          /* Areas with no estimate size (commercial): the size measured on its room page, or a nudge to add it. */
+          : actualOf(rm.id) ? actualOf(rm.id).toLocaleString() + " sq ft actual" : (it.track && !PUBLIC ? "Add size" : ""),
+          spotLink(i, j, r), it.track || g ? null : rm.cost, true) +
         (it.track || it.perSqft == null ? '' : discSel(i, j, rm.id, rm.disc)) +
       '</div>'; }).join("");
     /* Straight by the sq ft: the line is a header; tap it to open its rooms and Add room. */
@@ -1296,7 +1300,10 @@ async function show(){
       const fk = i + "-" + j, open = openFlat.has(fk);
       const head = '<a class="spot flathead' + (open ? ' open' : '') + '" href="#" data-flat="' + fk + '">' +
         '<span class="spot__name">' + esc(noPrice(it.label) || "Area") + '</span>' +
-        '<span class="spot__size">' + (rms.length ? rms.length + (rms.length === 1 ? " room" : " rooms") : "Add rooms") + '</span>' +
+        '<span class="spot__size">' + (rms.length ? rms.length + (rms.length === 1 ? " room" : " rooms") : "Add rooms") +
+          /* Measured so far vs the quoted sq ft, so the customer sees they're paying for what's there. */
+          (rms.some(rm => actualOf(rm.id)) ? " · " + rms.reduce((a, rm) => a + actualOf(rm.id), 0).toLocaleString() + " of " +
+            ((String(it.label).match(/([\d,]+)\s*sq ft/i) || [])[1] || "?") + " sq ft measured" : "") + '</span>' +
         '<span class="sprice">' + money(it.cost) + '</span><span class="spot__go fcaret">▾</span></a>';
       /* Photos already taken on the whole area (before rooms) stay reachable. */
       const st = spots[fk], whole = st && Object.keys(st).length ? spotRow(fk, "Whole area", "", spotLink(i, j)) : "";
