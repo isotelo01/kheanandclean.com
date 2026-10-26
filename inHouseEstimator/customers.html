@@ -45,6 +45,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .row.bg-pm{background:#e3f1ea}
 .row.bg-realtor{background:#fbf1d8}
 .row.bg-commercial{background:#f4e4e1}
+.row.bg-lead{background:#efe8fb}
 .who{font-weight:700}
 /* Account number sits on its own line above the name, right-aligned,
    so a long name or address never has to share the line with it. */
@@ -166,6 +167,8 @@ label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
 <style>
+/* Leads under the customers: purple, so they don't read as customers (dark theme). */
+.row.bg-lead{background:#3a2c5e}
 /* Phones: customer cards two across, a bit smaller. */
 @media (max-width:620px){
   .col{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -297,7 +300,7 @@ const GROUPS = [
   { key: "commercial",  label: "Commercial",            has: c => typeOf(c).v === "commercial" }
 ];
 
-let all = null, lastTerm = "";
+let all = null, lastTerm = "", allLeads = null;   /* open leads, shown under the customers */
 
 /* Phones and emails are lists; the first one is the primary.
    Records from before the lists only have the single phone/email field. */
@@ -337,6 +340,15 @@ async function showList(){
       return;
     }
   }
+  /* Open leads (not converted, not trashed) go at the bottom, under the customer sections.
+     If they can't load, the customers still show. */
+  if (!allLeads) {
+    try {
+      const ls = await getDocs(collection(db, "leads"));
+      allLeads = ls.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => !l.trashed && !l.converted)
+        .sort((a, b) => (anyMs(b.createdAt) || 0) - (anyMs(a.createdAt) || 0));
+    } catch (e) { console.error("leads:", e); allLeads = []; }
+  }
   view.innerHTML =
     '<div class="bar"><input id="q" type="search" placeholder="Search name, business, phone, email, or address" autocomplete="off" value="' + esc(lastTerm) + '"></div>' +
     '<div class="count" id="count"></div><div class="list" id="list"></div>' +
@@ -363,13 +375,26 @@ async function showList(){
         lines.map(l => '<div class="meta">' + esc(l) + '</div>').join("") +
       '</a>';
     };
-    listEl.innerHTML = rows.length
+    /* Leads under the customers: tap one to open it on the Leads page. */
+    const leads = (allLeads || []).filter(l => !t ||
+      [l.name, l.business, l.email, ...(l.addresses || []).map(a => [a.street, a.city, a.zip].join(" "))].join(" ").toLowerCase().includes(t) ||
+      (td.length >= 3 && digits(l.phone).includes(td)));
+    const leadCard = l => {
+      const a = (l.addresses || [])[0] || {}, when = anyMs(l.createdAt);
+      const lines = [a.city || "", l.phone || "", when ? shortDate(when) : ""].filter(x => String(x).trim());
+      return '<a class="row bg-lead" href="./leads.html#' + encodeURIComponent(l.id) + '">' +
+        '<div class="who">' + esc(l.business || l.name || "No name") + '</div>' +
+        lines.map(x => '<div class="meta">' + esc(x) + '</div>').join("") + '</a>';
+    };
+    const leadsHtml = leads.length ? '<section class="col"><h3 class="colhead">Leads</h3>' + leads.map(leadCard).join("") + '</section>' : "";
+    if (leads.length) countEl.textContent += " \u00b7 " + leads.length + (leads.length === 1 ? " lead" : " leads");
+    listEl.innerHTML = (rows.length
       ? GROUPS.map(g => {
           const inG = rows.filter(g.has);
           return inG.length ? '<section class="col"><h3 class="colhead">' + g.label + '</h3>' +
             inG.map(card).join("") + '</section>' : "";
         }).join("")
-      : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>';
+      : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>') + leadsHtml;
   };
   q.addEventListener("input", draw);
   draw();
