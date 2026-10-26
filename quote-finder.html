@@ -49,7 +49,7 @@ a{ color:var(--gold); }
   padding:15px 16px; font:600 1.02rem "Archivo",sans-serif; cursor:pointer; }
 .opt small{ display:block; font-weight:400; font-size:.85rem; color:var(--muted); margin-top:2px; }
 .opt:hover{ border-color:var(--gold-d); }
-.opt[aria-pressed="true"]{ border-color:var(--gold); background:rgba(227,182,74,.12); }
+.opt[aria-pressed="true"]{ border-color:var(--gold); background:rgba(227,182,74,.24); box-shadow:inset 0 0 0 1px var(--gold); }
 .opt[aria-pressed="true"]::after{ content:"\2713"; color:var(--gold); font-size:1.1rem; }
 /* Counter rows */
 .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--card);
@@ -352,6 +352,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var list = [
       { v:'Dull traffic lanes', t:'Dull, matted traffic lanes' },
       { v:'Looks fine, just want a refresh', t:'It looks fine, I just want a refresh', s:'Even clean-looking carpet holds body oils a vacuum can’t lift. A deep clean stands the fibers back up.' },
+      { v:'Dirty grout', t:'Dirty grout' },
+      { v:'Wood/LVP lost shine', t:'My wood/LVP floors lost their shine' },
       { v:'Upholstery', t:'My couch or furniture needs cleaning', s:'Couches, sectionals, chairs' },
       { v:'Area rugs', t:'I have area rugs to clean' },
       { v:'Other', t:'Something else' },
@@ -365,7 +367,10 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
       b.innerHTML = '<span>' + o.t + (o.s ? '<small>' + o.s + '</small>' : '') + '</span>';
       b.setAttribute('aria-pressed', String(A.problems.indexOf(o.v) > -1));
+      var lastTap = 0;
       b.onclick = function(){
+        /* A quick double tap (or a phone firing the tap twice) shouldn't undo the pick. */
+        var now = Date.now(); if(now - lastTap < 450) return; lastTap = now;
         var on = A.problems.indexOf(o.v) < 0;
         A.problems = on ? A.problems.concat(o.v) : A.problems.filter(function(x){ return x !== o.v; });
         b.setAttribute('aria-pressed', String(on));
@@ -377,6 +382,9 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       A.problem = A.problems.join(', ');
       if(A.problems.indexOf('Upholstery') > -1 && !has('upholstery')) A.svcs = A.svcs.concat('upholstery');
       if(A.problems.indexOf('Area rugs') > -1 && !has('rugs')) A.svcs = A.svcs.concat('rugs');
+      if(A.problems.indexOf('Dirty grout') > -1 && !has('tile')) A.svcs = A.svcs.concat('tile');
+      if(A.problems.indexOf('Wood/LVP lost shine') > -1 && !has('lvp')) A.svcs = A.svcs.concat('lvp');
+      if(A.problems.indexOf('Dull traffic lanes') > -1 && !has('carpet')) A.svcs = A.svcs.concat('carpet');
       A.svcs.sort(function(a, c){ return PICKS.indexOf(a) - PICKS.indexOf(c); });
       next();
     });
