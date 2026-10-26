@@ -36,6 +36,24 @@
   function defaultRooms(){
     var o = {}; ROOM_TYPES.forEach(function(rt){ o[rt.key] = 0; }); return o;
   }
+
+  /* Commercial areas: names only, no square feet, no price. The total sq ft box prices the job;
+     the areas ride on the commercial line as `areas` so the job sheet gets a section for each
+     (2 offices = Office 1, Office 2). */
+  var COMM_AREAS = [
+    { key:'mainRoom', name:'Main Room' },
+    { key:'clubRoom', name:'Club Room' },
+    { key:'office',   name:'Office' }
+  ];
+  function defaultAreas(){ var o = {}; COMM_AREAS.forEach(function(a){ o[a.key] = 0; }); return o; }
+  function areaNames(st){
+    var out = [];
+    COMM_AREAS.forEach(function(a){
+      var n = Math.max(0, Math.round((st.areas && st.areas[a.key]) || 0));
+      for(var k = 1; k <= n; k++) out.push(n > 1 ? a.name + ' ' + k : a.name);
+    });
+    return out;
+  }
   function defaultAddons(svcKey){
     var o = {}, defs = SERVICES[svcKey].addons || {};
     Object.keys(defs).forEach(function(k){
@@ -49,6 +67,8 @@
     ['carpet','tile','stone','lvp','commcarpet','commhard'].forEach(function(k){
       STATE[k] = { mode:'sqft', sqft:0, rooms:defaultRooms(), collapsed:false, addons:defaultAddons(k), touched:false };
     });
+    STATE.commcarpet.areas = defaultAreas();
+    STATE.commhard.areas = defaultAreas();
     STATE.carpet.tier = 'deep';
     // Deep ships pre-selected in the markup, so no 'change' event ever fires to
     // apply the drying default that the tier handler applies on every later switch.
@@ -694,6 +714,7 @@
       st.mode = 'sqft'; st.sqft = 0; st.touched = false; st.collapsed = false;
       st.rooms = defaultRooms();
       st.addons = defaultAddons(k);
+      if(st.areas) st.areas = defaultAreas();
       if(k === 'carpet'){
         st.tier = 'deep';
         st.addons.dry.on = true;
@@ -720,6 +741,60 @@
     }
   }
 
+  /* Commercial "Areas" box (Main Room, Club Room, Office), built once under the sq ft box.
+     Counters only, no sq ft and no price: just which areas go on the job sheet. */
+  var areaBlock = null;
+  function syncAreaBlock(){
+    var on = isComm(activeSvc) && STATE[activeSvc] && STATE[activeSvc].areas;
+    if(!areaBlock && on && roomFields && roomFields.parentNode){
+      areaBlock = document.createElement('fieldset');
+      areaBlock.id = 'commAreaField';
+      areaBlock.style.marginBottom = '1.9rem';
+      areaBlock.innerHTML = '<legend class="lgnd">Areas</legend>'+
+        '<p class="roomNote">Pick the areas for the job sheet. Price comes from the total sq ft above.</p>'+
+        '<div class="adds">'+COMM_AREAS.map(function(a){
+          return '<div class="add" data-arearow="'+a.key+'" style="cursor:pointer">'+
+                 '<span>'+a.name+'</span>'+
+                 '<div class="step step--sm" style="margin-left:auto">'+
+                   '<button type="button" data-areaminus="'+a.key+'" aria-label="Decrease">&minus;</button>'+
+                   '<input type="number" data-area="'+a.key+'" value="0" min="0" step="1" inputmode="numeric">'+
+                   '<button type="button" data-areaplus="'+a.key+'" aria-label="Increase">+</button>'+
+                 '</div></div>';
+        }).join('')+'</div>';
+      roomFields.parentNode.insertBefore(areaBlock, roomFields);
+      var setA = function(k, v){
+        var st = STATE[activeSvc]; if(!st || !st.areas) return;
+        v = Math.max(0, Math.round(+v || 0));
+        st.areas[k] = v;
+        var inp = areaBlock.querySelector('[data-area="'+k+'"]'); if(inp) inp.value = v;
+        calc();
+      };
+      areaBlock.querySelectorAll('[data-area]').forEach(function(el){
+        el.addEventListener('focus', function(){ if(el.value === '0') el.value = ''; });
+        el.addEventListener('input', function(){ var st = STATE[activeSvc]; if(st && st.areas){ st.areas[el.dataset.area] = Math.max(0, Math.round(+el.value || 0)); calc(); } });
+        el.addEventListener('blur', function(){ if(el.value === '') el.value = 0; });
+      });
+      areaBlock.querySelectorAll('[data-areaminus]').forEach(function(el){
+        el.addEventListener('click', function(){ var k = el.dataset.areaminus; setA(k, (STATE[activeSvc].areas[k] || 0) - 1); });
+      });
+      areaBlock.querySelectorAll('[data-areaplus]').forEach(function(el){
+        el.addEventListener('click', function(){ var k = el.dataset.areaplus; setA(k, (STATE[activeSvc].areas[k] || 0) + 1); });
+      });
+      areaBlock.querySelectorAll('[data-arearow]').forEach(function(row){
+        row.addEventListener('click', function(e){
+          if(e.target.closest('.step')) return;
+          var plus = row.querySelector('[data-areaplus]'); if(plus) plus.click();
+        });
+      });
+    }
+    if(!areaBlock) return;
+    areaBlock.style.display = on ? '' : 'none';
+    if(on) COMM_AREAS.forEach(function(a){
+      var inp = areaBlock.querySelector('[data-area="'+a.key+'"]');
+      if(inp) inp.value = STATE[activeSvc].areas[a.key] || 0;
+    });
+  }
+
   function syncSvcGroup(){
     syncBizField();
     var comm = commercialMode();
@@ -738,6 +813,8 @@
 
     var lgnd = document.getElementById('svcLegend');
     if(lgnd) lgnd.textContent = comm ? 'Commercial Cleaning Service' : 'Cleaning Service';
+    var whole = document.getElementById('svcWhole');   /* Whole House is residential only */
+    if(whole) whole.hidden = comm;
 
     /* If the tab that was open belongs to the group being hidden, land on the
        first tab of the group now showing. */
@@ -763,6 +840,11 @@
     var mToggle = document.querySelector('.measureRow > .seg');
     if(mToggle) mToggle.style.display = isComm(activeSvc) ? 'none' : '';
     if(isComm(activeSvc)) STATE[activeSvc].mode = 'sqft';
+    /* Commercial: the box says what it's measuring, and the Areas list shows. */
+    var qLbl = document.querySelector('label[for="qty"]');
+    if(qLbl) qLbl.textContent = activeSvc === 'commcarpet' ? 'Total sq ft of carpet'
+      : activeSvc === 'commhard' ? 'Total sq ft of hard floor' : 'Total square feet';
+    syncAreaBlock();
 
     if(isArea){
       document.getElementById(st.mode==='room' ? 'mRoom' : 'mSqft').checked = true;
@@ -815,11 +897,14 @@
       roomList.forEach(function(rm){ rm.cost = rm.sqft * rate; });
 
       if(sqft > 0){
-        items.push({
+        var baseItem = {
           label: tierName + ' \u2014 ' + sqft.toLocaleString() + ' sq ft @ $' + rate.toFixed(2) + '/sq ft',
           cost: sqft * rate,
           rooms: roomList
-        });
+        };
+        var aNames = isComm(svcKey) ? areaNames(st) : [];   /* commercial areas: job sheet sections, no price */
+        if(aNames.length) baseItem.areas = aNames;
+        items.push(baseItem);
       }
       // If the stairs add-on is checked it prints its own line below; don't print twice.
       if(flatRooms > 0 && !(st.addons.stairs && st.addons.stairs.on)){
@@ -1060,6 +1145,10 @@
             var price = rm.cost != null ? ' · $' + money(rm.cost) : '';   /* the room's own price */
             return '<li class="lineItem__room"><span>'+nm+'</span><span>'+rm.sqft.toLocaleString()+' sq ft'+price+'</span></li>';
           }).join('');
+        }
+        /* Commercial areas: names only. */
+        if(it.areas && it.areas.length){
+          line += it.areas.map(function(nm){ return '<li class="lineItem__room"><span>'+nm+'</span><span></span></li>'; }).join('');
         }
         return line;
       }).join('');

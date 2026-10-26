@@ -455,6 +455,13 @@ function onsiteCopy(src){
         const a = CARPET_ADDONS.find(x => x.sqft != null && String(it.label || "").startsWith(x.name));
         if (a && (l.key || "carpet") === "carpet") { it.addonKey = a.key; it.addonPerSqft = a.sqft; }
       }
+      /* Commercial areas from the estimate (Main Room, Club Room, Office...): one tracking room each,
+         $0, so the quoted sq ft price stays as is. */
+      if ((!Array.isArray(it.rooms) || !it.rooms.length) && Array.isArray(it.areas) && it.areas.length) {
+        it.track = true;
+        it.rooms = it.areas.map((nm, r) => ({ id: i + "-" + j + "-" + r, name: String(nm || "Area"), sqft: 0, qty: 1, cost: 0 }));
+        return;
+      }
       if (!Array.isArray(it.rooms) || !it.rooms.length) return;
       it.perSqft = rateOf(it);
       let r = 0; const out = [];
