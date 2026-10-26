@@ -677,13 +677,23 @@ function showThread(id) {
     aiStop = () => { if (stopped) return; stopped = true; clearInterval(tick); try { rec.stop(); } catch (e) {} };
     /* Cancel, or Write it while still listening: stop for good, without writing a second time. */
     aiCancel = () => { stopped = true; failed = true; clearInterval(tick); aiRec = null; aiCancel = null; try { rec.abort(); } catch (e) {} };
+    /* Rebuilt from all of this round's results every time. Android Chrome sends each new result as
+       everything said so far ("can we", "can we ask", "can we ask Robin"...), so a result that starts
+       with the text before it replaces it instead of adding on. "heard" keeps earlier rounds (the mic
+       restarts after a pause). */
+    let round = "";
     rec.onresult = e => {
-      let live = "";
-      for (let k = e.resultIndex; k < e.results.length; k++) {
-        const t = e.results[k][0].transcript;
-        if (e.results[k].isFinal) heard = (heard + " " + t).trim(); else live += t;
+      let text = "";
+      for (let k = 0; k < e.results.length; k++) {
+        const t = e.results[k][0].transcript.trim();
+        if (!t) continue;
+        const a = text.toLowerCase(), b = t.toLowerCase();
+        if (!text || b.startsWith(a)) text = t;          // cumulative (Android): the newer, longer one wins
+        else if (a.endsWith(b) || a.includes(b)) {}      // already have it
+        else text += " " + t;                            // a new piece (desktop / iPhone)
       }
-      inp.value = (heard + " " + live).trim();
+      round = text;
+      inp.value = (heard + " " + round).trim();
     };
     rec.onerror = e => {
       if (e.error === "no-speech" || e.error === "aborted") return;   // a pause: keep going until stopped
@@ -692,7 +702,7 @@ function showThread(id) {
     };
     rec.onend = () => {
       /* Some phones end on a pause even in continuous mode: start again until tapped or 15 s. */
-      if (!stopped && Date.now() - t0 < LIMIT) { try { rec.start(); return; } catch (e) {} }
+      if (!stopped && Date.now() - t0 < LIMIT) { heard = (heard + " " + round).trim(); round = ""; try { rec.start(); return; } catch (e) {} }
       clearInterval(tick); stopped = true; aiRec = null; aiCancel = null;
       if (failed || !inp.value.trim()) { idle(); inp.focus(); return; }
       micBtn.classList.remove("on"); micBtn.classList.add("done"); lbl.textContent = "Got it";
