@@ -83,6 +83,20 @@ h1{font:700 80px/1.2 "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px s
 .b.in{align-self:flex-start;background:var(--bg);border-bottom-left-radius:4px}
 .b.out{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}
 .b img{display:block;max-width:220px;max-height:220px;border-radius:8px;margin:2px 0 4px}
+/* Photos in a conversation: "+ Text" on each one adds it to a new text (Create text with photos). */
+.pwrap{position:relative;display:inline-block;max-width:100%}
+.fwd{position:absolute;right:6px;bottom:10px;font:700 12px/1 "Archivo",system-ui,sans-serif;padding:7px 9px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--gold);background:rgba(10,15,28,.82);color:var(--gold)}
+.fwd.on{background:var(--gold);color:#172239}
+.fwdbar{position:fixed;left:12px;right:12px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:45;display:flex;gap:8px;align-items:center;justify-content:space-between;
+  max-width:560px;margin:0 auto;padding:10px 12px;border-radius:14px;background:#172239;border:1px solid var(--gold);box-shadow:0 10px 30px -10px rgba(0,0,0,.8)}
+.fwdbar[hidden]{display:none}
+.fwdbar .new{flex:1;text-align:center}
+@media(min-width:820px){.fwdbar{bottom:20px}}
+.fwdpics{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.fwdpics span{position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.25);background:#000}
+.fwdpics img,.fwdpics video{width:100%;height:100%;object-fit:cover;display:block}
+.fwdpics button{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.7);color:#fff;cursor:pointer;font-size:15px;line-height:22px;padding:0}
 .b a{color:inherit}
 .st{font-size:12px;color:var(--muted);margin:-2px 2px 4px}
 .st.in{align-self:flex-start}
@@ -316,6 +330,58 @@ async function uploadAttachments(files) {
   return paths;
 }
 
+/* ---------- Create text with photos ----------
+   Tap "+ Text" on any photo or video in a conversation; it goes on a list kept on this device.
+   The bar at the bottom ("Create text with photos (3)") opens New text with them attached:
+   pick who it goes to (Mark, anyone), add words if you want, Send. Each photo goes as its own
+   picture message, the same way the reply box sends them. */
+const FWD_KEY = "kcFwdPhotos", FWD_MAX = 10;
+const fwdGet = () => { try { const a = JSON.parse(localStorage.getItem(FWD_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+const fwdSet = a => { try { localStorage.setItem(FWD_KEY, JSON.stringify(a.slice(0, FWD_MAX))); } catch (e) {} drawFwdBar(); };
+const fwdHas = u => fwdGet().some(x => x.url === u);
+function fwdBtn(x) {
+  const on = fwdHas(x.url);
+  return '<button type="button" class="fwd' + (on ? ' on' : '') + '" data-fwd="' + esc(x.url) + '" data-ftype="' + esc(x.type || "") + '">' +
+    (on ? '✓ Added' : '+ Text') + '</button>';
+}
+function drawFwdBar() {
+  let bar = document.getElementById("fwdbar");
+  if (!bar) {
+    bar = document.createElement("div"); bar.id = "fwdbar"; bar.className = "fwdbar"; bar.hidden = true;
+    bar.innerHTML = '<a class="new" href="#new" id="fwdGo"></a><button type="button" class="ghost" id="fwdClear">Clear</button>';
+    document.body.appendChild(bar);
+    bar.querySelector("#fwdClear").addEventListener("click", () => {
+      fwdSet([]);
+      document.querySelectorAll(".fwd.on").forEach(b => { b.classList.remove("on"); b.textContent = "+ Text"; });
+    });
+  }
+  const n = fwdGet().length;
+  bar.hidden = !n || location.hash === "#new";
+  bar.querySelector("#fwdGo").textContent = "Create text with photos (" + n + ")";
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-fwd]");
+  if (!b) return;
+  e.preventDefault();
+  const url = b.dataset.fwd, list = fwdGet();
+  if (list.some(x => x.url === url)) { fwdSet(list.filter(x => x.url !== url)); b.classList.remove("on"); b.textContent = "+ Text"; return; }
+  if (list.length >= FWD_MAX) { alert("Up to " + FWD_MAX + " photos per text. Send these first, or Clear."); return; }
+  fwdSet(list.concat({ url, type: b.dataset.ftype || "" })); b.classList.add("on"); b.textContent = "✓ Added";
+});
+window.addEventListener("hashchange", drawFwdBar);
+drawFwdBar();
+/* A saved photo -> a File the upload can send again. */
+async function fwdFiles() {
+  const out = [];
+  for (const [i, x] of fwdGet().entries()) {
+    const r = await fetch(x.url);
+    if (!r.ok) throw new Error("Couldn't load photo " + (i + 1) + ". Remove it and try again.");
+    const blob = await r.blob(), type = blob.type || x.type || "image/jpeg";
+    out.push(new File([blob], "photo" + (i + 1) + "." + ((type.split("/")[1] || "jpg").replace(/[^a-z0-9]/gi, "").slice(0, 5)), { type }));
+  }
+  return out;
+}
+
 const view = document.getElementById("view");
 const MAX = 1600;
 const ELLIPSIS = "…", DOT = " · ";
@@ -536,9 +602,9 @@ function showThread(id) {
         /^https:\/\/api\.twilio\.com\//.test(x.url)   // came in before pictures were saved to the app: loading it pops up a Twilio sign-in
           ? '<span class="msg" style="display:block;margin-bottom:4px">' + (/^video\//.test(x.type) ? 'Video' : 'Photo') + ' (older, not saved in the app)</span>'
           : /^image\//.test(x.type)
-          ? '<a href="' + esc(x.url) + '" target="_blank" rel="noopener"><img src="' + esc(x.url) + '" alt="Photo ' + (i + 1) + '" loading="lazy"></a>'
+          ? '<span class="pwrap"><a href="' + esc(x.url) + '" target="_blank" rel="noopener"><img src="' + esc(x.url) + '" alt="Photo ' + (i + 1) + '" loading="lazy"></a>' + fwdBtn(x) + '</span>'
           : /^video\//.test(x.type)
-          ? '<video src="' + esc(x.url) + '" controls playsinline preload="metadata" style="display:block;max-width:100%;border-radius:10px;margin-bottom:6px"></video>'
+          ? '<span class="pwrap" style="display:block"><video src="' + esc(x.url) + '" controls playsinline preload="metadata" style="display:block;max-width:100%;border-radius:10px;margin-bottom:6px"></video>' + fwdBtn(x) + '</span>'
           : '<a href="' + esc(x.url) + '" target="_blank" rel="noopener">Attachment ' + (i + 1) + '</a>').join('');
       h += '<div class="b ' + dir + '">' + pics + linkify(m.body || "") + previewSlot(m.body || "") + '</div>';
       if (dir === "out") {
@@ -851,6 +917,7 @@ function showNew(prefill) {
       '<form id="newForm">' +
         '<div class="field"><label for="to">Phone number</label>' +
           '<input id="to" type="tel" inputmode="tel" autocomplete="off" placeholder="(916) 555-1234" value="' + esc(pretty(prefill)) + '"></div>' +
+        '<div id="fwdPics"></div>' +
         '<div class="reply" style="margin-top:0">' +
           '<textarea id="body" rows="4" maxlength="' + MAX + '" placeholder="Message" aria-label="Message"></textarea>' +
           '<div class="ractions"><span class="count" id="count">0 / ' + MAX + '</span>' +
@@ -862,15 +929,29 @@ function showNew(prefill) {
   const form = document.getElementById("newForm"), to = document.getElementById("to"), body = document.getElementById("body"),
         btn = document.getElementById("sendBtn"), note = document.getElementById("note"), count = document.getElementById("count");
   body.addEventListener("input", () => { count.textContent = body.value.length + " / " + MAX; });
+  /* Photos added with "+ Text": shown here with an x to drop one. Words are optional when there are photos. */
+  const fwdBox = document.getElementById("fwdPics");
+  const drawFwd = () => {
+    const list = fwdGet();
+    fwdBox.innerHTML = list.length ? '<div class="field"><label>Photos to send (' + list.length + ')</label><div class="fwdpics">' +
+      list.map((x, i) => '<span>' + (/^video\//.test(x.type) ? '<video src="' + esc(x.url) + '" muted playsinline></video>' : '<img src="' + esc(x.url) + '" alt="Photo ' + (i + 1) + '">') +
+        '<button type="button" data-fx="' + i + '" aria-label="Remove">&times;</button></span>').join("") + '</div></div>' : "";
+  };
+  fwdBox.addEventListener("click", e => { const x = e.target.closest("[data-fx]"); if (!x) return; const l = fwdGet(); l.splice(+x.dataset.fx, 1); fwdSet(l); drawFwd(); });
+  drawFwd();
   form.addEventListener("submit", async e => {
     e.preventDefault();
-    const k = key(to.value), text = body.value.trim();
+    const k = key(to.value), text = body.value.trim(), photos = fwdGet();
     note.className = "msg err";
     if (!k) { note.textContent = "Enter a 10-digit phone number."; to.focus(); return; }
-    if (!text) { note.textContent = "Type a message first."; body.focus(); return; }
-    btn.disabled = true; btn.textContent = "Sending" + ELLIPSIS; note.textContent = "";
+    if (!text && !photos.length) { note.textContent = "Type a message first."; body.focus(); return; }
+    btn.disabled = true; btn.textContent = (photos.length ? "Uploading" : "Sending") + ELLIPSIS; note.textContent = "";
     try {
-      await smsSend({to: k, body: text});
+      const media = photos.length ? await uploadAttachments(await fwdFiles()) : [];
+      btn.textContent = "Sending" + ELLIPSIS;
+      await smsSend({to: k, body: text, media: media.slice(0, 1)});
+      for (let i = 1; i < media.length; i++) await smsSend({to: k, body: "", media: [media[i]]});
+      if (photos.length) fwdSet([]);
       location.hash = k;   // straight into the conversation
     } catch (err) {
       note.textContent = friendly(err);
