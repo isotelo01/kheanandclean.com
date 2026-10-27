@@ -130,6 +130,7 @@
         { key:'sect3',      name:'3-piece sectional',               ft:14 },
         { key:'sect5',      name:'5-piece sectional',               ft:20 },
         { key:'recliner',   name:'Large chair / recliner',          ft:3 },
+        { key:'armchair',   name:'Armchair',                        ft:2 },
         { key:'chairdrape', name:'Dining chair with drapes',        ft:1.5 },
         { key:'misc',       name:'Misc. furniture (per linear ft)', ft:1 }
       ],
