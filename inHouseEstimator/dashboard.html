@@ -44,8 +44,8 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .trashbtn span{margin-left:6px;color:var(--muted);font-size:13px}
 .trashbtn[aria-pressed="true"] span{color:#cfd6e4}
 .custbtn{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px}
-.editbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
-.editbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
+.editbtn,.copyjob{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
+.editbtn:hover,.copyjob:hover{background:var(--navy);border-color:var(--navy);color:#fff}
 /* Square Job sheet button on accepted estimates, centered in the card's open middle. */
 .jsq{flex:none;margin:0 auto;width:62px;height:62px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--navy);font:700 12px/1.15 "Archivo",system-ui,sans-serif;cursor:pointer;text-align:center;padding:0}
 .jsq:hover{background:var(--navy);border-color:var(--navy);color:#fff}
@@ -66,8 +66,8 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .textbtn,.mailbtn,.markbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
 .textbtn:hover,.mailbtn:hover,.markbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
 /* Text choice: Business line (app) or My phone */
-.textmenu,.markmenu{display:inline-flex;gap:6px;margin-left:6px;vertical-align:middle}
-.textmenu button,.markmenu button{background:var(--gold);color:var(--navy);border:0;border-radius:6px;padding:5px 11px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
+.textmenu,.markmenu,.editmenu{display:inline-flex;gap:6px;margin-left:6px;vertical-align:middle}
+.textmenu button,.markmenu button,.editmenu button{background:var(--gold);color:var(--navy);border:0;border-radius:6px;padding:5px 11px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
 .textmenu button[data-via="phone"]{background:#fff;border:1px solid var(--navy)}
 .feebtn{display:block;margin:7px 0 0 auto;background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer}
 .feebtn.on{background:var(--gold);color:#0b0f17}
@@ -258,6 +258,10 @@ const card = r =>
         ? '<button type="button" class="feebtn' + (r.feeWaived ? ' on' : '') + '" data-fee="' + esc(r.id) + '">' +
             (r.feeWaived ? 'Fee waived \u2713' : 'Waive fee') + '</button>'
         : '') +
+      /* Paid invoices: Copy job sits in the card with the other buttons (Mark unpaid lives under Edit). */
+      (r.source === "paidInvoices"
+        ? '<button type="button" class="copyjob" data-copy="' + esc(r.id) + '">Copy job</button>'
+        : '') +
     '</div>' +
     (r.source !== "trash"
       ? '<button type="button" class="del" data-del="' + esc(r.id) + '" data-from="' + esc(r.source) + '" aria-label="Move to trash" title="Move to trash">&times;</button>'
@@ -268,10 +272,6 @@ const card = r =>
     : '') +
   (r.source === "invoices"
     ? '<button type="button" class="paidbtn" data-paid="' + esc(r.id) + '">Paid</button>'
-    : '') +
-  (r.source === "paidInvoices"
-    ? '<button type="button" class="paidbtn unpaidbtn" data-unpaid="' + esc(r.id) + '">Mark unpaid</button>' +
-      '<button type="button" class="paidbtn copyjob" data-copy="' + esc(r.id) + '">Copy job</button>'
     : '') +
   '</div>';
 
@@ -912,9 +912,29 @@ function openNote(qid){
 boardEl.addEventListener("click", e => {
   const js = e.target.closest(".jsq");
   if (js) { e.preventDefault(); e.stopPropagation(); location.href = "./job-sheet.html?id=" + encodeURIComponent(js.getAttribute("data-js")); return; }
+  /* Edit on a paid invoice: "Edit invoice" opens the estimator like any Edit. */
+  const go = e.target.closest(".editmenu .edgo");
+  if (go) {
+    e.preventDefault(); e.stopPropagation();
+    location.href = "./index.html?edit=" + encodeURIComponent(go.dataset.id) + "&from=paidInvoices";
+    return;
+  }
+  if (e.target.closest(".editmenu")) { e.preventDefault(); return; }   /* Mark unpaid is handled above */
   const ed = e.target.closest(".editbtn");
   if (!ed) return;
   e.preventDefault(); e.stopPropagation();   /* the row is a link; don't follow it */
+  /* Paid invoices: Edit opens a small menu with Edit invoice and Mark unpaid. Tap Edit again to close. */
+  if (ed.getAttribute("data-from") === "paidInvoices") {
+    const open = ed.nextElementSibling && ed.nextElementSibling.classList.contains("editmenu");
+    document.querySelectorAll(".editmenu").forEach(m => m.remove());
+    if (!open) {
+      const id = esc(ed.getAttribute("data-edit"));
+      ed.insertAdjacentHTML("afterend", '<span class="editmenu">' +
+        '<button type="button" class="edgo" data-id="' + id + '">Edit invoice</button>' +
+        '<button type="button" class="unpaidbtn" data-unpaid="' + id + '">Mark unpaid</button></span>');
+    }
+    return;
+  }
   /* An updated quote from a job sheet opens in the estimator too; its job sheet follows the changes
      (anything taken off stays on the job sheet at $0, not billed). The estimator links back to the job sheet. */
   location.href = "./index.html?edit=" + encodeURIComponent(ed.getAttribute("data-edit")) +
