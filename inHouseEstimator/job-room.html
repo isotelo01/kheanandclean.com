@@ -619,6 +619,29 @@ async function show(){
         });
         if (any) { l.cost = r2((Number(l.cost) || 0) + delta); l.label = String(l.label || "").replace(/[\d,]+(\s*sq ft)/i, lineSq.toLocaleString("en-US") + "$1"); }
       };
+      /* Each rug / spot / piece has its own discount (same fields the Job Sheet uses):
+         it.unitDisc = { slot: % }, it.unitFull = one piece's full price. */
+      const SPLIT = ["stretch", "pet", "stain"];
+      const unitInfo = it => {
+        if (!it || it.removed || (Array.isArray(it.rooms) && it.rooms.length)) return null;
+        const rg = /^Area Rugs\b/i.test(String(it.label || "")) && noPrice(it.label).match(/^Area Rugs\s*—\s*(.+?)\s*×\s*(\d+)$/i);
+        if (rg) { const count = Number(rg[2]) || 0; return { count, slots: Number(it.rugSlots) || count, gone: Array.isArray(it.rugGone) ? it.rugGone : [] }; }
+        if ((it.split || SPLIT.includes(it.addonKey)) && Number(it.qty) > 0) return { count: Number(it.qty), slots: Number(it.spotSlots) || Number(it.qty), gone: Array.isArray(it.spotGone) ? it.spotGone : [] };
+        return null;
+      };
+      const unitPrice = (it, r) => r2((Number(it.unitFull) || 0) * (1 - (Number((it.unitDisc || {})[r]) || 0) / 100));
+      const unitPass = (l, it) => {
+        const u = unitInfo(it); if (!u || !u.count || it.extra) return;
+        if (it.unitFull == null && it.disc) {   /* older discount on the whole item: same % on each piece */
+          const b = it.baseCost != null ? Number(it.baseCost) : (Number(it.cost) || 0);
+          it.unitFull = r2(b / u.count); it.unitDisc = {};
+          for (let r = 0; r < u.slots; r++) if (!u.gone.includes(r)) it.unitDisc[r] = it.disc;
+          delete it.disc; delete it.baseCost;
+        }
+        if (it.unitFull == null) return;
+        let c = 0; for (let r = 0; r < u.slots; r++) if (!u.gone.includes(r)) c += unitPrice(it, r);
+        c = r2(c); l.cost = r2((Number(l.cost) || 0) - (Number(it.cost) || 0) + c); it.cost = c;
+      };
       const locked = place === "invoices" || place === "paidInvoices";
       const info = () => {
         const ol = q.onsite && Array.isArray(q.onsite.lines) ? q.onsite.lines : null;
@@ -631,10 +654,18 @@ async function show(){
           return { ol, l, it, rm, fresh, price: Number(rm.cost) || 0, full: r2((Number(rm.sqft) || 0) * it.perSqft), disc: Number(rm.disc) || 0, n: 1 };
         }
         if ((Array.isArray(it.rooms) && it.rooms.length) || it.perSqft != null) return null;
-        /* A rug, stain or pet spot is one of several on its item: its share of the item's price. */
-        const n = rug ? Math.max(1, Number(rug[2]) || 1) : roomNo != null ? Math.max(1, Number(it.qty) || estSplit(it) || 1) : 1;
+        /* A rug, stain or pet spot: its own price and its own discount. */
+        if (roomNo != null) {
+          const u = unitInfo(it);
+          if (!u || !u.count) { const n = Math.max(1, (rug && Number(rug[2])) || estSplit(it) || 1);   /* not split on the Job Sheet yet */
+            return { ol, l, it, rm: null, fresh: false, price: r2((Number(it.cost) || 0) / n), full: r2((Number(it.cost) || 0) / n), disc: 0, n: 1 }; }
+          unitPass(l, it);
+          const full = it.unitFull != null ? Number(it.unitFull) : r2((Number(it.cost) || 0) / u.count);
+          const d = Number((it.unitDisc || {})[roomNo]) || 0;
+          return { ol, l, it, rm: null, unit: roomNo, fresh, price: r2(full * (1 - d / 100)), full, disc: d, n: 1, kept: !!it.kept || !!it.extra };
+        }
         const base = it.baseCost != null ? Number(it.baseCost) : (Number(it.cost) || 0);
-        return { ol, l, it, rm: null, fresh, price: r2((Number(it.cost) || 0) / n), full: r2(base / n), disc: Number(it.disc) || 0, n, kept: !!it.kept };
+        return { ol, l, it, rm: null, fresh, price: Number(it.cost) || 0, full: base, disc: Number(it.disc) || 0, n: 1, kept: !!it.kept };
       };
       const paint = msg => {
         const p = info();
@@ -648,8 +679,7 @@ async function show(){
           (p.disc ? '<div class="psub">' + money(p.full) + ' before ' + p.disc + '% off</div>' : '') +
           '<label class="pdisc">Discount <select id="discSel"' + (can ? '' : ' disabled') + '>' + opts + '</select></label>' +
           (!p.fresh ? '<div class="pnote">Open the Job Sheet once to bring its prices up to date, then come back to discount.</div>'
-            : locked ? '<div class="pnote">Invoiced or paid: the price is locked.</div>'
-            : p.n > 1 ? '<div class="pnote">The discount applies to all ' + p.n + ' of these on the Job Sheet.</div>' : '') +
+            : locked ? '<div class="pnote">Invoiced or paid: the price is locked.</div>' : '') +
           (msg ? '<div class="pnote">' + esc(msg) + '</div>' : '');
       };
       paint();
@@ -662,6 +692,11 @@ async function show(){
         v = Math.max(0, Math.min(100, Math.round(v * 100) / 100));
         const { ol, l, it, rm } = p;
         if (rm) { if (v) rm.disc = v; else delete rm.disc; recalc(l); }
+        else if (p.unit != null) {   /* just this rug / spot / piece */
+          if (it.unitFull == null) it.unitFull = p.full;
+          it.unitDisc = it.unitDisc || {};
+          if (v) it.unitDisc[p.unit] = v; else delete it.unitDisc[p.unit];
+          unitPass(l, it); }
         else { const b = it.baseCost != null ? Number(it.baseCost) : (Number(it.cost) || 0), c = r2(b * (1 - v / 100));
           l.cost = r2((Number(l.cost) || 0) - (Number(it.cost) || 0) + c); it.cost = c;
           if (v) { it.baseCost = b; it.disc = v; } else { delete it.baseCost; delete it.disc; } }

@@ -316,6 +316,8 @@ body:not(.summ) .srow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;mar
 body:not(.summ) .srow:hover{background:rgba(255,255,255,.05)}
 body:not(.summ) .srow .spot,body:not(.summ) .srow .spot:hover{flex:1 1 220px;min-width:0;order:1;border:0;padding:4px}
 body:not(.summ) .srow .sdsel{order:2;margin:0;flex:none}
+/* Staff working sheet: each room / rug / piece button shows its own price, discount already off. */
+html:not(.pub) body:not(.summ) .sprice{display:inline;padding-left:8px}
 body:not(.summ) .srow.gone{opacity:0}
 /* Computer (mouse): Delete is a button inside the card. */
 @media (hover:hover) and (pointer:fine){
@@ -615,6 +617,7 @@ const priceLocked = () => !!cur && (cur.place === "invoices" || cur.place === "p
 const noCharge = it => { it.extraCost = r2(Number(it.cost) || 0); it.cost = 0; it.extra = true; return it; };
 const lockedMsg = () => alert("This job is invoiced or paid, so its price is locked. Use Whole job or Quote extras only to make a new estimate.");
 async function saveOnsite(){
+  unitPass(cur.lines);   /* each piece's own discount */
   const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0));
   await setDoc(doc(db, cur.place, id), { onsite: { lines: cur.lines, subtotal: sub, total: r2(sub + cur.adj), discount: r2(Math.max(0, -cur.adj)), jobDisc: cur.disc, from: cur.qsig || "", updatedAt: serverTimestamp() } }, { merge: true });
 }
@@ -710,6 +713,33 @@ function asSplit(it){
   const unit = addonUnit(a);
   Object.assign(it, { addonKey: a.key, addonRate: a.linear, qty: q, baseName: a.name,
     label: a.name + " \u2014 " + q + " " + unit + (q === 1 ? "" : "s") });
+}
+/* Each rug / stain spot / pet spot / piece has its own discount: it.unitDisc = { slot: % }, and
+   it.unitFull = one piece's full price. The item's cost is the pieces still on, each less its own %. */
+const stripPrice = t => String(t || "").replace(/\s*@\s*\$[\d.,]+\s*\/\s*sq ft/i, "").replace(/\s*\+\s*\$[\d.,]+/g, "").replace(/\s*\$[\d.,]+/g, "").trim();
+function unitInfo(it){
+  if (!it || it.removed || (Array.isArray(it.rooms) && it.rooms.length)) return null;
+  const rug = /^Area Rugs\b/i.test(String(it.label || "")) && stripPrice(it.label).match(/^Area Rugs\s*—\s*(.+?)\s*×\s*(\d+)$/i);
+  if (rug) { const count = Number(rug[2]) || 0; return { count, slots: Number(it.rugSlots) || count, gone: Array.isArray(it.rugGone) ? it.rugGone : [] }; }
+  if (isSplit(it) && Number(it.qty) > 0) return { count: Number(it.qty), slots: Number(it.spotSlots) || Number(it.qty), gone: Array.isArray(it.spotGone) ? it.spotGone : [] };
+  return null;
+}
+const unitPrice = (it, r) => r2((Number(it.unitFull) || 0) * (1 - (Number((it.unitDisc || {})[r]) || 0) / 100));
+function unitPass(lines){
+  (Array.isArray(lines) ? lines : []).forEach(l => (l.items || []).forEach(it => {
+    const u = unitInfo(it); if (!u || !u.count || it.extra) return;
+    /* An older discount on the whole item: becomes the same % on each piece. */
+    if (it.unitFull == null && it.disc) {
+      const b = it.baseCost != null ? Number(it.baseCost) : (Number(it.cost) || 0);
+      it.unitFull = r2(b / u.count); it.unitDisc = {};
+      for (let r = 0; r < u.slots; r++) if (!u.gone.includes(r)) it.unitDisc[r] = it.disc;
+      delete it.disc; delete it.baseCost;
+    }
+    if (it.unitFull == null) return;
+    let c = 0; for (let r = 0; r < u.slots; r++) if (!u.gone.includes(r)) c += unitPrice(it, r);
+    c = r2(c); if (c === r2(Number(it.cost) || 0)) return;
+    l.cost = r2((Number(l.cost) || 0) - (Number(it.cost) || 0) + c); it.cost = c;
+  }));
 }
 /* + Add service: the estimator's services (pricing.js), carpet in its four packages. Only the
    ones not already on the job are offered. */
@@ -1098,6 +1128,12 @@ view.addEventListener("change", async e => {
   p = Math.max(0, Math.min(100, Math.round(p * 100) / 100));
   if (s.dataset.dr) { const rm = (it.rooms || []).find(r => r.id === s.dataset.dr); if (!rm) return;
     if (p) rm.disc = p; else delete rm.disc; recalc(l); }
+  else if (s.dataset.du != null) {   /* one rug / spot / piece */
+    unitPass([l]); const u = unitInfo(it); if (!u || !u.count) return;
+    if (it.unitFull == null) it.unitFull = r2((Number(it.cost) || 0) / u.count);
+    it.unitDisc = it.unitDisc || {};
+    if (p) it.unitDisc[s.dataset.du] = p; else delete it.unitDisc[s.dataset.du];
+    unitPass([l]); }
   else { const b = it.baseCost != null ? Number(it.baseCost) : (Number(it.cost) || 0), c = r2(b * (1 - p / 100));
     l.cost = r2((Number(l.cost) || 0) - (Number(it.cost) || 0) + c); it.cost = c;
     if (p) { it.baseCost = b; it.disc = p; } else { delete it.baseCost; delete it.disc; } }
@@ -1192,6 +1228,7 @@ async function show(){
     /* Everything that reads cur.adj (total, variance, updated quote, invoice) gets both. */
     get adj(){ const sub = this.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
       return r2(this.baseAdj - (sub * this.disc.pct / 100 + this.disc.amt)); } };
+  unitPass(cur.lines);   /* each rug / spot / piece priced with its own discount */
   if (rebuilt && !PUBLIC) {
     (rebuilt.spots ? updateDoc(doc(db, place, id), { spots: rebuilt.spots }) : Promise.resolve()).then(saveOnsite).catch(fail);
   }
@@ -1233,8 +1270,8 @@ async function show(){
       '<span class="spot__go">›</span></a>'; };
   /* Discount on one room or piece (working sheet only, never the customer's Summary): pick a % and it comes off just that line item. */
   const DISCS = [0, 10, 25, 50, 75, 100];
-  const discSel = (i, j, roomId, cur) => { const p = Number(cur) || 0;
-    return '<select class="sdsel" data-dl="' + i + '" data-di="' + j + '"' + (roomId ? ' data-dr="' + esc(roomId) + '"' : '') + ' aria-label="Discount">' +
+  const discSel = (i, j, roomId, cur, unit) => { const p = Number(cur) || 0;
+    return '<select class="sdsel" data-dl="' + i + '" data-di="' + j + '"' + (roomId ? ' data-dr="' + esc(roomId) + '"' : '') + (unit != null ? ' data-du="' + unit + '"' : '') + ' aria-label="Discount">' +
       (DISCS.includes(p) ? DISCS : DISCS.concat(p).sort((a, b) => a - b)).map(v =>
         '<option value="' + v + '"' + (v === p ? ' selected' : '') + '>' + (v ? v + "% off" + (v === 100 ? " (free)" : "") : "No discount") + '</option>').join("") +
       '<option value="other">Other %…</option></select>'; };
@@ -1272,7 +1309,8 @@ async function show(){
       /* Shown numbers count 1, 2, 3 with no gaps; photos stay with each rug's own slot. */
       let shownNo = 0;
       const rugEach = (Number(it.cost) || 0) / Math.max(1, Number(rug[2]) || 1);   /* label's "× 2" = rugs still on */
-      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("rug", i, j, r, spotRow(i + "-" + j + "-" + r, "Area Rug " + (++shownNo) + " — " + rug[1], "", spotLink(i, j, r), rugEach));
+      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("rug", i, j, r, spotRow(i + "-" + j + "-" + r, "Area Rug " + (++shownNo) + " — " + rug[1], "", spotLink(i, j, r),
+        it.unitFull != null ? unitPrice(it, r) : rugEach) + (it.extra ? '' : discSel(i, j, null, (it.unitDisc || {})[r], r)));
       return out; }
     /* Stain treatment — 6 spots = Stain treatment 1 … 6, each its own row and page. */
     if (isSplit(it) && Number(it.qty) > 0) {
@@ -1281,7 +1319,8 @@ async function show(){
       /* Shown numbers count 1, 2, 3 with no gaps; photos stay with each spot's own slot. */
       let shownNo = 0;
       const spotEach = (Number(it.cost) || 0) / Math.max(1, Number(it.qty) || 1);
-      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("spot", i, j, r, spotRow(i + "-" + j + "-" + r, base + " " + (++shownNo), "", spotLink(i, j, r), spotEach));
+      for (let r = 0; r < n; r++) if (!gone.includes(r)) out += delWrap("spot", i, j, r, spotRow(i + "-" + j + "-" + r, base + " " + (++shownNo), "", spotLink(i, j, r),
+        it.unitFull != null ? unitPrice(it, r) : spotEach) + (it.extra ? '' : discSel(i, j, null, (it.unitDisc || {})[r], r)));
       return out;
     }
     /* Hair & debris from the room pages: shown, not deletable here (uncheck it on the room page). */
