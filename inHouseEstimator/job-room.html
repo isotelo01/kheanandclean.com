@@ -245,6 +245,11 @@ async function show(){
   picked.forEach(it => {
     const j = items.indexOf(it);
     let r = 0;
+    /* Commercial areas (Main Room, Office...) on a quote the Job Sheet hasn't saved yet: one full
+       room page each, same ids the Job Sheet gives them, so photos land in the same place. */
+    const fromAreas = (!Array.isArray(it.rooms) || !it.rooms.length) && Array.isArray(it.areas) && it.areas.length
+      ? it.areas.map((nm, k) => ({ id: lineNo + "-" + j + "-" + k, name: String(nm || "Area"), sqft: 0, qty: 1 })) : null;
+    if (fromAreas) it = { ...it, track: true, rooms: fromAreas };
     (Array.isArray(it.rooms) ? it.rooms : []).forEach(rm => {
       const n = Math.max(1, Number(rm.qty) || 1), each = Math.round((Number(rm.sqft) || 0) / n);
       for (let k = 1; k <= n; k++) {
