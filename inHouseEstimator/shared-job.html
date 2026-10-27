@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Job Sheet</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font:16px system-ui,-apple-system,"Segoe UI",sans-serif}
+.box{max-width:340px;margin:16px;padding:24px;background:#16224a;border:1px solid #d4af37;border-radius:12px;text-align:center;line-height:1.45}
+</style>
+</head>
+<body>
+<div class="box" id="msg">Opening the job sheet&hellip;</div>
+<script type="module">
+/* Mark's link from the Dashboard's Text Mark button: shared-job.html?t=<token>.
+   jobShareOpen checks the link is still on and hands back a sign-in for this job.
+   It signs in on its own "share" app, so his sign-in only works on the job sheet pages. */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+
+const msg = document.getElementById("msg");
+const t = new URLSearchParams(location.search).get("t") || "";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+}, "share");
+
+try {
+  if (!t) throw new Error("This link is missing its code.");
+  const r = await httpsCallable(getFunctions(app, "us-central1"), "jobShareOpen")({ token: t });
+  await signInWithCustomToken(getAuth(app), r.data.token);
+  try { sessionStorage.setItem("kcShare", "1"); sessionStorage.setItem("kcJobSheetId", r.data.jobId); } catch (e) {}
+  location.replace("./job-sheet.html?id=" + encodeURIComponent(r.data.jobId));
+} catch (e) {
+  msg.textContent = (e && e.message) || "This link didn't open. Ask Israel for a new one.";
+}
+</script>
+</body>
+</html>

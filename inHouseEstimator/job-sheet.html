@@ -369,6 +369,9 @@ import { mountTrip } from "./trip.js";
 /* Wait for the Settings prices (pricing-live.js; 3 s at most, none offline) before anything is priced. */
 await (window.KC_PRICING_READY || null);
 
+/* Mark's job sheet link (shared-job.html): his sign-in lives on its own "share" app, so it only works on the
+   job sheet, its room pages and Measure. Every other page uses the normal login and asks him to sign in. */
+const SHARE = (() => { try { return sessionStorage.getItem("kcShare") === "1"; } catch (e) { return false; } })();
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -376,7 +379,7 @@ const app = initializeApp({
   storageBucket: "khean-estimator-78f3e.firebasestorage.app",
   messagingSenderId: "581692353222",
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
-});
+}, SHARE ? "share" : "[DEFAULT]");
 const db = getFirestore(app);
 const storage = getStorage(app);
 

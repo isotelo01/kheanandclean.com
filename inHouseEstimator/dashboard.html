@@ -63,11 +63,11 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .paidbtn[disabled]{opacity:.55;cursor:default}
 .invbtn:hover{background:#24324f}
 .invbtn[disabled]{opacity:.55;cursor:default}
-.textbtn,.mailbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
-.textbtn:hover,.mailbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
+.textbtn,.mailbtn,.markbtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
+.textbtn:hover,.mailbtn:hover,.markbtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
 /* Text choice: Business line (app) or My phone */
-.textmenu{display:inline-flex;gap:6px;margin-left:6px;vertical-align:middle}
-.textmenu button{background:var(--gold);color:var(--navy);border:0;border-radius:6px;padding:5px 11px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
+.textmenu,.markmenu{display:inline-flex;gap:6px;margin-left:6px;vertical-align:middle}
+.textmenu button,.markmenu button{background:var(--gold);color:var(--navy);border:0;border-radius:6px;padding:5px 11px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px}
 .textmenu button[data-via="phone"]{background:#fff;border:1px solid var(--navy)}
 .feebtn{display:block;margin:7px 0 0 auto;background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer}
 .feebtn.on{background:var(--gold);color:#0b0f17}
@@ -138,7 +138,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { getFirestore, collection, query, orderBy, limit, getDocs, where,
-         doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp }
+         doc, getDoc, setDoc, deleteDoc, runTransaction, serverTimestamp, updateDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getStorage, ref as sRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
@@ -243,6 +243,10 @@ const card = r =>
             (r.revisionOf ? ' data-job="' + esc(r.revisionOf) + '"' : r.fromJobSheet && r.source !== "acceptedQuotes" ? ' data-job="' + esc(r.id) + '"' : '') + '>Edit</button>') +
       (r.source !== "trash" && r.phone
         ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-kind="' + kindOf(r) + '">Text</button>'
+        : '') +
+      /* Text Mark: his own link to this job sheet (estimates and accepted estimates). */
+      (r.source === "quotes" || r.source === "acceptedQuotes"
+        ? '<button type="button" class="markbtn" data-mark="' + esc(r.id) + '" data-name="' + esc(r.name || "") + '" data-number="' + esc(r.number || "") + '">Text Mark</button>'
         : '') +
       (r.source !== "trash"
         ? (r.email
@@ -613,6 +617,73 @@ boardEl.addEventListener("click", async e => {
   if (open) return;
   t.insertAdjacentHTML("afterend", '<span class="textmenu"><button type="button" data-via="app">Business line</button>' +
     '<button type="button" data-via="phone">My phone</button></span>');
+});
+
+/* Text Mark: sends Mark Exner a private link to this job's sheet (shared-job.html?t=<token>).
+   jobShares/<token> = {jobId, active}. One link per job, reused until it's turned off. With it he gets
+   the full job sheet, room pages and Measure; any other page asks for a login.
+   Menu: Send to Mark / Test to my phone / Turn off link (only while one is on). Sends from the business line. */
+const MY_CELL = "2793212944";   // test sends go here first
+const markMenuOff = () => document.querySelectorAll(".markmenu").forEach(m => m.remove());
+document.addEventListener("click", e => { if (!e.target.closest(".markmenu, .markbtn")) markMenuOff(); });
+const sharesFor = async jobId => (await getDocs(query(collection(db, "jobShares"),
+  where("jobId", "==", jobId), where("active", "==", true), limit(5)))).docs;
+async function markPhone(){
+  const ref = doc(db, "settings", "jobShare"), s = await getDoc(ref);
+  if (s.exists() && s.data().markPhone) return s.data().markPhone;
+  /* First time: find Mark on the Texts page, ask to confirm, and remember it. */
+  let guess = "";
+  try {
+    const th = await getDocs(query(collection(db, "smsThreads"), orderBy("lastAt", "desc"), limit(200)));
+    const hit = th.docs.find(d => /\bmark\b/i.test(String(d.data().name || "")));
+    if (hit) guess = String(hit.data().phone || hit.id).replace(/\D/g, "").slice(-10);
+  } catch (e) { console.warn("Mark lookup", e); }
+  const num = String(prompt("Mark's cell number (saved for next time):", guess) || "").replace(/\D/g, "").slice(-10);
+  if (num.length !== 10) return "";
+  await setDoc(ref, { markPhone: num, updatedAt: serverTimestamp() }, { merge: true });
+  return num;
+}
+boardEl.addEventListener("click", async e => {
+  const choice = e.target.closest(".markmenu button");
+  if (choice) {
+    e.preventDefault(); e.stopPropagation();
+    const b = choice.closest(".markmenu").previousElementSibling, jobId = b.dataset.mark, via = choice.dataset.via;
+    markMenuOff();
+    b.disabled = true; b.textContent = via === "off" ? "Turning off…" : "Sending…";
+    try {
+      if (via === "off") {
+        for (const d of await sharesFor(jobId)) await updateDoc(d.ref, { active: false, offAt: serverTimestamp() });
+        b.textContent = "Link off ✓"; return;
+      }
+      const to = via === "test" ? MY_CELL : await markPhone();
+      if (!to) throw new Error("No number for Mark.");
+      let token = ((await sharesFor(jobId))[0] || {}).id;
+      if (!token) {
+        token = Array.from(crypto.getRandomValues(new Uint8Array(24)), x => x.toString(16).padStart(2, "0")).join("");
+        await setDoc(doc(db, "jobShares", token), { jobId, active: true, name: b.dataset.name || "",
+          number: b.dataset.number || "", createdAt: serverTimestamp() });
+      }
+      const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "shared-job.html?t=" + token;
+      await smsSendFn({ to, body: "Hi Mark, here's the job sheet for " + (b.dataset.name || "this job") +
+        (b.dataset.number ? " (" + b.dataset.number + ")" : "") + ": " + link });
+      b.textContent = via === "test" ? "Test sent ✓" : "Sent to Mark ✓";
+    } catch (err) {
+      b.textContent = "Text Mark";
+      alert("Didn't go through. " + (err.message || ""));
+    } finally { b.disabled = false; }
+    return;
+  }
+  const b = e.target.closest(".markbtn");
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const open = b.nextElementSibling && b.nextElementSibling.classList.contains("markmenu");
+  markMenuOff();
+  if (open) return;
+  let on = false;
+  try { on = (await sharesFor(b.dataset.mark)).length > 0; } catch (err) { console.warn(err); }
+  b.insertAdjacentHTML("afterend", '<span class="markmenu"><button type="button" data-via="mark">Send to Mark</button>' +
+    '<button type="button" data-via="test">Test to my phone</button>' +
+    (on ? '<button type="button" data-via="off">Turn off link</button>' : '') + '</span>');
 });
 
 /* Email: one click sends it straight from israel@kheanandclean.com (sendEmail function).

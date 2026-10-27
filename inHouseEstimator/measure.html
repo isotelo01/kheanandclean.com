@@ -172,6 +172,9 @@ import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://ww
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
+/* Mark's job sheet link (shared-job.html): his sign-in lives on its own "share" app, so it only works on the
+   job sheet, its room pages and Measure. Every other page uses the normal login and asks him to sign in. */
+const SHARE = (() => { try { return sessionStorage.getItem("kcShare") === "1"; } catch (e) { return false; } })();
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -179,7 +182,7 @@ const app = initializeApp({
   storageBucket: "khean-estimator-78f3e.firebasestorage.app",
   messagingSenderId: "581692353222",
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
-});
+}, SHARE ? "share" : "[DEFAULT]");
 const auth = getAuth(app), storage = getStorage(app), db = getFirestore(app);
 const measureRoom = httpsCallable(getFunctions(app, "us-central1"), "measureRoom", { timeout: 130000 });
 const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
@@ -822,7 +825,7 @@ $("useBtn").onclick = () => { if (result) goBack(result.sqft); };
 /* Page lock: staff only. */
 onAuthStateChanged(auth, u => {
   if (!u) { location.replace("./login.html"); return; }
-  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  if (!STAFF.includes(u.uid) && !SHARE) { location.replace("./partner.html"); return; }
   const first = !uid;
   uid = u.uid; $("authwait")?.remove(); refresh();
   /* Came with the room's photos: start measuring right away (one press), once. */
