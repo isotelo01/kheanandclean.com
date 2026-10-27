@@ -315,15 +315,16 @@ const phonesOf = c => listOf(c.phones, c.phone);
 const emailsOf = c => listOf(c.emails, c.email);
 
 /* Someone already on file with any of these phones or emails?
-   Checks the new key lists and the old single keys, so unmigrated records still match. */
+   Checks the new key lists and the old single keys, so unmigrated records still match.
+   Customers in the Trash don't count, so a trashed copy never blocks saving. */
 async function findMatch(pks, eks, skipId){
   const tries = [];
   pks.forEach(v => tries.push(["phoneKeys", "array-contains", v], ["phoneKey", "==", v]));
   eks.forEach(v => tries.push(["emailKeys", "array-contains", v], ["emailKey", "==", v]));
   for (const [f, op, v] of tries) {
     if (!v) continue;
-    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(2)));
-    const hit = s.docs.find(d => d.id !== skipId);
+    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(10)));
+    const hit = s.docs.find(d => d.id !== skipId && !d.data().trashed);
     if (hit) return { id: hit.id, ...hit.data() };
   }
   return null;
