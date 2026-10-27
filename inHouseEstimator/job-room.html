@@ -17,7 +17,7 @@
 <style>
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&text=%26&display=swap");
 /* Room pages, opened from a line on the Job Sheet. Starter look only (same base as
-   job-sheet.html) — style freely. No prices anywhere on this page. */
+   job-sheet.html) — style freely. Staff see this room's price and discount at the bottom; customers never do. */
 :root{--navy:#172239;--gold:#E3B64A;--green:#0F5C3E;--red:#A6402F;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}
 *{box-sizing:border-box}
 body{margin:0;background:#000;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}   /* black page behind the cards */
@@ -34,7 +34,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .msg{color:var(--muted);font-size:14px;padding:6px 2px}
 /* Customer view (?view=customer): the room's photos and notes, nothing to fill in or save. */
 .pub .home{pointer-events:none}
-.pub .actual,.pub .fibrow,.pub .fibnote,.pub .chemrow,.pub .room__body,.pub .h3+.room__body,.pub .pcam,.pub .px,.pub #spotNotes,.pub .saverow,.pub .pempty,.pub #authwait{display:none!important}
+.pub .actual,.pub .fibrow,.pub .fibnote,.pub .chemrow,.pub .room__body,.pub .h3+.room__body,.pub .pcam,.pub .px,.pub #spotNotes,.pub .saverow,.pub .pricebox,.pub .pempty,.pub #authwait{display:none!important}
 .pub .notesro{white-space:pre-wrap;font-size:16px;line-height:1.45}
 .pub .notesro:empty{display:none}
 .pub .h3:has(+.notesro:empty){display:none}
@@ -100,6 +100,14 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .chem input{width:100%;font:16px "Archivo";padding:8px 10px;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
 .spot .chem{color:#fff}
 .spot .chem input{background:#000;color:#fff;border-color:rgba(255,255,255,.35);color-scheme:dark}
+/* This room's price and discount (staff only), at the bottom above Save. Same numbers as the Job Sheet row. */
+.pricebox{margin-top:18px;padding-top:12px;border-top:2px solid var(--gold)}
+.prow{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:18px;font-weight:700}
+.pval{font-size:22px}
+.psub{color:var(--muted);font-size:14px;text-align:right}
+.pdisc{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:15px;font-weight:700}
+.pdisc select{flex:1;min-width:0;font:16px "Archivo",system-ui,sans-serif;padding:8px 10px;border-radius:6px}
+.pnote{color:var(--muted);font-size:13px;margin-top:6px}
 /* Before / Inspection / After photos: section titles, styled like the room name. */
 .ptitle{font:700 20px "Archivo",system-ui,sans-serif;color:var(--navy);margin:26px 0 4px;border-bottom:2px solid var(--gold);padding-bottom:5px}
 /* Label over each photo spot (Threshold, Stains and more photos...). */
@@ -427,6 +435,7 @@ async function show(){
         (PUBLIC ? '<div class="notesro">' + esc(st.notes || "") + '</div>' : '') +   /* customer: read-only; none at all when empty */
         '<textarea id="spotNotes" placeholder="What you found, spots to watch, anything for next time">' + esc(st.notes || "") + '</textarea>' +
         '<h3 class="ptitle">After photos</h3>' + (spot.isRoom ? photoBlock("aThr") + photoBlock("aAdj") : "") + photoBlock("after") +
+        (PUBLIC ? '' : '<div class="pricebox" id="priceBox"></div>') +
         '<div class="saverow"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
       '</div>';
 
@@ -582,6 +591,92 @@ async function show(){
     };
     saveBtn.addEventListener("click", doSave);
     saveBefore = doSave;   /* Back to Job Sheet saves this room first */
+
+    /* Price and discount for this room / rug / piece, staff only. Uses the Job Sheet's own numbers
+       (onsite.lines): a room's discount is rm.disc, anything else's is it.disc on its item, and the
+       job's subtotal and total are saved the same way the Job Sheet saves them. */
+    const priceBox = document.getElementById("priceBox");
+    if (priceBox) {
+      const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+      const money = n => "$" + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      const linesSig = ls => JSON.stringify((Array.isArray(ls) ? ls : []).map(l => [l.label, l.cost, (l.items || []).map(it =>
+        [it.label, it.cost, !!it.removed, (it.rooms || []).map(r => [r.name, r.sqft, r.qty])])]));
+      const DISCS = [0, 10, 25, 50, 75, 100];
+      /* Same as the Job Sheet's recalc: each room at the item's rate less its own %, then the line's sq ft add-ons and cost. */
+      const recalc = l => {
+        let delta = 0, lineSq = 0, any = false;
+        (l.items || []).forEach(it => {
+          if (it.perSqft == null) return; any = true;
+          const old = Number(it.cost) || 0; let sq = 0, c = 0;
+          it.rooms.forEach(rm => { rm.cost = r2((Number(rm.sqft) || 0) * it.perSqft * (1 - (Number(rm.disc) || 0) / 100)); sq += Number(rm.sqft) || 0; c += rm.cost; });
+          it.cost = r2(c); delta += it.cost - old; lineSq += sq;
+          it.label = String(it.label || "").replace(/[\d,]+(\s*sq ft)/i, sq.toLocaleString("en-US") + "$1");
+        });
+        if (any) (l.items || []).forEach(it => {
+          if (it.addonPerSqft == null || it.removed || it.extra) return;
+          const old = Number(it.cost) || 0; it.cost = r2(lineSq * it.addonPerSqft); delta += it.cost - old;
+          it.label = String(it.label || "").replace(/[\d,]+(\s*sq ft)/i, lineSq.toLocaleString("en-US") + "$1");
+        });
+        if (any) { l.cost = r2((Number(l.cost) || 0) + delta); l.label = String(l.label || "").replace(/[\d,]+(\s*sq ft)/i, lineSq.toLocaleString("en-US") + "$1"); }
+      };
+      const locked = place === "invoices" || place === "paidInvoices";
+      const info = () => {
+        const ol = q.onsite && Array.isArray(q.onsite.lines) ? q.onsite.lines : null;
+        const fresh = !!ol && (!q.onsite.from || q.onsite.from === linesSig(q.lines));
+        const l = ol && ol[lineNo], it = l && Array.isArray(l.items) ? l.items[itemNo] : null;
+        if (!it || it.removed || it.track || (Array.isArray(it.grayed) && it.grayed.includes(String(spot.key)))) return null;
+        if (spot.isRoom) {
+          const rm = (it.rooms || []).find(r => r.id === spot.key);
+          if (!rm || it.perSqft == null) return null;
+          return { ol, l, it, rm, fresh, price: Number(rm.cost) || 0, full: r2((Number(rm.sqft) || 0) * it.perSqft), disc: Number(rm.disc) || 0, n: 1 };
+        }
+        if ((Array.isArray(it.rooms) && it.rooms.length) || it.perSqft != null) return null;
+        /* A rug, stain or pet spot is one of several on its item: its share of the item's price. */
+        const n = rug ? Math.max(1, Number(rug[2]) || 1) : roomNo != null ? Math.max(1, Number(it.qty) || estSplit(it) || 1) : 1;
+        const base = it.baseCost != null ? Number(it.baseCost) : (Number(it.cost) || 0);
+        return { ol, l, it, rm: null, fresh, price: r2((Number(it.cost) || 0) / n), full: r2(base / n), disc: Number(it.disc) || 0, n, kept: !!it.kept };
+      };
+      const paint = msg => {
+        const p = info();
+        if (!p) { priceBox.innerHTML = '<div class="pnote">No price on this one by itself — it’s on the Job Sheet.</div>'; return; }
+        const can = p.fresh && !locked && !p.kept;
+        const opts = (DISCS.includes(p.disc) ? DISCS : DISCS.concat(p.disc).sort((a, b) => a - b)).map(v =>
+          '<option value="' + v + '"' + (v === p.disc ? ' selected' : '') + '>' + (v ? v + "% off" + (v === 100 ? " (free)" : "") : "No discount") + '</option>').join("") +
+          '<option value="other">Other %…</option>';
+        priceBox.innerHTML =
+          '<div class="prow"><span>Price</span><span class="pval">' + money(p.price) + '</span></div>' +
+          (p.disc ? '<div class="psub">' + money(p.full) + ' before ' + p.disc + '% off</div>' : '') +
+          '<label class="pdisc">Discount <select id="discSel"' + (can ? '' : ' disabled') + '>' + opts + '</select></label>' +
+          (!p.fresh ? '<div class="pnote">Open the Job Sheet once to bring its prices up to date, then come back to discount.</div>'
+            : locked ? '<div class="pnote">Invoiced or paid: the price is locked.</div>'
+            : p.n > 1 ? '<div class="pnote">The discount applies to all ' + p.n + ' of these on the Job Sheet.</div>' : '') +
+          (msg ? '<div class="pnote">' + esc(msg) + '</div>' : '');
+      };
+      paint();
+      priceBox.addEventListener("change", async e => {
+        const s = e.target.closest("#discSel"); if (!s) return;
+        const p = info(); if (!p || !p.fresh || locked || p.kept) { paint(); return; }
+        let v = Number(s.value);
+        if (s.value === "other") { const a = prompt("Percent off (0 to 100):", ""); v = Number(String(a || "").replace(/[^\d.]/g, ""));
+          if (a == null || !isFinite(v) || String(a).trim() === "") { paint(); return; } }
+        v = Math.max(0, Math.min(100, Math.round(v * 100) / 100));
+        const { ol, l, it, rm } = p;
+        if (rm) { if (v) rm.disc = v; else delete rm.disc; recalc(l); }
+        else { const b = it.baseCost != null ? Number(it.baseCost) : (Number(it.cost) || 0), c = r2(b * (1 - v / 100));
+          l.cost = r2((Number(l.cost) || 0) - (Number(it.cost) || 0) + c); it.cost = c;
+          if (v) { it.baseCost = b; it.disc = v; } else { delete it.baseCost; delete it.disc; } }
+        /* Subtotal and total the Job Sheet's way: lines, the approved quote's own discount, then the job discount. */
+        const jd = q.onsite.jobDisc || {}, amt = Math.max(0, Number(jd.amt) || 0), pct = Math.min(100, Math.max(0, Number(jd.pct) || 0));
+        const sub = r2(ol.reduce((a, x) => a + (Number(x.cost) || 0), 0));
+        const adj = r2((Number(q.total) || 0) - (Number(q.subtotal) || Number(q.total) || 0) - (sub * pct / 100 + amt));
+        s.disabled = true;
+        try {
+          await setDoc(doc(db, place, id), { onsite: { lines: ol, subtotal: sub, total: r2(sub + adj), discount: r2(Math.max(0, -adj)),
+            jobDisc: { amt, pct }, from: q.onsite.from || linesSig(q.lines), updatedAt: serverTimestamp() } }, { merge: true });
+          paint("Discount saved.");
+        } catch (err) { console.error(err); paint("Could not save the discount: " + err.message); }
+      });
+    }   /* Back to Job Sheet saves this room first */
   }
 
   const sub = picked.map(it => { const [a, b] = splitLabel(it.label || ""); return b ? a + " · " + b : a; }).filter(Boolean).join("  |  ");
