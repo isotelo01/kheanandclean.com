@@ -45,6 +45,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .row.bg-pm{background:#e3f1ea}
 .row.bg-realtor{background:#fbf1d8}
 .row.bg-commercial{background:#f4e4e1}
+.row.bg-mentor{background:#e4f2f4}
 .row.bg-lead{background:#efe8fb}
 .who{font-weight:700}
 /* Account number sits on its own line above the name, right-aligned,
@@ -147,6 +148,7 @@ textarea{min-height:90px;resize:vertical}
 .t-pm{background:#e3f1ea;color:var(--green)}
 .t-realtor{background:#fbf1d8;color:#8a6412}
 .t-commercial{background:#f4e4e1;color:var(--red)}
+.t-mentor{background:#e4f2f4;color:#1d6b75}
 /* Profile contact links: address opens maps, phone calls (or call/text on a phone). */
 .read .contact a.clink{color:inherit;text-decoration:underline;text-decoration-color:var(--gold);text-underline-offset:3px}
 .pmenu{display:flex;gap:8px;margin:6px 0 4px}
@@ -284,10 +286,12 @@ const TYPES = [
   { v: "residential", label: "Residential",         cls: "t-residential" },
   { v: "pm",          label: "Property management", cls: "t-pm" },
   { v: "realtor",     label: "Realtor",             cls: "t-realtor" },
-  { v: "commercial",  label: "Commercial",          cls: "t-commercial" }
+  { v: "commercial",  label: "Commercial",          cls: "t-commercial" },
+  /* Mentor: people who get a job sheet link from the Dashboard's Text Mentor button (e.g. Mark). */
+  { v: "mentor",      label: "Mentor",              cls: "t-mentor" }
 ];
 const typeOf = c => TYPES.find(t => t.v === c.type) || TYPES[0];
-const isBiz = c => typeOf(c).v !== "residential";
+const isBiz = c => !["residential", "mentor"].includes(typeOf(c).v);
 /* Business types lead with the business name; residential leads with the person. */
 const displayName = c => (isBiz(c) && c.business ? c.business : c.name) || c.business || "No name";
 const subName = c => isBiz(c) && c.business && c.name ? c.name : "";
@@ -297,7 +301,8 @@ const byName = (a, b) => displayName(a).localeCompare(displayName(b), undefined,
 const GROUPS = [
   { key: "residential", label: "Residential",           has: c => typeOf(c).v === "residential" },
   { key: "pmr",         label: "Property mgmt & realtor", has: c => ["pm","realtor"].includes(typeOf(c).v) },
-  { key: "commercial",  label: "Commercial",            has: c => typeOf(c).v === "commercial" }
+  { key: "commercial",  label: "Commercial",            has: c => typeOf(c).v === "commercial" },
+  { key: "mentor",      label: "Mentors",               has: c => typeOf(c).v === "mentor" }
 ];
 
 let all = null, lastTerm = "", allLeads = null;   /* open leads, shown under the customers */

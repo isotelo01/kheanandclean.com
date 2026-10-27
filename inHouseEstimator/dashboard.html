@@ -244,9 +244,9 @@ const card = r =>
       (r.source !== "trash" && r.phone
         ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-kind="' + kindOf(r) + '">Text</button>'
         : '') +
-      /* Text Mark: his own link to this job sheet (estimates and accepted estimates). */
+      /* Text Mentor: a mentor's link to this job sheet (estimates and accepted estimates). */
       (r.source === "quotes" || r.source === "acceptedQuotes"
-        ? '<button type="button" class="markbtn" data-mark="' + esc(r.id) + '" data-name="' + esc(r.name || "") + '" data-number="' + esc(r.number || "") + '">Text Mark</button>'
+        ? '<button type="button" class="markbtn" data-mark="' + esc(r.id) + '" data-name="' + esc(r.name || "") + '" data-number="' + esc(r.number || "") + '">Text Mentor</button>'
         : '') +
       (r.source !== "trash"
         ? (r.email
@@ -619,35 +619,30 @@ boardEl.addEventListener("click", async e => {
     '<button type="button" data-via="phone">My phone</button></span>');
 });
 
-/* Text Mark: sends Mark Exner a private link to this job's sheet (shared-job.html?t=<token>).
-   jobShares/<token> = {jobId, active}. One link per job, reused until it's turned off. With it he gets
+/* Text Mentor: sends a mentor a private link to this job's sheet (shared-job.html?t=<token>).
+   Mentors are the contacts labelled Mentor on the Customers page (e.g. Mark Exner).
+   jobShares/<token> = {jobId, active}. One link per job, reused until it's turned off. With it they get
    the full job sheet, room pages and Measure; any other page asks for a login.
-   Menu: Send to Mark / Test to my phone / Turn off link (only while one is on). Sends from the business line. */
+   Menu: one button per mentor / Test to my phone / Turn off link (only while one is on). Sends from the business line. */
 const MY_CELL = "2793212944";   // test sends go here first
 const markMenuOff = () => document.querySelectorAll(".markmenu").forEach(m => m.remove());
 document.addEventListener("click", e => { if (!e.target.closest(".markmenu, .markbtn")) markMenuOff(); });
 const sharesFor = async jobId => (await getDocs(query(collection(db, "jobShares"),
   where("jobId", "==", jobId), where("active", "==", true), limit(5)))).docs;
-async function markPhone(){
-  const ref = doc(db, "settings", "jobShare"), s = await getDoc(ref);
-  if (s.exists() && s.data().markPhone) return s.data().markPhone;
-  /* First time: find Mark on the Texts page, ask to confirm, and remember it. */
-  let guess = "";
-  try {
-    const th = await getDocs(query(collection(db, "smsThreads"), orderBy("lastAt", "desc"), limit(200)));
-    const hit = th.docs.find(d => /\bmark\b/i.test(String(d.data().name || "")));
-    if (hit) guess = String(hit.data().phone || hit.id).replace(/\D/g, "").slice(-10);
-  } catch (e) { console.warn("Mark lookup", e); }
-  const num = String(prompt("Mark's cell number (saved for next time):", guess) || "").replace(/\D/g, "").slice(-10);
-  if (num.length !== 10) return "";
-  await setDoc(ref, { markPhone: num, updatedAt: serverTimestamp() }, { merge: true });
-  return num;
+/* Mentors with a phone, A–Z by first name (short list, so no search). */
+async function mentors(){
+  const s = await getDocs(query(collection(db, "customers"), where("type", "==", "mentor"), limit(30)));
+  return s.docs.map(d => d.data()).filter(c => !c.trashed)
+    .map(c => ({ name: String(c.name || c.business || "Mentor").trim(),
+                 phone: String((Array.isArray(c.phones) && c.phones[0]) || c.phone || "").replace(/\D/g, "").slice(-10) }))
+    .filter(m => m.phone.length === 10).sort((a, b) => a.name.localeCompare(b.name));
 }
 boardEl.addEventListener("click", async e => {
   const choice = e.target.closest(".markmenu button");
   if (choice) {
     e.preventDefault(); e.stopPropagation();
     const b = choice.closest(".markmenu").previousElementSibling, jobId = b.dataset.mark, via = choice.dataset.via;
+    const who = via === "test" ? "" : String(choice.dataset.name || "").split(" ")[0];
     markMenuOff();
     b.disabled = true; b.textContent = via === "off" ? "Turning off…" : "Sending…";
     try {
@@ -655,8 +650,8 @@ boardEl.addEventListener("click", async e => {
         for (const d of await sharesFor(jobId)) await updateDoc(d.ref, { active: false, offAt: serverTimestamp() });
         b.textContent = "Link off ✓"; return;
       }
-      const to = via === "test" ? MY_CELL : await markPhone();
-      if (!to) throw new Error("No number for Mark.");
+      const to = via === "test" ? MY_CELL : choice.dataset.phone;
+      if (!to) throw new Error("No number for that mentor.");
       let token = ((await sharesFor(jobId))[0] || {}).id;
       if (!token) {
         token = Array.from(crypto.getRandomValues(new Uint8Array(24)), x => x.toString(16).padStart(2, "0")).join("");
@@ -664,11 +659,11 @@ boardEl.addEventListener("click", async e => {
           number: b.dataset.number || "", createdAt: serverTimestamp() });
       }
       const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "shared-job.html?t=" + token;
-      await smsSendFn({ to, body: "Hi Mark, here's the job sheet for " + (b.dataset.name || "this job") +
+      await smsSendFn({ to, body: "Hi " + (who || "there") + ", here's the job sheet for " + (b.dataset.name || "this job") +
         (b.dataset.number ? " (" + b.dataset.number + ")" : "") + ": " + link });
-      b.textContent = via === "test" ? "Test sent ✓" : "Sent to Mark ✓";
+      b.textContent = via === "test" ? "Test sent ✓" : "Sent to " + (who || "mentor") + " ✓";
     } catch (err) {
-      b.textContent = "Text Mark";
+      b.textContent = "Text Mentor";
       alert("Didn't go through. " + (err.message || ""));
     } finally { b.disabled = false; }
     return;
@@ -679,9 +674,12 @@ boardEl.addEventListener("click", async e => {
   const open = b.nextElementSibling && b.nextElementSibling.classList.contains("markmenu");
   markMenuOff();
   if (open) return;
-  let on = false;
-  try { on = (await sharesFor(b.dataset.mark)).length > 0; } catch (err) { console.warn(err); }
-  b.insertAdjacentHTML("afterend", '<span class="markmenu"><button type="button" data-via="mark">Send to Mark</button>' +
+  let on = false, list = [];
+  try { [on, list] = await Promise.all([sharesFor(b.dataset.mark).then(d => d.length > 0), mentors()]); }
+  catch (err) { console.warn(err); }
+  b.insertAdjacentHTML("afterend", '<span class="markmenu">' +
+    (list.length ? list.map(m => '<button type="button" data-via="mentor" data-phone="' + esc(m.phone) + '" data-name="' + esc(m.name) + '">' + esc(m.name) + '</button>').join("")
+                 : '<button type="button" disabled title="Label a contact Mentor on the Customers page">No mentors yet</button>') +
     '<button type="button" data-via="test">Test to my phone</button>' +
     (on ? '<button type="button" data-via="off">Turn off link</button>' : '') + '</span>');
 });
