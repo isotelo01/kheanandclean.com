@@ -63,6 +63,11 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .prrow .cost input{padding-left:22px}
 .hide{display:flex;gap:4px;align-items:center;font-size:13px;color:var(--muted);white-space:nowrap}
 .hide input{width:auto}
+/* Every section folds to its title; tap the title to open or close it. */
+.panel.fold>h2{cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin:0}
+.panel.fold>h2::after{content:"\25BE";font-size:18px;color:var(--muted);transition:transform .15s}
+.panel.fold.closed>h2::after{transform:rotate(-90deg)}
+.panel.fold.closed>:not(h2){display:none}
 @media(max-width:540px){.prrow{grid-template-columns:minmax(0,1fr) 88px 58px;gap:6px}.lrow{grid-template-columns:minmax(0,1fr) 72px 58px 36px;gap:6px}}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
@@ -157,6 +162,17 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
   </div>
 </div>
 
+<script>
+/* Fold every section down to its title; tap a title to open or close it. */
+document.querySelectorAll(".wrap > .panel").forEach(p => {
+  const h = p.querySelector(":scope > h2"); if (!h) return;
+  p.classList.add("fold", "closed");
+  h.setAttribute("role", "button"); h.tabIndex = 0;
+  const flip = () => p.classList.toggle("closed");
+  h.addEventListener("click", flip);
+  h.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } });
+});
+</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }

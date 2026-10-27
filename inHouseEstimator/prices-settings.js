@@ -89,9 +89,9 @@ const list = (p, rows, sizeKey, sizeLabel, addLabel) =>
 function draw() {
   const open = [...box.querySelectorAll("details[open]")].map(d => d.dataset.k);
   const S = KC.SERVICES;
-  let h = '<div class="pgroup"><h3>Every job</h3>' +
+  let h = '<details class="pgroup" data-k="everyjob"><summary>Every job</summary>' +
     row("Minimum charge", "per job", "minJob", P.minJob) +
-    row("Flight of stairs", "per flight, every service", "stairs", P.stairs) + '</div>';
+    row("Flight of stairs", "per flight, every service", "stairs", P.stairs) + '</details>';
   Object.entries(P.services).forEach(([k, o]) => {
     const s = S[k], sp = "services." + k; let b = "";
     if (o.rate != null) b += row("Base rate", s.mode === "items" ? "per linear ft" : "per sq ft", sp + ".rate", o.rate);
