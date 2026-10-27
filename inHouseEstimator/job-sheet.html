@@ -853,7 +853,18 @@ view.addEventListener("click", async e => {
     const rt = ca ? { key: ca.key, name: ca.name, sqft: 0 } : ROOM_TYPES.find(x => x.key === r.dataset.rt),
           n = Math.max(0, Math.round(Number(r.querySelector("input").value) || 0));
     if (!rt || !n) return;
-    const mk = (name, sqft) => { it.rooms.push({ id: i + "-" + j + "-n" + Date.now().toString(36) + (added++), name, sqft, qty: 1, cost: 0 }); };
+    /* A room deleted earlier and added back by the same name gets its old id back, so its photos,
+       notes and size return with it. Commercial areas from the quote use their original ids. */
+    const oldId = name => {
+      const used = new Set(it.rooms.map(x => x.id));
+      const d = (Array.isArray(it.deletedRooms) ? it.deletedRooms : []).find(x => x.name === name && !used.has(x.id));
+      if (d) return d.id;
+      const k = (Array.isArray(it.areas) ? it.areas : []).findIndex((nm, n) => String(nm) === name && !used.has(i + "-" + j + "-" + n));
+      return k >= 0 ? i + "-" + j + "-" + k : null;
+    };
+    const mk = (name, sqft) => { const back = oldId(name);
+      if (back && Array.isArray(it.deletedRooms)) it.deletedRooms = it.deletedRooms.filter(x => x.id !== back);
+      it.rooms.push({ id: back || i + "-" + j + "-n" + Date.now().toString(36), name, sqft, qty: 1, cost: 0 }); added++; };
     if (rt.key === "addSqft") { mk(rt.name, n); return; }
     /* Same room already on the job, or more than one: number them (Bedroom 2, Bedroom 3...). */
     const have = it.rooms.filter(x => x.name === rt.name || String(x.name).startsWith(rt.name + " ")).length;
@@ -1079,6 +1090,10 @@ async function delRoom(row){
     return;
   }
   if (kind === "room") {
+    const gone = it.rooms.find(rm => rm.id === row.dataset.room);
+    if (gone && !confirm("Delete " + (gone.name || "this room") + "?\n\nIts photos stay saved. Add it back with Add room to get them back.")) { delete row.dataset.busy; return; }
+    /* Kept on the job so Add room can bring it back with its photos. */
+    if (gone) it.deletedRooms = [...(Array.isArray(it.deletedRooms) ? it.deletedRooms : []).filter(x => x.id !== gone.id), { id: gone.id, name: gone.name }];
     it.rooms = it.rooms.filter(rm => rm.id !== row.dataset.room);
     recalc(l);
   } else if (kind === "item") {
