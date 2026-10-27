@@ -359,7 +359,7 @@ function initSketch(d){
   const minX = Math.min(...xs), minY = Math.min(...ys), w = (Math.max(...xs) - minX) || 1, h = (Math.max(...ys) - minY) || 1;
   const k = 240 / Math.max(w, h), pad = 44;
   sk = { pts, cuts, doors: Number.isInteger(d.door) && d.door >= 0 && d.door < pts.length ? [{ w: d.door, t: 0.3 }] : [], placing: false, editing: false, k, ox: minX - pad / k, oy: minY - pad / k,
-         W: w * k + pad * 2, H: h * k + pad * 2, sel: null, edited: false, orig: d.orig || JSON.parse(JSON.stringify(d)) };
+         W: w * k + pad * 2, H: h * k + pad * 2, sel: null, edited: false, hist: [], orig: d.orig || JSON.parse(JSON.stringify(d)) };
   $("rShape").innerHTML =
     '<svg id="skSvg" viewBox="0 0 ' + sk.W + ' ' + sk.H + '" width="100%" style="touch-action:none;user-select:none;overflow:visible" role="img" aria-label="Floor sketch"></svg>' +
     '<div class="range" style="font-size:13px" id="skHelp" hidden>' + SK_HELP + '</div>' +
@@ -371,6 +371,8 @@ function initSketch(d){
       '<button type="button" class="ghost" id="skCloset">+ Closet</button>' +
       '<button type="button" class="ghost" id="skDel" disabled>Remove</button>' +
       '<button type="button" class="ghost" id="skReset">Reset</button>' +
+      '<button type="button" class="ghost" id="skUndo" disabled>↶ Undo</button>' +
+      '<button type="button" class="ghost" id="skMerge">Merge walls</button>' +
       '<button type="button" class="ghost" id="skMic" style="grid-column:1/-1">🎤 Say wall sizes</button>' +
       '<button type="button" class="go" id="skDone" style="grid-column:1/-1;margin:0">Done</button></div></div>' +
     '<button type="button" class="skFab" id="skMenuBtn" aria-label="Sketch tools">☰</button>' +
@@ -382,7 +384,7 @@ function initSketch(d){
     return [Math.min(Math.max(m.x, 0), sk.W) / sk.k + sk.ox, Math.min(Math.max(m.y, 0), sk.H) / sk.k + sk.oy]; };
   svg.addEventListener("pointerdown", e => {
     if (!sk.editing) return;   /* locked until "Edit sketch" */
-    if (sk.placing) {   /* "+ Door": the next tap puts a door on the nearest wall */
+    if (sk.placing) { skSnap();   /* "+ Door": the next tap puts a door on the nearest wall */
       const w = nearestWall(toFt(e)), kind = sk.placing; sk.placing = false;
       /* doors, openings and closets all live on a wall; openings/closets have a width (wd), closets a depth (dp) */
       sk.doors.push(kind === "open" ? { w: w.i, t: w.t, k: "open", wd: 6 } : kind === "closet" ? { w: w.i, t: w.t, k: "closet", wd: 6, dp: 2 } : { w: w.i, t: w.t }); sk.sel = { type: "door", i: sk.doors.length - 1 }; sk.edited = true;
@@ -391,7 +393,7 @@ function initSketch(d){
     $("rShape").classList.remove("menuOpen");   /* tapping the room closes the sideways menu */
     const t = e.target.closest("[data-pt],[data-mid],[data-cut],[data-cp],[data-cm],[data-kp],[data-km],[data-sz],[data-door]");
     if (!t) { sk.sel = null; drawSketch(); return; }
-    e.preventDefault();
+    e.preventDefault(); skSnap();   /* Undo goes back to before this tap / drag */
     const p = toFt(e);
     if (t.dataset.km != null || t.dataset.kp != null) {   /* closet corner: drag it; + adds a corner on that side */
       let [di, j] = (t.dataset.km || t.dataset.kp).split(":").map(Number);
@@ -452,9 +454,9 @@ function initSketch(d){
     }
     sk.edited = true; drawSketch();
   });
-  const end = () => { skDrag = null; };
+  const end = () => { skDrag = null; skDropSame(); };
   svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
-  $("skCut").onclick = () => {
+  $("skCut").onclick = () => { skSnap();
     const xs = sk.pts.map(p => p[0]), ys = sk.pts.map(p => p[1]);
     const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
     const x0 = snap(cx - 2), y0 = snap(cy - 1.5);
@@ -463,6 +465,7 @@ function initSketch(d){
   };
   $("skDel").onclick = () => {
     if (!sk.sel) return;
+    skSnap();
     if (sk.sel.type === "cut") sk.cuts.splice(sk.sel.i, 1);
     else if (sk.sel.type === "door") sk.doors.splice(sk.sel.i, 1);
     else if (sk.sel.type === "cp") { const c = sk.cuts[sk.sel.ci].pts; if (c.length > 3) c.splice(sk.sel.i, 1); }
@@ -473,6 +476,38 @@ function initSketch(d){
       sk.doors = sk.doors.filter(o => o.w !== i && o.w !== prev).map(o => ({ ...o, w: o.w > i ? o.w - 1 : o.w }));
     }
     sk.sel = null; sk.edited = true; drawSketch();
+  };
+  $("skUndo").onclick = () => {
+    const h = sk.hist.pop(); if (!h) return;
+    const o = JSON.parse(h); sk.pts = o.pts; sk.cuts = o.cuts; sk.doors = o.doors;
+    sk.sel = null; sk.edited = true; drawSketch();
+  };
+  /* Merge walls: a corner sitting on a straight run (the wall goes on in the same direction)
+     comes out, so the wall is one piece again. Real angles stay. Doors stay where they were. */
+  $("skMerge").onclick = () => {
+    const straight = (a, b, c) => {
+      const ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - b[0], vy = c[1] - b[1];
+      const lu = Math.hypot(ux, uy), lv = Math.hypot(vx, vy);
+      if (!lu || !lv) return true;   /* two corners on the same spot */
+      return Math.abs(ux * vy - uy * vx) / (lu * lv) < 0.03 && ux * vx + uy * vy > 0;
+    };
+    const thin = arr => { let changed = true, out = arr.slice();
+      while (changed && out.length > 3) { changed = false;
+        for (let i = 0; i < out.length && out.length > 3; i++) {
+          const n = out.length;
+          if (straight(out[(i - 1 + n) % n], out[i], out[(i + 1) % n])) { out.splice(i, 1); changed = true; break; } } }
+      return out; };
+    const at = sk.doors.map(o => { const a = sk.pts[o.w], b = sk.pts[(o.w + 1) % sk.pts.length];
+      return [a[0] + (b[0] - a[0]) * o.t, a[1] + (b[1] - a[1]) * o.t]; });
+    const pts = thin(sk.pts), cuts = sk.cuts.map(c => ({ ...c, pts: thin(c.pts) }));
+    const removed = sk.pts.length - pts.length + sk.cuts.reduce((s, c, i) => s + c.pts.length - cuts[i].pts.length, 0);
+    if (!removed) { $("skHelp").textContent = "No extra corners on a straight wall."; return; }
+    skSnap();
+    sk.pts = pts; sk.cuts = cuts;
+    sk.doors.forEach((o, i) => { const w = nearestWall(at[i]); o.w = w.i; o.t = w.t; });
+    sk.sel = null; sk.edited = true;
+    $("skHelp").textContent = "Merged " + removed + (removed === 1 ? " corner" : " corners") + ". Undo puts them back.";
+    drawSketch();
   };
   $("skEdit").onclick = () => setEditing(true);
   $("skDone").onclick = () => setEditing(false);
@@ -489,7 +524,7 @@ function initSketch(d){
     if (!SR) { $("skHelp").textContent = "Voice isn't available here. Drag the corners instead."; return; }
     const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
     mic.textContent = "🎤 Listening…"; mic.disabled = true;
-    rec.onresult = ev => { const said = ev.results[0][0].transcript, n = sayWalls(said);
+    rec.onresult = ev => { skSnap(); const said = ev.results[0][0].transcript, n = sayWalls(said); skDropSame();
       $("skHelp").textContent = '"' + said + '"' + (n ? " ✓" : " — try: Cat 14, Dog 9 and a half, corner 3 45, or island 4 by 6"); };
     rec.onerror = ev => { $("skHelp").textContent = ev.error === "not-allowed" ? "Allow the microphone to use voice." : "Didn't catch that. Try again."; };
     rec.onend = () => { mic.textContent = "🎤 Say wall sizes"; mic.disabled = false; };
@@ -499,6 +534,13 @@ function initSketch(d){
     $("rDims").textContent = o.lengthFt && o.widthFt ? "About " + o.lengthFt + " × " + o.widthFt + " ft" + (o.shape ? " · " + o.shape : "") : (o.shape || ""); setEditing(true); };
   drawSketch();
 }
+/* Undo: a copy of the sketch before each change (up to 40). */
+function skSnap(){ if (!sk) return; sk.hist.push(JSON.stringify({ pts: sk.pts, cuts: sk.cuts, doors: sk.doors }));
+  if (sk.hist.length > 40) sk.hist.shift(); skUndoBtn(); }
+/* A tap that changed nothing leaves no Undo step behind. */
+function skDropSame(){ if (!sk || !sk.hist.length) return;
+  if (sk.hist[sk.hist.length - 1] === JSON.stringify({ pts: sk.pts, cuts: sk.cuts, doors: sk.doors })) sk.hist.pop(); skUndoBtn(); }
+function skUndoBtn(){ const b = document.getElementById("skUndo"); if (b) b.disabled = !sk || !sk.hist.length; }
 const SK_HELP = "Drag a corner · tap + to add one · tap a cutout to reshape it · your changes are final";
 /* Square corners: a dragged corner sticks in line with the corners next to it (walls stay straight
    across / straight up and down) when it's within ~16px. Drag further to pull it off for an angled wall. */
@@ -644,7 +686,7 @@ function skArea(){
   return Math.max(0, Math.abs(a) / 2 - sk.cuts.reduce((s, c) => s + polyA(c.pts), 0)) +
     sk.doors.reduce((s, o) => s + (o.k === "closet" ? (o.pts ? polyA(o.pts) : o.wd * o.dp) : 0), 0);   /* closets add floor */
 }
-function drawSketch(){
+function drawSketch(){ skUndoBtn();
   const X = x => (x - sk.ox) * sk.k, Y = y => (y - sk.oy) * sk.k, P = sk.pts.map(p => [X(p[0]), Y(p[1])]);
   const cx = P.reduce((s, p) => s + p[0], 0) / P.length, cy = P.reduce((s, p) => s + p[1], 0) / P.length;
   let g = '<polygon points="' + P.map(p => p.join(",")).join(" ") + '" fill="rgba(227,182,74,.12)"/>';
