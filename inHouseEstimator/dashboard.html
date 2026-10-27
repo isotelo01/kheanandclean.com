@@ -246,7 +246,7 @@ const card = r =>
         : '') +
       /* Text Mentor: a mentor's link to this job sheet (estimates and accepted estimates). */
       (r.source === "quotes" || r.source === "acceptedQuotes"
-        ? '<button type="button" class="markbtn" data-mark="' + esc(r.id) + '" data-name="' + esc(r.name || "") + '" data-number="' + esc(r.number || "") + '">Text Mentor</button>'
+        ? '<button type="button" class="markbtn" data-mark="' + esc(r.id) + '" data-name="' + esc(r.name || "") + '" data-number="' + esc(r.number || "") + '" data-src="' + esc(r.source) + '">Text Mentor</button>'
         : '') +
       (r.source !== "trash"
         ? (r.email
@@ -630,6 +630,10 @@ document.addEventListener("click", e => { if (!e.target.closest(".markmenu, .mar
 const sharesFor = async jobId => (await getDocs(query(collection(db, "jobShares"),
   where("jobId", "==", jobId), where("active", "==", true), limit(5)))).docs;
 /* Mentors with a phone, A–Z by first name (short list, so no search). */
+/* Anything put on the job sheet yet (notes, photos, rooms, on-site changes, chemicals)? */
+const JOB_INPUT = ["jobSheet", "onsite", "spots", "roomChecks", "starred", "notesPhotos", "jobPhotos", "finishPhotos", "headerPhotos"];
+const hasJobInput = d => JOB_INPUT.some(k => { const v = d[k];
+  return Array.isArray(v) ? v.length > 0 : v && typeof v === "object" ? Object.keys(v).length > 0 : !!v; });
 async function mentors(){
   const s = await getDocs(query(collection(db, "customers"), where("type", "==", "mentor"), limit(30)));
   return s.docs.map(d => d.data()).filter(c => !c.trashed)
@@ -652,15 +656,23 @@ boardEl.addEventListener("click", async e => {
       }
       const to = via === "test" ? MY_CELL : choice.dataset.phone;
       if (!to) throw new Error("No number for that mentor.");
+      const job = (b.dataset.name || "this job") + (b.dataset.number ? " (" + b.dataset.number + ")" : "");
+      const base = location.origin + location.pathname.replace(/[^/]*$/, "");
+      /* Text 1: the estimate / invoice itself (same link the customer gets). */
+      await smsSendFn({ to, body: "Hi " + (who || "there") + ", here's the estimate for " + job + ": " +
+        base + "quote.html?id=" + encodeURIComponent(jobId) });
+      /* Text 2: the job sheet, only once something has been put on it. */
+      const snap = await getDoc(doc(db, b.dataset.src || "quotes", jobId));
+      if (!snap.exists() || !hasJobInput(snap.data())) {
+        b.textContent = (via === "test" ? "Test sent" : "Sent to " + (who || "mentor")) + " ✓ (no job sheet yet)"; return;
+      }
       let token = ((await sharesFor(jobId))[0] || {}).id;
       if (!token) {
         token = Array.from(crypto.getRandomValues(new Uint8Array(24)), x => x.toString(16).padStart(2, "0")).join("");
         await setDoc(doc(db, "jobShares", token), { jobId, active: true, name: b.dataset.name || "",
           number: b.dataset.number || "", createdAt: serverTimestamp() });
       }
-      const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "shared-job.html?t=" + token;
-      await smsSendFn({ to, body: "Hi " + (who || "there") + ", here's the job sheet for " + (b.dataset.name || "this job") +
-        (b.dataset.number ? " (" + b.dataset.number + ")" : "") + ": " + link });
+      await smsSendFn({ to, body: "And the job sheet for " + job + ": " + base + "shared-job.html?t=" + token });
       b.textContent = via === "test" ? "Test sent ✓" : "Sent to " + (who || "mentor") + " ✓";
     } catch (err) {
       b.textContent = "Text Mentor";
