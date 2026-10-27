@@ -634,6 +634,15 @@ const sharesFor = async jobId => (await getDocs(query(collection(db, "jobShares"
 const JOB_INPUT = ["jobSheet", "onsite", "spots", "roomChecks", "starred", "notesPhotos", "jobPhotos", "finishPhotos", "headerPhotos"];
 const hasJobInput = d => JOB_INPUT.some(k => { const v = d[k];
   return Array.isArray(v) ? v.length > 0 : v && typeof v === "object" ? Object.keys(v).length > 0 : !!v; });
+/* Also counts what the job sheet shows from the customer: the note/photos on their quote (quoteNotes)
+   and the photos/message from their website lead, plus the quote's own notes. */
+async function hasJobInputAll(id, q){
+  if (hasJobInput(q) || String(q.notes || "").trim()) return true;
+  const full = x => !!x && (String(x.text || x.message || "").trim() || (x.photoPaths || []).length || (x.photos || []).length);
+  try { const n = await getDoc(doc(db, "quoteNotes", id)); if (n.exists() && full(n.data())) return true; } catch (e) { console.warn(e); }
+  try { if (q.leadId) { const l = await getDoc(doc(db, "leads", q.leadId)); if (l.exists() && full(l.data())) return true; } } catch (e) { console.warn(e); }
+  return false;
+}
 async function mentors(){
   const s = await getDocs(query(collection(db, "customers"), where("type", "==", "mentor"), limit(30)));
   return s.docs.map(d => d.data()).filter(c => !c.trashed)
@@ -663,7 +672,7 @@ boardEl.addEventListener("click", async e => {
         base + "quote.html?id=" + encodeURIComponent(jobId) });
       /* Text 2: the job sheet, only once something has been put on it. */
       const snap = await getDoc(doc(db, b.dataset.src || "quotes", jobId));
-      if (!snap.exists() || !hasJobInput(snap.data())) {
+      if (!snap.exists() || !(await hasJobInputAll(jobId, snap.data()))) {
         b.textContent = (via === "test" ? "Test sent" : "Sent to " + (who || "mentor")) + " ✓ (no job sheet yet)"; return;
       }
       let token = ((await sharesFor(jobId))[0] || {}).id;
