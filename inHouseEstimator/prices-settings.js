@@ -38,7 +38,7 @@ function seed() {
         ? { sizes: Object.fromEntries(v.sizes.map(z => [z.key, z.price])), hidden: false }
         : { price: v.sqft != null ? v.sqft : v.linear, hidden: false };
     });
-    if (s.items) o.items = s.items.map(i => ({ key: i.key, name: i.name, ft: i.ft, hidden: false }));
+    if (s.items && !s.sharesItems) o.items = s.items.map(i => ({ key: i.key, name: i.name, ft: i.ft, hidden: false }));
   });
   return out;
 }

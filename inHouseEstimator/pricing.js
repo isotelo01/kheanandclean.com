@@ -102,6 +102,10 @@
       mode: 'area',
       rate: 0.50,
       addons: {
+        rug:    { name:'Area Rugs', text:'$50 / $75 / $100 per rug',
+                   sizes:[ { key:'med', label:'Medium (5\u00d78)',       price:50 },
+                           { key:'lg',  label:'Large (9\u00d712)',       price:75 },
+                           { key:'xl',  label:'Extra Large (12\u00d715)', price:100 } ] },
         stairs: { name:'Flight of Stairs', linear:100, needsQty:true, qtyDefault:1, qtyStep:0.5,
                    text:'$100 per flight' },
         stain: { name:'Stain treatment', linear:15, needsQty:true, qtyDefault:0, qtyStep:1,
@@ -136,6 +140,16 @@
       ],
       quoteValue: 'Upholstery'
     }
+  };
+  /* Commercial upholstery: same furniture list as residential (one shared list, so Settings
+     edits to the pieces show up in both), its own rate per linear ft. */
+  SERVICES.commupholstery = {
+    name: 'Commercial Upholstery',
+    mode: 'items',
+    rate: 30,
+    sharesItems: 'upholstery',
+    items: SERVICES.upholstery.items,
+    quoteValue: 'Commercial upholstery'
   };
 
   window.KC_PRICING = { ROOM_TYPES: ROOM_TYPES, SERVICES: SERVICES };

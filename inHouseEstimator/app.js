@@ -79,8 +79,10 @@
     // apply the drying default that the tier handler applies on every later switch.
     STATE.carpet.addons.dry.on = true;
     STATE.carpet.dryDefaultApplied = true;
-    STATE.upholstery = { items:{}, touched:false };
-    SERVICES.upholstery.items.forEach(function(it){ STATE.upholstery.items[it.key] = 0; });
+    ['upholstery','commupholstery'].forEach(function(k){
+      STATE[k] = { items:{}, touched:false };
+      SERVICES[k].items.forEach(function(it){ STATE[k].items[it.key] = 0; });
+    });
     STATE.custom = [];   // custom line items: [{desc, price}], typed in by hand
     STATE.free = { pet:0, stain:0, stretch:0 };   // free spots/rooms given away (Discount section)
   }
@@ -91,7 +93,7 @@
      one group or the other, never both. Property type drives the swap, and the
      hidden group's numbers are cleared so nothing invisible can price into the
      estimate. */
-  var COMM_SVCS = ['commcarpet','commhard'];
+  var COMM_SVCS = ['commcarpet','commhard','commupholstery'];
   var RES_SVCS  = ['carpet','tile','lvp','upholstery','stone'];
   function isComm(k){ return COMM_SVCS.indexOf(k) > -1; }
   function commercialMode(){
@@ -460,10 +462,10 @@
   }
 
   function renderUphItems(){
-    var st = STATE.upholstery;
-    uphList.innerHTML = SERVICES.upholstery.items.map(function(it){
+    var st = STATE[activeSvc], S = SERVICES[activeSvc];   /* residential or commercial upholstery */
+    uphList.innerHTML = S.items.map(function(it){
       return '<div class="add" data-uphrow style="cursor:pointer;background:#172239;border:1px solid var(--brass,#C9982D);border-radius:12px;padding:12px 14px;margin-bottom:8px">'+
-             '<span style="flex:1"><span style="color:var(--brass,#C9982D)">'+it.name+'</span> <span class="add__c" style="display:block">'+it.ft+' linear ft &times; $'+SERVICES.upholstery.rate+'</span></span>'+
+             '<span style="flex:1"><span style="color:var(--brass,#C9982D)">'+it.name+'</span> <span class="add__c" style="display:block">'+it.ft+' linear ft &times; $'+S.rate+'</span></span>'+
              '<div class="step step--sm">'+
                '<button type="button" data-uphminus="'+it.key+'" aria-label="Decrease">&minus;</button>'+
                '<input type="number" data-uph="'+it.key+'" value="0" min="0" step="1">'+
@@ -709,9 +711,9 @@
      the two can't drift apart as services change. */
   function clearGroup(keys){
     keys.forEach(function(k){
-      if(k === 'upholstery'){
-        STATE.upholstery.touched = false;
-        Object.keys(STATE.upholstery.items).forEach(function(i){ STATE.upholstery.items[i] = 0; });
+      if(k === 'upholstery' || k === 'commupholstery'){
+        STATE[k].touched = false;
+        Object.keys(STATE[k].items).forEach(function(i){ STATE[k].items[i] = 0; });
         return;
       }
       var st = STATE[k];
@@ -1367,8 +1369,10 @@
       var st = STATE[k];
       if (st && st.rooms) ROOM_TYPES.forEach(function(rt){ if (st.rooms[rt.key] == null) st.rooms[rt.key] = 0; });
     });
-    if (STATE.upholstery) SERVICES.upholstery.items.forEach(function(it){
-      if (STATE.upholstery.items[it.key] == null) STATE.upholstery.items[it.key] = 0; });
+    ['upholstery','commupholstery'].forEach(function(k){
+      if (STATE[k]) SERVICES[k].items.forEach(function(it){
+        if (STATE[k].items[it.key] == null) STATE[k].items[it.key] = 0; });
+    });
     renderRoomList(); syncService(); calc();   /* syncService puts the room counts, furniture and add-ons back */
   });
 

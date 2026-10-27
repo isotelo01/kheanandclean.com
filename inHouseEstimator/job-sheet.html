@@ -745,6 +745,9 @@ function unitPass(lines){
    ones not already on the job are offered. */
 const SVC_ORDER = ["carpet", "tile", "lvp", "stone", "upholstery"];
 const UPH = PRICING.SERVICES.upholstery || { items: [], rate: 0 };
+/* Commercial upholstery lines price their furniture at the commercial rate. */
+const isUphLine = l => !!l && (l.key === "upholstery" || l.key === "commupholstery");
+const uphFor = l => (l && l.key === "commupholstery" && PRICING.SERVICES.commupholstery) || UPH;
 const svcChoices = () => {
   const out = [];
   SVC_ORDER.forEach(k => {
@@ -971,7 +974,7 @@ view.addEventListener("click", async e => {
     .map(r => [list.find(x => x.id === r.dataset.xa), Number(r.querySelector("input").value) || 0]).filter(([x, n]) => x && n > 0);
   if (!want.length) { box.querySelector(".rpick").hidden = true; return; }
   let ci = cur.lines.findIndex(l => l.key === "carpet"); if (ci < 0) ci = cur.lines.findIndex(isCarpetLine);
-  const fi = ci >= 0 ? ci : cur.lines.findIndex(l => l.key !== "upholstery" && !(l.items || []).some(it => it.uphKey));
+  const fi = ci >= 0 ? ci : cur.lines.findIndex(l => !isUphLine(l) && !(l.items || []).some(it => it.uphKey));
   let newIdx = -1;
   const lineFor = x => { let k = x.kind === "stairs" ? fi : ci;
     if (k < 0) { if (newIdx < 0) { cur.lines.push({ key: "carpet", label: "Carpet Add-ons", cost: 0, items: [], addedOnSite: true }); newIdx = cur.lines.length - 1; } k = newIdx; }
@@ -1043,10 +1046,10 @@ view.addEventListener("click", async e => {
   l.items = Array.isArray(l.items) ? l.items : [];
   let delta = 0, added = 0;
   pick.querySelectorAll(".rprow").forEach(r => {
-    const f = (UPH.items || []).find(x => x.key === r.dataset.fk);
+    const U = uphFor(l), f = (U.items || []).find(x => x.key === r.dataset.fk);
     const n = Math.max(0, Math.round(Number(r.querySelector("input").value) || 0));
     if (!f || !n) return;
-    const each = r2(f.ft * UPH.rate), split = f.key !== "misc";   /* misc is per linear ft: one row */
+    const each = r2(f.ft * U.rate), split = f.key !== "misc";   /* misc is per linear ft: one row */
     let it = l.items.find(x => x.uphKey === f.key && !x.removed && (!priceLocked() || x.extra));
     if (!it) { it = { label: f.name, cost: 0, uphKey: f.key, baseName: f.name, addonRate: each, qty: 0, split }; l.items.push(it); }
     const old = Number(it.cost) || 0, prev = Number(it.qty) || 0;
@@ -1285,13 +1288,13 @@ async function show(){
       '<button type="button" class="sdel" data-del>' + (g ? 'Undo' : 'Delete') + '</button>' + inner + '</div>')
     (grayOf(i, j, kind + ":" + r));
   /* Upholstery line: Add furniture opens the estimator's furniture table. */
-  const furnBlock = i =>
+  const furnBlock = (i, U = uphFor(cur.lines[i])) =>
     '<div class="addfurn" data-line="' + i + '">' +
       '<button type="button" class="new" data-pickfurn>Add furniture</button>' +
       '<div class="rpick" hidden>' +
-        (UPH.items || []).map(f =>
+        (U.items || []).map(f =>
           '<div class="rprow" data-fk="' + f.key + '">' +
-            '<span class="rpname">' + esc(f.name) + ' <span class="rpcap">' + money(f.ft * UPH.rate) + (f.key === "misc" ? " per linear ft" : " each") + '</span></span>' +
+            '<span class="rpname">' + esc(f.name) + ' <span class="rpcap">' + money(f.ft * U.rate) + (f.key === "misc" ? " per linear ft" : " each") + '</span></span>' +
             '<span class="rpstep"><button type="button" data-rpminus aria-label="Fewer">&minus;</button>' +
             '<input type="number" min="0" step="1" value="0" inputmode="numeric" aria-label="' + esc(f.name) + '">' +
             '<button type="button" data-rpplus aria-label="More">+</button></span>' +
@@ -1473,8 +1476,8 @@ async function show(){
         const h = isRug && !rugHead ? (rugHead = true, '<div class="rughead staff"><span class="rugttl">Area Rugs</span>' + secBtn("L" + i + "rug", "carpet") + '</div>') : "";
         /* Not billed (taken off in the estimator): stays on the job sheet at $0, left out of the Summary. */
         return h + (isNotBilled(it) ? '<div class="nbill">' + itemRows(it, i, j) + '</div>' : itemRows(it, i, j)); }).join("")
-        : (l.key === "upholstery" ? "" : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i)))) +
-      (l.key === "upholstery" ? furnBlock(i) : "") +
+        : (isUphLine(l) ? "" : spotRow(String(i), noPrice(l.label) || "Service", "", spotLink(i)))) +
+      (isUphLine(l) ? furnBlock(i) : "") +
       (extras.length ? '<div class="meta staff" style="padding:6px 4px 0">In every room: ' +
         esc(extras.map(it => String(it.label).split(" — ")[0]).join(", ")) + ' (check off on each room page)</div>' : '') +
       /* Summarize view: those package extras as their own priced rows. */
