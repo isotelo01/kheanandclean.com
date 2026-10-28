@@ -407,6 +407,13 @@ async function show(){
                   '<div class="svcsub" style="margin:0 0 10px">' + esc((Number(st.sketchSqft) > 0 ? Number(st.sketchSqft).toLocaleString() + ' sq ft sketch' : 'Sketch') + (st.sketchFloor ? ' · ' + st.sketchFloor : '')) + '</div>'
                 : ''))
           : (spot.sqft ? '<div class="svcsub">' + spot.sqft.toLocaleString() + ' sq ft</div>' : '')) +
+        /* Story (rooms only, staff only): which floor of the building, so a floor plan can stack rooms by story. */
+        (spot.isRoom && !PUBLIC
+          ? '<div class="fibrow"><label for="storySel" class="fiblab">Story</label><select id="storySel">' +
+            [[0, "Zero story"], [1, "1st story"], [2, "2nd story"], [3, "3rd story"]].map(([v, t]) =>
+              '<option value="' + v + '"' + ((Number.isInteger(st.story) ? st.story : 1) === v ? ' selected' : '') + '>' + t + '</option>').join("") +
+            '</select></div>'
+          : '') +
         /* Fiber type, carpet rooms only. The first room saved sets it for the job, so the other
            rooms open with it filled in; any room can be switched on its own. */
         (isCarpet   /* every carpet page: rooms, stairs, rugs and the carpet add-on pages */
@@ -486,6 +493,8 @@ async function show(){
     if (otherEl) otherEl.addEventListener("input", flag);
     const matEl = document.getElementById("materialSel");
     if (matEl) matEl.addEventListener("change", () => { const mn = view.querySelector(".matnote"); if (mn) mn.remove(); flag(); });
+    const storyEl = document.getElementById("storySel");
+    if (storyEl) storyEl.addEventListener("change", flag);
     const preEl = document.getElementById("preSpray"), rinseEl = document.getElementById("rinse");
     if (preEl) preEl.addEventListener("input", flag);
     if (rinseEl) rinseEl.addEventListener("input", flag);
@@ -560,6 +569,8 @@ async function show(){
           ...photoFields(), updatedAt: serverTimestamp() } } };
         /* Actual sq ft measured on site (rooms only); blank clears it. */
         if (actualEl) { const n = Math.round(Number(actualEl.value)); data.spots[spot.key].actualSqft = n > 0 ? n : null; }
+        /* Story 0-3 (rooms only). */
+        if (storyEl) data.spots[spot.key].story = Number(storyEl.value);
         /* Pre-Spray and Rinse used in this room (carpet rooms only). */
         /* Same as the section's product: saved blank, so the room keeps following the section. */
         if (preEl) { const v = preEl.value.trim(); data.spots[spot.key].preSpray = v === secPre ? "" : v; }

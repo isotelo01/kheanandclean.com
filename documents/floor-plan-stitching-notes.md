@@ -20,6 +20,29 @@ Test job: EDH Casino — Sal Palma, Q-1103 (on-site estimate, `quotes/tVvTL2NqY3
    - Three sets of double doors (locations still needed).
 3. Placed rooms by shared walls; matched wall lengths (the office's 13 ft side lines up with the poker room's 13 ft depth).
 
+## What the poker room photos show (Oct 27 2026)
+- East wall: full-length wallpapered wall with TVs (solid wall).
+- One short end: the glass office's glass wall runs the full width of the poker room.
+- Other short end: solid white wall with a TV.
+- West side (toward the Main Room) is NOT one open wall: a pillar and the cage counter (marble half wall with under-lighting) break it up. The real walk-through opening is only part of that side. Width still to be confirmed on site.
+
+## Now built
+- Room page: Story picker (Zero, 1st, 2nd, 3rd; default 1st), saved as `spots.<key>.story`.
+- Measurer (`measureRoom`) now also returns `openings`: `[{wall, from, width, type, to}]`, and it saves into the room's sketch.
+  Types: door, double door, glass door, open, half wall, glass wall. Openings never change the sq ft.
+
+## Stitching rules (for the AI that puts rooms together)
+1. Top of the plan is north. Use the walls Israel names (north/south/east/west) over anything guessed from photos.
+2. Each room keeps its own measured outline and sq ft. Stitching only moves and rotates rooms; it never resizes them.
+3. Two rooms connect where both list an opening to each other ("to" matches the other room) or Israel says so. Line up the openings first, then slide along the shared wall.
+4. Shared walls must match: if one room's wall is 13 ft and its neighbor's is 13 ft, butt them flush. If they differ, center the smaller one unless told an offset (e.g. "sticks out 3 ft past the south wall").
+5. "Open" and "half wall" sides close along where the flooring, pillars or ceiling change, so floor isn't counted twice.
+6. Pillars split an open side into separate openings; draw the pillar as a small solid square.
+7. Fireplaces, islands and similar features are notches cut from the outline (depth × width), with a label.
+8. Rooms that weren't measured (like the break room) show as a dashed box with 0 sq ft.
+9. Rooms on different stories go on separate plans, one per story.
+10. If a connection is unclear, ask one short question (which wall, how far along) instead of guessing.
+
 ## What the feature needs (ideas so far)
 - Per room: "Which room is this next to, and which wall?" (N/S/E/W + offset along the wall) and "Open to it or a door?"
 - Door types: door, double door, open entryway, glass door.
