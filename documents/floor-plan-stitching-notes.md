@@ -43,7 +43,8 @@ Test job: EDH Casino — Sal Palma, Q-1103 (on-site estimate, `quotes/tVvTL2NqY3
 7. Fireplaces, islands and similar features are notches cut from the outline (depth × width), with a label.
 8. Rooms that weren't measured (like the break room) show as a dashed box with 0 sq ft.
 9. Rooms on different stories go on separate plans, one per story.
-10. If a connection is unclear, ask one short question (which wall, how far along) instead of guessing.
+10. Furniture needs working room: a half-moon table game (blackjack, Three Card Poker) never sits flat against a wall; leave about 3 ft behind the dealer side so people can get behind it. Same for chairs around poker tables.
+11. If a connection is unclear, ask one short question (which wall, how far along) instead of guessing.
 
 ## What the feature needs (ideas so far)
 - Per room: "Which room is this next to, and which wall?" (N/S/E/W + offset along the wall) and "Open to it or a door?"
