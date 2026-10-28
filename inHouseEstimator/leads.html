@@ -129,6 +129,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
   <div id="view"><div class="msg">Loading&hellip;</div></div>
 </div>
 
+<script src="./phone-format.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction }
@@ -307,6 +308,9 @@ const listOf = (main, more) => { const out = [];
   [main].concat(Array.isArray(more) ? more : []).forEach(v => { const t = String(v || "").trim(); if (t && !out.includes(t)) out.push(t); });
   return out; };
 const phonesOf = l => listOf(l.phone, l.phones);
+/* (916) 324-2497 for any 10-digit US number; anything else shows as typed. */
+const fmtPhone = v => { const d = String(v || "").replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  return d.length === 10 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : String(v || "").trim(); };
 const emailsOf = l => listOf(l.email, l.emails);
 function randomId(){
   const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -470,7 +474,7 @@ async function showLead(id){
             return '<div class="prow"><a class="maplink" href="https://maps.google.com/?q=' + q +
               '" target="_blank" rel="noopener">' + esc(full).replace(/\n/g, "<br>") + '</a></div>';
           })() +
-          phonesOf(l).map(prow).join("") + emailsOf(l).map(prow).join("") +
+          phonesOf(l).map(fmtPhone).map(prow).join("") + emailsOf(l).map(prow).join("") +
         '</div>' +
         '<div id="contactEdit" hidden>' +
           '<label>Name</label><input id="ceName" autocomplete="off" value="' + esc(l.name || "") + '">' +
@@ -758,7 +762,7 @@ async function showLead(id){
     ' autocomplete="off"><button type="button" class="x" data-cedel aria-label="Remove">&times;</button></div>';
   const ceFill = () => {
     const p = phonesOf(l), e = emailsOf(l);
-    document.getElementById("cePhones").innerHTML = (p.length ? p : [""]).map(v => ceRow("phone", v)).join("");
+    document.getElementById("cePhones").innerHTML = (p.length ? p.map(fmtPhone) : [""]).map(v => ceRow("phone", v)).join("");
     document.getElementById("ceEmails").innerHTML = (e.length ? e : [""]).map(v => ceRow("email", v)).join("");
   };
   const ceShow = on => {
@@ -784,7 +788,7 @@ async function showLead(id){
       const btn = document.getElementById("saveContact"), msg = document.getElementById("contactMsg");
       const vals = k => listOf("", [...document.querySelectorAll('#contactEdit [data-ce="' + k + '"]')].map(x => x.value));
       const v = id => document.getElementById(id).value.trim();
-      const phones = vals("phone"), emails = vals("email");
+      const phones = listOf("", vals("phone").map(fmtPhone)), emails = vals("email");
       const bad = emails.find(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
       if (bad) { msg.classList.add("err"); msg.textContent = "\u201c" + bad + "\u201d doesn\u2019t look like an email."; return; }
       const street = v("ceStreet"), city = v("ceCity"), state = v("ceState").toUpperCase(), zip = v("ceZip");
