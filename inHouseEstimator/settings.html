@@ -298,7 +298,7 @@ onAuthStateChanged(auth, async user => {
 
 /* Discounts table: settings/discounts -> { items: [{ id, name, pct }] }. Read by the estimator. */
 const DREF = doc(db, "settings", "discounts");
-const DSTART = ["Senior discount", "Military discount", "Neighbor discount", "Repeat customer discount"];
+const DSTART = ["Senior discount", "Military discount", "Neighbor discount", "Repeat customer discount", "First-time customer discount"];
 let discs = [];
 function discDraw() {
   const box = document.getElementById("discList");
@@ -313,7 +313,13 @@ async function discLoad() {
   try {
     const s = await getDoc(DREF);
     discs = s.exists() && Array.isArray(s.data().items) ? s.data().items
-      : DSTART.map(n => ({ id: newId(), name: n, pct: 5 }));   /* first time: the four you asked for, at 5% */
+      : DSTART.map(n => ({ id: newId(), name: n, pct: 5 }));   /* first time: the ones you asked for, at 5% */
+    /* First-time customer came later: add it once to a list that was saved before it existed.
+       Saving records firstTimeAdded, so if you delete it afterwards it stays deleted. */
+    if (s.exists() && !s.data().firstTimeAdded && !discs.some(d => /first.?time/i.test(d.name || ""))) {
+      discs = discs.concat({ id: newId(), name: "First-time customer discount", pct: 5 });
+      document.getElementById("discNote").textContent = "Added First-time customer discount. Press Save to keep it.";
+    }
   } catch (e) { console.error(e); discs = []; document.getElementById("discNote").textContent = "Could not load discounts."; }
   discDraw();
 }
@@ -334,7 +340,7 @@ document.getElementById("discSave").addEventListener("click", async () => {
   const btn = document.getElementById("discSave"), n = document.getElementById("discNote");
   const items = discs.map(d => ({ id: d.id || newId(), name: String(d.name || "").trim(), pct: +d.pct || 0 })).filter(d => d.name);
   btn.disabled = true; n.textContent = ""; n.classList.remove("err");
-  try { await setDoc(DREF, { items, updatedAt: serverTimestamp() }); discs = items; discDraw(); n.textContent = "Saved."; }
+  try { await setDoc(DREF, { items, firstTimeAdded: true, updatedAt: serverTimestamp() }); discs = items; discDraw(); n.textContent = "Saved."; }
   catch (e) { console.error(e); n.textContent = "Could not save: " + e.message; n.classList.add("err"); }
   btn.disabled = false;
 });

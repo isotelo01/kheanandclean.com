@@ -853,8 +853,8 @@ onAuthStateChanged(getAuth(app), async u => {
   if (!u) return;
   try {
     const s = await getDoc(doc(getFirestore(app), "settings", "discounts"));
-    /* Nothing saved in Settings yet: show the same four Settings starts with, at 5%. */
-    const START = ["Senior discount", "Military discount", "Neighbor discount", "Repeat customer discount"].map(n => ({ name: n, pct: 5 }));
+    /* Nothing saved in Settings yet: show the same ones Settings starts with, at 5%. */
+    const START = ["Senior discount", "Military discount", "Neighbor discount", "Repeat customer discount", "First-time customer discount"].map(n => ({ name: n, pct: 5 }));
     table = (s.exists() && Array.isArray(s.data().items) ? s.data().items : START).filter(d => d && d.name && +d.pct > 0);
   } catch (e) { console.error(e); table = []; }
   draw();
