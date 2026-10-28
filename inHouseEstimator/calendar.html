@@ -804,10 +804,19 @@ function dayCard(j){
 }
 
 /* Misc / Job / EDH entry in the day view, with its own Edit and Delete buttons. */
+/* A manual job's quote or job #: links to that job when the number matches one ("Q-1068", "q1068" and "1068" all match). */
+const refKey = v => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^(Q|J|INV)(?=\d)/, "");
+const refJob = b => b.ref ? jobs.concat(needDate).find(j => j.number && refKey(j.number) === refKey(b.ref)) : null;
+const refLine = b => {
+  if (!b.ref) return "";
+  const j = refJob(b);
+  return '<div class="dcrow">#' + esc(b.ref) + (j ? ' \u00b7 <a href="./quote.html?id=' + encodeURIComponent(j.id) +
+    '" target="_blank" rel="noopener">Open quote</a> \u00b7 <a href="./job-sheet.html?id=' + encodeURIComponent(j.id) + '">Job sheet</a>' : '') + '</div>';
+};
 const blkCard = b => '<article class="dcard blk b-' + b.kind + '">' +
   '<div class="dctime">' + spanText(b) + '</div>' +
   '<div><button type="button" class="dcname" data-blk="' + esc(b.id) + '">' + KINDS[b.kind] + '</button>' +
-    (b.note ? '<div class="dcrow">' + esc(b.note) + '</div>' : '') +
+    (b.note ? '<div class="dcrow">' + esc(b.note) + '</div>' : '') + refLine(b) +
     '<div class="dcsvc">' + esc(ruleOf(b)) + '</div>' +
     '<div class="blkacts"><button type="button" class="ghost" data-editblk="' + esc(b.id) + '">Edit</button>' +
       '<button type="button" class="ghost danger" data-delblkask="' + esc(b.id) + '">Delete</button></div></div></article>';
@@ -1044,8 +1053,10 @@ function showHourMenu(h){
   openDlg('<h3>' + time12(h) + '</h3>' +
     '<p class="state">' + esc(longDay(dayKey)) + '</p>' +
     '<div class="pick">' +
-      '<button type="button" class="job blk b-misc" data-addblk="misc" data-h="' + h + '">Miscellaneous / Job' +
-        '<span class="sub">Misc: tap the first hour, then the last hour. Job: morning 9\u20131 or evening 1\u20136.</span></button>' +
+      '<button type="button" class="job blk b-misc" data-addblk="misc" data-type="misc" data-h="' + h + '">Miscellaneous' +
+        '<span class="sub">Tap the first hour, then the last hour.</span></button>' +
+      '<button type="button" class="job blk b-job" data-addblk="misc" data-type="job" data-h="' + h + '">Manual job' +
+        '<span class="sub">Morning 9\u20131 or evening 1\u20136, any day (past dates too). Overrides the booking rules.</span></button>' +
       '<button type="button" class="job blk b-edh" data-addblk="edh" data-h="' + h + '">EDH shift' +
         '<span class="sub">Starts 11 AM, 1, 3, 5, 7 or 9 PM. Keeps its blocking rules.</span></button>' +
     '</div>');
@@ -1062,7 +1073,9 @@ function showBlockForm(kind, pre = {}){
         '<div class="fld" id="bJobF" style="display:none"><span>When</span><div class="hrs two" role="radiogroup" aria-label="When">' +
         JOB_SPANS.map(([s, e, name], i) => '<label class="hr"><input type="radio" name="bJob" value="' + s + '-' + e + '"' +
           ((start >= "13:00" ? i === 1 : i === 0) ? ' checked' : '') + '><span>' + name + '<br>' + time12(s) + ' \u2013 ' + time12(e) +
-          '</span></label>').join("") + '</div></div>') +
+          '</span></label>').join("") + '</div></div>' +
+        '<label class="fld" id="bRefF" style="display:none"><span>Quote or job # (optional)</span>' +
+        '<input type="text" id="bRef" maxlength="30" placeholder="e.g. Q-1068" value="' + esc(pre.ref || "") + '"></label>') +
       '<div class="fld" id="bHrsF"><span>' + (edh ? "Start time" : "Tap the first hour, then the last hour") + '</span>' +
         '<div class="hrs" id="bHrs"' + (edh ? ' role="radiogroup" aria-label="Start time"' : '') + '>' +
         HOURS.map(h => edh
@@ -1097,14 +1110,16 @@ function showBlockForm(kind, pre = {}){
     }
     const isJob = form.querySelector('input[name="bType"]:checked')?.value === "job";
     document.getElementById("bJobF").style.display = isJob ? "" : "none";
+    document.getElementById("bRefF").style.display = isJob ? "" : "none";
     document.getElementById("bHrsF").style.display = isJob ? "none" : "";
     if (isJob) {
       const spans = [...form.querySelectorAll('input[name="bJob"]')];
-      spans.forEach(x => { const [s, e] = x.value.split("-"); x.disabled = clashes(k, s, e); if (x.disabled) x.checked = false; });
+      /* Manual job = his override: both slots stay open, any day, past dates too. It just warns on an overlap. */
+      spans.forEach(x => { x.disabled = false; });
       const j = form.querySelector('input[name="bJob"]:checked');
       const [s, e] = j ? j.value.split("-") : [];
-      rule.textContent = j ? time12(s) + " \u2013 " + time12(e) + " \u00b7 " + blockRule("job", s, e)
-        : spans.every(x => x.disabled) ? "Morning and evening are both taken that day." : "";
+      rule.textContent = j ? time12(s) + " \u2013 " + time12(e) + " \u00b7 " + blockRule("job", s, e) +
+        (clashes(k, s, e) ? " \u00b7 Overrides what\u2019s already there" : "") : "";
       return;
     }
     if (a && hits(taken, a, z || a)) { a = ""; z = ""; }   // the date changed and those hours are taken there
@@ -1156,10 +1171,12 @@ async function saveBlock(kind){
   }
   if (!isKey(date)) { err.textContent = "Pick a date first."; return; }
   if (!time) { err.textContent = kind === "edh" ? "Pick a start time." : kind === "job" ? "Pick morning or evening." : "Tap the start time."; return; }
-  if (clashes(date, time, kind === "edh" ? endOf({ kind, time }) : end)) {   // backup: never save on top of something
+  if (kind !== "job" && clashes(date, time, kind === "edh" ? endOf({ kind, time }) : end)) {   // backup: never save on top of something (a manual job overrides)
     err.textContent = "That overlaps something already on the calendar. Pick open hours."; return; }
   const b = { kind, date, time, note: document.getElementById("bNote").value.trim() };
   if (end) b.end = end;
+  const ref = kind === "job" ? document.getElementById("bRef").value.trim() : "";
+  if (ref) b.ref = ref;
   const btns = dlgBody.querySelectorAll("button");
   btns.forEach(x => x.disabled = true);
   try {
@@ -1190,7 +1207,7 @@ function showBlock(b){
   openDlg('<h3>' + KINDS[b.kind] + '</h3>' +
     '<p class="when">' + esc(longDay(b.date)) + (b.kind === "edh" ? ' at ' + time12(b.time) : ', ' + spanText(b)) + '</p>' +
     '<p class="state">' + esc(ruleOf(b) + next) + '</p>' +
-    rrow("Note", b.note ? esc(b.note) : "") +
+    rrow("Note", b.note ? esc(b.note) : "") + refLine(b) +
     '<p class="err" id="sErr" role="alert"></p>' +
     '<div class="acts"><button type="button" class="ghost" data-editblk="' + esc(b.id) + '">Edit</button>' +
       '<button type="button" class="ghost danger" data-delblk="' + esc(b.id) + '">Delete</button>' +
@@ -1207,7 +1224,7 @@ function startEdit(id){
   blocks = blocks.filter(x => x !== b);
   index();
   editing = b;
-  showBlockForm(b.kind === "edh" ? "edh" : "misc", { date: b.date, start: b.time, end: b.end || "", note: b.note || "", type: b.kind, editing: true });
+  showBlockForm(b.kind === "edh" ? "edh" : "misc", { date: b.date, start: b.time, end: b.end || "", note: b.note || "", type: b.kind, ref: b.ref || "", editing: true });
 }
 dlg.addEventListener("close", () => {
   if (dlg.open) return;   // the edit form already reopened it (close events arrive a moment late)
@@ -1292,7 +1309,7 @@ document.addEventListener("click", e => {
   const dj = t.closest("[data-deljob]");
   if (dj) { deleteJob(dj.dataset.deljob); return; }
   const ab = t.closest("[data-addblk]");
-  if (ab) { showBlockForm(ab.dataset.addblk, { date: dayKey, start: ab.dataset.h }); return; }
+  if (ab) { showBlockForm(ab.dataset.addblk, { date: dayKey, start: ab.dataset.h, type: ab.dataset.type }); return; }
   const hr = t.closest("[data-hour]");   // an hour in the day view (not a link or a job card in it)
   if (hr && !t.closest("a, .dcard")) { showHourMenu(hr.dataset.hour); return; }
   if (t.closest("#backBtn")) { toMonth = true; closeDay(); return; }
