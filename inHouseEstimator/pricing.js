@@ -16,7 +16,7 @@
 
     /* --- most likely tile & grout (wet rooms) --- */
     { key:'grandFoyer', name:'Grand Foyer',               sqft:175, dims:'12\' 6" \u00d7 14\'' },
-    { key:'kitchen',    name:'Kitchen',                   sqft:200, dims:'10\' \u00d7 20\'' },
+    { key:'kitchen',    name:'Kitchen',                   sqft:125, dims:'about 11\' \u00d7 11\'' },
     { key:'masterBath', name:'Master Bath',               sqft:150, dims:'10\' \u00d7 15\'' },
     { key:'foyer',      name:'Foyer',                     sqft:80,  dims:'8\' \u00d7 10\'' },
     { key:'fullBath',   name:'Full Bath',                 sqft:50,  dims:'5\' \u00d7 10\'' },

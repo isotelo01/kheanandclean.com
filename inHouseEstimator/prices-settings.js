@@ -83,8 +83,48 @@ const list = (p, rows, sizeKey, sizeLabel, addLabel) =>
     '<input type="number" min="0" step="any" inputmode="decimal" data-p="' + p + '.' + i + '.' + sizeKey +
     '" value="' + esc(r[sizeKey]) + '" aria-label="' + sizeLabel + '">' + hideBox(p + '.' + i + '.hidden', r.hidden) +
     '<button type="button" class="x" data-pdel="' + p + '.' + i + '" aria-label="Delete ' + esc(r.name || "row") +
-    '">&times;</button></div>').join("") +
+    '">&times;</button>' + (p === "rooms" ? '<div class="rdims" data-dims="' + i + '">' + dimsNote(r) + '</div>' : '') +
+    '</div>').join("") +
   '<button type="button" class="ghost add" data-addrow="' + p + '">' + addLabel + '</button>';
+
+/* Room shape: the most square whole-foot size for a sq ft (long side no more than 2.5x the short).
+   A number with no such size (127 is prime, 124 only makes 4' x 31') gets a warning with the nearest
+   sizes that do fit. */
+const ft = (a, b) => a + "\u2032 \u00d7 " + b + "\u2032";
+function fit(n) {
+  if (!(n > 0) || n % 1) return null;
+  for (let a = Math.floor(Math.sqrt(n)); a >= 1; a--) if (n % a === 0) return n / a / a <= 2.5 ? [a, n / a] : null;
+  return null;
+}
+function nearFits(n) {
+  const out = [];
+  for (let d = -1; n + d > 0 && d > -50; d--) if (fit(n + d)) { out.push(n + d); break; }
+  for (let d = 1; d < 50; d++) if (fit(n + d)) { out.push(n + d); break; }
+  return out;
+}
+/* Saved dims that no longer match the sq ft (the size was changed but the dims weren't) get redone.
+   Wording like "combined living, dining & kitchen" has no numbers and is left alone. */
+function dimsArea(d) {
+  const sides = String(d || "").split(/\u00d7|x/i).map(t => {
+    const m = t.match(/(\d+(?:\.\d+)?)\s*['\u2032]\s*(?:(\d+)\s*["\u2033])?/);
+    return m ? Number(m[1]) + (m[2] ? Number(m[2]) / 12 : 0) : null; });
+  return sides.length === 2 && sides[0] && sides[1] ? sides[0] * sides[1] : null;
+}
+function fixDims(r) {
+  const a = dimsArea(r.dims), n = Number(r.sqft);
+  if (a == null || !(n > 0) || Math.abs(a - n) / n <= 0.05) return;
+  const f = fit(n); r.dims = f ? ft(f[0], f[1]) : "";
+}
+function dimsNote(r) {
+  const n = Number(r.sqft);
+  if (!(n > 0)) return "";
+  const f = fit(Math.round(n));
+  if (f && n % 1 === 0) return esc(r.dims || ft(f[0], f[1]));
+  const near = nearFits(Math.round(n));
+  return '<span class="dwarn">' + esc(n) + ' sq ft won\u2019t make a real room shape.</span> Try ' +
+    near.map(m => { const g = fit(m); return '<button type="button" class="usesq" data-usesq="' + m + '">' +
+      m + ' (' + ft(g[0], g[1]) + ')</button>'; }).join(" or ");
+}
 
 function draw() {
   const open = [...box.querySelectorAll("details[open]")].map(d => d.dataset.k);
@@ -123,10 +163,24 @@ box.addEventListener("input", e => {
   o[k] = e.target.type === "checkbox" ? e.target.checked
        : e.target.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value))
        : e.target.value;
+  /* A room's size changed: its dimensions follow it (most square whole-foot shape). */
+  if (/^rooms\.\d+\.sqft$/.test(p)) roomSized(o);
   touch();
 });
+function roomSized(r) {
+  const f = fit(Number(r.sqft)), i = P.rooms.indexOf(r);
+  r.dims = f ? ft(f[0], f[1]) : "";
+  const el = box.querySelector('[data-dims="' + i + '"]'); if (el) el.innerHTML = dimsNote(r);
+}
 
 box.addEventListener("click", e => {
+  const use = e.target.closest("[data-usesq]");
+  if (use) {
+    const i = Number(use.closest("[data-dims]").dataset.dims), r = P.rooms[i];
+    r.sqft = Number(use.dataset.usesq); roomSized(r);
+    const inp = box.querySelector('[data-p="rooms.' + i + '.sqft"]'); if (inp) inp.value = r.sqft;
+    touch(); return;
+  }
   const add = e.target.closest("[data-addrow]");
   if (add) {
     const [o, k] = walk(add.dataset.addrow), rows = o[k];
@@ -171,7 +225,7 @@ onAuthStateChanged(auth, async user => {
   if (!user || P) return;
   try {
     const s = await getDoc(REF);
-    P = merge(seed(), s.exists() ? s.data() : null); draw();
+    P = merge(seed(), s.exists() ? s.data() : null); P.rooms.forEach(fixDims); draw();
     msg(s.exists() ? "" : "Showing the prices from pricing.js. Press Save prices once to store them.");
   } catch (e) { console.error(e); msg("Could not load prices: " + e.message, true); }
 });
