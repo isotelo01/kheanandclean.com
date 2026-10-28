@@ -275,7 +275,8 @@ function callBar(c, w, status) {
 }
 function ringing(c) {
   if (live) { c.reject(); return; }
-  const w = who(c.parameters && c.parameters.From);
+  /* Real caller comes as the "caller" parameter (the call itself shows the business number). */
+  const w = who((c.customParameters && c.customParameters.get && c.customParameters.get("caller")) || (c.parameters && c.parameters.From));
   live = c;
   document.title = "Incoming call" + ELLIPSIS;
   callbar.innerHTML = '<span class="cb-who">' + esc(w.name || w.num) + '<span class="cb-sub">' +

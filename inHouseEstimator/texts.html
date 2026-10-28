@@ -1062,7 +1062,8 @@ function callBar(c, w, status) {
 // Someone's calling the business number. Your cells ring too; first to answer gets it.
 function ringing(c) {
   if (live) { c.reject(); return; }   // already on a call here; the cells keep ringing
-  const w = who(c.parameters && c.parameters.From);
+  /* Real caller comes as the "caller" parameter (the call itself shows the business number). */
+  const w = who((c.customParameters && c.customParameters.get && c.customParameters.get("caller")) || (c.parameters && c.parameters.From));
   live = c;
   document.title = "Incoming call" + ELLIPSIS;
   callbar.innerHTML = '<span class="cb-who">' + esc(w.name || w.num) + '<span class="cb-sub">' +
