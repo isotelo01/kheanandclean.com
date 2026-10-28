@@ -77,6 +77,12 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .rrow.msgrow{display:block}
 .msgrow #msgView{margin-top:4px}
 .msghead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+/* Edit contact: name, address, and as many phones / emails as needed */
+#contactEdit label{display:block;font-size:13px;margin:10px 0 4px;opacity:.8}
+#contactEdit input{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid #c9cedb;border-radius:6px}
+#contactEdit .crow{display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:6px;margin-bottom:6px}
+#contactEdit .csz{display:grid;grid-template-columns:minmax(0,1fr) 56px 84px;gap:6px}
+#contactEdit .x{width:36px;height:38px;border:1px solid #c9cedb;border-radius:6px;background:none;color:#e05a4f;font-size:20px;cursor:pointer}
 .pcell{position:relative}
 .pdel{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border:2px solid #fff;border-radius:50%;background:#1c2230;color:#fff;font-size:16px;line-height:1;cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.4);padding:0;z-index:2}
 .pdel:hover{background:#b23b3b}
@@ -296,6 +302,12 @@ const leftLabel = l => {
 const phoneKey = s => { const d = String(s || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
 const emailKey = s => String(s || "").trim().toLowerCase();
 const one = v => { const t = String(v || "").trim(); return t ? [t] : []; };
+/* Every phone / email on the lead: the main one first, then any extras added with Edit. */
+const listOf = (main, more) => { const out = [];
+  [main].concat(Array.isArray(more) ? more : []).forEach(v => { const t = String(v || "").trim(); if (t && !out.includes(t)) out.push(t); });
+  return out; };
+const phonesOf = l => listOf(l.phone, l.phones);
+const emailsOf = l => listOf(l.email, l.emails);
 function randomId(){
   const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
   return Array.from(crypto.getRandomValues(new Uint8Array(20)), b => abc[b % abc.length]).join("");
@@ -447,7 +459,8 @@ async function showLead(id){
         (when(l) ? '<span class="leadtime">' + esc(when(l)) + '</span>' : '') +
       '</div>' +
       '<div class="read">' +
-        '<div class="contact">' +
+        '<div class="msghead"><div class="rlab">Contact</div><button type="button" class="ghost tiny" id="editContact">Edit</button></div>' +
+        '<div class="contact" id="contactView">' +
           prow(l.name) +
           (function(){
             const full = [a.street, cityLine(a)].filter(Boolean).join("\n");
@@ -457,7 +470,20 @@ async function showLead(id){
             return '<div class="prow"><a class="maplink" href="https://maps.google.com/?q=' + q +
               '" target="_blank" rel="noopener">' + esc(full).replace(/\n/g, "<br>") + '</a></div>';
           })() +
-          prow(l.phone) + prow(l.email) +
+          phonesOf(l).map(prow).join("") + emailsOf(l).map(prow).join("") +
+        '</div>' +
+        '<div id="contactEdit" hidden>' +
+          '<label>Name</label><input id="ceName" autocomplete="off" value="' + esc(l.name || "") + '">' +
+          '<label>Street</label><input id="ceStreet" autocomplete="off" value="' + esc(a.street || "") + '">' +
+          '<label>City / State / Zip</label><div class="csz"><input id="ceCity" value="' + esc(a.city || "") + '" aria-label="City">' +
+            '<input id="ceState" value="' + esc(a.state || "CA") + '" aria-label="State" maxlength="2">' +
+            '<input id="ceZip" value="' + esc(a.zip || "") + '" aria-label="Zip" inputmode="numeric" maxlength="10"></div>' +
+          '<label>Phones (the first one is the main one)</label><div id="cePhones"></div>' +
+          '<button type="button" class="ghost tiny" data-ceadd="phone">+ Add phone</button>' +
+          '<label>Emails (the first one is the main one)</label><div id="ceEmails"></div>' +
+          '<button type="button" class="ghost tiny" data-ceadd="email">+ Add email</button>' +
+          '<div class="actions"><button type="button" class="new" id="saveContact">Save</button>' +
+            '<button type="button" class="ghost" id="cancelContact">Cancel</button><span class="note" id="contactMsg"></span></div>' +
         '</div>' +
         /* A change to a quote already sent: approve it by updating that quote and resending it. */
         (l.editOf ? '<div class="rrow"><div class="rlab">Changes</div><div class="rval">Quote ' + esc(l.editOfNumber || "") +
@@ -646,7 +672,7 @@ async function showLead(id){
   if (convertBtn) convertBtn.addEventListener("click", async () => {
     convertBtn.disabled = true; say("Checking customers…");
     try {
-      const phones = one(l.phone), emails = one(l.email);
+      const phones = phonesOf(l), emails = emailsOf(l);
       const phoneKeys = phones.map(phoneKey).filter(Boolean), emailKeys = emails.map(emailKey).filter(Boolean);
       const dup = await findMatch(phoneKeys, emailKeys);
       let customerId;
@@ -722,6 +748,59 @@ async function showLead(id){
       view.querySelectorAll("[data-status]").forEach(x => { x.disabled = false; });
     }
   }));
+
+  /* Edit the contact in place: name, address, and as many phones and emails as needed.
+     The first phone / email stays in phone / email (what search, Call and Convert use);
+     all of them are kept in phones / emails. */
+  const editContact = document.getElementById("editContact");
+  const ceRow = (kind, v) => '<div class="crow"><input data-ce="' + kind + '" value="' + esc(v) + '" ' +
+    (kind === "phone" ? 'type="tel" inputmode="tel" placeholder="Phone"' : 'type="email" inputmode="email" placeholder="Email"') +
+    ' autocomplete="off"><button type="button" class="x" data-cedel aria-label="Remove">&times;</button></div>';
+  const ceFill = () => {
+    const p = phonesOf(l), e = emailsOf(l);
+    document.getElementById("cePhones").innerHTML = (p.length ? p : [""]).map(v => ceRow("phone", v)).join("");
+    document.getElementById("ceEmails").innerHTML = (e.length ? e : [""]).map(v => ceRow("email", v)).join("");
+  };
+  const ceShow = on => {
+    document.getElementById("contactView").hidden = on;
+    document.getElementById("contactEdit").hidden = !on;
+    editContact.hidden = on;
+  };
+  if (editContact) {
+    editContact.addEventListener("click", () => { ceFill(); ceShow(true); document.getElementById("ceName").focus(); });
+    document.getElementById("cancelContact").addEventListener("click", () => ceShow(false));
+    document.getElementById("contactEdit").addEventListener("click", e => {
+      const add = e.target.closest("[data-ceadd]");
+      if (add) {
+        const k = add.dataset.ceadd, box = document.getElementById(k === "phone" ? "cePhones" : "ceEmails");
+        box.insertAdjacentHTML("beforeend", ceRow(k, ""));
+        box.lastElementChild.querySelector("input").focus();
+        return;
+      }
+      const del = e.target.closest("[data-cedel]");
+      if (del) del.closest(".crow").remove();
+    });
+    document.getElementById("saveContact").addEventListener("click", async () => {
+      const btn = document.getElementById("saveContact"), msg = document.getElementById("contactMsg");
+      const vals = k => listOf("", [...document.querySelectorAll('#contactEdit [data-ce="' + k + '"]')].map(x => x.value));
+      const v = id => document.getElementById(id).value.trim();
+      const phones = vals("phone"), emails = vals("email");
+      const bad = emails.find(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+      if (bad) { msg.classList.add("err"); msg.textContent = "\u201c" + bad + "\u201d doesn\u2019t look like an email."; return; }
+      const street = v("ceStreet"), city = v("ceCity"), state = v("ceState").toUpperCase(), zip = v("ceZip");
+      const p = { name: v("ceName"), phone: phones[0] || "", email: emails[0] || "", phones, emails,
+        street, city, zip };
+      /* Leads that already keep an addresses list: change the first address there too. */
+      if (Array.isArray(l.addresses) && l.addresses.length)
+        p.addresses = [{ ...l.addresses[0], street, city, state: state || "CA", zip }].concat(l.addresses.slice(1));
+      btn.disabled = true; msg.classList.remove("err"); msg.textContent = "Saving\u2026";
+      try {
+        await updateDoc(doc(db, "leads", id), { ...p, updatedAt: serverTimestamp() });
+        patchLocal(p);
+        showLead(id);
+      } catch (e) { console.error(e); msg.classList.add("err"); msg.textContent = "Could not save: " + e.message; btn.disabled = false; }
+    });
+  }
 
   /* Edit the message in place. Saving overwrites the original message text. */
   const editMsg = document.getElementById("editMsg");
