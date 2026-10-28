@@ -829,7 +829,8 @@ function show(d){
    plus a picture of the sketch for the room page. Opening Measure for the room again brings it back. */
 $("saveBtn").onclick = async () => {
   const m = $("saveMsg"), b = $("saveBtn");
-  if (!result || !sk || !handoff) return;
+  if (!result || !sk || !handoff) return false;
+  let ok = false;
   b.disabled = true; m.classList.remove("bad"); m.textContent = "Saving…";
   try {
     const was = sk.editing, sel = sk.sel; sk.editing = false; sk.sel = null; drawSketch();
@@ -845,9 +846,10 @@ $("saveBtn").onclick = async () => {
       sketchAt: serverTimestamp() } } }, { merge: true });
     handoff.sketch = JSON.stringify({ d, pts: sk.pts, cuts: sk.cuts, doors: sk.doors });
     try { sessionStorage.setItem("kcMeasurePhotos", JSON.stringify(handoff)); } catch (e) {}
-    m.textContent = "Saved to this room.";
+    m.textContent = "Saved to this room."; ok = true;
   } catch (ex) { console.error(ex); m.classList.add("bad"); m.textContent = "Couldn't save. Try again."; }
   b.disabled = false;
+  return ok;
 };
 /* This room already has a saved sketch: open straight to it instead of measuring again. */
 function restoreSaved(){
@@ -862,7 +864,12 @@ function restoreSaved(){
   } catch (e) { console.error(e); return false; }
 }
 $("againBtn").onclick = () => { $("result").hidden = true; $("form").hidden = false; $("goBtn").disabled = !ready(); $("msg").textContent = ""; refresh(); };
-$("useBtn").onclick = () => { if (result) goBack(result.sqft); };
+/* Use this: saves the sketch to the room too (when there is one), then puts the sq ft in the room's Actual box. */
+$("useBtn").onclick = async () => {
+  if (!result) return;
+  if (handoff && sk && !(await $("saveBtn").onclick())) return;   /* save failed: stay so it isn't lost */
+  goBack(result.sqft);
+};
 
 /* Page lock: staff only. */
 onAuthStateChanged(auth, u => {
