@@ -397,7 +397,7 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, getDocs, getDoc, doc, updateDoc, deleteField, serverTimestamp, addDoc, deleteDoc }
+import { getFirestore, collection, getDocs, getDoc, doc, updateDoc, deleteField, serverTimestamp, addDoc, deleteDoc, setDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
@@ -1238,10 +1238,21 @@ async function deleteJob(key){
   const j = findJob(key);
   if (!j) return;
   const name = displayName(j.customer || {});
-  if (!confirm("Delete " + name + "'s job" + (j.number ? " " + j.number : "") + "? This can't be undone.")) return;
+  const paid = j._place === "paidInvoices";
+  if (!confirm("Move " + name + "'s job" + (j.number ? " " + j.number : "") + " to the Trash?\n\nYou can restore it for 30 days from the " +
+    (paid ? "Income & Expenses Trash." : "Dashboard Trash."))) return;
   const btns = dlgBody.querySelectorAll("button");
   btns.forEach(x => x.disabled = true);
-  try { await deleteDoc(doc(db, j._place, j.id)); }
+  /* Trash, not erase: copied to "trash" with where it came from, then removed. Paid jobs go to the
+     Income & Expenses Trash (trashBin "income"), the rest to the Dashboard Trash. Restore puts it back. */
+  try {
+    const ref = doc(db, j._place, j.id), src = await getDoc(ref);
+    if (src.exists()) {
+      await setDoc(doc(db, "trash", j.id), Object.assign({}, src.data(),
+        { trashedFrom: j._place, trashedAt: serverTimestamp() }, paid ? { trashBin: "income" } : {}));
+      await deleteDoc(ref);
+    }
+  }
   catch (e) {
     console.error(e);
     document.getElementById("sErr").textContent = "Could not delete: " + e.message;
