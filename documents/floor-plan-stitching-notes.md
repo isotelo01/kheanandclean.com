@@ -31,7 +31,7 @@ Test job: EDH Casino — Sal Palma, Q-1103 (on-site estimate, `quotes/tVvTL2NqY3
 - Measurer (`measureRoom`) now also returns `openings`: `[{wall, from, width, type, to}]`, and it saves into the room's sketch.
   Types: door, double door, glass door, open, half wall, glass wall. Openings never change the sq ft.
 - Measurer scale list now includes poker tables (about 10 x 4.5 ft) and blackjack tables (about 7 ft across the front).
-- Plan can show furniture to scale (poker room: 2 poker tables, running the length of the room).
+- Plan can show furniture to scale (poker room: 2 poker tables, running the length of the room; glass office: 1 table across its 13 ft width).
 
 ## Stitching rules (for the AI that puts rooms together)
 1. Top of the plan is north. Use the walls Israel names (north/south/east/west) over anything guessed from photos.
