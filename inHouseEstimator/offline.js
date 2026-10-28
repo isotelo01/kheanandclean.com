@@ -14,8 +14,12 @@ const FB = "https://www.gstatic.com/firebasejs/12.19.0/";
 export const OFFLINE_CACHE = "kc-offline-pages";   /* sw.js reads this one and never clears it */
 
 /* ---- Firestore with the on-phone copy ---- */
+/* iPhone/iPad Safari keeps cutting Firestore's live connection, so the page times out
+   ("Took too long to load"). There, use plain long-polling requests instead. */
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 export function getFirestore(app){
-  try { return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+  try { return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    ...(IOS ? { experimentalForceLongPolling: true } : {}) }); }
   catch (e) { console.error(e); return fsGetFirestore(app); }
 }
 /* No service and the job isn't on the phone either: treat it as not found instead of failing. */
