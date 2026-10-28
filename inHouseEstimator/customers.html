@@ -224,7 +224,8 @@ const pathsOf = c => (Array.isArray(c.photoPaths) ? c.photoPaths : [])
 /* Photos added by hand on the profile. Each one is {path, url}; path must sit in
    this customer's own folder under customer-photos/. */
 const ownOf = c => (Array.isArray(c.ownPhotos) ? c.ownPhotos : []).filter(p =>
-  p && typeof p.path === "string" && p.path.startsWith("customer-photos/" + c.id + "/") && !p.path.includes("..") &&
+  p && typeof p.path === "string" && !p.path.includes("..") &&
+  (p.path.startsWith("quick-quote-photos/customer_" + c.id + "/") || p.path.startsWith("customer-photos/" + c.id + "/")) &&
   /^https:\/\//.test(String(p.url)));
 
 const view = document.getElementById("view"), titleEl = document.getElementById("title");
@@ -834,7 +835,9 @@ async function showProfile(id){
         photoSay("Uploading " + (i + 1) + " of " + files.length + "\u2026");
         const f = files[i];
         const ext = (f.type.split("/")[1] || "jpg").replace(/[^a-z0-9]/gi, "").slice(0, 5) || "jpg";
-        const path = "customer-photos/" + id + "/" + Date.now() + "-" + randomId() + "." + ext;
+        /* Same folder as every other photo in the app (that's what the storage rules allow);
+           customer-photos/ was refused with "does not have permission". */
+        const path = "quick-quote-photos/customer_" + id + "/" + Date.now() + "-" + randomId() + "." + ext;
         const r = ref(storage, path);
         await uploadBytes(r, f, { contentType: f.type });
         added.push({ path, url: await getDownloadURL(r) });
