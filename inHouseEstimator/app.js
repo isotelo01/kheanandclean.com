@@ -1401,6 +1401,7 @@
       if(jobTime) jobTime.value = '';
       ['discAmt','discPct'].forEach(function(id){ var d = document.getElementById(id); if(d) d.value = ''; });
       window.KC_discNames = []; document.dispatchEvent(new Event('kc-disc-names'));
+      window.KC_estPhotos = []; document.dispatchEvent(new Event('kc-est-photos'));
       var wm = document.getElementById('waiveMin'); if(wm) wm.checked = false;
       var wf = document.getElementById('waiveFee'); if(wf) wf.checked = false;
       var pp = document.getElementById('partnerPrice');   // New: back to regular prices

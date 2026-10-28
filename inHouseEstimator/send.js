@@ -60,6 +60,7 @@ function fromForm(q){
     feeWaived: !!q.feeWaived,   /* no 3% card fee on this one; carries to the invoice */
     total: q.total, minApplied: q.minApplied, sqftTotal: q.sqftTotal,
     notes: val('eNotes'),
+    estPhotos: (window.KC_estPhotos || []).map(p => ({ path: p.path, url: p.url })),   /* shown on the customer's estimate page */
     scheduledDate: val('eWhen'),   /* Job date, "2026-10-08". Same field the calendar's Change date writes; blank = no date. */
     scheduledTime: val('eWhenTime'),   /* "09:00" or "13:00" when AM/PM was tapped in the open days; blank = whole day. */
     form: window.KC_snapshot ? window.KC_snapshot() : null
@@ -313,6 +314,7 @@ async function loadForEdit(id, from, copy){
     if ($('eBiz') && c.business) $('eBiz').value = c.business;
 
     if (d.form) window.KC_restore(d.form);
+    window.KC_estPhotos = Array.isArray(d.estPhotos) ? d.estPhotos.slice() : []; document.dispatchEvent(new Event('kc-est-photos'));
     /* The saved doc decides the card fee, so a Dashboard "Waive fee" tap isn't undone by editing. */
     if ($('waiveFee')) { $('waiveFee').checked = !!d.feeWaived; $('waiveFee').dispatchEvent(new Event('change', { bubbles: true })); }
     if (!copy) edit = { id, from, data: d,   /* what the form opened with, so saveEdit can tell what was actually changed here */

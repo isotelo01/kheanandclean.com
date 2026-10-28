@@ -285,6 +285,19 @@
           <label for="eNotes">Anything else we should know <span class="opt">(optional)</span></label>
           <textarea id="eNotes" rows="4" placeholder="Parking and access, stairs up to the unit, furniture to move, pets at home, preferred days or times"></textarea>
         </div>
+        <!-- Photos for the customer: shown on their estimate page (quote.html). Uploaded right away to
+             quick-quote-photos/job_est_<key>/ and saved with the estimate as estPhotos [{path, url}]. -->
+        <div class="estField est__photos">
+          <label>Photos for the customer <span class="opt">(optional)</span></label>
+          <div class="estPhotoBtns">
+            <button type="button" class="estPhotoBtn" id="estPhotoCamBtn">Take photo</button>
+            <button type="button" class="estPhotoBtn" id="estPhotoPickBtn">Add photos</button>
+            <span class="estPhotoMsg" id="estPhotoMsg" aria-live="polite"></span>
+          </div>
+          <input type="file" id="estPhotoCam" accept="image/*" capture="environment" hidden>
+          <input type="file" id="estPhotoPick" accept="image/*" multiple hidden>
+          <div class="estPhotoThumbs" id="estPhotoThumbs"></div>
+        </div>
         <!-- Job date. Saved as scheduledDate, the same field the calendar's Change date
              writes, so the job lands on the calendar once the customer approves. -->
         <div class="estField est__when">
@@ -844,6 +857,74 @@ onAuthStateChanged(getAuth(app), async u => {
   } catch (e) { console.error(e); table = []; }
   draw();
 });
+</script>
+<script type="module">
+/* Photos for the customer (see the Photos box above). Each photo uploads as soon as it's picked,
+   resized to 2400px. window.KC_estPhotos is what send.js saves with the estimate. */
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+const app = getApps().length ? getApp() : initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const $ = id => document.getElementById(id);
+const thumbs = $("estPhotoThumbs"), msg = $("estPhotoMsg");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const MAX = 20, EDGE = 2400;
+const folder = "job_est_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+window.KC_estPhotos = window.KC_estPhotos || [];
+let busy = 0;
+function draw(){
+  thumbs.innerHTML = window.KC_estPhotos.map((p, i) =>
+    '<span class="estPhoto"><img src="' + esc(p.url) + '" alt="Photo ' + (i + 1) + '">' +
+    '<button type="button" data-rm="' + i + '" aria-label="Remove photo">&times;</button></span>').join("");
+  msg.textContent = busy ? "Uploading " + busy + "\u2026" : window.KC_estPhotos.length ? window.KC_estPhotos.length + " photo" + (window.KC_estPhotos.length === 1 ? "" : "s") : "";
+}
+function shrink(file){
+  return new Promise(resolve => {
+    const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(u);
+      let w = img.width, h = img.height;
+      if (Math.max(w, h) > EDGE) { const s = EDGE / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      cv.toBlob(b => resolve(b || file), "image/jpeg", 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(u); resolve(file); };
+    img.src = u;
+  });
+}
+async function add(files){
+  const room = MAX - window.KC_estPhotos.length - busy;
+  const list = Array.from(files || []).filter(f => /^image\//.test(f.type)).slice(0, Math.max(0, room));
+  if (!list.length) { if (room <= 0) msg.textContent = MAX + " photos max."; return; }
+  busy += list.length; draw();
+  let failed = 0;
+  for (let i = 0; i < list.length; i++) {
+    try {
+      const b = await shrink(list[i]);
+      const path = "quick-quote-photos/" + folder + "/" + Date.now() + "_" + i + ".jpg";
+      await uploadBytes(ref(getStorage(app), path), b, { contentType: "image/jpeg" });
+      window.KC_estPhotos = window.KC_estPhotos.concat({ path, url: await getDownloadURL(ref(getStorage(app), path)) });
+    } catch (e) { console.error(e); failed++; }
+    busy--; draw();
+  }
+  if (failed) msg.textContent = failed + " photo" + (failed === 1 ? "" : "s") + " didn't upload. Try again.";
+}
+$("estPhotoCamBtn").onclick = () => $("estPhotoCam").click();
+$("estPhotoPickBtn").onclick = () => $("estPhotoPick").click();
+["estPhotoCam", "estPhotoPick"].forEach(id => $(id).addEventListener("change", e => { add(e.target.files); e.target.value = ""; }));
+thumbs.addEventListener("click", e => {
+  const b = e.target.closest("[data-rm]"); if (!b) return;
+  window.KC_estPhotos = window.KC_estPhotos.filter((_, i) => i !== +b.dataset.rm); draw();
+});
+document.addEventListener("kc-est-photos", draw);   /* Edit / New put photos back or clear them */
+draw();
 </script>
 <script src="places.js" defer></script>
 <script src="./tabbar.js" defer></script>
