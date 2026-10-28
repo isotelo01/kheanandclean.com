@@ -67,6 +67,13 @@ button.call{cursor:pointer}
 button.call[data-spam]{color:var(--red)}
 .tag.typetag{background:#e6ebf3;color:var(--navy)}
 .tag.spamtag{background:var(--red);color:#fff}
+/* Missed / dropped call follow-up: Call back flag + one-tap sorry texts. */
+.tag.cbtag{background:var(--red);color:#fff}
+.fu{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.fu button{font:600 13px "Archivo";color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:5px 11px;background:#fff;cursor:pointer}
+.fu button:hover{border-color:var(--navy)}
+.fu button[disabled]{opacity:.5;cursor:default}
+.fu .sent{color:var(--muted);font-size:13px;align-self:center}
 .row.spam{opacity:.6}
 /* Phone pill, call bar, dial pad: same as texts.html. */
 .phone{font:600 14px "Archivo";background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
@@ -172,6 +179,7 @@ const app = initializeApp({
 const db = getFirestore(app);
 const storage = getStorage(app);
 const voiceToken = httpsCallable(getFunctions(app, "us-central1"), "voiceToken");
+const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
 
 const view = document.getElementById("view");
 const ELLIPSIS = "…", DOT = " · ";
@@ -462,8 +470,45 @@ function callRow(c) {
     '<span class="callacts">' +
       (num ? '<button type="button" class="call" data-spam="' + esc(num) + '">' + (spam ? 'Not spam' : 'Spam') + '</button>' : '') +
       (k ? '<a class="call" href="tel:+1' + esc(k) + '">Call</a>' : '') + '</span>' +
+    followUp(c, k, missed, spam || blockedCall) +
   '</div>';
 }
+
+/* Incoming missed or dropped calls: stays flagged "Call back" until you text or tap Done.
+   You call them back yourself; if it goes to voicemail, tap the text button. Saved on calls/{id}. */
+const SORRY = {
+  missed: "Hi, this is Khean & Clean. Sorry we missed your call! Feel free to give us a call back or reply here. Thank you",
+  dropped: "Hi, this is Khean & Clean. Sorry, it looks like we got disconnected. Feel free to give us a call back. Thank you"
+};
+function followUp(c, k, missed, spam) {
+  if (c.dir === "out" || !k || spam || isVm(c)) return "";
+  if (!missed && c.status !== "answered") return "";
+  const kind = missed ? "missed" : "dropped";
+  if (c.cbDone) return c.cbTexted ? '<div class="fu"><span class="sent">Texted &ldquo;sorry we ' + (c.cbTexted === "missed" ? "missed your call" : "got disconnected") + '&rdquo;</span></div>' : "";
+  return '<div class="fu">' +
+    (missed ? '<span class="tag cbtag" style="margin:0;align-self:center">Call back</span>' : '') +
+    '<button type="button" data-sorry="' + kind + '" data-cid="' + esc(c.id) + '" data-to="' + esc(k) + '">' +
+      (missed ? 'Text: Sorry we missed your call' : 'Text: Sorry we got disconnected') + '</button>' +
+    (missed ? '<button type="button" data-cbdone="' + esc(c.id) + '">Done</button>' : '') +
+  '</div>';
+}
+view.addEventListener("click", async e => {
+  const t = e.target.closest("[data-sorry]"), d = e.target.closest("[data-cbdone]");
+  if (d) {
+    d.disabled = true;
+    try { await updateDoc(doc(db, "calls", d.dataset.cbdone), {cbDone: true}); }
+    catch (err) { d.disabled = false; alert("Couldn't save that: " + ((err && err.message) || err)); }
+    return;
+  }
+  if (!t) return;
+  const body = SORRY[t.dataset.sorry];
+  if (!confirm("Text " + pretty(t.dataset.to) + " from the business line?\n\n" + body)) return;
+  t.disabled = true;
+  try {
+    await smsSend({to: t.dataset.to, body});
+    await updateDoc(doc(db, "calls", t.dataset.cid), {cbDone: true, cbTexted: t.dataset.sorry});
+  } catch (err) { t.disabled = false; alert("Couldn't send: " + ((err && err.message) || err)); }
+});
 
 /* Spam: blocks the number (their calls get rejected without ringing). Not spam: unblocks it. */
 view.addEventListener("click", async e => {
