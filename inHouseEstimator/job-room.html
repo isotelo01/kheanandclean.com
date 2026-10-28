@@ -400,7 +400,7 @@ async function show(){
             '<label class="actual">Actual <input type="number" id="actualSqft" min="0" step="1" inputmode="numeric" placeholder="Measured"' +
             (Number(st.actualSqft) > 0 ? ' value="' + Number(st.actualSqft) + '"' : '') + '></label></div>' +
             /* Staff only: photo checklist -> measure.html works out the floor size -> comes back into Actual. */
-            (PUBLIC || !spot.isRoom ? '' : '<a class="measure" id="measureLink" href="./measure.html">' + (st.sketch ? 'Open saved sketch' : 'Measure from photos') + ' &rsaquo;</a>' +
+            (PUBLIC || !spot.isRoom ? '' : '<a class="measure" id="measureLink" href="./measure.html">' + (st.sketch ? 'Open saved sketch' : 'Measure') + ' &rsaquo;</a>' +
               /* Saved floor sketch from measure.html: small picture + floor type/condition */
               (typeof st.sketchSvg === "string" && st.sketchSvg.startsWith("<svg")
                 ? '<img class="skThumb" alt="Floor sketch" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(st.sketchSvg) + '">' +
