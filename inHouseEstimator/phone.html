@@ -486,7 +486,7 @@ function followUp(c, k, missed, spam) {
   const kind = missed ? "missed" : "dropped";
   if (c.cbDone) return c.cbTexted ? '<div class="fu"><span class="sent">Texted &ldquo;sorry we ' + (c.cbTexted === "missed" ? "missed your call" : "got disconnected") + '&rdquo;</span></div>' : "";
   return '<div class="fu">' +
-    (missed ? '<span class="tag cbtag" style="margin:0;align-self:center">Call back</span>' : '') +
+    (missed ? '<span class="tag cbtag" style="margin:0;align-self:center">Call or text back</span>' : '') +
     '<button type="button" data-sorry="' + kind + '" data-cid="' + esc(c.id) + '" data-to="' + esc(k) + '">' +
       (missed ? 'Text: Sorry we missed your call' : 'Text: Sorry we got disconnected') + '</button>' +
     (missed ? '<button type="button" data-cbdone="' + esc(c.id) + '">Done</button>' : '') +
