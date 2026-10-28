@@ -5,8 +5,10 @@
      their own once service is back (next time a job sheet or room page is open).
    - "Download offline job sheet" saves the pages and app files to the phone. */
 import { initializeFirestore, getFirestore as fsGetFirestore, persistentLocalCache, persistentMultipleTabManager,
-  getDoc as fsGetDoc, getDocFromCache, setDoc as fsSetDoc, updateDoc as fsUpdateDoc }
+  getDoc as fsGetDoc, getDocFromCache, setDoc as fsSetDoc, updateDoc as fsUpdateDoc,
+  memoryLocalCache, getDocFromServer, doc as fsDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { initializeApp as fbInitApp, getApps as fbGetApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { uploadBytes as stUpload, getDownloadURL as stUrl, ref as stRef }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
@@ -27,9 +29,33 @@ const missing = { exists: () => false, data: () => undefined };
 /* iPhone: the on-phone copy can get stuck and never answer, leaving the page on Loading. Don't wait forever. */
 const SLOW = "Took too long to load. Tap Refresh.";
 const within = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(SLOW)), ms))]);
+/* Backup line: when the on-phone copy is stuck (iPhone), read and save straight to the server
+   through a second connection with no on-phone copy. Once stuck, the page stays on the backup. */
+let stuck = false, backup = null;
+const backupDb = r => {
+  if (!backup) {
+    const a = r.firestore.app;
+    const app2 = fbGetApps().find(x => x.name === "kc-backup") || fbInitApp(a.options, "kc-backup");
+    backup = initializeFirestore(app2, { localCache: memoryLocalCache(), ...(IOS ? { experimentalForceLongPolling: true } : {}) });
+  }
+  return backup;
+};
+const viaBackup = r => fsDoc(backupDb(r), r.path);
+async function backupGet(r){
+  try { return await within(getDocFromServer(viaBackup(r)), 15000); }
+  catch (e) { console.error(e); if (!navigator.onLine) return missing; throw new Error(SLOW); }
+}
 export async function getDoc(r){
-  try { return await within(fsGetDoc(r), 10000); }
-  catch (e) { try { return await within(getDocFromCache(r), 3000); } catch (e2) { if (e.message === SLOW) throw e; return missing; } }
+  if (stuck) return backupGet(r);
+  try { return await within(fsGetDoc(r), 6000); }
+  catch (e) {
+    try { return await within(getDocFromCache(r), 2000); }
+    catch (e2) {
+      if (e.message !== SLOW) return missing;
+      stuck = true; console.warn("On-phone copy stuck; using backup connection.");
+      return backupGet(r);
+    }
+  }
 }
 /* With no service a write is kept on the phone right away, but Firestore only says "done" once
    the server has it. Don't make the page wait for that: after a short wait it counts as saved. */
@@ -39,8 +65,8 @@ const settle = p => {
   p.then(() => { pending = Math.max(0, pending - 1); badge(); }, e => { pending = Math.max(0, pending - 1); console.error(e); badge(); });
   return Promise.race([p, new Promise(r => setTimeout(r, navigator.onLine ? 2000 : 400))]);   /* bad service: no long wait */
 };
-export const setDoc = (...a) => settle(fsSetDoc(...a));
-export const updateDoc = (...a) => settle(fsUpdateDoc(...a));
+export const setDoc = (r, ...a) => stuck ? settle(fsSetDoc(viaBackup(r), ...a)) : settle(fsSetDoc(r, ...a));
+export const updateDoc = (r, ...a) => stuck ? settle(fsUpdateDoc(viaBackup(r), ...a)) : settle(fsUpdateDoc(r, ...a));
 
 /* ---- Photos waiting to upload (kept on the phone in IndexedDB) ---- */
 const idb = () => new Promise((res, rej) => {
