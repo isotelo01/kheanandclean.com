@@ -135,6 +135,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
 <script src="/day-picker.js"></script>
 <script src="/inHouseEstimator/pricing.js"></script>
 <script src="/inHouseEstimator/pricing-live.js"></script>
+<script src="/inHouseEstimator/burst-cam.js" defer></script>
 <script>
 (function(){
   'use strict';
@@ -567,7 +568,16 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     }
     el.querySelector('#camIn').onchange = function(){ add(this); };
     el.querySelector('#pickIn').onchange = function(){ add(this); };
-    el.querySelector('#cam').onclick = function(){ el.querySelector('#camIn').click(); };
+    /* Take photo: the camera stays open, every tap adds a photo (up to 10 total). Done comes back here.
+       Phones that can't do it get the phone's own camera as before. */
+    el.querySelector('#cam').onclick = function(){
+      var left = 10 - A.photos.length;
+      if (left <= 0) return;
+      var ok = window.burstCam && window.burstCam({ max: left,
+        onShot: function(f){ if (A.photos.length < 10) A.photos.push(f); },
+        onDone: function(){ draw(); } });
+      if (!ok) el.querySelector('#camIn').click();
+    };
     el.querySelector('#pick').onclick = function(){ el.querySelector('#pickIn').click(); };
     var go = goBtn(el, 'Next', function(){ A.skippedPhotos = !A.photos.length; next(); });
     goBtn(el, 'I can’t do this right now', function(){ A.skippedPhotos = true; next(); }, true);

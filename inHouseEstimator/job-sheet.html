@@ -1639,8 +1639,18 @@ async function show(){
   drawJP();
   const saveJP = () => setDoc(doc(db, place, id), { [field]: jobPhotos, [field + "At"]: serverTimestamp() }, { merge: true });
   /* Take photo and Add photos both upload the same way. */
-  [jobPick, document.getElementById("pcap-" + k)].forEach(inp => inp.addEventListener("change", async () => {
-    const list = [...inp.files]; inp.value = ""; if (!list.length) return;
+  [jobPick, document.getElementById("pcap-" + k)].forEach(inp => inp.addEventListener("change", () => {
+    const list = [...inp.files]; inp.value = ""; uploadJP(list);
+  }));
+  /* Take photo: the burst camera stays open, each tap uploads in the background, one at a time.
+     Phones that can't do it get the phone's own camera as before. */
+  let chainJP = Promise.resolve();
+  document.getElementById("pcap-" + k).closest("label").addEventListener("click", e => {
+    if (!window.burstCam) return;
+    if (window.burstCam({ onShot: f => { chainJP = chainJP.then(() => uploadJP([f])); } })) e.preventDefault();
+  });
+  async function uploadJP(list){
+    if (!list.length) return;
     jpNote.classList.remove("err");
     for (let n = 0; n < list.length; n++) {
       jpNote.textContent = "Uploading photo " + (n + 1) + " of " + list.length + "…";
@@ -1655,7 +1665,7 @@ async function show(){
     try { await saveJP(); if (!jpNote.classList.contains("err")) jpNote.textContent = "Photos saved."; }
     catch (e) { console.error(e); jpNote.textContent = "Photos uploaded but not saved to the job: " + e.message; jpNote.classList.add("err"); }
     drawJP();
-  }));
+  }
   /* × takes a photo off the job (the file itself stays in storage). */
   jpgrid.addEventListener("click", async e => {
     const b = e.target.closest(".jpx"); if (!b) return; e.preventDefault();
@@ -2084,6 +2094,7 @@ document.getElementById("refreshBtn").addEventListener("click", async e => {
   location.reload();
 });
 </script>
+<script src="./burst-cam.js" defer></script>
 <script src="./tabbar.js" defer></script>
 </body>
 </html>

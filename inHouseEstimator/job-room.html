@@ -552,6 +552,16 @@ async function show(){
       /* Take photo and Add photo(s) both upload the same way. */
       ["pick-", "cap-"].forEach(p => { const inp = document.getElementById(p + g);
         inp.addEventListener("change", () => { upload(g, inp.files); inp.value = ""; }); });
+      /* Camera button: the burst camera stays open, every tap saves a photo (uploads one at a time
+         in the background). Phones that can't do it get the phone's own camera as before. */
+      const capLab = document.getElementById("cap-" + g).closest("label");
+      let chain = Promise.resolve();
+      capLab.addEventListener("click", e => {
+        if (!window.burstCam) return;
+        const ok = window.burstCam({ max: GROUPS[g].one ? 1 : 0,
+          onShot: f => { chain = chain.then(() => upload(g, [f])); } });
+        if (ok) e.preventDefault();
+      });
       /* X takes a photo off this room (the file itself stays in storage). */
       document.getElementById("pgrid-" + g).addEventListener("click", async e => {
         const b = e.target.closest(".px"); if (!b) return;
@@ -868,6 +878,7 @@ else onAuthStateChanged(getAuth(app), user => {
   });
 })();
 </script>
+<script src="./burst-cam.js" defer></script>
 <script src="./tabbar.js" defer></script>
 </body>
 </html>
