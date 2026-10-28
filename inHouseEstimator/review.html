@@ -178,6 +178,7 @@ const photos = new Map();
 const picked = new Set();
 let localNo = 0, jobTok = 0;
 const outCache = new Map();   /* key -> Promise of the blurred, shrunk copy that goes out */
+const outReady = new Map();   /* key -> that copy once it's done (so sharing needs no waiting) */
 let withPh = false;   /* "Add photos to text": off to start. Off = only the header photo goes; the message just asks for the review. */
 
 async function start(){
@@ -253,7 +254,7 @@ async function start(){
   const CARD = "h:card", HEAD_REF = doc(db, "settings", "reviewRequest");
   const setHead = o => {
     photos.set(CARD, Object.assign({ tag: "Thank you", noBlur: true }, o));
-    outCache.delete(CARD);
+    outCache.delete(CARD); outReady.delete(CARD);
     picked.add(CARD);
     $("head").innerHTML = thumb(CARD, photos.get(CARD));
     sayCount();
@@ -285,7 +286,7 @@ async function start(){
     if (!outCache.has(k)) outCache.set(k, (async () => {
       const b = await shrink(await blobOf(o));
       return o.noBlur ? b : blurText(b);
-    })().catch(e => { outCache.delete(k); throw e; }));
+    })().then(b => { outReady.set(k, b); return b; }).catch(e => { outCache.delete(k); throw e; }));
     return outCache.get(k);
   };
 
@@ -536,17 +537,24 @@ async function start(){
     const btn = $("myBtn"), text = $("txt").value.trim();
     if (!text && !picked.size) { say("Type a message or add photos first.", true); return; }
     const smsLink = () => { location.href = "sms:" + tel + (/iPhone|iPad|Mac/.test(navigator.userAgent) ? "&" : "?") + "body=" + encodeURIComponent(text); };
-    btn.disabled = true;
+    /* iPhone only opens the share menu right after a tap, and blurring takes a few seconds.
+       So: photos not blurred yet -> get them ready, then a second tap shares instantly.
+       (Opened from Summarize they're already ready, so it's one tap.) */
+    const keys = sendKeys().filter(k => photos.has(k));
+    if (!keys.every(k => outReady.has(k))) {
+      btn.disabled = true;
+      say("Getting " + keys.length + " photo" + (keys.length === 1 ? "" : "s") + " ready (blurring text)...");
+      try {
+        await Promise.all(keys.map(k => outBlob(k, photos.get(k))));
+        btn.textContent = "Tap to share";
+        say("Ready. Tap “Tap to share” to open Messages.");
+      } catch (err) { console.error(err); say("Couldn't get the photos ready: " + ((err && err.message) || err), true); }
+      btn.disabled = false;
+      return;
+    }
+    btn.textContent = "Text from my phone";
     try {
-      const files = [];
-      let n = 0;
-      for (const k of sendKeys()) {
-        const o = photos.get(k);
-        if (!o) continue;
-        n++;
-        say("Getting photo " + n + " of " + picked.size + " (blurring text)...");
-        files.push(new File([await outBlob(k, o)], "photo" + n + ".jpg", { type: "image/jpeg" }));
-      }
+      const files = keys.map((k, i) => new File([outReady.get(k)], "photo" + (i + 1) + ".jpg", { type: "image/jpeg" }));
       if (files.length && navigator.canShare && navigator.canShare({ files })) {
         say("Pick Messages, then " + (c.name || "the customer") + ".");
         await navigator.share({ text, files });

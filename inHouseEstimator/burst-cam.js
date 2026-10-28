@@ -91,9 +91,21 @@
       try { opts.onDone && opts.onDone(count); } catch (e) { console.error(e); }
     });
 
+    /* Camera blocked or not working: offer the phone's own camera right here (a real tap, so it opens).
+       Its photos come back through onShot like burst shots, then it closes. */
     open().then(lenses).catch(function(err){
       console.error(err);
-      say('Camera blocked. Allow camera access for this site, or tap Done and use Add photos.');
+      stop();
+      msg.innerHTML = 'Camera blocked here.<br><label class="bzoom" style="display:inline-block;position:relative;margin-top:12px">Use phone camera' +
+        '<input type="file" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden"></label>';
+      msg.style.bottom = '45%';
+      msg.querySelector('input').addEventListener('change', function(){
+        Array.prototype.slice.call(this.files || []).slice(0, max - count).forEach(function(f){
+          count++;
+          try { opts.onShot && opts.onShot(f); } catch (e) { console.error(e); }
+        });
+        box.querySelector('.bdone').click();
+      });
     });
     return true;
   };
