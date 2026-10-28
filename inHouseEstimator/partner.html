@@ -367,7 +367,12 @@ onAuthStateChanged(auth, async u => {
   $("authwait").remove();
   /* Vendor documents uploaded in staff Settings (vendor-docs/): point each tile at the private copy. */
   const st = getStorage(app);
-  ["insurance", "license", "w9"].forEach(k => getDownloadURL(sref(st, "vendor-docs/" + k)).then(url => {
+  /* W-9 only for partners turned on in Users (w9Access). Everyone else: tile hidden. */
+  if (me.w9Access !== true) {
+    $("doc-w9").remove();
+    $("doc-insurance").parentElement.style.gridTemplateColumns = "repeat(2,minmax(0,1fr))";
+  }
+  ["insurance", "license"].concat(me.w9Access === true ? ["w9"] : []).forEach(k => getDownloadURL(sref(st, "vendor-docs/" + k)).then(url => {
     const a = $("doc-" + k); a.href = url; a.target = "_blank"; a.rel = "noopener";
   }).catch(() => {}));
   $("refCode").textContent = refCode();
@@ -464,7 +469,7 @@ async function dvShow(url, title) {
     ? '<img alt="">' : '<iframe title=""></iframe>';
   const el = $("dvBody").firstChild; el.src = src; el.alt = el.title = title;
 }
-["insurance", "license", "w9"].forEach(k => $("doc-" + k).addEventListener("click", async e => {
+["insurance", "license", "w9"].forEach(k => $("doc-" + k)?.addEventListener("click", async e => {
   const a = e.currentTarget, title = a.textContent.trim().replace(/^Review /, "");
   e.preventDefault();
   /* Uploaded copy not linked yet (page still loading, or it failed): fetch it now. */

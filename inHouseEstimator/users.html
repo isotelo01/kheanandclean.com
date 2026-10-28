@@ -47,6 +47,12 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 4px;border-bott
 .del{margin-left:auto;background:transparent;color:#b3261e;border:1px solid #b3261e;border-radius:999px;
   padding:4px 12px;font:600 13px "Archivo",sans-serif;cursor:pointer}
 .del[disabled]{opacity:.5;cursor:default}
+/* W-9 access: off = grey outline, on = green */
+.w9{margin-left:auto;background:transparent;color:#cfd6e2;border:1px solid #cfd6e2;border-radius:999px;
+  padding:4px 12px;font:600 13px "Archivo",sans-serif;cursor:pointer}
+.w9.on{color:#3ddc84;border-color:#3ddc84}
+.w9 + .del{margin-left:0}
+.w9[disabled]{opacity:.5;cursor:default}
 /* Copy link: clear inside, see-through green outline and green lettering that shimmer */
 #copyBtn{background:transparent;color:#3ddc84;border:2px solid rgba(61,220,132,.45);animation:kcShimmer 2.4s ease-in-out infinite}
 #copyBtn:hover{background:transparent}
@@ -81,7 +87,7 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 4px;border-bott
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
@@ -123,6 +129,7 @@ function draw(){
     const tel = String(u.phone || "").replace(/[^\d+]/g, "");
     return '<div class="u" style="--c:' + c + '"><div class="h"><span class="n">' + esc(u.businessName || "No business name") + '</span>' +
       '<span class="tag">' + esc(u.type || "Partner") + '</span>' +
+      '<button type="button" class="w9' + (u.w9Access ? ' on' : '') + '" data-w9="' + esc(u.id) + '" aria-pressed="' + !!u.w9Access + '">' + (u.w9Access ? 'W-9: Can see' : 'W-9: Hidden') + '</button>' +
       '<button type="button" class="del" data-del="' + esc(u.id) + '">Delete</button></div><div class="d">' +
       (u.contactName ? '<span>' + esc(u.contactName) + '</span>' : '') +
       (u.email ? '<a href="mailto:' + esc(u.email) + '">' + esc(u.email) + '</a>' : '') +
@@ -133,6 +140,16 @@ function draw(){
   }).join("");
 }
 $("q").addEventListener("input", draw);
+
+/* W-9 button: lets this one partner see the W-9 on their portal (partners/<uid>.w9Access). Off by default. */
+$("list").addEventListener("click", async e => {
+  const b = e.target.closest("[data-w9]"); if (!b) return;
+  const u = users.find(x => x.id === b.dataset.w9); if (!u) return;
+  const next = !u.w9Access;
+  b.disabled = true;
+  try { await updateDoc(doc(db, "partners", u.id), { w9Access: next }); u.w9Access = next; draw(); }
+  catch (ex) { console.error(ex); alert("Could not change W-9 access. Try again."); b.disabled = false; }
+});
 
 /* Delete: removes their login, profile and phone check (deletePartner). Asks first. */
 const deletePartner = httpsCallable(getFunctions(app, "us-central1"), "deletePartner");
