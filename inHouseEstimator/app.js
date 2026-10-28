@@ -1210,7 +1210,9 @@
   /* Discounts picked from the Settings table (index.html) show by name, e.g. "Senior + Military discount". */
   function discName(dAmt){
     var n = window.KC_discNames || [];
-    return dAmt > 0 || !n.length ? 'Discount' : n.join(' + ') + ' discount';
+    if(dAmt > 0 || !n.length) return 'Discount';
+    var t = n.join(' + ');
+    return /discount\s*$/i.test(t) ? t : t + ' discount';   /* names that already say "discount" don't get it twice */
   }
   document.addEventListener('kc-reprice', function(){ calc(); });
   /* Discount boxes: typing in one empties the other, then reprice. */
