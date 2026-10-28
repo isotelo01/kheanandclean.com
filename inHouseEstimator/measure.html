@@ -870,9 +870,8 @@ onAuthStateChanged(auth, u => {
   if (!STAFF.includes(u.uid) && !SHARE) { location.replace("./partner.html"); return; }
   const first = !uid;
   uid = u.uid; $("authwait")?.remove(); refresh();
-  /* Came with the room's photos: start measuring right away (one press), once. */
+  /* Came with the room's photos: just load them; measuring only starts when "Measure from photos" is pressed. */
   if (first && !result && restoreSaved()) return;
-  if (first && roomPhotos.length && ready() && !result) $("goBtn").onclick();
 });
 </script>
 </body>
