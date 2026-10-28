@@ -315,7 +315,8 @@ async function loadForEdit(id, from, copy){
     if (d.form) window.KC_restore(d.form);
     /* The saved doc decides the card fee, so a Dashboard "Waive fee" tap isn't undone by editing. */
     if ($('waiveFee')) { $('waiveFee').checked = !!d.feeWaived; $('waiveFee').dispatchEvent(new Event('change', { bubbles: true })); }
-    if (!copy) edit = { id, from, data: d };
+    if (!copy) edit = { id, from, data: d,   /* what the form opened with, so saveEdit can tell what was actually changed here */
+      when: d.scheduledDate || '', whenTime: d.scheduledTime || '', fee: !!d.feeWaived };
     /* Keep the estimate filed under the same customer or lead as before. */
     if ($('eCustId')) $('eCustId').value = d.customerId || '';
     if ($('eLeadId')) $('eLeadId').value = d.leadId || '';
@@ -392,7 +393,19 @@ async function loadForEdit(id, from, copy){
 /* Save over the same document: same id, same number, so links already sent keep working.
    An accepted estimate whose price changed goes back to Estimates for a fresh approval. */
 async function saveEdit(q, backToEstimates){
+  /* Start from the doc as it is NOW, not as it was when this page opened: job sheet rooms,
+     photos, on-site prices, a calendar date change or a Dashboard fee waive made since then
+     would otherwise be put back to the old copy. Only the form's own fields change. */
+  const fresh = await getDocFromServer(doc(db, edit.from, edit.id));
+  if (!fresh.exists()) throw new Error('This estimate moved or was deleted since you opened it. Go back to the Dashboard, refresh and open it again');
+  edit.data = fresh.data();
   const merged = Object.assign({}, edit.data, fromForm(q), { updatedAt: serverTimestamp() });
+  /* Date / card fee not touched in this form: keep whatever is saved now (e.g. moved on the calendar). */
+  if (val('eWhen') === edit.when && val('eWhenTime') === edit.whenTime) {
+    merged.scheduledDate = edit.data.scheduledDate || '';
+    merged.scheduledTime = edit.data.scheduledTime || '';
+  }
+  if (!!q.feeWaived === edit.fee) merged.feeWaived = !!edit.data.feeWaived;
   const priceChanged = Math.abs(Number(q.total) - (Number(edit.data.total) || 0)) >= 0.01;
   let target = edit.from, text = 'Saved changes to ' + merged.number + '. Same link as before.';
 
@@ -422,6 +435,7 @@ async function saveEdit(q, backToEstimates){
   await fileContact(edit.id, target, merged.number);
   await confirmSaved(target, edit.id, merged.number);
   edit.from = target; edit.data = merged;
+  edit.when = merged.scheduledDate || ''; edit.whenTime = merged.scheduledTime || ''; edit.fee = !!merged.feeWaived;
   showLink(edit.id, merged.number, text);
 }
 
