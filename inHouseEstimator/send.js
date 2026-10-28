@@ -55,7 +55,7 @@ function fromForm(q){
       textOk: !!($('eTextOk') || {}).checked, specialsOk: !!($('eSpecialsOk') || {}).checked
     },
     lines: JSON.parse(JSON.stringify(q.lines)),
-    subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel,
+    subtotal: q.subtotal, discount: q.discount, discountLabel: q.discountLabel, discountLines: q.discountLines || [],
     freeLines: q.freeLines || [], freeTotal: q.freeTotal || 0,   /* "Free pet treatment × 2" etc. */
     feeWaived: !!q.feeWaived,   /* no 3% card fee on this one; carries to the invoice */
     total: q.total, minApplied: q.minApplied, sqftTotal: q.sqftTotal,
@@ -413,7 +413,7 @@ async function saveEdit(q, backToEstimates){
   /* Paid invoice: the money is locked. The form reprices at today's prices, so its rooms and totals
      are ignored; only customer details, notes and date are saved. Income stays what was paid. */
   if (edit.from === 'paidInvoices') {
-    ['lines', 'subtotal', 'discount', 'discountLabel', 'freeLines', 'freeTotal', 'feeWaived',
+    ['lines', 'subtotal', 'discount', 'discountLabel', 'discountLines', 'freeLines', 'freeTotal', 'feeWaived',
      'total', 'minApplied', 'sqftTotal', 'form'].forEach(k => {
       if (k in edit.data) merged[k] = edit.data[k]; else delete merged[k];
     });

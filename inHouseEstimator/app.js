@@ -1127,12 +1127,14 @@
     var disc = Math.min(wanted, net);
     var waiveEl = document.getElementById('waiveMin'), waived = !!(waiveEl && waiveEl.checked);
     var applied = disc > 0 ? net - disc : (waived ? net : Math.max(net, MIN_JOB));
+    var dLines = discLinesOf(dAmt, dPct, net, disc);
     var discEl = document.getElementById('discLines');
     if(discEl){
       if(disc > 0 || free.length){
         discEl.innerHTML = '<li><span>Subtotal</span><span>$'+money(b.sum)+'</span></li>' +
           free.map(function(f){ return '<li class="discLine"><span>'+f.label+'</span><span>\u2212$'+money(f.amount)+'</span></li>'; }).join('') +
-          (disc > 0 ? '<li class="discLine"><span>'+discName(dAmt)+(dAmt > 0 ? '' : ' ('+dPct+'%)')+'</span><span>\u2212$'+money(disc)+'</span></li>' : '');
+          (disc > 0 ? (dLines.length ? dLines : [{ label: discName(dAmt)+(dAmt > 0 ? '' : ' ('+dPct+'%)'), amount: disc }]).map(function(l){
+            return '<li class="discLine"><span>'+l.label+'</span><span>\u2212$'+money(l.amount)+'</span></li>'; }).join('') : '');
         discEl.hidden = false;
       } else { discEl.innerHTML = ''; discEl.hidden = true; }
     }
@@ -1186,6 +1188,7 @@
     window.KC_quote = {
       lines: b.breakdown, subtotal: b.sum, discount: disc,
       discountLabel: disc > 0 ? discName(dAmt) + (dAmt > 0 ? '' : ' (' + dPct + '%)') : '',
+      discountLines: dLines,   /* each table discount on its own line; they add up to discount */
       freeLines: free.map(function(f){ return { label: f.label, qty: f.qty, amount: f.amount }; }), freeTotal: freeSum,
       feeWaived: !!(feeEl && feeEl.checked),
       total: applied, minApplied: applied > net, sqftTotal: sqftTotal
@@ -1207,6 +1210,22 @@
   /* Waive card fee: saved on the estimate, carried to the invoice, same as the Dashboard button. */
   (function(){ var w = document.getElementById('waiveFee'); if(w) w.addEventListener('change', calc); })();
 
+  /* Each discount ticked in the table on its own line, e.g. "First-time customer (10%)  −$25".
+     The amounts add up to the total discount (the last line takes any rounding). Empty when
+     the discount was typed in the $ or % box instead. */
+  function discLinesOf(dAmt, dPct, net, disc){
+    var n = window.KC_discNames || [], t = window.KC_discTable || [];
+    if(dAmt > 0 || disc <= 0 || !n.length) return [];
+    var on = t.filter(function(d){ return n.indexOf(d.name) !== -1 && +d.pct > 0; });
+    var sum = on.reduce(function(s, d){ return s + (+d.pct); }, 0);
+    if(!on.length || Math.abs(sum - dPct) > 0.001) return [];   /* box was changed by hand */
+    var left = disc;
+    return on.map(function(d, i){
+      var amt = i === on.length - 1 ? left : Math.min(left, Math.round(net * d.pct / 100));
+      left -= amt;
+      return { label: (String(d.name).replace(/\s*\bdiscount\b\s*/ig, ' ').trim() || d.name) + ' (' + (+d.pct) + '%)', amount: amt };
+    });
+  }
   /* Discounts picked from the Settings table (index.html) show by name, e.g. "Senior + Military discount". */
   function discName(dAmt){
     var n = window.KC_discNames || [];

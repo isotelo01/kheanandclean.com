@@ -839,6 +839,7 @@ function draw(){
         '" value="' + esc(d.pct) + '" aria-label="' + esc(label(d.name)) + ' percent"><span>%</span></label></div>';
     }).join("") + '<p class="discHint">Percents changed here are for this estimate. Defaults are in Settings.</p></div>';
 }
+window.KC_discTable = table;
 function apply(){
   const pct = table.filter(d => window.KC_discNames.includes(d.name)).reduce((s, d) => s + (+d.pct || 0), 0);
   const p = document.getElementById("discPct"), a = document.getElementById("discAmt");
@@ -880,6 +881,7 @@ onAuthStateChanged(getAuth(app), async u => {
     /* Nothing saved in Settings yet: show the same ones Settings starts with, at 5%. */
     const START = ["Senior", "Military", "Neighbor", "Repeat customer", "First-time customer"].map(n => ({ name: n, pct: 5 }));
     table = (s.exists() && Array.isArray(s.data().items) ? s.data().items : START).filter(d => d && d.name && +d.pct > 0);
+    window.KC_discTable = table;
   } catch (e) { console.error(e); table = []; }
   draw();
 });
