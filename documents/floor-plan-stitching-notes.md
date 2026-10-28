@@ -24,7 +24,7 @@ Test job: EDH Casino — Sal Palma, Q-1103 (on-site estimate, `quotes/tVvTL2NqY3
 - East wall: full-length wallpapered wall with TVs (solid wall).
 - One short end: the glass office's glass wall runs the full width of the poker room.
 - Other short end: solid white wall with a TV.
-- West side (toward the Main Room) is NOT one open wall: a pillar and the cage counter (marble half wall with under-lighting) break it up. The walk-in opening is 6 ft wide (Israel, Oct 27), between the pillar and the glass office; the rest of that side is the cage counter.
+- West side (toward the Main Room) is NOT one open wall: a pillar and the cage counter (marble half wall with under-lighting) break it up. Corrected by Israel (Oct 27): marble half wall, pillar, 6 ft walk-in opening in the MIDDLE of that side, pillar, marble half wall. (Photos alone placed the opening wrong — he hadn't shot that side much; ask, don't assume.)
 
 ## Now built
 - Room page: Story picker (Zero, 1st, 2nd, 3rd; default 1st), saved as `spots.<key>.story`.
