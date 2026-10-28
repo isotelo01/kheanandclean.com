@@ -15,9 +15,7 @@ export const OFFLINE_CACHE = "kc-offline-pages";   /* sw.js reads this one and n
 
 /* ---- Firestore with the on-phone copy ---- */
 export function getFirestore(app){
-  /* iPhone blocks Firestore's live connection ("access control checks"), so the page sits on Loading
-     and keeps retrying. Long polling is a plain connection iPhones allow. */
-  try { return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }), experimentalForceLongPolling: true }); }
+  try { return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
   catch (e) { console.error(e); return fsGetFirestore(app); }
 }
 /* No service and the job isn't on the phone either: treat it as not found instead of failing. */
