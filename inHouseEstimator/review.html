@@ -115,6 +115,43 @@ function shrink(blob){
     img.src = url;
   });
 }
+/* Text blur: every job photo that goes out to a customer gets anything with text on it blurred
+   (mail, papers, labels, signs). Always on. Only the outgoing copy is blurred; the photo in the app,
+   the job sheet and Mark's link stay as shot. Skipped: the header card and inspection photos (noBlur).
+   Tesseract finds the words in the browser. */
+let ocr = null;
+function ocrWorker(){
+  if (!ocr) ocr = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+    s.onload = () => Tesseract.createWorker("eng").then(res, rej);
+    s.onerror = () => rej(new Error("couldn't load the text blur"));
+    document.head.appendChild(s);
+  }).catch(e => { ocr = null; throw e; });
+  return ocr;
+}
+async function blurText(blob){
+  const { data } = await (await ocrWorker()).recognize(blob);
+  const boxes = (data.words || []).filter(x => x.confidence >= 70 && /[A-Za-z0-9]{2,}/.test(x.text)).map(x => x.bbox);
+  if (!boxes.length) return blob;
+  const img = await createImageBitmap(blob);
+  const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+  const t = document.createElement("canvas"), tg = t.getContext("2d");
+  boxes.forEach(b => {
+    const pad = Math.round(Math.max(6, (b.y1 - b.y0) * 0.4));
+    const x = Math.max(0, b.x0 - pad), y = Math.max(0, b.y0 - pad);
+    const w = Math.min(c.width, b.x1 + pad) - x, h = Math.min(c.height, b.y1 + pad) - y;
+    if (w < 2 || h < 2) return;
+    /* Shrink the box to a few pixels, then stretch it back: smeared past reading. */
+    const k = Math.max(1, Math.round(Math.min(w, h) / 6));
+    t.width = Math.max(1, Math.round(w / k)); t.height = Math.max(1, Math.round(h / k));
+    tg.imageSmoothingEnabled = g.imageSmoothingEnabled = true;
+    tg.drawImage(c, x, y, w, h, 0, 0, t.width, t.height);
+    g.drawImage(t, 0, 0, t.width, t.height, x, y, w, h);
+  });
+  return new Promise(res => c.toBlob(b => res(b || blob), "image/jpeg", 0.85));
+}
 
 /* Opened from the customer's Pre-made texts: ?c=<customer id>&t=<review text, name already filled in>. */
 const qs = new URLSearchParams(location.search);
@@ -140,6 +177,7 @@ const okPath = p => typeof p === "string" && p.startsWith("quick-quote-photos/")
 const photos = new Map();
 const picked = new Set();
 let localNo = 0, jobTok = 0;
+const outCache = new Map();   /* key -> Promise of the blurred, shrunk copy that goes out */
 let withPh = false;   /* "Add photos to text": off to start. Off = only the header photo goes; the message just asks for the review. */
 
 async function start(){
@@ -214,7 +252,8 @@ async function start(){
      Picked to start on every review request; it always goes out first. */
   const CARD = "h:card", HEAD_REF = doc(db, "settings", "reviewRequest");
   const setHead = o => {
-    photos.set(CARD, Object.assign({ tag: "Thank you" }, o));
+    photos.set(CARD, Object.assign({ tag: "Thank you", noBlur: true }, o));
+    outCache.delete(CARD);
     picked.add(CARD);
     $("head").innerHTML = thumb(CARD, photos.get(CARD));
     sayCount();
@@ -241,6 +280,14 @@ async function start(){
   const inOrder = () => [...picked].sort((a, b) => (b === CARD) - (a === CARD));   // card first, then the rest as picked
   const sendKeys = () => inOrder().filter(k => withPh || k === CARD);              // photos off: header only
   const blobOf = async o => o.file || (o.src ? await (await fetch(o.src)).blob() : await getBlob(ref(storage, o.path)));
+  /* The copy that goes out: shrunk, then text blurred (not the header or inspection photos). Made once per photo. */
+  const outBlob = (k, o) => {
+    if (!outCache.has(k)) outCache.set(k, (async () => {
+      const b = await shrink(await blobOf(o));
+      return o.noBlur ? b : blurText(b);
+    })().catch(e => { outCache.delete(k); throw e; }));
+    return outCache.get(k);
+  };
 
   /* One row per room: its Threshold Before and After photos. Rooms are saved by a code, so they show as Room 1, 2... */
   async function showJob(j){
@@ -259,10 +306,14 @@ async function start(){
       const aft = (Array.isArray(s.photosAfterThreshold) ? s.photosAfterThreshold : []).filter(okPath);
       /* Starred photos from the room's other photo spots come along too (Before ones with Before). */
       const starSet = new Set(Array.isArray(j.starred) ? j.starred : []);
+      const insp = new Set();   /* inspection photos: never blurred */
       Object.keys(s).filter(f => /^photo/.test(f) && !/Threshold$/.test(f) && Array.isArray(s[f])).forEach(f =>
-        s[f].filter(p => okPath(p) && starSet.has(p) && !bef.includes(p) && !aft.includes(p)).forEach(p => (/Before|Inspect/i.test(f) ? bef : aft).push(p)));
+        s[f].filter(p => okPath(p) && starSet.has(p) && !bef.includes(p) && !aft.includes(p)).forEach(p => {
+          if (/Inspect/i.test(f)) insp.add(p);
+          (/Before|Inspect/i.test(f) ? bef : aft).push(p);
+        }));
       if (!bef.length && !aft.length) continue;
-      rooms.push({ no: rooms.length + 1, bef, aft, on: false });
+      rooms.push({ no: rooms.length + 1, bef, aft, insp, on: false });
     }
     /* Thumbnail for each room in the picker: its After Threshold photo (Before if there's no After). */
     const thumbs = await Promise.all(rooms.map(r => getDownloadURL(ref(storage, r.aft[0] || r.bef[0])).catch(e => { console.error("Thumb", e); return ""; })));
@@ -292,7 +343,7 @@ async function start(){
       if (!on) { list.forEach(x => { photos.delete("j:" + x.path); picked.delete("j:" + x.path); }); drawSend(); return; }
       const urls = await Promise.all(list.map(x => getDownloadURL(ref(storage, x.path)).catch(e => { console.error("Photo " + x.path, e); return null; })));
       if (tok !== jobTok || !r.on) return;
-      list.forEach((x, i) => { if (!urls[i]) return; const key = "j:" + x.path; photos.set(key, { url: urls[i], path: x.path, tag: x.tag });
+      list.forEach((x, i) => { if (!urls[i]) return; const key = "j:" + x.path; photos.set(key, { url: urls[i], path: x.path, tag: x.tag, noBlur: r.insp.has(x.path) });
         if (!starOnly || stars.has(x.path)) picked.add(key); });   /* opening with stars: only the starred ones go in */
       drawSend();
     };
@@ -398,9 +449,16 @@ async function start(){
 
   /* Summarize: shows text 1 (header card + message) and text 2 (job photos + the save-photos line).
      Edit closes it and you're back on the builder; Send sends from the business line. */
-  $("sumBtn").addEventListener("click", () => {
+  $("sumBtn").addEventListener("click", async () => {
     const text = $("txt").value.trim(), keys = sendKeys();
-    const head = keys.includes(CARD) ? photos.get(CARD) : null, rest = keys.filter(k => k !== CARD).map(k => photos.get(k)).filter(Boolean);
+    const head = keys.includes(CARD) ? photos.get(CARD) : null;
+    /* Preview shows the blurred copies, exactly what the customer gets. */
+    let rest;
+    try {
+      say("Blurring text for the preview...");
+      rest = await Promise.all(keys.filter(k => k !== CARD && photos.has(k)).map(async k => ({ url: URL.createObjectURL(await outBlob(k, photos.get(k))) })));
+      sayCount();
+    } catch (err) { console.error(err); say("Couldn't blur the photos: " + ((err && err.message) || err), true); return; }
     const img = (o, cls) => '<img' + (cls ? ' class="' + cls + '"' : '') + ' src="' + esc(o.url) + '" alt="">';
     const bg = document.createElement("div");
     bg.className = "sumbg";
@@ -443,9 +501,8 @@ async function start(){
         const o = photos.get(k);
         if (!o) continue;
         n++;
-        say("Getting photo " + n + " of " + picked.size + "...");
-        const src = await blobOf(o);
-        const blob = await shrink(src);
+        say("Getting photo " + n + " of " + picked.size + " (blurring text)...");
+        const blob = await outBlob(k, o);
         const p = "sms-out/" + uid + "/" + Date.now() + "_" + n + ".jpg";
         await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
         paths.push(p);
@@ -487,8 +544,8 @@ async function start(){
         const o = photos.get(k);
         if (!o) continue;
         n++;
-        say("Getting photo " + n + " of " + picked.size + "...");
-        files.push(new File([await shrink(await blobOf(o))], "photo" + n + ".jpg", { type: "image/jpeg" }));
+        say("Getting photo " + n + " of " + picked.size + " (blurring text)...");
+        files.push(new File([await outBlob(k, o)], "photo" + n + ".jpg", { type: "image/jpeg" }));
       }
       if (files.length && navigator.canShare && navigator.canShare({ files })) {
         say("Pick Messages, then " + (c.name || "the customer") + ".");
@@ -518,8 +575,8 @@ async function start(){
         const o = photos.get(k);
         if (!o) continue;
         n++;
-        say("Getting photo " + n + " of " + picked.size + "...");
-        const blob = await shrink(await blobOf(o));
+        say("Getting photo " + n + " of " + picked.size + " (blurring text)...");
+        const blob = await outBlob(k, o);
         const p = "mail-out/" + uid + "/" + Date.now() + "_" + n + ".jpg";
         await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
         attachments.push({ path: p, name: "khean-clean-" + (o.tag || "photo").toLowerCase().replace(/\s+/g, "-") + "-" + n + ".jpg" });
