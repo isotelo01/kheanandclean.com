@@ -151,6 +151,17 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
   </div>
   <div class="actions"><button type="button" class="new" id="pricesSave">Save prices</button><span class="note" id="pricesNote"></span></div>
 
+  <!-- Discounts: the estimator shows each one as a button under its Discount boxes (settings/discounts).
+       Tapping several stacks them (the percents add up). -->
+  <div class="panel" style="margin-top:28px">
+    <h2>Discounts</h2>
+    <p class="sub">Shown as buttons under Discount in the estimator. Tap several to stack them; the percents add up.</p>
+    <div class="lrow lhead" style="grid-template-columns:minmax(0,1fr) 90px 40px"><span>Discount</span><span>Percent</span><span></span></div>
+    <div id="discList"><div class="empty">Loading&hellip;</div></div>
+    <div class="actions add"><button type="button" class="ghost" id="discAdd">Add discount</button>
+      <button type="button" class="new" id="discSave">Save discounts</button><span class="note" id="discNote"></span></div>
+  </div>
+
   <!-- Vendor documents: what partners download from their portal. Stored privately (vendor-docs/ in
        Firebase Storage): only staff and signed-in partners can open them. Upload replaces the old one. -->
   <div class="panel" style="margin-top:28px">
@@ -281,6 +292,50 @@ onAuthStateChanged(auth, async user => {
     draw();
   } catch (e) { console.error(e); note.textContent = "Could not load settings: " + e.message; note.classList.add("err"); }
   drawDocs();
+  discLoad();
+});
+
+/* Discounts table: settings/discounts -> { items: [{ id, name, pct }] }. Read by the estimator. */
+const DREF = doc(db, "settings", "discounts");
+const DSTART = ["Senior discount", "Military discount", "Neighbor discount", "Repeat customer discount"];
+let discs = [];
+function discDraw() {
+  const box = document.getElementById("discList");
+  box.innerHTML = discs.length ? discs.map((d, i) =>
+    '<div class="lrow" style="grid-template-columns:minmax(0,1fr) 90px 40px">' +
+      '<input data-di="' + i + '" data-dk="name" value="' + esc(d.name) + '" placeholder="Discount name" aria-label="Discount name">' +
+      '<label class="cost"><input type="number" min="0" max="100" step="1" inputmode="decimal" data-di="' + i + '" data-dk="pct" value="' + esc(d.pct) + '" aria-label="Percent" style="padding-right:24px;padding-left:10px"><span style="left:auto;right:10px">%</span></label>' +
+      '<button type="button" class="x" data-dx="' + i + '" aria-label="Delete">&times;</button></div>').join("")
+    : '<div class="empty">No discounts yet.</div>';
+}
+async function discLoad() {
+  try {
+    const s = await getDoc(DREF);
+    discs = s.exists() && Array.isArray(s.data().items) ? s.data().items
+      : DSTART.map(n => ({ id: newId(), name: n, pct: 5 }));   /* first time: the four you asked for, at 5% */
+  } catch (e) { console.error(e); discs = []; document.getElementById("discNote").textContent = "Could not load discounts."; }
+  discDraw();
+}
+document.getElementById("discList").addEventListener("input", e => {
+  const el = e.target.closest("[data-di]"); if (!el) return;
+  const d = discs[+el.dataset.di]; if (!d) return;
+  d[el.dataset.dk] = el.dataset.dk === "pct" ? Math.min(100, Math.max(0, +el.value || 0)) : el.value;
+});
+document.getElementById("discList").addEventListener("click", e => {
+  const b = e.target.closest("[data-dx]"); if (!b) return;
+  discs.splice(+b.dataset.dx, 1); discDraw();
+});
+document.getElementById("discAdd").addEventListener("click", () => {
+  discs.push({ id: newId(), name: "", pct: 5 }); discDraw();
+  document.querySelector('#discList [data-di="' + (discs.length - 1) + '"]')?.focus();
+});
+document.getElementById("discSave").addEventListener("click", async () => {
+  const btn = document.getElementById("discSave"), n = document.getElementById("discNote");
+  const items = discs.map(d => ({ id: d.id || newId(), name: String(d.name || "").trim(), pct: +d.pct || 0 })).filter(d => d.name);
+  btn.disabled = true; n.textContent = ""; n.classList.remove("err");
+  try { await setDoc(DREF, { items, updatedAt: serverTimestamp() }); discs = items; discDraw(); n.textContent = "Saved."; }
+  catch (e) { console.error(e); n.textContent = "Could not save: " + e.message; n.classList.add("err"); }
+  btn.disabled = false;
 });
 
 /* Vendor documents: one fixed file per document in vendor-docs/ (partner.html reads the same names). */

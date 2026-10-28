@@ -1132,7 +1132,7 @@
       if(disc > 0 || free.length){
         discEl.innerHTML = '<li><span>Subtotal</span><span>$'+money(b.sum)+'</span></li>' +
           free.map(function(f){ return '<li class="discLine"><span>'+f.label+'</span><span>\u2212$'+money(f.amount)+'</span></li>'; }).join('') +
-          (disc > 0 ? '<li class="discLine"><span>Discount'+(dAmt > 0 ? '' : ' ('+dPct+'%)')+'</span><span>\u2212$'+money(disc)+'</span></li>' : '');
+          (disc > 0 ? '<li class="discLine"><span>'+discName(dAmt)+(dAmt > 0 ? '' : ' ('+dPct+'%)')+'</span><span>\u2212$'+money(disc)+'</span></li>' : '');
         discEl.hidden = false;
       } else { discEl.innerHTML = ''; discEl.hidden = true; }
     }
@@ -1185,7 +1185,7 @@
        subtotal - freeTotal - discount = total (unless the minimum kicked in). */
     window.KC_quote = {
       lines: b.breakdown, subtotal: b.sum, discount: disc,
-      discountLabel: disc > 0 ? 'Discount' + (dAmt > 0 ? '' : ' (' + dPct + '%)') : '',
+      discountLabel: disc > 0 ? discName(dAmt) + (dAmt > 0 ? '' : ' (' + dPct + '%)') : '',
       freeLines: free.map(function(f){ return { label: f.label, qty: f.qty, amount: f.amount }; }), freeTotal: freeSum,
       feeWaived: !!(feeEl && feeEl.checked),
       total: applied, minApplied: applied > net, sqftTotal: sqftTotal
@@ -1207,6 +1207,12 @@
   /* Waive card fee: saved on the estimate, carried to the invoice, same as the Dashboard button. */
   (function(){ var w = document.getElementById('waiveFee'); if(w) w.addEventListener('change', calc); })();
 
+  /* Discounts picked from the Settings table (index.html) show by name, e.g. "Senior + Military discount". */
+  function discName(dAmt){
+    var n = window.KC_discNames || [];
+    return dAmt > 0 || !n.length ? 'Discount' : n.join(' + ') + ' discount';
+  }
+  document.addEventListener('kc-reprice', function(){ calc(); });
   /* Discount boxes: typing in one empties the other, then reprice. */
   ['discAmt','discPct'].forEach(function(id, i){
     var el = document.getElementById(id), other = document.getElementById(i ? 'discAmt' : 'discPct');
@@ -1392,6 +1398,7 @@
       var jobTime = document.getElementById('eWhenTime');   // and its AM/PM start time
       if(jobTime) jobTime.value = '';
       ['discAmt','discPct'].forEach(function(id){ var d = document.getElementById(id); if(d) d.value = ''; });
+      window.KC_discNames = []; document.dispatchEvent(new Event('kc-disc-names'));
       var wm = document.getElementById('waiveMin'); if(wm) wm.checked = false;
       var wf = document.getElementById('waiveFee'); if(wf) wf.checked = false;
       var pp = document.getElementById('partnerPrice');   // New: back to regular prices
@@ -1424,7 +1431,7 @@
     var dA = document.getElementById('discAmt'), dP = document.getElementById('discPct');
     return JSON.parse(JSON.stringify({
       v:1, active: activeSvc, state: STATE,
-      discAmt: dA ? dA.value : '', discPct: dP ? dP.value : '',
+      discAmt: dA ? dA.value : '', discPct: dP ? dP.value : '', discNames: window.KC_discNames || [],
       waiveMin: !!(document.getElementById('waiveMin') || {}).checked,
       waiveFee: !!(document.getElementById('waiveFee') || {}).checked,
       partner: !!(document.getElementById('partnerPrice') || {}).checked
@@ -1446,6 +1453,7 @@
     var dA = document.getElementById('discAmt'), dP = document.getElementById('discPct');
     if(dA) dA.value = form.discAmt || '';
     if(dP) dP.value = form.discPct || '';
+    window.KC_discNames = Array.isArray(form.discNames) ? form.discNames.slice() : []; document.dispatchEvent(new Event('kc-disc-names'));
     var wm = document.getElementById('waiveMin'); if(wm) wm.checked = !!form.waiveMin;
     var wf = document.getElementById('waiveFee'); if(wf) wf.checked = !!form.waiveFee;
     var pp = document.getElementById('partnerPrice');   // partner price saved with the quote

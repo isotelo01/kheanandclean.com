@@ -220,6 +220,8 @@
             <label class="disc__box"><span>$</span><input type="number" id="discAmt" min="0" step="1" inputmode="decimal" placeholder="Amount" aria-label="Discount in dollars"></label>
             <label class="disc__box"><input type="number" id="discPct" min="0" max="100" step="1" inputmode="decimal" placeholder="Percent" aria-label="Discount in percent"><span>%</span></label>
           </div>
+          <!-- Discounts from Settings > Discounts. Tap to apply; they stack (percents add up) into the Percent box. -->
+          <div class="discChips" id="discChips" hidden></div>
           <label class="add" style="margin-top:.9rem;border-bottom:0">
             <input type="checkbox" id="waiveMin"> Waive minimum charge <span class="add__c">No <span data-kcp="minJob">$150</span> minimum</span>
           </label>
@@ -787,6 +789,61 @@ async function show() {
   } catch (err) { box.textContent = 'Could not load saved items.'; console.error(err); }
 }
 btn.addEventListener('click', () => box.hidden ? show() : (box.hidden = true));
+</script>
+<script type="module">
+/* Discount table (Settings > Discounts, settings/discounts). Each tap turns one on or off;
+   the ones on add up into the Percent box and their names go on the estimate. */
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+const app = getApps().length ? getApp() : initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const box = document.getElementById("discChips");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let table = [];
+window.KC_discNames = window.KC_discNames || [];
+function draw(){
+  if (!box) return;
+  box.hidden = !table.length;
+  box.innerHTML = table.map(d => {
+    const on = window.KC_discNames.includes(d.name);
+    return '<button type="button" class="discChip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-dn="' + esc(d.name) + '">' +
+      esc(d.name) + ' <b>' + esc(d.pct) + '%</b></button>';
+  }).join("");
+}
+function apply(){
+  const pct = table.filter(d => window.KC_discNames.includes(d.name)).reduce((s, d) => s + (+d.pct || 0), 0);
+  const p = document.getElementById("discPct"), a = document.getElementById("discAmt");
+  if (p) p.value = pct > 0 ? String(Math.min(100, pct)) : "";
+  if (a && pct > 0) a.value = "";
+  draw();
+  document.dispatchEvent(new Event("kc-reprice"));
+}
+box && box.addEventListener("click", e => {
+  const b = e.target.closest("[data-dn]"); if (!b) return;
+  const n = b.dataset.dn, list = window.KC_discNames;
+  window.KC_discNames = list.includes(n) ? list.filter(x => x !== n) : list.concat(n);
+  apply();
+});
+/* Typing your own amount or percent turns the table discounts off. New / Edit redraw them. */
+["discAmt", "discPct"].forEach(id => document.getElementById(id)?.addEventListener("input", () => {
+  if (window.KC_discNames.length) { window.KC_discNames = []; draw(); }
+}));
+document.addEventListener("kc-disc-names", draw);
+onAuthStateChanged(getAuth(app), async u => {
+  if (!u) return;
+  try {
+    const s = await getDoc(doc(getFirestore(app), "settings", "discounts"));
+    table = (s.exists() && Array.isArray(s.data().items) ? s.data().items : []).filter(d => d && d.name && +d.pct > 0);
+  } catch (e) { console.error(e); table = []; }
+  draw();
+});
 </script>
 <script src="places.js" defer></script>
 <script src="./tabbar.js" defer></script>
