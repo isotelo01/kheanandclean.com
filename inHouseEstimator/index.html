@@ -873,7 +873,12 @@ box && box.addEventListener("input", e => {
 ["discAmt", "discPct"].forEach(id => document.getElementById(id)?.addEventListener("input", () => {
   if (window.KC_discNames.length) { window.KC_discNames = []; draw(); }
 }));
-document.addEventListener("kc-disc-names", draw);
+/* An estimate opened for editing brings back the percents it used. */
+function usePcts(){
+  const p = window.KC_discPcts || {};
+  table.forEach(d => { if (d.base == null) d.base = d.pct; d.pct = p[d.name] != null ? p[d.name] : d.base; });   /* New = back to the Settings percents */
+}
+document.addEventListener("kc-disc-names", () => { usePcts(); draw(); });
 onAuthStateChanged(getAuth(app), async u => {
   if (!u) return;
   try {
@@ -881,7 +886,11 @@ onAuthStateChanged(getAuth(app), async u => {
     /* Nothing saved in Settings yet: show the same ones Settings starts with, at 5%. */
     const START = ["Senior", "Military", "Neighbor", "Repeat customer", "First-time customer"].map(n => ({ name: n, pct: 5 }));
     table = (s.exists() && Array.isArray(s.data().items) ? s.data().items : START).filter(d => d && d.name && +d.pct > 0);
+    /* Names without the word "discount", same as the saved estimates now use. */
+    table = table.map(d => ({ ...d, name: label(d.name) }));
+    window.KC_discNames = (window.KC_discNames || []).map(label);
     window.KC_discTable = table;
+    usePcts();
   } catch (e) { console.error(e); table = []; }
   draw();
 });

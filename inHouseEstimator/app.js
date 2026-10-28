@@ -1213,17 +1213,21 @@
   /* Each discount ticked in the table on its own line, e.g. "First-time customer (10%)  −$25".
      The amounts add up to the total discount (the last line takes any rounding). Empty when
      the discount was typed in the $ or % box instead. */
+  function discStrip(x){ return String(x || '').replace(/\s*\bdiscount\b\s*/ig, ' ').trim() || String(x || ''); }
   function discLinesOf(dAmt, dPct, net, disc){
-    var n = window.KC_discNames || [], t = window.KC_discTable || [];
+    var n = (window.KC_discNames || []).map(discStrip), t = window.KC_discTable || [];
     if(dAmt > 0 || disc <= 0 || !n.length) return [];
-    var on = t.filter(function(d){ return n.indexOf(d.name) !== -1 && +d.pct > 0; });
+    var on = t.filter(function(d){ return n.indexOf(discStrip(d.name)) !== -1 && +d.pct > 0; });
     var sum = on.reduce(function(s, d){ return s + (+d.pct); }, 0);
-    if(!on.length || Math.abs(sum - dPct) > 0.001) return [];   /* box was changed by hand */
+    if(!on.length || !(sum > 0)) return [];
+    /* An older estimate saved without its own percents: share the % box out in the same proportions. */
+    var k = Math.abs(sum - dPct) > 0.001 ? dPct / sum : 1;
     var left = disc;
     return on.map(function(d, i){
-      var amt = i === on.length - 1 ? left : Math.min(left, Math.round(net * d.pct / 100));
+      var p = Math.round(d.pct * k * 100) / 100;
+      var amt = i === on.length - 1 ? left : Math.min(left, Math.round(net * p / 100));
       left -= amt;
-      return { label: (String(d.name).replace(/\s*\bdiscount\b\s*/ig, ' ').trim() || d.name) + ' (' + (+d.pct) + '%)', amount: amt };
+      return { label: discStrip(d.name) + ' (' + p + '%)', amount: amt };
     });
   }
   /* Discounts picked from the Settings table (index.html) show by name, e.g. "Senior + Military discount". */
@@ -1420,7 +1424,7 @@
       var jobTime = document.getElementById('eWhenTime');   // and its AM/PM start time
       if(jobTime) jobTime.value = '';
       ['discAmt','discPct'].forEach(function(id){ var d = document.getElementById(id); if(d) d.value = ''; });
-      window.KC_discNames = []; document.dispatchEvent(new Event('kc-disc-names'));
+      window.KC_discNames = []; window.KC_discPcts = {}; document.dispatchEvent(new Event('kc-disc-names'));
       window.KC_estPhotos = []; document.dispatchEvent(new Event('kc-est-photos'));
       var wm = document.getElementById('waiveMin'); if(wm) wm.checked = false;
       var wf = document.getElementById('waiveFee'); if(wf) wf.checked = false;
@@ -1455,6 +1459,7 @@
     return JSON.parse(JSON.stringify({
       v:1, active: activeSvc, state: STATE,
       discAmt: dA ? dA.value : '', discPct: dP ? dP.value : '', discNames: window.KC_discNames || [],
+      discPcts: (window.KC_discTable || []).reduce(function(o, d){ if((window.KC_discNames || []).indexOf(d.name) !== -1) o[d.name] = +d.pct; return o; }, {}),
       waiveMin: !!(document.getElementById('waiveMin') || {}).checked,
       waiveFee: !!(document.getElementById('waiveFee') || {}).checked,
       partner: !!(document.getElementById('partnerPrice') || {}).checked
@@ -1476,7 +1481,11 @@
     var dA = document.getElementById('discAmt'), dP = document.getElementById('discPct');
     if(dA) dA.value = form.discAmt || '';
     if(dP) dP.value = form.discPct || '';
-    window.KC_discNames = Array.isArray(form.discNames) ? form.discNames.slice() : []; document.dispatchEvent(new Event('kc-disc-names'));
+    /* Older estimates saved names like "Neighbor discount"; the table now says "Neighbor". */
+    window.KC_discNames = Array.isArray(form.discNames) ? form.discNames.map(discStrip) : [];
+    /* The percents this estimate used (changed in the table for it), put back on the table. */
+    window.KC_discPcts = {}; Object.keys(form.discPcts || {}).forEach(function(k){ window.KC_discPcts[discStrip(k)] = +form.discPcts[k]; });
+    document.dispatchEvent(new Event('kc-disc-names'));
     var wm = document.getElementById('waiveMin'); if(wm) wm.checked = !!form.waiveMin;
     var wf = document.getElementById('waiveFee'); if(wf) wf.checked = !!form.waiveFee;
     var pp = document.getElementById('partnerPrice');   // partner price saved with the quote
