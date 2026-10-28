@@ -1211,8 +1211,9 @@
   function discName(dAmt){
     var n = window.KC_discNames || [];
     if(dAmt > 0 || !n.length) return 'Discount';
-    var t = n.join(' + ');
-    return /discount\s*$/i.test(t) ? t : t + ' discount';   /* names that already say "discount" don't get it twice */
+    /* Each name without its own "discount", then one at the end: "Senior + Military discount". */
+    var t = n.map(function(x){ return String(x).replace(/\s*\bdiscount\b\s*/ig, ' ').trim() || x; }).join(' + ');
+    return t + ' discount';
   }
   document.addEventListener('kc-reprice', function(){ calc(); });
   /* Discount boxes: typing in one empties the other, then reprice. */

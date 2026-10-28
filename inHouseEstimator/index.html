@@ -821,14 +821,23 @@ const box = document.getElementById("discChips");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let table = [];
 window.KC_discNames = window.KC_discNames || [];
+/* A Discounts button that drops down the table: tick one to apply it, change its percent right there
+   (for this estimate; the defaults stay in Settings > Discounts). Labels leave off the word "discount". */
+const label = n => String(n || "").replace(/\s*\bdiscount\b\s*/ig, " ").trim() || n;
+let open = false;
 function draw(){
   if (!box) return;
   box.hidden = !table.length;
-  box.innerHTML = table.map(d => {
-    const on = window.KC_discNames.includes(d.name);
-    return '<button type="button" class="discChip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-dn="' + esc(d.name) + '">' +
-      esc(d.name) + ' <b>' + esc(d.pct) + '%</b></button>';
-  }).join("");
+  const nOn = table.filter(d => window.KC_discNames.includes(d.name)).length;
+  box.innerHTML = '<button type="button" class="discToggle" id="discToggle" aria-expanded="' + open + '">Discounts' +
+      (nOn ? ' <b>(' + nOn + ' on)</b>' : '') + ' <span aria-hidden="true">' + (open ? '\u25B4' : '\u25BE') + '</span></button>' +
+    '<div class="discTable"' + (open ? '' : ' hidden') + '>' + table.map((d, i) => {
+      const on = window.KC_discNames.includes(d.name);
+      return '<div class="discRow' + (on ? ' on' : '') + '"><label class="discName"><input type="checkbox" data-dn="' + esc(d.name) + '"' +
+        (on ? ' checked' : '') + '> ' + esc(label(d.name)) + '</label>' +
+        '<label class="discP"><input type="number" min="0" max="100" step="any" inputmode="decimal" data-di="' + i +
+        '" value="' + esc(d.pct) + '" aria-label="' + esc(label(d.name)) + ' percent"><span>%</span></label></div>';
+    }).join("") + '<p class="discHint">Percents changed here are for this estimate. Defaults are in Settings.</p></div>';
 }
 function apply(){
   const pct = table.filter(d => window.KC_discNames.includes(d.name)).reduce((s, d) => s + (+d.pct || 0), 0);
@@ -839,10 +848,25 @@ function apply(){
   document.dispatchEvent(new Event("kc-reprice"));
 }
 box && box.addEventListener("click", e => {
+  if (e.target.closest("#discToggle")) { open = !open; draw(); }
+});
+box && box.addEventListener("change", e => {
   const b = e.target.closest("[data-dn]"); if (!b) return;
   const n = b.dataset.dn, list = window.KC_discNames;
-  window.KC_discNames = list.includes(n) ? list.filter(x => x !== n) : list.concat(n);
+  window.KC_discNames = b.checked ? (list.includes(n) ? list : list.concat(n)) : list.filter(x => x !== n);
   apply();
+});
+/* Editing a percent: re-add the ones that are on, without redrawing (so the box keeps focus). */
+box && box.addEventListener("input", e => {
+  const p = e.target.closest("[data-di]"); if (!p) return;
+  const d = table[+p.dataset.di]; if (!d) return;
+  d.pct = Math.min(100, Math.max(0, +p.value || 0));
+  if (!window.KC_discNames.includes(d.name)) return;
+  const pct = table.filter(x => window.KC_discNames.includes(x.name)).reduce((s, x) => s + (+x.pct || 0), 0);
+  const pb = document.getElementById("discPct"), a = document.getElementById("discAmt");
+  if (pb) pb.value = pct > 0 ? String(Math.min(100, pct)) : "";
+  if (a && pct > 0) a.value = "";
+  document.dispatchEvent(new Event("kc-reprice"));
 });
 /* Typing your own amount or percent turns the table discounts off. New / Edit redraw them. */
 ["discAmt", "discPct"].forEach(id => document.getElementById(id)?.addEventListener("input", () => {
@@ -854,7 +878,7 @@ onAuthStateChanged(getAuth(app), async u => {
   try {
     const s = await getDoc(doc(getFirestore(app), "settings", "discounts"));
     /* Nothing saved in Settings yet: show the same ones Settings starts with, at 5%. */
-    const START = ["Senior discount", "Military discount", "Neighbor discount", "Repeat customer discount", "First-time customer discount"].map(n => ({ name: n, pct: 5 }));
+    const START = ["Senior", "Military", "Neighbor", "Repeat customer", "First-time customer"].map(n => ({ name: n, pct: 5 }));
     table = (s.exists() && Array.isArray(s.data().items) ? s.data().items : START).filter(d => d && d.name && +d.pct > 0);
   } catch (e) { console.error(e); table = []; }
   draw();
