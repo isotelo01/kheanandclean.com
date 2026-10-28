@@ -339,7 +339,9 @@ async function loadForEdit(id, from, copy){
     }
 
     let note = 'Editing ' + (d.number || 'this estimate') + '.';
-    if (!d.form) {
+    if (from === 'paidInvoices' && !copy) {
+      note += ' This invoice is paid, so its prices are locked. Customer details, notes and date will save; room or price changes here won’t.';
+    } else if (!d.form) {
       note += ' It has no saved form, so the estimate below is blank. Rebuild it before saving.';
     } else {
       const now = window.KC_quote ? window.KC_quote.total : 0, was = Number(d.total) || 0;
@@ -406,6 +408,14 @@ async function saveEdit(q, backToEstimates){
     merged.scheduledTime = edit.data.scheduledTime || '';
   }
   if (!!q.feeWaived === edit.fee) merged.feeWaived = !!edit.data.feeWaived;
+  /* Paid invoice: the money is locked. The form reprices at today's prices, so its rooms and totals
+     are ignored; only customer details, notes and date are saved. Income stays what was paid. */
+  if (edit.from === 'paidInvoices') {
+    ['lines', 'subtotal', 'discount', 'discountLabel', 'freeLines', 'freeTotal', 'feeWaived',
+     'total', 'minApplied', 'sqftTotal', 'form'].forEach(k => {
+      if (k in edit.data) merged[k] = edit.data[k]; else delete merged[k];
+    });
+  }
   const priceChanged = Math.abs(Number(q.total) - (Number(edit.data.total) || 0)) >= 0.01;
   let target = edit.from, text = 'Saved changes to ' + merged.number + '. Same link as before.';
 
