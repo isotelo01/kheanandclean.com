@@ -820,6 +820,10 @@ function show(d){
   if (f.type && f.type !== "unknown") fl.push("<b>Floor: " + H(f.type) + (f.detail ? " · " + H(f.detail) : "") + "</b>");
   [["Pile", f.pile], ["Fiber (guess)", f.fiber], ["Color", f.color], ["Tile size", f.tileSize], ["Grout", f.grout], ["Rugs", f.rug], ["Condition", f.condition]]
     .forEach(([k, v]) => { if (v) fl.push(k + ": " + H(v)); });
+  /* Built-ins on hard floors (vanity, tub, shower, cabinets): listed only, never subtracted. He decides with + Cutout. */
+  const fx = (Array.isArray(d.fixtures) ? d.fixtures : []).filter(x => x && Number(x.widthFt) > 0 && Number(x.depthFt) > 0);
+  if (fx.length) fl.push("<b>Fixtures seen</b> (not taken out; use + Cutout to remove any): " + fx.map(x =>
+    H(x.type) + " " + Number(x.widthFt) + " × " + Number(x.depthFt) + " ft (" + Math.round(x.widthFt * x.depthFt) + " sq ft)").join(", "));
   $("rFloor").innerHTML = fl.join("<br>"); $("rFloor").hidden = !fl.length;
   $("saveBtn").hidden = !handoff; $("saveMsg").textContent = "";
   window.scrollTo({ top: 0, behavior: "smooth" });
