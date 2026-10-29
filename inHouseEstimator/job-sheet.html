@@ -472,7 +472,10 @@ if (id) ss.set("kcJobSheetId", id);
 /* ---- On-site quote building: open a line, add or delete rooms, prices follow. ---- */
 let cur = null;   /* { place, lines, quoted, adj } for the job on screen */
 /* Still an estimate (quotes): "Here's your estimate"; once approved it's the Job Sheet. */
-const sheetName = () => cur && cur.place === "quotes" ? "Here\u2019s your estimate" : "Job Sheet";
+/* Default headline: estimates say "Here's your estimate."; job sheets thank the customer by first name only. */
+const defHeadline = (c, place) => place === "quotes" ? "Here\u2019s your estimate."
+  : ("Thank you, " + ((String(c.name || "").trim().split(/\s+/)[0]) || c.business || "")).replace(/, $/, "");
+const sheetName = () => cur && cur.place === "quotes" ? "Estimate Sheet" : "Job Sheet";
 const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
 /* Which lines are open; kept for this job while the tab is open. */
 const openKey = "kcOpenLines_" + id;
@@ -1294,7 +1297,7 @@ async function show(){
 
   const c = q.customer || {};
   const name = (c.business && c.name ? c.business + " \u2014 " + c.name : c.name || c.business) || "No name";
-  const sheetTitle = place === "quotes" ? "Here\u2019s your estimate" : "Job Sheet";
+  const sheetTitle = place === "quotes" ? "Estimate Sheet" : "Job Sheet";
   titleEl.textContent = sheetTitle;
   document.title = sheetTitle + " \u00b7 " + name + " \u00b7 Khean & Clean";
 
@@ -1649,9 +1652,9 @@ async function show(){
          The headline saves with the Save button under Crew notes. */
       '<div class="hero">' + photoBox("head", "Header photo", true) +
         '<div class="headbox" style="margin-top:12px">' +
-        '<div class="headro">' + esc(js.headline || ("Thank you, " + (c.name || c.business || "")).replace(/, $/, "")) + '</div>' +
-        /* Starts as "Thank you, <customer>" until a headline is saved. */
-        '<input type="text" id="headline" placeholder="Headline" value="' + esc(js.headline || ("Thank you, " + (c.name || c.business || "")).replace(/, $/, "")) + '"></div></div>' +
+        '<div class="headro">' + esc(js.headline || defHeadline(c, place)) + '</div>' +
+        /* Starts as "Here’s your estimate." on estimates, "Thank you, <first name>" on job sheets, until a headline is saved. */
+        '<input type="text" id="headline" placeholder="Headline" value="' + esc(js.headline || defHeadline(c, place)) + '"></div></div>' +
 
       /* Report: the customer's name takes the place of the "Customer" heading. */
       '<div class="head"><h2 style="margin:0;border:0"><span class="staffword">Customer</span><span class="sumword">' + esc(name) + '</span></h2>' +
