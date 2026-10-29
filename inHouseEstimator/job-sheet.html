@@ -228,7 +228,8 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .jpcell{position:relative;border-radius:8px;overflow:hidden;background:#eef0f4}
 .jpcell img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
 .jpx{position:absolute;top:6px;right:6px;width:30px;height:30px;border:0;border-radius:50%;background:rgba(10,14,22,.75);color:#fff;font-size:20px;line-height:1;cursor:pointer}
-@media print{.pcam,.jpx{display:none!important}}
+.jprot{position:absolute;top:6px;left:6px;width:30px;height:30px;border:0;border-radius:50%;background:rgba(10,14,22,.75);color:#fff;font-size:18px;line-height:1;cursor:pointer}
+@media print{.pcam,.jpx,.jprot{display:none!important}}
 /* Summary: Notes photos, Job photos and Crew notes read-only, and left out entirely when empty. */
 .crewro{display:none;white-space:pre-wrap;font-size:16px}
 .summ .crewro{display:block}
@@ -396,7 +397,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { doc, deleteDoc, serverTimestamp, runTransaction, collection }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getStorage, ref, getBlob } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 /* Offline versions: work with no service and sync when it's back (offline.js). */
 import { getFirestore, getDoc, setDoc, updateDoc, getDownloadURL, uploadBytes,
   startOffline, saveForOffline, offlineJobs, rememberJob } from "./offline.js";
@@ -1759,6 +1760,7 @@ async function show(){
     jpgrid.innerHTML = estUrls.map(u => '<div class="jpcell"><a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) + '"><img src="' + esc(u) + '" alt="" loading="lazy"></a></div>').join("") +
       jobPhotos.map((p, k) => urls[k]
       ? '<div class="jpcell"><a href="' + esc(urls[k]) + '" class="pshot" data-full="' + esc(urls[k]) + '"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
+        '<button type="button" class="jprot" data-k="' + k + '" aria-label="Rotate photo" title="Rotate">\u21bb</button>' +
         '<button type="button" class="jpx" data-k="' + k + '" aria-label="Remove photo">×</button></div>' : '').join("") ||
       '<div class="msg">No photos yet.</div>';
   };
@@ -1792,6 +1794,23 @@ async function show(){
     catch (e) { console.error(e); jpNote.textContent = "Photos uploaded but not saved to the job: " + e.message; jpNote.classList.add("err"); }
     drawJP();
   }
+  /* ↻ turns a photo a quarter turn clockwise: saves a turned copy and swaps it in (the old file stays in storage). */
+  jpgrid.addEventListener("click", async e => {
+    const b = e.target.closest(".jprot"); if (!b) return; e.preventDefault();
+    const n = Number(b.dataset.k), old = jobPhotos[n]; if (!old) return;
+    b.disabled = true; jpNote.textContent = "Rotating…"; jpNote.classList.remove("err");
+    try {
+      const bmp = await createImageBitmap(await getBlob(ref(storage, old)));
+      const c = document.createElement("canvas"); c.width = bmp.height; c.height = bmp.width;
+      const g = c.getContext("2d"); g.translate(c.width, 0); g.rotate(Math.PI / 2); g.drawImage(bmp, 0, 0);
+      const blob = await new Promise((res, rej) => c.toBlob(x => x ? res(x) : rej(new Error("Could not turn that photo")), "image/jpeg", 0.9));
+      const path = "quick-quote-photos/job_" + id + "_" + folder + "/" + Date.now() + "_r.jpg";
+      await uploadBytes(ref(storage, path), blob, { contentType: "image/jpeg" });
+      jobPhotos[n] = path;
+      await saveJP(); jpNote.textContent = "Photo rotated.";
+    } catch (err) { console.error(err); jpNote.textContent = "Could not rotate: " + err.message; jpNote.classList.add("err"); }
+    drawJP();
+  });
   /* × takes a photo off the job (the file itself stays in storage). */
   jpgrid.addEventListener("click", async e => {
     const b = e.target.closest(".jpx"); if (!b) return; e.preventDefault();

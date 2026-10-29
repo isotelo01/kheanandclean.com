@@ -24,6 +24,10 @@
     opts = opts || {};
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
     var max = opts.max > 0 ? opts.max : 999, count = 0, stream = null, lastUrl = '', busy = false;
+    /* Which way the phone is held, from gravity (iPhones report it with the opposite sign). */
+    var grav = { x: 0, y: 9.8 }, IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    function onMot(e){ var a = e.accelerationIncludingGravity; if (a && a.x != null) { grav.x = IOS ? -a.x : a.x; grav.y = IOS ? -a.y : a.y; } }
+    window.addEventListener('devicemotion', onMot);
     if (!document.getElementById('bcam-css')) {
       var st = document.createElement('style'); st.id = 'bcam-css'; st.textContent = CSS; document.head.appendChild(st);
     }
@@ -39,7 +43,7 @@
         left = box.querySelector('.bleft'), top = box.querySelector('.btop');
     var say = function(t){ msg.textContent = t || ''; };
 
-    function stop(){ if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+    function stop(){ window.removeEventListener('devicemotion', onMot); if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
     function open(deviceId){
       stop();
       var v = { width: { ideal: 4032 }, height: { ideal: 3024 } };
@@ -71,8 +75,14 @@
     shut.addEventListener('click', function(){
       if (busy || count >= max || !video.videoWidth) return;
       busy = true;
-      var c = document.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight;
-      c.getContext('2d').drawImage(video, 0, 0);
+      /* Rotation lock: the screen stays upright, so a phone held sideways gives a sideways frame.
+         Gravity says which way the phone is held; turn the photo to match. */
+      var vw = video.videoWidth, vh = video.videoHeight, turn = 0;
+      var upright = !(screen.orientation && screen.orientation.type) || /portrait/.test(screen.orientation.type);
+      if (upright && vh > vw && Math.abs(grav.x) > 6 && Math.abs(grav.x) > Math.abs(grav.y) * 1.5) turn = grav.x > 0 ? -1 : 1;
+      var c = document.createElement('canvas'), g = c.getContext('2d');
+      if (turn) { c.width = vh; c.height = vw; g.translate(vh / 2, vw / 2); g.rotate(turn * Math.PI / 2); g.drawImage(video, -vw / 2, -vh / 2); }
+      else { c.width = vw; c.height = vh; g.drawImage(video, 0, 0); }
       var fl = box.querySelector('.bflash'); fl.classList.add('on'); setTimeout(function(){ fl.classList.remove('on'); }, 60);
       c.toBlob(function(b){
         busy = false;
