@@ -358,7 +358,7 @@ $("ansBtn").onclick = async () => {
 /* Editable floor sketch (feet). Drag a corner to move it, tap + on a wall to add a corner there,
    "+ Cutout" drops a box for an island or hearth (drag it, drag its corner dot to resize).
    Area = outline minus cutouts; when you change it, that number becomes the result "Use this" sends. */
-let sk = null, skDrag = null;
+let sk = null, skDrag = null, skPinch = null;   /* skPinch: two-finger zoom in progress */
 const snap = v => Math.round(v * 2) / 2;
 function initSketch(d){
   let pts = Array.isArray(d.outline) && d.outline.length >= 3 ? d.outline.map(p => [+p[0], +p[1]]) : null;
@@ -384,19 +384,53 @@ function initSketch(d){
       '<button type="button" class="ghost" id="skReset">Reset</button>' +
       '<button type="button" class="ghost" id="skUndo" disabled>↶ Undo</button>' +
       '<button type="button" class="ghost" id="skMerge">Merge walls</button>' +
-      '<button type="button" class="ghost" id="skMic" style="grid-column:1/-1">🎤 Say wall sizes</button>' +
+      '<button type="button" class="ghost" id="skMic">🎤 Say wall sizes</button>' +
+      '<button type="button" class="ghost" id="skFit">⤢ Fit</button>' +
       '<button type="button" class="go" id="skDone" style="grid-column:1/-1;margin:0">Done</button></div></div>' +
     '<button type="button" class="skFab" id="skMenuBtn" aria-label="Sketch tools">☰</button>' +
     '<button type="button" class="skFab" id="skMicFab" aria-label="Say wall sizes">🎤</button>' +
     '<button type="button" class="skZBtn" id="skZoomBtn" aria-label="Open the sketch full screen">🔍</button>' +
-    '<div class="skZTop"><button type="button" id="skZBack">‹ Back</button><button type="button" id="skZUndo" disabled>↶ Undo</button></div>';
+    '<div class="skZTop"><button type="button" id="skZBack">‹ Back</button><button type="button" id="skZFit">⤢ Fit</button><button type="button" id="skZUndo" disabled>↶ Undo</button></div>';
   $("rShape").hidden = false; $("rShape").classList.remove("skFull", "skZoom"); document.body.style.overflow = "";
   const svg = $("skSvg");
   const toFt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
     const m = p.matrixTransform(svg.getScreenCTM().inverse());
     return [Math.min(Math.max(m.x, 0), sk.W) / sk.k + sk.ox, Math.min(Math.max(m.y, 0), sk.H) / sk.k + sk.oy]; };
+  /* Pinch to zoom, two fingers to move around. Zooming in makes corners, handles and labels bigger. */
+  const fingers = new Map();
+  const vbOf = () => svg.getAttribute("viewBox").split(" ").map(Number);
+  const pinchAt = () => { const [a, b] = [...fingers.values()];
+    return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
   svg.addEventListener("pointerdown", e => {
-    if (!sk.editing) return;   /* locked until "Edit sketch" */
+    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (fingers.size !== 2) return;
+    if (skDrag) {   /* first finger had grabbed something: put it back */
+      skDrag = null;
+      if (sk.hist[sk.hist.length - 1] === JSON.stringify({ pts: sk.pts, cuts: sk.cuts, doors: sk.doors })) { sk.hist.pop(); drawSketch(); }
+      else $("skUndo").click();
+    }
+    const m = pinchAt(), pt = svg.createSVGPoint(); pt.x = m.x; pt.y = m.y;
+    const u = pt.matrixTransform(svg.getScreenCTM().inverse());
+    skPinch = { d0: m.d, vb0: vbOf(), ux: u.x, uy: u.y };
+  }, true);
+  svg.addEventListener("pointermove", e => {
+    if (!fingers.has(e.pointerId)) return;
+    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!skPinch || fingers.size !== 2) return;
+    const m = pinchAt(), [x0, y0, w0, h0] = skPinch.vb0;
+    const z = Math.min(Math.max(skPinch.d0 / m.d, sk.W / 6 / w0), sk.W * 1.5 / w0);   /* up to 6x in, a little past Fit out */
+    const w = w0 * z, h = h0 * z;
+    svg.setAttribute("viewBox", [skPinch.ux - (skPinch.ux - x0) * z, skPinch.uy - (skPinch.uy - y0) * z, w, h].join(" "));
+    /* keep the spot between the fingers under the fingers (this is the two-finger move) */
+    const c = svg.getScreenCTM(), pt = svg.createSVGPoint(); pt.x = skPinch.ux; pt.y = skPinch.uy;
+    const sp = pt.matrixTransform(c), vb = vbOf();
+    vb[0] -= (m.x - sp.x) / c.a; vb[1] -= (m.y - sp.y) / c.d;
+    svg.setAttribute("viewBox", vb.join(" "));
+  }, true);
+  const lift = e => { fingers.delete(e.pointerId); if (!fingers.size) skPinch = null; };
+  svg.addEventListener("pointerup", lift, true); svg.addEventListener("pointercancel", lift, true);
+  svg.addEventListener("pointerdown", e => {
+    if (!sk.editing || skPinch) return;   /* locked until "Edit sketch"; no taps while pinching */
     if (sk.placing) { skSnap();   /* "+ Door": the next tap puts a door on the nearest wall */
       const w = nearestWall(toFt(e)), kind = sk.placing; sk.placing = false;
       /* doors, openings and closets all live on a wall; openings/closets have a width (wd), closets a depth (dp) */
@@ -447,7 +481,7 @@ function initSketch(d){
     svg.setPointerCapture(e.pointerId); drawSketch();
   });
   svg.addEventListener("pointermove", e => {
-    if (!skDrag) return;
+    if (!skDrag || skPinch) return;
     const p = toFt(e);
     if (skDrag.type === "door") {   /* slide along the wall; a reshaped closet moves with it */
       const o = sk.doors[skDrag.i], was = o.pts ? closetBox(o)[0] : null;
@@ -527,6 +561,7 @@ function initSketch(d){
   $("skZoomBtn").onclick = () => { if (!sk.editing) setEditing(true); $("rShape").classList.add("skZoom"); drawSketch(); };
   $("skZBack").onclick = () => { $("rShape").classList.remove("skZoom"); drawSketch(); };
   $("skZUndo").onclick = () => $("skUndo").click();
+  $("skFit").onclick = $("skZFit").onclick = () => svg.setAttribute("viewBox", "0 0 " + sk.W + " " + sk.H);
   $("skDone").onclick = () => setEditing(false);
   /* Sideways: ☰ opens the tools as a small menu; picking one closes it. 🎤 = Say wall sizes. */
   $("skMenuBtn").onclick = () => $("rShape").classList.toggle("menuOpen");
@@ -581,7 +616,8 @@ const polyA = pts => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % 
 /* Edit mode: full screen, handles showing. Done shrinks it back and locks it again. */
 function setEditing(on){
   sk.editing = on; sk.placing = false; if (!on) sk.sel = null;
-  $("rShape").classList.toggle("skFull", on); $("rShape").classList.remove("menuOpen"); if (!on) $("rShape").classList.remove("skZoom");
+  $("rShape").classList.toggle("skFull", on); $("rShape").classList.remove("menuOpen");
+  if (!on) { $("rShape").classList.remove("skZoom"); $("skSvg").setAttribute("viewBox", "0 0 " + sk.W + " " + sk.H); }
   $("skTools").hidden = !on; $("skHelp").hidden = !on; $("skEdit").hidden = on;
   if (on) $("skHelp").textContent = SK_HELP;
   document.body.style.overflow = on ? "hidden" : "";
