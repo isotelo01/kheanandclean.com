@@ -212,7 +212,12 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 /* Header photo: small icon buttons (camera / gallery) instead of words. */
 .pbtns.icons{flex:0 0 auto!important;margin-left:auto}
 .pbtns.icons .pcam{flex:0 0 auto!important;width:40px;padding:0}
-.pin{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+/* Notes and photos: small Take photo / Add photos on the heading line, phones too. */
+.jph.sm{flex-wrap:nowrap}
+.pbtns.sm{flex:0 0 auto!important;margin-left:auto;gap:6px}
+.pbtns.sm .pcam{flex:0 0 auto!important;height:30px;padding:0 8px;font-size:12px}
+.pbtns.sm .pcam svg{display:none}
+.pin{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none;font-size:0;line-height:0;border:0;padding:0;margin:0}
 .jpgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
 .jpcell{position:relative;border-radius:8px;overflow:hidden;background:#eef0f4}
 .jpcell img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
@@ -434,8 +439,8 @@ const shrink = file => new Promise((res, rej) => {
 });
 /* A photo box: heading with Take photo (opens the camera) and Add photos (the library, several at once), then the grid. */
 /* icons: small camera / gallery icon buttons with no words (used on the Header photo). */
-const photoBox = (k, title, icons) => '<div class="pbwrap empty" id="pbw-' + k + '">' +   /* "empty" until photos load */
-  '<h2 class="jph">' + title + ' <span class="pbtns' + (icons ? ' icons' : '') + '"><label class="pcam"' + (icons ? ' title="Take photo" aria-label="Take photo"' : '') + '>' +
+const photoBox = (k, title, icons, sm) => '<div class="pbwrap empty" id="pbw-' + k + '">' +   /* "empty" until photos load */
+  '<h2 class="jph' + (sm ? ' sm' : '') + '">' + title + ' <span class="pbtns' + (icons ? ' icons' : '') + (sm ? ' sm' : '') + '"><label class="pcam"' + (icons ? ' title="Take photo" aria-label="Take photo"' : '') + '>' +
     '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
     (icons ? '' : 'Take photo') + '<input type="file" class="pin" id="pcap-' + k + '" accept="image/*" capture="environment"></label>' +
     '<label class="pcam"' + (icons ? ' title="Add photos" aria-label="Add photos"' : '') + '>' +
@@ -1636,10 +1641,10 @@ async function show(){
       '<div class="meta" style="margin-top:6px">' + esc([q.number,
         ms(q.acceptedAt) ? "Approved " + shortDate(ms(q.acceptedAt)) : ""].filter(Boolean).join(" \u00b7 ")) + '</div>' +
 
-      '<h2 class="staff">Notes from quote and estimate</h2><div id="notes" class="staff">' + rrow("Quote notes", q.notes) + '<div class="msg">Loading&hellip;</div></div>' +
-      /* Customer notes and photos: staff only (hidden in the Summary / customer view). Start-of-job notes;
+      '<h2 class="staff" id="notesH">Notes from quote and estimate</h2><div id="notes" class="staff">' + rrow("Quote notes", q.notes) + '<div class="msg">Loading&hellip;</div></div>' +
+      /* Notes and photos: staff only (hidden in the Summary / customer view). Start-of-job notes;
          Crew notes below are the end-of-job notes. The text saves with the Save button under Crew notes. */
-      '<div class="staff" style="margin-top:24px">' + photoBox("notes", "Customer notes and photos") +
+      '<div class="staff" style="margin-top:24px">' + photoBox("notes", "Notes and photos", false, true) +
         '<textarea id="custNotes" style="margin-top:12px" placeholder="Notes about the customer or the home before starting">' + esc(js.custNotes || "") + '</textarea></div>' +
 
       '<h2><span class="staffword">The Job</span><span class="sumword">Services performed</span></h2>' +
@@ -1713,11 +1718,14 @@ async function show(){
   const wireBox = (k, field, folder) => {
   let jobPhotos = (Array.isArray(q[field]) ? q[field] : []).filter(p => typeof p === "string" && p.startsWith("quick-quote-photos/"));
   const jpgrid = document.getElementById("pgrid-" + k), jobPick = document.getElementById("ppick-" + k), jpNote = document.getElementById("pnote-" + k);
+  /* Notes and photos also shows the photos added on the estimate (read-only here; change them on the estimate). */
+  const estUrls = k === "notes" ? (Array.isArray(q.estPhotos) ? q.estPhotos : []).map(p => p && p.url).filter(u => typeof u === "string" && /^https:\/\//.test(u)) : [];
   const drawJP = async () => {
     const urls = await Promise.all(jobPhotos.map(p => getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
     if (!jpgrid.isConnected) return;
-    document.getElementById("pbw-" + k).classList.toggle("empty", !urls.some(Boolean));   /* Summary hides a box with nothing to show */
-    jpgrid.innerHTML = jobPhotos.map((p, k) => urls[k]
+    document.getElementById("pbw-" + k).classList.toggle("empty", !urls.some(Boolean) && !estUrls.length);   /* Summary hides a box with nothing to show */
+    jpgrid.innerHTML = estUrls.map(u => '<div class="jpcell"><a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) + '"><img src="' + esc(u) + '" alt="" loading="lazy"></a></div>').join("") +
+      jobPhotos.map((p, k) => urls[k]
       ? '<div class="jpcell"><a href="' + esc(urls[k]) + '" class="pshot" data-full="' + esc(urls[k]) + '"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
         '<button type="button" class="jpx" data-k="' + k + '" aria-label="Remove photo">×</button></div>' : '').join("") ||
       '<div class="msg">No photos yet.</div>';
@@ -2125,7 +2133,9 @@ async function show(){
       note1("Lead notes", lead && lead.staffNotes) +
       /* Customer-profile notes stay on the customer's profile; the Job Sheet shows job notes only. */
       note1("Quote notes", q.notes);
-    notesEl.innerHTML = html || '<div class="msg">No notes on file.</div>';
+    /* Nothing on file: the whole Notes from quote and estimate section is hidden. */
+    const showNotes = on => { notesEl.style.display = on ? "" : "none"; const h = document.getElementById("notesH"); if (h) h.style.display = on ? "" : "none"; };
+    notesEl.innerHTML = html; showNotes(!!html);
     /* Photos the customer sent: from the message box on their quote, and from the website estimate (their lead). */
     const custPaths = [...new Set(pathsOf({ photoPaths: [...((qnote && qnote.photoPaths) || []), ...((lead && lead.photoPaths) || [])] }))];
     const custUrls = [...((lead && Array.isArray(lead.photos)) ? lead.photos : [])].filter(u => typeof u === "string" && /^https:\/\//.test(u));
@@ -2134,6 +2144,7 @@ async function show(){
         getDownloadURL(ref(storage, p)).catch(e => { console.error("Customer photo " + p, e); return null; })))).filter(Boolean));
       if (urls.length && notesEl.isConnected) {
         if (!html) notesEl.innerHTML = "";
+        showNotes(true);
         notesEl.insertAdjacentHTML("beforeend", '<div class="rrow"><div class="rlab">Customer photos</div></div>' +
           '<div class="jpgrid">' + urls.map(u => '<div class="jpcell"><a href="' + esc(u) + '" class="pshot" data-full="' + esc(u) +
           '"><img src="' + esc(u) + '" alt="" loading="lazy"></a></div>').join("") + '</div>');
