@@ -70,15 +70,16 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
      full width, under the Accepted pill. */
   /* Grid: name/address with the Accepted pill right under it on the left, the mascot tall on
      the right beside both, the guarantee across the bottom. */
-  .meta{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr auto;column-gap:8px;row-gap:10px}
+  .meta{display:grid;grid-template-columns:minmax(0,max-content) minmax(90px,1fr);grid-template-rows:auto 1fr auto;column-gap:8px;row-gap:10px}
   .meta > div:first-child{grid-column:1;grid-row:1;min-width:0}
   .meta .r{grid-column:1;grid-row:2;align-self:start}
   .mascot{display:contents}
-  .mascot img{grid-column:2;grid-row:1 / span 2;width:min(45vw,225px);height:auto;align-self:start;margin-top:-10px;margin-right:34px}
+  .mascot img{grid-column:2;grid-row:1 / span 2;width:100%;max-width:225px;height:auto;align-self:start;justify-self:end;margin-top:-10px;margin-right:-6px}
+  .adl{white-space:nowrap}   /* street on one line, city/state/zip on one line; the mascot gives up the room */
   .mascot span{grid-column:1 / -1;grid-row:3;margin-top:0;font-size:17px;letter-spacing:.1em;text-align:center}
   .meta .jobrep{grid-column:1 / -1;grid-row:4;margin:6px 0 0}   /* Job Report: full width under the guarantee */
 }
-@media (max-width:400px){.mascot img{width:40vw;margin-right:4px}}   /* smaller phones: keep the street on one line */
+/* (smaller phones: the address lines stay whole; the mascot shrinks into what's left) */
 /* Computers: Accepted pill right under the phone number; the mascot big on the right with the
    guarantee under him, reaching down beside the (shorter) Job Report button on the left. */
 @media (min-width:561px){
@@ -837,7 +838,7 @@ function render(d){
     <div class="body">
       ${!isQuote && d.status !== "paid" ? `<p class="cashok">Cash is always accepted.</p>` : ""}
       <div class="meta">
-        <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? "<br>" + esc(addr1) : ""}${addr2 ? "<br>" + esc(addr2) : ""}<span class="phl">${c.phone ? "<span>" + esc(c.phone) + "</span>" : "<span></span>"}<span class="mdate">${dShort}</span></span></p></div>
+        <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? '<br><span class="adl">' + esc(addr1) + "</span>" : ""}${addr2 ? '<br><span class="adl">' + esc(addr2) + "</span>" : ""}<span class="phl">${c.phone ? "<span>" + esc(c.phone) + "</span>" : "<span></span>"}<span class="mdate">${dShort}</span></span></p></div>
         <div class="mascot"><img src="../images/mascot.webp" alt="Khean &amp; Clean mascot">${!isQuote && d.status === "paid"
           ? `<span class="grev"><a href="${REVIEW_URL}" target="_blank" rel="noopener">Leave us a <b class="g">Google</b> review</a><small>Your review means the world to us. Thank you so much!</small></span>`
           : `<span>7-Day Re-Clean Guarantee</span>`}</div>
