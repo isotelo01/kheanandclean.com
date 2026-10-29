@@ -176,6 +176,16 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .jdisc label{display:inline-flex;align-items:center;gap:4px}
 .jdisc input{width:84px;font:16px "Archivo",sans-serif;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
 .jdisc .off{margin-left:auto;color:var(--green)}
+/* Job discount button (purple): drops down the discount table from Settings. Tick to apply; percents editable for this job. */
+.jdbtn{height:38px;padding:0 14px;border:0;border-radius:8px;background:linear-gradient(180deg,#7b3fd6,#4f1fa3);color:#fff;font:700 15px "Archivo";cursor:pointer;box-shadow:0 2px 10px rgba(123,63,214,.35)}
+.jdtable{flex:1 1 100%;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.jdtable[hidden]{display:none}
+.jdrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line);font-weight:600}
+.jdrow:first-child{border-top:0}
+.jdrow input[type=checkbox]{width:20px;height:20px;accent-color:#7b3fd6}
+.jdrow .jdname{flex:1}
+.jdrow .jdp{width:64px}
+.jdtable .msg{padding:10px 12px}
 .jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
 @media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
 .prog{font-size:14px;color:var(--muted);margin-bottom:10px}
@@ -638,12 +648,53 @@ async function saveOnsite(){
   const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0));
   await setDoc(doc(db, cur.place, id), { onsite: { lines: cur.lines, subtotal: sub, total: r2(sub + cur.adj), discount: r2(Math.max(0, -cur.adj)), jobDisc: cur.disc, from: cur.qsig || "", updatedAt: serverTimestamp() } }, { merge: true });
 }
-/* Job discount boxes: on change, save the job sheet and redraw it. */
+/* Job discount table: the discounts from Settings > Discounts (same list the estimator uses).
+   Ticking adds its percent into the % box; each percent can be changed for this job. */
+let jdOpen = false, jdTable = null;
+const jdLabel = x => String(x || "").replace(/\s*\bdiscount\b\s*/ig, " ").trim() || String(x || "");
+async function loadJdTable(){
+  if (jdTable) return jdTable;
+  const START = ["Senior", "Military", "Neighbor", "Repeat customer", "First-time customer"].map(n => ({ name: n, pct: 5 }));
+  try { const s = await getDoc(doc(db, "settings", "discounts"));
+    jdTable = (s.exists() && Array.isArray(s.data().items) ? s.data().items : START); }
+  catch (e) { console.error(e); jdTable = START; }
+  jdTable = jdTable.filter(d => d && d.name && +d.pct > 0).map(d => ({ name: jdLabel(d.name), pct: +d.pct }));
+  return jdTable;
+}
+function jdRows(){
+  if (!jdTable) return '<div class="msg">Loading discounts&hellip;</div>';
+  if (!jdTable.length) return '<div class="msg">No discounts in Settings yet.</div>';
+  const on = {}; (cur.disc.names || []).forEach(n => { on[n.name] = +n.pct; });
+  return jdTable.map((d, i) => '<label class="jdrow"><input type="checkbox" data-jd="' + i + '"' + (on[d.name] != null ? ' checked' : '') + '>' +
+    '<span class="jdname">' + esc(d.name) + '</span>' +
+    '<input type="number" class="jdp" data-jdp="' + i + '" min="0" max="100" step="1" inputmode="decimal" value="' + (on[d.name] != null ? on[d.name] : d.pct) + '" aria-label="' + esc(d.name) + ' percent">%</label>').join("");
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest("#jdBtn"); if (!b || !cur) return;
+  jdOpen = !jdOpen;
+  const t = document.getElementById("jdTable");
+  b.setAttribute("aria-expanded", jdOpen); b.textContent = "Job discount " + (jdOpen ? "\u25B4" : "\u25BE");
+  if (t) t.hidden = !jdOpen;
+  if (jdOpen && !jdTable) { await loadJdTable(); const t2 = document.getElementById("jdTable"); if (t2) t2.innerHTML = jdRows(); }
+});
+/* Job discount boxes and table: on change, save the job sheet and redraw it.
+   Typing your own % turns the table discounts off; the $ box adds on top of them. */
 document.addEventListener("change", e => {
-  if (!cur || (e.target.id !== "jdAmt" && e.target.id !== "jdPct")) return;
+  const inTable = e.target.closest && e.target.closest("#jdTable");
+  if (!cur || (!inTable && e.target.id !== "jdAmt" && e.target.id !== "jdPct")) return;
   if (priceLocked()) { lockedMsg(); show(); return; }
   const a = document.getElementById("jdAmt"), p = document.getElementById("jdPct");
-  cur.disc = { amt: Math.max(0, Number(a && a.value) || 0), pct: Math.min(100, Math.max(0, Number(p && p.value) || 0)) };
+  let names = cur.disc.names || [], pct = Math.min(100, Math.max(0, Number(p && p.value) || 0));
+  if (inTable) {
+    names = [];
+    document.querySelectorAll("#jdTable [data-jd]").forEach(cb => {
+      if (!cb.checked) return; const i = +cb.dataset.jd, pi = document.querySelector('#jdTable [data-jdp="' + i + '"]');
+      const v = Math.min(100, Math.max(0, Number(pi && pi.value) || 0));
+      if (v > 0 && jdTable[i]) names.push({ name: jdTable[i].name, pct: v });
+    });
+    pct = Math.min(100, names.reduce((t, n) => t + n.pct, 0));
+  } else if (e.target.id === "jdPct") names = [];
+  cur.disc = { amt: Math.max(0, Number(a && a.value) || 0), pct, names };
   saveOnsite().then(show).catch(err => { fail(err); show(); });
 });
 const fail = e => { console.error(e); const n = document.getElementById("note"); if (n) { n.textContent = "Could not save: " + e.message; n.classList.add("err"); } };
@@ -1268,7 +1319,8 @@ async function show(){
   const minOn = hasParts && !(qDisc > 0) && !(q.form && q.form.waiveMin);
   const minJob = q.minApplied ? (Number(q.total) || 0) : (Number(window.KC_MINJOB) || 150);
   cur = { place, lines, qsig, quoted: Number(q.total) || 0, baseAdj,
-    disc: { amt: Math.max(0, Number(jd.amt) || 0), pct: Math.min(100, Math.max(0, Number(jd.pct) || 0)) },   /* Job discount box */
+    disc: { amt: Math.max(0, Number(jd.amt) || 0), pct: Math.min(100, Math.max(0, Number(jd.pct) || 0)),   /* Job discount box */
+      names: Array.isArray(jd.names) ? jd.names.filter(n => n && n.name && Number(n.pct) > 0) : [] },   /* ticked in the discount table */
     /* Everything that reads cur.adj (total, variance, updated quote, invoice) gets both. */
     get adj(){ const sub = this.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0);
       const off = sub * this.disc.pct / 100 + this.disc.amt;
@@ -1552,10 +1604,11 @@ async function show(){
   const variance = r2(sub + cur.adj - cur.quoted);
   const showVar = !PUBLIC && (place === "acceptedQuotes" || place === "quotes") && Math.abs(variance) >= 0.01 && q.varianceIgnored !== r2(sub + cur.adj);
   const jdOff = r2(sub * cur.disc.pct / 100 + cur.disc.amt);
-  const jdisc = PUBLIC ? '' : '<div class="jdisc staff"><span>Job discount</span>' +
+  const jdisc = PUBLIC ? '' : '<div class="jdisc staff"><button type="button" class="jdbtn" id="jdBtn" aria-expanded="' + jdOpen + '">Job discount ' + (jdOpen ? '\u25B4' : '\u25BE') + '</button>' +
     '<label>$<input type="number" id="jdAmt" min="0" step="1" inputmode="decimal" placeholder="0" value="' + (cur.disc.amt || '') + '" aria-label="Job discount in dollars"></label>' +
     '<label><input type="number" id="jdPct" min="0" max="100" step="1" inputmode="decimal" placeholder="0" value="' + (cur.disc.pct || '') + '" aria-label="Job discount in percent">%</label>' +
-    (jdOff > 0 ? '<span class="off">&minus;' + money(jdOff) + '</span>' : '') + '</div>';
+    (jdOff > 0 ? '<span class="off">&minus;' + money(jdOff) + '</span>' : '') +
+    '<div class="jdtable" id="jdTable"' + (jdOpen ? '' : ' hidden') + '>' + jdRows() + '</div></div>';
   const jtotal = jdisc + '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
     /* Original quote: on an on-site update (R1, R2...) it's the first approved one, kept inside as originalQuote. */
     '<div class="meta staff" style="text-align:right"><a href="./quote.html?id=' + encodeURIComponent(id) + (q.originalQuote ? '&original=1' : '') +
@@ -1905,7 +1958,10 @@ async function show(){
       const qOk = qls.length && Math.abs(qls.reduce((s, l) => s + (Number(l.amount) || 0), 0) - qDiscN) < 0.01;
       let dLines = qDiscN > 0 ? (qOk ? qls.map(l => ({ ...l })) : [{ label: q.discountLabel || "Discount", amount: qDiscN }]) : [];
       const pctOff = r2(sub * cur.disc.pct / 100), amtOff = r2(cur.disc.amt);
-      if (pctOff > 0) dLines.push({ label: "On-site discount (" + cur.disc.pct + "%)", amount: pctOff });
+      const jdNames = (cur.disc.names || []).filter(n => Number(n.pct) > 0);
+      if (pctOff > 0 && jdNames.length && Math.abs(jdNames.reduce((t, n) => t + Number(n.pct), 0) - cur.disc.pct) < 0.01)
+        jdNames.forEach(n => dLines.push({ label: n.name + " (" + n.pct + "%)", amount: r2(sub * n.pct / 100) }));
+      else if (pctOff > 0) dLines.push({ label: "On-site discount (" + cur.disc.pct + "%)", amount: pctOff });
       if (amtOff > 0) dLines.push({ label: "On-site discount", amount: amtOff });
       if (discT > 0 && dLines.length) {   /* rounding: the lines always add up to the discount */
         const diff = r2(discT - dLines.reduce((s, l) => s + (Number(l.amount) || 0), 0));
