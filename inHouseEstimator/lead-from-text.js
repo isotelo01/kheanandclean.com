@@ -13,12 +13,15 @@ export function guessFromTexts(texts) {
     if (!name) {
       const m = t.match(/\b(?:[Mm]y name is|[Mm]y name's|[Tt]his is|[Nn]ame's)\s+([A-Z][a-z'’-]+(?:\s+[A-Z][a-z'’-]+)?)/);
       if (m) name = m[1];
+      /* Signed at the end, like "... -Jenny" or "— Jenny". */
+      const sig = t.match(/(?:^|\s)[-–—]\s?([A-Z][a-z'’-]+)\s*$/);
+      if (!m && sig) name = sig[1];
     }
     if (!referredBy) {
       const m = t.match(/\b(?:referred (?:me |us )?(?:to you )?by|referral from|recommended by|got your (?:number|name|info|contact info|contact) from|heard about you (?:from|through))\s+([^.,!?;\n]{2,40})/i)
         || t.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:referred|recommended) (?:me|us|you)\b/)
         || t.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+gave me your (?:number|info|name)\b/);
-      if (m) referredBy = clean(m[1]).split(/\s+(?:for|to|and|about|who|that|because|regarding|so)\b/i)[0];
+      if (m) referredBy = clean(m[1]).split(/\s+[-–—]\s?[A-Z]|\s+(?:for|to|and|about|who|that|because|regarding|so)\b/)[0].trim();
     }
   }
   return { name, referredBy };
