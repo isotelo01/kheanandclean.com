@@ -91,7 +91,15 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .meta.qnum{position:absolute;top:40px;right:8px;margin:0;font-size:12px;white-space:nowrap}
 .meta.cdate{position:absolute;bottom:9px;right:12px;margin:0;font-size:12px;white-space:nowrap}
 /* Estimation sheet: let the square widen so the label never spills out. */
-.jsq{width:auto;min-width:62px;padding:0 8px}
+.nameline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* Sheet button: one line, beside the name. */
+.jsq{width:auto;height:auto;margin:0;padding:4px 10px;white-space:nowrap;font-size:13px;line-height:1.2;border-radius:6px}
+/* Phones: status on its own line, then Edit, Text, Text Mentor, Email on one line. */
+@media (max-width:520px){
+  .right .status{display:block;width:fit-content}
+  .right .editbtn,.right .textbtn,.right .markbtn,.right .mailbtn{margin-left:4px;padding:4px 9px}
+  .right .status + .editbtn,.right .status + .restore{margin-left:0}
+}
 .right{text-align:right;margin-left:auto}
 .amt{font:700 20px "Archivo",system-ui,sans-serif;font-variant-numeric:tabular-nums lining-nums}
 .status{display:inline-block;font-weight:700;padding:3px 11px;border-radius:20px;font-size:13px;margin-top:4px}
@@ -232,7 +240,12 @@ const card = r =>
     /* Purple: an on-site update (Q-1068-R1...) waiting on the customer's re-approval. */
     (r.revisionOf || (r.fromJobSheet && r.source === "quotes") ? ' rev' : '') + '" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
     '<div>' +
+      /* Name line: the customer's name, with the sheet button right beside it. */
+      '<div class="nameline">' +
       '<div class="who"' + (personHref(r) ? ' data-go="' + esc(personHref(r)) + '" title="Open profile"' : '') + '>' + esc(r.name || "No name") + '</div>' +
+      (r.source === "acceptedQuotes" || r.source === "quotes" ? '<button type="button" class="jsq" data-js="' + esc(r.id) + '">' + (r.source === "quotes" ? 'Estimation sheet' : 'Job sheet') + '</button>' : '') +
+      (r.source === "paidInvoices" ? '<button type="button" class="jsq" data-jd="' + esc(r.id) + '">Job data</button>' : '') +
+      '</div>' +
       /* Phone under the name; quote number sits under the X (top right), the day in the bottom right. */
       (r.phone ? '<div class="meta">' + esc(r.phone) + '</div>' : '') +
       '<span class="meta qnum">' + esc(r.number) + '</span>' +
@@ -244,9 +257,7 @@ const card = r =>
         : '') +
     '</div>' +
     /* Accepted estimates: a square Job sheet button in the open middle of the card. */
-    (r.source === "acceptedQuotes" || r.source === "quotes" ? '<button type="button" class="jsq" data-js="' + esc(r.id) + '">' + (r.source === "quotes" ? 'Estimation<br>sheet' : 'Job<br>sheet') + '</button>' : '') +
     /* Paid invoices: the same square opens Job Data (drive, miles, time on site, sq ft, chemicals). */
-    (r.source === "paidInvoices" ? '<button type="button" class="jsq" data-jd="' + esc(r.id) + '">Job<br>data</button>' : '') +
     '<div class="right">' +
       '<div class="amt">' + money(r.total) + '</div>' +
       /* Customer opened the link: "Viewed" + when (last time they opened it) instead of Awaiting reply / Invoiced. */
