@@ -171,13 +171,13 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 /* Not billed (taken off in the estimator): on the job sheet at $0, never in the Summary or the customer's report. */
 .summ .nbill,.pub .nbill{display:none!important}
 @media print{.addsvc,.addfurn{display:none!important}}
-/* Job discount ($ or %), staff only, just above the on-site total. */
-.jdisc{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:14px 0 6px;font-size:15px;font-weight:600}
+/* Job discount ($ or %), staff only, under the on-site total. */
+.jdisc{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:12px 0 6px;font-size:14px;font-weight:600}
 .jdisc label{display:inline-flex;align-items:center;gap:4px}
-.jdisc input{width:84px;font:16px "Archivo",sans-serif;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
+.jdisc input{width:56px;height:32px;font:16px "Archivo",sans-serif;padding:2px 6px;border:1px solid var(--line);border-radius:6px;text-align:right}
 .jdisc .off{margin-left:auto;color:var(--green)}
 /* Job discount button (purple): drops down the discount table from Settings. Tick to apply; percents editable for this job. */
-.jdbtn{height:38px;padding:0 14px;border:0;border-radius:8px;background:linear-gradient(180deg,#7b3fd6,#4f1fa3);color:#fff;font:700 15px "Archivo";cursor:pointer;box-shadow:0 2px 10px rgba(123,63,214,.35)}
+.jdbtn{height:32px;padding:0 12px;border:0;border-radius:8px;background:linear-gradient(180deg,#7b3fd6,#4f1fa3);color:#fff;font:700 13px "Archivo";cursor:pointer;box-shadow:0 2px 10px rgba(123,63,214,.35)}
 .jdtable{flex:1 1 100%;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .jdtable[hidden]{display:none}
 .jdisc .jdrow{display:flex;width:100%;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line);font-weight:600}
@@ -1614,10 +1614,10 @@ async function show(){
     '<label><input type="number" id="jdPct" min="0" max="100" step="1" inputmode="decimal" placeholder="0" value="' + (cur.disc.pct || '') + '" aria-label="Job discount in percent">%</label>' +
     (jdOff > 0 ? '<span class="off">&minus;' + money(jdOff) + '</span>' : '') +
     '<div class="jdtable" id="jdTable"' + (jdOpen ? '' : ' hidden') + '>' + jdRows() + '</div></div>';
-  const jtotal = jdisc + '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
+  const jtotal = '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
     /* Original quote: on an on-site update (R1, R2...) it's the first approved one, kept inside as originalQuote. */
     '<div class="meta staff" style="text-align:right"><a href="./quote.html?id=' + encodeURIComponent(id) + (q.originalQuote ? '&original=1' : '') +
-      '" target="_blank" rel="noopener">Original quote &middot; ' + money(q.originalQuote ? q.originalQuote.total : cur.quoted) + '</a></div>';
+      '" target="_blank" rel="noopener">Original quote &middot; ' + money(q.originalQuote ? q.originalQuote.total : cur.quoted) + '</a></div>' + jdisc;   /* Job discount under the total */
 
   view.innerHTML =
     '<div class="panel">' +
