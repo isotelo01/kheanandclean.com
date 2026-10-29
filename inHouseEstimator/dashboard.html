@@ -272,7 +272,7 @@ const card = r =>
             /* Accepted cards have their own Job sheet button, so their Edit opens the quote. */
             (r.revisionOf ? ' data-job="' + esc(r.revisionOf) + '"' : r.fromJobSheet && r.source !== "acceptedQuotes" ? ' data-job="' + esc(r.id) + '"' : '') + '>Edit</button>') +
       (r.source !== "trash" && r.phone
-        ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-kind="' + kindOf(r) + '">Text</button>'
+        ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-name="' + esc(r.name || "") + '" data-kind="' + kindOf(r) + '">Text</button>'
         : '') +
       /* Text Mentor: a mentor's link to this job sheet (estimates and accepted estimates). */
       (r.source === "quotes" || r.source === "acceptedQuotes"
@@ -612,7 +612,8 @@ boardEl.addEventListener("click", async e => {
     const m = choice.closest(".textmenu"), t = m.previousElementSibling;
     const digits = String(t.dataset.phone || "").replace(/\D/g, "");
     const link = location.origin + location.pathname.replace(/[^/]*$/, "") + "quote.html?id=" + encodeURIComponent(t.dataset.text);
-    const body = "Hi, here's your " + (t.dataset.kind === "invoice" ? "invoice" : "estimate") + " from Khean & Clean: " + link;
+    const first = String(t.dataset.name || "").trim().split(/\s+/)[0];   /* first name only */
+    const body = "Hi" + (first ? " " + first : "") + ", here's your " + (t.dataset.kind === "invoice" ? "invoice" : "estimate") + " from Khean & Clean: " + link;
     if (choice.dataset.via === "phone") {
       closeTextMenu();
       const sep = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? "&" : "?";
