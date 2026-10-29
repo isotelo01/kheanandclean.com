@@ -349,6 +349,14 @@ body:not(.summ) .srow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;mar
 body:not(.summ) .srow:hover{background:rgba(255,255,255,.05)}
 body:not(.summ) .srow .spot,body:not(.summ) .srow .spot:hover{flex:1 1 220px;min-width:0;order:1;border:0;padding:4px}
 body:not(.summ) .srow .sdsel{order:2;margin:0;flex:none}
+/* Card layout (working sheet): title centered on top, photo under it, then size, price, and the discount below. */
+body:not(.summ) .srow{flex-direction:column;align-items:center}
+body:not(.summ) .srow .spot,body:not(.summ) .srow .spot:hover{flex:none;width:100%;flex-direction:column;align-items:center;text-align:center;gap:6px;position:relative;padding:8px 28px}
+body:not(.summ) .srow .spot__name{order:-1;width:100%}
+body:not(.summ) .srow .spot .spot__tick.thumb{width:100%;max-width:240px;height:160px}
+body:not(.summ) .srow .spot__size,html:not(.pub) body:not(.summ) .srow .sprice{display:block;padding:0}
+body:not(.summ) .srow .spot__go{position:absolute;right:6px;top:50%;transform:translateY(-50%);margin:0}
+body:not(.summ) .srow .sdsel{align-self:center;margin:0 0 6px}
 /* Staff working sheet: each room / rug / piece button shows its own price, discount already off. */
 html:not(.pub) body:not(.summ) .sprice{display:inline;padding-left:8px}
 body:not(.summ) .srow.gone{opacity:0}

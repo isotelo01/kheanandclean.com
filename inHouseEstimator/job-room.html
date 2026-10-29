@@ -161,7 +161,7 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getStorage, ref, getBlob } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 /* Offline versions: work with no service and sync when it's back (offline.js). */
 import { getFirestore, getDoc, setDoc, uploadBytes, getDownloadURL, startOffline } from "./offline.js";
 
@@ -524,7 +524,7 @@ async function show(){
       const grid = document.getElementById("pgrid-" + g), paths = groups[g];
       const urls = await Promise.all(paths.map(p => getDownloadURL(ref(storage, p)).catch(e => { console.error("Photo " + p, e); return null; })));
       grid.innerHTML = paths.map((p, k) => urls[k]
-        ? '<div class="pcell"><a href="' + esc(urls[k]) + '" target="_blank" rel="noopener"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
+        ? '<div class="pcell"><a href="' + esc(urls[k]) + '" data-g="' + g + '" data-k="' + k + '" target="_blank" rel="noopener"><img src="' + esc(urls[k]) + '" alt="" loading="lazy"></a>' +
           '<button type="button" class="px" data-k="' + k + '" aria-label="Remove photo">×</button>' +
           (PUBLIC ? '' : '<button type="button" class="pstar' + (starred.has(p) ? ' on' : '') + '" data-star="' + esc(p) + '" aria-label="Favorite" aria-pressed="' + starred.has(p) + '">' + (starred.has(p) ? '★' : '☆') + '</button>') +
           '</div>' : '').join("") ||
@@ -538,6 +538,26 @@ async function show(){
       view.querySelectorAll(".ptitle").forEach(h => { let n = h.nextElementSibling, any = false;
         while (n && !n.classList.contains("ptitle") && !n.classList.contains("h3")) { if (n.classList.contains("pgrid") && !n.classList.contains("pempty")) any = true; n = n.nextElementSibling; }
         h.classList.toggle("pempty", !any); }); });
+    /* Rotate (from the big photo viewer): saves a quarter-turned copy, swaps it in, keeps its star. Staff only. */
+    if (window.kcRotFn) document.removeEventListener("kc-rotate", window.kcRotFn);   /* one handler, even if the page redraws */
+    document.addEventListener("kc-rotate", window.kcRotFn = async e => {
+      const { g, k, done } = e.detail || {}; const old = groups[g] && groups[g][k];
+      if (PUBLIC || !old) return done && done(null, new Error("Can't rotate that photo here."));
+      note.textContent = "Rotating…"; note.classList.remove("err");
+      try {
+        const bmp = await createImageBitmap(await getBlob(ref(storage, old)));
+        const c = document.createElement("canvas"); c.width = bmp.height; c.height = bmp.width;
+        const x = c.getContext("2d"); x.translate(c.width, 0); x.rotate(Math.PI / 2); x.drawImage(bmp, 0, 0);
+        const blob = await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("Could not turn that photo")), "image/jpeg", 0.9));
+        const path = "quick-quote-photos/job_" + id + "_" + spot.key + "_" + g + "/" + Date.now() + "_r.jpg";
+        await uploadBytes(ref(storage, path), blob, { contentType: "image/jpeg" });
+        groups[g][k] = path;
+        await savePhotos();
+        if (starred.has(old)) { starred.delete(old); starred.add(path); await setDoc(doc(db, place, id), { starred: [...starred] }, { merge: true }); }
+        await draw(g); note.textContent = "Photo rotated.";
+        done && done(await getDownloadURL(ref(storage, path)));
+      } catch (err) { console.error(err); note.textContent = "Could not rotate: " + err.message; note.classList.add("err"); done && done(null, err); }
+    });
     /* Photos are saved onto the job as soon as they upload, so none are lost if Save isn't pressed. */
     const savePhotos = () => setDoc(doc(db, place, id), { spots: { [spot.key]: { ...photoFields(), updatedAt: serverTimestamp() } } }, { merge: true });
     const upload = async (g, files) => {
@@ -839,12 +859,23 @@ else onAuthStateChanged(getAuth(app), user => {
       '<button type="button" id="pvNext" aria-label="Next photo" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:44px;height:60px;border:0;border-radius:10px;background:rgba(255,255,255,.12);color:#fff;font-size:30px;cursor:pointer">›</button>' +
       '<div style="position:absolute;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom));display:flex;justify-content:center;align-items:center;gap:14px;color:#fff;font:600 14px system-ui,sans-serif">' +
         '<span id="pvN"></span>' +
+        (new URLSearchParams(location.search).get("view") === "customer" ? '' :
+          '<button type="button" id="pvRot" style="border:1px solid rgba(255,255,255,.5);border-radius:8px;background:transparent;color:#fff;font:700 15px system-ui,sans-serif;padding:10px 16px;cursor:pointer">\u21bb Rotate</button>') +
         '<button type="button" id="pvDl" style="border:0;border-radius:8px;background:#E3B64A;color:#172239;font:700 15px system-ui,sans-serif;padding:10px 18px;cursor:pointer">Download</button></div>';
     document.body.appendChild(box);
     document.getElementById("pvX").onclick = close;
     document.getElementById("pvPrev").onclick = function () { go(-1); };
     document.getElementById("pvNext").onclick = function () { go(1); };
     document.getElementById("pvDl").onclick = download;
+    var rot = document.getElementById("pvRot");
+    if (rot) rot.onclick = function () {
+      var a = document.querySelectorAll(".pcell a[href]")[at]; if (!a || rot.disabled) return;
+      rot.disabled = true; rot.textContent = "Rotating…";
+      document.dispatchEvent(new CustomEvent("kc-rotate", { detail: { g: a.dataset.g, k: Number(a.dataset.k), done: function (url) {
+        rot.disabled = false; rot.textContent = "\u21bb Rotate";
+        if (url) { list = Array.prototype.map.call(document.querySelectorAll(".pcell a[href]"), function (x) { return x.href; }); list[at] = url; paint(); }
+      } } }));
+    };
     box.addEventListener("click", function (e) { if (e.target === box) close(); });
     box.addEventListener("touchstart", function (e) { sx = e.touches[0].clientX; }, { passive: true });
     box.addEventListener("touchend", function (e) {
