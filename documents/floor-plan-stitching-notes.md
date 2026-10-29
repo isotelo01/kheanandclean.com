@@ -33,6 +33,8 @@ Test job: EDH Casino — Sal Palma, Q-1103 (on-site estimate, `quotes/tVvTL2NqY3
 - Measurer scale list now includes poker tables (about 10 x 4.5 ft) and blackjack tables (about 7 ft across the front).
 - Plan can show furniture to scale (poker room: 2 poker tables, running the length of the room; glass office: 1 Three Card Poker table at the east end, turned 35 degrees, dealer aisle behind; Main Room: 1 poker table on the north side and 6 pit games, two rows of 3 with dealers in a center pit).
 
+- Floor plan page (`inHouseEstimator/floor-plan.html`, button at the bottom of the Job Sheet, Oct 29 2026): every sketched room drawn with its name + sq ft, one tab per story. Tap to pick, drag to move (snaps corner-to-corner or flush to a wall, else half-foot steps), rotate 90°/15°, Connect/Separate groups that move and turn as one, Edit room opens the room page. Saved on the job as `floorPlan.rooms.<key> = {x, y, rot, g}` (x, y = the room's middle in feet; g = group). Never resizes rooms.
+
 ## Stitching rules (for the AI that puts rooms together)
 1. Top of the plan is north. Use the walls Israel names (north/south/east/west) over anything guessed from photos.
 2. Each room keeps its own measured outline and sq ft. Stitching only moves and rotates rooms; it never resizes them.

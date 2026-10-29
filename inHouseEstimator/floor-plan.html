@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="robots" content="noindex, nofollow">
+<title>Floor Plan &middot; Khean &amp; Clean</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Floor plan: every sketched room on the job, put together. Rooms only move and rotate here —
+   sizes come from each room's own sketch (Edit room). Dark baseline like the rest of the app. */
+:root{--navy:#172239;--gold:#E3B64A;--line:rgba(255,255,255,.3)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.4 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:#000;z-index:9}
+.page{display:flex;flex-direction:column;height:100%;padding:max(10px, env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom))}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bar h1{font-size:20px;margin:0 auto 0 0}
+button,.btn{background:var(--navy);color:var(--gold);border:2px solid var(--gold);border-radius:999px;padding:9px 14px;
+  font:700 15px "Archivo",sans-serif;cursor:pointer;text-decoration:none;white-space:nowrap}
+button:disabled{opacity:.4;cursor:default}
+button.on{background:var(--gold);color:var(--navy)}
+.tabs{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.tabs[hidden]{display:none}
+.info{margin-top:8px;font-size:14px;color:#cfd6e4;min-height:20px}
+.info b{color:var(--gold)}
+#plan{flex:1 1 auto;min-height:0;margin-top:8px;border:1px solid var(--line);border-radius:12px;background:#0b1220;touch-action:none;user-select:none;-webkit-user-select:none;width:100%}
+.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.tools button{padding:9px 4px;font-size:14px}
+.tools .wide{grid-column:span 2}
+.note{font-size:14px;color:#cfd6e4;margin-left:6px}
+.note.err{color:#ff8a7a}
+.miss{font-size:13px;color:#9fb3d1;margin-top:6px}
+.miss a{color:var(--gold)}
+.msg{padding:20px;color:#cfd6e4}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="page">
+  <div class="bar">
+    <a class="btn" id="backBtn" href="./job-sheet.html">&lsaquo; Job Sheet</a>
+    <h1>Floor plan</h1>
+    <button type="button" id="saveBtn">Save</button><span class="note" id="note"></span>
+  </div>
+  <div class="tabs" id="tabs" hidden></div>
+  <div class="info" id="info">Loading&hellip;</div>
+  <svg id="plan" role="img" aria-label="Floor plan"></svg>
+  <div class="tools">
+    <button type="button" id="rotL" disabled>↺ 90°</button>
+    <button type="button" id="rotR" disabled>↻ 90°</button>
+    <button type="button" id="tilL" disabled>↺ 15°</button>
+    <button type="button" id="tilR" disabled>↻ 15°</button>
+    <button type="button" id="conBtn" class="wide" disabled>Connect</button>
+    <button type="button" id="sepBtn" class="wide" disabled>Separate</button>
+    <button type="button" id="editBtn" class="wide" disabled>Edit room</button>
+    <button type="button" id="undoBtn" disabled>↶ Undo</button>
+    <button type="button" id="fitBtn">⤢ Fit</button>
+  </div>
+  <div class="miss" id="miss"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getFirestore, getDoc, setDoc, startOffline } from "./offline.js";
+
+const SHARE = (() => { try { return sessionStorage.getItem("kcShare") === "1"; } catch (e) { return false; } })();
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+}, SHARE ? "share" : "[DEFAULT]");
+const db = getFirestore(app), storage = getStorage(app);
+
+const $ = x => document.getElementById(x);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ss = { get: k => { try { return sessionStorage.getItem(k) || ""; } catch (e) { return ""; } },
+             set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} } };
+const PLACES = ["acceptedQuotes", "invoices", "paidInvoices", "quotes"];
+const qs = new URLSearchParams(location.search);
+const id = qs.get("id") || ss.get("kcFloorPlanId");
+if (id) ss.set("kcFloorPlanId", id);
+const svg = $("plan");
+const snapH = v => Math.round(v * 2) / 2;   /* half-foot steps */
+const STORY = ["Zero story", "1st story", "2nd story", "3rd story"];
+
+let place = "", rooms = [], story = 1, sel = null, connecting = false, hist = [], dirty = false;
+
+/* Room names: same order and keys the room pages use (spots.<key>). */
+function roomList(q){
+  const out = [];
+  const lines = (q.onsite && Array.isArray(q.onsite.lines)) ? q.onsite.lines : (Array.isArray(q.lines) ? q.lines : []);
+  lines.forEach((line, lineNo) => (Array.isArray(line.items) ? line.items : []).forEach((it, j) => {
+    let r = 0;
+    const list = (!Array.isArray(it.rooms) || !it.rooms.length) && Array.isArray(it.areas) && it.areas.length
+      ? it.areas.map((nm, k) => ({ id: lineNo + "-" + j + "-" + k, name: String(nm || "Area"), qty: 1 })) : (Array.isArray(it.rooms) ? it.rooms : []);
+    list.forEach(rm => {
+      const n = Math.max(1, Number(rm.qty) || 1);
+      for (let k = 1; k <= n; k++) {
+        const key = rm.id && n === 1 ? rm.id : lineNo + "-" + j + "-" + r;
+        out.push({ key, name: n > 1 ? rm.name + " " + k : String(rm.name || "Room"), line: lineNo, item: j, room: r });
+        r++;
+      }
+    });
+  }));
+  return out;
+}
+
+const cen = pts => [pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length];
+const rotP = (p, deg) => { const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); return [p[0] * c - p[1] * s, p[0] * s + p[1] * c]; };
+/* A room's shape in plan feet: its own sketch turned by rot around its middle, then set at (x, y). */
+const W = (r, p) => { const q = rotP(p, r.rot); return [q[0] + r.x, q[1] + r.y]; };
+const area = pts => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+const here = () => rooms.filter(r => r.story === story);
+const groupOf = r => r.g ? here().filter(o => o.g === r.g) : [r];
+const layout = () => JSON.stringify(rooms.map(r => [r.x, r.y, r.rot, r.g || null]));
+function snap(){ hist.push(layout()); if (hist.length > 40) hist.shift(); tools(); }
+function dropSame(){ if (hist[hist.length - 1] === layout()) hist.pop(); tools(); }
+
+async function load(){
+  let q = null;
+  try { for (const p of PLACES) { const s = await getDoc(doc(db, p, id)); if (s.exists()) { q = s.data(); place = p; break; } } }
+  catch (e) { $("info").textContent = "Could not load: " + e.message; return; }
+  if (!q) { $("info").textContent = "That job isn’t on file."; return; }
+  $("backBtn").href = "./job-sheet.html?id=" + encodeURIComponent(id);
+  const spots = q.spots || {}, saved = (q.floorPlan && q.floorPlan.rooms) || {};
+  const missing = [];
+  roomList(q).forEach(rm => {
+    const st = spots[rm.key] || {};
+    let s = null; try { s = JSON.parse(st.sketch || "null"); } catch (e) {}
+    if (!s || !Array.isArray(s.pts) || s.pts.length < 3) { missing.push(rm); return; }
+    const c = cen(s.pts), loc = p => [p[0] - c[0], p[1] - c[1]];
+    const pts = s.pts.map(loc);
+    const cuts = (Array.isArray(s.cuts) ? s.cuts : []).filter(x => Array.isArray(x.pts)).map(x => x.pts.map(loc));
+    const sv = saved[rm.key] || {};
+    rooms.push({ ...rm, pts, cuts, doors: Array.isArray(s.doors) ? s.doors : [],
+      sqft: Number(st.sketchSqft) > 0 ? Number(st.sketchSqft) : Math.round(area(s.pts) - cuts.reduce((a, x) => a + area(x), 0)),
+      story: Number.isInteger(st.story) ? st.story : 1,
+      x: Number(sv.x), y: Number(sv.y), rot: Number(sv.rot) || 0, g: sv.g || null, placed: Number.isFinite(Number(sv.x)) && sv.x != null });
+  });
+  /* Rooms not placed yet go in a row to the right of everything on their story. */
+  [0, 1, 2, 3].forEach(sto => {
+    const on = rooms.filter(r => r.story === sto);
+    let cx = on.filter(r => r.placed).reduce((m, r) => Math.max(m, ...r.pts.map(p => W(r, p)[0])), -Infinity);
+    if (!isFinite(cx)) cx = 0; else cx += 4;
+    on.filter(r => !r.placed).forEach(r => {
+      const xs = r.pts.map(p => p[0]), ys = r.pts.map(p => p[1]);
+      r.x = cx - Math.min(...xs); r.y = -Math.min(...ys); r.rot = 0; cx += Math.max(...xs) - Math.min(...xs) + 4;
+    });
+  });
+  if (missing.length) $("miss").innerHTML = "Not sketched yet: " + missing.map(m =>
+    '<a href="./job-room.html?id=' + encodeURIComponent(id) + '&line=' + m.line + '&item=' + m.item + '&room=' + m.room + '">' + esc(m.name) + '</a>').join(", ");
+  if (!rooms.length) { $("info").textContent = "No room sketches on this job yet. Measure a room first."; return; }
+  const stories = [...new Set(rooms.map(r => r.story))].sort();
+  story = stories.includes(1) ? 1 : stories[0];
+  if (stories.length > 1) {
+    $("tabs").hidden = false;
+    $("tabs").innerHTML = stories.map(s => '<button type="button" data-s="' + s + '">' + STORY[s] + '</button>').join("");
+    $("tabs").onclick = e => { const b = e.target.closest("[data-s]"); if (!b) return; story = +b.dataset.s; sel = null; connecting = false; fit(); draw(); };
+  }
+  fit(); draw();
+}
+
+function draw(){
+  [...$("tabs").children].forEach(b => b.classList.toggle("on", +b.dataset.s === story));
+  const grp = sel ? groupOf(sel) : [];
+  let g = "", lab = "";
+  here().forEach(r => {
+    const P = r.pts.map(p => W(r, p)), on = r === sel, mate = !on && grp.includes(r);
+    g += '<g data-k="' + esc(r.key) + '" style="cursor:move"><polygon points="' + P.map(p => p.join(",")).join(" ") + '" fill="' +
+      (on ? "rgba(227,182,74,.35)" : mate ? "rgba(227,182,74,.22)" : "rgba(227,182,74,.1)") + '" stroke="' + (on ? "#fff" : "#E3B64A") +
+      '" stroke-width="' + (on ? 3 : 2) + '" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>';
+    r.cuts.forEach(c => { g += '<polygon points="' + c.map(p => W(r, p).join(",")).join(" ") + '" fill="#0b1220" stroke="#E3B64A" stroke-dasharray="4 3" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'; });
+    /* Doors and openings: a light line across the gap in the wall. */
+    r.doors.forEach(o => {
+      const a = r.pts[o.w], b = r.pts[(o.w + 1) % r.pts.length]; if (!a || !b) return;
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, hw = Math.min((o.wd || 3) / 2, len / 2) / len;
+      const t0 = Math.max(0, Math.min(1 - 2 * hw, o.t - hw)), t1 = t0 + 2 * hw, at = t => W(r, [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      const p = at(t0), q = at(t1);
+      g += '<line x1="' + p[0] + '" y1="' + p[1] + '" x2="' + q[0] + '" y2="' + q[1] + '" stroke="#9fb3d1" stroke-width="5" vector-effect="non-scaling-stroke"' + (o.k === "open" ? ' stroke-dasharray="6 4"' : '') + '/>';
+    });
+    g += '</g>';
+    const c = cen(P), xs = P.map(p => p[0]), ys = P.map(p => p[1]);
+    const fs = Math.max(0.9, Math.min(2, Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 7));
+    lab += '<text x="' + c[0] + '" y="' + (c[1] - fs * 0.15) + '" text-anchor="middle" font-size="' + fs + '" font-weight="700" fill="#fff" pointer-events="none">' + esc(r.name) + '</text>' +
+      '<text x="' + c[0] + '" y="' + (c[1] + fs * 1.05) + '" text-anchor="middle" font-size="' + fs * 0.9 + '" fill="#E3B64A" pointer-events="none">' + r.sqft.toLocaleString() + ' sq ft</text>';
+  });
+  svg.innerHTML = g + lab;
+  const tot = here().reduce((s, r) => s + r.sqft, 0);
+  $("info").innerHTML = connecting ? "Tap the room to connect to <b>" + esc(sel.name) + "</b>."
+    : sel ? "<b>" + esc(sel.name) + "</b> · " + sel.sqft.toLocaleString() + " sq ft" + (grp.length > 1 ? " · connected to " + (grp.length - 1) + (grp.length === 2 ? " room" : " rooms") : "")
+    : "Total <b>" + tot.toLocaleString() + " sq ft</b> · " + here().length + (here().length === 1 ? " room" : " rooms") + " · tap a room to work on it";
+  tools();
+}
+function tools(){
+  ["rotL", "rotR", "tilL", "tilR", "conBtn", "editBtn"].forEach(b => $(b).disabled = !sel);
+  $("sepBtn").disabled = !sel || groupOf(sel).length < 2;
+  $("conBtn").classList.toggle("on", connecting);
+  $("undoBtn").disabled = !hist.length;
+  if (dirty) { $("note").textContent = "Not saved yet."; $("note").classList.remove("err"); }
+}
+
+/* View: viewBox in feet. Fit shows every room on this story. */
+let vb = [0, 0, 10, 10];
+const setVB = () => svg.setAttribute("viewBox", vb.join(" "));
+function fit(){
+  const P = here().flatMap(r => r.pts.map(p => W(r, p))); if (!P.length) return;
+  const xs = P.map(p => p[0]), ys = P.map(p => p[1]), pad = 4;
+  vb = [Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) - Math.min(...xs) + pad * 2, Math.max(...ys) - Math.min(...ys) + pad * 2];
+  setVB();
+}
+const toFt = (x, y) => { const p = svg.createSVGPoint(); p.x = x; p.y = y; const m = p.matrixTransform(svg.getScreenCTM().inverse()); return [m.x, m.y]; };
+
+/* Rotate the picked room (or its whole connected group) around its middle. */
+function turn(deg){
+  if (!sel) return; snap();
+  const grp = groupOf(sel), c = cen(grp.map(r => [r.x, r.y]));
+  grp.forEach(r => { const q = rotP([r.x - c[0], r.y - c[1]], deg); r.x = c[0] + q[0]; r.y = c[1] + q[1]; r.rot = ((r.rot + deg) % 360 + 360) % 360; });
+  dirty = true; draw();
+}
+$("rotL").onclick = () => turn(-90); $("rotR").onclick = () => turn(90);
+$("tilL").onclick = () => turn(-15); $("tilR").onclick = () => turn(15);
+$("conBtn").onclick = () => { connecting = !connecting; draw(); };
+$("sepBtn").onclick = () => {
+  if (!sel || !sel.g) return; snap();
+  const g = sel.g; sel.g = null;
+  const left = here().filter(r => r.g === g); if (left.length < 2) left.forEach(r => r.g = null);
+  dirty = true; draw();
+};
+$("editBtn").onclick = async () => {
+  if (!sel) return;
+  if (dirty && !(await save())) return;
+  location.href = "./job-room.html?id=" + encodeURIComponent(id) + "&line=" + sel.line + "&item=" + sel.item + "&room=" + sel.room;
+};
+$("undoBtn").onclick = () => {
+  const h = hist.pop(); if (!h) return;
+  JSON.parse(h).forEach((v, i) => { const r = rooms[i]; [r.x, r.y, r.rot, r.g] = v; });
+  dirty = true; draw();
+};
+$("fitBtn").onclick = fit;
+
+/* Snap when a room is let go: a corner onto a nearby corner, else a corner flush onto a nearby wall,
+   else half-foot steps. Only against rooms that aren't moving with it. */
+function snapMove(moving){
+  const others = here().filter(r => !moving.includes(r));
+  const mv = moving.flatMap(r => r.pts.map(p => W(r, p)));
+  let best = null;
+  others.forEach(o => o.pts.map(p => W(o, p)).forEach(q => mv.forEach(p => {
+    const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < 1.5 && (!best || d < best.d)) best = { d, dx: q[0] - p[0], dy: q[1] - p[1] };
+  })));
+  if (!best) others.forEach(o => { const Q = o.pts.map(p => W(o, p));
+    Q.forEach((a, i) => { const b = Q[(i + 1) % Q.length], ex = b[0] - a[0], ey = b[1] - a[1], L2 = ex * ex + ey * ey || 1;
+      mv.forEach(p => { const t = ((p[0] - a[0]) * ex + (p[1] - a[1]) * ey) / L2; if (t < 0 || t > 1) return;
+        const fx = a[0] + ex * t, fy = a[1] + ey * t, d = Math.hypot(fx - p[0], fy - p[1]);
+        if (d < 1 && (!best || d < best.d)) best = { d, dx: fx - p[0], dy: fy - p[1] }; }); }); });
+  if (best) moving.forEach(r => { r.x += best.dx; r.y += best.dy; });
+  else { const r0 = moving[0], nx = snapH(r0.x) - r0.x, ny = snapH(r0.y) - r0.y; moving.forEach(r => { r.x += nx; r.y += ny; }); }
+}
+
+/* Touch: one finger on a room moves it (and anything connected); one finger on empty floor moves the view;
+   two fingers zoom and move the view. */
+const fingers = new Map(); let drag = null, pinch = null;
+svg.addEventListener("pointerdown", e => {
+  fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  try { svg.setPointerCapture(e.pointerId); } catch (x) {}
+  if (fingers.size === 2) {
+    if (drag && drag.moved) { const h = hist.pop(); if (h) JSON.parse(h).forEach((v, i) => { const r = rooms[i]; [r.x, r.y, r.rot, r.g] = v; }); draw(); }
+    else if (drag) dropSame();
+    drag = null;
+    const [a, b] = [...fingers.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, vb0: vb.slice(), u: toFt(m.x, m.y) };
+    return;
+  }
+  if (fingers.size > 2) return;
+  const t = e.target.closest("[data-k]"), r = t ? rooms.find(o => o.key === t.dataset.k && o.story === story) : null;
+  if (connecting) {
+    connecting = false;
+    if (r && r !== sel) { snap(); const g = sel.g || r.g || "g" + Date.now().toString(36);
+      const old = [sel.g, r.g].filter(Boolean); here().forEach(o => { if (o === sel || o === r || (o.g && old.includes(o.g))) o.g = g; }); dirty = true; }
+    draw(); return;
+  }
+  const p = toFt(e.clientX, e.clientY);
+  if (r) { sel = r; snap(); drag = { type: "room", last: p, moved: false, set: groupOf(r) }; }
+  else drag = { type: "pan", sx: e.clientX, sy: e.clientY, vb0: vb.slice(), tapEmpty: true };
+  draw();
+});
+svg.addEventListener("pointermove", e => {
+  if (!fingers.has(e.pointerId)) return;
+  fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && fingers.size === 2) {
+    const [a, b] = [...fingers.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const [x0, y0, w0, h0] = pinch.vb0, z = Math.min(Math.max(pinch.d0 / (Math.hypot(a.x - b.x, a.y - b.y) || 1), 0.1), 6);
+    vb = [pinch.u[0] - (pinch.u[0] - x0) * z, pinch.u[1] - (pinch.u[1] - y0) * z, w0 * z, h0 * z]; setVB();
+    const c = svg.getScreenCTM(), pt = svg.createSVGPoint(); pt.x = pinch.u[0]; pt.y = pinch.u[1];
+    const sp = pt.matrixTransform(c); vb[0] -= (m.x - sp.x) / c.a; vb[1] -= (m.y - sp.y) / c.d; setVB();
+    return;
+  }
+  if (!drag) return;
+  if (drag.type === "pan") {
+    const c = svg.getScreenCTM(), dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (Math.hypot(dx, dy) > 6) drag.tapEmpty = false;
+    vb = [drag.vb0[0] - dx / c.a, drag.vb0[1] - dy / c.d, drag.vb0[2], drag.vb0[3]]; setVB(); return;
+  }
+  const p = toFt(e.clientX, e.clientY), dx = p[0] - drag.last[0], dy = p[1] - drag.last[1];
+  if (!drag.moved && Math.hypot(dx, dy) < 0.3) return;
+  drag.moved = true; drag.last = p; drag.set.forEach(r => { r.x += dx; r.y += dy; }); draw();
+});
+const lift = e => {
+  fingers.delete(e.pointerId);
+  if (pinch) { if (!fingers.size) pinch = null; return; }
+  if (drag && drag.type === "room") { if (drag.moved) { snapMove(drag.set); dirty = true; draw(); } dropSame(); }
+  if (drag && drag.type === "pan" && drag.tapEmpty) { sel = null; draw(); }   /* tap empty floor: nothing picked */
+  drag = null;
+};
+svg.addEventListener("pointerup", lift); svg.addEventListener("pointercancel", lift);
+
+/* Save: each room's spot on the plan, under floorPlan.rooms.<key> on the job. Sizes aren't touched. */
+async function save(){
+  const b = $("saveBtn"), n = $("note"); b.disabled = true; n.classList.remove("err"); n.textContent = "Saving…";
+  try {
+    const out = {}; rooms.forEach(r => out[r.key] = { x: Math.round(r.x * 100) / 100, y: Math.round(r.y * 100) / 100, rot: r.rot, g: r.g || null });
+    await setDoc(doc(db, place, id), { floorPlan: { rooms: out, updatedAt: serverTimestamp() } }, { merge: true });
+    dirty = false; n.textContent = "Saved."; b.disabled = false; return true;
+  } catch (e) { console.error(e); n.classList.add("err"); n.textContent = "Couldn't save: " + e.message; b.disabled = false; return false; }
+}
+$("saveBtn").onclick = save;
+window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+let started = false;
+if (!id) { $("authwait").remove(); $("info").textContent = "No job picked. Open the floor plan from a Job Sheet."; }
+else onAuthStateChanged(getAuth(app), user => {
+  if (!user) { location.replace("./login.html?next=floor-plan.html"); return; }
+  $("authwait")?.remove();
+  if (!started) { started = true; startOffline(storage); load(); }
+});
+</script>
+</body>
+</html>
