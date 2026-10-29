@@ -87,6 +87,17 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
 .land #rShape.skFull.menuOpen #skTools{display:block;position:absolute;top:62px;right:max(8px, env(safe-area-inset-right));width:270px;
   max-height:calc(100% - 70px);overflow:auto;background:#172239;border:1px solid #E3B64A;border-radius:12px;padding:4px 8px 8px;z-index:4;box-shadow:0 6px 20px rgba(0,0,0,.5)}
 .land #rShape.skFull.menuOpen #skTools .ghost,.land #rShape.skFull.menuOpen #skTools .go{padding:9px;font-size:15px}
+/* 🔍 top left of the sketch: room only, full screen, with Undo and Back floating at the top. */
+#rShape{position:relative}
+.skZBtn{position:absolute;top:8px;left:8px;width:44px;height:44px;border-radius:50%;background:#172239;color:#E3B64A;border:2px solid #E3B64A;
+  font-size:20px;padding:0;cursor:pointer;z-index:3;display:grid;place-items:center}
+.land .skZBtn,#rShape.skZoom #skZoomBtn{display:none}
+.skZTop{display:none}
+#rShape.skZoom .skZTop{display:flex;gap:10px;position:absolute;top:max(8px, env(safe-area-inset-top));left:12px;right:12px;z-index:3}
+#rShape.skZoom .skZTop button{flex:1;background:#172239;color:#E3B64A;border:2px solid #E3B64A;border-radius:999px;padding:10px;font:700 16px "Archivo",sans-serif;cursor:pointer}
+#rShape.skZoom .skZTop button:disabled{opacity:.4}
+#rShape.skZoom #skTools,#rShape.skZoom #skHelp,#rShape.skZoom #skEdit{display:none!important}
+#rShape.skZoom{padding-top:calc(64px + env(safe-area-inset-top))}
 </style>
 </head>
 <body>
@@ -376,8 +387,10 @@ function initSketch(d){
       '<button type="button" class="ghost" id="skMic" style="grid-column:1/-1">🎤 Say wall sizes</button>' +
       '<button type="button" class="go" id="skDone" style="grid-column:1/-1;margin:0">Done</button></div></div>' +
     '<button type="button" class="skFab" id="skMenuBtn" aria-label="Sketch tools">☰</button>' +
-    '<button type="button" class="skFab" id="skMicFab" aria-label="Say wall sizes">🎤</button>';
-  $("rShape").hidden = false; $("rShape").classList.remove("skFull"); document.body.style.overflow = "";
+    '<button type="button" class="skFab" id="skMicFab" aria-label="Say wall sizes">🎤</button>' +
+    '<button type="button" class="skZBtn" id="skZoomBtn" aria-label="Open the sketch full screen">🔍</button>' +
+    '<div class="skZTop"><button type="button" id="skZBack">‹ Back</button><button type="button" id="skZUndo" disabled>↶ Undo</button></div>';
+  $("rShape").hidden = false; $("rShape").classList.remove("skFull", "skZoom"); document.body.style.overflow = "";
   const svg = $("skSvg");
   const toFt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
     const m = p.matrixTransform(svg.getScreenCTM().inverse());
@@ -388,6 +401,7 @@ function initSketch(d){
       const w = nearestWall(toFt(e)), kind = sk.placing; sk.placing = false;
       /* doors, openings and closets all live on a wall; openings/closets have a width (wd), closets a depth (dp) */
       sk.doors.push(kind === "open" ? { w: w.i, t: w.t, k: "open", wd: 6 } : kind === "closet" ? { w: w.i, t: w.t, k: "closet", wd: 6, dp: 2 } : { w: w.i, t: w.t }); sk.sel = { type: "door", i: sk.doors.length - 1 }; sk.edited = true;
+      if (kind === "door") skDouble(sk.doors.length - 1);
       $("skHelp").textContent = SK_HELP; drawSketch(); return;
     }
     $("rShape").classList.remove("menuOpen");   /* tapping the room closes the sideways menu */
@@ -454,7 +468,7 @@ function initSketch(d){
     }
     sk.edited = true; drawSketch();
   });
-  const end = () => { skDrag = null; skDropSame(); };
+  const end = () => { if (skDrag && skDrag.type === "door") skDouble(skDrag.i); skDrag = null; skDropSame(); };
   svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
   $("skCut").onclick = () => { skSnap();
     const xs = sk.pts.map(p => p[0]), ys = sk.pts.map(p => p[1]);
@@ -510,6 +524,9 @@ function initSketch(d){
     drawSketch();
   };
   $("skEdit").onclick = () => setEditing(true);
+  $("skZoomBtn").onclick = () => { if (!sk.editing) setEditing(true); $("rShape").classList.add("skZoom"); drawSketch(); };
+  $("skZBack").onclick = () => { $("rShape").classList.remove("skZoom"); drawSketch(); };
+  $("skZUndo").onclick = () => $("skUndo").click();
   $("skDone").onclick = () => setEditing(false);
   /* Sideways: ☰ opens the tools as a small menu; picking one closes it. 🎤 = Say wall sizes. */
   $("skMenuBtn").onclick = () => $("rShape").classList.toggle("menuOpen");
@@ -540,7 +557,17 @@ function skSnap(){ if (!sk) return; sk.hist.push(JSON.stringify({ pts: sk.pts, c
 /* A tap that changed nothing leaves no Undo step behind. */
 function skDropSame(){ if (!sk || !sk.hist.length) return;
   if (sk.hist[sk.hist.length - 1] === JSON.stringify({ pts: sk.pts, cuts: sk.cuts, doors: sk.doors })) sk.hist.pop(); skUndoBtn(); }
-function skUndoBtn(){ const b = document.getElementById("skUndo"); if (b) b.disabled = !sk || !sk.hist.length; }
+function skUndoBtn(){ ["skUndo", "skZUndo"].forEach(x => { const b = document.getElementById(x); if (b) b.disabled = !sk || !sk.hist.length; }); }
+/* Double door: a plain door dropped on top of another plain door on the same wall becomes one 6 ft double door. */
+function skDouble(j){
+  const o = sk.doors[j]; if (!o || o.k) return;
+  const a = sk.pts[o.w], b = sk.pts[(o.w + 1) % sk.pts.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  const m = sk.doors.findIndex((x, i) => i !== j && !x.k && x.w === o.w && Math.abs(x.t - o.t) * len < 3);
+  if (m < 0) return;
+  const d = sk.doors[m]; d.t = (d.t + o.t) / 2; d.k = "double"; d.wd = 6;
+  sk.doors.splice(j, 1); sk.sel = { type: "door", i: m > j ? m - 1 : m }; sk.edited = true;
+  $("skHelp").textContent = "Double door made. Undo splits it back."; drawSketch();
+}
 const SK_HELP = "Drag a corner · tap + to add one · tap a cutout to reshape it · your changes are final";
 /* Square corners: a dragged corner sticks in line with the corners next to it (walls stay straight
    across / straight up and down) when it's within ~16px. Drag further to pull it off for an angled wall. */
@@ -554,7 +581,7 @@ const polyA = pts => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % 
 /* Edit mode: full screen, handles showing. Done shrinks it back and locks it again. */
 function setEditing(on){
   sk.editing = on; sk.placing = false; if (!on) sk.sel = null;
-  $("rShape").classList.toggle("skFull", on); $("rShape").classList.remove("menuOpen");
+  $("rShape").classList.toggle("skFull", on); $("rShape").classList.remove("menuOpen"); if (!on) $("rShape").classList.remove("skZoom");
   $("skTools").hidden = !on; $("skHelp").hidden = !on; $("skEdit").hidden = on;
   if (on) $("skHelp").textContent = SK_HELP;
   document.body.style.overflow = on ? "hidden" : "";
@@ -750,6 +777,16 @@ function drawSketch(){ skUndoBtn();
             '<g data-kp="' + j + ':' + m + '" style="cursor:grab"><circle cx="' + a2[0] + '" cy="' + a2[1] + '" r="14" fill="rgba(0,0,0,0)"/>' +
             '<circle cx="' + a2[0] + '" cy="' + a2[1] + '" r="' + (sel ? 8 : 6) + '" fill="' + (sel ? "#fff" : "#E3B64A") + '" stroke="#172239" stroke-width="2"/></g>';
         });
+        return;
+      }
+      if (o.k === "double") {   /* double door: two leaves, one from each end, meeting in the middle */
+        const n2x = nx / 2, n2y = ny / 2, mid = [(h[0] + e3[0]) / 2, (h[1] + e3[1]) / 2], l1 = [h[0] + n2x, h[1] + n2y], l2 = [e3[0] + n2x, e3[1] + n2y];
+        dg += '<g data-door="' + j + '" style="cursor:ew-resize">' +
+          '<polygon points="' + [h, e3, l2, l1].map(v => v.join(",")).join(" ") + '" fill="rgba(0,0,0,0)"/>' +
+          '<line x1="' + h[0] + '" y1="' + h[1] + '" x2="' + l1[0] + '" y2="' + l1[1] + '" stroke="' + col + '" stroke-width="2"/>' +
+          '<line x1="' + e3[0] + '" y1="' + e3[1] + '" x2="' + l2[0] + '" y2="' + l2[1] + '" stroke="' + col + '" stroke-width="2"/>' +
+          '<path d="M' + l1[0] + ',' + l1[1] + ' Q' + (l1[0] + ddx / 2) + ',' + (l1[1] + ddy / 2) + ' ' + mid[0] + ',' + mid[1] + '" fill="none" stroke="' + col + '" stroke-width="1.2" stroke-dasharray="3 3"/>' +
+          '<path d="M' + l2[0] + ',' + l2[1] + ' Q' + (l2[0] - ddx / 2) + ',' + (l2[1] - ddy / 2) + ' ' + mid[0] + ',' + mid[1] + '" fill="none" stroke="' + col + '" stroke-width="1.2" stroke-dasharray="3 3"/></g>';
         return;
       }
       dg += '<g data-door="' + j + '" style="cursor:ew-resize">' +
