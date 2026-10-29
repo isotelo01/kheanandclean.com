@@ -403,8 +403,27 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
    (an older on-site update that lumped them together), the rest shows as its own
    "On-site discount" line instead of losing the itemized lines. Older updates also counted
    free items inside the discount while listing them above, so that part isn't shown twice. */
+/* Estimates saved without their own discount lines (sent before lines existed, or from a phone
+   still on the older app): rebuild them from the discounts ticked on the estimate form. Uses the
+   percents saved with the estimate; without them, the % is shared equally between the discounts. */
+const discStrip = x => String(x || "").replace(/\s*\bdiscount\b\s*/ig, " ").trim() || String(x || "");
+const formDiscLines = d => {
+  const f = d.form || {}, names = Array.isArray(f.discNames) ? f.discNames.filter(Boolean) : [];
+  const pct = Number(f.discPct) || 0;
+  if (d.fromJobSheet || !names.length || Number(f.discAmt) > 0 || !(pct > 0) || !(d.discount > 0)) return [];
+  const saved = {}; Object.keys(f.discPcts || {}).forEach(k => { saved[discStrip(k)] = Number(f.discPcts[k]) || 0; });
+  let ps = names.map(n => saved[discStrip(n)] || 0);
+  if (ps.some(p => !(p > 0)) || Math.abs(ps.reduce((s, p) => s + p, 0) - pct) > 0.01) ps = names.map(() => pct / names.length);
+  let left = Math.round(d.discount * 100) / 100;
+  return names.map((n, i) => {
+    const amt = i === names.length - 1 ? left : Math.round(d.discount * ps[i] / pct * 100) / 100;
+    left = Math.round((left - amt) * 100) / 100;
+    return { label: discStrip(n) + " (" + Math.round(ps[i] * 100) / 100 + "%)", amount: amt };
+  });
+};
 const discRows = d => {
-  const ls = (Array.isArray(d.discountLines) ? d.discountLines : []).filter(l => Number(l.amount) > 0);
+  const saved = (Array.isArray(d.discountLines) ? d.discountLines : []).filter(l => Number(l.amount) > 0);
+  const ls = saved.length ? saved : formDiscLines(d);
   const sum = ls.reduce((s, l) => s + (Number(l.amount) || 0), 0);
   let rest = Math.round((d.discount - sum) * 100) / 100;
   const free = Number(d.freeTotal) || 0;
