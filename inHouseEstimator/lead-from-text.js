@@ -34,7 +34,7 @@ export async function makeLead(db, { name, phone, how, texts, referredBy }) {
     said.length ? "\nWhat they texted:\n" + said.join("\n") : ""
   ].filter(Boolean).join("\n");
   const ref = doc(collection(db, "leads"));
-  await setDoc(ref, { name, phone, message, source: how === "call" ? "call" : "text", status: "new",
+  await setDoc(ref, { name, phone, message, contact: true, source: how === "call" ? "call" : "text", status: "new",
     createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   return ref.id;
 }

@@ -134,6 +134,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
@@ -332,6 +333,7 @@ let all = null, purged = 0;
 async function load(){
   const snap = await getDocs(collection(db, "leads"));
   all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
+  tagContacts(db, "leads", all);
   for (const l of all.slice()) {
     const d = daysLeft(l);
     if (d === null || d > 0) continue;

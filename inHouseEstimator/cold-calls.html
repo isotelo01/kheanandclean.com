@@ -104,6 +104,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -167,6 +168,7 @@ async function load(){
   try {
     const s = await getDocs(collection(db, COL));
     items = s.docs.map(d => ({ ...d.data(), id: d.id }));
+    tagContacts(db, COL, items);
     showMsg("");
   } catch (e) { console.error(e); items = [];
     showMsg(e && e.code === "permission-denied" ? "Firestore rules are blocking the \"prospects\" collection." : "Could not load the list."); }

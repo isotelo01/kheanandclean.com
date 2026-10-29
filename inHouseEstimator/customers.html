@@ -202,6 +202,7 @@ label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, deleteDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL, uploadBytes, deleteObject } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
@@ -340,6 +341,7 @@ async function showList(){
     try {
       const snap = await getDocs(collection(db, "customers"));
       all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byName);
+      tagContacts(db, "customers", all);
       try { await backfillAcctNos(all); } catch (e) { console.error("account numbers:", e); }
     } catch (e) {
       console.error(e);
@@ -438,6 +440,7 @@ async function showTrash(){
     try {
       const snap = await getDocs(collection(db, "customers"));
       all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byName);
+      tagContacts(db, "customers", all);
     } catch (e) {
       console.error(e);
       view.innerHTML = '<div class="msg">Could not load: ' + esc(e.message) + '</div>';
@@ -941,6 +944,7 @@ async function showProfile(id){
       const data = { type, business, name, phone, email, notes: $("cNotes").value.trim(), addresses,
         ...(acctNo ? { acctNo } : {}),
         phones, emails, phoneKeys, emailKeys, phoneKey: phoneKey(phone), emailKey: emailKey(email), updatedAt: serverTimestamp() };
+      if ((name || business) && (phone || email)) data.contact = true;   /* name + number or email = Contact */
       if (isNew) Object.assign(data, { source: "manual", createdAt: serverTimestamp() });
       await setDoc(doc(db, "customers", theId), data, { merge: true });
 
