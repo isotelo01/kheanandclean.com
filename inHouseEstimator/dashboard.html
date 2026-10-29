@@ -39,19 +39,20 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .trashbtn{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 13px;font:600 15px "Archivo",system-ui,sans-serif;cursor:pointer;color:var(--ink)}
 .trashbtn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
 /* Refresh: the arrow spins while it reloads, then shows a check for a moment. */
-#refreshBtn.spin{animation:rspin .7s linear infinite}
+#refreshBtn.spin svg{animation:rspin .7s linear infinite}
 @keyframes rspin{to{transform:rotate(360deg)}}
 .trashbtn span{margin-left:6px;color:var(--muted);font-size:13px}
 .trashbtn[aria-pressed="true"] span{color:#cfd6e4}
 /* Top row: logo and icon buttons on one line. */
 .top{flex-wrap:nowrap}
 .ibar{display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:nowrap}
-.top .ibtn{position:relative;display:grid;place-items:center;width:42px;height:42px;padding:0;border-radius:10px;flex:none}
+.top .ibtn{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:48px;height:50px;padding:0;border-radius:10px;flex:none}
+.top .ibtn small{font:600 9.5px/1 "Archivo",sans-serif;white-space:nowrap;letter-spacing:-.1px}
 .top .ibtn span{position:absolute;top:-6px;right:-6px;margin:0;min-width:18px;height:18px;padding:0 4px;border-radius:9px;
   background:var(--gold);color:#172239!important;font:700 11px/18px "Archivo",sans-serif;text-align:center}
 .top .ibtn span:empty{display:none}
 .top .inew{background:var(--gold)!important;color:#172239!important;border-color:var(--gold)!important}
-@media (max-width:400px){ .top{gap:8px} .top .home img{width:84px;height:84px} .ibar{gap:5px} .top .ibtn{width:40px;height:40px} }
+@media (max-width:400px){ .top{gap:8px} .top .home img{width:84px;height:84px} .ibar{gap:5px} .top .ibtn{width:46px;height:48px} }
 .custbtn{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px}
 .editbtn,.copyjob{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
 .editbtn:hover,.copyjob:hover{background:var(--navy);border-color:var(--navy);color:#fff}
@@ -132,13 +133,13 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <!-- Top row: logo, then icon buttons (labels show on long-press / hover). -->
     <div class="ibar">
-      <button type="button" id="refreshBtn" class="trashbtn ibtn" title="Refresh" aria-label="Refresh"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg></button>
-      <button type="button" id="trashToggle" class="trashbtn ibtn" aria-pressed="false" title="Trash" aria-label="Trash"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/><path d="M10 11v6M14 11v6"/></svg><span id="trashCount"></span></button>
-      <a class="custbtn ibtn" href="./leads.html" title="Leads" aria-label="Leads"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/><path d="M19 8v6M16 11h6"/></svg></a>
-      <a class="custbtn ibtn" href="./approved-leads.html" title="Approved" aria-label="Approved"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></a>
-      <a class="custbtn ibtn mhide" href="./customers.html" title="Customers" aria-label="Customers"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/><path d="M16 4a4 4 0 0 1 0 8M22 21v-1a5 5 0 0 0-3-4.6"/></svg></a>
-      <a class="custbtn ibtn mhide" href="./expenses.html" title="Income &amp; Expenses" aria-label="Income and Expenses"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></a>
-      <a class="new ibtn inew" href="./index.html" title="New estimate" aria-label="New estimate"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
+      <button type="button" id="refreshBtn" class="trashbtn ibtn" title="Refresh" aria-label="Refresh"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg><small>Refresh</small></button>
+      <button type="button" id="trashToggle" class="trashbtn ibtn" aria-pressed="false" title="Trash" aria-label="Trash"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/><path d="M10 11v6M14 11v6"/></svg><small>Trash</small><span id="trashCount"></span></button>
+      <a class="custbtn ibtn" href="./leads.html" title="Leads" aria-label="Leads"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/><path d="M19 8v6M16 11h6"/></svg><small>Leads</small></a>
+      <a class="custbtn ibtn" href="./approved-leads.html" title="Approved" aria-label="Approved"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg><small>Approved</small></a>
+      <a class="custbtn ibtn mhide" href="./customers.html" title="Customers" aria-label="Customers"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/><path d="M16 4a4 4 0 0 1 0 8M22 21v-1a5 5 0 0 0-3-4.6"/></svg><small>Customers</small></a>
+      <a class="custbtn ibtn mhide" href="./expenses.html" title="Income &amp; Expenses" aria-label="Income and Expenses"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><small>Income</small></a>
+      <a class="new ibtn inew" href="./index.html" title="New estimate" aria-label="New estimate"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><small>New</small></a>
     </div>
   </div>
   <div id="board"><div class="msg">Loading&hellip;</div></div>
