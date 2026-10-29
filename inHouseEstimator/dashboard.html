@@ -87,6 +87,11 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .who[data-go]{cursor:pointer;display:inline-block}
 .who[data-go]:hover{text-decoration:underline}
 .meta{color:var(--muted);font-size:14px;margin-top:2px}
+.card{padding-bottom:30px}
+.meta.qnum{position:absolute;top:40px;right:8px;margin:0;font-size:12px;white-space:nowrap}
+.meta.cdate{position:absolute;bottom:9px;right:12px;margin:0;font-size:12px;white-space:nowrap}
+/* Estimation sheet: let the square widen so the label never spills out. */
+.jsq{width:auto;min-width:62px;padding:0 8px}
 .right{text-align:right;margin-left:auto}
 .amt{font:700 20px "Archivo",system-ui,sans-serif;font-variant-numeric:tabular-nums lining-nums}
 .status{display:inline-block;font-weight:700;padding:3px 11px;border-radius:20px;font-size:13px;margin-top:4px}
@@ -228,7 +233,10 @@ const card = r =>
     (r.revisionOf || (r.fromJobSheet && r.source === "quotes") ? ' rev' : '') + '" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
     '<div>' +
       '<div class="who"' + (personHref(r) ? ' data-go="' + esc(personHref(r)) + '" title="Open profile"' : '') + '>' + esc(r.name || "No name") + '</div>' +
-      '<div class="meta">' + esc(r.number) + (r.phone ? " &middot; " + esc(r.phone) : "") + (r.date ? " &middot; " + esc(r.date) : "") + '</div>' +
+      /* Phone under the name; quote number sits under the X (top right), the day in the bottom right. */
+      (r.phone ? '<div class="meta">' + esc(r.phone) + '</div>' : '') +
+      '<span class="meta qnum">' + esc(r.number) + '</span>' +
+      (r.date ? '<span class="meta cdate">' + esc(r.date) + '</span>' : '') +
       (r.source === "trash" && trashLeftLabel(r) ? '<div class="meta">' + esc(trashLeftLabel(r)) + '</div>' : '') +
       (r.source !== "trash" && flags[r.id]
         ? '<button type="button" class="flagnote' + (flags[r.id].by === "customer" ? '' : ' mine') + '" data-note="' + esc(r.id) + '" title="Open note">&#128172; ' +
