@@ -186,6 +186,10 @@ button.svc__head{width:100%;background:none;border:0;padding:2px 0;margin:0;font
 .jdrow .jdname{flex:1}
 .jdisc .jdrow .jdp{width:64px}
 .jdtable .msg{padding:10px 12px}
+/* Applied discounts: each its own line between the divider and the On-site total. */
+.jlines{border-top:2px solid var(--navy);padding-top:8px;margin-top:4px}
+.jline{display:flex;justify-content:space-between;gap:10px;font-size:15px;color:var(--green);padding:2px 0}
+.jlines + .jtotal{border-top:0;padding-top:6px;margin-top:0}
 .jtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:18px;font-weight:700;border-top:2px solid var(--navy);padding-top:10px;margin-top:4px}
 @media print{.svc__body{display:block!important}.addroom,.sdel,.caret{display:none!important}}
 .prog{font-size:14px;color:var(--muted);margin-bottom:10px}
@@ -1614,7 +1618,22 @@ async function show(){
     '<label><input type="number" id="jdPct" min="0" max="100" step="1" inputmode="decimal" placeholder="0" value="' + (cur.disc.pct || '') + '" aria-label="Job discount in percent">%</label>' +
     (jdOff > 0 ? '<span class="off">&minus;' + money(jdOff) + '</span>' : '') +
     '<div class="jdtable" id="jdTable"' + (jdOpen ? '' : ' hidden') + '>' + jdRows() + '</div></div>';
-  const jtotal = '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
+  /* Applied discounts (quote discount, free items, job discount, minimum charge), one line each above the total. */
+  const jl = [], jlAdd = (lab, amt) => { amt = r2(amt); if (Math.abs(amt) >= 0.01) jl.push('<div class="jline"><span>' + esc(lab) + '</span><span>' + (amt < 0 ? '&minus;' : '+') + money(Math.abs(amt)) + '</span></div>'); };
+  { const qD = Number(q.discount) || 0, qF = Number(q.freeTotal) || 0, parts = q.discount != null || q.freeTotal != null || q.minApplied != null;
+    if (parts) {
+      const dl = (Array.isArray(q.discountLines) ? q.discountLines : []).filter(l => l && Number(l.amount) > 0);
+      dl.forEach(l => jlAdd(l.label || "Discount", -l.amount));
+      jlAdd(q.discountLabel || (dl.length ? "Discount" : "Quote discount"), -(qD - dl.reduce((t, l) => t + Number(l.amount), 0)));
+      const fl = (Array.isArray(q.freeLines) ? q.freeLines : []).filter(l => l && Number(l.amount) > 0);
+      fl.forEach(l => jlAdd((l.label || "Free item") + (Number(l.qty) > 1 ? " \u00d7 " + l.qty : ""), -l.amount));
+      jlAdd("Free items", -(qF - fl.reduce((t, l) => t + Number(l.amount), 0)));
+    } else jlAdd(cur.baseAdj < 0 ? "Discount" : "Adjustment", cur.baseAdj);
+    if (cur.disc.names.length) cur.disc.names.forEach(n => jlAdd(n.name + " (" + n.pct + "%)", -sub * n.pct / 100));
+    else if (cur.disc.pct > 0) jlAdd("Job discount (" + cur.disc.pct + "%)", -sub * cur.disc.pct / 100);
+    if (cur.disc.amt > 0) jlAdd("Job discount", -cur.disc.amt);
+    jlAdd("Minimum charge", cur.adj - (cur.baseAdj - jdOff)); }
+  const jtotal = (jl.length ? '<div class="jlines">' + jl.join("") + '</div>' : '') + '<div class="jtotal"><span><span class="staffword">On-site total</span><span class="sumword">Total</span></span><b>' + money(sub + cur.adj) + '</b></div>' +
     /* Original quote: on an on-site update (R1, R2...) it's the first approved one, kept inside as originalQuote. */
     '<div class="meta staff" style="text-align:right"><a href="./quote.html?id=' + encodeURIComponent(id) + (q.originalQuote ? '&original=1' : '') +
       '" target="_blank" rel="noopener">Original quote &middot; ' + money(q.originalQuote ? q.originalQuote.total : cur.quoted) + '</a></div>' + jdisc;   /* Job discount under the total */
