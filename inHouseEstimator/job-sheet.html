@@ -471,6 +471,8 @@ if (id) ss.set("kcJobSheetId", id);
 
 /* ---- On-site quote building: open a line, add or delete rooms, prices follow. ---- */
 let cur = null;   /* { place, lines, quoted, adj } for the job on screen */
+/* Still an estimate (quotes): "Here's your estimate"; once approved it's the Job Sheet. */
+const sheetName = () => cur && cur.place === "quotes" ? "Here\u2019s your estimate" : "Job Sheet";
 const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
 /* Which lines are open; kept for this job while the tab is open. */
 const openKey = "kcOpenLines_" + id;
@@ -716,7 +718,7 @@ let summ = PUBLIC || ss.get(summKey) === "1";   /* the customer only ever sees t
 const sumOpen = new Set((ss.get(summKey + "_open") || "").split(",").filter(Boolean));   /* services opened in the summary */
 function applyMode(){
   document.body.classList.toggle("summ", summ);
-  titleEl.textContent = summ ? "Summary" : "Job Sheet";
+  titleEl.textContent = summ ? "Summary" : sheetName();
   const b = document.getElementById("sumBtn"); if (b) b.textContent = summ ? "Edit" : "Summarize";
 }
 view.addEventListener("click", e => {
@@ -1292,8 +1294,9 @@ async function show(){
 
   const c = q.customer || {};
   const name = (c.business && c.name ? c.business + " \u2014 " + c.name : c.name || c.business) || "No name";
-  titleEl.textContent = "Job Sheet";
-  document.title = "Job Sheet \u00b7 " + name + " \u00b7 Khean & Clean";
+  const sheetTitle = place === "quotes" ? "Here\u2019s your estimate" : "Job Sheet";
+  titleEl.textContent = sheetTitle;
+  document.title = sheetTitle + " \u00b7 " + name + " \u00b7 Khean & Clean";
 
   /* Saved progress lives on the quote under jobSheet. */
   const js = q.jobSheet || {};
