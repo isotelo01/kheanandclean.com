@@ -461,15 +461,14 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
       if (m) { const yes = m[2].toLowerCase() === "yes";
         if (m[1]) { if (spc == null) spc = yes; } else if (txt == null) txt = yes;
         return false; }
-      /* Create lead (from a text or call) adds staff notes: how they came in, who referred them,
-         and a "What they texted:" heading. Those stay on the lead, never on the customer's estimate. */
-      if (/^Came in by (text|phone call) on .+\.$/i.test(s) || /^Referred by .+\.$/i.test(s) || /^What they texted:$/i.test(s)) return false;
       return !/^Opened the estimator \(details only, no estimate yet\)$/i.test(s);
     }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
     if (txt === true) document.getElementById("eTextOk").checked = true;
     if (spc === true) document.getElementById("eSpecialsOk").checked = true;
-    const notes = document.getElementById("eNotes");
-    if (notes && msgBody && !notes.value.trim()) notes.value = msgBody;
+    /* The lead's message never goes into "Anything else we should know" (the customer sees that box).
+       It shows in the staff-only Lead message box instead, which isn't saved or sent. */
+    const lm = document.getElementById("eLeadMsg"), lmf = document.getElementById("eLeadMsgField");
+    if (lm && lmf && msgBody) { lm.value = msgBody; lmf.hidden = false; }
     /* Services the customer ticked on the quick quote, as chips above "Anything else". */
     const svcs = (Array.isArray(data.services) ? data.services : String(data.services || "").split(","))
       .map(s => String(s).trim()).filter(Boolean);
