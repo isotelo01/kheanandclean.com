@@ -75,7 +75,9 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
   .meta .r{grid-column:1;grid-row:2;align-self:start}
   .mascot{display:contents}
   .mascot img{grid-column:2;grid-row:1 / span 2;width:100%;max-width:225px;height:auto;align-self:start;justify-self:end;margin-top:-10px;margin-right:-6px}
-  .adl{white-space:nowrap}   /* street on one line, city/state/zip on one line; the mascot gives up the room */
+  .adl{white-space:nowrap}
+  .meta.nomascot .mascot img{display:none}
+  .meta.nomascot{grid-template-columns:minmax(0,1fr)}   /* street on one line, city/state/zip on one line; the mascot gives up the room */
   .mascot span{grid-column:1 / -1;grid-row:3;margin-top:0;font-size:17px;letter-spacing:.1em;text-align:center}
   .meta .jobrep{grid-column:1 / -1;grid-row:4;margin:6px 0 0}   /* Job Report: full width under the guarantee */
 }
@@ -961,6 +963,15 @@ function render(d){
         <input type="email" id="mcNew" placeholder="you@example.com" autocomplete="email"${(d.customer || {}).email ? " hidden" : ""}>
         <div class="mcrow"><button type="button" id="mcSend">Send</button><span id="mcMsg"></span></div>
       </div></div>`;
+
+  /* Phones: the address comes first. Mascot slides right, then shrinks (CSS); if a line still
+     won't fit, he's hidden (the guarantee stays). Checked again when the screen turns. */
+  const fitMascot = () => { const m = sheet.querySelector(".meta"); if (!m) return;
+    m.classList.remove("nomascot");
+    const over = [...m.querySelectorAll(".adl")].some(a => a.getBoundingClientRect().right > m.getBoundingClientRect().right - 90);
+    if (matchMedia("(max-width:560px)").matches && over) m.classList.add("nomascot"); };
+  fitMascot(); addEventListener("resize", fitMascot);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMascot);
 
   if (document.getElementById("photoBox")) { try { wireNote(d, isQuote, num); } catch (e) { console.error(e); } }   /* a hiccup there never stops the buttons below */
 
