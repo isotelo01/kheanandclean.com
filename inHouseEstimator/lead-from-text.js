@@ -27,14 +27,13 @@ export function guessFromTexts(texts) {
   return { name, referredBy };
 }
 
-/* how: "text" or "call". texts: what they sent (newest last). Returns the new lead's id. */
+/* how: "text" or "call". texts: what they sent (only read for the name / referral guess). Returns the new lead's id. */
 export async function makeLead(db, { name, phone, how, texts, referredBy }) {
   const when = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  const said = (texts || []).map(clean).filter(Boolean).slice(-5).map(s => s.slice(0, 300));
+  /* The texts themselves stay on the Texts page (the profile's Text history button opens them); not copied here. */
   const message = [
     "Came in by " + (how === "call" ? "phone call" : "text") + " on " + when + ".",
-    referredBy ? "Referred by " + referredBy + "." : "",
-    said.length ? "\nWhat they texted:\n" + said.join("\n") : ""
+    referredBy ? "Referred by " + referredBy + "." : ""
   ].filter(Boolean).join("\n");
   const ref = doc(collection(db, "leads"));
   await setDoc(ref, { name, phone, message, contact: true, source: how === "call" ? "call" : "text", status: "new",

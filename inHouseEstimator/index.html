@@ -462,7 +462,11 @@ document.getElementById("signOutBtn").addEventListener("click", async () => {
         if (m[1]) { if (spc == null) spc = yes; } else if (txt == null) txt = yes;
         return false; }
       return !/^Opened the estimator \(details only, no estimate yet\)$/i.test(s);
-    }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+    }).join("\n")
+      /* Notes from Create lead (texts / calls) never show in the estimator: how they came in, the referral, any copied texts. */
+      .replace(/^What they texted:[\s\S]*$/im, "").split("\n")
+      .filter(l => !/^(Came in by (text|phone call) on .+|Referred by .+)\.$/i.test(l.trim())).join("\n")
+      .replace(/\n{3,}/g, "\n\n").trim();
     if (txt === true) document.getElementById("eTextOk").checked = true;
     if (spc === true) document.getElementById("eSpecialsOk").checked = true;
     /* The lead's message never goes into "Anything else we should know" (the customer sees that box).
