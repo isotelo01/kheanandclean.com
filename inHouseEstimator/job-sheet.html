@@ -1290,10 +1290,13 @@ async function show(){
   const actualOf = k => Math.round(Number((spots[k] || {}).actualSqft) || 0);   /* Actual box on the room page */
   const spotRow = (key, label, size, href, price, isRoom) => { total++;
     const d = !!(spots[key] && spots[key].done); if (d) doneCount++;
-    /* Thumbnail: a room's After Threshold photo; stairs / rugs (no Threshold) use their first After photo only,
+    /* Thumbnail: the Before photo shows first; once an After photo is added it replaces it.
+       Rooms use the Threshold photo first; stairs / rugs (no Threshold) use their first Before / After only,
        so a leftover hidden Threshold photo never shows. */
     const sk = spots[key] || {};
-    const thr = d ? pathsOf({ photoPaths: [...(isRoom ? (sk.photosAfterThreshold || []) : []), ...(sk.photosAfter || [])] })[0] : "";
+    const aft = pathsOf({ photoPaths: [...(isRoom ? (sk.photosAfterThreshold || []) : []), ...(sk.photosAfter || [])] })[0];
+    const bef = pathsOf({ photoPaths: [...(isRoom ? (sk.photosBeforeThreshold || []) : []), ...(sk.photosBefore || [])] })[0];
+    const thr = aft || bef || "";
     return '<a class="spot' + (d ? ' done' : '') + '" href="' + esc(href) + '"><span class="spot__tick"' + (thr ? ' data-thumb="' + esc(thr) + '"' : '') + '>' + (d ? '✓' : '') + '</span>' +
       '<span class="spot__name">' + esc(label) + '</span>' + (size ? '<span class="spot__size">' + esc(size) + '</span>' : '') +
       (price != null ? '<span class="sprice">' + money(price) + '</span>' : '') +
@@ -1620,7 +1623,7 @@ async function show(){
   }
   /* Done is marked on each room's own page; this just counts them. */
   prog.textContent = total ? doneCount + " of " + total + " done" : "";
-  /* Swap each done room's tick for its After Threshold photo; the tick stays if the photo won't load. */
+  /* Swap each room's tick for its photo (After if added, else Before); the tick stays if the photo won't load. */
   view.querySelectorAll(".spot__tick[data-thumb]").forEach(t =>
     getDownloadURL(ref(storage, t.dataset.thumb)).then(u => {
       t.textContent = ""; t.classList.add("thumb");
