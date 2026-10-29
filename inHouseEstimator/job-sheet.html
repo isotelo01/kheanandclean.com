@@ -1881,12 +1881,29 @@ async function show(){
       const revNo = inPlace ? (Number(q.revNo) || 1) : (Number(q.revNo) || 0) + 1;
       const base = String(q.baseNumber || q.number || "").replace(/-R\d+$/, "");
       const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0)), adj = r2(cur.adj), total = r2(sub + adj);
+      /* Discount itemized for the customer's page: the estimate's own discount lines, then the
+         on-site Job discount ($ and % each on their own line). Free items stay on their own lines,
+         so they come out of the discount here (they used to show twice). */
+      const qFreeT = Number(q.freeTotal) || 0, offAll = adj < 0 ? -adj : 0;
+      const freeT = offAll >= qFreeT ? qFreeT : 0, discT = r2(offAll - freeT);
+      const qDiscN = Number(q.discount) || 0, qls = Array.isArray(q.discountLines) ? q.discountLines : [];
+      const qOk = qls.length && Math.abs(qls.reduce((s, l) => s + (Number(l.amount) || 0), 0) - qDiscN) < 0.01;
+      let dLines = qDiscN > 0 ? (qOk ? qls.map(l => ({ ...l })) : [{ label: q.discountLabel || "Discount", amount: qDiscN }]) : [];
+      const pctOff = r2(sub * cur.disc.pct / 100), amtOff = r2(cur.disc.amt);
+      if (pctOff > 0) dLines.push({ label: "On-site discount (" + cur.disc.pct + "%)", amount: pctOff });
+      if (amtOff > 0) dLines.push({ label: "On-site discount", amount: amtOff });
+      if (discT > 0 && dLines.length) {   /* rounding: the lines always add up to the discount */
+        const diff = r2(discT - dLines.reduce((s, l) => s + (Number(l.amount) || 0), 0));
+        if (Math.abs(diff) > 0.05) dLines = [{ label: q.discountLabel || "Discount", amount: discT }];
+        else dLines[dLines.length - 1].amount = r2(dLines[dLines.length - 1].amount + diff);
+      } else if (discT <= 0) dLines = [];
       /* Superseded versions, oldest first: shown as Q-1068OG, Q-1068OG2, OG3... (newest highest).
          A new update adds the approved quote it replaces; updating one still waiting adds nothing. */
       const prevOGs = Array.isArray(q.originals) ? q.originals : (q.originalQuote ? [q.originalQuote] : []);
       const snap = {
         number: base, status: "accepted", lines: q.lines || [], subtotal: q.subtotal ?? null,
-        discount: q.discount || 0, discountLabel: q.discountLabel || "", total: q.total ?? null,
+        discount: q.discount || 0, discountLabel: q.discountLabel || "", discountLines: q.discountLines || [],
+        freeLines: q.freeLines || [], freeTotal: q.freeTotal || 0, total: q.total ?? null,
         acceptedName: q.acceptedName || "", acceptedAt: q.acceptedAt || null, termsAccepted: !!q.termsAccepted,
         createdAt: q.createdAt || null
       };
@@ -1901,7 +1918,8 @@ async function show(){
         /* (Not-billed lines and items, at $0, stay on the job sheet only.) */
         lines: JSON.parse(JSON.stringify(cur.lines)).filter(l => !isNotBilled(l))
           .map(l => ({ ...l, items: (l.items || []).filter(it => !it.removed && !isNotBilled(it)) })),
-        subtotal: adj > 0 ? total : sub, discount: adj < 0 ? -adj : 0, discountLabel: q.discountLabel || "Discount", total,
+        subtotal: adj > 0 ? total : sub, discount: discT, discountLabel: q.discountLabel || "Discount", discountLines: dLines,
+        freeLines: freeT > 0 ? (q.freeLines || []) : [], freeTotal: freeT, total,
         originalQuote: orig, originals,
         /* The job sheet as it stands, so R1 opens with the same rooms (and room ids, so photos stay matched). */
         onsite: { lines: JSON.parse(JSON.stringify(cur.lines)), subtotal: sub, total },

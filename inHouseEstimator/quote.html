@@ -399,13 +399,20 @@ const roomPrice = (rm, it) => {
   return " · " + money(c);
 };
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-/* Discount rows: each discount on its own line when the estimate saved them and they add up
-   to the discount (an on-site change to the total falls back to the one combined line). */
+/* Discount rows: each discount on its own line. If the lines come up short of the discount
+   (an older on-site update that lumped them together), the rest shows as its own
+   "On-site discount" line instead of losing the itemized lines. Older updates also counted
+   free items inside the discount while listing them above, so that part isn't shown twice. */
 const discRows = d => {
-  const ls = Array.isArray(d.discountLines) ? d.discountLines : [];
-  const ok = ls.length && Math.abs(ls.reduce((s, l) => s + (Number(l.amount) || 0), 0) - d.discount) < 0.01;
-  return (ok ? ls : [{ label: d.discountLabel || "Discount", amount: d.discount }])
-    .map(l => `<div class="disc"><span>${esc(l.label)}</span><span>&minus;${money(l.amount)}</span></div>`).join("");
+  const ls = (Array.isArray(d.discountLines) ? d.discountLines : []).filter(l => Number(l.amount) > 0);
+  const sum = ls.reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  let rest = Math.round((d.discount - sum) * 100) / 100;
+  const free = Number(d.freeTotal) || 0;
+  if (d.fromJobSheet && free > 0 && rest >= free - 0.01) rest = Math.round((rest - free) * 100) / 100;
+  const rows = ls.slice();
+  if (rest > 0.01) rows.push({ label: ls.length ? "On-site discount" : (d.discountLabel || "Discount"), amount: rest });
+  if (rest < -0.01) return `<div class="disc"><span>${esc(d.discountLabel || "Discount")}</span><span>&minus;${money(d.discount)}</span></div>`;
+  return rows.map(l => `<div class="disc"><span>${esc(l.label)}</span><span>&minus;${money(l.amount)}</span></div>`).join("");
 };
 /* Same as the estimator: the size after the first " — " drops to its own line. */
 /* Plan names in the brand lettering, same as the estimator: Deep in gold, Signature in red script. */
