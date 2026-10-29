@@ -331,6 +331,8 @@ body:not(.summ) .srow.gone{opacity:0}
   body:not(.summ) .srow .sdsel{position:relative;z-index:1}
   body:not(.summ) .srow .sdel{border-radius:0 10px 10px 0}
 }
+#offlineBtn{display:inline-flex;align-items:center;gap:6px}
+#offlineBtn[hidden]{display:none}
 /* Phones: no big outer box around the job sheet, so it uses the whole screen width. */
 @media (max-width:600px){
   .wrap{padding-left:8px;padding-right:8px}
@@ -348,10 +350,8 @@ body:not(.summ) .srow.gone{opacity:0}
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
     <h1 id="title">Job Sheet</h1>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
-      <button type="button" class="ghost" id="offlineBtn" hidden>Download offline job sheet</button>
-      <button type="button" class="ghost" id="printBtn">Print</button>
-      <button type="button" class="ghost" id="refreshBtn">Refresh</button>
-      <a class="ghost" id="backBtn" href="./approved-leads.html">Back</a>
+      <button type="button" class="ghost" id="offlineBtn" hidden aria-label="Download offline job sheet" title="Download offline job sheet"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><span id="offlineLbl">Offline</span></button>
+      <a class="ghost" id="backBtn" href="./approved-leads.html">Save and back to jobs</a>
     </div>
   </div>
   <div id="view"><div class="msg">Loading&hellip;</div></div>
@@ -2055,18 +2055,17 @@ async function show(){
      Finishing photos are manual uploads only. */
 }
 
-document.getElementById("printBtn").addEventListener("click", () => window.print());
-
 /* Download offline job sheet: puts this job, its room pages and the app files on the phone,
    so the sheet opens and saves with no service. Edits and photos sync once service is back. */
 let offJob = null;
 const offBtn = document.getElementById("offlineBtn");
+const offLbl = document.getElementById("offlineLbl");   /* the text next to the download icon */
 offBtn.addEventListener("click", async () => {
   if (!offJob) return;
-  if (!navigator.onLine) { offBtn.textContent = "Needs service to download"; return; }
-  offBtn.disabled = true; offBtn.textContent = "Downloading…";
-  try { await saveForOffline(); rememberJob({ ...offJob, at: Date.now() }); offBtn.textContent = "Ready offline ✓"; }
-  catch (e) { console.error(e); offBtn.textContent = "Download failed — tap to retry"; }
+  if (!navigator.onLine) { offLbl.textContent = "Needs service"; return; }
+  offBtn.disabled = true; offLbl.textContent = "Downloading…";
+  try { await saveForOffline(); rememberJob({ ...offJob, at: Date.now() }); offLbl.textContent = "Ready offline ✓"; }
+  catch (e) { console.error(e); offLbl.textContent = "Failed — tap to retry"; }
   finally { offBtn.disabled = false; }
 });
 
@@ -2099,17 +2098,17 @@ else onAuthStateChanged(getAuth(app), user => {
   if (!started) { started = true; startOffline(storage); show(); }
 });
 
-/* Refresh: saves first (same as the Save button) when the sheet has loaded, then reloads.
+/* Save and back to jobs: saves first (same as the Save button) when the sheet has loaded, then goes back.
    If the save fails it stays here with the error showing, so nothing typed is lost. */
-document.getElementById("refreshBtn").addEventListener("click", async e => {
+document.getElementById("backBtn").addEventListener("click", async e => {
   const b = e.currentTarget, s = document.getElementById("saveBtn"), n = document.getElementById("note");
-  b.disabled = true;
-  if (s && !s.disabled) {
-    b.textContent = "Saving…"; s.click();
-    for (let i = 0; i < 50 && s.disabled; i++) await new Promise(r => setTimeout(r, 200));
-    if (n && n.classList.contains("err")) { b.disabled = false; b.textContent = "Refresh"; return; }
-  }
-  location.reload();
+  if (PUBLIC || !s || s.disabled) return;   /* nothing to save: just follow the link */
+  e.preventDefault();
+  if (b.dataset.busy) return; b.dataset.busy = "1";
+  b.textContent = "Saving…"; s.click();
+  for (let i = 0; i < 50 && s.disabled; i++) await new Promise(r => setTimeout(r, 200));
+  if (n && n.classList.contains("err")) { delete b.dataset.busy; b.textContent = "Save and back to jobs"; return; }
+  location.href = b.href;
 });
 </script>
 <script src="./burst-cam.js" defer></script>
