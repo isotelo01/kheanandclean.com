@@ -166,6 +166,7 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, updateDoc, getDocs, setDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import { makeLead } from "./lead-from-text.js";
 import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
@@ -469,7 +470,9 @@ function callRow(c) {
     '<span class="last">' + esc(what) + '</span>' +
     '<span class="callacts">' +
       (num ? '<button type="button" class="call" data-spam="' + esc(num) + '">' + (spam ? 'Not spam' : 'Spam') + '</button>' : '') +
-      (k ? '<a class="call" href="tel:+1' + esc(k) + '">Call</a>' : '') + '</span>' +
+      (k ? '<a class="call" href="tel:+1' + esc(k) + '">Call</a>' : '') +
+      /* No name on file for this number: make them a lead right here. */
+      (k && namesLoaded && !nameByKey[k] && !spam && !blockedCall ? '<button type="button" class="call" data-mklead="' + esc(k) + '">Create lead</button>' : '') + '</span>' +
     followUp(c, k, missed, spam || blockedCall) +
   '</div>';
 }
@@ -555,6 +558,15 @@ view.addEventListener("click", async e => {
 
 /* Names for caller ID and the call log: customers, then leads, then Cold Calls businesses.
    A name saved on the call itself still wins. Read once when the page opens. */
+let namesLoaded = false;   /* Create lead only shows once we know who's already on file */
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-mklead]"); if (!b || b.disabled) return;
+  const k = b.dataset.mklead, name = (prompt("Lead name for " + pretty(k)) || "").trim().slice(0, 80);
+  if (!name) return;
+  b.disabled = true; b.textContent = "Creating\u2026";
+  try { await makeLead(db, { name, phone: pretty(k), how: "call" }); nameByKey[k] = name; render(); }
+  catch (err) { console.error(err); alert("Couldn't create the lead: " + err.message); b.disabled = false; b.textContent = "Create lead"; }
+});
 async function loadNames() {
   const [C, L, P] = await Promise.allSettled(["customers", "leads", "prospects"].map(k => getDocs(collection(db, k))));
   const docs = s => s.status === "fulfilled" ? s.value.docs.map(d => d.data()) : [];
@@ -564,6 +576,7 @@ async function loadNames() {
   docs(L).filter(l => !l.trashed).forEach(l => put(l.phone, l.name));
   docs(P).forEach(p => put(p.phone, p.business || p.contact));
   [C, L, P].forEach(s => { if (s.status === "rejected") console.warn("names load", s.reason); });
+  namesLoaded = true;
   render();
 }
 

@@ -282,6 +282,7 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, collection, query, orderBy, limit, limitToLast, onSnapshot, doc, updateDoc, getDocs, getDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import { guessFromTexts, makeLead } from "./lead-from-text.js";
 import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
@@ -547,11 +548,13 @@ function fillPreviews(box) {
 
 /* ---------- one conversation ---------- */
 function showThread(id) {
-  let t = {}, first = true, sending = false;
+  let t = {}, first = true, sending = false, inTexts = [];   // inTexts: what they've texted, for Create lead
   let aiFor = "", aiSug = "", aiAnswers = [];   // reply assistant: which text it's on, the reply you picked, your answers
   view.innerHTML =
     '<div class="panel">' +
-      '<div class="chead"><h2 id="cname">' + esc(pretty(id)) + '</h2><a id="ctel" href="tel:+1' + esc(id) + '">' + esc(pretty(id)) + '</a></div>' +
+      '<div class="chead"><h2 id="cname">' + esc(pretty(id)) + '</h2>' +
+        '<button type="button" class="ghost" id="mkLead" hidden>Create lead</button>' +
+        '<a id="ctel" href="tel:+1' + esc(id) + '">' + esc(pretty(id)) + '</a></div>' +
       '<div id="banner"></div>' +
       '<div class="thread" id="thread"><div class="msg">Loading&hellip;</div></div>' +
       '<div id="ai"></div>' +
@@ -566,6 +569,26 @@ function showThread(id) {
         '<div class="msg" id="note" role="status"></div>' +
       '</form>' +
     '</div>';
+
+  /* Create lead: shows when this number has no name and isn't a lead or customer yet. The name box starts
+     with any name they texted; who referred them and what they said go in the lead's notes. */
+  const syncMk = () => { const b = document.getElementById("mkLead");
+    if (b && !b.dataset.busy) b.hidden = !peopleLoaded || isFb(id) || !!(t.name || nameByKey[id] || profileByKey[id]); };
+  window.kcSyncMk = syncMk;   /* rechecked once Leads / Contacts have loaded */
+  document.getElementById("mkLead").addEventListener("click", async e => {
+    const b = e.currentTarget, g = guessFromTexts(inTexts);
+    const name = (prompt("Lead name" + (g.referredBy ? " (referred by " + g.referredBy + ")" : ""), g.name) || "").trim().slice(0, 80);
+    if (!name) return;
+    b.dataset.busy = "1"; b.disabled = true; b.textContent = "Creating\u2026";
+    try {
+      const lid = await makeLead(db, { name, phone: pretty(t.phone || id), how: "text", texts: inTexts, referredBy: g.referredBy });
+      nameByKey[id] = name; profileByKey[id] = "./leads.html#" + encodeURIComponent(lid);
+      updateDoc(doc(db, "smsThreads", id), { name }).catch(err => console.warn("thread name", err));
+      document.getElementById("cname").textContent = name;
+      b.hidden = true;
+    } catch (err) { console.error(err); alert("Couldn't create the lead: " + err.message); b.textContent = "Create lead"; }
+    b.disabled = false; delete b.dataset.busy;
+  });
 
   // Name, phone link, STOP warning; opening the conversation marks it read.
   stop.push(onSnapshot(doc(db, "smsThreads", id), s => {
@@ -583,6 +606,7 @@ function showThread(id) {
     document.getElementById("banner").innerHTML = t.optedOut
       ? '<div class="banner">They replied STOP. Texts to this number are blocked until they reply START.</div>' : '';
     }
+    syncMk();
     if (Number(t.unread) > 0) updateDoc(doc(db, "smsThreads", id), {unread: 0}).catch(e => console.warn("mark read failed", e));
   }, err => console.warn("thread", err)));
 
@@ -591,6 +615,7 @@ function showThread(id) {
     const box = document.getElementById("thread");
     if (!box) return;
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+    inTexts = snap.docs.map(d => d.data()).filter(m => m.dir !== "out").map(m => m.body || "").filter(Boolean);
     if (snap.empty) { box.innerHTML = '<div class="msg">No texts with this number yet.</div>'; return; }
     let lastDay = "";
     box.innerHTML = snap.docs.map(d => {
@@ -1199,6 +1224,7 @@ async function loadPeople() {
   // An open conversation with no saved name picks one up now.
   const cn = document.getElementById("cname"), h = location.hash.slice(1);
   if (cn && nameByKey[h] && cn.textContent === pretty(h)) cn.textContent = nameByKey[h];
+  if (document.getElementById("mkLead") && window.kcSyncMk) window.kcSyncMk();
 }
 
 function renderPeople() {
