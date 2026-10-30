@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Stain Guide &middot; Khean &amp; Clean</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Stain Guide: pick the stain, get the product from his own SDS binder, the steps and the rinse.
+   Steps come from each maker's label / product page; anything a label doesn't say is marked. */
+:root{--navy:#172239;--gold:#E3B64A;--line:rgba(227,182,74,.45);--muted:#aab3c5;--red:#ff8a7a;--green:#5fd39a}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000;color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:max(14px, env(safe-area-inset-top)) 14px 90px}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar a{color:var(--gold);text-decoration:none;border:1.5px solid var(--gold);border-radius:999px;padding:7px 14px;font-weight:600}
+h1{margin:0;font-size:26px;border-bottom:3px solid var(--gold);padding-bottom:2px}
+.sub{color:var(--muted);font-size:14px;margin:8px 0 12px}
+#q{width:100%;font:16px "Archivo",sans-serif;color:#fff;background:#05070c;border:1.5px solid var(--gold);border-radius:12px;padding:12px 14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.chips button{font:600 14px "Archivo",sans-serif;color:#fff;background:var(--navy);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer}
+.chips button.on{background:var(--gold);color:var(--navy)}
+.card{background:var(--navy);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:12px}
+.card[hidden]{display:none}
+.card h2{margin:0 0 2px;font-size:20px}
+.card .also{color:var(--muted);font-size:13px;margin:0 0 8px}
+.prod{display:inline-block;background:var(--gold);color:var(--navy);font-weight:700;border-radius:8px;padding:3px 10px;margin:4px 0 6px}
+.meta{color:var(--muted);font-size:13px}
+ol{margin:6px 0 4px;padding-left:22px}
+li{margin:3px 0}
+.rinse{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}
+.rinse b,.warn b,.next b{color:var(--gold)}
+.warn{color:var(--red);font-size:14px;margin-top:6px}
+.next{font-size:14px;margin-top:6px}
+.nolabel{color:var(--muted);font-style:italic;font-size:14px}
+.box{background:#05070c;border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-top:16px;font-size:15px}
+.box h2{margin:0 0 6px;font-size:18px;color:var(--gold)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{text-align:left;padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.12);vertical-align:top}
+th{color:var(--gold);font-weight:600}
+.none{color:var(--muted);margin-top:14px;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar"><a href="./hub.html">&lsaquo; Hub</a><h1>Stain Guide</h1></div>
+  <p class="sub">Tap a stain or type it. Every product here is from your SDS binder. Always test a hidden spot first and never mix products.</p>
+  <input id="q" type="search" placeholder="Search: coffee, urine, rust, gum, ink…" aria-label="Search stains">
+  <div class="chips" id="chips"></div>
+
+  <div id="cards">
+
+  <section class="card" data-k="coffee tea cola soda tannin juice beer">
+    <h2>Coffee, tea, cola</h2><p class="also">Tannin stains. Also some berry, ink and dye spots.</p>
+    <span class="prod">Prochem Coffee &amp; Tannin Spotter</span> <span class="meta">Ready to use · pH 3.5 · synthetic fibers</span>
+    <ol>
+      <li>Extract or blot up as much of the spill as you can.</li>
+      <li>Apply straight from the bottle onto the stain.</li>
+      <li>Work it in gently, then blot with a white towel.</li>
+    </ol>
+    <p class="nolabel">The product page doesn't give a dwell time.</p>
+    <div class="rinse"><b>Rinse:</b> plain water, then extract. It rinses easily with water.</div>
+    <p class="next"><b>Still there?</b> Stain 1, or Stain Magic for old or tough ones.</p>
+  </section>
+
+  <section class="card" data-k="urine pee pet dog cat odor smell">
+    <h2>Pet urine (odor + stain)</h2><p class="also">Also feces odor and wet-dog smell.</p>
+    <span class="prod">ODORx Un-Duz-It Unleashed</span> <span class="meta">pH 9 · OK on wool</span>
+    <ol>
+      <li>Pour it on so it reaches everything the urine reached, pad included. It only works where it touches.</li>
+      <li>Use it straight, or dilute up to 1:1 with water.</li>
+      <li>Let it sit 1 hour.</li>
+      <li>Deep extract.</li>
+    </ol>
+    <div class="rinse"><b>Rinse:</b> extract with cold or warm tap water.</div>
+    <p class="next"><b>Yellow left behind?</b> Stain 1 (synthetics only), or Yellow Rx for browning.</p>
+    <p class="warn"><b>Heads up:</b> odor in the pad or subfloor may not come out. Don't promise it.</p>
+  </section>
+
+  <section class="card" data-k="poop feces poo diarrhea organic waste">
+    <h2>Poop (on nylon or polyester)</h2><p class="also">Your 4-step method from Mark.</p>
+    <ol>
+      <li>Scrape and remove all solids. Blot.</li>
+      <li><b>Acid step:</b> Coffee &amp; Tannin Spotter. Apply, work in, blot.</li>
+      <li><b>Alkaline step:</b> Ultrapac Extreme. Apply, work in, extract.</li>
+      <li><b>Enzyme:</b> Un-Duz-It Unleashed for the odor. Let it sit 1 hour, then extract.</li>
+      <li><b>Brown-out:</b> Yellow Rx if a brown ring is left.</li>
+    </ol>
+    <div class="rinse"><b>Rinse:</b> extract with water between steps. Finish with All Fiber Rinse after the alkaline step.</div>
+    <p class="warn"><b>Heads up:</b> Ultrapac Extreme is pH 11.7. Some carpet makers don't allow cleaners above pH 10.</p>
+  </section>
+
+  <section class="card" data-k="blood vomit puke throw up juice fruit plant grass organic">
+    <h2>Blood, vomit, fruit juice, plant stains</h2><p class="also">Organic and natural stains. Also coffee, tea and urine stains.</p>
+    <span class="prod">Pros' Choice Stain 1</span> <span class="meta">One-part · use straight · pH 6.5 · oxidizer</span>
+    <ol>
+      <li>Test a hidden spot for color.</li>
+      <li>Clean the area first to get out as much as you can, then blot the fibers dry.</li>
+      <li>Spray it on heavy to soak the stained fibers. A trigger sprayer works best.</li>
+      <li>Let it work. It can clear right away or take a few hours.</li>
+      <li>Optional: cover with clear plastic to help it work.</li>
+      <li>Stain coming back? Spray, agitate, blot, lightly spray again and leave it.</li>
+    </ol>
+    <p class="nolabel">The product page doesn't give a rinse step.</p>
+    <p class="warn"><b>Not on wool, sisal or natural fibers.</b> OK on stain-resistant nylon.</p>
+  </section>
+
+  <section class="card" data-k="wine red grape juice mustard curry kool aid koolaid furniture wood dye old">
+    <h2>Wine, grape juice, mustard, curry, furniture stains</h2><p class="also">Tough or old organic stains.</p>
+    <span class="prod">Pros' Choice Stain Magic (Part A + Part B)</span> <span class="meta">Mixed pH 9 · ammonia smell</span>
+    <ol>
+      <li>Test a hidden spot. Some dye loss is always possible.</li>
+      <li>Extract the spot, then blot as dry as you can.</li>
+      <li>Mix equal parts A and B in a clean, open container or the dual sprayer. Use it within 5 minutes and toss leftovers.</li>
+      <li>Soak the stained fibers evenly and agitate gently.</li>
+      <li>Cover with clear plastic (best for mustard, curry and wood stains).</li>
+      <li>Wait. It can clear right away, in 1–2 hours, or up to 12 hours.</li>
+      <li>Mustard or curry: lay a damp towel over it and steam iron on the lowest setting for 1–3 minutes, checking every 15 seconds. Never put the iron on the carpet.</li>
+    </ol>
+    <div class="rinse"><b>Rinse:</b> hot water extraction, then dry it well.</div>
+    <p class="warn"><b>Not on wool or natural fibers.</b> No iron on olefin, which melts. Never close a container with mixed product in it, because it can burst. Never mix it with Red Relief.</p>
+  </section>
+
+  <section class="card" data-k="yellow brown browning ring wicking water stain cellulose jute cotton overwet">
+    <h2>Yellow or brown rings (browning)</h2><p class="also">From over-wetting, jute or cotton backing, or chemical residue.</p>
+    <span class="prod">Prochem Yellow Rx</span> <span class="meta">Acid · pH 2.5 mixed</span>
+    <ol>
+      <li>Mix 12–24 oz per gallon of water.</li>
+      <li>Apply to the browned area. 1 diluted gallon covers about 400 sq ft.</li>
+    </ol>
+    <p class="nolabel">The product page doesn't give dwell or rinse steps. Check the label on the bottle.</p>
+    <p class="meta">Works on nylon, olefin, cotton, jute and many natural fibers.</p>
+  </section>
+
+  <section class="card" data-k="rust metal orange iron">
+    <h2>Rust</h2>
+    <span class="prod">Pros' Choice Rust Away</span> <span class="meta">Use straight · pH 3</span>
+    <ol>
+      <li>Test a hidden spot. Practice on a scrap first if you can.</li>
+      <li>Extraction-rinse the area first to get oils off.</li>
+      <li>Apply straight onto the rust.</li>
+      <li>Agitate gently with a soft brush or bone scraper.</li>
+      <li>Let it sit about 1 minute.</li>
+      <li>Extract, blot, and repeat if needed.</li>
+    </ol>
+    <div class="rinse"><b>Rinse:</b> extraction-clean the area.</div>
+    <p class="warn"><b>Not on wool or silk.</b> Some dye loss is possible. If nylon turns pink, apply non-sudsing ammonia and let it dry.</p>
+  </section>
+
+  <section class="card" data-k="gum grease oil tar food oily butter">
+    <h2>Gum, grease, oil, tar</h2>
+    <span class="prod">Prochem Citrus Gel</span> <span class="meta">Gel solvent · pH 4.3 · easier on latex backing</span>
+    <ol>
+      <li>Shake it. Test a hidden spot.</li>
+      <li>Scrape up as much as you can first.</li>
+      <li>Apply the gel and let it sit 2–5 minutes. Don't over-apply.</li>
+      <li>Scrape or blot it up with a white towel. Don't rub.</li>
+      <li>On big spots, repeat and work from the outside edge in.</li>
+      <li>Brush the fibers back into place.</li>
+    </ol>
+    <div class="rinse"><b>Rinse:</b> blot small spots with water, extract big ones with water.</div>
+    <p class="warn"><b>Careful on carpet tiles and some latex backings.</b> Solvents can loosen them.</p>
+    <p class="next"><b>Still there?</b> Paint, Oil &amp; Grease Remover.</p>
+  </section>
+
+  <section class="card" data-k="paint lipstick nail polish makeup sap tar blacktop asphalt wheel marks rubber oil">
+    <h2>Paint, lipstick, nail polish, tree sap, blacktop</h2><p class="also">Also rubber or plastic wheel marks and many inks.</p>
+    <span class="prod">Prochem Paint, Oil &amp; Grease Remover</span> <span class="meta">Ready to use · solvent</span>
+    <ol>
+      <li>Test a hidden spot.</li>
+      <li>Apply to the spot.</li>
+    </ol>
+    <p class="nolabel">The product page doesn't give dwell or agitation steps. Check the label on the bottle.</p>
+    <div class="rinse"><b>Rinse:</b> rinse with a water-based detergent, then extract.</div>
+    <p class="warn"><b>Solvent-safe surfaces only.</b> Contains 1,4-dioxane and methanol (Prop 65). Keep the area ventilated.</p>
+  </section>
+
+  <section class="card" data-k="ink pen marker sharpie ballpoint">
+    <h2>Ink, pen, marker</h2>
+    <span class="prod">Chemspec Ink Exit</span> <span class="meta">pH 7.2 · no harsh solvents · won't delaminate carpet</span>
+    <ol>
+      <li>Test a hidden spot.</li>
+      <li>Apply straight onto the ink.</li>
+    </ol>
+    <p class="nolabel">The product page doesn't give dwell or agitation steps. Check the label on the bottle.</p>
+    <div class="rinse"><b>Rinse:</b> rinse with your regular cleaning solution, extract, and dry it fast with an air mover.</div>
+    <p class="next"><b>Still there?</b> Paint, Oil &amp; Grease Remover handles many inks.</p>
+  </section>
+
+  <section class="card" data-k="graffiti spray paint marker goof off">
+    <h2>Graffiti, spray paint</h2>
+    <span class="prod">Pros' Choice Amazing Goof Off</span> <span class="meta">Strong solvent</span>
+    <p class="nolabel">I couldn't find its directions online. Follow the label on the bottle. Test a hidden spot first, and keep the area ventilated.</p>
+  </section>
+
+  </div>
+  <p class="none" id="none">No match. Try a different word, or check Stain 1 for organic stains and Citrus Gel for oily ones.</p>
+
+  <div class="box">
+    <h2>Rinsing</h2>
+    <ul style="margin:0;padding-left:20px">
+      <li>Most spotters come out with a plain water extraction.</li>
+      <li>After alkaline products (Ultrapac Extreme, Ultrapac Trafficlean, Power Burst, Stain Magic), rinse with <b>All Fiber Rinse</b> (pH 4–4.5) to bring the fibers back down.</li>
+      <li>Solvents (Citrus Gel, Paint, Oil &amp; Grease Remover, Goof Off): blot or extract with water, or with a water-based detergent.</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h2>Fiber quick check</h2>
+    <table>
+      <tr><th>Fiber</th><th>Don't use</th></tr>
+      <tr><td>Wool, silk, sisal, natural</td><td>Stain 1, Stain Magic (regular), Rust Away</td></tr>
+      <tr><td>Olefin</td><td>No steam iron (melts)</td></tr>
+      <tr><td>Nylon</td><td>Watch high-pH cleaners (pH 10+). They can hurt the stain guard and void some warranties.</td></tr>
+      <tr><td>Carpet tiles, latex backing</td><td>Go easy with solvents</td></tr>
+    </table>
+  </div>
+
+  <div class="box">
+    <h2>pH of what you carry</h2>
+    <table>
+      <tr><th>Product</th><th>pH</th></tr>
+      <tr><td>Yellow Rx</td><td>1.6 (2.5 mixed)</td></tr>
+      <tr><td>Truckmount Descaler</td><td>1.1–1.6 (machine only, not for carpet)</td></tr>
+      <tr><td>Rust Away</td><td>3</td></tr>
+      <tr><td>Kill Odor Citrus</td><td>3.3</td></tr>
+      <tr><td>Coffee &amp; Tannin Spotter</td><td>3.5 (4.4 on SDS)</td></tr>
+      <tr><td>All Fiber Rinse</td><td>4–4.5</td></tr>
+      <tr><td>Citrus Gel</td><td>4.3</td></tr>
+      <tr><td>Stain Magic Part A / Part B</td><td>4 / 13 (9 mixed)</td></tr>
+      <tr><td>Ink Exit</td><td>6–7.2</td></tr>
+      <tr><td>Stain 1</td><td>6.5</td></tr>
+      <tr><td>Fine Fabric Pre-Spray</td><td>7.5</td></tr>
+      <tr><td>Un-Duz-It Unleashed</td><td>9</td></tr>
+      <tr><td>Ultrapac Trafficlean</td><td>9.1</td></tr>
+      <tr><td>Power Burst</td><td>10.9–11.5</td></tr>
+      <tr><td>Ultrapac Extreme</td><td>11.7</td></tr>
+    </table>
+    <p class="meta" style="margin:8px 0 0">pH values are from your SDS binder. Steps are from each maker's product page or label.</p>
+  </div>
+</div>
+
+<script>
+/* Search + chips: show only the stains that match. */
+(function () {
+  var cards = [].slice.call(document.querySelectorAll(".card")), q = document.getElementById("q"),
+    chips = document.getElementById("chips"), none = document.getElementById("none");
+  var picks = ["Coffee", "Urine", "Poop", "Blood", "Wine", "Yellowing", "Rust", "Gum", "Paint", "Ink"];
+  chips.innerHTML = picks.map(function (p) { return '<button type="button">' + p + "</button>"; }).join("");
+  function show(t) {
+    t = String(t || "").toLowerCase().trim(); var n = 0;
+    if (t === "yellowing") t = "yellow";
+    cards.forEach(function (c) {
+      var hit = !t || (c.dataset.k + " " + c.textContent).toLowerCase().indexOf(t) > -1;
+      c.hidden = !hit; if (hit) n++;
+    });
+    none.style.display = n ? "none" : "block";
+  }
+  q.addEventListener("input", function () { [].forEach.call(chips.children, function (b) { b.classList.remove("on"); }); show(q.value); });
+  chips.addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    var on = !b.classList.contains("on");
+    [].forEach.call(chips.children, function (x) { x.classList.remove("on"); });
+    if (on) { b.classList.add("on"); q.value = ""; show(b.textContent); } else show("");
+  });
+})();
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
