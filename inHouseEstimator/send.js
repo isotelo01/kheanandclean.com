@@ -1,9 +1,12 @@
 /* Send Estimate — stage one: save the quote to Firestore and hand back a link.
    The link opens quote.html (stage two). Unapproved quotes expire after 30 days. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp,
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp,
          collection, query, where, limit, getDocs, deleteField }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+/* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+
 import { getAuth, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFunctions, httpsCallable }

@@ -279,8 +279,11 @@ body.menu-open #people{display:block;position:fixed;right:12px;z-index:20;width:
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, query, orderBy, limit, limitToLast, onSnapshot, doc, updateDoc, getDocs, getDoc }
+import { getFirestore as fsGetFirestore, initializeFirestore, collection, query, orderBy, limit, limitToLast, onSnapshot, doc, updateDoc, getDocs, getDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+/* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { guessFromTexts, makeLead } from "./lead-from-text.js";
 import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";

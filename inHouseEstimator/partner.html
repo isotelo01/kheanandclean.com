@@ -330,8 +330,11 @@ a.slot.open:hover{ background:rgba(76,175,121,.4); color:#fff; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut, deleteUser, reauthenticateWithPopup, reauthenticateWithCredential,
   GoogleAuthProvider, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, addDoc, query, where, getDocs }
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, addDoc, query, where, getDocs }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+/* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+
 import { getStorage, ref as sref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({

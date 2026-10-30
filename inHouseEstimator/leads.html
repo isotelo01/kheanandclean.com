@@ -132,8 +132,11 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 <script src="./phone-format.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction }
+import { getFirestore as fsGetFirestore, initializeFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+/* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+
 import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
