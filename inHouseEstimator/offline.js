@@ -9,6 +9,7 @@ import { initializeFirestore, getFirestore as fsGetFirestore, persistentLocalCac
   memoryLocalCache, getDocFromServer, doc as fsDoc }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { initializeApp as fbInitApp, getApps as fbGetApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth as fbGetAuth, updateCurrentUser } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { uploadBytes as stUpload, getDownloadURL as stUrl, ref as stRef }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
@@ -40,9 +41,17 @@ const backupDb = r => {
   }
   return backup;
 };
-const viaBackup = r => fsDoc(backupDb(r), r.path);
+/* The backup is a second app, so it starts signed out and the rules answer "Missing or insufficient
+   permissions". Copy his sign-in over to it before reading or saving. */
+const viaBackup = async r => {
+  const d = backupDb(r), a2 = fbGetAuth(d.app), u = fbGetAuth(r.firestore.app).currentUser;
+  if (u && (!a2.currentUser || a2.currentUser.uid !== u.uid)) {
+    try { await updateCurrentUser(a2, u); } catch (e) { console.error("backup sign-in", e); }
+  }
+  return fsDoc(d, r.path);
+};
 async function backupGet(r){
-  try { return await within(getDocFromServer(viaBackup(r)), 15000); }
+  try { return await within(viaBackup(r).then(getDocFromServer), 15000); }
   catch (e) { console.error(e); if (!navigator.onLine) return missing; throw new Error(SLOW); }
 }
 export async function getDoc(r){
@@ -65,8 +74,8 @@ const settle = p => {
   p.then(() => { pending = Math.max(0, pending - 1); badge(); }, e => { pending = Math.max(0, pending - 1); console.error(e); badge(); });
   return Promise.race([p, new Promise(r => setTimeout(r, navigator.onLine ? 2000 : 400))]);   /* bad service: no long wait */
 };
-export const setDoc = (r, ...a) => stuck ? settle(fsSetDoc(viaBackup(r), ...a)) : settle(fsSetDoc(r, ...a));
-export const updateDoc = (r, ...a) => stuck ? settle(fsUpdateDoc(viaBackup(r), ...a)) : settle(fsUpdateDoc(r, ...a));
+export const setDoc = (r, ...a) => stuck ? settle(viaBackup(r).then(d => fsSetDoc(d, ...a))) : settle(fsSetDoc(r, ...a));
+export const updateDoc = (r, ...a) => stuck ? settle(viaBackup(r).then(d => fsUpdateDoc(d, ...a))) : settle(fsUpdateDoc(r, ...a));
 
 /* ---- Photos waiting to upload (kept on the phone in IndexedDB) ---- */
 const idb = () => new Promise((res, rej) => {
