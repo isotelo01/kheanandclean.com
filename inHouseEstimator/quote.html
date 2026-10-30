@@ -639,6 +639,7 @@ function wireNote(d, isQuote, num){
    before. The month view below is kept but never shown. ===== */
 const OPEN_URL = "https://us-central1-khean-estimator-78f3e.cloudfunctions.net/getOpenSlots";
 const BOOK_URL = "https://us-central1-khean-estimator-78f3e.cloudfunctions.net/bookSlot";
+const HOLD_URL = "https://us-central1-khean-estimator-78f3e.cloudfunctions.net/holdSlot";   // saves the day they tap, before Accept
 const WHOLE_DAY_AT = 450;   // same line as the backend
 const SLOT_TXT = { am: "AM (9\u20131)", pm: "PM (1\u20136)", all: "All day" };
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -656,6 +657,19 @@ function wireDay(d){
   let byDate = null, first = "", last = "", shown = "", day = "", slot = "", keep = false;
   const pad = n => String(n).padStart(2, "0");
   const say = t => { noteEl.textContent = t; };
+  /* Their pick is saved the moment they tap it and blocked for everyone else (holdSlot).
+     Accept then books it for real. "clear" lets it go. */
+  const hold = (k, s) => fetch(HOLD_URL, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(s === "clear" ? { id, slot: "clear" } : { id, date: k, slot: s === "all" ? "am" : s }) })
+    .then(async r => {
+      if (s === "clear") return;
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) { say("Saved. This day is held for you. Accept below to lock it in."); return; }
+      if (day === k) { day = ""; slot = ""; paint(); }
+      say(j.error || "That day couldn't be saved. Please pick another.");
+      if (r.status === 409 && byDate && byDate[k]) { if (s === "all") { byDate[k].am = byDate[k].pm = false; } else byDate[k][s] = false; }
+    })
+    .catch(() => { if (s !== "clear") say("That day couldn't be saved right now. Accept below and we'll call you to set it."); });
   if (asked) { wrap.hidden = false; dayEl.textContent = dayText(asked, d.scheduledTime, d.total); }
 
   const slotBtn = (k, o, s, txt) => `<button type="button" class="jobCal__slot" data-day="${k}" data-slot="${s}" aria-pressed="false"` +
@@ -700,7 +714,7 @@ function wireDay(d){
     draw(); box.hidden = false; btn.setAttribute("aria-expanded", "true");
   }
   function close(){ box.hidden = true; btn.setAttribute("aria-expanded", "false"); }
-  function clear(){ day = ""; slot = ""; keep = false; dayEl.textContent = ""; say(""); paint(); }
+  function clear(){ const had = !!day; day = ""; slot = ""; keep = false; dayEl.textContent = ""; say(""); paint(); if (had) hold("", "clear"); }
   btn.addEventListener("click", () => { if (box.hidden) open(); else close(); });
   box.addEventListener("click", e => {
     const b = e.target.closest("button");
@@ -708,7 +722,7 @@ function wireDay(d){
     if (!b) {
       const c = e.target.closest("[data-cell]"), k = c && c.getAttribute("data-cell"), o = k && byDate && byDate[k];
       const s2 = o ? (o.am ? "am" : o.pm ? "pm" : "") : "";
-      if (s2 && !big) { day = k; slot = s2; keep = false; dayEl.textContent = ""; say(""); paint(); close(); }
+      if (s2 && !big) { day = k; slot = s2; keep = false; dayEl.textContent = ""; say("Saving your day\u2026"); paint(); close(); hold(k, s2); }
       return;
     }
     if (b.disabled) return;
@@ -722,7 +736,7 @@ function wireDay(d){
       if (b.getAttribute("aria-pressed") === "true") { clear(); return; }   // tap the picked one again to un-pick
       day = b.getAttribute("data-day"); slot = b.getAttribute("data-slot");
       keep = false; dayEl.textContent = "";   /* their pick replaces the day sent with the quote */
-      say(""); paint(); close();
+      say("Saving your day\u2026"); paint(); close(); hold(day, slot);
     }
   });
   /* Tap anywhere else, or Esc, and the month folds away. */
@@ -733,7 +747,7 @@ function wireDay(d){
   });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !box.hidden && box.isConnected) { close(); btn.focus(); } });
 
-  fetch(OPEN_URL)
+  fetch(OPEN_URL + "?id=" + encodeURIComponent(id))   // their own held day still shows open to them
     .then(r => r.ok ? r.json() : Promise.reject(r.status))
     .then(data => {
       const all = ((data && data.days) || []).filter(x => x && isDay(x.date));
@@ -746,7 +760,10 @@ function wireDay(d){
          them to the homepage). Under $450: AM or PM; $450 and up: the whole day. Nothing is
          saved until Accept, which books it onto the job and from there the calendar. */
       const o = asked ? byDate[asked] : null;
-      if (o && askedSlot && (askedSlot === "all" ? o.am && o.pm : o[askedSlot])) { day = asked; slot = askedSlot; dayEl.textContent = ""; say(""); }
+      /* A day they already picked (held on the quote) comes back as their pick. */
+      const hd = isDay(d.heldDate) ? d.heldDate : "", hs = hd ? slotOf(d.heldTime, d.total) : "", ho = hd ? byDate[hd] : null;
+      if (ho && hs && (hs === "all" ? ho.am && ho.pm : ho[hs])) { day = hd; slot = hs; dayEl.textContent = ""; say("This day is held for you. Accept below to lock it in."); }
+      else if (o && askedSlot && (askedSlot === "all" ? o.am && o.pm : o[askedSlot])) { day = asked; slot = askedSlot; dayEl.textContent = ""; say(""); }
       else if (o && !askedSlot && (o.am || o.pm)) { keep = true; say("We'll confirm the time with you, or pick a time below."); }   // a day with no time: kept as sent unless they pick
       else if (asked) { dayEl.textContent = ""; say(shortDay(asked) + " isn't open anymore. Pick another day below, or accept and we'll call you to set one."); }
       else say("Pick a day below, or accept and we'll call you to set one.");
