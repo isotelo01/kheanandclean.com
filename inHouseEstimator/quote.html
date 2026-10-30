@@ -1106,6 +1106,10 @@ function render(d){
          failure leaves the quote where it was rather than losing it.
          Once the open days have loaded, the day is booked by bookSlot afterwards (it re-checks the
          slot, and only books a quote with no day yet), so the copy goes in without a day. */
+      /* Re-read the quote first. Opening the link stamps "viewed" on it a moment after the page loads, so the
+         copy this page loaded is a step behind, and the database only takes an exact copy plus the acceptance. */
+      const fresh = await getDoc(doc(db, "quotes", id));
+      if (fresh.exists()) d = fresh.data();
       const accepted = {
         ...d, status: "accepted", acceptedName: name, acceptedAt: serverTimestamp(),
         termsAccepted: true, termsVersion: "service-terms-2026-09"
