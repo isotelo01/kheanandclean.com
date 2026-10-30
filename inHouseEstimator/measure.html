@@ -759,7 +759,12 @@ function drawSketch(){ skUndoBtn();
     const C = c.pts.map(p => [X(p[0]), Y(p[1])]), mx0 = C.reduce((s, p) => s + p[0], 0) / C.length, my0 = C.reduce((s, p) => s + p[1], 0) / C.length;
     g += '<g data-cut="' + i + '" style="cursor:move"><polygon points="' + C.map(p => p.join(",")).join(" ") +
       '" fill="rgba(0,0,0,.6)" stroke="' + (on ? "#fff" : "#E3B64A") + '" stroke-width="2" stroke-dasharray="5 4"/>' +
-      '<text x="' + mx0 + '" y="' + (my0 + 4) + '" text-anchor="middle" font-size="11" fill="#e8ebf2">' + Math.round(polyA(c.pts)) + ' sf</text></g>';
+      '<text x="' + mx0 + '" y="' + (my0 + 4) + '" text-anchor="middle" font-size="11" fill="#e8ebf2">' + Math.round(polyA(c.pts)) + ' sf</text>' +
+      /* length of each cutout side, just inside that side */
+      C.map((a, j) => { const b = C[(j + 1) % C.length], q = c.pts[j], r = c.pts[(j + 1) % c.pts.length];
+        const ft = Math.round(Math.hypot(r[0] - q[0], r[1] - q[1]) * 2) / 2; if (ft < 1) return "";
+        const x = (a[0] + b[0]) / 2, y = (a[1] + b[1]) / 2, dx = mx0 - x, dy = my0 - y, L = Math.hypot(dx, dy) || 1;
+        return '<text x="' + (x + dx / L * 11) + '" y="' + (y + dy / L * 11 + 4) + '" text-anchor="middle" font-size="10" fill="#9fb3d1">' + ft + ' ft</text>'; }).join("") + '</g>';
     if (on) C.forEach((a, j) => {   /* + on each side of the selected cutout adds a corner */
       const b = C[(j + 1) % C.length], x = (a[0] + b[0]) / 2, y = (a[1] + b[1]) / 2;
       cg += '<g data-cm="' + i + ':' + j + '" style="cursor:copy"><circle cx="' + x + '" cy="' + y + '" r="12" fill="rgba(0,0,0,0)"/>' +
