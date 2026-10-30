@@ -503,10 +503,15 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function sMatters(el){
     h(el, 'What matters most to you?', 'We’ll match you with the right package.');
     var T = S.carpet.tiers;
+    /* Quick Dry is the base price; the higher packages show their estimated extra cost. */
+    var keep = A.tier, tot = {};
+    ['quickdry','deep','signature'].forEach(function(t){ A.tier = t; tot[t] = estimate().total; });
+    A.tier = keep;
+    var up = function(t){ var d = tot[t] - tot.quickdry; return d > 0 ? ' · est. +' + money(d) : ''; };
     choices(el, [
       { v:'quickdry', t:'Dry fast', s:T.quickdry.name + ', our fastest-drying clean' },
-      { v:'deep', t:'Deep Cleaning', s:'We get what your vacuum can’t' },
-      { v:'signature', t:'Keep it clean longer', s:T.signature.name + ', with deodorizer and stain protector' },
+      { v:'deep', t:'Deep Cleaning', s:'We get what your vacuum can’t' + up('deep') },
+      { v:'signature', t:'Keep it clean longer', s:T.signature.name + ', with deodorizer and stain protector' + up('signature') },
       { v:'essential', t:'The best price', s:T.essential.name }
     ], function(v){ A.tier = v; A.matters = v; }, A.tier);
   }
