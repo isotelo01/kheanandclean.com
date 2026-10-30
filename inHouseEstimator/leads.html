@@ -334,6 +334,15 @@ async function load(){
   const snap = await getDocs(collection(db, "leads"));
   all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
   tagContacts(db, "leads", all);
+  /* Leads made by Create lead before Oct 29 copied the texts in. Trim them to the referral note,
+     like every other text lead (the conversation stays on the Texts page). Runs once per lead. */
+  for (const l of all) {
+    if (!(l.source === "text" || l.source === "call") || !/\n*What they texted:/.test(l.message || "")) continue;
+    const msg = String(l.message).replace(/\n*What they texted:[\s\S]*$/, "")
+      .replace(/^(Referred by .+?)\s+[-–—]\s?[A-Z][a-z'’-]+\.$/m, "$1.").trim();
+    try { await updateDoc(doc(db, "leads", l.id), { message: msg }); l.message = msg; }
+    catch (e) { console.warn("trim lead " + l.id, e); }
+  }
   for (const l of all.slice()) {
     const d = daysLeft(l);
     if (d === null || d > 0) continue;
