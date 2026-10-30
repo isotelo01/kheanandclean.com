@@ -33,6 +33,8 @@ button.on{background:var(--gold);color:var(--navy)}
 .tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
 .tools button{padding:9px 4px;font-size:14px}
 .tools .wide{grid-column:span 2}
+.tools .full{grid-column:1/-1}
+.tools select{background:var(--navy);color:var(--gold);border:2px solid var(--gold);border-radius:999px;padding:9px 14px;font:700 15px "Archivo",sans-serif;cursor:pointer;text-align:center}
 .note{font-size:14px;color:#cfd6e4;margin-left:6px}
 .note.err{color:#ff8a7a}
 .miss{font-size:13px;color:#9fb3d1;margin-top:6px}
@@ -61,6 +63,14 @@ button.on{background:var(--gold);color:var(--navy)}
     <button type="button" id="editBtn" class="wide" disabled>Edit room</button>
     <button type="button" id="undoBtn" disabled>↶ Undo</button>
     <button type="button" id="fitBtn">⤢ Fit</button>
+    <!-- Wall pieces, same as the room sketch: pick one, then tap a wall (or tap one to remove it). -->
+    <select id="addSel" class="full" aria-label="Add to a wall">
+      <option value="">+ Doorway / opening &#9662;</option>
+      <option value="door">Door</option>
+      <option value="double">Double door</option>
+      <option value="open">Opening</option>
+      <option value="del">Remove a door or opening</option>
+    </select>
   </div>
   <div class="miss" id="miss"></div>
 </div>
@@ -95,7 +105,7 @@ const svg = $("plan");
 const snapH = v => Math.round(v * 2) / 2;   /* half-foot steps */
 const STORY = ["Zero story", "1st story", "2nd story", "3rd story"];
 
-let place = "", rooms = [], story = 1, sel = null, connecting = false, hist = [], dirty = false;
+let place = "", rooms = [], story = 1, sel = null, connecting = false, hist = [], dirty = false, adding = "";
 
 /* Room names: same order and keys the room pages use (spots.<key>). */
 function roomList(q){
@@ -124,7 +134,10 @@ const W = (r, p) => { const q = rotP(p, r.rot); return [q[0] + r.x, q[1] + r.y];
 const area = pts => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
 const here = () => rooms.filter(r => r.story === story);
 const groupOf = r => r.g ? here().filter(o => o.g === r.g) : [r];
-const layout = () => JSON.stringify(rooms.map(r => [r.x, r.y, r.rot, r.g || null]));
+const layout = () => JSON.stringify(rooms.map(r => [r.x, r.y, r.rot, r.g || null, r.doors]));
+/* Undo puts back where rooms sat and their doors / openings. */
+const restore = h => JSON.parse(h).forEach((v, i) => { const r = rooms[i]; [r.x, r.y, r.rot, r.g] = v;
+  if (v[4] && JSON.stringify(v[4]) !== JSON.stringify(r.doors)) { r.doors = v[4]; r.doorsDirty = true; } });
 function snap(){ hist.push(layout()); if (hist.length > 40) hist.shift(); tools(); }
 function dropSame(){ if (hist[hist.length - 1] === layout()) hist.pop(); tools(); }
 
@@ -144,7 +157,7 @@ async function load(){
     const pts = s.pts.map(loc);
     const cuts = (Array.isArray(s.cuts) ? s.cuts : []).filter(x => Array.isArray(x.pts)).map(x => x.pts.map(loc));
     const sv = saved[rm.key] || {};
-    rooms.push({ ...rm, pts, cuts, doors: Array.isArray(s.doors) ? s.doors : [],
+    rooms.push({ ...rm, pts, cuts, sk: s, doors: Array.isArray(s.doors) ? s.doors : [],
       sqft: Number(st.sketchSqft) > 0 ? Number(st.sketchSqft) : Math.round(area(s.pts) - cuts.reduce((a, x) => a + area(x), 0)),
       story: Number.isInteger(st.story) ? st.story : 1,
       x: Number(sv.x), y: Number(sv.y), rot: Number(sv.rot) || 0, g: sv.g || null, placed: Number.isFinite(Number(sv.x)) && sv.x != null });
@@ -245,10 +258,42 @@ $("editBtn").onclick = async () => {
 };
 $("undoBtn").onclick = () => {
   const h = hist.pop(); if (!h) return;
-  JSON.parse(h).forEach((v, i) => { const r = rooms[i]; [r.x, r.y, r.rot, r.g] = v; });
+  restore(h);
   dirty = true; draw();
 };
 $("fitBtn").onclick = fit;
+
+/* Doorway / opening: pick from the list, then tap a wall. Remove: tap the door or opening.
+   They're saved into each room's own sketch, so the room page shows them too. */
+const WD = { door: 3, double: 5, open: 4 };
+$("addSel").onchange = e => {
+  adding = e.target.value; connecting = false;
+  $("info").innerHTML = !adding ? "" : adding === "del" ? "Tap the door or opening to remove." : "Tap a wall to put the " + ({ door: "door", double: "double door", open: "opening" })[adding] + " there.";
+  if (!adding) draw();
+};
+function putPiece(p){
+  let best = null;
+  here().forEach(r => {
+    const P = r.pts.map(q => W(r, q));
+    if (adding === "del") r.doors.forEach((o, j) => {
+      const a = P[o.w], b = P[(o.w + 1) % P.length]; if (!a || !b) return;
+      const m = [a[0] + (b[0] - a[0]) * o.t, a[1] + (b[1] - a[1]) * o.t], d = Math.hypot(m[0] - p[0], m[1] - p[1]);
+      if (d < 3 && (!best || d < best.d)) best = { d, r, j };
+    });
+    else P.forEach((a, i) => {
+      const b = P[(i + 1) % P.length], ex = b[0] - a[0], ey = b[1] - a[1], L2 = ex * ex + ey * ey || 1;
+      const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * ex + (p[1] - a[1]) * ey) / L2));
+      const d = Math.hypot(a[0] + ex * t - p[0], a[1] + ey * t - p[1]);
+      if (d < 2 && (!best || d < best.d)) best = { d, r, i, t };
+    });
+  });
+  if (!best) { $("info").textContent = adding === "del" ? "No door or opening there. Tap right on one." : "Tap right on a wall."; return; }
+  snap();
+  if (adding === "del") best.r.doors.splice(best.j, 1);
+  else best.r.doors.push(adding === "door" ? { w: best.i, t: best.t } : { w: best.i, t: best.t, k: adding, wd: WD[adding] });
+  best.r.doorsDirty = true; dirty = true;
+  adding = ""; $("addSel").value = ""; sel = best.r; draw();
+}
 
 /* Snap when a room is let go: a corner onto a nearby corner, else a corner flush onto a nearby wall,
    else half-foot steps. Only against rooms that aren't moving with it. */
@@ -275,7 +320,7 @@ svg.addEventListener("pointerdown", e => {
   fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   try { svg.setPointerCapture(e.pointerId); } catch (x) {}
   if (fingers.size === 2) {
-    if (drag && drag.moved) { const h = hist.pop(); if (h) JSON.parse(h).forEach((v, i) => { const r = rooms[i]; [r.x, r.y, r.rot, r.g] = v; }); draw(); }
+    if (drag && drag.moved) { const h = hist.pop(); if (h) restore(h); draw(); }
     else if (drag) dropSame();
     drag = null;
     const [a, b] = [...fingers.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -284,6 +329,7 @@ svg.addEventListener("pointerdown", e => {
   }
   if (fingers.size > 2) return;
   const t = e.target.closest("[data-k]"), r = t ? rooms.find(o => o.key === t.dataset.k && o.story === story) : null;
+  if (adding) { putPiece(toFt(e.clientX, e.clientY)); return; }
   if (connecting) {
     connecting = false;
     if (r && r !== sel) { snap(); const g = sel.g || r.g || "g" + Date.now().toString(36);
@@ -330,7 +376,10 @@ async function save(){
   const b = $("saveBtn"), n = $("note"); b.disabled = true; n.classList.remove("err"); n.textContent = "Saving…";
   try {
     const out = {}; rooms.forEach(r => out[r.key] = { x: Math.round(r.x * 100) / 100, y: Math.round(r.y * 100) / 100, rot: r.rot, g: r.g || null });
-    await setDoc(doc(db, place, id), { floorPlan: { rooms: out, updatedAt: serverTimestamp() } }, { merge: true });
+    /* Doors / openings changed here go back into that room's sketch (shape and size untouched). */
+    const sp = {}; rooms.filter(r => r.doorsDirty).forEach(r => { sp[r.key] = { sketch: JSON.stringify({ ...r.sk, doors: r.doors }) }; });
+    await setDoc(doc(db, place, id), { floorPlan: { rooms: out, updatedAt: serverTimestamp() }, ...(Object.keys(sp).length ? { spots: sp } : {}) }, { merge: true });
+    rooms.forEach(r => { if (r.doorsDirty) { r.sk = { ...r.sk, doors: r.doors }; r.doorsDirty = false; } });
     dirty = false; n.textContent = "Saved."; b.disabled = false; return true;
   } catch (e) { console.error(e); n.classList.add("err"); n.textContent = "Couldn't save: " + e.message; b.disabled = false; return false; }
 }
