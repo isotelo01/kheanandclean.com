@@ -261,6 +261,8 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .summ .sumword{display:inline!important}
 .summ .sprice{display:inline}
 .summ .sdel,.summ .spot__go,.summ .spot__tick:not(.thumb),.summ .svc__plus,.summ .addonbox,.summ .addroom,.summ .addsvc,
+.fpbtn{display:inline-block;text-decoration:none;background:#6a3cb4;color:#fff;border:1px solid #8b5cf6;border-radius:8px;padding:9px 16px;font:600 15px "Archivo",system-ui,sans-serif}
+.fpbtn:hover{background:#5a2fa0}
 .summ .addfurn,.summ .staff,.summ .staffword,.summ .prog{display:none!important}
 /* Summary: each service starts folded, showing its first room photos; tap the header to open it. */
 .summ .svc:not(.sopen) .svc__body{display:none}   /* beats the working sheet's own open lines */
@@ -1684,6 +1686,8 @@ async function show(){
         '<textarea id="custNotes" class="grow" rows="1" style="margin-top:12px" placeholder="Notes before starting">' + esc(js.custNotes || "") + '</textarea></div>' +
 
       '<h2><span class="staffword">The Job</span><span class="sumword">Services performed</span></h2>' +
+      /* Floor plan (staff only, purple): every sketched room on this job put together. */
+      (PUBLIC ? '' : '<div class="staff" style="margin:4px 0 12px"><a class="fpbtn" href="./floor-plan.html?id=' + encodeURIComponent(id) + '">Floor plan &rsaquo;</a></div>') +
       '<div class="prog" id="prog"></div>' +
       (sections || '<div class="msg">This quote has no line items.</div>') + addSvc + (sections ? jtotal : '') +
 
@@ -1713,8 +1717,6 @@ async function show(){
       /* Save sits at the very bottom, on the left of the Summarize line. */
       '<div class="sumrow"><div class="actions" id="saveRow" style="margin:0 auto 0 0"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
         '<button type="button" class="new" id="sumBtn"></button></div>' +
-      /* Floor plan (staff only): every sketched room on this job put together. */
-      (PUBLIC ? '' : '<div class="staff" style="margin:14px 0"><a class="new" style="display:inline-block;text-decoration:none" href="./floor-plan.html?id=' + encodeURIComponent(id) + '">Floor plan &rsaquo;</a></div>') +
       /* Invoiced or paid: price locked. Whole job = the estimator's Copy job; Quote extras only = a new
          on-site estimate with just what was added at no charge, priced, to discount and send. */
       ((place === "invoices" || place === "paidInvoices") && !PUBLIC
