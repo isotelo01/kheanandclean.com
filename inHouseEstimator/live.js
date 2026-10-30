@@ -204,5 +204,12 @@ onAuthStateChanged(getAuth(app), user => {
   if (!user || started) return;
   started = true;
   startBubbles();
-  if (OWN_PHONE) mirrorOwnPhone(); else startPhone();
+  if (OWN_PHONE) mirrorOwnPhone();
+  else startPhoneLater();
 });
+
+// Let the page finish loading first, then turn the phone on (it was slowing every page on iPhone).
+function startPhoneLater() {
+  const go = () => setTimeout(startPhone, 2000);
+  if (document.readyState === "complete") go(); else addEventListener("load", go, {once: true});
+}

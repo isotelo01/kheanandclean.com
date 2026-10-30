@@ -125,6 +125,12 @@ button.tile{font:inherit;text-align:left;cursor:pointer;width:100%}
 /* Hub background: Zay Zay photo, darkened so the tiles stay readable. After theme-dark.css so it wins. */
 html{background:none}
 body{background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)) fixed,#000 url("../images/zay%20zay%20pic.jpg") center/cover no-repeat fixed}
+/* Phones: iPhone Safari lags on "fixed" backgrounds, so the same photo sits on its own pinned layer instead. */
+@media (max-width:759px){
+  body{background:#000}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),#000 url("../images/zay%20zay%20pic.jpg") center/cover no-repeat}
+}
 
 /* ===== Hub v2: grouped, colour-coded sections, glass tiles, glow on hover ===== */
 @media (min-width:1000px){ .wrap{max-width:1140px} }
