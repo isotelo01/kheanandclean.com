@@ -704,7 +704,14 @@ function wireDay(d){
   btn.addEventListener("click", () => { if (box.hidden) open(); else close(); });
   box.addEventListener("click", e => {
     const b = e.target.closest("button");
-    if (!b || b.disabled) return;
+    /* Tapping the date itself (not AM / PM) picks that day: the morning if it's open, else the afternoon. */
+    if (!b) {
+      const c = e.target.closest("[data-cell]"), k = c && c.getAttribute("data-cell"), o = k && byDate && byDate[k];
+      const s2 = o ? (o.am ? "am" : o.pm ? "pm" : "") : "";
+      if (s2 && !big) { day = k; slot = s2; keep = false; dayEl.textContent = ""; say(""); paint(); close(); }
+      return;
+    }
+    if (b.disabled) return;
     if (b.hasAttribute("data-nav")) {
       const nx = new Date(+shown.slice(0, 4), +shown.slice(5, 7) - 1 + Number(b.getAttribute("data-nav")), 1);
       shown = nx.getFullYear() + "-" + pad(nx.getMonth() + 1);
