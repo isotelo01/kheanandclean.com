@@ -143,8 +143,13 @@ const app = initializeApp({
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 });
 const fns = getFunctions(app, "us-central1");
-const mailList = httpsCallable(fns, "mailList"), mailRead = httpsCallable(fns, "mailRead");
-const mailMove = httpsCallable(fns, "mailMove"), mailSend = httpsCallable(fns, "mailSend");
+/* Personal Email (email.html?acct=personal): his Yahoo inbox. List, read, Archive and Delete go to Yahoo;
+   Reply, New, AI Response, Spam and Receipts are business mail only and hide here. */
+const PERSONAL = new URLSearchParams(location.search).get("acct") === "personal";
+if (PERSONAL) document.documentElement.classList.add("personal");
+const withAcct = fn => PERSONAL ? (d => fn({ ...d, acct: "personal" })) : fn;
+const mailList = withAcct(httpsCallable(fns, "mailList")), mailRead = withAcct(httpsCallable(fns, "mailRead"));
+const mailMove = withAcct(httpsCallable(fns, "mailMove")), mailSend = httpsCallable(fns, "mailSend");
 const mailWith = httpsCallable(fns, "mailWith");
 const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailSpam = httpsCallable(fns, "mailSpam", {timeout: 130000});
 const storage = getStorage(app);
@@ -166,7 +171,8 @@ async function uploadMailFiles(files) {
   return out;
 }
 
-const FOLDERS = [["INBOX", "Inbox"], ["Sent", "Sent"], ["Spam", "Spam"], ["Archive", "Archive"], ["Receipts", "Receipts"], ["Trash", "Trash"]];
+const FOLDERS = [["INBOX", "Inbox"], ["Sent", "Sent"], ["Spam", "Spam"], ["Archive", "Archive"], ["Receipts", "Receipts"], ["Trash", "Trash"]]
+  .filter(x => !(PERSONAL && x[0] === "Receipts"));
 // Addresses he can send from. Any other @kheanandclean.com address a message was sent to gets added
 // for that reply (the third alias), so replies go out from the address the customer wrote to.
 const FROMS = ["israel@kheanandclean.com", "contact@kheanandclean.com"];
@@ -238,7 +244,7 @@ async function showList(f, force) {
       '<span class="subj">' + esc(m.subject || "(no subject)") + '</span></a>' +
       '<div class="racts" data-uid="' + m.uid + '">' + rowButtons(f) + '</div></div>';
   }).join("") + '</div>';
-  if (f === "INBOX" && !swept) sweepJunk();
+  if (f === "INBOX" && !swept && !PERSONAL) sweepJunk();
 }
 /* The buttons under each email. Trash: just Move to Inbox. Sent: Delete and Archive. */
 /* Round icon buttons: X in a circle = Delete, archive box = Archive, sparkle = AI Response, no sign = Spam. */
@@ -254,8 +260,8 @@ function rowButtons(f) {
   if (f === "Trash") return '<button type="button" data-act="inbox">Move to Inbox</button>';
   return iconBtn("del", "Delete", "del") +
     (f === "Archive" ? '' : iconBtn("arch", "Archive")) +
-    (f === "Sent" ? '' : iconBtn("ai", "AI Response")) +
-    (f === "Sent" || f === "Spam" ? '' : iconBtn("spam", "Spam"));
+    (f === "Sent" || PERSONAL ? '' : iconBtn("ai", "AI Response")) +
+    (f === "Sent" || f === "Spam" || PERSONAL ? '' : iconBtn("spam", "Spam"));
 }
 const toast = t => { const el = document.createElement("div"); el.className = "toast"; el.textContent = t;
   document.body.appendChild(el); setTimeout(() => el.remove(), 5000); };
@@ -369,15 +375,15 @@ async function showMessage(f, uid) {
       '<div class="mmeta"><b>To:</b> ' + esc(list(m.to)) + (m.cc && m.cc.length ? ' &nbsp; <b>Cc:</b> ' + esc(list(m.cc)) : '') + '</div>' +
       '<div class="mmeta">' + esc(whenLong(m.date)) + '</div></div>' +
     '<div class="acts"><a class="ghost" href="#' + f + '">&larr; ' + esc((FOLDERS.find(x => x[0] === f) || [, f])[1]) + '</a>' +
-      (f === "Sent" ? '' : '<a class="new" href="#reply">Reply</a>') +
-      (f === "Sent" ? '' : '<button type="button" class="ghost" id="aiBtn">AI Response</button>') +
-      (f === "Sent" || f === "Trash" || f === "Spam" ? '' : '<button type="button" class="ghost" id="spamBtn">Spam</button>') +
+      (f === "Sent" || PERSONAL ? '' : '<a class="new" href="#reply">Reply</a>') +
+      (f === "Sent" || PERSONAL ? '' : '<button type="button" class="ghost" id="aiBtn">AI Response</button>') +
+      (f === "Sent" || f === "Trash" || f === "Spam" || PERSONAL ? '' : '<button type="button" class="ghost" id="spamBtn">Spam</button>') +
       (f === "Trash" || f === "Archive" ? '' : '<button type="button" class="ghost" id="archBtn">Archive</button>') +
       (f === "Trash" ? '<button type="button" class="ghost" id="moveBtn" data-to="INBOX">Move to Inbox</button>'
         : '<button type="button" class="ghost danger" id="moveBtn" data-to="Trash">Delete</button>') + '</div>' +
     (m.html ? '<iframe class="body" id="mbody" title="Email" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"></iframe>'
       : '<div class="plain">' + esc(m.text || "(empty)") + '</div>') +
-    (m.attachments && m.attachments.length ? '<div class="att">Attachments (open in Zoho to download): ' +
+    (m.attachments && m.attachments.length ? '<div class="att">Attachments (open in ' + (PERSONAL ? 'Yahoo' : 'Zoho') + ' to download): ' +
       esc(m.attachments.map(a => a.name).join(", ")) + '</div>' : '') +
     '<p class="msg err" id="mErr" role="alert"></p></div>';
   const fr = document.getElementById("mbody");
@@ -610,21 +616,11 @@ let started = false;
 onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=email.html"); return; }
   document.getElementById("authwait")?.remove();
-  /* Personal Emails (hub link: email.html?acct=personal). Same page and buttons; the Yahoo hookup comes next,
-     once there's a Yahoo app password to plug in. */
-  if (new URLSearchParams(location.search).get("acct") === "personal") {
+  /* Personal Email (hub link: email.html?acct=personal): the Yahoo inbox, read / archive / delete only. */
+  if (PERSONAL) {
     document.title = "Personal Email · Khean & Clean";
     document.querySelector("h1").textContent = "Personal Email";
-    ["refreshBtn", "newBtn", "folders"].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = true; });
-    view.innerHTML = '<div class="panel"><div class="mhead"><h2>Yahoo isn’t plugged in yet</h2></div>' +
-      '<div class="plain">This page will show your Yahoo inbox with the same Delete, Archive, AI Response and Spam buttons, ' +
-      'kept separate from your business mail.\n\nTo plug it in:\n' +
-      '1. Sign in at login.yahoo.com, open Account Info, then Account Security.\n' +
-      '2. Tap “Generate app password” (or “Manage app passwords”), name it “Khean app” and copy the password it shows.\n' +
-      '3. Tell Claude “Yahoo is ready” with your Yahoo address. Claude will give you one command to paste the password in safely, ' +
-      'so it is never typed into a chat.</div>' +
-      '<div class="acts"><a class="ghost" href="./email.html">Business email</a><a class="ghost" href="./hub.html">Hub</a></div></div>';
-    return;
+    const nb = document.getElementById("newBtn"); if (nb) nb.hidden = true;
   }
   if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
 });
