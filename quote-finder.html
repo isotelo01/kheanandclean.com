@@ -49,12 +49,12 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
   padding:24px; text-align:center; cursor:pointer; transition:background-color .35s ease; }
 .intro p{ position:absolute; left:0; top:0; margin:0; width:max-content; text-align:left; transform-origin:0 0;
   font:700 1.55rem/1.2 "Archivo",system-ui,sans-serif; color:var(--ivory); opacity:0;
-  transition:transform .45s cubic-bezier(.2,.8,.2,1), opacity .3s ease; }
+  transition:transform .9s cubic-bezier(.2,.8,.2,1), opacity .6s ease; }
 .intro p .g{ color:var(--gold); }
 .intro.lift{ background:transparent; pointer-events:none; }
 .step.enter h1, .step.enter .lead{ opacity:0; }
 .step.enter .opt, .step.enter .go{ opacity:0; transform:translateY(16px); }
-.step.go-in .opt, .step.go-in .go{ animation:rise .34s cubic-bezier(.2,.8,.2,1) forwards; }
+.step.go-in .opt, .step.go-in .go{ animation:rise .68s cubic-bezier(.2,.8,.2,1) forwards; }
 @keyframes rise{ to{ opacity:1; transform:none; } }
 /* Screens */
 .step h1{ font-size:1.55rem; line-height:1.2; margin:0 0 8px; font-weight:700; }
@@ -1021,7 +1021,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   /* Opening graphic: each line pops up in the middle and climbs to the top, stacking under the one
      before: "Thank you for choosing Khean & Clean", "We're here for you", "What can we help you with?".
      Then the first two fall away, the question stays as the heading, and the choices pop in.
-     About 3 seconds; a tap skips it. Skipped for people who turn motion off. */
+     About 7 seconds; a tap skips it. Skipped for people who turn motion off. */
   function intro(){
     if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     var step = screen.querySelector('.step'), h1 = step && step.querySelector('h1');
@@ -1033,7 +1033,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var L = ov.querySelectorAll('p'), timers = [], ended = false, BIG = 1.25, slot = [];
     var b = h1.getBoundingClientRect();
     [].forEach.call(L, function(p){ p.style.maxWidth = b.width + 'px'; });
-    var at = function(ms, f){ timers.push(setTimeout(f, ms)); };
+    var SLOW = 2;   /* 2 = half speed */
+    var at = function(ms, f){ timers.push(setTimeout(f, ms * SLOW)); };
     var put = function(p, x, y, k){ p.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + k + ')'; };
     var mid = function(p, k){ k = Math.min(k, (innerWidth - 32) / p.offsetWidth); put(p, (innerWidth - p.offsetWidth * k) / 2, (innerHeight - p.offsetHeight * k) / 2, k); };
     var pop = function(i){
@@ -1048,7 +1049,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(ended) return; ended = true; timers.forEach(clearTimeout);
       step = screen.querySelector('.step') || step;
       step.classList.remove('enter'); step.classList.add('go-in');
-      [].forEach.call(step.querySelectorAll('.opt, .go'), function(x, i){ x.style.animationDelay = (i * 45) + 'ms'; });
+      [].forEach.call(step.querySelectorAll('.opt, .go'), function(x, i){ x.style.animationDelay = (i * 45 * SLOW) + 'ms'; });
       if(ov.parentNode) ov.parentNode.removeChild(ov);
     };
     at(40, function(){ pop(0); });
