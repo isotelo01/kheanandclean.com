@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" type="image/png" sizes="192x192" href="/images/favicon-lotus-192.png">
-<title>Quote Finder &middot; Khean &amp; Clean</title>
+<title>Step-by-Step Quote Builder &middot; Khean &amp; Clean</title>
 <meta name="description" content="Answer a few quick questions and get your carpet, tile, upholstery or hard floor cleaning price in about two minutes.">
 <meta name="theme-color" content="#0A0A0B">
 <meta property="og:title" content="Get your cleaning price in 2 minutes · Khean & Clean">
@@ -340,6 +340,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     window.scrollTo(0, 0);
     drawSqft();
     var h = el.querySelector('h1'); if(h){ h.tabIndex = -1; h.focus({ preventScroll:true }); }
+    save();
   }
   /* Running square footage at the top (no price), updated on every tap. */
   function drawSqft(){
@@ -354,6 +355,15 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
   screen.addEventListener('click', drawSqft);
   var cur = null;
+  var SAVE = 'kcQuoteBuilder';
+  function save(){
+    if(!cur || cur === sDone) return;
+    var f = FLOW(), i = f.indexOf(cur); if(i < 0) return;   // room-photo screens aren't in the flow; keep the last spot
+    try{
+      var a = JSON.parse(JSON.stringify(A, function(k, v){ return k === 'photos' ? [] : v; }));
+      localStorage.setItem(SAVE, JSON.stringify({ a:a, at:i, hist: hist.map(function(x){ return f.indexOf(x); }).filter(function(n){ return n > -1; }), t: Date.now() }));
+    }catch(e){}
+  }
   backBtn.onclick = function(){ if(hist.length) show(hist.pop(), false); };
 
   /* The order of screens, worked out from the answers so far. */
@@ -907,7 +917,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   function summary(e){
     var L = [];
-    L.push('From the Quote Finder walkthrough');
+    L.push('From the Step-by-Step Quote Builder');
     if(A.problem) L.push('Main concerns: ' + A.problem);
     if(A.whole) L.push('WHOLE-HOUSE QUICK QUOTE: About ' + (A.wholeSqft || 0).toLocaleString() + ' sq ft x $' + WH_RATE.toFixed(2) + ', all floors');
     L.push('Services: ' + A.svcs.map(function(k){ return SVC[k].name; }).join(', '));
@@ -1041,6 +1051,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     .then(function(res){
       if(!res || !res.success) throw new Error((res && res.message) || 'failed');
       if(typeof gtag === 'function') gtag('event', 'generate_lead', { form_name:'quote_finder' });
+      try{ localStorage.removeItem(SAVE); }catch(e){}   // sent: start fresh next time
       show(sDone, false);
     })
     .catch(function(x){
@@ -1052,8 +1063,22 @@ input.t:focus{ outline:none; border-color:var(--gold); }
 
   /* Fresh Settings prices came in: redraw the screen that's open so its prices match. */
   window.addEventListener('kc:prices', function(){ if(cur && cur !== sContact) show(cur, false); });
-  show(sProblem, false);
-  intro();
+  /* Saved progress: the answers and the step they're on stay in this browser, so a refresh or an
+     interruption picks up where they left off (kept 14 days). Photos can't be kept; they add them again. */
+  screen.addEventListener('click', function(){ save(); });
+  screen.addEventListener('input', function(){ save(); });
+  var saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(SAVE) || 'null'); }catch(e){}
+  if(saved && saved.a && saved.at > 0 && Date.now() - (saved.t || 0) < 14 * 864e5){
+    Object.keys(saved.a).forEach(function(k){ A[k] = saved.a[k]; });
+    A.photos = [];
+    var f0 = FLOW();
+    hist = (saved.hist || []).map(function(n){ return f0[n]; }).filter(Boolean);
+    show(f0[saved.at] || sProblem, false);
+  } else {
+    show(sProblem, false);
+    intro();
+  }
 
   /* Opening graphic: each line pops up in the middle and climbs to the top, stacking under the one
      before: "Thank you for choosing Khean & Clean", "Welcome to our Quote Builder", the how-to line,
@@ -1066,7 +1091,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(!h1) return;
     step.classList.add('enter');
     var ov = document.createElement('div'); ov.className = 'intro'; ov.setAttribute('aria-hidden', 'true');
-    ov.innerHTML = '<p>Thank you for choosing <span class="g">Khean &amp; Clean</span></p><p>Welcome to our <span class="g">Quote Builder</span></p>' +
+    ov.innerHTML = '<p>Thank you for choosing <span class="g">Khean &amp; Clean</span></p><p>Welcome to our <span class="g">Step-by-Step Quote Builder</span></p>' +
       '<p class="d">Answer a few quick questions and snap some photos for the most accurate quote.</p><p>What can we help you with?</p>';
     document.body.appendChild(ov);
     var L = ov.querySelectorAll('p'), timers = [], ended = false, BIG = 1.25, slot = [];
