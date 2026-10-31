@@ -606,6 +606,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   /* Photos: optional, never block anything. */
+  var PMAX = 40;
   function sPhotos(el){
     h(el, 'Want a more exact price? Snap a few photos.', 'Photos let us price your home exactly. Totally optional.');
     el.insertAdjacentHTML('beforeend',
@@ -627,11 +628,11 @@ input.t:focus{ outline:none; border-color:var(--gold); }
         x.onclick = function(){ A.photos.splice(i, 1); draw(); };
         d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
       });
-      el.querySelector('#pnote').textContent = A.photos.length ? A.photos.length + ' of 10 photos' : '';
+      el.querySelector('#pnote').textContent = A.photos.length ? A.photos.length + ' of ' + PMAX + ' photos' : '';
       go.textContent = A.photos.length ? 'Add these to my quote' : 'Next';
     }
     function add(inp){
-      Array.prototype.forEach.call(inp.files, function(f){ if(A.photos.length < 10 && /^image\//.test(f.type)) A.photos.push(f); });
+      Array.prototype.forEach.call(inp.files, function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type)) A.photos.push(f); });
       inp.value = ''; draw();
     }
     el.querySelector('#camIn').onchange = function(){ add(this); };
@@ -639,17 +640,94 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     /* Take photo: the camera stays open, every tap adds a photo (up to 10 total). Done comes back here.
        Phones that can't do it get the phone's own camera as before. */
     el.querySelector('#cam').onclick = function(){
-      var left = 10 - A.photos.length;
+      var left = PMAX - A.photos.length;
       if (left <= 0) return;
       var ok = window.burstCam && window.burstCam({ max: left,
-        onShot: function(f){ if (A.photos.length < 10) A.photos.push(f); },
+        onShot: function(f){ if (A.photos.length < PMAX) A.photos.push(f); },
         onDone: function(){ draw(); } });
       if (!ok) el.querySelector('#camIn').click();
     };
     el.querySelector('#pick').onclick = function(){ el.querySelector('#pickIn').click(); };
-    var go = goBtn(el, 'Next', function(){ A.skippedPhotos = !A.photos.length; next(); });
+    var go = goBtn(el, 'Next', function(){ if(photoRooms().length) pickRoom(el); else { A.skippedPhotos = !A.photos.length; next(); } });
     goBtn(el, 'I can’t do this right now', function(){ A.skippedPhotos = true; next(); }, true);
     draw();
+  }
+
+  /* Room by room photos: after Next, they pick a room from the ones they chose, get asked for
+     that room's photos one at a time, and tap Done with this room whenever they want. */
+  var ONE = { beds:'Bedroom', living:'Living / family room', hallway:'Hallway', stairs:'Stairs',
+    closet:'Walk-in closet', fullBath:'Bathroom' };
+  function photoRooms(){
+    var out = [], floors = ORDER.filter(function(k){ return k !== 'upholstery' && has(k); });
+    floors.forEach(function(k){
+      var r = A.rooms[k] || {}, tag = floors.length > 1 ? ' · ' + SVC[k].word : '';
+      (LISTS[k] || []).forEach(function(key){
+        var n = r[key] || 0;
+        for(var i = 0; i < n; i++) out.push({ id:k + '_' + key + '_' + i, t:(ONE[key] || NAMES[key]) + (n > 1 ? ' ' + (i + 1) : '') + tag, stairs:key === 'stairs' });
+        if(key === 'beds') (A.master[k] || []).forEach(function(z, i, ml){
+          out.push({ id:k + '_master_' + i, t:'Master bedroom' + (ml.length > 1 ? ' ' + (i + 1) : '') + tag });
+        });
+      });
+    });
+    if(has('upholstery')) S.upholstery.items.forEach(function(it){
+      var n = A.uph[it.key] || 0;
+      for(var i = 0; i < n; i++) out.push({ id:'uph_' + it.key + '_' + i, t:it.name + (n > 1 ? ' ' + (i + 1) : ''), furn:true });
+    });
+    return out;
+  }
+  function roomShots(rm){ return A.photos.filter(function(f){ return f._room === rm.id; }); }
+  function pickRoom(el){
+    var list = photoRooms(), any = list.some(function(rm){ return roomShots(rm).length; });
+    h(el, any ? 'Which room next?' : 'Which room do you want to photograph first?', 'Tap a room. Stop anytime.');
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    list.forEach(function(rm){
+      var n = roomShots(rm).length, b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+      b.innerHTML = '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '') + '</span>';
+      if(n) b.setAttribute('aria-pressed', 'true');
+      b.onclick = function(){ shootRoom(el, rm); };
+      box.appendChild(b);
+    });
+    goBtn(el, any ? 'I’m done with photos' : 'Skip photos', function(){ A.skippedPhotos = !A.photos.length; next(); }, !any).classList.add('stick');
+    window.scrollTo(0, 0);
+  }
+  function shootRoom(el, rm){
+    var shots = rm.stairs ? ['From the bottom, shoot up the stairs', 'From the top, shoot down the stairs', 'Close-ups of any stains or worn spots']
+      : rm.furn ? ['The whole piece, from the front', 'The seat cushions up close', 'Close-ups of any stains or pet spots']
+      : ['Stand in the doorway and shoot into the room', 'Corner 1: shoot toward the opposite corner', 'Corner 2: shoot toward the opposite corner',
+         'Corner 3: shoot toward the opposite corner', 'Corner 4: shoot toward the opposite corner', 'Close-ups of any stains or pet spots'];
+    var mine = roomShots(rm), full = A.photos.length >= PMAX;
+    h(el, esc(rm.t) + ' photos', 'One at a time. Tap Done with this room whenever you want.');
+    var p = document.createElement('p'); p.className = 'pitch';
+    p.textContent = full ? 'That’s the most photos we can take. Thank you!'
+      : mine.length < shots.length ? 'Photo ' + (mine.length + 1) + ' of ' + shots.length + ': ' + shots[mine.length]
+      : 'That’s everything for this room. Add more if you like.';
+    el.appendChild(p);
+    el.insertAdjacentHTML('beforeend',
+      '<div class="pbtns"><button type="button" class="go ghost" id="rcam" style="margin:0">Take photo</button>' +
+      '<button type="button" class="go ghost" id="rpick" style="margin:0">Choose photos</button></div>' +
+      '<input type="file" id="rcamIn" accept="image/*" capture="environment" hidden>' +
+      '<input type="file" id="rpickIn" accept="image/*" multiple hidden><div class="thumbs" id="rthumbs"></div>');
+    var redo = function(){ shootRoom(el, rm); };
+    var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = rm.t; A.photos.push(f); } };
+    var add = function(inp){ Array.prototype.forEach.call(inp.files, keep); inp.value = ''; redo(); };
+    el.querySelector('#rcamIn').onchange = function(){ add(this); };
+    el.querySelector('#rpickIn').onchange = function(){ add(this); };
+    el.querySelector('#rcam').onclick = function(){
+      if(full) return;
+      var ok = window.burstCam && window.burstCam({ max:1, onShot:keep, onDone:redo });
+      if(!ok) el.querySelector('#rcamIn').click();
+    };
+    el.querySelector('#rpick').onclick = function(){ if(!full) el.querySelector('#rpickIn').click(); };
+    var thumbs = el.querySelector('#rthumbs');
+    mine.forEach(function(f, i){
+      var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
+      img.src = URL.createObjectURL(f); img.alt = rm.t + ' photo ' + (i + 1);
+      img.onload = function(){ URL.revokeObjectURL(img.src); };
+      x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
+      x.onclick = function(){ A.photos.splice(A.photos.indexOf(f), 1); redo(); };
+      d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
+    });
+    goBtn(el, 'Done with this room', function(){ pickRoom(el); }).classList.add('stick');
   }
 
   function sPrice(el){
@@ -830,7 +908,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     return A.photos.reduce(function(chain, f, i){
       return chain.then(function(){ return shrink(f); }).then(function(b){
         if(b.size > 10 * 1024 * 1024) return;
-        var path = 'quick-quote-photos/' + key + '/' + Date.now() + '_' + i + '_walkthrough.jpg';
+        var path = 'quick-quote-photos/' + key + '/' + Date.now() + '_' + i + '_' + (f._room || 'walkthrough') + '.jpg';
         return fb.st.uploadBytes(fb.st.ref(fb.storage, path), b, { contentType:'image/jpeg' })
           .then(function(s){ paths.push(s.ref.fullPath); }).catch(function(err){ console.error('Photo upload failed', err); });
       });
