@@ -142,9 +142,16 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   var P = window.KC_PRICING, S = P.SERVICES;
   var screen = document.getElementById('screen'), backBtn = document.getElementById('back'), bar = document.getElementById('bar');
 
-  /* Bedroom sizes for this walkthrough: a standard bedroom is 10x12, the master is
-     12x14 (medium) or 14x16 (large). They go into the estimate as square feet. */
-  var BED = 120, MASTER = { med:{ label:'Medium', dims:'about 12×14', sqft:168 }, lg:{ label:'Large', dims:'about 14×16', sqft:224 } };
+  /* Bedroom sizes for this walkthrough: a standard bedroom is 12x12, a master is
+     12x14 (standard) or 14x16 (large). They go into the estimate as square feet. */
+  var BED = 144, MASTER = { med:{ label:'Standard', dims:'about 12×14', sqft:168 }, lg:{ label:'Large', dims:'about 14×16', sqft:224 } };
+  /* Master bedrooms are a list, one size each ('med' or 'lg'); matching sizes group together. */
+  var masterSqft = function(){ return (A.master.carpet || []).reduce(function(t, z){ return t + MASTER[z].sqft; }, 0); };
+  var masterText = function(){
+    var l = A.master.carpet || [], g = [];
+    ['med','lg'].forEach(function(z){ var n = l.filter(function(x){ return x === z; }).length; if(n) g.push(MASTER[z].label + ' × ' + n); });
+    return g.join(', ') + ' (' + masterSqft() + ' sq ft)';
+  };
 
   /* Room lists per floor type. Each key is a room from pricing.js / Settings (its size comes
      from there); 'beds' is the standard bedroom above. */
@@ -184,7 +191,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function sqftFor(svc){
     var t = 0, r = A.rooms[svc] || {};
     Object.keys(r).forEach(function(k){ if(k !== 'stairs') t += (r[k] || 0) * sqftOf(k); });
-    if(svc === 'carpet' && A.master.carpet) t += MASTER[A.master.carpet].sqft;
+    if(svc === 'carpet') t += masterSqft();
     return t;
   }
 
@@ -214,7 +221,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
         else if(s.rooms[rk] != null) s.rooms[rk] = r[rk];
         else extra += r[rk] * sqftOf(rk);
       });
-      if(k === 'carpet' && A.master.carpet) extra += MASTER[A.master.carpet].sqft;
+      if(k === 'carpet') extra += masterSqft();
       if(extra) s.rooms.addSqft = (s.rooms.addSqft || 0) + extra;
       s.touched = true;
     });
@@ -343,8 +350,9 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var draw = function(){ var v = get(); out.textContent = v; bs[0].disabled = v <= 0; bs[1].disabled = v >= (max || 20); row.classList.toggle('on', v > 0); };
     bs[0].onclick = function(){ set(Math.max(0, get() - 1)); draw(); };
     bs[1].onclick = function(){ set(Math.min(max || 20, get() + 1)); draw(); };
-    /* Tapping the row itself adds one. */
-    row.querySelector('.nm').onclick = function(){ bs[1].click(); };
+    /* Tapping anywhere on the row adds one; only the minus button takes one away. */
+    row.style.cursor = 'pointer';
+    row.onclick = function(e){ if(!e.target.closest('button')) bs[1].click(); };
     draw(); return row;
   }
 
@@ -429,26 +437,36 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       /* Every room shows its size, like the bedrooms: the room's measurements from Settings / pricing.js,
          or its square feet when there are no measurements. */
       var rt = room(key), dims = rt && rt.dims && /\d/.test(rt.dims) ? rt.dims.replace(/\s*\u00d7\s*/, '×') : '';
-      var sub = key === 'beds' ? 'about 10×12 each' : key === 'stairs' ? money(stairsPrice()) + ' a flight'
+      var sub = key === 'beds' ? 'about 12×12 (144 sq ft) each' : key === 'stairs' ? money(stairsPrice()) + ' a flight'
         : dims ? 'about ' + dims + (rt.sqft ? ' (' + rt.sqft + ' sq ft)' : '') : rt && rt.sqft ? 'about ' + rt.sqft + ' sq ft' : '';
       box.appendChild(counter(NAMES[key], sub, function(){ return r[key] || 0; }, function(v){ r[key] = v; }, key === 'beds' ? 8 : 10));
-      /* Master bedroom: its own size question, right under the bedrooms. */
+      /* Master bedrooms: a counter like the others. Each one added starts as Standard and
+         gets its own Standard / Large pick; matching sizes group in the line under the name. */
       if(k === 'carpet' && key === 'beds'){
-        var row = document.createElement('div'); row.className = 'row' + (A.master.carpet ? ' on' : '');
-        row.innerHTML = '<span class="nm">Master bedroom<small>' + (A.master.carpet ? MASTER[A.master.carpet].dims : 'medium or large') + '</small></span>';
-        var seg = document.createElement('span'); seg.className = 'seg';
-        [['', 'None'], ['med', 'Medium'], ['lg', 'Large']].forEach(function(o){
-          var b = document.createElement('button'); b.type = 'button'; b.textContent = o[1];
-          b.setAttribute('aria-pressed', String((A.master.carpet || '') === o[0]));
-          b.onclick = function(){
-            A.master.carpet = o[0];
-            seg.querySelectorAll('button').forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
-            row.classList.toggle('on', !!o[0]);
-            row.querySelector('small').textContent = o[0] ? MASTER[o[0]].dims : 'medium or large';
-          };
-          seg.appendChild(b);
-        });
-        row.appendChild(seg); box.appendChild(row);
+        var ml = A.master.carpet = A.master.carpet || [];
+        var msub = function(){ return ml.length ? masterText() : 'Standard 12×14 (168 sq ft) or Large 14×16 (224 sq ft)'; };
+        var sizes = document.createElement('div'); sizes.style.cssText = 'display:grid;gap:8px';
+        var drawSizes = function(){
+          sizes.innerHTML = '';
+          ml.forEach(function(z, i){
+            var sr = document.createElement('div'); sr.className = 'row on';
+            sr.innerHTML = '<span class="nm">' + (ml.length > 1 ? 'Master ' + (i + 1) : 'Master size') + '<small>' + MASTER[z].dims + ' (' + MASTER[z].sqft + ' sq ft)</small></span>';
+            var seg = document.createElement('span'); seg.className = 'seg';
+            ['med','lg'].forEach(function(o){
+              var b = document.createElement('button'); b.type = 'button'; b.textContent = MASTER[o].label;
+              b.setAttribute('aria-pressed', String(z === o));
+              b.onclick = function(){ ml[i] = o; drawSizes(); mrow.querySelector('small').textContent = msub(); };
+              seg.appendChild(b);
+            });
+            sr.appendChild(seg); sizes.appendChild(sr);
+          });
+        };
+        var mrow = counter('Master bedrooms', msub(), function(){ return ml.length; }, function(v){
+          while(ml.length < v) ml.push('med');
+          ml.length = v;
+          drawSizes(); mrow.querySelector('small').textContent = msub();
+        }, 4);
+        box.appendChild(mrow); box.appendChild(sizes); drawSizes();
       }
     });
     goBtn(el, 'That’s all the ' + SVC[k].word);
@@ -708,8 +726,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     ['carpet','tile','lvp','stone'].forEach(function(k){
       if(!has(k)) return;
       var r = A.rooms[k], parts = [];
-      LISTS[k].forEach(function(key){ if(r[key]) parts.push(NAMES[key] + ' × ' + r[key] + (key === 'beds' ? ' (10×12)' : '')); });
-      if(k === 'carpet' && A.master.carpet) parts.push('Master bedroom: ' + MASTER[A.master.carpet].label.toLowerCase() + ' (' + MASTER[A.master.carpet].dims.replace('about ', '') + ')');
+      LISTS[k].forEach(function(key){ if(r[key]) parts.push(NAMES[key] + ' × ' + r[key] + (key === 'beds' ? ' (12×12)' : '')); });
+      if(k === 'carpet' && (A.master.carpet || []).length) parts.push('Master bedrooms: ' + masterText());
       L.push(SVC[k].name + ' rooms: ' + (parts.join(', ') || 'none picked'));
     });
     if(has('carpet')){
