@@ -51,6 +51,7 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
   font:700 1.55rem/1.2 "Archivo",system-ui,sans-serif; color:var(--ivory); opacity:0;
   transition:transform .9s cubic-bezier(.2,.8,.2,1), opacity .6s ease; }
 .intro p .g{ color:var(--gold); }
+.intro p.d{ font-size:1.15rem; font-weight:500; color:var(--muted); }
 .intro.lift{ background:transparent; pointer-events:none; }
 .step.enter h1, .step.enter .lead{ opacity:0; }
 .step.enter .opt, .step.enter .go{ opacity:0; transform:translateY(16px); }
@@ -1019,16 +1020,18 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   intro();
 
   /* Opening graphic: each line pops up in the middle and climbs to the top, stacking under the one
-     before: "Thank you for choosing Khean & Clean", "We're here for you", "What can we help you with?".
+     before: "Thank you for choosing Khean & Clean", "Welcome to our Quote Builder", the how-to line,
+     "What can we help you with?".
      Then the first two fall away, the question stays as the heading, and the choices pop in.
-     About 7 seconds; a tap skips it. Skipped for people who turn motion off. */
+     About 10 seconds; a tap skips it. Skipped for people who turn motion off. */
   function intro(){
     if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     var step = screen.querySelector('.step'), h1 = step && step.querySelector('h1');
     if(!h1) return;
     step.classList.add('enter');
     var ov = document.createElement('div'); ov.className = 'intro'; ov.setAttribute('aria-hidden', 'true');
-    ov.innerHTML = '<p>Thank you for choosing <span class="g">Khean &amp; Clean</span></p><p>We’re here for you</p><p>What can we help you with?</p>';
+    ov.innerHTML = '<p>Thank you for choosing <span class="g">Khean &amp; Clean</span></p><p>Welcome to our <span class="g">Quote Builder</span></p>' +
+      '<p class="d">Answer a few quick questions and snap some photos for the most accurate quote.</p><p>What can we help you with?</p>';
     document.body.appendChild(ov);
     var L = ov.querySelectorAll('p'), timers = [], ended = false, BIG = 1.25, slot = [];
     var b = h1.getBoundingClientRect();
@@ -1052,18 +1055,18 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       [].forEach.call(step.querySelectorAll('.opt, .go'), function(x, i){ x.style.animationDelay = (i * 45 * SLOW) + 'ms'; });
       if(ov.parentNode) ov.parentNode.removeChild(ov);
     };
-    at(40, function(){ pop(0); });
-    at(700, function(){ climb(0); });
-    at(950, function(){ pop(1); });
-    at(1600, function(){ climb(1); });
-    at(1850, function(){ pop(2); });
-    at(2500, function(){ climb(2); });
-    at(2950, function(){
-      b = (screen.querySelector('.step h1') || h1).getBoundingClientRect();
-      [0, 1].forEach(function(i){ put(L[i], b.left, slot[i] + 70, 1); L[i].style.opacity = 0; });
-      put(L[2], b.left, b.top, 1); ov.classList.add('lift');
+    var n = L.length, last = n - 1, t = 40;
+    [].forEach.call(L, function(p, i){
+      var hold = p.classList.contains('d') ? 1300 : 660;   /* the description stays up longer so it can be read */
+      at(t, function(){ pop(i); }); at(t + hold, function(){ climb(i); }); t += hold + 250;
     });
-    at(3400, reveal);
+    t += 200;
+    at(t, function(){
+      b = (screen.querySelector('.step h1') || h1).getBoundingClientRect();
+      for(var i = 0; i < last; i++){ put(L[i], b.left, slot[i] + 70, 1); L[i].style.opacity = 0; }
+      put(L[last], b.left, b.top, 1); ov.classList.add('lift');
+    });
+    at(t + 450, reveal);
     ov.onclick = reveal;
   }
 })();
