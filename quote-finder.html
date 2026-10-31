@@ -41,6 +41,23 @@ a{ color:var(--gold); }
 .sqft{ margin:-12px 0 16px; text-align:right; color:var(--muted); font-size:.9rem; font-variant-numeric:tabular-nums; }
 .sqft b{ color:var(--gold); }
 .bar i{ display:block; height:100%; width:0; background:var(--gold); transition:width .3s ease; }
+/* First screen: full screen, no letterhead (it comes back on the next screen). */
+body.first .head, body.first .bar, body.first .sqft{ display:none; }
+body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
+/* Opening: thank you, we're here for you, then the question slides up to the top. */
+.intro{ position:fixed; inset:0; z-index:50; background:var(--ink); display:flex; align-items:center; justify-content:center;
+  padding:24px; text-align:center; cursor:pointer; transition:background-color .35s ease; }
+.intro p{ position:absolute; left:24px; right:24px; margin:0; font:700 1.9rem/1.2 "Archivo",system-ui,sans-serif; color:var(--ivory);
+  opacity:0; transform:translateY(14px); transition:opacity .32s ease, transform .32s ease; }
+.intro p.on{ opacity:1; transform:none; }
+.intro p.off{ opacity:0; transform:translateY(-14px); }
+.intro p .g{ color:var(--gold); }
+.intro .q{ transform-origin:0 0; transition:opacity .32s ease, transform .5s cubic-bezier(.2,.8,.2,1); }
+.intro.lift{ background:transparent; pointer-events:none; }
+.step.enter h1, .step.enter .lead{ opacity:0; }
+.step.enter .opt, .step.enter .go{ opacity:0; transform:translateY(16px); }
+.step.go-in .opt, .step.go-in .go{ animation:rise .34s cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes rise{ to{ opacity:1; transform:none; } }
 /* Screens */
 .step h1{ font-size:1.55rem; line-height:1.2; margin:0 0 8px; font-weight:700; }
 .step .lead{ margin:0 0 18px; color:var(--muted); }
@@ -309,6 +326,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function show(fn, push){
     if(push !== false && cur) hist.push(cur);
     cur = fn;
+    document.body.classList.toggle('first', fn === sProblem);
     backBtn.hidden = !hist.length;
     screen.innerHTML = '';
     var el = document.createElement('section'); el.className = 'step';
@@ -417,7 +435,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   function sProblem(el){
-    h(el, 'We’re here for you. What can we help with?', 'Pick all that apply.');
+    h(el, 'What can we help you with?', 'Pick all that apply.');
     var list = [
       { v:'Dull traffic lanes', t:'Dull, matted traffic lanes' },
       { v:'Looks fine, just want a refresh', t:'It looks fine, I just want a refresh', s:'Even clean-looking carpet holds body oils a vacuum can’t lift. A deep clean stands the fibers back up.' },
@@ -1000,6 +1018,46 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   /* Fresh Settings prices came in: redraw the screen that's open so its prices match. */
   window.addEventListener('kc:prices', function(){ if(cur && cur !== sContact) show(cur, false); });
   show(sProblem, false);
+  intro();
+
+  /* Opening graphic: "Thank you for choosing Khean & Clean" → "We're here for you" →
+     "What can we help you with?", which slides up into the heading as the choices pop in.
+     About 2.5 seconds; a tap skips it. Skipped for people who turn motion off. */
+  function intro(){
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var step = screen.querySelector('.step'), h1 = step && step.querySelector('h1');
+    if(!h1) return;
+    step.classList.add('enter');
+    var ov = document.createElement('div'); ov.className = 'intro'; ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<p>Thank you for choosing <span class="g">Khean &amp; Clean</span></p><p>We’re here for you</p><p class="q">What can we help you with?</p>';
+    document.body.appendChild(ov);
+    var L = ov.querySelectorAll('p'), timers = [], ended = false;
+    var at = function(ms, f){ timers.push(setTimeout(f, ms)); };
+    var reveal = function(){
+      if(ended) return; ended = true; timers.forEach(clearTimeout);
+      step = screen.querySelector('.step') || step;
+      step.classList.remove('enter'); step.classList.add('go-in');
+      [].forEach.call(step.querySelectorAll('.opt, .go'), function(b, i){ b.style.animationDelay = (i * 45) + 'ms'; });
+      if(ov.parentNode) ov.parentNode.removeChild(ov);
+    };
+    var lift = function(){
+      h1 = screen.querySelector('.step h1') || h1;
+      var q = L[2], a = q.getBoundingClientRect(), b = h1.getBoundingClientRect();
+      var k = parseFloat(getComputedStyle(h1).fontSize) / parseFloat(getComputedStyle(q).fontSize);
+      q.style.left = b.left + 'px'; q.style.right = 'auto'; q.style.width = (b.width / k) + 'px'; q.style.textAlign = 'left';
+      var a2 = q.getBoundingClientRect();
+      q.style.transition = 'none'; q.style.transform = 'translate(' + (a.left - a2.left) + 'px,0)';
+      q.offsetWidth;
+      q.style.transition = ''; ov.classList.add('lift');
+      q.style.transform = 'translate(0,' + (b.top - a2.top) + 'px) scale(' + k + ')';
+      at(500, reveal);
+    };
+    at(60, function(){ L[0].classList.add('on'); });
+    at(950, function(){ L[0].classList.replace('on', 'off'); L[1].classList.add('on'); });
+    at(1750, function(){ L[1].classList.replace('on', 'off'); L[2].classList.add('on'); });
+    at(2250, lift);
+    ov.onclick = reveal;
+  }
 })();
 </script>
 </body>
