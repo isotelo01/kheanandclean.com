@@ -572,8 +572,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var up = function(t){ var d = tot[t] - tot.quickdry; return d > 0 ? ' · est. +' + money(d) : ''; };
     choices(el, [
       { v:'quickdry', t:'Dry fast', s:T.quickdry.name + ', our fastest-drying clean' },
-      { v:'deep', t:'Deep Cleaning', s:'We get what your vacuum can’t' + up('deep') },
-      { v:'signature', t:'Keep it clean longer', s:T.signature.name + ', with deodorizer and stain protector' + up('signature') },
+      { v:'deep', t:'<span style="color:var(--gold)">Deep</span> Cleaning', s:'We get what your vacuum can’t' + up('deep') },
+      { v:'signature', t:'Keep it clean longer', s:T.signature.name.replace('Signature', '<span style="color:var(--gold)">Signature</span>') + ', with deodorizer and stain protector' + up('signature') },
       { v:'essential', t:T.essential.name, s:'The best price · a solid hot water clean for carpet that’s in good shape' }
     ], function(v){ A.tier = v; A.matters = v; }, A.tier);
   }
