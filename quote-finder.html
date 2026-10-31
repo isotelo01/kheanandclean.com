@@ -70,6 +70,7 @@ a{ color:var(--gold); }
 .go{ display:block; width:100%; margin-top:18px; background:var(--gold); color:var(--ink); border:0; border-radius:999px;
   padding:16px; font:700 1.05rem "Archivo",sans-serif; cursor:pointer; }
 .go:disabled{ opacity:.5; cursor:default; }
+.go.stick{ position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:5; box-shadow:0 6px 24px 10px var(--ink); }
 .go.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold); }
 .tx{ min-height:62svh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; cursor:pointer; }
 .tx .sw{ opacity:0; animation:swirl .9s cubic-bezier(.2,.8,.2,1) forwards; }
@@ -513,7 +514,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
         box.appendChild(mrow); box.appendChild(sizes); drawSizes();
       }
     });
-    goBtn(el, 'That’s all the ' + SVC[k].word);
+    goBtn(el, 'That’s all the ' + SVC[k].word).classList.add('stick');
   }
 
   function sStairsCheck(el){
@@ -597,7 +598,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     S.upholstery.items.forEach(function(it){
       box.appendChild(counter(it.name, '', function(){ return A.uph[it.key] || 0; }, function(v){ A.uph[it.key] = v; }, 20));
     });
-    goBtn(el, 'That’s all the furniture');
+    goBtn(el, 'That’s all the furniture').classList.add('stick');
   }
   function sUphPets(el){
     h(el, 'Any pets or stains on the fabric?', 'Helps us bring the right treatment.');
