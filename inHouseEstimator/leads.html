@@ -523,6 +523,8 @@ async function showLead(id){
       '</div>' +
       '<div class="actions">' +
         (tel ? '<a class="ghost" href="tel:' + esc(tel) + '">Call</a><a class="ghost" href="./texts.html#' + esc(String(tel).replace(/\D/g, "").slice(-10)) + '">Text</a>' : '') +   /* business line, not your cell */
+        /* Text a promotion: Promotions page with this lead filled in as Send to (quote builder, quick quote, QR...). */
+        (tel ? '<a class="ghost" href="./promotions.html?to=' + encodeURIComponent(String(tel).replace(/\D/g, "").slice(-10)) + '&name=' + encodeURIComponent(l.name || "") + '">Text a promotion</a>' : '') +
         (l.email ? '<a class="ghost" href="./email.html#new/' + encodeURIComponent(l.email) + '">Email</a>' : '') +   /* app's Mail, from kheanandclean.com */
       '</div>' +
       '<h2>Photos</h2>' +

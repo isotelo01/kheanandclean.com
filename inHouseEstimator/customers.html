@@ -515,7 +515,10 @@ function readBlock(c){
         : "") +
       phonesOf(c).map(p => '<div class="prow"><a class="clink plink" href="tel:' + esc(telOf(p)) + '" data-tel="' + esc(telOf(p)) + '">' + esc(p) + '</a></div>').join("") +
       emailsOf(c).map(e => '<div class="prow"><a class="clink" href="./email.html#new/' + encodeURIComponent(e) + '">' + esc(e) + '</a></div>').join("") +   /* opens a new email in the app's Mail */
-      (phonesOf(c).length ? '<button type="button" class="ghost madd" id="tmplBtn">Pre-made texts</button><div id="tmplBox" hidden></div>' : "") +
+      (phonesOf(c).length ? '<button type="button" class="ghost madd" id="tmplBtn">Pre-made texts</button>' +
+        /* Text a promotion: Promotions page with this customer filled in as Send to. */
+        '<a class="ghost madd" href="./promotions.html?to=' + encodeURIComponent(digits(phonesOf(c)[0]).slice(-10)) + '&name=' + encodeURIComponent(c.name || c.business || "") + '">Text a promotion</a>' +
+        '<div id="tmplBox" hidden></div>' : "") +
       /* History: their texts and calls (first phone on file) and emails (first email), in the app's own pages. */
       ((phonesOf(c).length || emailsOf(c).length) ? '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">' +
         (phonesOf(c).length ? '<a class="ghost" data-direct href="./texts.html#' + esc(digits(phonesOf(c)[0]).slice(-10)) + '">Text history</a>' +

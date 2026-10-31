@@ -29,6 +29,18 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bot
 .btn{background:var(--navy);color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:8px 16px;font:700 14px "Archivo",sans-serif;text-decoration:none;cursor:pointer}
 .btn.alt{background:var(--gold);color:var(--navy);border-color:var(--gold)}
 :where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* Send to: pick a contact or type a number; each link's Text sends it from the business line. */
+.sendto{background:var(--navy);color:#fff;border:1px solid var(--gold);border-radius:10px;padding:14px 18px;margin-bottom:14px}
+.sendto label{display:block;font-weight:700;margin-bottom:6px}
+.sendto .row{display:flex;gap:8px;flex-wrap:wrap}
+.sendto input{flex:1;min-width:200px;font:16px "Archivo",sans-serif;padding:9px 11px;border-radius:6px;border:1px solid var(--line);background:#000;color:#fff}
+.sendto .who{margin-top:6px;font-size:14px;color:var(--gold);min-height:1.2em}
+/* QR: full screen, white, big enough to scan from a phone held out. */
+.qrview{position:fixed;inset:0;z-index:50;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;text-align:center}
+.qrview[hidden]{display:none}
+.qrview .qn{font:700 24px "Archivo",sans-serif}
+.qrview #qrBox img,.qrview #qrBox canvas{width:min(80vw,80vh,420px)!important;height:auto!important}
+.qrview button{font:700 16px "Archivo",sans-serif;padding:10px 24px;border-radius:999px;border:0;background:#172239;color:#fff;cursor:pointer}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
 </head>
@@ -37,21 +49,44 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bot
 <div class="wrap">
   <a class="back" href="./hub.html">&lsaquo; Hub</a><br>
   <h1>Promotions</h1>
+  <div class="sendto">
+    <label for="sendTo">Send to</label>
+    <div class="row"><input id="sendTo" list="contactList" placeholder="Pick a contact or type a phone number" autocomplete="off"></div>
+    <datalist id="contactList"></datalist>
+    <div class="who" id="sendWho"></div>
+  </div>
   <div class="list" id="list"></div>
 </div>
+<div class="qrview" id="qrView" hidden><div class="qn" id="qrName"></div><div id="qrBox"></div><div class="purl" id="qrUrl"></div><button type="button" id="qrClose">Close</button></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-/* Add more promo links here: [name, url]. */
+/* Add more promo links here: [name, url]. Leads and customer profiles send people here with ?to=&name=. */
 const LINKS = [
-  ["Contact", "https://kheanandclean.com/contact"],
+  ["Step-by-Step Quote Builder", "https://kheanandclean.com/quote-finder"],
   ["Quick Quote", "https://kheanandclean.com/quick-quote"],
+  ["Contact", "https://kheanandclean.com/contact"],
   ["B2B Login", "https://kheanandclean.com/inHouseEstimator/b2b-login"]
 ];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-document.getElementById("list").innerHTML = LINKS.map(([n, u]) =>
+document.getElementById("list").innerHTML = LINKS.map(([n, u], i) =>
   '<div class="plink"><div class="pinfo"><div class="pname">' + esc(n) + '</div><div class="purl">' + esc(u) + '</div></div>' +
   '<a class="btn" href="' + esc(u) + '" target="_blank" rel="noopener">Open</a>' +
-  '<button type="button" class="btn alt" data-url="' + esc(u) + '">Copy</button></div>').join("");
+  '<button type="button" class="btn alt" data-url="' + esc(u) + '">Copy</button>' +
+  '<button type="button" class="btn" data-qr="' + i + '">QR</button>' +
+  '<button type="button" class="btn alt" data-text="' + i + '">Text</button></div>').join("");
+/* QR: opens full screen; they scan it with their camera. */
+document.getElementById("list").addEventListener("click", e => {
+  const b = e.target.closest("button[data-qr]"); if (!b) return;
+  const [n, u] = LINKS[+b.dataset.qr], box = document.getElementById("qrBox");
+  box.innerHTML = "";
+  try { new QRCode(box, { text: u, width: 420, height: 420, correctLevel: QRCode.CorrectLevel.M }); }
+  catch (err) { box.textContent = "Couldn't make the QR code."; }
+  document.getElementById("qrName").textContent = n;
+  document.getElementById("qrUrl").textContent = u;
+  document.getElementById("qrView").hidden = false;
+});
+document.getElementById("qrClose").addEventListener("click", () => { document.getElementById("qrView").hidden = true; });
 document.getElementById("list").addEventListener("click", async e => {
   const b = e.target.closest("button[data-url]"); if (!b) return;
   try { await navigator.clipboard.writeText(b.dataset.url); b.textContent = "Copied"; }
@@ -63,20 +98,69 @@ document.getElementById("list").addEventListener("click", async e => {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-const auth = getAuth(initializeApp({
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
   projectId: "khean-estimator-78f3e",
   storageBucket: "khean-estimator-78f3e.firebasestorage.app",
   messagingSenderId: "581692353222",
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
-}));
+});
+const auth = getAuth(app);
+const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
+
+/* Send to: contacts (customers + leads with a phone) in the picker; or type any number.
+   ?to=<number>&name=<name> fills it in (Text a promotion on a lead or customer profile). */
+const digits = s => String(s || "").replace(/\D/g, "").slice(-10);
+const fmt = d => d.length === 10 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : d;
+const firstOf = n => String(n || "").trim().split(/\s+/)[0] || "";
+const phoneOf = r => { const p = [].concat(r.phone || [], r.phones || []).map(x => typeof x === "string" ? x : (x && (x.number || x.phone)) || "").filter(x => digits(x).length === 10)[0]; return digits(p); };
+let contacts = [], target = { to: "", name: "" };
+const sendTo = document.getElementById("sendTo"), sendWho = document.getElementById("sendWho");
+const pick = () => {
+  const v = sendTo.value.trim(), c = contacts.find(x => x.label === v);
+  target = c ? { to: c.to, name: c.name } : { to: digits(v), name: target.to === digits(v) ? target.name : "" };
+  sendWho.textContent = target.to.length === 10 ? "Texts go to " + (target.name ? target.name + " · " : "") + fmt(target.to) + " from the business line" : "";
+};
+sendTo.addEventListener("input", pick);
+const qs = new URLSearchParams(location.search);
+if (qs.get("to")) { target = { to: digits(qs.get("to")), name: qs.get("name") || "" }; sendTo.value = (target.name ? target.name + " · " : "") + fmt(target.to); pick(); }
+async function loadContacts() {
+  const db = getFirestore(app), seen = new Set(), out = [];
+  for (const col of ["customers", "leads"]) {
+    try {
+      (await getDocs(collection(db, col))).forEach(s => { const r = s.data(); if (r.trashed) return;
+        const to = phoneOf(r), name = r.name || r.business || ""; if (to.length !== 10 || !name || seen.has(to)) return;
+        seen.add(to); out.push({ to, name, label: name + " · " + fmt(to) }); });
+    } catch (e) { console.warn("contacts " + col, e); }
+  }
+  contacts = out.sort((a, b) => a.name.localeCompare(b.name));
+  document.getElementById("contactList").innerHTML = contacts.map(c => '<option value="' + c.label.replace(/"/g, "&quot;") + '">').join("");
+  if (target.to && !target.name) { const c = contacts.find(x => x.to === target.to); if (c) { target.name = c.name; pick(); } }
+}
+/* Text: shows the message, then sends it from the business line (it lands on the Texts page too). */
+document.getElementById("list").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-text]"); if (!b) return;
+  pick();
+  if (target.to.length !== 10) { alert("Pick a contact or type a 10-digit phone number at the top first."); sendTo.focus(); return; }
+  const [n, u] = LINKS[+b.dataset.text], first = firstOf(target.name);
+  const body = prompt("Text to " + fmt(target.to) + " (edit if you like):",
+    "Hi" + (first ? " " + first : "") + ", this is Israel with Khean & Clean. Here's our " + n + ": " + u);
+  if (!body || !body.trim()) return;
+  b.disabled = true; b.textContent = "Sending…";
+  try { await smsSend({ to: target.to, body: body.trim() }); b.textContent = "Sent ✓"; }
+  catch (err) { alert("Text didn't send. " + (err.message || "")); b.textContent = "Text"; }
+  setTimeout(() => { b.disabled = false; b.textContent = "Text"; }, 2500);
+});
 /* Page lock, same as hub.html. */
 onAuthStateChanged(auth, user => {
   if (!user) { location.replace("./login.html?next=promotions.html"); return; }
   if (!["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"].includes(user.uid)) {
     location.replace("./partner.html"); return; }
   document.getElementById("authwait")?.remove();
+  loadContacts();
 });
 </script>
 <script src="./tabbar.js" defer></script>
