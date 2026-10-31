@@ -170,7 +170,7 @@ document.getElementById("createLead").addEventListener("click", e => {
   if (name) createLead(name, e.currentTarget);
 });
 /* The hub's + (next to Open full calendar) asks for the name there and comes here as ?create=<name>. */
-async function createLead(name, b) {
+async function createLead(name, b, extra = {}) {
   const orig = b.innerHTML; b.disabled = true; b.textContent = "Creating\u2026";
   try {
     /* Same Q- numbers as the estimator (meta/counters.quote). */
@@ -181,7 +181,7 @@ async function createLead(name, b) {
       return next;
     });
     const number = "Q-" + n, qRef = doc(collection(db, "quotes")), lRef = doc(collection(db, "leads"));
-    await setDoc(lRef, { name, source: "onsite", status: "quoted", quoteId: qRef.id, quoteNumber: number,
+    await setDoc(lRef, { ...extra, name, source: "onsite", status: "quoted", quoteId: qRef.id, quoteNumber: number,
       createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     await setDoc(qRef, { number, type: "quote", status: "draft", fromJobSheet: true, onsiteEstimate: true,
       customer: { name }, leadId: lRef.id, lines: [], subtotal: 0, total: 0,
@@ -191,6 +191,32 @@ async function createLead(name, b) {
     console.error(err); alert("Couldn't create the lead: " + err.message);
     b.disabled = false; b.innerHTML = orig;
   }
+}
+
+/* #new: empty New lead form (the hub's +). Only the name is required. Save files the lead
+   the same way as Create lead, with the phone, email and address, and opens a blank job sheet. */
+function showNewLead() {
+  titleEl.textContent = "New lead";
+  view.innerHTML = '<div class="panel" id="contactEdit"><h2>New lead</h2>' +
+    '<label for="nlName">Name</label><input id="nlName" autocomplete="off" autocapitalize="words">' +
+    '<label for="nlPhone">Phone</label><input id="nlPhone" type="tel" autocomplete="off">' +
+    '<label for="nlEmail">Email</label><input id="nlEmail" type="email" autocomplete="off" autocapitalize="off">' +
+    '<label for="nlStreet">Street</label><input id="nlStreet" autocomplete="off">' +
+    '<label>City, state, zip</label><div class="csz"><input id="nlCity" autocomplete="off" aria-label="City">' +
+    '<input id="nlState" value="CA" aria-label="State"><input id="nlZip" inputmode="numeric" aria-label="Zip"></div>' +
+    '<div class="actions"><button type="button" class="new" id="nlSave">Save</button>' +
+    '<a class="ghost" href="#">Cancel</a><span class="note" id="nlNote"></span></div></div>';
+  const v = id => document.getElementById(id).value.trim();
+  document.getElementById("nlSave").addEventListener("click", e => {
+    const name = v("nlName").slice(0, 80), note = document.getElementById("nlNote");
+    if (!name) { note.textContent = "Enter a name."; note.className = "note err"; document.getElementById("nlName").focus(); return; }
+    const extra = {}, a = { street: v("nlStreet"), city: v("nlCity"), state: v("nlState"), zip: v("nlZip") };
+    if (v("nlPhone")) extra.phone = v("nlPhone");
+    if (v("nlEmail")) extra.email = v("nlEmail");
+    if (a.street || a.city || a.zip) extra.addresses = [a];
+    createLead(name, e.currentTarget, extra);
+  });
+  document.getElementById("nlName").focus();
 }
 
 /* Lead status. No status on file = new. */
@@ -946,7 +972,7 @@ const route = () => {
     sw.setAttribute("aria-label", h ? "Leads" : "Trash");
     sw.setAttribute("href", h ? "#" : "#trash");
   }
-  if (h === "trash") showTrash(); else if (h) showLead(h); else showList();
+  if (h === "trash") showTrash(); else if (h === "new") showNewLead(); else if (h) showLead(h); else showList();
 };
 
 /* Page lock. Not signed in -> login page, then back here. */
