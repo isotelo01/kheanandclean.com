@@ -655,16 +655,21 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   function sSeal(el){
-    var sq = sqftFor('tile'), a = S.tile.addons;
-    h(el, 'Want your grout sealed so it stays clean longer?');
+    /* No prices here: sealing and acid treatment are quoted on site (they may only want some areas).
+       Checked ones go on the lead as things to ask about; nothing is added to the estimate. */
+    A.sealAsk = A.sealAsk || {};
+    h(el, 'Want your grout sealed so it stays clean longer?', 'Check any you’re interested in. We’ll quote them on site.');
     var p = document.createElement('p'); p.className = 'pitch';
     p.textContent = 'We come in and make your kitchen and entry look brand new in just a few hours. Sealing locks it in.';
     el.appendChild(p);
-    var list = [];
-    if(a.clearseal) list.push({ v:'clearseal', t:'Clear seal', s:'Protects the grout you have. ' + (sq ? '+' + money(sq * a.clearseal.linear) : a.clearseal.text) });
-    if(a.seal) list.push({ v:'seal', t:'Color seal', s:'Even, like-new grout color. ' + (sq ? '+' + money(sq * a.seal.linear) : a.seal.text) });
-    list.push({ v:'', t:'No thanks' });
-    choices(el, list, function(v){ A.seal = v; }, A.seal);
+    var d = document.createElement('div'); d.className = 'checks'; el.appendChild(d);
+    [['Clear seal', 'Protects the grout you have'], ['Color seal', 'Even, like-new grout color'], ['Acid treatment', 'Deep clean for stubborn, stained grout']].forEach(function(o){
+      var l = document.createElement('label');
+      l.innerHTML = '<input type="checkbox"' + (A.sealAsk[o[0]] ? ' checked' : '') + '> <span>' + o[0] + '<small style="display:block;color:var(--muted)">' + o[1] + '</small></span>';
+      l.querySelector('input').onchange = function(){ A.sealAsk[o[0]] = this.checked; };
+      d.appendChild(l);
+    });
+    goBtn(el, 'Next');
   }
 
   function sUph(el){
@@ -934,7 +939,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(A.tier) L.push('Package: ' + S.carpet.tiers[A.tier].name);
     }
     if(A.rugs.med || A.rugs.lg) L.push('Area rugs: ' + [A.rugs.med ? 'medium × ' + A.rugs.med : '', A.rugs.lg ? 'large × ' + A.rugs.lg : ''].filter(Boolean).join(', '));
-    if(has('tile')) L.push('Grout seal: ' + (A.seal === 'seal' ? 'color seal' : A.seal === 'clearseal' ? 'clear seal' : 'no'));
+    if(has('tile')){ var sa = Object.keys(A.sealAsk || {}).filter(function(k){ return A.sealAsk[k]; });
+      L.push('Grout extras to quote on site: ' + (sa.length ? sa.join(', ') : 'none')); }
     if(has('upholstery')) L.push('Pets or stains on fabric: ' + (A.uphPets || 'not answered'));
     var dq = Object.keys(A.disc).filter(function(k){ return A.disc[k]; });
     if(dq.length) L.push('DISCOUNTS TO CHECK: ' + dq.join(', '));
