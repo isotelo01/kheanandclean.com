@@ -71,6 +71,20 @@ a{ color:var(--gold); }
   padding:16px; font:700 1.05rem "Archivo",sans-serif; cursor:pointer; }
 .go:disabled{ opacity:.5; cursor:default; }
 .go.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold); }
+.tx{ min-height:62svh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; cursor:pointer; }
+.tx .sw{ opacity:0; animation:swirl .9s cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes swirl{ 0%{ opacity:0; transform:rotate(-14deg) scale(.6) translateY(24px); } 60%{ opacity:1; transform:rotate(3deg) scale(1.04); } 100%{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ .tx .sw{ animation:none; opacity:1; } }
+.tx .ck{ width:56px; height:56px; border-radius:50%; border:2px solid var(--gold); color:var(--gold); display:flex; align-items:center; justify-content:center; font-size:28px; }
+.tx .t1{ font-size:1.55rem; font-weight:700; margin:16px 0 0; }
+.tx .t2{ font-size:1.4rem; font-weight:700; margin:0; }
+.tx .t3{ color:var(--muted); margin:6px 0 0; }
+.tx .gfx{ display:grid; gap:4px; margin:28px 0 18px; }
+.tx .gfx span{ border:1.5px solid var(--gold); border-radius:3px; }
+.tx .g-tile{ grid-template-columns:repeat(3,22px); } .tx .g-tile span{ height:22px; }
+.tx .g-lvp{ grid-template-columns:repeat(3,26px); } .tx .g-lvp span{ height:9px; }
+.tx .g-stone{ grid-template-columns:repeat(3,22px); } .tx .g-stone span{ height:20px; border-radius:7px 3px 8px 4px; } .tx .g-stone span:nth-child(even){ border-radius:3px 8px 4px 9px; }
+.tx .g-upholstery{ grid-template-columns:12px 44px 12px; align-items:end; } .tx .g-upholstery span{ height:30px; border-radius:6px; } .tx .g-upholstery span:nth-child(2){ height:22px; }
 .back{ background:none; border:0; color:var(--muted); font:500 .9rem "Archivo",sans-serif; padding:6px 0; margin:0 0 10px; cursor:pointer; }
 :where(button,a,input,select):focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 /* Photos */
@@ -316,15 +330,38 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       f.push(sRugs, sSpots, sVacuum, sMatters);
     }
     if(has('rugs') && !has('carpet')) f.push(sRugs);   /* with carpet, the rug question is already in the carpet steps */
-    if(has('tile')) f.push(sRooms('tile'), sSeal);
-    if(has('lvp')) f.push(sRooms('lvp'));
-    if(has('stone')) f.push(sRooms('stone'));
-    if(has('upholstery')) f.push(sUph, sUphPets);
+    /* Between services, a short "all done with X, now let's do Y" screen. */
+    var prev = has('carpet') ? 'carpet' : has('rugs') ? 'rugs' : '';
+    var step = function(k, screens){ if(prev) f.push(sTrans(prev, k)); f.push.apply(f, screens); prev = k; };
+    if(has('tile')) step('tile', [sRooms('tile'), sSeal]);
+    if(has('lvp')) step('lvp', [sRooms('lvp')]);
+    if(has('stone')) step('stone', [sRooms('stone')]);
+    if(has('upholstery')) step('upholstery', [sUph, sUphPets]);
     f.push(sPhotos, sPrice, sWhen, sContact);
     return f;
   }
   var cache = {};
   function sRooms(k){ return cache['rooms_' + k] || (cache['rooms_' + k] = function(el){ roomsScreen(el, k); }); }
+  function sTrans(a, b){
+    var key = 'tx_' + a + '_' + b;
+    return cache[key] || (cache[key] = function(el){
+      var me = cache[key], done = false;
+      el.className = 'step tx';
+      el.innerHTML = '<div class="sw ck" aria-hidden="true">\u2713</div>' +
+        '<h1 class="sw t1" style="animation-delay:.25s">All done with ' + SVC[a].word + '</h1>' +
+        '<div class="sw gfx g-' + b + '" style="animation-delay:1.1s" aria-hidden="true">' + new Array(b === 'upholstery' ? 4 : 10).join('<span></span>') + '</div>' +
+        '<p class="sw t2" style="animation-delay:1.4s">Now let\u2019s do your ' + SVC[b].word + '</p>' +
+        '<p class="sw t3" style="animation-delay:1.7s">Tap the rooms' + (b === 'upholstery' ? '' : ' with ' + SVC[b].word) + ' you want cleaned</p>';
+      if(b === 'upholstery') el.querySelector('.t3').textContent = 'Tell us what furniture you want cleaned';
+      /* Moves on by itself (or on a tap). It stays out of the Back history, so Back skips it. */
+      var go = function(){
+        if(done || cur !== me) return; done = true;
+        var f = FLOW(), nx = f[f.indexOf(me) + 1] || sPrice;
+        cur = hist.pop() || null; show(nx);
+      };
+      el.onclick = go; setTimeout(go, 2800);
+    });
+  }
   function has(k){ return A.svcs.indexOf(k) > -1; }
   function next(){
     var f = FLOW(), i = f.indexOf(cur);
