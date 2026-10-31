@@ -130,6 +130,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 </div>
 
 <script src="./phone-format.js"></script>
+<script src="./places.js" defer></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction }
@@ -170,7 +171,7 @@ document.getElementById("createLead").addEventListener("click", e => {
   if (name) createLead(name, e.currentTarget);
 });
 /* The hub's + (next to Open full calendar) asks for the name there and comes here as ?create=<name>. */
-async function createLead(name, b, extra = {}) {
+async function createLead(name, b, extra = {}, next = "") {
   const orig = b.innerHTML; b.disabled = true; b.textContent = "Creating\u2026";
   try {
     /* Same Q- numbers as the estimator (meta/counters.quote). */
@@ -186,7 +187,7 @@ async function createLead(name, b, extra = {}) {
     await setDoc(qRef, { number, type: "quote", status: "draft", fromJobSheet: true, onsiteEstimate: true,
       customer: { name }, leadId: lRef.id, lines: [], subtotal: 0, total: 0,
       date: new Date().toISOString().slice(0, 10), createdAt: serverTimestamp() });
-    location.href = "./job-sheet.html?id=" + encodeURIComponent(qRef.id);
+    location.href = next || "./job-sheet.html?id=" + encodeURIComponent(qRef.id);   /* next: Text / Text promo from the New lead form */
   } catch (err) {
     console.error(err); alert("Couldn't create the lead: " + err.message);
     b.disabled = false; b.innerHTML = orig;
@@ -201,21 +202,32 @@ function showNewLead() {
     '<label for="nlName">Name</label><input id="nlName" autocomplete="off" autocapitalize="words">' +
     '<label for="nlPhone">Phone</label><input id="nlPhone" type="tel" autocomplete="off">' +
     '<label for="nlEmail">Email</label><input id="nlEmail" type="email" autocomplete="off" autocapitalize="off">' +
-    '<label for="nlStreet">Street</label><input id="nlStreet" autocomplete="off">' +
+    '<label for="nlAddr">Street</label><input id="nlAddr" type="text" autocomplete="off">' +   /* places.js address autofill (id ends in Addr) */
     '<label>City, state, zip</label><div class="csz"><input id="nlCity" autocomplete="off" aria-label="City">' +
     '<input id="nlState" value="CA" aria-label="State"><input id="nlZip" inputmode="numeric" aria-label="Zip"></div>' +
     '<div class="actions"><button type="button" class="new" id="nlSave">Save</button>' +
+    '<button type="button" class="ghost" id="nlText">Text</button><button type="button" class="ghost" id="nlPromo">Text promo</button>' +
     '<a class="ghost" href="#">Cancel</a><span class="note" id="nlNote"></span></div></div>';
   const v = id => document.getElementById(id).value.trim();
-  document.getElementById("nlSave").addEventListener("click", e => {
+  /* Save, Text and Text promo all save the lead first. Text then opens Texts with this number;
+     Text promo opens Promotions with this lead as Send to. Both need a 10-digit phone. */
+  const save = (b, mode) => {
     const name = v("nlName").slice(0, 80), note = document.getElementById("nlNote");
-    if (!name) { note.textContent = "Enter a name."; note.className = "note err"; document.getElementById("nlName").focus(); return; }
-    const extra = {}, a = { street: v("nlStreet"), city: v("nlCity"), state: v("nlState"), zip: v("nlZip") };
+    const err = (t, id) => { note.textContent = t; note.className = "note err"; document.getElementById(id).focus(); };
+    if (!name) return err("Enter a name.", "nlName");
+    const to = v("nlPhone").replace(/\D/g, "").slice(-10);
+    if (mode && to.length !== 10) return err("Add a 10-digit phone number to text.", "nlPhone");
+    const extra = {}, a = { street: v("nlAddr"), city: v("nlCity"), state: v("nlState"), zip: v("nlZip") };
     if (v("nlPhone")) extra.phone = v("nlPhone");
     if (v("nlEmail")) extra.email = v("nlEmail");
     if (a.street || a.city || a.zip) extra.addresses = [a];
-    createLead(name, e.currentTarget, extra);
-  });
+    const next = mode === "text" ? "./texts.html#" + to
+      : mode === "promo" ? "./promotions.html?to=" + encodeURIComponent(to) + "&name=" + encodeURIComponent(name) : "";
+    createLead(name, b, extra, next);
+  };
+  document.getElementById("nlSave").addEventListener("click", e => save(e.currentTarget, ""));
+  document.getElementById("nlText").addEventListener("click", e => save(e.currentTarget, "text"));
+  document.getElementById("nlPromo").addEventListener("click", e => save(e.currentTarget, "promo"));
   document.getElementById("nlName").focus();
 }
 
