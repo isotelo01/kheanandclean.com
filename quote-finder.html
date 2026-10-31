@@ -362,7 +362,70 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     try{
       var a = JSON.parse(JSON.stringify(A, function(k, v){ return k === 'photos' ? [] : v; }));
       localStorage.setItem(SAVE, JSON.stringify({ a:a, at:i, hist: hist.map(function(x){ return f.indexOf(x); }).filter(function(n){ return n > -1; }), t: Date.now() }));
+      cloudSave(a, i);
     }catch(e){}
+    keepPhotos();
+  }
+
+  /* Photos stay on their phone (IndexedDB) until they send the quote, so a refresh doesn't lose them. */
+  var photoSig = '';
+  function idb(){
+    return new Promise(function(ok, no){
+      var r = indexedDB.open('kcQuoteBuilder', 1);
+      r.onupgradeneeded = function(){ r.result.createObjectStore('photos'); };
+      r.onsuccess = function(){ ok(r.result); }; r.onerror = function(){ no(r.error); };
+    });
+  }
+  function keepPhotos(){
+    var sig = A.photos.map(function(f){ return (f.name || '') + f.size + (f._room || ''); }).join('|');
+    if(sig === photoSig) return; photoSig = sig;
+    var list = A.photos.map(function(f){ return { blob:f, name:f.name || 'photo.jpg', room:f._room || '', roomName:f._roomName || '' }; });
+    idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').put(list, 'all'); }).catch(function(){});
+  }
+  function loadPhotos(){
+    return idb().then(function(db){
+      return new Promise(function(ok){
+        var r = db.transaction('photos').objectStore('photos').get('all');
+        r.onsuccess = function(){ ok(r.result || []); }; r.onerror = function(){ ok([]); };
+      });
+    }).then(function(list){
+      return list.map(function(x){
+        var f = x.blob; try{ f = new File([x.blob], x.name, { type:x.blob.type || 'image/jpeg' }); }catch(e){}
+        if(x.room){ f._room = x.room; f._roomName = x.roomName; }
+        return f;
+      });
+    }).catch(function(){ return []; });
+  }
+  function dropPhotos(){ photoSig = ''; idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').delete('all'); }).catch(function(){}); }
+
+  /* Their answers are also copied to Firebase (quoteProgress) as they go, so unfinished quotes show up
+     on our end. Tied to an ID kept on their phone. expireAt lets a Firestore TTL policy clear
+     unfinished ones after 14 days. Photos are only uploaded when they send. */
+  var PID = 'kcQuoteBuilderId', cloudT = null;
+  function progressId(){
+    var id = null; try{ id = localStorage.getItem(PID); }catch(e){}
+    if(!id){ id = 'qb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); try{ localStorage.setItem(PID, id); }catch(e){} }
+    return id;
+  }
+  function cloudSave(a, i){
+    clearTimeout(cloudT);
+    cloudT = setTimeout(function(){
+      var id = progressId(), step = (FLOW()[i] || {}).name || '';
+      firebase().then(function(fb){
+        return fb.fs.setDoc(fb.fs.doc(fb.db, 'quoteProgress', id), {
+          page:'quote-builder', status:'in progress', step:step, stepNo:i, answers:JSON.stringify(a),
+          photosOnPhone:A.photos.length, updatedAt:fb.fs.serverTimestamp(), expireAt:new Date(Date.now() + 14 * 864e5)
+        }, { merge:true });
+      }).catch(function(x){ console.warn('Progress not saved to Firebase', x && x.code); });
+    }, 1500);
+  }
+  function cloudDone(){
+    var id = null; try{ id = localStorage.getItem(PID); localStorage.removeItem(PID); }catch(e){}
+    if(!id) return;
+    clearTimeout(cloudT);
+    firebase().then(function(fb){
+      return fb.fs.setDoc(fb.fs.doc(fb.db, 'quoteProgress', id), { status:'sent', updatedAt:fb.fs.serverTimestamp() }, { merge:true });
+    }).catch(function(){});
   }
   backBtn.onclick = function(){ if(hist.length) show(hist.pop(), false); };
 
@@ -692,7 +755,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     el.insertAdjacentHTML('beforeend',
       '<ul class="tips"><li>Stand in each corner of the room and shoot toward the opposite corner</li>' +
       '<li>Aim at the floor and baseboards</li><li>Use the 0.5 (wide) zoom if your phone has it</li>' +
-      '<li>Add close-ups of any stains or pet spots</li></ul>' +
+      '<li>Add close-ups of any stains or pet spots</li>' +
+      '<li>Optional: if you have one, lay a sheet of white paper in the middle of the floor. It helps us see size and color.</li></ul>' +
       '<div class="pbtns"><button type="button" class="go ghost" id="cam" style="margin:0">Take photo</button>' +
       '<button type="button" class="go ghost" id="pick" style="margin:0">Choose photos</button></div>' +
       '<input type="file" id="camIn" accept="image/*" capture="environment" hidden>' +
@@ -776,7 +840,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       : ['Stand in the doorway and shoot into the room', 'Corner 1: shoot toward the opposite corner', 'Corner 2: shoot toward the opposite corner',
          'Corner 3: shoot toward the opposite corner', 'Corner 4: shoot toward the opposite corner', 'Close-ups of any stains or pet spots'];
     var mine = roomShots(rm), full = A.photos.length >= PMAX;
-    h(el, esc(rm.t) + ' photos', 'One at a time. Tap Done with this room whenever you want.');
+    h(el, esc(rm.t) + ' photos', 'One at a time. Tap Done with this room whenever you want.' +
+      (rm.furn || rm.stairs ? '' : ' Optional: a sheet of white paper in the middle of the floor helps us see size and color.'));
     var p = document.createElement('p'); p.className = 'pitch';
     p.textContent = full ? 'That’s the most photos we can take. Thank you!'
       : mine.length < shots.length ? 'Photo ' + (mine.length + 1) + ' of ' + shots.length + ': ' + shots[mine.length]
@@ -1058,6 +1123,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(!res || !res.success) throw new Error((res && res.message) || 'failed');
       if(typeof gtag === 'function') gtag('event', 'generate_lead', { form_name:'quote_finder' });
       try{ localStorage.removeItem(SAVE); }catch(e){}   // sent: start fresh next time
+      dropPhotos(); cloudDone();
       show(sDone, false);
     })
     .catch(function(x){
@@ -1070,9 +1136,11 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   /* Fresh Settings prices came in: redraw the screen that's open so its prices match. */
   window.addEventListener('kc:prices', function(){ if(cur && cur !== sContact) show(cur, false); });
   /* Saved progress: the answers and the step they're on stay in this browser, so a refresh or an
-     interruption picks up where they left off (kept 14 days). Photos can't be kept; they add them again. */
+     interruption picks up where they left off (kept 14 days). Photos are kept on the phone too (IndexedDB). */
   screen.addEventListener('click', function(){ save(); });
   screen.addEventListener('input', function(){ save(); });
+  screen.addEventListener('change', function(){ save(); });
+  setInterval(keepPhotos, 2000);   /* camera shots land outside the screen; catch them too */
   var saved = null;
   try{ saved = JSON.parse(localStorage.getItem(SAVE) || 'null'); }catch(e){}
   if(saved && saved.a && saved.at > 0 && Date.now() - (saved.t || 0) < 14 * 864e5){
@@ -1081,6 +1149,12 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var f0 = FLOW();
     hist = (saved.hist || []).map(function(n){ return f0[n]; }).filter(Boolean);
     show(f0[saved.at] || sProblem, false);
+    loadPhotos().then(function(ph){
+      if(!ph.length) return;
+      A.photos = ph; photoSig = '';
+      keepPhotos();
+      if(cur === sPhotos) show(cur, false);   // redraw so their thumbnails show
+    });
   } else {
     show(sProblem, false);
     intro();
