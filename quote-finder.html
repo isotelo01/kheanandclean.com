@@ -316,6 +316,11 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(cost <= 0) return;
       rows.push({ key:k, name: k === 'carpet' && !has('carpet') ? 'Area Rug Cleaning' : S[k].name, cost:cost, items:it }); sum += cost;
     });
+    if(A.whole && A.wholeSqft){
+      var wc = Math.round(A.wholeSqft * WH_RATE * 100) / 100;
+      rows.unshift({ key:'whole', name:'Whole home, all floors', cost:wc, items:[{ label:A.wholeSqft.toLocaleString() + ' sq ft × $' + WH_RATE.toFixed(2), cost:wc }] });
+      sum += wc;
+    }
     var min = window.KC_MINJOB != null ? window.KC_MINJOB : 150;
     return { st:st, rows:rows, sum:sum, total: rows.length ? Math.max(sum, min) : 0, min:min };
   }
@@ -343,6 +348,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(k === 'upholstery' || !has(k)) return;
       var n = sqftFor(k); if(n > 0){ total += n; parts.push(SVC[k].word.charAt(0).toUpperCase() + SVC[k].word.slice(1) + ' ' + n.toLocaleString()); }
     });
+    if(A.whole && A.wholeSqft){ total = A.wholeSqft; parts = []; }
     box.hidden = !total;
     box.innerHTML = total ? (parts.length > 1 ? esc(parts.join(' · ')) + ' · ' : '') + 'Total <b>' + total.toLocaleString() + ' sq ft</b>' : '';
   }
@@ -352,6 +358,12 @@ input.t:focus{ outline:none; border-color:var(--gold); }
 
   /* The order of screens, worked out from the answers so far. */
   function FLOW(){
+    if(A.whole){
+      var w = [sProblem, sWholeSqft];
+      if(has('rugs')) w.push(sRugs);
+      if(has('upholstery')) w.push(sUph, sUphPets);
+      return w.concat(sPhotos, sPrice, sWhen, sContact);
+    }
     var f = [sProblem, sServices];
     var floors = A.svcs.some(function(k){ return k !== 'upholstery' && k !== 'rugs'; });
     if(floors) f.push(sStory);
@@ -436,6 +448,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function sProblem(el){
     h(el, 'What can we help you with?', 'Pick all that apply.');
     var list = [
+      { v:'Whole home', t:'Whole home', s:'All floors, one simple price' },
       { v:'Dull traffic lanes', t:'Dull, matted traffic lanes' },
       { v:'Looks fine, just want a refresh', t:'It looks fine, I just want a refresh', s:'Even clean-looking carpet holds body oils a vacuum can’t lift. A deep clean stands the fibers back up.' },
       { v:'Dirty grout', t:'Dirty grout' },
@@ -466,15 +479,35 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     });
     done = goBtn(el, 'Done', function(){
       A.problem = A.problems.join(', ');
+      A.whole = A.problems.indexOf('Whole home') > -1;
       if(A.problems.indexOf('Upholstery') > -1 && !has('upholstery')) A.svcs = A.svcs.concat('upholstery');
       if(A.problems.indexOf('Area rugs') > -1 && !has('rugs')) A.svcs = A.svcs.concat('rugs');
       if(A.problems.indexOf('Dirty grout') > -1 && !has('tile')) A.svcs = A.svcs.concat('tile');
       if(A.problems.indexOf('Wood/LVP lost shine') > -1 && !has('lvp')) A.svcs = A.svcs.concat('lvp');
       if(A.problems.indexOf('Dull traffic lanes') > -1 && !has('carpet')) A.svcs = A.svcs.concat('carpet');
       A.svcs.sort(function(a, c){ return PICKS.indexOf(a) - PICKS.indexOf(c); });
+      /* Whole home covers every floor at one price; only couches and rugs are still asked about. */
+      if(A.whole) A.svcs = A.svcs.filter(function(k){ return k === 'upholstery' || k === 'rugs'; });
       next();
     });
     done.disabled = !A.problems.length;
+  }
+
+  /* Whole home: the home's square feet at the whole-house rate (same as the estimation tool's
+     Whole House button and the partner quick quote: sq ft × $0.39, $150 minimum). */
+  var WH_RATE = 0.39;
+  function sWholeSqft(el){
+    h(el, 'About how big is your home?', 'Square feet. A rough number is fine. It’s on Zillow or your listing.');
+    el.insertAdjacentHTML('beforeend', '<input class="t" id="whSq" type="text" inputmode="numeric" placeholder="e.g. 2,000" aria-label="Home square feet">');
+    var inp = el.querySelector('#whSq');
+    if(A.wholeSqft) inp.value = A.wholeSqft.toLocaleString();
+    var go = goBtn(el, 'Next', function(){ next(); });
+    var read = function(){
+      var n = Math.round(Number(inp.value.replace(/[^\d]/g, '')) || 0);
+      A.wholeSqft = n >= 200 && n <= 20000 ? n : 0; go.disabled = !A.wholeSqft; drawSqft();
+    };
+    inp.oninput = read; inp.onkeydown = function(e){ if(e.key === 'Enter' && !go.disabled) go.click(); };
+    read(); setTimeout(function(){ inp.focus(); }, 50);
   }
 
   function sServices(el){
@@ -778,7 +811,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     }
     el.insertAdjacentHTML('beforeend', '<h2>Do any of these apply?</h2><p class="lead" style="margin:0">Check any that fit and we’ll call with your discounted price.</p><div class="checks" id="disc"></div>');
     var d = el.querySelector('#disc');
-    ['Veteran', 'Senior', 'Whole house', 'Move-out'].forEach(function(t){
+    ['Veteran', 'Senior', 'Whole house', 'Move-out'].filter(function(t){ return !(A.whole && t === 'Whole house'); }).forEach(function(t){
       var l = document.createElement('label');
       l.innerHTML = '<input type="checkbox"' + (A.disc[t] ? ' checked' : '') + '> ' + t;
       l.querySelector('input').onchange = function(){ A.disc[t] = this.checked; };
@@ -876,6 +909,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var L = [];
     L.push('From the Quote Finder walkthrough');
     if(A.problem) L.push('Main concerns: ' + A.problem);
+    if(A.whole) L.push('WHOLE-HOUSE QUICK QUOTE: About ' + (A.wholeSqft || 0).toLocaleString() + ' sq ft x $' + WH_RATE.toFixed(2) + ', all floors');
     L.push('Services: ' + A.svcs.map(function(k){ return SVC[k].name; }).join(', '));
     if(A.story) L.push('Home: ' + (A.story === '2' ? 'two story' : 'one story'));
     ['carpet','tile','lvp','stone'].forEach(function(k){
@@ -948,6 +982,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
   function saveLead(fb, lead){
     var row = Object.assign({}, lead, { status:'new', source:'estimator', createdAt: fb.fs.serverTimestamp() });
+    if(row.services === undefined) delete row.services;   /* only whole-home leads carry services */
     var leads = fb.fs.collection(fb.db, 'leads');
     return fb.fs.addDoc(leads, row).then(function(r){ return r.id; }, function(err){
       /* Same fallback as the homepage: if the database won't take the texting answers, they go at the top of the message. */
@@ -995,7 +1030,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
           page:'quote-finder', photoPaths: paths, when: A.when && A.when !== 'Flexible' ? A.when : '', name:name, phone:phone, email:email,
           addresses:[addr], type:'residential', smsConsent: smsYes, marketingConsent: promoYes,
           /* The estimate in the estimators' own snapshot format, so New quote rebuilds it. */
-          estimateData: e.rows.length ? JSON.stringify({ v:1, active: e.rows[0].key, state: e.st, discAmt:'', discPct:'', waiveMin:false }) : '',
+          estimateData: e.rows.length ? JSON.stringify({ v:1, active: (e.rows.filter(function(r){ return r.key !== 'whole'; })[0] || { key:'carpet' }).key, state: e.st, discAmt:'', discPct:'', waiveMin:false }) : '',
+          services: A.whole ? ['Whole house'] : undefined,
           message: msg
         });
       });
