@@ -146,11 +146,11 @@ input.t:focus{ outline:none; border-color:var(--gold); }
      12x14 (standard) or 14x16 (large). They go into the estimate as square feet. */
   var BED = 144, MASTER = { med:{ label:'Standard', dims:'about 12×14', sqft:168 }, lg:{ label:'Large', dims:'about 14×16', sqft:224 } };
   /* Master bedrooms are a list, one size each ('med' or 'lg'); matching sizes group together. */
-  var masterSqft = function(){ return (A.master.carpet || []).reduce(function(t, z){ return t + MASTER[z].sqft; }, 0); };
-  var masterText = function(){
-    var l = A.master.carpet || [], g = [];
+  var masterSqft = function(k){ return (A.master[k || 'carpet'] || []).reduce(function(t, z){ return t + MASTER[z].sqft; }, 0); };
+  var masterText = function(k){
+    var l = A.master[k || 'carpet'] || [], g = [];
     ['med','lg'].forEach(function(z){ var n = l.filter(function(x){ return x === z; }).length; if(n) g.push(MASTER[z].label + ' × ' + n); });
-    return g.join(', ') + ' (' + masterSqft() + ' sq ft)';
+    return g.join(', ') + ' (' + masterSqft(k) + ' sq ft)';
   };
 
   /* Room lists per floor type. Each key is a room from pricing.js / Settings (its size comes
@@ -161,10 +161,17 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     lvp:    ['kitchen','living','dining','foyer','hallway','beds','fullBath','laundry','stairs'],
     stone:  ['kitchen','foyer','fullBath','masterBath','halfBath','dining','living','laundry','stairs']
   };
+  /* Every room shows on every floor type: each list keeps its own most-likely rooms first,
+     then the rest of the rooms follow. */
+  var ALL_ROOMS = ['beds','living','greatRoom','kitchen','dining','den','loft','hallway','closet',
+    'foyer','grandFoyer','fullBath','masterBath','halfBath','laundry','stairs'];
+  Object.keys(LISTS).forEach(function(k){
+    LISTS[k] = LISTS[k].concat(ALL_ROOMS.filter(function(x){ return LISTS[k].indexOf(x) < 0; }));
+  });
   var NAMES = { beds:'Bedrooms', living:'Living / family rooms', hallway:'Hallways', stairs:'Flights of stairs',
     den:'Office / den', loft:'Loft / bonus room', closet:'Walk-in closets', dining:'Dining room',
     kitchen:'Kitchen', fullBath:'Bathrooms', masterBath:'Master bathroom', halfBath:'Half bath / powder room',
-    foyer:'Entry / foyer', grandFoyer:'Grand foyer', laundry:'Laundry room' };
+    foyer:'Entry / foyer', grandFoyer:'Grand foyer', laundry:'Laundry room', greatRoom:'Great room' };
   var SVC = {
     carpet:{ name:'Carpet', word:'carpet' }, tile:{ name:'Tile & grout', word:'tile' },
     upholstery:{ name:'Upholstery', word:'furniture' }, lvp:{ name:'Hardwood / LVP', word:'hardwood' },
@@ -191,7 +198,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function sqftFor(svc){
     var t = 0, r = A.rooms[svc] || {};
     Object.keys(r).forEach(function(k){ if(k !== 'stairs') t += (r[k] || 0) * sqftOf(k); });
-    if(svc === 'carpet') t += masterSqft();
+    t += masterSqft(svc);
     return t;
   }
 
@@ -221,7 +228,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
         else if(s.rooms[rk] != null) s.rooms[rk] = r[rk];
         else extra += r[rk] * sqftOf(rk);
       });
-      if(k === 'carpet') extra += masterSqft();
+      extra += masterSqft(k);
       if(extra) s.rooms.addSqft = (s.rooms.addSqft || 0) + extra;
       s.touched = true;
     });
@@ -442,9 +449,9 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       box.appendChild(counter(NAMES[key], sub, function(){ return r[key] || 0; }, function(v){ r[key] = v; }, key === 'beds' ? 8 : 10));
       /* Master bedrooms: a counter like the others. Each one added starts as Standard and
          gets its own Standard / Large pick; matching sizes group in the line under the name. */
-      if(k === 'carpet' && key === 'beds'){
-        var ml = A.master.carpet = A.master.carpet || [];
-        var msub = function(){ return ml.length ? masterText() : 'Standard 12×14 (168 sq ft) or Large 14×16 (224 sq ft)'; };
+      if(key === 'beds'){
+        var ml = A.master[k] = A.master[k] || [];
+        var msub = function(){ return ml.length ? masterText(k) : 'Standard 12×14 (168 sq ft) or Large 14×16 (224 sq ft)'; };
         var sizes = document.createElement('div'); sizes.style.cssText = 'display:grid;gap:8px';
         var drawSizes = function(){
           sizes.innerHTML = '';
@@ -727,7 +734,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(!has(k)) return;
       var r = A.rooms[k], parts = [];
       LISTS[k].forEach(function(key){ if(r[key]) parts.push(NAMES[key] + ' × ' + r[key] + (key === 'beds' ? ' (12×12)' : '')); });
-      if(k === 'carpet' && (A.master.carpet || []).length) parts.push('Master bedrooms: ' + masterText());
+      if((A.master[k] || []).length) parts.push('Master bedrooms: ' + masterText(k));
       L.push(SVC[k].name + ' rooms: ' + (parts.join(', ') || 'none picked'));
     });
     if(has('carpet')){
