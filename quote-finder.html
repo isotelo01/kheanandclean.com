@@ -38,6 +38,8 @@ a{ color:var(--gold); }
 .head a{ color:var(--muted); text-decoration:none; }
 /* Progress */
 .bar{ height:4px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden; margin:0 0 20px; }
+.sqft{ margin:-12px 0 16px; text-align:right; color:var(--muted); font-size:.9rem; font-variant-numeric:tabular-nums; }
+.sqft b{ color:var(--gold); }
 .bar i{ display:block; height:100%; width:0; background:var(--gold); transition:width .3s ease; }
 /* Screens */
 .step h1{ font-size:1.55rem; line-height:1.2; margin:0 0 8px; font-weight:700; }
@@ -141,6 +143,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     <p><a href="tel:+19167672520">Folsom &middot; (916) 767-2520</a></p>
   </header>
   <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+  <p class="sqft" id="sqft" hidden></p>
   <button type="button" class="back" id="back" hidden>&larr; Back</button>
   <main id="screen" aria-live="polite"></main>
 </div>
@@ -313,8 +316,20 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     fn(el);
     var i = FLOW().indexOf(fn); bar.style.width = (i < 0 ? 100 : Math.round(100 * i / (FLOW().length - 1))) + '%';
     window.scrollTo(0, 0);
+    drawSqft();
     var h = el.querySelector('h1'); if(h){ h.tabIndex = -1; h.focus({ preventScroll:true }); }
   }
+  /* Running square footage at the top (no price), updated on every tap. */
+  function drawSqft(){
+    var box = document.getElementById('sqft'), parts = [], total = 0;
+    ORDER.forEach(function(k){
+      if(k === 'upholstery' || !has(k)) return;
+      var n = sqftFor(k); if(n > 0){ total += n; parts.push(SVC[k].word.charAt(0).toUpperCase() + SVC[k].word.slice(1) + ' ' + n.toLocaleString()); }
+    });
+    box.hidden = !total;
+    box.innerHTML = total ? (parts.length > 1 ? esc(parts.join(' · ')) + ' · ' : '') + 'Total <b>' + total.toLocaleString() + ' sq ft</b>' : '';
+  }
+  screen.addEventListener('click', drawSqft);
   var cur = null;
   backBtn.onclick = function(){ if(hist.length) show(hist.pop(), false); };
 
