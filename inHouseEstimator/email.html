@@ -145,9 +145,12 @@ const app = initializeApp({
 const fns = getFunctions(app, "us-central1");
 /* Personal Email (email.html?acct=personal): his Yahoo inbox. List, read, Archive and Delete go to Yahoo;
    Reply, New, AI Response, Spam and Receipts are business mail only and hide here. */
-const PERSONAL = new URLSearchParams(location.search).get("acct") === "personal";
+/* acct=personal is Yahoo, acct=gmail is his personal Gmail; both are "Personal Email". */
+const ACCT = ["personal", "gmail"].includes(new URLSearchParams(location.search).get("acct")) ? new URLSearchParams(location.search).get("acct") : "";
+const PERSONAL = !!ACCT;
+const ACCT_NAME = ACCT === "gmail" ? "Gmail" : "Yahoo";
 if (PERSONAL) document.documentElement.classList.add("personal");
-const withAcct = fn => PERSONAL ? (d => fn({ ...d, acct: "personal" })) : fn;
+const withAcct = fn => PERSONAL ? (d => fn({ ...d, acct: ACCT })) : fn;
 const mailList = withAcct(httpsCallable(fns, "mailList")), mailRead = withAcct(httpsCallable(fns, "mailRead"));
 const mailMove = withAcct(httpsCallable(fns, "mailMove")), mailSend = httpsCallable(fns, "mailSend");
 const mailWith = httpsCallable(fns, "mailWith");
@@ -383,7 +386,7 @@ async function showMessage(f, uid) {
         : '<button type="button" class="ghost danger" id="moveBtn" data-to="Trash">Delete</button>') + '</div>' +
     (m.html ? '<iframe class="body" id="mbody" title="Email" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"></iframe>'
       : '<div class="plain">' + esc(m.text || "(empty)") + '</div>') +
-    (m.attachments && m.attachments.length ? '<div class="att">Attachments (open in ' + (PERSONAL ? 'Yahoo' : 'Zoho') + ' to download): ' +
+    (m.attachments && m.attachments.length ? '<div class="att">Attachments (open in ' + (PERSONAL ? ACCT_NAME : 'Zoho') + ' to download): ' +
       esc(m.attachments.map(a => a.name).join(", ")) + '</div>' : '') +
     '<p class="msg err" id="mErr" role="alert"></p></div>';
   const fr = document.getElementById("mbody");
@@ -616,11 +619,16 @@ let started = false;
 onAuthStateChanged(getAuth(app), user => {
   if (!user) { location.replace("./login.html?next=email.html"); return; }
   document.getElementById("authwait")?.remove();
-  /* Personal Email (hub link: email.html?acct=personal): the Yahoo inbox, read / archive / delete only. */
-  if (PERSONAL) {
+  /* Personal Email (hub link: email.html?acct=personal): Yahoo or Gmail, read / archive / delete only.
+     A Yahoo | Gmail switch sits above the folders. */
+  if (PERSONAL && !document.getElementById("acctSw")) {
     document.title = "Personal Email · Khean & Clean";
     document.querySelector("h1").textContent = "Personal Email";
     const nb = document.getElementById("newBtn"); if (nb) nb.hidden = true;
+    const sw = document.createElement("nav"); sw.className = "folders"; sw.id = "acctSw"; sw.setAttribute("aria-label", "Account");
+    sw.innerHTML = [["personal", "Yahoo"], ["gmail", "Gmail"]].map(([k, l]) =>
+      '<a href="./email.html?acct=' + k + '"' + (k === ACCT ? ' class="on"' : '') + '>' + l + '</a>').join("");
+    document.getElementById("folders").before(sw);
   }
   if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
 });
