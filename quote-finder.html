@@ -1106,6 +1106,16 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     ov.onclick = reveal;
   }
 })();
+/* Text consent: ticking the specials box also picks "Yes, text me"; picking "No thanks" unticks the specials box. */
+document.addEventListener('change', function(e){
+  var t = e.target, YES = 'input[name="sms_consent"][value="Yes"],input[name="sms"][value="Yes"]', PROMO = 'input[name="marketing_consent"],#promo';
+  if(!t || !t.matches) return;
+  function near(el, sel){ for(var p = el.parentElement; p; p = p.parentElement){ var f = p.querySelector(sel); if(f) return f; } return null; }
+  var other = null, want;
+  if(t.matches(PROMO) && t.checked){ other = near(t, YES); want = true; }
+  else if((t.name === 'sms_consent' || t.name === 'sms') && t.value === 'No' && t.checked){ other = near(t, PROMO); want = false; }
+  if(other && other.checked !== want){ other.checked = want; other.dispatchEvent(new Event('change', { bubbles: true })); }
+});
 </script>
 </body>
 </html>
