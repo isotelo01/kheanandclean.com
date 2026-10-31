@@ -247,7 +247,8 @@ const card = r =>
       '<div class="nameline">' +
       '<div class="who"' + (personHref(r) ? ' data-go="' + esc(personHref(r)) + '" title="Open profile"' : '') + '>' + esc(r.name || "No name") + '</div>' +
       (r.source === "acceptedQuotes" || r.source === "quotes" ? '<button type="button" class="jsq" data-js="' + esc(r.id) + '">' + (r.source === "quotes" ? 'Estimation sheet' : 'Job sheet') + '</button>' : '') +
-      (r.source === "paidInvoices" ? '<button type="button" class="jsq" data-jd="' + esc(r.id) + '">Job data</button>' : '') +
+      (r.source === "paidInvoices" ? '<button type="button" class="jsq" data-js="' + esc(r.id) + '">Job sheet</button>' +
+        '<button type="button" class="jsq" data-jd="' + esc(r.id) + '">Job data</button>' : '') +
       '</div>' +
       /* Phone under the name; quote number sits under the X (top right), the day in the bottom right. */
       (r.phone ? '<div class="meta">' + esc(r.phone) + '</div>' : '') +
