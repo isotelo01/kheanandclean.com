@@ -1137,7 +1137,9 @@ input.t:focus{ outline:none; border-color:var(--gold); }
           /* The estimate in the estimators' own snapshot format, so New quote rebuilds it. */
           estimateData: e.rows.length ? JSON.stringify({ v:1, active: (e.rows.filter(function(r){ return r.key !== 'whole'; })[0] || { key:'carpet' }).key, state: e.st, discAmt:'', discPct:'', waiveMin:false, quote: quoteOf(e) }) : '',
           services: A.whole ? ['Whole house'] : undefined,
-          message: msg
+          /* The answers already went into the estimate (estimateData) and the email; the lead's
+             message box is only for what the customer types, so it stays empty here. */
+          message: ''
         });
       });
     })).catch(function(x){ console.error('Lead save failed', x); })
