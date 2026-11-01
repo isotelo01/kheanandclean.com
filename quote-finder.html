@@ -973,11 +973,13 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     $('f').addEventListener('submit', function(ev){ ev.preventDefault(); send(el, $); });
   }
 
+  var textedQuote = false;
   function sDone(el, booked){
     bar.style.width = '100%'; backBtn.hidden = true; hist = [];
     el.className = 'step done';
     el.innerHTML = '<div class="big">✓</div><h1>Got it, thank you!</h1>' +
-      '<p class="lead">We’ll reach out shortly to confirm your price and pick a day.' +
+      '<p class="lead">' + (textedQuote ? 'We’re texting you your estimate now. You can approve it and pick a day right from the link.'
+        : 'We’ll reach out shortly to confirm your price and pick a day.') +
       (A.skippedPhotos ? ' Want to add photos later? Text them to <a href="sms:+19167672520">(916) 767-2520</a>.' : '') + '</p>' +
       '<a class="go ghost" href="/" style="text-decoration:none;text-align:center">Back to the website</a>';
   }
@@ -1013,6 +1015,27 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     L.push(A.photos.length ? 'Photos: ' + A.photos.length + ' sent' : 'Photos: skipped');
     L.push('Walkthrough total: ' + (e.rows.length ? money(e.total) : 'no price, call'));
     return L.join('\n');
+  }
+  /* The estimate in the in-house estimator's own quote format (window.KC_quote), so the backend can
+     file it as a real estimate (quotes/) and text the customer the link. Labels match serviceLineLabel in app.js. */
+  function quoteLines(e){
+    return e.rows.map(function(r){
+      if(r.key === 'whole') return { key:'custom', label:'Whole-house cleaning \u2014 ' + A.wholeSqft.toLocaleString() + ' sq ft', cost:r.cost, items:r.items };
+      var s = S[r.key], x = e.st[r.key];
+      if(s.mode !== 'area'){
+        var ft = 0; s.items.forEach(function(it){ ft += (x.items[it.key] || 0) * it.ft; });
+        return { key:r.key, label: s.name + ' \u2014 ' + ft.toLocaleString() + ' linear ft', cost:r.cost, items:r.items };
+      }
+      var sq = 0, flat = 0;
+      P.ROOM_TYPES.forEach(function(rt){ var q = x.rooms[rt.key] || 0; if(rt.flat != null) flat += q * rt.flat; else sq += q * rt.sqft; });
+      return { key:r.key, sqft:sq, label: (r.key === 'carpet' ? 'Carpet ' + s.tiers[x.tier || 'essential'].name : s.name) + ' \u2014 ' +
+        sq.toLocaleString() + ' sq ft' + (flat ? ' + $' + flat.toLocaleString() : ''), cost:r.cost, items:r.items };
+    });
+  }
+  function quoteOf(e){
+    var lines = quoteLines(e), sq = lines.reduce(function(t, l){ return t + (l.sqft || 0); }, 0);
+    lines.forEach(function(l){ delete l.sqft; });
+    return { lines:lines, subtotal:e.sum, total:e.total, minApplied: e.total > e.sum, sqftTotal: A.whole && A.wholeSqft ? A.wholeSqft : sq };
   }
   function estText(e){
     return e.rows.map(function(r){ return r.name + ': ' + money(r.cost) + '\n' + r.items.map(function(i){ return '  ' + i.label + ': ' + (i.included ? 'Included' : money(i.cost)); }).join('\n'); }).join('\n') +
@@ -1089,6 +1112,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     err.textContent = '';
     btn.disabled = true; btn.textContent = A.photos.length ? 'Uploading photos…' : 'Sending…';
     var e = estimate(), msg = summary(e), smsYes = sms.value === 'Yes', promoYes = $('promo').checked;
+    textedQuote = smsYes && e.rows.length > 0;   /* the backend texts them their estimate link */
     var key = Date.now() + '_' + Math.random().toString(36).slice(2, 8), isBot = $('hp').checked;
     var addr = { street: $('st').value.trim(), city: $('ct').value.trim(), state:'CA', zip: $('zp').value.trim() };
     var fd = new FormData();
@@ -1111,7 +1135,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
           page:'quote-finder', photoPaths: paths, when: A.when && A.when !== 'Flexible' ? A.when : '', name:name, phone:phone, email:email,
           addresses:[addr], type:'residential', smsConsent: smsYes, marketingConsent: promoYes,
           /* The estimate in the estimators' own snapshot format, so New quote rebuilds it. */
-          estimateData: e.rows.length ? JSON.stringify({ v:1, active: (e.rows.filter(function(r){ return r.key !== 'whole'; })[0] || { key:'carpet' }).key, state: e.st, discAmt:'', discPct:'', waiveMin:false }) : '',
+          estimateData: e.rows.length ? JSON.stringify({ v:1, active: (e.rows.filter(function(r){ return r.key !== 'whole'; })[0] || { key:'carpet' }).key, state: e.st, discAmt:'', discPct:'', waiveMin:false, quote: quoteOf(e) }) : '',
           services: A.whole ? ['Whole house'] : undefined,
           message: msg
         });

@@ -553,6 +553,10 @@ async function showLead(id){
         rrow("Services", servicesOf(l)) +
         rrow("Texting", textingOf(l)) +
         rrow("Specials", promoOf(l)) +
+        /* Quote builder lead with its estimate already filed: just the quote, not the long summary. */
+        (l.page === "quote-finder" && l.quoteId
+          ? '<div class="rrow"><div class="rlab">Message</div><div class="actions" style="margin-top:6px"><a class="new" href="./quote.html?id=' +
+              encodeURIComponent(l.quoteId) + '" target="_blank" rel="noopener">View quote' + (l.quoteNumber ? ' ' + esc(l.quoteNumber) : '') + '</a></div></div>' :
         '<div class="rrow msgrow"><div class="msghead"><div class="rlab">Message</div>' +
           '<button type="button" class="ghost tiny" id="editMsg">Edit</button></div>' +
           '<div class="rval' + (msgParts(l).body ? '' : ' empty') + '" id="msgView">' + (msgParts(l).body ? esc(msgParts(l).body) : "\u2014") + '</div>' +
@@ -560,7 +564,7 @@ async function showLead(id){
             '<div class="actions"><button type="button" class="new" id="saveMsg">Save</button>' +
             '<button type="button" class="ghost" id="cancelMsg">Cancel</button>' +
             '<span class="note" id="msgMsg"></span></div></div>' +
-        '</div>' +
+        '</div>') +
       '</div>' +
       '<div class="actions">' +
         (tel ? '<a class="ghost" href="tel:' + esc(tel) + '">Call</a><a class="ghost" href="./texts.html#' + esc(String(tel).replace(/\D/g, "").slice(-10)) + '">Text</a>' : '') +   /* business line, not your cell */
