@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<title>Bots &middot; Khean &amp; Clean</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Bots: every AI helper in the app in one list. Tap one to see what it does, give it your own rules
+   (saved in settings/botRules, read by the backend on every run) and talk or type to it to test.
+   Staff only. The test chat (botTest) never sends, moves or saves anything. */
+:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:760px;margin:0 auto;padding:18px 16px 90px}
+.back{color:var(--muted);font-size:14px;text-decoration:none}
+h1{font:700 28px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 2px}
+.sub{color:var(--muted);margin:0 0 16px;font-size:15px}
+h2{font:700 13px "Archivo",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
+.list{display:grid;gap:10px}
+.bot{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit}
+.bot[disabled]{opacity:.55;cursor:default}
+.bot .ic{flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--navy);color:var(--gold);font-weight:700}
+.bot .t{flex:1;min-width:0}
+.bot b{display:block;font-size:16px}
+.bot span{display:block;font-size:13.5px;color:var(--muted)}
+.bot .tag{flex:none;font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--muted)}
+.bot .tag.on{border-color:var(--gold);color:var(--gold)}
+.panel{background:#fff;border-radius:12px;padding:16px;margin:0 0 12px;box-shadow:0 1px 6px rgba(23,34,57,.08)}
+.panel p{margin:0 0 8px}
+.muted{color:var(--muted);font-size:14px}
+textarea,input[type=text]{width:100%;font:15px/1.45 "Archivo",system-ui,sans-serif;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}
+textarea{min-height:140px;resize:vertical}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+button.btn{font:600 15px "Archivo",sans-serif;padding:9px 18px;border-radius:999px;border:0;background:var(--navy);color:#fff;cursor:pointer}
+button.ghost{font:600 15px "Archivo",sans-serif;padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+.learned{margin:0;padding-left:18px;font-size:14.5px}
+.learned li{margin:3px 0}
+.chat{display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow-y:auto;padding:4px 0 8px}
+.msg{max-width:85%;padding:8px 12px;border-radius:14px;font-size:15px;white-space:pre-wrap;word-wrap:break-word}
+.msg.me{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}
+.msg.bot{align-self:flex-start;background:var(--bg);border-bottom-left-radius:4px}
+.msg.err{align-self:center;background:transparent;color:#b3261e;font-size:13.5px}
+.ask{display:flex;gap:8px;align-items:flex-end}
+.ask textarea{min-height:44px;height:44px;flex:1}
+.mic{flex:none;width:46px;height:46px;border-radius:50%;border:0;background:var(--gold);color:#111;cursor:pointer;display:grid;place-items:center}
+.mic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.mic.live{background:#b3261e;color:#fff;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(179,38,30,.2)}}
+.send{flex:none}
+label.chk{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted)}
+.saved{font-size:13.5px;color:#2e8a57}
+:where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <a class="back" href="./hub.html" id="backLink">&lsaquo; Hub</a>
+  <h1 id="title">Bots</h1>
+  <p class="sub" id="sub">Your AI helpers. Tap one to give it rules and test it.</p>
+  <div id="view"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+/* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app);
+const botTest = httpsCallable(getFunctions(app, "us-central1"), "botTest");
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* The bots. key = its field in settings/botRules and the name botTest knows it by. */
+const BOTS = [
+  { key: "texts",   name: "Text reply helper", ic: "Tx", where: "Texts page", page: "./texts.html",
+    does: "Reads a customer's text thread and suggests 3 replies, or asks you one question when it's missing a fact. Learns from your answers.",
+    hint: "e.g. Always offer the AM or PM slot. Never quote a price for upholstery by text. Sign off with — Israel." },
+  { key: "mail",    name: "Email helper", ic: "Em", where: "Email page", page: "./email.html",
+    does: "Reads one email, sums it up, pulls out amounts, dates and invoice numbers, and suggests what to do or say back.",
+    hint: "e.g. Treat anything from Pros' Choice as a supplier bill. Keep reply drafts under 4 sentences." },
+  { key: "spam",    name: "Spam sorter", ic: "Sp", where: "Email page (Smart Spam)", page: "./email.html",
+    does: "Decides if an email is a mailing list (unsubscribe, then Trash), junk (Spam and ban) or a real person (leave it).",
+    hint: "e.g. Never ban anything from Yelp, Google or Stripe. Equipment sales pitches are junk." },
+  { key: "receipt", name: "Receipt reader", ic: "Rc", where: "Income & Expenses", page: "./expenses.html",
+    does: "Reads a receipt photo: store, date, total with tax, what was bought, and a category guess. You check it before saving.",
+    hint: "e.g. Home Depot cleaning products go under Chemicals. Gas station receipts are Fuel even if they include snacks." },
+  { key: "measure", name: "Room measurer", ic: "Ms", where: "Job sheet rooms (Measure)", page: "./measure.html",
+    does: "Estimates a room's floor size from corner photos, with a low/high range, floor type, rugs and condition.",
+    hint: "e.g. Standard bedrooms around here run about 10 by 12. Don't count the closet unless it's in the photo." },
+];
+const COMING = [
+  { name: "Call answering bot", ic: "Ca", does: "Answers the business line when you can't, books jobs and texts you a summary." },
+  { name: "Investigator", ic: "In", does: "Researches a Cold Calls business and writes you a report before you reach out." },
+];
+
+let rules = {}, learned = { texts: [], spam: [] }, current = null, history = [], rec = null, listening = false;
+let speakOn = true;
+try { speakOn = localStorage.getItem("botsSpeak") !== "0"; } catch (e) {}
+
+async function load() {
+  const [r, a, s] = await Promise.all([
+    getDoc(doc(db, "settings", "botRules")),
+    getDoc(doc(db, "settings", "smsAssistant")).catch(() => null),
+    getDoc(doc(db, "settings", "mailSpam")).catch(() => null),
+  ]);
+  rules = (r.exists() ? r.data() : {}) || {};
+  const facts = (a && a.exists() && a.data().facts) || [];
+  learned.texts = facts.map(f => "Q: " + f.q + " — A: " + f.a);
+  const pats = (s && s.exists() && s.data().patterns) || [];
+  learned.spam = (Array.isArray(pats) ? pats : Object.values(pats)).map(p => typeof p === "string" ? p : [p.kind, p.label || p.phrase].filter(Boolean).join(": "));
+  const open = new URLSearchParams(location.search).get("bot");
+  if (open && BOTS.some(b => b.key === open)) showBot(open); else showList();
+}
+
+function showList() {
+  current = null; history = []; stopMic(); try { speechSynthesis.cancel(); } catch (e) {}
+  $("title").textContent = "Bots";
+  $("sub").textContent = "Your AI helpers. Tap one to give it rules and test it.";
+  $("backLink").innerHTML = "&lsaquo; Hub"; $("backLink").href = "./hub.html"; $("backLink").onclick = null;
+  window.history.replaceState(null, "", "./bots.html");
+  $("view").innerHTML = '<div class="list">' +
+    BOTS.map(b => '<button type="button" class="bot" data-k="' + b.key + '"><span class="ic">' + b.ic + '</span><span class="t"><b>' + esc(b.name) +
+      '</b><span>' + esc(b.where) + '</span></span><span class="tag' + ((rules[b.key] || "").trim() ? ' on">Your rules' : '">Built-in') + '</span></button>').join("") +
+    COMING.map(b => '<button type="button" class="bot" disabled><span class="ic">' + b.ic + '</span><span class="t"><b>' + esc(b.name) +
+      '</b><span>' + esc(b.does) + '</span></span><span class="tag">Coming</span></button>').join("") + '</div>';
+  document.querySelectorAll(".bot[data-k]").forEach(el => el.onclick = () => showBot(el.dataset.k));
+}
+
+function showBot(key) {
+  const b = BOTS.find(x => x.key === key); current = b; history = [];
+  window.history.replaceState(null, "", "./bots.html?bot=" + key);
+  $("title").textContent = b.name;
+  $("sub").innerHTML = 'Used on the <a href="' + b.page + '">' + esc(b.where) + '</a>.';
+  $("backLink").innerHTML = "&lsaquo; All bots"; $("backLink").href = "./bots.html";
+  $("backLink").onclick = e => { e.preventDefault(); showList(); };
+  const lr = learned[key] || null;
+  const canTalk = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  $("view").innerHTML =
+    '<section class="panel"><h2>What it does</h2><p>' + esc(b.does) + '</p>' +
+      '<p class="muted">Its built-in instructions stay as they are. Your rules below get added on top, every time it runs.</p></section>' +
+    '<section class="panel"><h2>Your rules</h2>' +
+      '<textarea id="rules" placeholder="' + esc(b.hint) + '">' + esc(rules[key] || "") + '</textarea>' +
+      '<div class="row"><button type="button" class="btn" id="saveRules">Save rules</button><span class="saved" id="savedMsg"></span></div>' +
+      '<p class="muted" style="margin-top:8px">One rule per line works best. Takes effect within a minute.</p></section>' +
+    (lr ? '<section class="panel"><h2>What it has learned</h2>' + (lr.length ? '<ul class="learned">' + lr.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul>'
+      : '<p class="muted">Nothing yet.</p>') + '</section>' : '') +
+    '<section class="panel"><h2>Test it</h2>' +
+      '<p class="muted">Talk or type to it. Give it a sample, like a customer text, and see what it does. Nothing gets sent or saved. Save your rules first so it uses them.</p>' +
+      '<div class="chat" id="chat"></div>' +
+      '<div class="ask">' + (canTalk ? '<button type="button" class="mic" id="micBtn" aria-label="Talk"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>' : '') +
+        '<textarea id="say" placeholder="Type to it…"></textarea><button type="button" class="btn send" id="sendBtn">Send</button></div>' +
+      '<div class="row"><label class="chk"><input type="checkbox" id="speak"' + (speakOn ? ' checked' : '') + '> Read replies out loud</label>' +
+        '<button type="button" class="ghost" id="clearChat">Clear chat</button></div></section>';
+  $("saveRules").onclick = saveRules;
+  $("sendBtn").onclick = () => send($("say").value);
+  $("say").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("say").value); } };
+  $("speak").onchange = e => { speakOn = e.target.checked; try { localStorage.setItem("botsSpeak", speakOn ? "1" : "0"); } catch (x) {} if (!speakOn) try { speechSynthesis.cancel(); } catch (x) {} };
+  $("clearChat").onclick = () => { history = []; $("chat").innerHTML = ""; };
+  if ($("micBtn")) $("micBtn").onclick = toggleMic;
+}
+
+async function saveRules() {
+  const k = current.key, v = $("rules").value.trim();
+  $("saveRules").disabled = true; $("savedMsg").textContent = "";
+  try {
+    await setDoc(doc(db, "settings", "botRules"), { [k]: v, updatedAt: serverTimestamp() }, { merge: true });
+    rules[k] = v; $("savedMsg").textContent = "Saved";
+  } catch (e) { console.error(e); $("savedMsg").style.color = "#b3261e"; $("savedMsg").textContent = "Couldn't save. Try again."; }
+  $("saveRules").disabled = false;
+}
+
+function bubble(cls, text) {
+  const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text;
+  $("chat").appendChild(d); $("chat").scrollTop = $("chat").scrollHeight; return d;
+}
+
+async function send(text) {
+  text = String(text || "").trim(); if (!text || !current) return;
+  $("say").value = ""; stopMic();
+  history.push({ role: "user", text }); bubble("me", text);
+  const wait = bubble("bot", "…"); $("sendBtn").disabled = true;
+  try {
+    const r = await botTest({ bot: current.key, history });
+    const reply = (r.data && r.data.reply) || "(no answer)";
+    history.push({ role: "assistant", text: reply }); wait.textContent = reply;
+    if (speakOn) speak(reply);
+  } catch (e) {
+    console.error(e); history.pop(); wait.remove(); bubble("err", e.message || "Couldn't reach the bot.");
+  }
+  $("sendBtn").disabled = false;
+}
+
+function speak(t) {
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.rate = 1.05; speechSynthesis.speak(u); } catch (e) {}
+}
+
+/* Talk button: tap, speak, and it sends when you stop talking. Tap again to stop early. */
+function toggleMic() { listening ? stopMic() : startMic(); }
+function startMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
+  try { speechSynthesis.cancel(); } catch (e) {}
+  rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
+  let finalText = "";
+  rec.onresult = e => {
+    let interim = ""; finalText = "";
+    for (const r of e.results) (r.isFinal ? (finalText += r[0].transcript) : (interim += r[0].transcript));
+    $("say").value = (finalText + interim).trim();
+  };
+  rec.onerror = e => { if (e.error !== "no-speech" && e.error !== "aborted") bubble("err", "Mic: " + e.error); };
+  rec.onend = () => { const t = $("say") ? $("say").value : ""; listening = false; $("micBtn")?.classList.remove("live"); rec = null; if (t.trim()) send(t); };
+  listening = true; $("micBtn").classList.add("live"); rec.start();
+}
+function stopMic() { if (rec) { try { rec.stop(); } catch (e) {} } }
+
+/* Page lock: staff only. */
+onAuthStateChanged(auth, u => {
+  if (!u) { location.replace("./login.html?next=bots.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  $("authwait")?.remove();
+  load().catch(e => { console.error(e); $("sub").textContent = "Couldn't load the bots."; });
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
