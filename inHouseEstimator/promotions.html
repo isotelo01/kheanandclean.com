@@ -35,6 +35,10 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bot
 .sendto .row{display:flex;gap:8px;flex-wrap:wrap}
 .sendto input{flex:1;min-width:200px;font:16px "Archivo",sans-serif;padding:9px 11px;border-radius:6px;border:1px solid var(--line);background:#000;color:#fff}
 .sendto .who{margin-top:6px;font-size:14px;color:var(--gold);min-height:1.2em}
+/* From: Business line (sends here, lands on Texts) or Personal line (opens your phone's Messages). */
+.sendto .from{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:14px}
+.sendto .from button{background:var(--navy);color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:6px 14px;font:700 14px "Archivo",sans-serif;cursor:pointer}
+.sendto .from button.on{background:var(--gold);color:var(--navy)}
 /* QR: full screen, white, big enough to scan from a phone held out. */
 .qrview{position:fixed;inset:0;z-index:50;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;text-align:center}
 .qrview[hidden]{display:none}
@@ -53,6 +57,7 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bot
     <label for="sendTo">Send to</label>
     <div class="row"><input id="sendTo" list="contactList" placeholder="Pick a contact or type a phone number" autocomplete="off"></div>
     <datalist id="contactList"></datalist>
+    <div class="from" role="group" aria-label="Text from"><span>From</span><button type="button" data-from="business" class="on">Business line</button><button type="button" data-from="personal">Personal line</button></div>
     <div class="who" id="sendWho"></div>
   </div>
   <div class="list" id="list"></div>
@@ -119,10 +124,11 @@ const firstOf = n => String(n || "").trim().split(/\s+/)[0] || "";
 const phoneOf = r => { const p = [].concat(r.phone || [], r.phones || []).map(x => typeof x === "string" ? x : (x && (x.number || x.phone)) || "").filter(x => digits(x).length === 10)[0]; return digits(p); };
 let contacts = [], target = { to: "", name: "" };
 const sendTo = document.getElementById("sendTo"), sendWho = document.getElementById("sendWho");
+let fromLine = "business";   /* Text from: "business" or "personal" (buttons under Send to) */
 const pick = () => {
   const v = sendTo.value.trim(), c = contacts.find(x => x.label === v);
   target = c ? { to: c.to, name: c.name } : { to: digits(v), name: target.to === digits(v) ? target.name : "" };
-  sendWho.textContent = target.to.length === 10 ? "Texts go to " + (target.name ? target.name + " · " : "") + fmt(target.to) + " from the business line" : "";
+  sendWho.textContent = target.to.length === 10 ? "Texts go to " + (target.name ? target.name + " · " : "") + fmt(target.to) + " from the " + fromLine + " line" : "";
 };
 sendTo.addEventListener("input", pick);
 const qs = new URLSearchParams(location.search);
@@ -140,7 +146,15 @@ async function loadContacts() {
   document.getElementById("contactList").innerHTML = contacts.map(c => '<option value="' + c.label.replace(/"/g, "&quot;") + '">').join("");
   if (target.to && !target.name) { const c = contacts.find(x => x.to === target.to); if (c) { target.name = c.name; pick(); } }
 }
-/* Text: shows the message, then sends it from the business line (it lands on the Texts page too). */
+/* From: business (default) or personal. Personal opens your phone's Messages with the text filled in. */
+document.querySelector(".sendto .from").addEventListener("click", e => {
+  const b = e.target.closest("button[data-from]"); if (!b) return;
+  fromLine = b.dataset.from;
+  document.querySelectorAll(".sendto .from button").forEach(x => x.classList.toggle("on", x === b));
+  pick();
+});
+/* Text: shows the message, then sends it from the business line (it lands on the Texts page too),
+   or from the personal line by opening Messages on your phone. */
 document.getElementById("list").addEventListener("click", async e => {
   const b = e.target.closest("button[data-text]"); if (!b) return;
   pick();
@@ -149,6 +163,10 @@ document.getElementById("list").addEventListener("click", async e => {
   const body = prompt("Text to " + fmt(target.to) + " (edit if you like):",
     "Hi" + (first ? " " + first : "") + ", this is Israel with Khean & Clean. Here's our " + n + ": " + u);
   if (!body || !body.trim()) return;
+  if (fromLine === "personal") {   /* iPhone/Mac use &body=, Android ?body= */
+    location.href = "sms:+1" + target.to + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + "body=" + encodeURIComponent(body.trim());
+    return;
+  }
   b.disabled = true; b.textContent = "Sending…";
   try { await smsSend({ to: target.to, body: body.trim() }); b.textContent = "Sent ✓"; }
   catch (err) { alert("Text didn't send. " + (err.message || "")); b.textContent = "Text"; }
