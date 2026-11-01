@@ -202,9 +202,11 @@ function showNewLead() {
     '<label for="nlName">Name</label><input id="nlName" autocomplete="off" autocapitalize="words">' +
     '<label for="nlPhone">Phone</label><input id="nlPhone" type="tel" autocomplete="off">' +
     '<label for="nlEmail">Email</label><input id="nlEmail" type="email" autocomplete="off" autocapitalize="off">' +
-    '<label for="nlAddr">Street</label><input id="nlAddr" type="text" autocomplete="off">' +   /* places.js address autofill (id ends in Addr) */
-    '<label>City, state, zip</label><div class="csz"><input id="nlCity" autocomplete="off" aria-label="City">' +
-    '<input id="nlState" value="CA" aria-label="State"><input id="nlZip" inputmode="numeric" aria-label="Zip"></div>' +
+    /* Street: Google autofill (places.js, id ends in Addr) as you type, and the phone's own
+       AutoFill (address tokens) fills street, city, state and zip together from a contact. */
+    '<label for="nlAddr">Street</label><input id="nlAddr" type="text" autocomplete="address-line1">' +
+    '<label>City, state, zip</label><div class="csz"><input id="nlCity" autocomplete="address-level2" aria-label="City">' +
+    '<input id="nlState" value="CA" autocomplete="address-level1" aria-label="State"><input id="nlZip" inputmode="numeric" autocomplete="postal-code" aria-label="Zip"></div>' +
     '<div class="actions"><button type="button" class="new" id="nlSave">Save</button>' +
     '<button type="button" class="ghost" id="nlText">Text</button><button type="button" class="ghost" id="nlPromo">Text promo</button>' +
     '<a class="ghost" href="#">Cancel</a><span class="note" id="nlNote"></span></div></div>';
