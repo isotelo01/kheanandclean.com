@@ -89,6 +89,7 @@ import { getFirestore as fsGetFirestore, initializeFirestore, collection, getDoc
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { myName } from "./my-name.js";   /* "this is Tita" when Tita is signed in */
 import { getStorage, ref, getDownloadURL, getBlob, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
@@ -441,12 +442,12 @@ async function start(){
     /* Friendly, short, and every one ends with "Thank you!" on its own line. */
     left: "Hi {name}, thanks so much for choosing us today! If you loved the results, a quick Google review would mean the world to our small family business: kheanandclean.com/review\n\nThank you!",
     follow: "Hi {name}, hope your floors are still looking great! If you have a minute, a quick Google review would mean the world to our small family business: kheanandclean.com/review\n\nThank you!",
-    late: "Hi {name}, it's Israel with Khean & Clean. Hope everything's still looking great! If you were happy with the job, a quick Google review would mean the world to our small family business: kheanandclean.com/review\n\nThank you!"
+    late: "Hi {name}, it's {me} with Khean & Clean. Hope everything's still looking great! If you were happy with the job, a quick Google review would mean the world to our small family business: kheanandclean.com/review\n\nThank you!"
   };
   $("msgPick").addEventListener("click", e => {
     const b = e.target.closest("[data-msg]");
     if (!b) return;
-    $("txt").value = MSGS[b.dataset.msg].replace(/\{name\}/g, first).replace(LINKS[0][1], curLink);
+    $("txt").value = MSGS[b.dataset.msg].replace(/\{name\}/g, first).replace(/\{me\}/g, myName()).replace(LINKS[0][1], curLink);
     setPh(withPh);   /* keeps the photo line in step with the switch */
     $("msgPick").querySelectorAll("[data-msg]").forEach(x => x.classList.toggle("new", x === b));
   });

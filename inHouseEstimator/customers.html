@@ -206,6 +206,7 @@ import { getFirestore as fsGetFirestore, initializeFirestore, collection, query,
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
 import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
+import { myName } from "./my-name.js";   /* "this is Tita" when Tita is signed in */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL, uploadBytes, deleteObject } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
@@ -537,9 +538,9 @@ const mapUrl = a => "https://www.google.com/maps/search/?api=1&query=" + encodeU
 const telOf = p => { const d = digits(p); return d.length === 10 ? "+1" + d : d; };
 /* Pre-made texts. {name} becomes the customer's first name. */
 const TEXTS = [
-  { label: "On my way",            body: "Hi {name}, this is Israel with Khean & Clean. I'm on my way and should be there in about 20 minutes." },
+  { label: "On my way",            body: "Hi {name}, this is {me} with Khean & Clean. I'm on my way and should be there in about 20 minutes." },
   { label: "Appointment reminder", body: "Hi {name}, just a reminder from Khean & Clean about your cleaning appointment tomorrow. Reply here if anything changes." },
-  { label: "Estimate follow-up",   body: "Hi {name}, this is Israel with Khean & Clean following up on your estimate. Any questions I can answer?" },
+  { label: "Estimate follow-up",   body: "Hi {name}, this is {me} with Khean & Clean following up on your estimate. Any questions I can answer?" },
   { label: "Thank you",            body: "Hi {name}, thanks for choosing Khean & Clean! Let me know if anything needs a touch-up." },
   { label: "Review request",       body: "Hi {name}, thanks so much for choosing us today! If you loved the results, a quick Google review would mean the world to our small family business: kheanandclean.com/review\n\nThank you!" }
 ];
@@ -673,7 +674,7 @@ async function showProfile(id){
 
   /* Pre-made texts: opens a table; Text opens the messages app with it filled in, Copy copies it. */
   const firstName = ((c.name || "").trim().split(/\s+/)[0]) || "there";
-  const tmplBody = x => x.body.replace(/\{name\}/g, firstName);
+  const tmplBody = x => x.body.replace(/\{name\}/g, firstName).replace(/\{me\}/g, myName());
   $("tmplBtn")?.addEventListener("click", () => {
     const box = $("tmplBox");
     if (!box.hidden) { box.hidden = true; return; }

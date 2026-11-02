@@ -103,6 +103,7 @@ document.getElementById("list").addEventListener("click", async e => {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { myName } from "./my-name.js";   /* "this is Tita" when Tita is signed in */
 import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 const app = initializeApp({
@@ -161,7 +162,7 @@ document.getElementById("list").addEventListener("click", async e => {
   if (target.to.length !== 10) { alert("Pick a contact or type a 10-digit phone number at the top first."); sendTo.focus(); return; }
   const [n, u] = LINKS[+b.dataset.text], first = firstOf(target.name);
   const body = prompt("Text to " + fmt(target.to) + " (edit if you like):",
-    "Hi" + (first ? " " + first : "") + ", this is Israel with Khean & Clean. Here's our " + n + ": " + u);
+    "Hi" + (first ? " " + first : "") + ", this is " + myName() + " with Khean & Clean. Here's our " + n + ": " + u);
   if (!body || !body.trim()) return;
   if (fromLine === "personal") {   /* iPhone/Mac use &body=, Android ?body= */
     location.href = "sms:+1" + target.to + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + "body=" + encodeURIComponent(body.trim());

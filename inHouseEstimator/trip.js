@@ -8,6 +8,7 @@
    sheet's offline copy holds the save until there's signal again. */
 import { doc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import { myName } from "./my-name.js";
 /* On my way text: Drive gets a Google traffic ETA (driveEta), adds 10 minutes, and offers to text the
    customer from the business line (smsSend). You can edit the text or skip it. */
 const PAD_MIN = 10;
@@ -124,7 +125,7 @@ export function mountTrip({ box, db, place, id, addr, trip, phone, custName }){
           line = "I’m on my way and should be there around " + clock(at) + ".";
         } catch (err) { console.error(err); }
       }
-      const msg = "Hi " + first + ", it’s Israel with Khean & Clean. " + line + " See you soon!";
+      const msg = "Hi " + first + ", it’s " + myName() + " with Khean & Clean. " + line + " See you soon!";
       box.innerHTML = '<div class="trip"><div class="triphead">Text ' + esc(custName || "the customer") + '?</div>' +
         (t.etaMin != null ? '<div class="tripline">Google says ' + t.etaMin + ' min with traffic (' + t.routeMiles + ' mi). The text adds ' + PAD_MIN + ' min.</div>'
           : '<div class="tripline">Couldn’t get a traffic time, so there’s no arrival time in the text. Edit it if you want one.</div>') +
