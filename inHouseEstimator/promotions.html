@@ -22,6 +22,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",sys
 .back{color:var(--muted);font-size:14px;text-decoration:none}
 h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
 .list{display:grid;gap:12px}
+.done{display:block;width:100%;margin:18px 0 90px;padding:14px;font-size:17px}
 .plink{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--navy);color:#fff;border:1px solid var(--gold);border-left:4px solid var(--gold);border-radius:10px;padding:14px 18px;box-shadow:0 1px 6px rgba(23,34,57,.08)}
 .pinfo{flex:1;min-width:200px}
 .pname{font:700 20px/1.2 "Archivo",system-ui,sans-serif}
@@ -68,6 +69,7 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bot
     <div class="who" id="sendWho"></div>
   </div>
   <div class="list" id="list"></div>
+  <button type="button" class="btn alt done" id="doneBtn">Done</button>
 </div>
 <div class="qrview" id="qrView" hidden><div class="qn" id="qrName"></div><div id="qrBox"></div><div class="purl" id="qrUrl"></div><button type="button" id="qrClose">Close</button></div>
 <div class="msgview" id="msgView" hidden><div class="card"><div class="mt" id="msgTitle"></div><textarea id="msgBody"></textarea><div class="mb"><button type="button" class="btn" id="msgCancel">Cancel</button><button type="button" class="btn alt" id="msgOk">Send</button></div></div></div>
@@ -159,7 +161,8 @@ async function loadContacts() {
   if (!picked && target.to) picked = contacts.find(x => x.to === target.to) || null;
 }
 /* Save: fix a contact's number here and save it to their customer / lead record. */
-document.getElementById("saveTo").addEventListener("click", async () => {
+/* Returns true when saved. */
+async function saveNumber() {
   pick();
   const b = document.getElementById("saveTo");
   if (!picked) { alert("Pick a contact from the list first, then fix the number."); return; }
@@ -180,8 +183,17 @@ document.getElementById("saveTo").addEventListener("click", async () => {
     Object.assign(r, upd); picked.to = target.to; picked.label = picked.name + " · " + newF;
     document.getElementById("contactList").innerHTML = contacts.map(c => '<option value="' + c.label.replace(/"/g, "&quot;") + '">').join("");
     sendTo.value = picked.label; pick(); b.textContent = "Saved ✓";
-  } catch (err) { alert("Didn't save. " + (err.message || "")); b.textContent = "Save"; }
-  setTimeout(() => { b.disabled = false; b.textContent = "Save"; }, 2000);
+    setTimeout(() => { b.disabled = false; b.textContent = "Save"; }, 2000);
+    return true;
+  } catch (err) { alert("Didn't save. " + (err.message || "")); b.textContent = "Save"; b.disabled = false; return false; }
+}
+document.getElementById("saveTo").addEventListener("click", saveNumber);
+/* Done: saves a changed number first, then goes back to the contact you came from (Hub if opened from the Hub). */
+document.getElementById("doneBtn").addEventListener("click", async () => {
+  pick();
+  if (picked && target.to.length === 10 && target.to !== picked.to && !(await saveNumber())) return;
+  if (qs.get("to") && document.referrer.startsWith(location.origin)) history.back();
+  else location.href = "./hub.html";
 });
 /* Message box: big text area so the whole message shows. Resolves with the text, or null on Cancel. */
 function askText(title, value) {
