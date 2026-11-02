@@ -146,6 +146,7 @@ h1#title[hidden]{display:none}   /* its inline-block style was beating "hidden" 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { syncProfileToQuotes } from "./profile-sync.js";   /* saved edits go onto this lead's quotes */
 /* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
@@ -975,6 +976,8 @@ async function showLead(id){
       try {
         await updateDoc(doc(db, "leads", id), { ...p, updatedAt: serverTimestamp() });
         patchLocal(p);
+        /* New name, address, phone or email go onto this lead's quotes and invoices too. */
+        await syncProfileToQuotes(db, "leads", id, { ...l, ...p });
         /* Already a contact: a new Type here moves them to that column on the Contacts page too. */
         if (l.converted && l.customerId && LEAD_TYPES.some(t => t.toLowerCase() === p.type)) {
           const ct = CONTACT_TYPES[p.type] || (p.type === "commercial" ? "commercial" : "residential");

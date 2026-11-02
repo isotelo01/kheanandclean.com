@@ -168,6 +168,7 @@ import { getFirestore as fsGetFirestore, initializeFirestore, collection, query,
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
 import { getStorage, ref as sRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { syncRowsFromProfiles } from "./profile-sync.js";   /* top Refresh copies profile edits onto the cards */
 
 const db = getFirestore(initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -275,10 +276,6 @@ const card = r =>
             /* On-site updates (R1, R2...) are changed on their job sheet, never in the estimator. */
             /* Accepted cards have their own Job sheet button, so their Edit opens the quote. */
             (r.revisionOf ? ' data-job="' + esc(r.revisionOf) + '"' : r.fromJobSheet && r.source !== "acceptedQuotes" ? ' data-job="' + esc(r.id) + '"' : '') + '>Edit</button>') +
-      /* Refresh: pulls the address, phone and email from the customer's (or lead's) profile onto this quote. */
-      (r.source === "quotes" || r.source === "acceptedQuotes" || r.source === "invoices"
-        ? '<button type="button" class="infobtn" data-info="' + esc(r.id) + '" data-from="' + esc(r.source) + '" title="Refresh from profile" aria-label="Refresh from profile">&#8635;</button>'
-        : '') +
       (r.source !== "trash" && r.phone
         ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-name="' + esc(r.name || "") + '"' + (r.sched ? ' data-sched="1"' : '') + ' data-kind="' + kindOf(r) + '">Text</button>'
         : '') +
@@ -384,11 +381,15 @@ async function grab(name){
   });
 }
 
-/* Refresh button (top bar): re-pulls the lists without reloading the page. */
+/* Refresh button (top bar): copies each card's linked profile (name, address, phone, email)
+   onto the card, then re-pulls the lists without reloading the page. */
 document.getElementById("refreshBtn").addEventListener("click", async e => {
   const b = e.currentTarget; b.disabled = true; b.classList.add("spin");
   const wait = new Promise(r => setTimeout(r, 600));   /* long enough to see it move */
-  try { await Promise.all([load(), wait]); }
+  try {
+    try { await syncRowsFromProfiles(db, Object.values(data).flat()); } catch (err) { console.error("profile sync", err); }
+    await Promise.all([load(), wait]);
+  }
   finally {
     b.classList.remove("spin"); b.innerHTML = "&#10003;";
     setTimeout(() => { b.innerHTML = "&#10227;"; b.disabled = false; }, 900);
@@ -765,34 +766,6 @@ boardEl.addEventListener("click", async e => {
   } catch (err) {
     m.disabled = false; m.textContent = "Email";
     alert("Email didn't send. " + (err.message || ""));
-  }
-});
-
-/* Refresh info: copies the address, phone and email from the linked profile (customer first, then lead)
-   onto this quote's customer block. Only filled-in profile fields are copied; the name and prices aren't touched. */
-boardEl.addEventListener("click", async e => {
-  const b = e.target.closest(".infobtn");
-  if (!b) return;
-  e.preventDefault(); e.stopPropagation();
-  const id = b.getAttribute("data-info"), src = b.getAttribute("data-from");
-  const r = Object.values(data).flat().find(x => x.id === id && x.source === src);
-  if (!r || (!r.custId && !r.leadId)) { alert("No customer or lead profile is linked to this quote yet."); return; }
-  b.disabled = true;
-  try {
-    const ps = await getDoc(doc(db, r.custId ? "customers" : "leads", r.custId || r.leadId));
-    if (!ps.exists()) throw new Error("profile missing");
-    const p = ps.data();
-    const a = (Array.isArray(p.addresses) && p.addresses.find(x => x && (x.street || x.city || x.zip))) ||
-      { street: p.street, city: p.city, state: p.street || p.city ? "CA" : "", zip: p.zip };
-    const patch = {};
-    [["street", a.street], ["city", a.city], ["state", a.state], ["zip", a.zip], ["phone", p.phone], ["email", p.email]]
-      .forEach(([k, v]) => { if (String(v || "").trim()) patch[k] = String(v).trim(); });
-    if (!Object.keys(patch).length) { alert("The profile has no address, phone or email to copy."); b.disabled = false; return; }
-    await setDoc(doc(db, src, id), { customer: patch }, { merge: true });
-    await load();
-  } catch (err) {
-    console.error(err); b.disabled = false;
-    alert("Couldn't refresh this quote from the profile.");
   }
 });
 

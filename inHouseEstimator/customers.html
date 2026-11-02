@@ -211,6 +211,7 @@ const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPo
 
 import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
 import { sameName, stackPatch } from "./contact-match.js";   /* when two entries are the same person */
+import { syncProfileToQuotes } from "./profile-sync.js";   /* saved edits go onto this customer's quotes */
 import { myName } from "./my-name.js";   /* "this is Tyda" when Tyda is signed in */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL, uploadBytes, deleteObject } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
@@ -973,6 +974,8 @@ async function showProfile(id){
       if ((name || business) && (phone || email)) data.contact = true;   /* name + number or email = Contact */
       if (isNew) Object.assign(data, { source: "manual", createdAt: serverTimestamp() });
       await setDoc(doc(db, "customers", theId), data, { merge: true });
+      /* New name, address, phone or email go onto this customer's quotes and invoices too. */
+      if (!isNew) await syncProfileToQuotes(db, "customers", theId, data);
 
       if (all) {
         const rec = Object.assign({}, c, data, { id: theId });
