@@ -45,6 +45,13 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bot
 .qrview .qn{font:700 24px "Archivo",sans-serif}
 .qrview #qrBox img,.qrview #qrBox canvas{width:min(80vw,80vh,420px)!important;height:auto!important}
 .qrview button{font:700 16px "Archivo",sans-serif;padding:10px 24px;border-radius:999px;border:0;background:#172239;color:#fff;cursor:pointer}
+/* Message box: shows the whole text before it sends. */
+.msgview{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
+.msgview[hidden]{display:none}
+.msgview .card{width:min(560px,100%);background:var(--navy);color:#fff;border:1px solid var(--gold);border-radius:12px;padding:16px}
+.msgview .mt{font-weight:700;margin-bottom:8px}
+.msgview textarea{width:100%;min-height:200px;font:16px/1.45 "Archivo",sans-serif;padding:10px;border-radius:8px;border:1px solid var(--line);background:#000;color:#fff;resize:vertical}
+.msgview .mb{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
 </head>
@@ -55,7 +62,7 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bot
   <h1>Promotions</h1>
   <div class="sendto">
     <label for="sendTo">Send to</label>
-    <div class="row"><input id="sendTo" list="contactList" placeholder="Pick a contact or type a phone number" autocomplete="off"></div>
+    <div class="row"><input id="sendTo" list="contactList" placeholder="Pick a contact or type a phone number" autocomplete="off"><button type="button" class="btn alt" id="saveTo">Save</button></div>
     <datalist id="contactList"></datalist>
     <div class="from" role="group" aria-label="Text from"><span>From</span><button type="button" data-from="business" class="on">Business line</button><button type="button" data-from="personal">Personal line</button></div>
     <div class="who" id="sendWho"></div>
@@ -63,6 +70,7 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bot
   <div class="list" id="list"></div>
 </div>
 <div class="qrview" id="qrView" hidden><div class="qn" id="qrName"></div><div id="qrBox"></div><div class="purl" id="qrUrl"></div><button type="button" id="qrClose">Close</button></div>
+<div class="msgview" id="msgView" hidden><div class="card"><div class="mt" id="msgTitle"></div><textarea id="msgBody"></textarea><div class="mb"><button type="button" class="btn" id="msgCancel">Cancel</button><button type="button" class="btn alt" id="msgOk">Send</button></div></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -104,7 +112,7 @@ document.getElementById("list").addEventListener("click", async e => {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { myName } from "./my-name.js";   /* "this is Tyda" when Tyda is signed in */
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -123,12 +131,14 @@ const digits = s => String(s || "").replace(/\D/g, "").slice(-10);
 const fmt = d => d.length === 10 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : d;
 const firstOf = n => String(n || "").trim().split(/\s+/)[0] || "";
 const phoneOf = r => { const p = [].concat(r.phone || [], r.phones || []).map(x => typeof x === "string" ? x : (x && (x.number || x.phone)) || "").filter(x => digits(x).length === 10)[0]; return digits(p); };
-let contacts = [], target = { to: "", name: "" };
+let contacts = [], target = { to: "", name: "" }, picked = null;   /* picked: last contact chosen, for Save */
 const sendTo = document.getElementById("sendTo"), sendWho = document.getElementById("sendWho");
 let fromLine = "business";   /* Text from: "business" or "personal" (buttons under Send to) */
 const pick = () => {
   const v = sendTo.value.trim(), c = contacts.find(x => x.label === v);
-  target = c ? { to: c.to, name: c.name } : { to: digits(v), name: target.to === digits(v) ? target.name : "" };
+  if (c) picked = c;
+  const keep = !c && picked && v.startsWith(picked.name);   /* fixing a picked contact's number keeps their name */
+  target = c ? { to: c.to, name: c.name } : { to: digits(v), name: keep ? picked.name : (target.to === digits(v) ? target.name : "") };
   sendWho.textContent = target.to.length === 10 ? "Texts go to " + (target.name ? target.name + " · " : "") + fmt(target.to) + " from the " + fromLine + " line" : "";
 };
 sendTo.addEventListener("input", pick);
@@ -140,12 +150,48 @@ async function loadContacts() {
     try {
       (await getDocs(collection(db, col))).forEach(s => { const r = s.data(); if (r.trashed) return;
         const to = phoneOf(r), name = r.name || r.business || ""; if (to.length !== 10 || !name || seen.has(to)) return;
-        seen.add(to); out.push({ to, name, label: name + " · " + fmt(to) }); });
+        seen.add(to); out.push({ to, name, label: name + " · " + fmt(to), col, id: s.id, r }); });
     } catch (e) { console.warn("contacts " + col, e); }
   }
   contacts = out.sort((a, b) => a.name.localeCompare(b.name));
   document.getElementById("contactList").innerHTML = contacts.map(c => '<option value="' + c.label.replace(/"/g, "&quot;") + '">').join("");
   if (target.to && !target.name) { const c = contacts.find(x => x.to === target.to); if (c) { target.name = c.name; pick(); } }
+  if (!picked && target.to) picked = contacts.find(x => x.to === target.to) || null;
+}
+/* Save: fix a contact's number here and save it to their customer / lead record. */
+document.getElementById("saveTo").addEventListener("click", async () => {
+  pick();
+  const b = document.getElementById("saveTo");
+  if (!picked) { alert("Pick a contact from the list first, then fix the number."); return; }
+  if (target.to.length !== 10) { alert("Type a 10-digit phone number."); return; }
+  if (target.to === picked.to) { alert("Number is the same, nothing to save."); return; }
+  if (!confirm("Change " + picked.name + "'s number from " + fmt(picked.to) + " to " + fmt(target.to) + "?")) return;
+  const r = picked.r, oldTo = picked.to, newF = fmt(target.to);
+  const phones = (Array.isArray(r.phones) && r.phones.length ? r.phones : [r.phone || ""])
+    .map(x => typeof x === "string" ? x : (x && (x.number || x.phone)) || "")
+    .map(x => digits(x) === oldTo ? newF : x).filter(Boolean);
+  if (!phones.some(x => digits(x) === target.to)) phones.unshift(newF);
+  const main = digits(r.phone) === oldTo || !r.phone ? newF : r.phone;
+  const upd = { phone: main, phones, phoneKey: digits(main).length === 10 ? digits(main) : "",
+    phoneKeys: phones.map(digits).filter(x => x.length === 10) };
+  b.disabled = true; b.textContent = "Saving…";
+  try {
+    await updateDoc(doc(getFirestore(app), picked.col, picked.id), upd);
+    Object.assign(r, upd); picked.to = target.to; picked.label = picked.name + " · " + newF;
+    document.getElementById("contactList").innerHTML = contacts.map(c => '<option value="' + c.label.replace(/"/g, "&quot;") + '">').join("");
+    sendTo.value = picked.label; pick(); b.textContent = "Saved ✓";
+  } catch (err) { alert("Didn't save. " + (err.message || "")); b.textContent = "Save"; }
+  setTimeout(() => { b.disabled = false; b.textContent = "Save"; }, 2000);
+});
+/* Message box: big text area so the whole message shows. Resolves with the text, or null on Cancel. */
+function askText(title, value) {
+  const v = document.getElementById("msgView"), t = document.getElementById("msgBody");
+  document.getElementById("msgTitle").textContent = title; t.value = value; v.hidden = false; t.focus();
+  return new Promise(res => {
+    const done = out => { v.hidden = true; ok.onclick = no.onclick = null; res(out); };
+    const ok = document.getElementById("msgOk"), no = document.getElementById("msgCancel");
+    ok.onclick = () => done(t.value); no.onclick = () => done(null);
+  });
 }
 /* From: business (default) or personal. Personal opens your phone's Messages with the text filled in. */
 document.querySelector(".sendto .from").addEventListener("click", e => {
@@ -161,7 +207,7 @@ document.getElementById("list").addEventListener("click", async e => {
   pick();
   if (target.to.length !== 10) { alert("Pick a contact or type a 10-digit phone number at the top first."); sendTo.focus(); return; }
   const [n, u] = LINKS[+b.dataset.text], first = firstOf(target.name);
-  const body = prompt("Text to " + fmt(target.to) + " (edit if you like):",
+  const body = await askText("Text to " + fmt(target.to) + " (edit if you like):",
     "Hi" + (first ? " " + first : "") + ", this is " + myName() + " with Khean & Clean. Here's our " + n + ": " + u);
   if (!body || !body.trim()) return;
   if (fromLine === "personal") {   /* iPhone/Mac use &body=, Android ?body= */
