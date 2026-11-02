@@ -210,6 +210,7 @@ import { getFirestore as fsGetFirestore, initializeFirestore, collection, query,
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
 import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
+import { sameName, stackPatch } from "./contact-match.js";   /* when two entries are the same person */
 import { myName } from "./my-name.js";   /* "this is Tyda" when Tyda is signed in */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL, uploadBytes, deleteObject } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
@@ -944,8 +945,18 @@ async function showProfile(id){
       const phoneKeys = phones.map(phoneKey).filter(Boolean), emailKeys = emails.map(emailKey).filter(Boolean);
       const dup = await findMatch(phoneKeys, emailKeys, isNew ? null : id);
       if (dup) {
-        say('That phone or email is already on file for <a href="#' + encodeURIComponent(dup.id) + '">' + esc(dup.name || "another customer") + '</a>.', true);
-        return;
+        /* Stacking rule (contact-match.js): same name + phone/email = same person, stack onto them;
+           different name = ask; no match = separate contact. */
+        const dn = dup.business || dup.name || "another contact", same = sameName(name || business, dup);
+        if (isNew && (same || confirm(dn + " already has that phone or email, but the name is different.\n\nOK = add this to " + dn + "\nCancel = save as a separate contact"))) {
+          const addrs = [...$("addrs").querySelectorAll(".addr")].map(b => { const o = {}; b.querySelectorAll("input[data-f]").forEach(i => { o[i.dataset.f] = i.value.trim(); }); return o; });
+          const stack = stackPatch(dup, { phones, emails, addresses: addrs, business, notes: $("cNotes").value.trim() });
+          await setDoc(doc(db, "customers", dup.id), { ...stack, updatedAt: serverTimestamp() }, { merge: true });
+          if (all) all = all.map(x => x.id === dup.id ? Object.assign({}, x, stack) : x);
+          location.hash = "#" + encodeURIComponent(dup.id);   /* open the profile it stacked onto */
+          return;
+        }
+        if (!isNew && !confirm("That phone or email is also on file for " + dn + ". Save anyway and keep them separate?")) { say(""); return; }
       }
       const theId = isNew ? randomId() : id;
       /* New customers get the next account number. If the counter can't be

@@ -150,6 +150,7 @@ import { getFirestore as fsGetFirestore, initializeFirestore, collection, query,
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
 import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
+import { sameName, stackPatch } from "./contact-match.js";   /* when two entries are the same person */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
@@ -450,8 +451,9 @@ async function findMatch(pks, eks){
   eks.forEach(v => tries.push(["emailKeys", "array-contains", v], ["emailKey", "==", v]));
   for (const [f, op, v] of tries) {
     if (!v) continue;
-    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(1)));
-    if (!s.empty) return { id: s.docs[0].id, ...s.docs[0].data() };
+    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(10)));
+    const hit = s.docs.find(d => !d.data().trashed);   /* trashed contacts don't count */
+    if (hit) return { id: hit.id, ...hit.data() };
   }
   return null;
 }
@@ -826,13 +828,22 @@ async function showLead(id){
     try {
       const phones = phonesOf(l), emails = emailsOf(l);
       const phoneKeys = phones.map(phoneKey).filter(Boolean), emailKeys = emails.map(emailKey).filter(Boolean);
-      const dup = await findMatch(phoneKeys, emailKeys);
+      let dup = await findMatch(phoneKeys, emailKeys);
       let customerId;
+      /* Stacking rule (contact-match.js): name + phone/email match stacks on its own;
+         a phone/email match with a different name asks; no match = new contact. */
+      if (dup && !sameName(l.name || l.business, dup)) {
+        const dn = dup.business || dup.name || "Someone";
+        if (!confirm(dn + " already has that phone or email, but the name is different (" + (l.name || l.business || "no name") + ").\n\nOK = add this to " + dn + "\nCancel = keep them as a separate contact")) dup = null;
+      }
       if (dup) {
-        if (!confirm((dup.business || dup.name || "Someone") + " is already a customer with that phone or email. Link this lead to them instead of making a duplicate?")) {
-          say(""); convertBtn.disabled = false; auto = false; return;
-        }
         customerId = dup.id;
+        /* Stack everything new on this lead (phones, emails, address, business, notes, photos) on their profile. */
+        const a0 = addrOf(l);
+        const stack = stackPatch(dup, { phones, emails, addresses: [a0], business: l.business,
+          notes: l.message ? String(l.message).trim() : "", photoPaths: pathsOf(l) });
+        try { await updateDoc(doc(db, "customers", customerId), { ...stack, updatedAt: serverTimestamp() }); Object.assign(dup, stack); }
+        catch (e) { console.error("Could not stack the lead onto the contact", e); }
         const dt = CONTACT_TYPES[String(l.type || "").toLowerCase()];
         if (dt && dup.type !== dt) {
           try { await updateDoc(doc(db, "customers", customerId), { type: dt, updatedAt: serverTimestamp() }); }
