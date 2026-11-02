@@ -81,6 +81,13 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 #contactEdit label{display:block;font-size:13px;margin:10px 0 4px;opacity:.8}
 #contactEdit input,#contactEdit select{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid #c9cedb;border-radius:6px}
 #contactEdit .crow{display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:6px;margin-bottom:6px}
+#contactEdit textarea{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid #c9cedb;border-radius:6px;resize:vertical}
+#contactEdit .phbtn{display:inline-flex;align-items:center;gap:8px;margin-top:2px;padding:9px 14px;border:1px solid #c9cedb;border-radius:8px;background:#fff;color:#172239;font:600 15px system-ui,sans-serif;cursor:pointer}
+#contactEdit .phbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#contactEdit .phgrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#contactEdit .phgrid figure{position:relative;margin:0}
+#contactEdit .phgrid img{width:72px;height:72px;object-fit:cover;border-radius:6px;display:block}
+#contactEdit .phgrid button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:#172239;color:#fff;font:700 13px/1 system-ui;cursor:pointer}
 #contactEdit .csz{display:grid;grid-template-columns:minmax(0,1fr) 56px 84px;gap:6px}
 #contactEdit .x{width:36px;height:38px;border:1px solid #c9cedb;border-radius:6px;background:none;color:#e05a4f;font-size:20px;cursor:pointer}
 .pcell{position:relative}
@@ -140,7 +147,7 @@ const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPo
 
 import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getStorage, ref, getDownloadURL, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -170,10 +177,37 @@ document.getElementById("createLead").addEventListener("click", e => {
   if (name) createLead(name, e.currentTarget);
 });
 /* The hub's + (next to Open full calendar) asks for the name there and comes here as ?create=<name>. */
-async function createLead(name, b, extra = {}, next = "") {
+/* Long side 2000px, JPEG ~85%. If the phone can't read the picture, the original goes up as is. */
+async function shrinkPhoto(file) {
+  try {
+    const img = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const k = Math.min(1, 2000 / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const out = await new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
+    if (out) return out;
+  } catch (e) { console.warn("shrinkPhoto", e); }
+  return file;
+}
+async function createLead(name, b, extra = {}, next = "", files = []) {
   const orig = b.innerHTML; b.disabled = true; b.textContent = "Creating\u2026";
   try {
     const lRef = doc(collection(db, "leads"));
+    /* Photos from the New lead / contact form: shrunk to a phone-friendly JPEG, saved under
+       quick-quote-photos/<lead id>/ (same place as website photos), so they carry into the profile. */
+    if (files.length) {
+      const paths = [];
+      for (let i = 0; i < files.length; i++) {
+        b.textContent = "Uploading photo " + (i + 1) + " of " + files.length + "\u2026";
+        const blob = await shrinkPhoto(files[i]);
+        const p = "quick-quote-photos/" + lRef.id + "/" + Date.now() + "-" + i + ".jpg";
+        await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
+        paths.push(p);
+      }
+      extra.photoPaths = paths;
+      b.textContent = "Creating\u2026";
+    }
     await setDoc(lRef, { ...extra, name, source: "onsite", status: "new",
       createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     if (next) { location.href = next; return; }   /* next: Text / Text promo from the New lead form */
@@ -211,10 +245,12 @@ async function startEstimate(l, b) {
 /* #new: empty New lead form (the hub's +). Only the name is required. Save files the lead
    the same way as Create lead, with the phone, email and address, and opens a blank job sheet. */
 function showNewLead() {
-  titleEl.textContent = "New lead";
-  view.innerHTML = '<div class="panel" id="contactEdit"><h2>New lead</h2>' +
+  titleEl.textContent = "New lead / contact"; document.title = "New lead / contact \u00b7 Khean & Clean";
+  view.innerHTML = '<div class="panel" id="contactEdit"><h2>New lead / contact</h2>' +
     '<label for="nlName">Name</label><input id="nlName" autocomplete="off" autocapitalize="words">' +
     '<label for="nlType">Type</label>' + typeSelect("nlType") +
+    /* Business name: shows for every type except Residential. */
+    '<div id="nlBizWrap" hidden><label for="nlBiz">Business name</label><input id="nlBiz" autocomplete="off" autocapitalize="words"></div>' +
     '<label for="nlPhone">Phone</label><input id="nlPhone" type="tel" autocomplete="off">' +
     '<label for="nlEmail">Email</label><input id="nlEmail" type="email" autocomplete="off" autocapitalize="off">' +
     /* Street: Google autofill (places.js, id ends in Addr) as you type, and the phone's own
@@ -222,10 +258,26 @@ function showNewLead() {
     '<label for="nlAddr">Street</label><input id="nlAddr" type="text" autocomplete="address-line1">' +
     '<label>City, state, zip</label><div class="csz"><input id="nlCity" autocomplete="address-level2" aria-label="City">' +
     '<input id="nlState" value="CA" autocomplete="address-level1" aria-label="State"><input id="nlZip" inputmode="numeric" autocomplete="postal-code" aria-label="Zip"></div>' +
+    '<label for="nlNotes">Notes</label><textarea id="nlNotes" rows="4"></textarea>' +
+    /* No capture setting, so the phone offers Take Photo or the photo library (iPhone and Android). */
+    '<label>Photos</label><button type="button" class="phbtn" id="nlPhBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Add photos</button>' +
+    '<input type="file" id="nlPhotos" accept="image/*" multiple hidden><div class="phgrid" id="nlPhGrid"></div>' +
     '<div class="actions"><button type="button" class="new" id="nlSave">Save</button>' +
     '<button type="button" class="ghost" id="nlText">Text</button><button type="button" class="ghost" id="nlPromo">Text promo</button>' +
     '<a class="ghost" href="#">Cancel</a><span class="note" id="nlNote"></span></div></div>';
   const v = id => document.getElementById(id).value.trim();
+  const syncBiz = () => { document.getElementById("nlBizWrap").hidden = v("nlType") === "residential"; };
+  document.getElementById("nlType").addEventListener("change", syncBiz); syncBiz();
+  /* Photos picked so far, shown as small squares with an X to take one back out. */
+  let picked = [];
+  const phGrid = document.getElementById("nlPhGrid"), phIn = document.getElementById("nlPhotos");
+  const drawPh = () => {
+    phGrid.querySelectorAll("img").forEach(i => URL.revokeObjectURL(i.src));
+    phGrid.innerHTML = picked.map((f, i) => '<figure><img src="' + URL.createObjectURL(f) + '" alt=""><button type="button" data-rm="' + i + '" aria-label="Remove photo">&times;</button></figure>').join("");
+  };
+  document.getElementById("nlPhBtn").addEventListener("click", () => phIn.click());
+  phIn.addEventListener("change", () => { picked = picked.concat([...phIn.files].filter(f => /^image\//.test(f.type) || !f.type)).slice(0, 20); phIn.value = ""; drawPh(); });
+  phGrid.addEventListener("click", e => { const x = e.target.closest("[data-rm]"); if (x) { picked.splice(+x.dataset.rm, 1); drawPh(); } });
   /* Save, Text and Text promo all save the lead first. Text then opens Texts with this number;
      Text promo opens Promotions with this lead as Send to. Both need a 10-digit phone. */
   const save = (b, mode) => {
@@ -237,10 +289,12 @@ function showNewLead() {
     const extra = { type: v("nlType") }, a = { street: v("nlAddr"), city: v("nlCity"), state: v("nlState"), zip: v("nlZip") };
     if (v("nlPhone")) extra.phone = v("nlPhone");
     if (v("nlEmail")) extra.email = v("nlEmail");
+    if (v("nlType") !== "residential" && v("nlBiz")) extra.business = v("nlBiz").slice(0, 120);
+    if (v("nlNotes")) extra.message = v("nlNotes").slice(0, 5000);
     if (a.street || a.city || a.zip) extra.addresses = [a];
     const next = mode === "text" ? "./texts.html#" + to
       : mode === "promo" ? "./promotions.html?to=" + encodeURIComponent(to) + "&name=" + encodeURIComponent(name) : "";
-    createLead(name, b, extra, next);
+    createLead(name, b, extra, next, picked);
   };
   document.getElementById("nlSave").addEventListener("click", e => save(e.currentTarget, ""));
   document.getElementById("nlText").addEventListener("click", e => save(e.currentTarget, "text"));
@@ -807,7 +861,7 @@ async function showLead(id){
         const phone = phones[0] || "", email = emails[0] || "";
         customerId = randomId();
         const cust = {
-          type: CONTACT_TYPES[t] || (t === "commercial" ? "commercial" : "residential"), business: "",
+          type: CONTACT_TYPES[t] || (t === "commercial" ? "commercial" : "residential"), business: String(l.business || "").trim(),
           name: String(l.name || "").trim(), phone, email, notes, addresses,
           phones, emails, phoneKeys, emailKeys, phoneKey: phoneKey(phone), emailKey: emailKey(email),
           /* Carried over so the photos survive after the lead is erased. */
