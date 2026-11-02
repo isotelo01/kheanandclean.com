@@ -54,6 +54,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:18px}
 .panel h2{font:700 20px "Archivo",system-ui,sans-serif;margin:24px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
 .panel h2:first-child{margin-top:0}
+.panel#contactEdit > h2:first-child{font-size:26px}   /* New lead / Contact heading, a bit bigger */
 .read{display:grid;gap:10px;margin-bottom:4px}
 .rrow{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline}
 @media(max-width:620px){.rrow{grid-template-columns:1fr;gap:2px}}
@@ -1092,6 +1093,7 @@ const route = () => {
     sw.setAttribute("href", h ? "#" : "#trash");
   }
   document.getElementById("createLead").hidden = h === "new";   /* no New lead button on the New lead form itself */
+  titleEl.hidden = h === "new";   /* New lead / Contact: the form's own heading is the title */
   if (h === "trash") showTrash(); else if (h === "new") showNewLead(); else if (h) showLead(h); else showList();
 };
 
