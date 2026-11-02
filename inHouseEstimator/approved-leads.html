@@ -103,7 +103,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp, runTransaction }
+import { getFirestore as fsGetFirestore, initializeFirestore, collection, query, where, limit, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 /* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
@@ -361,8 +361,27 @@ async function showProfile(id){
         '<a class="new" href="./job-sheet.html?id=' + encodeURIComponent(q.id) + '">Job sheet</a>' +
         (q.customerId ? '<a class="ghost" href="./customers.html#' + encodeURIComponent(q.customerId) + '">Customer record</a>' : '') +
         '<a class="ghost" href="#">Back to list</a>' +
+        '<button type="button" class="ghost" id="delQuote">Delete</button>' +
       '</div>' +
     '</div>';
+
+  /* Delete: same as the Dashboard's x. The quote moves to Trash (Dashboard > Trash can restore it). */
+  document.getElementById("delQuote").addEventListener("click", async e => {
+    if (!confirm("Delete this approved quote? It goes to the Dashboard Trash, where you can restore it.")) return;
+    const b = e.currentTarget; b.disabled = true; b.textContent = "Deleting\u2026";
+    try {
+      const src = await getDoc(doc(db, q.source, q.id));
+      if (src.exists()) {
+        await setDoc(doc(db, "trash", q.id), Object.assign({}, src.data(), { trashedFrom: q.source, trashedAt: serverTimestamp() }));
+        await deleteDoc(doc(db, q.source, q.id));
+      }
+      all = all.filter(x => x.id !== q.id);
+      location.hash = "";
+    } catch (err) {
+      console.error(err); b.disabled = false; b.textContent = "Delete";
+      alert("Couldn\u2019t delete: " + (err.message || err));
+    }
+  });
 
   /* The lead and/or customer this quote came from: their message, notes and photos. */
   let lead = null, cust = null;
