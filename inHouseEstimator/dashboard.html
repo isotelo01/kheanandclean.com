@@ -54,8 +54,8 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .top .inew{background:var(--gold)!important;color:#172239!important;border-color:var(--gold)!important}
 @media (max-width:400px){ .top{gap:8px} .top .home img{width:84px;height:84px} .ibar{gap:5px} .top .ibtn{width:46px;height:48px} }
 .custbtn{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px}
-.editbtn,.copyjob{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
-.editbtn:hover,.copyjob:hover{background:var(--navy);border-color:var(--navy);color:#fff}
+.editbtn,.copyjob,.infobtn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:600 13px "Archivo",system-ui,sans-serif;cursor:pointer;margin-top:7px;margin-left:6px}
+.editbtn:hover,.copyjob:hover,.infobtn:hover{background:var(--navy);border-color:var(--navy);color:#fff}
 /* Square Job sheet button on accepted estimates, centered in the card's open middle. */
 .jsq{flex:none;margin:0 auto;width:62px;height:62px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--navy);font:700 12px/1.15 "Archivo",system-ui,sans-serif;cursor:pointer;text-align:center;padding:0}
 .jsq:hover{background:var(--navy);border-color:var(--navy);color:#fff}
@@ -275,6 +275,10 @@ const card = r =>
             /* On-site updates (R1, R2...) are changed on their job sheet, never in the estimator. */
             /* Accepted cards have their own Job sheet button, so their Edit opens the quote. */
             (r.revisionOf ? ' data-job="' + esc(r.revisionOf) + '"' : r.fromJobSheet && r.source !== "acceptedQuotes" ? ' data-job="' + esc(r.id) + '"' : '') + '>Edit</button>') +
+      /* Refresh: pulls the address, phone and email from the customer's (or lead's) profile onto this quote. */
+      (r.source === "quotes" || r.source === "acceptedQuotes" || r.source === "invoices"
+        ? '<button type="button" class="infobtn" data-info="' + esc(r.id) + '" data-from="' + esc(r.source) + '" title="Refresh from profile">&#8635; Info</button>'
+        : '') +
       (r.source !== "trash" && r.phone
         ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-name="' + esc(r.name || "") + '"' + (r.sched ? ' data-sched="1"' : '') + ' data-kind="' + kindOf(r) + '">Text</button>'
         : '') +
@@ -761,6 +765,34 @@ boardEl.addEventListener("click", async e => {
   } catch (err) {
     m.disabled = false; m.textContent = "Email";
     alert("Email didn't send. " + (err.message || ""));
+  }
+});
+
+/* Refresh info: copies the address, phone and email from the linked profile (customer first, then lead)
+   onto this quote's customer block. Only filled-in profile fields are copied; the name and prices aren't touched. */
+boardEl.addEventListener("click", async e => {
+  const b = e.target.closest(".infobtn");
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const id = b.getAttribute("data-info"), src = b.getAttribute("data-from");
+  const r = Object.values(data).flat().find(x => x.id === id && x.source === src);
+  if (!r || (!r.custId && !r.leadId)) { alert("No customer or lead profile is linked to this quote yet."); return; }
+  b.disabled = true;
+  try {
+    const ps = await getDoc(doc(db, r.custId ? "customers" : "leads", r.custId || r.leadId));
+    if (!ps.exists()) throw new Error("profile missing");
+    const p = ps.data();
+    const a = (Array.isArray(p.addresses) && p.addresses.find(x => x && (x.street || x.city || x.zip))) ||
+      { street: p.street, city: p.city, state: p.street || p.city ? "CA" : "", zip: p.zip };
+    const patch = {};
+    [["street", a.street], ["city", a.city], ["state", a.state], ["zip", a.zip], ["phone", p.phone], ["email", p.email]]
+      .forEach(([k, v]) => { if (String(v || "").trim()) patch[k] = String(v).trim(); });
+    if (!Object.keys(patch).length) { alert("The profile has no address, phone or email to copy."); b.disabled = false; return; }
+    await setDoc(doc(db, src, id), { customer: patch }, { merge: true });
+    await load();
+  } catch (err) {
+    console.error(err); b.disabled = false;
+    alert("Couldn't refresh this quote from the profile.");
   }
 });
 
