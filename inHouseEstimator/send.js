@@ -158,6 +158,16 @@ const TYPE_MAP = {
   'Commercial': 'commercial'
 };
 
+/* Discounts ticked in the estimator go on the profile as one "Discounts: Senior, Military" line.
+   Saving again replaces that line; the rest of the notes are left alone. None ticked = no change. */
+function withDiscLine(text){
+  const names = (window.KC_discNames || []).filter(Boolean);
+  const t = String(text || '');
+  if (!names.length) return t;
+  const line = 'Discounts: ' + names.join(', ');
+  return /^Discounts: .*$/m.test(t) ? t.replace(/^Discounts: .*$/m, line) : (t.trim() ? t.replace(/\s+$/, '') + '\n\n' + line : line);
+}
+
 async function fileCustomer(custId){
   const name = val('eName'), phone = val('ePhone'), email = val('eEmail');
   const pk = phoneKey(phone), ek = emailKey(email);
@@ -181,6 +191,8 @@ async function fileCustomer(custId){
         Object.assign(patch, { phones, emails, phoneKeys, emailKeys,
           phone: phones[0] || '', email: emails[0] || '',
           phoneKey: phoneKey(phones[0]), emailKey: emailKey(emails[0]) });
+      const dNotes = withDiscLine(d.notes);
+      if (dNotes !== String(d.notes || '')) patch.notes = dNotes;
       if (d.trashed) Object.assign(patch, { trashed: false, trashedAt: null });   /* estimating for them again means they're active */
       if (Object.keys(patch).length) await setDoc(hit.ref, Object.assign(patch, { updatedAt: serverTimestamp() }), { merge: true });
       /* A ticked OK to text / specials is remembered on the customer (a yes is never taken back here).
@@ -202,7 +214,13 @@ async function fileLead(quoteId, number){
   const link = { status: 'quoted', quoteId, quoteNumber: number, updatedAt: serverTimestamp() };
   const leadId = val('eLeadId');
   if (leadId) {
-    try { await updateDoc(doc(db, 'leads', leadId), link); return leadId; }
+    try {
+      const ls = await getDoc(doc(db, 'leads', leadId)).catch(() => null);
+      const m = ls && ls.exists() ? String(ls.data().message || '') : '';
+      const m2 = withDiscLine(m);
+      await updateDoc(doc(db, 'leads', leadId), m2 !== m ? Object.assign({ message: m2 }, link) : link);
+      return leadId;
+    }
     catch (e) { if (e.code !== 'not-found') throw e; }   /* lead was erased: make a fresh one */
   }
   const addr = { street: streetVal(), city: val('eCity'), state: val('eState'), zip: val('eZip') };
@@ -211,7 +229,7 @@ async function fileLead(quoteId, number){
     name: val('eName'), phone: val('ePhone'), email: val('eEmail'),
     type: val('eType').toLowerCase(), business: val('eBiz'),
     addresses: (addr.street || addr.city || addr.zip) ? [addr] : [],
-    message: '', services: [], source: 'estimate', createdAt: serverTimestamp()
+    message: withDiscLine(''), services: [], source: 'estimate', createdAt: serverTimestamp()
   }, link));
   if ($('eLeadId')) $('eLeadId').value = id;
   return id;
