@@ -200,9 +200,7 @@ function showNewLead() {
   titleEl.textContent = "New lead";
   view.innerHTML = '<div class="panel" id="contactEdit"><h2>New lead</h2>' +
     '<label for="nlName">Name</label><input id="nlName" autocomplete="off" autocapitalize="words">' +
-    '<label for="nlType">Type</label><select id="nlType">' +
-      ["Residential", "Commercial", "Business partner", "Property manager", "Realtor", "Other"]
-        .map(t => '<option value="' + t.toLowerCase() + '">' + t + '</option>').join("") + '</select>' +
+    '<label for="nlType">Type</label>' + typeSelect("nlType") +
     '<label for="nlPhone">Phone</label><input id="nlPhone" type="tel" autocomplete="off">' +
     '<label for="nlEmail">Email</label><input id="nlEmail" type="email" autocomplete="off" autocapitalize="off">' +
     /* Street: Google autofill (places.js, id ends in Addr) as you type, and the phone's own
@@ -256,6 +254,14 @@ const tintOf = l => String(l.estimateData || "").trim() ? "t-green"
 const addrOf = l => (Array.isArray(l.addresses) && l.addresses[0]) ||
   { street: l.street, city: l.city, state: l.street || l.city ? "CA" : "", zip: l.zip };
 const cityLine = a => [[a.city, a.state].filter(Boolean).join(", "), a.zip].filter(Boolean).join(" ");
+/* Lead type dropdown (New lead form and the lead's contact Edit). A type not on the list
+   (older leads) is kept as its own option so saving doesn't change it. */
+const LEAD_TYPES = ["Residential", "Commercial", "Business partner", "Property manager", "Realtor", "Other"];
+const typeSelect = (id, cur = "residential") => {
+  const list = LEAD_TYPES.some(t => t.toLowerCase() === cur) ? LEAD_TYPES : [cur.charAt(0).toUpperCase() + cur.slice(1)].concat(LEAD_TYPES);
+  return '<select id="' + id + '">' + list.map(t => '<option value="' + esc(t.toLowerCase()) + '"' +
+    (t.toLowerCase() === cur ? ' selected' : '') + '>' + esc(t) + '</option>').join("") + '</select>';
+};
 const typeLabel = l => {
   const t = String(l.type || l.property_type || "residential").toLowerCase();
   return t.charAt(0).toUpperCase() + t.slice(1);
@@ -535,6 +541,7 @@ async function showLead(id){
         '</div>' +
         '<div id="contactEdit" hidden>' +
           '<label>Name</label><input id="ceName" autocomplete="off" value="' + esc(l.name || "") + '">' +
+          '<label for="ceType">Type</label>' + typeSelect("ceType", String(l.type || l.property_type || "residential").toLowerCase()) +
           '<label>Street</label><input id="ceStreet" autocomplete="off" value="' + esc(a.street || "") + '">' +
           '<label>City / State / Zip</label><div class="csz"><input id="ceCity" value="' + esc(a.city || "") + '" aria-label="City">' +
             '<input id="ceState" value="' + esc(a.state || "CA") + '" aria-label="State" maxlength="2">' +
@@ -863,7 +870,7 @@ async function showLead(id){
       const promoTo = String(phones[0] || "").replace(/\D/g, "").slice(-10);
       if (promo && promoTo.length !== 10) { msg.classList.add("err"); msg.textContent = "Add a 10-digit phone number to text a promotion."; return; }
       const street = v("ceStreet"), city = v("ceCity"), state = v("ceState").toUpperCase(), zip = v("ceZip");
-      const p = { name: v("ceName"), phone: phones[0] || "", email: emails[0] || "", phones, emails,
+      const p = { name: v("ceName"), type: v("ceType"), phone: phones[0] || "", email: emails[0] || "", phones, emails,
         street, city, zip };
       /* Leads that already keep an addresses list: change the first address there too. */
       if (Array.isArray(l.addresses) && l.addresses.length)
