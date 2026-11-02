@@ -163,9 +163,8 @@ const wholeSqft = l => {
   return m ? Number(m[1].replace(/,/g, "")) || 0 : 0;
 };
 
-/* Create lead: on-site estimate. Asks for a name (the only thing needed), files it as a lead,
-   and opens a blank job sheet (a draft quote in "quotes" marked fromJobSheet + onsiteEstimate).
-   Add services and rooms there; Summarize > Send estimate turns it into a normal sent quote. */
+/* Create lead: asks for a name (the only thing needed) and files it as a New lead, profile only.
+   No estimate yet: Start estimate on the lead's profile makes the draft (see startEstimate). */
 document.getElementById("createLead").addEventListener("click", e => {
   const name = (prompt("Customer name") || "").trim().slice(0, 80);
   if (name) createLead(name, e.currentTarget);
@@ -174,6 +173,21 @@ document.getElementById("createLead").addEventListener("click", e => {
 async function createLead(name, b, extra = {}, next = "") {
   const orig = b.innerHTML; b.disabled = true; b.textContent = "Creating\u2026";
   try {
+    const lRef = doc(collection(db, "leads"));
+    await setDoc(lRef, { ...extra, name, source: "onsite", status: "new",
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    if (next) { location.href = next; return; }   /* next: Text / Text promo from the New lead form */
+    location.href = "./leads.html#" + encodeURIComponent(lRef.id);   /* opens the new lead's profile */
+  } catch (err) {
+    console.error(err); alert("Couldn't create the lead: " + err.message);
+    b.disabled = false; b.innerHTML = orig;
+  }
+}
+/* Start estimate (lead profile, no estimate yet): blank job sheet, a draft quote in "quotes"
+   marked fromJobSheet + onsiteEstimate. Summarize > Send estimate turns it into a normal sent quote. */
+async function startEstimate(l, b) {
+  const orig = b.innerHTML; b.disabled = true; b.textContent = "Starting\u2026";
+  try {
     /* Same Q- numbers as the estimator (meta/counters.quote). */
     const n = await runTransaction(db, async tx => {
       const ref = doc(db, "meta", "counters"), s = await tx.get(ref);
@@ -181,15 +195,14 @@ async function createLead(name, b, extra = {}, next = "") {
       tx.set(ref, { quote: next }, { merge: true });
       return next;
     });
-    const number = "Q-" + n, qRef = doc(collection(db, "quotes")), lRef = doc(collection(db, "leads"));
-    await setDoc(lRef, { ...extra, name, source: "onsite", status: "quoted", quoteId: qRef.id, quoteNumber: number,
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    const number = "Q-" + n, qRef = doc(collection(db, "quotes"));
     await setDoc(qRef, { number, type: "quote", status: "draft", fromJobSheet: true, onsiteEstimate: true,
-      customer: { name }, leadId: lRef.id, lines: [], subtotal: 0, total: 0,
+      customer: { name: l.name || l.business || "" }, leadId: l.id, lines: [], subtotal: 0, total: 0,
       date: new Date().toISOString().slice(0, 10), createdAt: serverTimestamp() });
-    location.href = next || "./job-sheet.html?id=" + encodeURIComponent(qRef.id);   /* next: Text / Text promo from the New lead form */
+    await updateDoc(doc(db, "leads", l.id), { status: "quoted", quoteId: qRef.id, quoteNumber: number, updatedAt: serverTimestamp() });
+    location.href = "./job-sheet.html?id=" + encodeURIComponent(qRef.id);
   } catch (err) {
-    console.error(err); alert("Couldn't create the lead: " + err.message);
+    console.error(err); alert("Couldn't start the estimate: " + err.message);
     b.disabled = false; b.innerHTML = orig;
   }
 }
@@ -589,7 +602,7 @@ async function showLead(id){
          Once there's a quote, no status at all: only the quote buttons. */
       (l.quoteId
         ? '<div class="actions" id="quoteLinks" style="margin-top:22px"></div>'
-        : '<h2>Status</h2><div class="actions"><span class="new" id="stLabel" style="cursor:default">' + esc(statusOf(l).label) + '</span></div>') +
+        : '<h2>Status</h2><div class="actions"><span class="new" id="stLabel" style="cursor:default">' + esc(statusOf(l).label) + '</span><button type="button" class="new" id="startEst">Start estimate</button></div>') +
       /* Partner referral: the status the partner sees in their portal's Referrals list. */
       (l.referralId
         ? '<h2>Referral</h2><div class="actions"><select id="refSt" disabled>' +
@@ -923,6 +936,9 @@ async function showLead(id){
       .then(() => { patchLocal({ status: "contacted" }); const s = document.getElementById("stLabel"); if (s) s.textContent = "Contacted"; })
       .catch(e => console.error("Contacted", e));
   }));
+
+  const startEst = document.getElementById("startEst");
+  if (startEst) startEst.addEventListener("click", () => startEstimate({ ...l, id }, startEst));
 
   /* Quote canceled: drop the lead out of Quoted, back to a regular lead. */
   const cancelQuoteBtn = document.getElementById("cancelQuoteBtn");
