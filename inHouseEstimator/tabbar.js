@@ -9,7 +9,10 @@
   var here = (location.pathname.split("/").pop() || "").replace(/\.html$/, "");
   // On the Dashboard itself, its tab becomes Income & Expenses.
   // On the Phone page itself, its tab becomes Home (back to the hub).
-  if (here === "phone") tabs[0] = ["hub.html", "Home", '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/>'];
+  var HOME = ["hub.html", "Home", '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/>'];
+  if (here === "phone") tabs[0] = HOME;
+  // On the Texts page: Home, Phone, Dashboard, Customers (no Texts tab there).
+  if (here === "texts") tabs = [HOME, tabs[0], tabs[2], tabs[3]];
   if (here === "dashboard") tabs[2] = ["expenses.html", "Income", '<path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'];
   var css = document.createElement("style");
   css.textContent =
