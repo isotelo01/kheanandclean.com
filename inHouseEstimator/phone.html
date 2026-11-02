@@ -30,6 +30,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",sys
 .home img{display:block;width:34px;height:34px;border-radius:6px}
 h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
 .nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.top .pq{flex:1;min-width:0;font:16px system-ui,sans-serif;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:#172239;box-sizing:border-box}
 .ghost{font:600 15px "Archivo";background:#fff;color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:9px 16px;cursor:pointer}
 [hidden]{display:none!important}
 .msg{color:var(--muted);font-size:15px;padding:6px 2px}
@@ -128,10 +129,10 @@ button.call[data-spam]{color:var(--red)}
 <div id="authwait"></div>
 <div class="wrap">
   <div class="top">
+    <input type="search" id="pq" class="pq" placeholder="Search name or number" autocomplete="off" aria-label="Search calls and voicemail">
     <div class="nav">
       <button type="button" class="phone" id="phoneBtn" style="display:none">Phone off</button><!-- always on now; green Phone tab / pill shows it (live.js) -->
       <button type="button" class="ghost" id="dialBtn">Dial</button>
-      <a class="ghost" href="./texts.html">Texts</a>
     </div>
   </div>
   <div class="cols">
@@ -416,7 +417,10 @@ function render() {
   const n = document.getElementById("vmCount");
   n.hidden = !fresh; n.textContent = fresh;
   // #calls/<number> (from a customer's Call history): only that person's calls and voicemail.
-  const list = onlyK ? calls.filter(c => nameOf(c).k === onlyK) : calls, vms = list.filter(isVm);
+  /* Search bar: name or any part of the number. */
+  const qt = (document.getElementById("pq").value || "").trim().toLowerCase(), qd = qt.replace(/\D/g, "");
+  const hit = c => { if (!qt) return true; const {k, name} = nameOf(c); return String(name).toLowerCase().includes(qt) || (qd.length >= 3 && String(k).includes(qd)); };
+  const list = (onlyK ? calls.filter(c => nameOf(c).k === onlyK) : calls).filter(hit), vms = list.filter(isVm);
   document.getElementById("tabVm").setAttribute("href", "#voicemail" + (onlyK ? "/" + onlyK : ""));
   document.getElementById("tabCalls").setAttribute("href", "#calls" + (onlyK ? "/" + onlyK : ""));
   const only = onlyK ? '<div class="msg">Only ' + esc(nameByKey[onlyK] || pretty(onlyK)) + ' &middot; <a href="#' + tab + '">Show everyone</a></div>' : '';
@@ -426,11 +430,12 @@ function render() {
   document.getElementById("tabCalls").classList.toggle("on", tab === "calls");
   if (tab === "voicemail") {
     view.innerHTML = only + (vms.length ? '<div class="list">' + vms.map(vmRow).join("") + '</div>'
+      : qt ? '<div class="msg">No voicemail matches that.</div>'
       : onlyK ? '<div class="msg">No voicemail from them.</div>'
       : '<div class="msg">No voicemail yet. When nobody answers within about 18 seconds, callers hear the greeting and can leave a message. It shows up here.</div>');
   } else {
     view.innerHTML = only + (list.length ? '<div class="list">' + list.map(callRow).join("") + '</div>'
-      : '<div class="msg">No calls ' + (onlyK ? 'with them' : 'yet') + '.</div>');
+      : '<div class="msg">' + (qt ? 'No calls match that.' : 'No calls ' + (onlyK ? 'with them' : 'yet') + '.') + '</div>');
   }
 }
 
@@ -605,6 +610,8 @@ function startCalls() {
     render();
   }, err => console.warn("callerInfo", err));
 }
+
+document.getElementById("pq").addEventListener("input", () => render());
 
 /* ---------- which tab ---------- */
 let onlyK = "";
