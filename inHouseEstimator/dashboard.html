@@ -66,6 +66,13 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .del{position:absolute;top:9px;right:9px;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);font:700 14px/1 "Archivo",system-ui,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .del:hover{background:var(--red);border-color:var(--red);color:#fff}
 .del[disabled]{opacity:.5;cursor:default}
+/* Phones: the font's × glyph sits off-centre, so draw the × with two lines dead centre instead. */
+@media (max-width:700px){
+  .del{font-size:0;position:absolute}
+  .del::before,.del::after{content:"";position:absolute;left:50%;top:50%;width:11px;height:2px;border-radius:1px;background:currentColor}
+  .del::before{transform:translate(-50%,-50%) rotate(45deg)}
+  .del::after{transform:translate(-50%,-50%) rotate(-45deg)}
+}
 .card:hover{box-shadow:0 2px 14px rgba(23,34,57,.16)}
 .invbtn{flex:0 0 118px;background:var(--navy);color:#fff;border:0;border-radius:10px;padding:10px;font:700 16px "Archivo",system-ui,sans-serif;cursor:pointer;box-shadow:0 1px 6px rgba(23,34,57,.08)}
 .paidbtn{flex:0 0 118px;background:var(--green);color:#fff;border:0;border-radius:10px;padding:10px;font:700 16px "Archivo",system-ui,sans-serif;cursor:pointer;box-shadow:0 1px 6px rgba(23,34,57,.08)}
