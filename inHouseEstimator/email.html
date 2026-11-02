@@ -50,6 +50,9 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 
 /* The list: newest first. Gold edge + bold = unread. */
 .list{display:grid;gap:8px}
+.pager{display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0 4px;color:#bccbdd;font-size:14px}
+.pager button{font:600 15px system-ui,sans-serif;border:1px solid var(--line);border-radius:8px;background:#fff;color:#172239;padding:9px 16px;cursor:pointer}
+.pager button[disabled]{opacity:.4;cursor:default}
 .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;text-decoration:none;color:inherit;background:#fff;
   border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:12px 16px;border-left:4px solid transparent}
 .row:hover{box-shadow:0 2px 12px rgba(23,34,57,.18)}
@@ -203,7 +206,8 @@ function whenShort(iso) {
 }
 const whenLong = iso => { const d = new Date(iso); return !iso || isNaN(d) ? "" : d.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}); };
 
-let cache = {};          // folder -> {messages, unseen}
+let cache = {};          // folder -> {messages, unseen, total, page}
+let pageOf = {};         // folder -> which page of 50 is showing (0 = newest)
 let current = null;      // the message open right now (for Reply)
 let folder = "INBOX";
 
@@ -214,11 +218,16 @@ function renderFolders() {
   }).join("");
 }
 
+view.addEventListener("click", e => {
+  const b = e.target.closest("[data-pg]"); if (!b || b.disabled) return;
+  pageOf[folder] = Math.max(0, (pageOf[folder] || 0) + Number(b.dataset.pg));
+  showList(folder, true); window.scrollTo(0, 0);
+});
 async function showList(f, force) {
   folder = f; current = null; renderFolders();
   if (!cache[f] || force) {
     view.innerHTML = '<div class="msg">Loading&hellip;</div>';
-    try { cache[f] = (await mailList({folder: f})).data; }
+    try { cache[f] = (await mailList({folder: f, page: pageOf[f] || 0})).data; }
     catch (e) { view.innerHTML = '<div class="msg err">' + esc(friendly(e)) + '</div>'; return; }
     renderFolders();
   }
@@ -236,7 +245,12 @@ async function showList(f, force) {
     aliasList.filter(a => here.includes(a)).map(a => { const [bg, fg] = aliasColor(a);
       return '<button type="button" class="achip' + (aliasFilter === a ? ' on' : '') + '" data-alias="' + esc(a) + '" style="background:' + bg + ';color:' + fg + '">' +
         esc(a.split("@")[0]) + '@</button>'; }).join("") + '</div>' : '';
-  if (!list.length) { view.innerHTML = chips + '<div class="msg">Nothing here.</div>'; return; }
+  /* Next / Previous: 50 emails a page. */
+  const pg = cache[f].page || 0, tot = cache[f].total || all.length, first = pg * 50 + 1, last = Math.min(tot, pg * 50 + all.length);
+  const pager = tot > 50 || pg ? '<div class="pager"><button type="button" data-pg="-1"' + (pg ? '' : ' disabled') + '>&lsaquo; Newer</button>' +
+    '<span>' + (all.length ? first + '\u2013' + last : 0) + ' of ' + tot + '</span>' +
+    '<button type="button" data-pg="1"' + (last < tot ? '' : ' disabled') + '>Next page &rsaquo;</button></div>' : '';
+  if (!list.length) { view.innerHTML = chips + '<div class="msg">Nothing here.</div>' + pager; return; }
   view.innerHTML = chips + '<div class="list">' + list.map(m => {
     const p = sentLike ? (m.to || [])[0] : (m.from || [])[0], ourTo = ourOf(m);
     const unread = !(m.seen || sentLike);
@@ -246,7 +260,7 @@ async function showList(f, force) {
       '<span class="when">' + esc(whenShort(m.date)) + '</span>' +
       '<span class="subj">' + esc(m.subject || "(no subject)") + '</span></a>' +
       '<div class="racts" data-uid="' + m.uid + '">' + rowButtons(f) + '</div></div>';
-  }).join("") + '</div>';
+  }).join("") + '</div>' + pager;
   if (f === "INBOX" && !swept && !PERSONAL) sweepJunk();
 }
 /* The buttons under each email. Trash: just Move to Inbox. Sent: Delete and Archive. */
