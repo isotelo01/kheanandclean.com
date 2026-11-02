@@ -177,6 +177,7 @@ async function createLead(name, b, extra = {}, next = "") {
     await setDoc(lRef, { ...extra, name, source: "onsite", status: "new",
       createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     if (next) { location.href = next; return; }   /* next: Text / Text promo from the New lead form */
+    if (CONTACT_TYPES[extra.type]) autoConvert(lRef.id);   /* partner / PM / realtor / other: straight to Contacts */
     location.href = "./leads.html#" + encodeURIComponent(lRef.id);   /* opens the new lead's profile */
   } catch (err) {
     console.error(err); alert("Couldn't create the lead: " + err.message);
@@ -270,6 +271,9 @@ const cityLine = a => [[a.city, a.state].filter(Boolean).join(", "), a.zip].filt
 /* Lead type dropdown (New lead form and the lead's contact Edit). A type not on the list
    (older leads) is kept as its own option so saving doesn't change it. */
 const LEAD_TYPES = ["Residential", "Commercial", "Business partner", "Property manager", "Realtor", "Other"];
+/* These lead types go straight to Contacts (customers.html) as that category when saved. */
+const CONTACT_TYPES = { "business partner": "partner", "property manager": "pm", "realtor": "realtor", "other": "other" };
+const autoConvert = id => { try { sessionStorage.setItem("kc_autoConvert", id); } catch (e) {} };
 const typeSelect = (id, cur = "residential") => {
   const list = LEAD_TYPES.some(t => t.toLowerCase() === cur) ? LEAD_TYPES : [cur.charAt(0).toUpperCase() + cur.slice(1)].concat(LEAD_TYPES);
   return '<select id="' + id + '">' + list.map(t => '<option value="' + esc(t.toLowerCase()) + '"' +
@@ -758,6 +762,7 @@ async function showLead(id){
     location.href = "./index.html";
   });
 
+  let auto = false;
   if (convertBtn) convertBtn.addEventListener("click", async () => {
     convertBtn.disabled = true; say("Checking customers…");
     try {
@@ -767,9 +772,14 @@ async function showLead(id){
       let customerId;
       if (dup) {
         if (!confirm((dup.business || dup.name || "Someone") + " is already a customer with that phone or email. Link this lead to them instead of making a duplicate?")) {
-          say(""); convertBtn.disabled = false; return;
+          say(""); convertBtn.disabled = false; auto = false; return;
         }
         customerId = dup.id;
+        const dt = CONTACT_TYPES[String(l.type || "").toLowerCase()];
+        if (dt && dup.type !== dt) {
+          try { await updateDoc(doc(db, "customers", customerId), { type: dt, updatedAt: serverTimestamp() }); }
+          catch (e) { console.error("Could not set the contact's category", e); }
+        }
         /* The newest text choice wins, so a "No" here overrides an older "Yes" on file.
            If the database refuses it, the link still goes through. */
         if (textOk(l) !== null) {
@@ -797,7 +807,7 @@ async function showLead(id){
         const phone = phones[0] || "", email = emails[0] || "";
         customerId = randomId();
         const cust = {
-          type: t === "commercial" ? "commercial" : "residential", business: "",
+          type: CONTACT_TYPES[t] || (t === "commercial" ? "commercial" : "residential"), business: "",
           name: String(l.name || "").trim(), phone, email, notes, addresses,
           phones, emails, phoneKeys, emailKeys, phoneKey: phoneKey(phone), emailKey: emailKey(email),
           /* Carried over so the photos survive after the lead is erased. */
@@ -817,9 +827,13 @@ async function showLead(id){
       }
       await updateDoc(doc(db, "leads", id), { converted: true, convertedAt: serverTimestamp(), customerId, updatedAt: serverTimestamp() });
       patchLocal({ converted: true, convertedAt: new Date().toISOString(), customerId });
+      if (auto) { location.href = "./customers.html#" + encodeURIComponent(customerId); return; }
       showLead(id);
-    } catch (e) { console.error(e); say("Could not convert: " + esc(e.message), true); convertBtn.disabled = false; }
+    } catch (e) { console.error(e); say("Could not convert: " + esc(e.message), true); convertBtn.disabled = false; auto = false; }
   });
+  /* Saved as business partner / property manager / realtor / other: convert right away. */
+  let ac = null; try { ac = sessionStorage.getItem("kc_autoConvert"); } catch (e) {}
+  if (ac === id) { try { sessionStorage.removeItem("kc_autoConvert"); } catch (e) {} if (convertBtn) { auto = true; convertBtn.click(); } }
 
   view.querySelectorAll("[data-status]").forEach(b => b.addEventListener("click", async () => {
     const v = b.dataset.status;
@@ -893,6 +907,7 @@ async function showLead(id){
         await updateDoc(doc(db, "leads", id), { ...p, updatedAt: serverTimestamp() });
         patchLocal(p);
         if (promo) { location.href = "./promotions.html?to=" + encodeURIComponent(promoTo) + "&name=" + encodeURIComponent(p.name); return; }
+        if (CONTACT_TYPES[p.type] && !l.converted && !l.trashed) autoConvert(id);   /* straight to Contacts */
         showLead(id);
       } catch (e) { console.error(e); msg.classList.add("err"); msg.textContent = "Could not save: " + e.message; btn.disabled = false; }
     };

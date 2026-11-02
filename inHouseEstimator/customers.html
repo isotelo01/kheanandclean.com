@@ -46,6 +46,8 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .row.bg-realtor{background:#fbf1d8}
 .row.bg-commercial{background:#f4e4e1}
 .row.bg-mentor{background:#e4f2f4}
+.row.bg-partner{background:#ece6f6}
+.row.bg-other{background:#eceef1}
 .row.bg-lead{background:#efe8fb}
 .who{font-weight:700}
 /* Account number sits on its own line above the name, right-aligned,
@@ -149,6 +151,8 @@ textarea{min-height:90px;resize:vertical}
 .t-realtor{background:#fbf1d8;color:#8a6412}
 .t-commercial{background:#f4e4e1;color:var(--red)}
 .t-mentor{background:#e4f2f4;color:#1d6b75}
+.t-partner{background:#ece6f6;color:#5a3d8f}
+.t-other{background:#eceef1;color:#4a5160}
 /* Profile contact links: address opens maps, phone calls (or call/text on a phone). */
 .read .contact a.clink{color:inherit;text-decoration:underline;text-decoration-color:var(--gold);text-underline-offset:3px}
 .pmenu{display:flex;gap:8px;margin:6px 0 4px}
@@ -293,6 +297,8 @@ const TYPES = [
   { v: "pm",          label: "Property management", cls: "t-pm" },
   { v: "realtor",     label: "Realtor",             cls: "t-realtor" },
   { v: "commercial",  label: "Commercial",          cls: "t-commercial" },
+  { v: "partner",     label: "Business partner",    cls: "t-partner" },
+  { v: "other",       label: "Other",               cls: "t-other" },
   /* Mentor: people who get a job sheet link from the Dashboard's Text Mentor button (e.g. Mark). */
   { v: "mentor",      label: "Mentor",              cls: "t-mentor" }
 ];
@@ -308,6 +314,8 @@ const GROUPS = [
   { key: "residential", label: "Residential",           has: c => typeOf(c).v === "residential" },
   { key: "pmr",         label: "Property mgmt & realtor", has: c => ["pm","realtor"].includes(typeOf(c).v) },
   { key: "commercial",  label: "Commercial",            has: c => typeOf(c).v === "commercial" },
+  { key: "partner",     label: "Business partners",     has: c => typeOf(c).v === "partner" },
+  { key: "other",       label: "Other",                 has: c => typeOf(c).v === "other" },
   { key: "mentor",      label: "Mentors",               has: c => typeOf(c).v === "mentor" }
 ];
 
