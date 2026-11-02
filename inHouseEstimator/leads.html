@@ -194,7 +194,7 @@ async function createLead(name, b, extra = {}, next = "", files = []) {
   const orig = b.innerHTML; b.disabled = true; b.textContent = "Creating\u2026";
   try {
     const lRef = doc(collection(db, "leads"));
-    /* Photos from the New lead / contact form: shrunk to a phone-friendly JPEG, saved under
+    /* Photos from the New lead / Contact form: shrunk to a phone-friendly JPEG, saved under
        quick-quote-photos/<lead id>/ (same place as website photos), so they carry into the profile. */
     if (files.length) {
       const paths = [];
@@ -245,8 +245,8 @@ async function startEstimate(l, b) {
 /* #new: empty New lead form (the hub's +). Only the name is required. Save files the lead
    the same way as Create lead, with the phone, email and address, and opens a blank job sheet. */
 function showNewLead() {
-  titleEl.textContent = "New lead / contact"; document.title = "New lead / contact \u00b7 Khean & Clean";
-  view.innerHTML = '<div class="panel" id="contactEdit"><h2>New lead / contact</h2>' +
+  titleEl.textContent = "New lead / Contact"; document.title = "New lead / Contact \u00b7 Khean & Clean";
+  view.innerHTML = '<div class="panel" id="contactEdit"><h2>New lead / Contact</h2>' +
     '<label for="nlName">Name</label><input id="nlName" autocomplete="off" autocapitalize="words">' +
     '<label for="nlType">Type</label>' + typeSelect("nlType") +
     /* Business name: shows for every type except Residential. */
