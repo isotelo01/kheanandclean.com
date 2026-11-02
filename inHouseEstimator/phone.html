@@ -56,6 +56,8 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .acts{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
 .acts button,.acts a{font:600 13px "Archivo";color:var(--navy);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:5px 11px;background:#fff;cursor:pointer}
 .acts button:hover,.acts a:hover{border-color:var(--navy)}
+.acts .vmdel{color:#b3261e;border-color:#e2b4b0}
+.acts .vmdel:hover{border-color:#b3261e}
 .acts .play{background:var(--navy);color:#fff;border-color:var(--navy)}
 .acts audio{width:100%;max-width:420px;height:36px}
 .vmerr{grid-column:1 / -1;color:var(--red);font-size:13px}
@@ -137,8 +139,8 @@ button.call[data-spam]{color:var(--red)}
   <div class="cols">
     <div id="main">
       <nav class="tabs" aria-label="Phone lists">
-        <a href="#voicemail" id="tabVm">Voicemail<span class="n" id="vmCount" hidden></span></a>
         <a href="#calls" id="tabCalls">Calls</a>
+        <a href="#voicemail" id="tabVm">Voicemail<span class="n" id="vmCount" hidden></span></a>
       </nav>
       <div id="view"><div class="msg">Loading&hellip;</div></div>
     </div>
@@ -399,9 +401,10 @@ document.addEventListener("click", e => {
    voicemail file (or vmError if Twilio's copy couldn't be saved here). New = gold edge,
    until it's played to the end or marked heard. While a message is playing, updates
    wait so the player doesn't restart under you. */
-let calls = [], tab = "voicemail", playing = 0, pending = false, loaded = false;
+let calls = [], tab = "calls", playing = 0, pending = false, loaded = false;
 const urls = {};   // voicemail path -> playable link, once fetched
-const isVm = c => !!(c.voicemail || c.vmError);
+/* Deleted voicemails (vmDeleted) leave the Voicemail list; the call itself stays in Calls. */
+const isVm = c => !!(c.voicemail || c.vmError) && !c.vmDeleted;
 const nameOf = c => {
   const k = c.key || key(c.dir === "out" ? c.to : c.from);
   return {k, name: c.name || nameByKey[k] || (k ? pretty(k) : (c.from || "Unknown caller"))};
@@ -447,6 +450,7 @@ function vmRow(c) {
     '<div class="acts">' + acts +
       (k ? '<a href="tel:+1' + esc(k) + '">Call back</a><a href="./texts.html#' + esc(k) + '">Text</a>' : '') +
       '<button type="button" data-heard="' + esc(c.id) + '">' + (c.vmNew ? 'Mark heard' : 'Mark new') + '</button>' +
+      '<button type="button" class="vmdel" data-vmdel="' + esc(c.id) + '">Delete</button>' +
     '</div></div>';
 }
 
@@ -528,7 +532,14 @@ view.addEventListener("click", async e => {
 
 // Play: fetch the file's link, swap the button for a player. Played to the end = heard.
 view.addEventListener("click", async e => {
-  const p = e.target.closest("[data-play]"), h = e.target.closest("[data-heard]");
+  const p = e.target.closest("[data-play]"), h = e.target.closest("[data-heard]"), del = e.target.closest("[data-vmdel]");
+  if (del) {
+    if (!confirm("Delete this voicemail?")) return;
+    del.disabled = true;
+    try { await updateDoc(doc(db, "calls", del.dataset.vmdel), {vmDeleted: true, vmNew: false}); }
+    catch (err) { del.disabled = false; alert("Couldn't delete that: " + ((err && err.message) || err)); }
+    return;
+  }
   if (p) {
     const c = calls.find(x => x.id === p.dataset.play);
     if (!c || !c.voicemail) return;
@@ -601,7 +612,7 @@ function startCalls() {
 let onlyK = "";
 const route = () => {
   const [t, f] = location.hash.slice(1).split("/");
-  tab = t === "calls" ? "calls" : "voicemail";
+  tab = t === "voicemail" ? "voicemail" : "calls";   /* opens on Calls */
   onlyK = /^\d{10}$/.test(f || "") ? f : "";
   playing = 0;   // switching tabs stops the player
   render();
