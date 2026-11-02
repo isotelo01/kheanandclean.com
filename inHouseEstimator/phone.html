@@ -138,6 +138,7 @@ button.call[data-spam]{color:var(--red)}
   <div class="cols">
     <div id="main">
       <nav class="tabs" aria-label="Phone lists">
+        <a href="#missed" id="tabMissed">Missed calls</a>
         <a href="#calls" id="tabCalls">Calls</a>
         <a href="#voicemail" id="tabVm">Voicemail<span class="n" id="vmCount" hidden></span></a>
       </nav>
@@ -423,16 +424,22 @@ function render() {
   const list = (onlyK ? calls.filter(c => nameOf(c).k === onlyK) : calls).filter(hit), vms = list.filter(isVm);
   document.getElementById("tabVm").setAttribute("href", "#voicemail" + (onlyK ? "/" + onlyK : ""));
   document.getElementById("tabCalls").setAttribute("href", "#calls" + (onlyK ? "/" + onlyK : ""));
+  document.getElementById("tabMissed").setAttribute("href", "#missed" + (onlyK ? "/" + onlyK : ""));
   const only = onlyK ? '<div class="msg">Only ' + esc(nameByKey[onlyK] || pretty(onlyK)) + ' &middot; <a href="#' + tab + '">Show everyone</a></div>' : '';
   baseTitle = (fresh ? "(" + fresh + ") " : "") + "Phone · Khean & Clean";
   if (!live || live === "dialing") document.title = baseTitle;
   document.getElementById("tabVm").classList.toggle("on", tab === "voicemail");
   document.getElementById("tabCalls").classList.toggle("on", tab === "calls");
+  document.getElementById("tabMissed").classList.toggle("on", tab === "missed");
   if (tab === "voicemail") {
     view.innerHTML = only + (vms.length ? '<div class="list">' + vms.map(vmRow).join("") + '</div>'
       : qt ? '<div class="msg">No voicemail matches that.</div>'
       : onlyK ? '<div class="msg">No voicemail from them.</div>'
       : '<div class="msg">No voicemail yet. When nobody answers within about 18 seconds, callers hear the greeting and can leave a message. It shows up here.</div>');
+  } else if (tab === "missed") {
+    const missed = list.filter(c => c.dir !== "out" && c.status === "missed");
+    view.innerHTML = only + (missed.length ? '<div class="list">' + missed.map(callRow).join("") + '</div>'
+      : '<div class="msg">' + (qt ? "No missed calls match that." : "No missed calls" + (onlyK ? " from them." : ".")) + '</div>');
   } else {
     view.innerHTML = only + (list.length ? '<div class="list">' + list.map(callRow).join("") + '</div>'
       : '<div class="msg">' + (qt ? 'No calls match that.' : 'No calls ' + (onlyK ? 'with them' : 'yet') + '.') + '</div>');
@@ -617,7 +624,7 @@ document.getElementById("pq").addEventListener("input", () => render());
 let onlyK = "";
 const route = () => {
   const [t, f] = location.hash.slice(1).split("/");
-  tab = t === "voicemail" ? "voicemail" : "calls";   /* opens on Calls */
+  tab = t === "voicemail" ? "voicemail" : t === "missed" ? "missed" : "calls";   /* opens on Calls */
   onlyK = /^\d{10}$/.test(f || "") ? f : "";
   playing = 0;   // switching tabs stops the player
   render();
