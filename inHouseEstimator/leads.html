@@ -55,6 +55,8 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .panel h2{font:700 20px "Archivo",system-ui,sans-serif;margin:24px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
 .panel h2:first-child{margin-top:0}
 h1#title[hidden]{display:none}   /* its inline-block style was beating "hidden" */
+.nlhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;border-bottom:2px solid var(--gold);padding-bottom:6px}
+.nlhead h2{font-size:26px!important;margin:0!important;border:0!important;padding:0!important}
 .panel#contactEdit > h2:first-child{font-size:26px}   /* New lead / Contact heading, a bit bigger */
 .read{display:grid;gap:10px;margin-bottom:4px}
 .rrow{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline}
@@ -248,7 +250,8 @@ async function startEstimate(l, b) {
    the same way as Create lead, with the phone, email and address, and opens a blank job sheet. */
 function showNewLead() {
   titleEl.textContent = "New lead / Contact"; document.title = "New lead / Contact \u00b7 Khean & Clean";
-  view.innerHTML = '<div class="panel" id="contactEdit"><h2>New lead / Contact</h2>' +
+  view.innerHTML = '<div class="panel" id="contactEdit"><div class="nlhead"><h2>New lead / Contact</h2>' +
+    '<button type="button" class="new" id="nlSaveTop">Save</button></div>' +
     '<label for="nlName">Name</label><input id="nlName" autocomplete="off" autocapitalize="words">' +
     '<label for="nlType">Type</label>' + typeSelect("nlType") +
     /* Business name: shows for every type except Residential. */
@@ -299,6 +302,7 @@ function showNewLead() {
     createLead(name, b, extra, next, picked);
   };
   document.getElementById("nlSave").addEventListener("click", e => save(e.currentTarget, ""));
+  document.getElementById("nlSaveTop").addEventListener("click", e => save(e.currentTarget, ""));   /* same Save, at the top */
   document.getElementById("nlText").addEventListener("click", e => save(e.currentTarget, "text"));
   document.getElementById("nlPromo").addEventListener("click", e => save(e.currentTarget, "promo"));
   document.getElementById("nlName").focus();
