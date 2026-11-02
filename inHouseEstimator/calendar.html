@@ -344,6 +344,26 @@ dialog::backdrop{background:rgba(10,14,22,.55)}
   .top .icon{width:34px;height:34px}
   .links{gap:6px}
 }
+/* Phone turned sideways: the whole month fits the screen, and the bottom bar (Phone, Texts,
+   Dashboard, Customers) is hidden so the calendar gets the full screen. Calendar page only. */
+@media (orientation:landscape) and (max-height:520px){
+  html #tabbar{display:none!important}
+  html body{padding-bottom:0!important}
+  .wrap{max-width:none;padding:4px 10px 4px}
+  .top{margin-bottom:2px;gap:8px;flex-wrap:nowrap}
+  .top .home img,.home img{width:36px;height:36px;border-radius:8px}
+  .bar{padding:2px 0 4px}
+  .mnav h2{font-size:20px}
+  .mnav .arrow{width:30px;height:30px;font-size:18px}
+  .top .icon{width:30px;height:30px}
+  .dow{padding:3px 0;font-size:11px}
+  .cell{min-height:calc((100dvh - 92px) / 6);padding:2px 4px 3px;gap:2px}
+  .chead{min-height:20px}
+  .dnum{font-size:13px;width:20px;height:20px}
+  .cwx{font-size:10px;gap:2px}
+  .cwx i{font-size:12px}
+  .job{font-size:11px;padding:1px 4px;border-left-width:3px}
+}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
 </head>
@@ -916,7 +936,8 @@ window.addEventListener("popstate", e => {
   if (dayKey) showList();
 });
 
-const mq = window.matchMedia("(max-width: 759px)");
+/* Phone sideways gets the whole month (the desktop grid), not the week list. */
+const mq = window.matchMedia("(max-width: 759px) and (orientation: portrait)");
 const phone = () => mq.matches;
 const render = () => {
   document.body.classList.toggle("dayMode", !!dayKey);
