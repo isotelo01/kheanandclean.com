@@ -277,7 +277,7 @@ const card = r =>
             (r.revisionOf ? ' data-job="' + esc(r.revisionOf) + '"' : r.fromJobSheet && r.source !== "acceptedQuotes" ? ' data-job="' + esc(r.id) + '"' : '') + '>Edit</button>') +
       /* Refresh: pulls the address, phone and email from the customer's (or lead's) profile onto this quote. */
       (r.source === "quotes" || r.source === "acceptedQuotes" || r.source === "invoices"
-        ? '<button type="button" class="infobtn" data-info="' + esc(r.id) + '" data-from="' + esc(r.source) + '" title="Refresh from profile">&#8635; Info</button>'
+        ? '<button type="button" class="infobtn" data-info="' + esc(r.id) + '" data-from="' + esc(r.source) + '" title="Refresh from profile" aria-label="Refresh from profile">&#8635;</button>'
         : '') +
       (r.source !== "trash" && r.phone
         ? '<button type="button" class="textbtn" data-text="' + esc(r.id) + '" data-phone="' + esc(r.phone) + '" data-name="' + esc(r.name || "") + '"' + (r.sched ? ' data-sched="1"' : '') + ' data-kind="' + kindOf(r) + '">Text</button>'

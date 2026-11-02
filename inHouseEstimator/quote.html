@@ -865,7 +865,6 @@ function render(d){
       <div class="kind"><div class="t"><div class="kdate">${dShort}</div>${isQuote ? "Quote" : "Invoice"}</div><div class="n">${num}</div></div>
     </div>
     <div class="body">
-      ${!isQuote && d.status !== "paid" ? `<p class="cashok">Cash is always accepted.</p>` : ""}
       <div class="meta">
         <div><h3>Prepared for</h3><p><strong>${esc(c.business || c.name)}</strong>${c.business && c.name ? "<br>" + esc(c.name) : ""}${addr1 ? '<br><span class="adl">' + esc(addr1) + "</span>" : ""}${addr2 ? '<br><span class="adl">' + esc(addr2) + "</span>" : ""}<span class="phl">${c.phone ? "<span>" + esc(c.phone) + "</span>" : "<span></span>"}<span class="mdate">${dShort}</span></span></p></div>
         <div class="mascot"><img src="../images/mascot.webp" alt="Khean &amp; Clean mascot">${!isQuote && d.status === "paid"
@@ -978,6 +977,10 @@ function render(d){
             ${PICO.card}<div class="pname">Card or Apple Pay</div>
             <div class="pnote">Coming soon. Call to pay by card for now.</div>
           </div>`}
+          <div class="paybox">
+            ${PICO.dollar}<div class="pname">Cash</div>
+            <div class="pnote">Pay in person on the day of service.</div>
+          </div>
         </div>
         <p class="payhelp">Questions about this invoice or how to pay? Call or text <a href="tel:${TEL}">${PHONE}</a>.</p>
       </div>` : ""}
