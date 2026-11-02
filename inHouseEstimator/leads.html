@@ -176,10 +176,8 @@ const wholeSqft = l => {
 
 /* Create lead: asks for a name (the only thing needed) and files it as a New lead, profile only.
    No estimate yet: Start estimate on the lead's profile makes the draft (see startEstimate). */
-document.getElementById("createLead").addEventListener("click", e => {
-  const name = (prompt("Customer name") || "").trim().slice(0, 80);
-  if (name) createLead(name, e.currentTarget);
-});
+/* Opens the full New lead / Contact form (same as the hub's gold button), not the old name pop-up. */
+document.getElementById("createLead").addEventListener("click", () => { location.hash = "#new"; });
 /* The hub's + (next to Open full calendar) asks for the name there and comes here as ?create=<name>. */
 /* Long side 2000px, JPEG ~85%. If the phone can't read the picture, the original goes up as is. */
 async function shrinkPhoto(file) {
