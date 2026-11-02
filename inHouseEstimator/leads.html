@@ -194,9 +194,60 @@ async function shrinkPhoto(file) {
   } catch (e) { console.warn("shrinkPhoto", e); }
   return file;
 }
-async function createLead(name, b, extra = {}, next = "", files = []) {
-  const orig = b.innerHTML; b.disabled = true; b.textContent = "Creating\u2026";
+/* Same person already on file? Phone or email match, or the exact same full name.
+   Open leads first, then contacts. Returns { col, rec, why } or null. */
+async function findDupe(name, extra){
+  const pk = phoneKey(extra.phone), ek = emailKey(extra.email);
+  const norm = s => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const full = norm(name), fullOk = full.split(" ").length > 1;
+  const why = r => pk && phonesOf(r).map(phoneKey).includes(pk) ? "same phone"
+    : ek && emailsOf(r).map(emailKey).includes(ek) ? "same email"
+    : fullOk && (norm(r.name) === full || norm(r.business) === full) ? "same name" : "";
+  if (!all) { try { await load(); } catch (e) { console.error("dupe check", e); } }
+  const lead = (all || []).find(l => !l.trashed && !l.converted && why(l));
+  if (lead) return { col: "leads", rec: lead, why: why(lead) };
   try {
+    let cust = (pk || ek) ? await findMatch(pk ? [pk] : [], ek ? [ek] : []) : null;
+    if (!cust && fullOk) {
+      const s = await getDocs(query(collection(db, "customers"), where("name", "==", String(name).trim()), limit(5)));
+      const hit = s.docs.find(d => !d.data().trashed);
+      if (hit) cust = { id: hit.id, ...hit.data() };
+    }
+    if (cust) return { col: "customers", rec: cust, why: why(cust) || "same phone or email" };
+  } catch (e) { console.error("dupe check (contacts)", e); }
+  return null;
+}
+
+async function createLead(name, b, extra = {}, next = "", files = []) {
+  const orig = b.innerHTML; b.disabled = true; b.textContent = "Checking\u2026";
+  try {
+    /* Stacking: if this looks like someone already on file, ask first.
+       OK = add it to them. Cancel = save a separate contact. */
+    const dupe = await findDupe(name, extra);
+    if (dupe) {
+      const r = dupe.rec, dn = r.business || r.name || "Someone";
+      if (confirm("This looks like " + dn + " (" + dupe.why + ").\n\nOK = add this to " + dn + "\nCancel = save as a separate contact")) {
+        const tRef = doc(db, dupe.col, r.id), paths = [];
+        for (let i = 0; i < files.length; i++) {
+          b.textContent = "Uploading photo " + (i + 1) + " of " + files.length + "\u2026";
+          const blob = await shrinkPhoto(files[i]);
+          const p = "quick-quote-photos/" + r.id + "/" + Date.now() + "-" + i + ".jpg";
+          await uploadBytes(ref(storage, p), blob, { contentType: "image/jpeg" });
+          paths.push(p);
+        }
+        b.textContent = "Saving\u2026";
+        const stack = stackPatch(r, { phones: [extra.phone], emails: [extra.email], addresses: extra.addresses || [],
+          business: extra.business, notes: dupe.col === "customers" ? extra.message : "", photoPaths: paths });
+        if (dupe.col === "leads" && String(extra.message || "").trim() && !String(r.message || "").includes(extra.message.trim()))
+          stack.message = (r.message ? String(r.message).trim() + "\n\n" : "") + extra.message.trim();
+        await updateDoc(tRef, { ...stack, updatedAt: serverTimestamp() });
+        all = null;
+        const goCust = dupe.col === "customers" ? r.id : (r.converted && r.customerId) || "";
+        location.href = next || (goCust ? "./customers.html#" + encodeURIComponent(goCust) : "./leads.html#" + encodeURIComponent(r.id));
+        return;
+      }
+    }
+    b.textContent = "Creating\u2026";
     const lRef = doc(collection(db, "leads"));
     /* Photos from the New lead / Contact form: shrunk to a phone-friendly JPEG, saved under
        quick-quote-photos/<lead id>/ (same place as website photos), so they carry into the profile. */
@@ -214,9 +265,13 @@ async function createLead(name, b, extra = {}, next = "", files = []) {
     }
     await setDoc(lRef, { ...extra, name, source: "onsite", status: "new",
       createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-    if (next) { location.href = next; return; }   /* next: Text / Text promo from the New lead form */
-    if (CONTACT_TYPES[extra.type]) autoConvert(lRef.id);   /* partner / PM / realtor / other: straight to Contacts */
-    location.href = "./leads.html#" + encodeURIComponent(lRef.id);   /* opens the new lead's profile */
+    /* Filed where it belongs, then on to the next page:
+       business types convert to Contacts first (then Contacts, or Texts / Promotions);
+       Residential stays a lead (then the Leads list, or Texts / Promotions). */
+    if (CONTACT_TYPES[extra.type]) { autoConvert(lRef.id, next); location.href = "./leads.html#" + encodeURIComponent(lRef.id); return; }
+    if (next) { location.href = next; return; }
+    all = null;
+    if (location.hash) location.hash = ""; else showList();
   } catch (err) {
     console.error(err); alert("Couldn't create the lead: " + err.message);
     b.disabled = false; b.innerHTML = orig;
@@ -333,7 +388,8 @@ const cityLine = a => [[a.city, a.state].filter(Boolean).join(", "), a.zip].filt
 const LEAD_TYPES = ["Residential", "Commercial", "Business partner", "Property manager", "Realtor", "Other"];
 /* These lead types go straight to Contacts (customers.html) as that category when saved. */
 const CONTACT_TYPES = { "business partner": "partner", "property manager": "pm", "realtor": "realtor", "other": "other" };
-const autoConvert = id => { try { sessionStorage.setItem("kc_autoConvert", id); } catch (e) {} };
+/* next: where to go once converted (Texts / Promotions); blank = the new contact's page. */
+const autoConvert = (id, next) => { try { sessionStorage.setItem("kc_autoConvert", id); sessionStorage.setItem("kc_autoNext", next || ""); } catch (e) {} };
 const typeSelect = (id, cur = "residential") => {
   const list = LEAD_TYPES.some(t => t.toLowerCase() === cur) ? LEAD_TYPES : [cur.charAt(0).toUpperCase() + cur.slice(1)].concat(LEAD_TYPES);
   return '<select id="' + id + '">' + list.map(t => '<option value="' + esc(t.toLowerCase()) + '"' +
@@ -421,6 +477,9 @@ const carryOver = (older, newer) => {
 const HISTORY_DAYS = 30, msDay = 86400000;
 const historyMs = l => l.trashed ? ms(l.trashedAt) : l.converted ? ms(l.convertedAt) : 0;
 const inHistory = l => !!(l.trashed || l.converted);
+/* Old lead: still open, but nothing has changed on it for 30 days. They move to the Old leads page (#old). */
+const OLD_DAYS = 30;
+const isOld = l => !inHistory(l) && Date.now() - (ms(l.updatedAt) || ms(l.createdAt)) > OLD_DAYS * 86400000;
 const daysLeft = l => { const t = historyMs(l); return t ? HISTORY_DAYS - Math.floor((Date.now() - t) / msDay) : null; };
 const leftLabel = l => {
   const d = daysLeft(l);
@@ -510,9 +569,9 @@ async function load(){
 }
 
 /* ---- List: newest first, grouped by status ---- */
-async function showList(){
-  titleEl.textContent = "Leads";
-  document.title = "Leads · Khean & Clean";
+async function showList(old = false){
+  titleEl.textContent = old ? "Old leads" : "Leads";
+  document.title = (old ? "Old leads" : "Leads") + " · Khean & Clean";
   if (!all) {
     view.innerHTML = '<div class="msg">Loading&hellip;</div>';
     try { await load(); }
@@ -535,15 +594,19 @@ async function showList(){
       (inHistory(l) ? '<div class="exp">' + esc(leftLabel(l)) + '</div>' : '') +
     '</a>';
   };
-  const live = all.filter(l => !inHistory(l));
-  const converted = all.filter(l => l.converted && !l.trashed);
-  view.innerHTML = (live.length
+  const olds = all.filter(isOld);
+  const live = old ? olds : all.filter(l => !inHistory(l) && !isOld(l));
+  const converted = old ? [] : all.filter(l => l.converted && !l.trashed);
+  view.innerHTML = (old
+      ? '<div class="msg">No change in ' + OLD_DAYS + ' days. Open one and update it to move it back to Leads. <a href="#">Back to Leads</a></div>'
+      : olds.length ? '<div class="actions"><a class="ghost" href="#old">Old leads (' + olds.length + ')</a></div>' : '') +
+    (live.length
     ? STATUSES.map(s => {
         const inS = live.filter(l => statusOf(l).v === s.v);
         return inS.length ? '<section class="col"><h3 class="colhead">' + (s.v === "quoted" ? "Quoted, not hired" : s.label) + ' (' + inS.length + ')</h3>' +
           inS.map(card).join("") + '</section>' : "";
       }).join("")
-    : '<div class="msg">No open leads. Quick quotes from the website land here.</div>') +
+    : '<div class="msg">' + (old ? "No old leads." : "No open leads. Quick quotes from the website land here.") + '</div>') +
     (converted.length
       ? '<section class="col"><h3 class="colhead">Quoted leads (' + converted.length + ')</h3>' +
         converted.map(card).join("") + '</section>' : "") +
@@ -897,7 +960,10 @@ async function showLead(id){
       }
       await updateDoc(doc(db, "leads", id), { converted: true, convertedAt: serverTimestamp(), customerId, updatedAt: serverTimestamp() });
       patchLocal({ converted: true, convertedAt: new Date().toISOString(), customerId });
-      if (auto) { location.href = "./customers.html#" + encodeURIComponent(customerId); return; }
+      if (auto) {
+        let nx = ""; try { nx = sessionStorage.getItem("kc_autoNext") || ""; sessionStorage.removeItem("kc_autoNext"); } catch (e) {}
+        location.href = nx || "./customers.html#" + encodeURIComponent(customerId); return;
+      }
       showLead(id);
     } catch (e) { console.error(e); say("Could not convert: " + esc(e.message), true); convertBtn.disabled = false; auto = false; }
   });
@@ -1111,7 +1177,7 @@ const route = () => {
   }
   document.getElementById("createLead").hidden = h === "new";   /* no New lead button on the New lead form itself */
   titleEl.hidden = h === "new";   /* New lead / Contact: the form's own heading is the title */
-  if (h === "trash") showTrash(); else if (h === "new") showNewLead(); else if (h) showLead(h); else showList();
+  if (h === "trash") showTrash(); else if (h === "old") showList(true); else if (h === "new") showNewLead(); else if (h) showLead(h); else showList();
 };
 
 /* Page lock. Not signed in -> login page, then back here. */
