@@ -124,6 +124,22 @@ button.call[data-spam]{color:var(--red)}
 }
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
+<style>
+/* Phone page list: no boxes, purple lines between calls, icon buttons, 3D green numbers. */
+#view .list{gap:0}
+#view .row{background:transparent!important;border:0!important;border-radius:0;box-shadow:none;border-bottom:2px solid #8b5cf6!important;padding:12px 4px}
+#view .row.new{box-shadow:inset 3px 0 0 var(--gold);padding-left:10px}
+#view .who,#view .who a{color:#3ddc84;font-weight:800;
+  text-shadow:0 1px 0 #1e9e57,0 2px 0 #157a42,0 3px 0 #0d5a30,0 4px 6px rgba(0,0,0,.6)}
+.callacts{gap:4px;align-items:center}
+.call.ic{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;border:0!important;background:transparent!important;border-radius:50%;color:#fff}
+.call.ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.call.ic:active{background:rgba(255,255,255,.12)!important}
+.call.ic.ic-call{color:#3ddc84}
+.call.ic.ic-spam{color:#ff6b5e}
+.call.ic.ic-notspam{color:#9aa3ad}
+.call.ic.ic-lead{color:#e3b64a}
+</style>
 </head>
 <body>
 <div id="authwait"></div>
@@ -468,6 +484,13 @@ function vmRow(c) {
    type = "business" / "consumer" from Twilio's caller lookup. Labels only; nothing is blocked by type. */
 let callerInfo = {};
 const TYPE_TAG = {business: "Business", consumer: "Personal"};
+/* Icons for the call buttons (Spam, Not spam, Call, Create lead). */
+const ICO = {
+  spam: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+  notspam: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>',
+  call: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+  lead: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 0 1 11-5.7"/><path d="M19 14v7M15.5 17.5h7"/></svg>'
+};
 function callRow(c) {
   const {k, name} = nameOf(c), out = c.dir === "out", missed = c.status === "missed", blockedCall = c.status === "blocked";
   const stale = c.status === "ringing" && Date.now() - ms(c.at) > 120000;
@@ -486,10 +509,10 @@ function callRow(c) {
     '<span class="when">' + esc(whenShort(c.at)) + '</span>' +
     '<span class="last">' + esc(what) + '</span>' +
     '<span class="callacts">' +
-      (num ? '<button type="button" class="call" data-spam="' + esc(num) + '">' + (spam ? 'Not spam' : 'Spam') + '</button>' : '') +
-      (k ? '<a class="call" href="tel:+1' + esc(k) + '">Call</a>' : '') +
+      (num ? '<button type="button" class="call ic ' + (spam ? 'ic-notspam' : 'ic-spam') + '" data-spam="' + esc(num) + '" aria-label="' + (spam ? 'Not spam' : 'Spam') + '" title="' + (spam ? 'Not spam' : 'Mark as spam') + '">' + (spam ? ICO.notspam : ICO.spam) + '</button>' : '') +
+      (k ? '<a class="call ic ic-call" href="tel:+1' + esc(k) + '" aria-label="Call" title="Call">' + ICO.call + '</a>' : '') +
       /* No name on file for this number: make them a lead right here. */
-      (k && namesLoaded && !nameByKey[k] && !spam && !blockedCall ? '<button type="button" class="call" data-mklead="' + esc(k) + '">Create lead</button>' : '') + '</span>' +
+      (k && namesLoaded && !nameByKey[k] && !spam && !blockedCall ? '<button type="button" class="call ic ic-lead" data-mklead="' + esc(k) + '" aria-label="Create lead" title="Create lead">' + ICO.lead + '</button>' : '') + '</span>' +
     followUp(c, k, missed, spam || blockedCall) +
   '</div>';
 }
@@ -587,9 +610,9 @@ document.addEventListener("click", async e => {
   const b = e.target.closest("[data-mklead]"); if (!b || b.disabled) return;
   const k = b.dataset.mklead, name = (prompt("Lead name for " + pretty(k)) || "").trim().slice(0, 80);
   if (!name) return;
-  b.disabled = true; b.textContent = "Creating\u2026";
+  b.disabled = true; b.style.opacity = ".4";
   try { await makeLead(db, { name, phone: pretty(k), how: "call" }); nameByKey[k] = name; render(); }
-  catch (err) { console.error(err); alert("Couldn't create the lead: " + err.message); b.disabled = false; b.textContent = "Create lead"; }
+  catch (err) { console.error(err); alert("Couldn't create the lead: " + err.message); b.disabled = false; b.style.opacity = ""; }
 });
 async function loadNames() {
   const [C, L, P] = await Promise.allSettled(["customers", "leads", "prospects"].map(k => getDocs(collection(db, k))));
