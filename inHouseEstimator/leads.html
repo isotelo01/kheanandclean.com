@@ -906,6 +906,12 @@ async function showLead(id){
       try {
         await updateDoc(doc(db, "leads", id), { ...p, updatedAt: serverTimestamp() });
         patchLocal(p);
+        /* Already a contact: a new Type here moves them to that column on the Contacts page too. */
+        if (l.converted && l.customerId && LEAD_TYPES.some(t => t.toLowerCase() === p.type)) {
+          const ct = CONTACT_TYPES[p.type] || (p.type === "commercial" ? "commercial" : "residential");
+          try { await updateDoc(doc(db, "customers", l.customerId), { type: ct, updatedAt: serverTimestamp() }); }
+          catch (e) { console.error("Could not update the contact's type", e); }
+        }
         if (promo) { location.href = "./promotions.html?to=" + encodeURIComponent(promoTo) + "&name=" + encodeURIComponent(p.name); return; }
         if (CONTACT_TYPES[p.type] && !l.converted && !l.trashed) autoConvert(id);   /* straight to Contacts */
         showLead(id);
