@@ -79,7 +79,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .msghead{display:flex;align-items:center;justify-content:space-between;gap:10px}
 /* Edit contact: name, address, and as many phones / emails as needed */
 #contactEdit label{display:block;font-size:13px;margin:10px 0 4px;opacity:.8}
-#contactEdit input{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid #c9cedb;border-radius:6px}
+#contactEdit input,#contactEdit select{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:8px 10px;border:1px solid #c9cedb;border-radius:6px}
 #contactEdit .crow{display:grid;grid-template-columns:minmax(0,1fr) 36px;gap:6px;margin-bottom:6px}
 #contactEdit .csz{display:grid;grid-template-columns:minmax(0,1fr) 56px 84px;gap:6px}
 #contactEdit .x{width:36px;height:38px;border:1px solid #c9cedb;border-radius:6px;background:none;color:#e05a4f;font-size:20px;cursor:pointer}
@@ -200,6 +200,9 @@ function showNewLead() {
   titleEl.textContent = "New lead";
   view.innerHTML = '<div class="panel" id="contactEdit"><h2>New lead</h2>' +
     '<label for="nlName">Name</label><input id="nlName" autocomplete="off" autocapitalize="words">' +
+    '<label for="nlType">Type</label><select id="nlType">' +
+      ["Residential", "Commercial", "Business partner", "Property manager", "Realtor", "Other"]
+        .map(t => '<option value="' + t.toLowerCase() + '">' + t + '</option>').join("") + '</select>' +
     '<label for="nlPhone">Phone</label><input id="nlPhone" type="tel" autocomplete="off">' +
     '<label for="nlEmail">Email</label><input id="nlEmail" type="email" autocomplete="off" autocapitalize="off">' +
     /* Street: Google autofill (places.js, id ends in Addr) as you type, and the phone's own
@@ -219,7 +222,7 @@ function showNewLead() {
     if (!name) return err("Enter a name.", "nlName");
     const to = v("nlPhone").replace(/\D/g, "").slice(-10);
     if (mode && to.length !== 10) return err("Add a 10-digit phone number to text.", "nlPhone");
-    const extra = {}, a = { street: v("nlAddr"), city: v("nlCity"), state: v("nlState"), zip: v("nlZip") };
+    const extra = { type: v("nlType") }, a = { street: v("nlAddr"), city: v("nlCity"), state: v("nlState"), zip: v("nlZip") };
     if (v("nlPhone")) extra.phone = v("nlPhone");
     if (v("nlEmail")) extra.email = v("nlEmail");
     if (a.street || a.city || a.zip) extra.addresses = [a];
@@ -990,6 +993,7 @@ const route = () => {
     sw.setAttribute("aria-label", h ? "Leads" : "Trash");
     sw.setAttribute("href", h ? "#" : "#trash");
   }
+  document.getElementById("createLead").hidden = h === "new";   /* no New lead button on the New lead form itself */
   if (h === "trash") showTrash(); else if (h === "new") showNewLead(); else if (h) showLead(h); else showList();
 };
 
