@@ -69,6 +69,7 @@ h1{font:700 80px/1.2 "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px s
 
 /* One conversation: their texts on the left, yours on the right in navy. */
 .panel{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(23,34,57,.08);padding:16px}
+.panel.convo{border:0;box-shadow:none}   /* one conversation: no outline box */
 .chead{display:flex;align-items:baseline;justify-content:space-between;gap:6px 12px;flex-wrap:wrap;border-bottom:2px solid var(--gold);padding-bottom:8px;margin-bottom:12px}
 .chead h2{font:700 22px "Archivo",system-ui,sans-serif;margin:0}
 #cname{cursor:pointer}
@@ -552,7 +553,7 @@ function showThread(id) {
   let t = {}, first = true, sending = false, inTexts = [];   // inTexts: what they've texted, for Create lead
   let aiFor = "", aiSug = "", aiAnswers = [];   // reply assistant: which text it's on, the reply you picked, your answers
   view.innerHTML =
-    '<div class="panel">' +
+    '<div class="panel convo">' +
       '<div class="chead"><h2 id="cname">' + esc(pretty(id)) + '</h2>' +
         '<button type="button" class="ghost" id="mkLead" hidden>Create lead</button>' +
         '<a id="ctel" href="tel:+1' + esc(id) + '">' + esc(pretty(id)) + '</a></div>' +
