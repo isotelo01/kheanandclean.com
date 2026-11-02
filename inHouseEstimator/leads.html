@@ -619,7 +619,7 @@ async function showLead(id){
         '<div id="contactEdit" hidden>' +
           '<label>Name</label><input id="ceName" autocomplete="off" value="' + esc(l.name || "") + '">' +
           '<label for="ceType">Type</label>' + typeSelect("ceType", String(l.type || l.property_type || "residential").toLowerCase()) +
-          '<label>Street</label><input id="ceStreet" autocomplete="off" value="' + esc(a.street || "") + '">' +
+          '<label>Street</label><input id="ceAddr" type="text" autocomplete="off" value="' + esc(a.street || "") + '">' +
           '<label>City / State / Zip</label><div class="csz"><input id="ceCity" value="' + esc(a.city || "") + '" aria-label="City">' +
             '<input id="ceState" value="' + esc(a.state || "CA") + '" aria-label="State" maxlength="2">' +
             '<input id="ceZip" value="' + esc(a.zip || "") + '" aria-label="Zip" inputmode="numeric" maxlength="10"></div>' +
@@ -965,7 +965,7 @@ async function showLead(id){
       if (bad) { msg.classList.add("err"); msg.textContent = "\u201c" + bad + "\u201d doesn\u2019t look like an email."; return; }
       const promoTo = String(phones[0] || "").replace(/\D/g, "").slice(-10);
       if (promo && promoTo.length !== 10) { msg.classList.add("err"); msg.textContent = "Add a 10-digit phone number to text a promotion."; return; }
-      const street = v("ceStreet"), city = v("ceCity"), state = v("ceState").toUpperCase(), zip = v("ceZip");
+      const street = v("ceAddr"), city = v("ceCity"), state = v("ceState").toUpperCase(), zip = v("ceZip");
       const p = { name: v("ceName"), type: v("ceType"), phone: phones[0] || "", email: emails[0] || "", phones, emails,
         street, city, zip };
       /* Leads that already keep an addresses list: change the first address there too. */
