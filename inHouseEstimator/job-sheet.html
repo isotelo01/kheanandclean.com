@@ -743,13 +743,17 @@ async function open3D(host){
   /* Hexagon carpet: a clean, seamless honeycomb (tessellation) in the carpet's own two colors, taken from the
      cleanest patch of the photo (lighter half = the field, darker half = the hexagon lines), with a light fiber speckle. */
   const hexCanvas = pick => {
-    const sm = document.createElement("canvas"); sm.width = sm.height = 48; const sg = sm.getContext("2d", { willReadFrequently: true });
-    sg.drawImage(pick.im, pick.sx, pick.sy, pick.sz, pick.sz, 0, 0, 48, 48);
-    const d = sg.getImageData(0, 0, 48, 48).data, px = [];
-    for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2], .299 * d[i] + .587 * d[i + 1] + .114 * d[i + 2]]);
-    const med = px.map(p => p[3]).sort((a, b) => a - b)[px.length >> 1];
-    const avg = arr => [0, 1, 2].map(k => Math.round(arr.reduce((t, p) => t + p[k], 0) / (arr.length || 1)));
-    const field = avg(px.filter(p => p[3] >= med)), line = avg(px.filter(p => p[3] < med)).map(v => Math.round(v * .82));
+    /* Colors straight from the photo: the patch's pixels are grouped into close shades, the most common shade
+       is the field, and the most common shade clearly lighter or darker than it is the hexagon lines. No blending, no darkening. */
+    const N = 96, sm = document.createElement("canvas"); sm.width = sm.height = N; const sg = sm.getContext("2d", { willReadFrequently: true });
+    sg.drawImage(pick.im, pick.sx, pick.sy, pick.sz, pick.sz, 0, 0, N, N);
+    const d = sg.getImageData(0, 0, N, N).data, bins = new Map();
+    for (let i = 0; i < d.length; i += 4) { const k = (d[i] >> 4) + "," + (d[i + 1] >> 4) + "," + (d[i + 2] >> 4);
+      const b0 = bins.get(k) || { n: 0, r: 0, g: 0, b: 0 }; b0.n++; b0.r += d[i]; b0.g += d[i + 1]; b0.b += d[i + 2]; bins.set(k, b0); }
+    const shades = [...bins.values()].sort((x, y) => y.n - x.n).map(b0 => { const c = [b0.r / b0.n, b0.g / b0.n, b0.b / b0.n].map(Math.round);
+      return { c, l: .299 * c[0] + .587 * c[1] + .114 * c[2] }; });
+    const field = shades[0].c, fl = shades[0].l;
+    const line = (shades.find(x => Math.abs(x.l - fl) > 28) || { c: field.map(v => Math.max(0, v - 40)) }).c;
     const C = 512, R = C / (2 * Math.sqrt(3)) * 1, cv = document.createElement("canvas"); cv.width = C; cv.height = Math.round(R * 3 * 2);
     const g = cv.getContext("2d"); g.fillStyle = "rgb(" + field + ")"; g.fillRect(0, 0, cv.width, cv.height);
     g.strokeStyle = "rgb(" + line + ")"; g.lineWidth = R * .16; g.lineJoin = "round";
