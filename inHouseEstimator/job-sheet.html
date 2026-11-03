@@ -2249,7 +2249,7 @@ async function show(){
       cards.forEach(c => io.observe(c));
     } else cards.forEach(c => c.classList.add("in")); }
   /* The floor plan sits right above "Services performed" (The Job), in both views. */
-  { const fpEl = view.querySelector(".fpwrap"), svcH = [...view.querySelectorAll("h2")].find(h => h.querySelector(".sumword"));
+  { const fpEl = view.querySelector(".fpwrap"), svcH = [...view.querySelectorAll("h2")].find(h => /Services performed/.test(h.textContent));
     if (fpEl && svcH) svcH.before(fpEl); }
   /* Summary: the floor plan preview is the live 3D model too (slowly turning); the flat drawing stays as a backup. */
   if (summ) { const tap = view.querySelector(".fptap");
