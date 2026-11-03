@@ -608,7 +608,7 @@ function floorPlanHtml(q){
         const cx = sk.pts.reduce((a, p) => a + p[0], 0) / sk.pts.length, cy = sk.pts.reduce((a, p) => a + p[1], 0) / sk.pts.length;
         const loc = p => [p[0] - cx, p[1] - cy], sv = saved[key] || {};
         const cuts = (Array.isArray(sk.cuts) ? sk.cuts : []).filter(c => Array.isArray(c.pts)).map(c => c.pts.map(loc));
-        const ph = [...(st.photosBeforeThreshold || []), ...(st.photosBefore || []), ...(st.photoPaths || [])].map(x => typeof x === "string" ? x : x && x.path).find(Boolean) || "";
+        const ph = [...(st.photosBeforeThreshold || []), ...(st.photosBefore || []), ...(st.photoPaths || [])].map(x => typeof x === "string" ? x : x && x.path).filter(Boolean).slice(0, 3);
         rooms.push({ photo: ph, name: n > 1 ? rm.name + " " + k : String(rm.name || "Room"), fl, story: Number.isInteger(st.story) ? st.story : 1,
           pts: sk.pts.map(loc), cuts, doors: Array.isArray(sk.doors) ? sk.doors : [],
           sqft: Number(st.sketchSqft) > 0 ? Number(st.sketchSqft) : Math.round(area(sk.pts) - cuts.reduce((a, c) => a + area(c), 0)),
@@ -710,17 +710,40 @@ async function open3D(host){
   const { OrbitControls } = await import("https://esm.sh/three@0.164.1/examples/jsm/controls/OrbitControls.js");
   const H = 8, T = 0.35, LIFT = 11;   /* wall height, wall thickness, feet between stories */
   let disposed = false;
-  /* Floor texture from a room photo: the bottom middle of the shot is the floor closest to the camera,
-     so that patch is cut out, squared up and mirror-tiled (no seams), about 4 ft per tile. */
-  const floorTex = async (path, carpet) => {
-    let img;
-    try { const url = await getDownloadURL(ref(storage, path)); img = new Image(); img.crossOrigin = "anonymous"; img.src = url; await img.decode(); }
-    catch (e) { const blob = await getBlob(ref(storage, path)); img = await createImageBitmap(blob); }
-    const w = img.width, h = img.height, cv = document.createElement("canvas"); cv.width = cv.height = 512;
-    cv.getContext("2d").drawImage(img, w * .22, h * .64, w * .56, h * .33, 0, 0, 512, 512);
+  const floors = {};   /* floor type -> its 3D floors and every room photo of that floor */
+  /* Real floor from the photos: each photo is searched (lower half, where the floor is) for the cleanest
+     square of floor: even overall (no chair, table or shadow in it) and not dark. The best square across
+     all the photos of that floor type becomes the texture for every room of that type, mirror-tiled. */
+  const loadImg = async path => {
+    try { const url = await getDownloadURL(ref(storage, path)); const im = new Image(); im.crossOrigin = "anonymous"; im.src = url; await im.decode(); return im; }
+    catch (e) { return createImageBitmap(await getBlob(ref(storage, path))); } };
+  const bestPatch = img => {
+    const A = 200, w = img.width, h = img.height, ah = Math.round(h * A / w), cv = document.createElement("canvas"); cv.width = A; cv.height = ah;
+    const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0, A, ah);
+    const px = g.getImageData(0, 0, A, ah).data, L = (x, y) => { const i = (y * A + x) * 4; return .299 * px[i] + .587 * px[i + 1] + .114 * px[i + 2]; };
+    const sz = Math.round(A * .2), q = sz / 4; let best = null;
+    for (let y = Math.round(ah * .42); y + sz <= ah; y += Math.max(2, Math.round(sz / 4)))
+      for (let x = 0; x + sz <= A; x += Math.max(2, Math.round(sz / 4))) {
+        const means = [];
+        for (let by = 0; by < 4; by++) for (let bx = 0; bx < 4; bx++) { let t = 0, n = 0;
+          for (let yy = Math.round(y + by * q); yy < y + (by + 1) * q; yy += 2) for (let xx = Math.round(x + bx * q); xx < x + (bx + 1) * q; xx += 2) { t += L(xx, yy); n++; }
+          means.push(t / (n || 1)); }
+        const m = means.reduce((a, b) => a + b, 0) / 16, sd = Math.sqrt(means.reduce((a, b) => a + (b - m) ** 2, 0) / 16);
+        const score = sd + Math.max(0, 60 - m) * .8 + (1 - (y + sz) / ah) * 6;   /* even, not dark, close to the camera */
+        if (!best || score < best.score) best = { score, sx: x * w / A, sy: y * w / A, sz: sz * w / A };
+      }
+    return best; };
+  const applyFloors = async () => { for (const f of Object.values(floors)) {
+    if (!f.photos.length) continue; let pick = null;
+    for (const path of f.photos.slice(0, 8)) { if (disposed) return;
+      try { const im = await loadImg(path), b = bestPatch(im); if (b && (!pick || b.score < pick.score)) pick = { ...b, im }; } catch (e) { console.warn("floor photo", e); } }
+    if (!pick || disposed) continue;
+    const cv = document.createElement("canvas"); cv.width = cv.height = 512;
+    cv.getContext("2d").drawImage(pick.im, pick.sx, pick.sy, pick.sz, pick.sz, 0, 0, 512, 512);
     const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-    tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping; tex.repeat.set(1 / (carpet ? 4 : 6), 1 / (carpet ? 4 : 6));
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); return tex; };
+    tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping; const ft = f.carpet ? 3 : 4; tex.repeat.set(1 / ft, 1 / ft);
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    f.meshes.forEach(m => { m.material.map = tex; m.material.color.set("#ffffff"); m.material.needsUpdate = true; }); } };
   const scene = new THREE.Scene(); scene.background = new THREE.Color("#05070c"); scene.fog = new THREE.Fog("#05070c", 120, 320);
   const all = data.flatMap(r => r.P), xs = all.map(p => p[0]), zs = all.map(p => p[1]);
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
@@ -752,8 +775,8 @@ async function open3D(host){
     r.cuts.forEach(c => sh.holes.push(new THREE.Path(c.map(p => new THREE.Vector2(p[0], p[1])))));
     const fl = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshStandardMaterial({ color: r.color, roughness: .85, side: THREE.DoubleSide }));
     fl.rotation.x = Math.PI / 2; fl.position.y = y + 0.02; scene.add(fl);
-    if (r.photo) floorTex(r.photo, r.carpet).then(tex => { if (!tex || disposed) return;   /* the real floor, from this room's own photo */
-      fl.material.map = tex; fl.material.color.set("#ffffff"); fl.material.needsUpdate = true; }).catch(e => console.warn("floor photo", r.name, e));
+    (floors[r.color] = floors[r.color] || { meshes: [], photos: [], carpet: r.carpet }).meshes.push(fl);
+    floors[r.color].photos.push(...(r.photo || []));
     /* walls, leaving gaps for doors and openings */
     r.P.forEach((a, k) => { const b = r.P[(k + 1) % r.P.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < .05) return;
       const gaps = r.doors.filter(d => d[0] === k).map(d => [d[1], d[2]]).sort((p, q) => p[0] - q[0]);
@@ -769,6 +792,7 @@ async function open3D(host){
         scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p0, p1]), new THREE.LineBasicMaterial({ color: "#9fb3d1" }))); }); });
     scene.add(label(r, y));
   });
+  applyFloors();
   const midY = (stories.length - 1) * LIFT / 2 + H / 2;
   camera.position.set(cx + span * .55, midY + span * .95, cz + span * 1.05);
   const controls = new OrbitControls(camera, renderer.domElement);
