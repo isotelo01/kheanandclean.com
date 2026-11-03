@@ -336,6 +336,9 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 .sprow.est .spslot{border-radius:10px;background-size:cover;background-position:center bottom}   /* photo fills its box, kept to the bottom (the carpet) */
 .sprow.est .spslot::after{display:none}
 .sprow.est b{grid-column:1/-1}   /* room name on top, photo under it */
+/* Room title stands out: bigger, gold, plain bold lettering; its total sq ft right under it. */
+.sprow.est>b{font:700 20px/1.2 "Archivo",system-ui,sans-serif;color:var(--gold);letter-spacing:.01em}
+.sthumbs .sprow.est b .sqft{display:block;aspect-ratio:auto;background:none;border-radius:0;font:500 14px/1.4 "Archivo",system-ui,sans-serif;color:#cfd6e3;margin-top:2px}
 /* The room outline (Measure sketch) next to its photo, same height as the photo. */
 .sprow.est .spsk{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:contain;align-self:center}   /* no box, centered, as big as its side of the card so the wall lengths read */
 @media (min-width:760px){ .sthumbs a.sprow.est .spsk{height:auto;min-height:0;max-height:240px;aspect-ratio:4/3} }   /* wide screens: photo and outline stack */
@@ -1739,7 +1742,8 @@ async function show(){
        then More (opens every room). Threshold photos first, then the room's other Before / After. */
     const prev = [], roomsAll = [];
     /* Every room / piece goes in the list; the first 3 with photos show, More drops the rest in below. */
-    const addPrev = (key, name, href) => { const s = spots[key] || {};
+    const addPrev = (key, name, href, quoteSqft) => { const s = spots[key] || {};
+      const sqft = Number(s.sketchSqft) > 0 ? Number(s.sketchSqft) : Number(quoteSqft) || 0;   /* measured size first, else the quote's */
       const bs = pathsOf({ photoPaths: [...(s.photosBeforeThreshold || []), ...(s.photosBefore || [])] });
       const as = pathsOf({ photoPaths: [...(s.photosAfterThreshold || []), ...(s.photosAfter || [])] });
       const b = bs[0], a = as[0];
@@ -1751,10 +1755,10 @@ async function show(){
       try { const pts = (JSON.parse(s.sketch || "null") || {}).pts;
         if (Array.isArray(pts) && pts.length > 2) { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
           skW = Math.max(...xs) - Math.min(...xs); skH = Math.max(...ys) - Math.min(...ys); } } catch (e) {}
-      const row = { name, b, a, href, gal, sk, skW, skH };
+      const row = { name, b, a, href, gal, sk, skW, skH, sqft };
       if ((b || a) && prev.length < 3) prev.push(row); else roomsAll.push(row); };
     items.forEach((it, j) => { if (it.removed || isNotBilled(it) || extras.includes(it)) return;   /* not billed, or a package extra (accelerated drying etc.): no photo card */
-      if (Array.isArray(it.rooms) && it.rooms.length) { it.rooms.forEach((rm, r) => addPrev(rm.id, rm.name, spotLink(i, j, r))); return; }
+      if (Array.isArray(it.rooms) && it.rooms.length) { it.rooms.forEach((rm, r) => addPrev(rm.id, rm.name, spotLink(i, j, r), Number(rm.sqft) || 0)); return; }
       /* Upholstery pieces and other items with their own page: "i-j", or "i-j-r" for each one of several. */
       const own = Object.keys(spots).filter(k => k === i + "-" + j || k.indexOf(i + "-" + j + "-") === 0)
         .sort((x, y) => (Number(x.split("-")[2]) || 0) - (Number(y.split("-")[2]) || 0));
@@ -1767,7 +1771,7 @@ async function show(){
        More ▾ (the dropdown) sits under the rows; the price stays up in the header. */
     /* Estimates: one bigger photo per room, no Before / After labels, no After box (nothing's been done yet). */
     const est = cur && cur.place === "quotes";
-    const rowHtml = (r, rest) => '<a class="sprow' + (est ? ' est' : '') + (rest ? ' srest' : '') + '" href="' + esc(r.href) + '"' + (r.gal.length ? ' data-gal="' + esc(JSON.stringify(r.gal)) + '"' : '') + '><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span></b>' + (est ? slot(r.b || r.a, "") + (r.sk ? '<img class="spsk" alt="Room outline" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.sk) + '">' : '') : slot(r.b, "Before") + slot(r.a, "After")) +
+    const rowHtml = (r, rest) => '<a class="sprow' + (est ? ' est' : '') + (rest ? ' srest' : '') + '" href="' + esc(r.href) + '"' + (r.gal.length ? ' data-gal="' + esc(JSON.stringify(r.gal)) + '"' : '') + '><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span>' + (est && r.sqft ? '<span class="sqft">' + Math.round(r.sqft).toLocaleString() + ' sq ft total</span>' : '') + '</b>' + (est ? slot(r.b || r.a, "") + (r.sk ? '<img class="spsk" alt="Room outline" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.sk) + '">' : '') : slot(r.b, "Before") + slot(r.a, "After")) +
       (r.gal.length > 2 ? '<span class="sgmore">More photos (' + r.gal.length + ')</span>' : '') + '</a>';
     const prevBox = (prev.length || roomsAll.length) ? '<div class="sthumbs sprev">' + prev.map(r => rowHtml(r, false)).join("") +
       roomsAll.map(r => rowHtml(r, true)).join("") +
