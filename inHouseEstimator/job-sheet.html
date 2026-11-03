@@ -320,6 +320,15 @@ body.summ .fpwrap.hero3d .fph{font-size:18px}
 .fpovtop button{background:#141b29;color:#fff;border:1px solid rgba(227,182,74,.45);border-radius:8px;padding:7px 14px;font:600 15px "Archivo",system-ui,sans-serif;cursor:pointer}
 .fpovbody{flex:1;overflow:auto;padding:0 12px 20px;-webkit-overflow-scrolling:touch}
 .fpbig{display:block;width:100%;height:auto;max-height:80vh;background:#0b0f17;border-radius:10px}
+.fpmode{display:flex;gap:0!important;border:1px solid rgba(227,182,74,.45);border-radius:999px;overflow:hidden}
+.fpovtop .fpmode button{border:0;border-radius:0;background:transparent;color:#cfd6e3;padding:7px 16px}
+.fpovtop .fpmode button.on{background:linear-gradient(180deg,#f2d27a,#c9962b);color:#0b0f17}
+.fp3d{flex:1;position:relative;min-height:0;margin:0 12px;border-radius:14px;overflow:hidden;border:1px solid rgba(227,182,74,.3);box-shadow:inset 0 0 60px rgba(227,182,74,.06)}
+.fp3d canvas{display:block;width:100%;height:100%;touch-action:none}
+.fp3dhint{position:absolute;left:50%;bottom:14px;translate:-50% 0;z-index:1;pointer-events:none;font:600 13px "Archivo",system-ui,sans-serif;color:#fff;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:6px 14px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.fpovkey{padding:8px 14px 16px}
+.fp3d[hidden],.fpovbody[hidden]{display:none}
 .fpkey{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px}
 .fpkey span{display:inline-flex;align-items:center;gap:6px}
 .fpkey i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.35)}
@@ -618,6 +627,12 @@ function floorPlanHtml(q){
     on.filter(rm => !rm.placed).forEach(rm => { const xs = rm.pts.map(p => p[0]), ys = rm.pts.map(p => p[1]);
       rm.x = edge - Math.min(...xs); rm.y = -Math.min(...ys); rm.rot = 0; edge += Math.max(...xs) - Math.min(...xs) + 4; });
   });
+  /* The same rooms for the 3D view: plan-feet corners, cut-outs, and each door as a gap [wall, from, to] (0-1 along the wall). */
+  window.kcFloorPlan3D = rooms.map(rm => ({ story: rm.story, name: rm.name, sqft: rm.sqft, color: rm.fl[0] ? rm.fl[1] : "#5b616c",
+    P: rm.pts.map(p => W(rm, p)), cuts: rm.cuts.map(c => c.map(p => W(rm, p))),
+    doors: rm.doors.map(o => { const a = rm.pts[o.w], b = rm.pts[(o.w + 1) % rm.pts.length]; if (!a || !b) return null;
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, hw = Math.min((o.wd || 3) / 2, len / 2) / len;
+      const t0 = Math.max(0, Math.min(1 - 2 * hw, (Number(o.t) || .5) - hw)); return [o.w, t0, t0 + 2 * hw, o.k === "open"]; }).filter(Boolean) }));
   /* One story drawn. detail = the full version (wall lengths, sq ft, real doors); otherwise the clean preview. */
   const draw = (sto, detail) => {
     const on = rooms.filter(rm => rm.story === sto), all = on.flatMap(rm => rm.pts.map(p => W(rm, p)));
@@ -657,22 +672,107 @@ function floorPlanHtml(q){
   };
   const key = () => '<div class="fpkey">' + [...used].map(([nm, col]) => '<span><i style="background:' + (nm === "Not cleaned" ? '#5b616c' : col) + '"></i>' + esc(nm) + '</span>').join("") + '</div>';
   const small = stories.map(sto => draw(sto, false)).join(""), keyHtml = key();
-  window.kcFloorPlanBig = '<div class="fpov" role="dialog" aria-label="Floor plan"><div class="fpovtop"><b>Floor plan</b><span>' +
+  window.kcFloorPlanBig = '<div class="fpov" role="dialog" aria-label="Floor plan"><div class="fpovtop"><span class="fpmode">' +
+    '<button type="button" data-fpm="3d" class="on">3D</button><button type="button" data-fpm="flat">Flat</button></span><span>' +
     '<button type="button" data-fpz="-1" aria-label="Zoom out">&minus;</button><button type="button" data-fpz="1" aria-label="Zoom in">+</button>' +
-    '<button type="button" data-fpx>Close</button></span></div><div class="fpovbody">' + stories.map(sto => draw(sto, true)).join("") + keyHtml + '</div></div>';
+    '<button type="button" data-fpx>Close</button></span></div>' +
+    '<div class="fp3d"><div class="fp3dhint">Drag to turn &middot; pinch to zoom</div></div>' +
+    '<div class="fpovbody" hidden>' + stories.map(sto => draw(sto, true)).join("") + '</div><div class="fpovkey">' + keyHtml + '</div></div>';
   return '<div class="fpwrap"><h3 class="fph">Floor plan <span>Tap to open</span></h3><div class="fptap" role="button" tabindex="0" aria-label="Open the full floor plan">' + small + '</div>' + keyHtml + '</div>';
 }
 /* Tapping the small plan opens the full one; + / - zoom, Close (or tapping outside it) shuts it. */
-let fpZoom = 1;
+let fpZoom = 1, fp3 = null;
 document.addEventListener("click", e => {
   if (e.target.closest(".fptap") && window.kcFloorPlanBig) {
-    document.body.insertAdjacentHTML("beforeend", window.kcFloorPlanBig); fpZoom = 1; return; }
+    document.body.insertAdjacentHTML("beforeend", window.kcFloorPlanBig); fpZoom = 1;
+    const ov = document.body.lastElementChild;
+    fp3 = null; open3D(ov.querySelector(".fp3d")).then(v => { if (document.body.contains(ov)) fp3 = v; else v && v.dispose(); })
+      .catch(err => { console.error("3D view", err); ov.querySelector('[data-fpm="flat"]').click(); ov.querySelector('[data-fpm="3d"]').hidden = true; });
+    return; }
   const ov = e.target.closest(".fpov"); if (!ov) return;
+  const m = e.target.closest("[data-fpm]");
+  if (m) { const flat = m.dataset.fpm === "flat";
+    ov.querySelectorAll("[data-fpm]").forEach(b => b.classList.toggle("on", b === m));
+    ov.querySelector(".fp3d").hidden = flat; ov.querySelector(".fpovbody").hidden = !flat; if (!flat && fp3) fp3.resize(); return; }
   const z = e.target.closest("[data-fpz]");
-  if (z) { fpZoom = Math.max(1, Math.min(4, fpZoom + Number(z.dataset.fpz) * .75));
+  if (z) { if (!ov.querySelector(".fp3d").hidden && fp3) { fp3.zoom(Number(z.dataset.fpz)); return; }
+    fpZoom = Math.max(1, Math.min(4, fpZoom + Number(z.dataset.fpz) * .75));
     ov.querySelectorAll(".fpbig").forEach(s => { s.style.width = (fpZoom * 100) + "%"; s.style.maxHeight = fpZoom > 1 ? "none" : ""; }); return; }
-  if (e.target.closest("[data-fpx]") || e.target === ov) ov.remove();
+  if (e.target.closest("[data-fpx]")) { if (fp3) fp3.dispose(); fp3 = null; ov.remove(); }
 });
+/* ===== 3D floor plan (three.js, loaded only when the plan is opened) =====
+   Floors in their floor-type color, 8 ft walls with the doors and openings left open, glowing gold
+   wall edges, each room's name and sq ft floating over it. Drag to turn, pinch / scroll to zoom. */
+async function open3D(host){
+  const data = window.kcFloorPlan3D || []; if (!data.length || !host) return null;
+  const THREE = await import("https://esm.sh/three@0.164.1");
+  const { OrbitControls } = await import("https://esm.sh/three@0.164.1/examples/jsm/controls/OrbitControls.js");
+  const H = 8, T = 0.35, LIFT = 11;   /* wall height, wall thickness, feet between stories */
+  const scene = new THREE.Scene(); scene.background = new THREE.Color("#05070c"); scene.fog = new THREE.Fog("#05070c", 120, 320);
+  const all = data.flatMap(r => r.P), xs = all.map(p => p[0]), zs = all.map(p => p[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+  const span = Math.max(20, Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
+  const stories = [...new Set(data.map(r => r.story))].sort(), lvl = st => stories.indexOf(st) * LIFT;
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 2000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  host.appendChild(renderer.domElement);
+  scene.add(new THREE.HemisphereLight("#cfe0ff", "#1a1208", 1.1));
+  const sun = new THREE.DirectionalLight("#fff3d6", 1.3); sun.position.set(cx + span, span * 1.4, cz + span * .6); scene.add(sun);
+  const grid = new THREE.GridHelper(span * 3, Math.round(span * 3 / 2), "#1d3354", "#101b2e"); grid.position.set(cx, -0.05, cz); scene.add(grid);
+  const gold = new THREE.LineBasicMaterial({ color: "#E3B64A" });
+  const wallMat = new THREE.MeshStandardMaterial({ color: "#1b2438", roughness: .6, metalness: .1, transparent: true, opacity: .72 });
+  const label = (r, y) => {   /* name + sq ft on a little floating card, always facing you */
+    const cv = document.createElement("canvas"), g = cv.getContext("2d"), W2 = 512, H2 = 160; cv.width = W2; cv.height = H2;
+    g.fillStyle = "rgba(8,12,20,.78)"; g.strokeStyle = "rgba(227,182,74,.85)"; g.lineWidth = 4;
+    g.beginPath(); g.roundRect(6, 6, W2 - 12, H2 - 12, 30); g.fill(); g.stroke();
+    g.textAlign = "center"; g.fillStyle = "#f7e7a8"; g.font = "700 54px Archivo, Arial, sans-serif"; g.fillText(r.name, W2 / 2, 72, W2 - 40);
+    g.fillStyle = "#cfd6e3"; g.font = "500 40px Archivo, Arial, sans-serif"; g.fillText(Number(r.sqft || 0).toLocaleString() + " sq ft", W2 / 2, 126);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    const rx = r.P.map(p => p[0]), rz = r.P.map(p => p[1]), w = Math.max(...rx) - Math.min(...rx);
+    const sw = Math.max(6, Math.min(16, w * .8)); sp.scale.set(sw, sw * H2 / W2, 1);
+    sp.position.set((Math.min(...rx) + Math.max(...rx)) / 2, y + H + 2.2, (Math.min(...rz) + Math.max(...rz)) / 2); sp.renderOrder = 10; return sp; };
+  data.forEach(r => {
+    const y = lvl(r.story);
+    /* floor */
+    const sh = new THREE.Shape(r.P.map(p => new THREE.Vector2(p[0], p[1])));
+    r.cuts.forEach(c => sh.holes.push(new THREE.Path(c.map(p => new THREE.Vector2(p[0], p[1])))));
+    const fl = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshStandardMaterial({ color: r.color, roughness: .85, side: THREE.DoubleSide }));
+    fl.rotation.x = Math.PI / 2; fl.position.y = y + 0.02; scene.add(fl);
+    /* walls, leaving gaps for doors and openings */
+    r.P.forEach((a, k) => { const b = r.P[(k + 1) % r.P.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < .05) return;
+      const gaps = r.doors.filter(d => d[0] === k).map(d => [d[1], d[2]]).sort((p, q) => p[0] - q[0]);
+      const pieces = []; let t = 0; gaps.forEach(([g0, g1]) => { if (g0 > t) pieces.push([t, g0]); t = Math.max(t, g1); }); if (t < 1) pieces.push([t, 1]);
+      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      pieces.forEach(([t0, t1]) => { const L = (t1 - t0) * len; if (L < .05) return;
+        const mx = a[0] + (b[0] - a[0]) * (t0 + t1) / 2, mz = a[1] + (b[1] - a[1]) * (t0 + t1) / 2;
+        const geo = new THREE.BoxGeometry(L, H, T), m = new THREE.Mesh(geo, wallMat);
+        m.position.set(mx, y + H / 2, mz); m.rotation.y = -ang; scene.add(m);
+        const ed = new THREE.LineSegments(new THREE.EdgesGeometry(geo), gold); ed.position.copy(m.position); ed.rotation.copy(m.rotation); scene.add(ed); });
+      gaps.forEach(([g0, g1]) => {   /* a light blue threshold line where the door is */
+        const p0 = new THREE.Vector3(a[0] + (b[0] - a[0]) * g0, y + .06, a[1] + (b[1] - a[1]) * g0), p1 = new THREE.Vector3(a[0] + (b[0] - a[0]) * g1, y + .06, a[1] + (b[1] - a[1]) * g1);
+        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p0, p1]), new THREE.LineBasicMaterial({ color: "#9fb3d1" }))); }); });
+    scene.add(label(r, y));
+  });
+  const midY = (stories.length - 1) * LIFT / 2 + H / 2;
+  camera.position.set(cx + span * .55, midY + span * .95, cz + span * 1.05);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(cx, midY * .4, cz); controls.enableDamping = true; controls.dampingFactor = .08;
+  controls.maxPolarAngle = Math.PI / 2.05; controls.minDistance = 8; controls.maxDistance = span * 4;
+  controls.autoRotate = true; controls.autoRotateSpeed = .8;
+  controls.addEventListener("start", () => { controls.autoRotate = false; host.querySelector(".fp3dhint")?.remove(); });
+  const resize = () => { const w = host.clientWidth || 300, h = host.clientHeight || 300; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+  const ro = new ResizeObserver(resize); ro.observe(host); resize();
+  let raf = 0; const tick = () => { controls.update(); renderer.render(scene, camera); raf = requestAnimationFrame(tick); }; tick();
+  return {
+    resize,
+    zoom: dir => { const off = camera.position.clone().sub(controls.target).multiplyScalar(dir > 0 ? .8 : 1.25);
+      if (off.length() > controls.minDistance && off.length() < controls.maxDistance) camera.position.copy(controls.target).add(off); controls.autoRotate = false; },
+    dispose: () => { cancelAnimationFrame(raf); ro.disconnect(); controls.dispose();
+      scene.traverse(o => { if (o.geometry) o.geometry.dispose(); const mt = o.material; if (mt) (Array.isArray(mt) ? mt : [mt]).forEach(x => { if (x.map) x.map.dispose(); x.dispose(); }); });
+      renderer.dispose(); renderer.domElement.remove(); }
+  };
+}
 if (PUBLIC) document.documentElement.classList.add("pub");
 const id = new URLSearchParams(location.search).get("id") || (PUBLIC ? "" : ss.get("kcJobSheetId"));
 if (id) ss.set("kcJobSheetId", id);
