@@ -420,20 +420,23 @@ async function showMessage(f, uid) {
     er.textContent = ""; b.disabled = true; b.textContent = "Opening…";
     try {
       const r = (await mailAttachment({folder: f, uid, index: Number(b.dataset.i)})).data;
-      const bin = atob(r.data), u8 = new Uint8Array(bin.length);
-      for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
-      const url = URL.createObjectURL(new Blob([u8], {type: r.type}));
+      let url = r.url || "";   // over 7 MB (up to 25): the server saves it and sends a link instead
+      if (!url) {
+        const bin = atob(r.data), u8 = new Uint8Array(bin.length);
+        for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+        url = URL.createObjectURL(new Blob([u8], {type: r.type}));
+      }
       const img = /^image\//.test(r.type), pdf = r.type === "application/pdf";
       const ov = document.createElement("div");
       ov.style.cssText = "position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.88);display:flex;flex-direction:column";
       ov.innerHTML = '<div style="display:flex;gap:8px;justify-content:flex-end;padding:10px">' +
-        '<a class="ghost" download="' + esc(r.name) + '" href="' + url + '">Download</a>' +
+        '<a class="ghost" download="' + esc(r.name) + '" href="' + url + '"' + (r.url ? ' target="_blank" rel="noopener"' : '') + '>Download</a>' +
         '<button type="button" class="ghost" id="attX">Close</button></div>' +
         (img ? '<img alt="' + esc(r.name) + '" src="' + url + '" style="max-width:100%;max-height:calc(100% - 64px);margin:auto;object-fit:contain">'
           : pdf ? '<iframe title="' + esc(r.name) + '" src="' + url + '" style="flex:1;border:0;background:#fff"></iframe>'
           : '<p style="color:#fff;text-align:center;margin:auto;padding:16px">Can\'t preview ' + esc(r.name) + ' here. Tap Download.</p>');
       document.body.appendChild(ov);
-      ov.querySelector("#attX").addEventListener("click", () => { ov.remove(); URL.revokeObjectURL(url); });
+      ov.querySelector("#attX").addEventListener("click", () => { ov.remove(); if (!r.url) URL.revokeObjectURL(url); });
     }
     catch (err) { er.textContent = friendly(err); }
     finally { b.disabled = false; b.textContent = label; }
