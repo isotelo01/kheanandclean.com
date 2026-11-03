@@ -629,6 +629,7 @@ function floorPlanHtml(q){
       rm.x = edge - Math.min(...xs); rm.y = -Math.min(...ys); rm.rot = 0; edge += Math.max(...xs) - Math.min(...xs) + 4; });
   });
   /* The same rooms for the 3D view: plan-feet corners, cut-outs, and each door as a gap [wall, from, to] (0-1 along the wall). */
+  window.kcCarpetPattern = (q.floorPlan || {}).carpetPattern === "hex" ? "hex" : "photo";
   window.kcFloorPlan3D = rooms.map(rm => ({ story: rm.story, name: rm.name, sqft: rm.sqft, color: rm.fl[0] ? rm.fl[1] : "#5b616c", photo: rm.photo, carpet: /carpet|rug/i.test(rm.fl[2]),
     P: rm.pts.map(p => W(rm, p)), cuts: rm.cuts.map(c => c.map(p => W(rm, p))),
     doors: rm.doors.map(o => { const a = rm.pts[o.w], b = rm.pts[(o.w + 1) % rm.pts.length]; if (!a || !b) return null;
@@ -675,6 +676,7 @@ function floorPlanHtml(q){
   const small = stories.map(sto => draw(sto, false)).join(""), keyHtml = key();
   window.kcFloorPlanBig = '<div class="fpov" role="dialog" aria-label="Floor plan"><div class="fpovtop"><span class="fpmode">' +
     '<button type="button" data-fpm="3d" class="on">3D</button><button type="button" data-fpm="flat">Flat</button></span><span>' +
+    (PUBLIC ? '' : '<button type="button" data-fppat title="Carpet in the 3D view: from the photo, or a clean hexagon pattern in the photo\'s colors">' + (window.kcCarpetPattern === "hex" ? 'Hexagons' : 'Photo') + '</button>') +
     '<button type="button" data-fpz="-1" aria-label="Zoom out">&minus;</button><button type="button" data-fpz="1" aria-label="Zoom in">+</button>' +
     '<button type="button" data-fpx>Close</button></span></div>' +
     '<div class="fp3d"><div class="fp3dhint">Drag to turn &middot; pinch to zoom</div></div>' +
@@ -695,6 +697,11 @@ document.addEventListener("click", e => {
   if (m) { const flat = m.dataset.fpm === "flat";
     ov.querySelectorAll("[data-fpm]").forEach(b => b.classList.toggle("on", b === m));
     ov.querySelector(".fp3d").hidden = flat; ov.querySelector(".fpovbody").hidden = !flat; if (!flat && fp3) fp3.resize(); return; }
+  const pt = e.target.closest("[data-fppat]");
+  if (pt) { const v = window.kcCarpetPattern === "hex" ? "photo" : "hex"; window.kcCarpetPattern = v;
+    pt.textContent = v === "hex" ? "Hexagons" : "Photo"; if (fp3) fp3.repattern();
+    if (window.kcSaveCarpetPattern) window.kcSaveCarpetPattern(v).catch(err => alert("Couldn't save the carpet pattern: " + (err.message || err)));
+    window.kcFloorPlanBig = window.kcFloorPlanBig.replace(/(data-fppat[^>]*>)(Photo|Hexagons)/, "$1" + pt.textContent); return; }
   const z = e.target.closest("[data-fpz]");
   if (z) { if (!ov.querySelector(".fp3d").hidden && fp3) { fp3.zoom(Number(z.dataset.fpz)); return; }
     fpZoom = Math.max(1, Math.min(4, fpZoom + Number(z.dataset.fpz) * .75));
@@ -733,15 +740,42 @@ async function open3D(host){
         if (!best || score < best.score) best = { score, sx: x * w / A, sy: y * w / A, sz: sz * w / A };
       }
     return best; };
+  /* Hexagon carpet: a clean, seamless honeycomb (tessellation) in the carpet's own two colors, taken from the
+     cleanest patch of the photo (lighter half = the field, darker half = the hexagon lines), with a light fiber speckle. */
+  const hexCanvas = pick => {
+    const sm = document.createElement("canvas"); sm.width = sm.height = 48; const sg = sm.getContext("2d", { willReadFrequently: true });
+    sg.drawImage(pick.im, pick.sx, pick.sy, pick.sz, pick.sz, 0, 0, 48, 48);
+    const d = sg.getImageData(0, 0, 48, 48).data, px = [];
+    for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2], .299 * d[i] + .587 * d[i + 1] + .114 * d[i + 2]]);
+    const med = px.map(p => p[3]).sort((a, b) => a - b)[px.length >> 1];
+    const avg = arr => [0, 1, 2].map(k => Math.round(arr.reduce((t, p) => t + p[k], 0) / (arr.length || 1)));
+    const field = avg(px.filter(p => p[3] >= med)), line = avg(px.filter(p => p[3] < med)).map(v => Math.round(v * .82));
+    const C = 512, R = C / (2 * Math.sqrt(3)) * 1, cv = document.createElement("canvas"); cv.width = C; cv.height = Math.round(R * 3 * 2);
+    const g = cv.getContext("2d"); g.fillStyle = "rgb(" + field + ")"; g.fillRect(0, 0, cv.width, cv.height);
+    g.strokeStyle = "rgb(" + line + ")"; g.lineWidth = R * .16; g.lineJoin = "round";
+    const hw = Math.sqrt(3) * R;
+    for (let j = -1; j <= 4; j++) for (let i = -1; i <= 3; i++) {
+      const cx = i * hw + (j % 2 ? hw / 2 : 0), cy = j * 1.5 * R; g.beginPath();
+      for (let k = 0; k < 6; k++) { const a = Math.PI / 3 * k + Math.PI / 6; g[k ? "lineTo" : "moveTo"](cx + R * .86 * Math.cos(a), cy + R * .86 * Math.sin(a)); }
+      g.closePath(); g.stroke(); }
+    const img = g.getImageData(0, 0, cv.width, cv.height), q = img.data;   /* carpet fiber speckle */
+    for (let i = 0; i < q.length; i += 4) { const n = (Math.random() - .5) * 26; q[i] += n; q[i + 1] += n; q[i + 2] += n; }
+    g.putImageData(img, 0, 0); return cv; };
   const applyFloors = async () => { for (const f of Object.values(floors)) {
-    if (!f.photos.length) continue; let pick = null;
-    for (const path of f.photos.slice(0, 8)) { if (disposed) return;
+    if (!f.photos.length) continue; let pick = f.pick || null;
+    if (!pick) for (const path of f.photos.slice(0, 8)) { if (disposed) return;
       try { const im = await loadImg(path), b = bestPatch(im); if (b && (!pick || b.score < pick.score)) pick = { ...b, im }; } catch (e) { console.warn("floor photo", e); } }
     if (!pick || disposed) continue;
-    const cv = document.createElement("canvas"); cv.width = cv.height = 512;
-    cv.getContext("2d").drawImage(pick.im, pick.sx, pick.sy, pick.sz, pick.sz, 0, 0, 512, 512);
+    f.pick = pick;
+    const hex = f.carpet && window.kcCarpetPattern === "hex";
+    let cv;
+    if (hex) cv = hexCanvas(pick);
+    else { cv = document.createElement("canvas"); cv.width = cv.height = 512;
+      cv.getContext("2d").drawImage(pick.im, pick.sx, pick.sy, pick.sz, pick.sz, 0, 0, 512, 512); }
     const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-    tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping; const ft = f.carpet ? 3 : 4; tex.repeat.set(1 / ft, 1 / ft);
+    tex.wrapS = tex.wrapT = hex ? THREE.RepeatWrapping : THREE.MirroredRepeatWrapping;
+    if (hex) tex.repeat.set(1 / 1.2, 1 / (1.2 * cv.height / cv.width));   /* 2 hexagons across every 1.2 ft (about 7 in each) */
+    else { const ft = f.carpet ? 3 : 4; tex.repeat.set(1 / ft, 1 / ft); }
     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     /* photo floors show their true colors (not shaded by the 3D lights), so they match the photos */
     f.meshes.forEach(m => { m.material.dispose(); m.material = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }); }); } };
@@ -813,6 +847,7 @@ async function open3D(host){
   let raf = 0; const tick = () => { controls.update(); renderer.render(scene, camera); raf = requestAnimationFrame(tick); }; tick();
   return {
     resize,
+    repattern: () => { applyFloors(); },
     zoom: dir => { const off = camera.position.clone().sub(controls.target).multiplyScalar(dir > 0 ? .8 : 1.25);
       if (off.length() > controls.minDistance && off.length() < controls.maxDistance) camera.position.copy(controls.target).add(off); controls.autoRotate = false; },
     dispose: () => { disposed = true; cancelAnimationFrame(raf); ro.disconnect(); controls.dispose();
@@ -2175,6 +2210,8 @@ async function show(){
       tap.addEventListener("click", e => { if (moved) { e.stopPropagation(); moved = false; } }, true);
     }
   }
+  /* Carpet look in the 3D view (staff button there): saved on the job so customers see the same. */
+  window.kcSaveCarpetPattern = PUBLIC ? null : v => updateDoc(doc(db, place, id), { "floorPlan.carpetPattern": v });
   /* Add / Remove floor plan: saved on the job (floorPlan.show), then the page redraws with it. */
   document.getElementById("fpShow")?.addEventListener("click", async e => {
     const b = e.currentTarget, on = !(q.floorPlan || {}).show;
