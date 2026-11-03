@@ -743,18 +743,16 @@ async function open3D(host){
   /* Hexagon carpet: a clean, seamless honeycomb (tessellation) in the carpet's own two colors, taken from the
      cleanest patch of the photo (lighter half = the field, darker half = the hexagon lines), with a light fiber speckle. */
   const hexCanvas = pick => {
-    /* Colors straight from the photo: the patch's pixels are grouped into close shades, the most common shade
-       is the field, and the most common shade clearly lighter or darker than it is the hexagon lines. No blending, no darkening. */
-    const N = 96, sm = document.createElement("canvas"); sm.width = sm.height = N; const sg = sm.getContext("2d", { willReadFrequently: true });
-    sg.drawImage(pick.im, pick.sx, pick.sy, pick.sz, pick.sz, 0, 0, N, N);
-    const d = sg.getImageData(0, 0, N, N).data, bins = new Map();
-    for (let i = 0; i < d.length; i += 4) { const k = (d[i] >> 4) + "," + (d[i + 1] >> 4) + "," + (d[i + 2] >> 4);
-      const b0 = bins.get(k) || { n: 0, r: 0, g: 0, b: 0 }; b0.n++; b0.r += d[i]; b0.g += d[i + 1]; b0.b += d[i + 2]; bins.set(k, b0); }
-    const shades = [...bins.values()].sort((x, y) => y.n - x.n).map(b0 => { const c = [b0.r / b0.n, b0.g / b0.n, b0.b / b0.n].map(Math.round);
-      return { c, l: .299 * c[0] + .587 * c[1] + .114 * c[2] }; });
-    const top = shades[0], other = shades.find(x => Math.abs(x.l - top.l) > 28) || { c: top.c.map(v => Math.min(255, v + 60)), l: top.l + 60 };
-    /* the darker of the two photo colors fills the hexagons, the lighter one is the lines (dark carpet, cream lines) */
-    const [field, line] = top.l <= other.l ? [top.c, other.c] : [other.c, top.c];
+    /* Colors straight from the photo, read at full detail (a shrunk copy blends the fill and the lines into one
+       in-between color): the darker pixels give the hexagon fill, the brightest pixels give the cream lines. */
+    const N = Math.max(64, Math.min(400, Math.round(pick.sz))), sm = document.createElement("canvas"); sm.width = sm.height = N;
+    const sg = sm.getContext("2d", { willReadFrequently: true }); sg.drawImage(pick.im, pick.sx, pick.sy, pick.sz, pick.sz, 0, 0, N, N);
+    const d = sg.getImageData(0, 0, N, N).data, px = [];
+    for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2], .299 * d[i] + .587 * d[i + 1] + .114 * d[i + 2]]);
+    px.sort((x, y) => x[3] - y[3]);
+    const med = arr => [0, 1, 2].map(k => arr.map(p => p[k]).sort((x, y) => x - y)[arr.length >> 1]);   /* a real pixel value, not a blend */
+    const field = med(px.slice(Math.round(px.length * .05), Math.round(px.length * .45)));
+    const line = med(px.slice(Math.round(px.length * .9), Math.round(px.length * .98)));
     const C = 512, R = C / (2 * Math.sqrt(3)) * 1, cv = document.createElement("canvas"); cv.width = C; cv.height = Math.round(R * 3 * 2);
     const g = cv.getContext("2d"); g.fillStyle = "rgb(" + field + ")"; g.fillRect(0, 0, cv.width, cv.height);
     g.strokeStyle = "rgb(" + line + ")"; g.lineWidth = R * .11; g.lineJoin = "round";
