@@ -520,6 +520,8 @@ function wireNote(d, isQuote, num){
   let savedText = (note && note.text) || "";
   let paths = note && Array.isArray(note.photoPaths) ? note.photoPaths.slice() : [];   // photos already on the note
   let savedCount = paths.length;
+  const visitPhotos = paths.length;   // photos already there when this visit started (the text to us counts the new ones)
+  let saving = false, again = false, typeTimer = 0;
   const files = [];    // photos picked but not sent yet
   let urls = [];
   msg.value = savedText;
@@ -529,7 +531,7 @@ function wireNote(d, isQuote, num){
   const sync = () => { send.disabled = !changed(); };
   const label = () => {
     who.textContent = !note || !(note.text || (note.photoPaths || []).length) ? ""
-      : note.by === "staff" ? "Note from Khean & Clean. Add anything below and send." : "Saved on your quote. You can change it anytime.";
+      : note.by === "staff" ? "Note from Khean & Clean. Add anything below and it saves automatically." : "Saved on your quote. You can change it anytime.";
   };
   const draw = () => {
     urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
@@ -538,7 +540,7 @@ function wireNote(d, isQuote, num){
       const t = document.createElement("div"); t.className = "pthumb";
       t.innerHTML = (src ? `<img src="${src}" alt="">` : `<span class="pph">${PIC_SVG}</span>`) +
         `<button type="button" aria-label="Remove photo">&times;</button>`;
-      t.querySelector("button").onclick = () => { drop(); draw(); sync(); };
+      t.querySelector("button").onclick = () => { drop(); draw(); sync(); if (changed()) save(false); };
       thumbs.appendChild(t);
     };
     paths.forEach((p, i) => tile(seen[p] || "", () => paths.splice(i, 1)));
@@ -554,6 +556,7 @@ function wireNote(d, isQuote, num){
       files.push(f);
     }
     box.classList.add("open"); draw(); sync();
+    if (changed()) save(false);   // photos save as soon as they're added
     if (capped) say(`${MAX_FILES} photos max — the extra ones weren't added.`);
   };
   /* Small box until tapped (or while it holds a note); folds back only when empty. */
@@ -567,7 +570,8 @@ function wireNote(d, isQuote, num){
   const cam = $("photoCam");
   $("photoCamBtn").onclick = () => cam.click();
   cam.onchange = () => { add(cam.files); cam.value = ""; };
-  msg.oninput = sync;
+  /* Typing saves on its own a couple of seconds after they stop. */
+  msg.oninput = () => { sync(); clearTimeout(typeTimer); typeTimer = setTimeout(() => { if (changed()) save(false); }, 2500); };
   label(); draw(); sync();
   /* Saved photos: ask the backend for viewing links for this quote's own photos (anyone with this
      quote's link sees them), then redraw with the real pictures instead of the placeholder icon. */
@@ -580,19 +584,31 @@ function wireNote(d, isQuote, num){
       }).catch(() => {});
   }
 
-  /* Send saves the box and emails a heads-up. Accepting the quote also saves whatever is in the
-     box (text and unsent photos) first, without the email, so it rides along to the job sheet. */
-  window.kcSaveNote = () => changed() ? save(true) : Promise.resolve();
-  send.onclick = () => save(false);
+  /* Saves on its own (typing, photos); Save does it right away. The backend texts only Khean & Clean,
+     never the customer. Accepting the quote also saves whatever is in the box first, so it rides
+     along to the job sheet. */
+  window.kcSaveNote = async () => {
+    clearTimeout(typeTimer);
+    while (saving) await new Promise(r => setTimeout(r, 200));
+    if (changed()) await save(true);
+  };
+  send.onclick = () => { clearTimeout(typeTimer); save(false); };
   async function save(fromAccept) {
+    if (saving) { again = true; return; }
+    saving = true;
+    try { await saveNow(fromAccept); }
+    finally { saving = false; if (again) { again = false; if (changed()) save(false); } }
+  }
+  async function saveNow(fromAccept) {
     send.disabled = true;
+    const batch = files.slice();   // photos picked so far; any added during the upload go in the next save
     send.textContent = files.length ? "Uploading photos…" : "Saving…";
     const c = d.customer || {};
     const key = "quote_" + id + "_" + Date.now();
     const added = [];
     let failed = 0;
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i], shrunk = await shrinkPhoto(f);
+    for (let i = 0; i < batch.length; i++) {
+      const f = batch[i], shrunk = await shrinkPhoto(f);
       if (shrunk.size > MAX_BYTES) { failed++; continue; }
       const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, "") + ".jpg";
       const path = "quick-quote-photos/" + key + "/" + Date.now() + "_" + i + "_" + safe;
@@ -602,30 +618,18 @@ function wireNote(d, isQuote, num){
       } catch (err) { failed++; console.error("Photo upload failed: " + f.name, err); }
     }
     const text = msg.value.trim();
-    const next = { text, photoPaths: paths.concat(added), by: "customer",
+    const next = { text, photoPaths: paths.concat(added), by: "customer", visitPhotos,
                    quoteNumber: String(d.number || ""), name: String(c.name || c.business || ""), updatedAt: serverTimestamp() };
     let ok = false;
     try { send.textContent = "Saving…"; await setDoc(doc(db, "quoteNotes", id), next); ok = true; }
     catch (err) { console.error("Note save failed", err); }
-    /* Heads-up email. Goes out even if the save failed, so nothing is lost. */
-    if (!fromAccept && (text || added.length)) {
-      try {
-        const fd = new FormData();
-        fd.append("access_key", WEB3_KEY);
-        fd.append("subject", `Message from ${c.name || c.business || "a customer"} on ${num}` + (added.length ? ` (${added.length} photo${added.length === 1 ? "" : "s"})` : ""));
-        fd.append("from_name", "Khean & Clean estimator");
-        fd.append("name", c.name || c.business || ""); fd.append("phone", c.phone || "");
-        fd.append("quote", String(num)); fd.append("message", text);
-        fd.append("photo_count", String(next.photoPaths.length)); fd.append("quote_link", location.href);
-        await fetch(WEB3_ENDPOINT, { method: "POST", headers: { Accept: "application/json" }, body: fd });
-      } catch (err) { console.error("Notification failed", err); }
-    }
-    send.textContent = "Send";
+    send.textContent = "Save";
     if (ok) {
-      note = next; savedText = text; paths = next.photoPaths.slice(); savedCount = paths.length; files.length = 0;
+      files.splice(0, batch.length);
+      note = next; savedText = text; paths = next.photoPaths.slice(); savedCount = paths.length;
       label(); draw(); sync();
       say(failed ? `Saved, but ${failed} photo${failed === 1 ? "" : "s"} didn't upload. Add ${failed === 1 ? "it" : "them"} again.`
-                 : "Sent. We'll take a look — you can change this anytime.", true);
+                 : "Saved. We'll take a look — you can change this anytime.", true);
     } else {
       sync(); say(`That didn't go through. Try again, or text us at ${PHONE}.`);
     }
@@ -912,7 +916,7 @@ function render(d){
           <div class="pbar">
             <span><button type="button" class="paddlink" id="photoCamBtn">${PIC_SVG}Take photo</button>
             <button type="button" class="paddlink" id="photoPickBtn">${PIC_SVG}Add photos</button></span>
-            <button type="button" id="photoSend" disabled>Send</button>
+            <button type="button" id="photoSend" disabled>Save</button>
           </div>
         </div>
         <p class="pstatus" id="photoStatus" aria-live="polite"></p>
