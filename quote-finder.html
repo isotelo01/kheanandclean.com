@@ -146,6 +146,14 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
   font:600 .82rem "Archivo",sans-serif; color:var(--gold); border:1px solid rgba(227,182,74,.55); background:rgba(227,182,74,.08); white-space:nowrap; transition:background .2s, box-shadow .2s; }
 .optinfo:hover, .optinfo:focus-visible{ background:rgba(227,182,74,.18); box-shadow:0 0 14px rgba(227,182,74,.25); outline:none; }
 .opt[aria-pressed="true"].hasinfo::after{ display:none; }
+/* Estimate: + next to a service's sq ft drops down its rooms */
+.est .ln.sub{ align-items:center; }
+.rmtog{ flex:none; width:24px; height:24px; margin-right:8px; border-radius:50%; border:1px solid rgba(227,182,74,.6); background:rgba(227,182,74,.1); color:var(--gold);
+  font:700 1rem/1 "Archivo",sans-serif; cursor:pointer; padding:0; }
+.rmlist{ margin:2px 0 6px 32px; padding-left:10px; border-left:2px solid rgba(227,182,74,.35); }
+.est .ln.rm{ font-size:.86rem; color:var(--muted); padding:3px 0; display:flex; gap:10px; }
+.est .ln.rm span:first-child{ flex:1; }
+.est .ln.rm .rq{ white-space:nowrap; }
 .pkgpop.one{ align-items:center; padding:16px; }
 .pkgpop.one .pkgsheet{ max-width:420px; border-bottom:1px solid rgba(227,182,74,.35); border-radius:20px; transform:translateY(24px) scale(.96); opacity:0; transition:transform .32s cubic-bezier(.2,.8,.2,1), opacity .25s; }
 .pkgpop.one.on .pkgsheet{ transform:none; opacity:1; }
@@ -401,6 +409,20 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   /* Same rules as computeServiceItems on the homepage and in app.js. */
+  /* Every room behind a service's square footage, for the drop-down on the estimate (stairs are their own line). */
+  function roomLines(k, rate){
+    var r = (A.svcs.indexOf(k) > -1 && A.rooms[k]) || {}, out = [];
+    Object.keys(r).forEach(function(rk){
+      var n = r[rk] || 0; if(!n || rk === 'stairs') return;
+      var each = sqftOf(rk); if(!each) return;
+      out.push({ t: (ONE[rk] || NAMES[rk] || rk) + (n > 1 ? ' × ' + n : ''), sq: n * each, cost: n * each * rate });
+    });
+    ['med','lg'].forEach(function(z){
+      var n = (A.master[k] || []).filter(function(x){ return x === z; }).length;
+      if(n) out.push({ t: 'Master bedroom (' + MASTER[z].label.toLowerCase() + ')' + (n > 1 ? ' × ' + n : ''), sq: n * MASTER[z].sqft, cost: n * MASTER[z].sqft * rate });
+    });
+    return out;
+  }
   function items(k, st){
     var s = S[k], x = st[k], out = [];
     if(s.mode !== 'area'){
@@ -410,7 +432,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var sqft = 0, flat = 0;
     P.ROOM_TYPES.forEach(function(rt){ var q = x.rooms[rt.key] || 0; if(rt.flat != null) flat += q * rt.flat; else sqft += q * rt.sqft; });
     var rate = k === 'carpet' ? s.tiers[x.tier || 'essential'].sqft : s.rate;
-    if(sqft > 0) out.push({ label: (k === 'carpet' ? s.tiers[x.tier].name : s.name) + ' — ' + sqft.toLocaleString() + ' sq ft', cost: sqft * rate });
+    if(sqft > 0) out.push({ label: (k === 'carpet' ? s.tiers[x.tier].name : s.name) + ' — Est. ' + sqft.toLocaleString() + ' sq ft', cost: sqft * rate, rooms: roomLines(k, rate) });
     if(flat > 0) out.push({ label: (x.rooms.stairs >= 2 ? 'Flights of Stairs × ' + x.rooms.stairs : 'Flight of Stairs'), cost: flat });
     Object.keys(s.addons || {}).forEach(function(a){
       var d = s.addons[a], o = x.addons[a];
@@ -962,9 +984,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       '<li>Aim at the floor and baseboards</li><li>Use the 0.5 (wide) zoom if your phone has it</li>' +
       '<li>Add close-ups of any stains or pet spots</li>' +
       '<li>Optional: if you have one, lay a sheet of white paper in the middle of the floor. It helps us see size and color.</li></ul>' +
-      '<div class="pbtns"><button type="button" class="go ghost" id="cam" style="margin:0">Take photo</button>' +
-      '<button type="button" class="go ghost" id="pick" style="margin:0">Choose photos</button></div>' +
-      '<input type="file" id="camIn" accept="image/*" capture="environment" hidden>' +
+      '<div class="pbtns"><button type="button" class="go ghost" id="pick" style="margin:0">Choose photos</button></div>' +
       '<input type="file" id="pickIn" accept="image/*" multiple hidden>' +
       '<div class="thumbs" id="thumbs"></div><p class="note" id="pnote"></p>');
     var thumbs = el.querySelector('#thumbs'), urls = [];
@@ -984,22 +1004,40 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       Array.prototype.forEach.call(inp.files, function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type)) A.photos.push(f); });
       inp.value = ''; draw();
     }
-    el.querySelector('#camIn').onchange = function(){ add(this); };
     el.querySelector('#pickIn').onchange = function(){ add(this); };
-    /* Take photo: the camera stays open, every tap adds a photo (up to 10 total). Done comes back here.
-       Phones that can't do it get the phone's own camera as before. */
-    el.querySelector('#cam').onclick = function(){
-      var left = PMAX - A.photos.length;
-      if (left <= 0) return;
-      var ok = window.burstCam && window.burstCam({ max: left,
-        onShot: function(f){ if (A.photos.length < PMAX) A.photos.push(f); },
-        onDone: function(){ draw(); } });
-      if (!ok) el.querySelector('#camIn').click();
-    };
     el.querySelector('#pick').onclick = function(){ el.querySelector('#pickIn').click(); };
     var go = goBtn(el, 'Next', function(){ if(photoRooms().length) pickRoom(el); else { A.skippedPhotos = !A.photos.length; next(); } });
+    /* Happy with the estimate: no measuring photos, just a softer ask for a few so we know the job. */
+    goBtn(el, 'I’m happy with the estimated square footage', function(){ photosLite(el); }, true);
     goBtn(el, 'I can’t do this right now', function(){ A.skippedPhotos = true; next(); }, true);
     draw();
+  }
+  function photosLite(el){
+    el.innerHTML = '';
+    h(el, 'Could you snap a few photos?', 'No measuring needed. Just a few shots so we know a little about the job before we come: the rooms, any stains or pet spots.');
+    el.insertAdjacentHTML('beforeend',
+      '<div class="pbtns"><button type="button" class="go ghost" id="lpick" style="margin:0">Choose photos</button></div>' +
+      '<input type="file" id="lpickIn" accept="image/*" multiple hidden><div class="thumbs" id="lthumbs"></div><p class="note" id="lnote"></p>');
+    var thumbs = el.querySelector('#lthumbs'), urls = [], go;
+    var draw = function(){
+      urls.forEach(URL.revokeObjectURL); urls = []; thumbs.innerHTML = '';
+      A.photos.forEach(function(f, i){
+        var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
+        img.src = URL.createObjectURL(f); urls.push(img.src); img.alt = 'Photo ' + (i + 1);
+        x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
+        x.onclick = function(){ A.photos.splice(i, 1); draw(); };
+        d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
+      });
+      el.querySelector('#lnote').textContent = A.photos.length ? A.photos.length + ' of ' + PMAX + ' photos' : '';
+      go.textContent = A.photos.length ? 'Add these to my quote' : 'Next';
+    };
+    el.querySelector('#lpickIn').onchange = function(){
+      Array.prototype.forEach.call(this.files, function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type)) A.photos.push(f); });
+      this.value = ''; draw(); };
+    el.querySelector('#lpick').onclick = function(){ el.querySelector('#lpickIn').click(); };
+    go = goBtn(el, 'Next', function(){ A.skippedPhotos = !A.photos.length; next(); });
+    goBtn(el, 'Skip photos for now', function(){ A.skippedPhotos = !A.photos.length; next(); }, true);
+    draw(); window.scrollTo(0, 0);
   }
 
   /* Room by room photos: after Next, they pick a room from the ones they chose, get asked for
@@ -1053,8 +1091,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       : 'That’s everything for this room. Add more if you like.';
     el.appendChild(p);
     el.insertAdjacentHTML('beforeend',
-      '<div class="pbtns"><button type="button" class="go ghost" id="rcam" style="margin:0">Take photo</button>' +
-      '<button type="button" class="go ghost" id="rpick" style="margin:0">Choose photos</button></div>' +
+      '<div class="pbtns"><button type="button" class="go ghost" id="rpick" style="margin:0">Choose photos</button></div>' +
       '<input type="file" id="rcamIn" accept="image/*" capture="environment" hidden>' +
       '<input type="file" id="rpickIn" accept="image/*" multiple hidden><div class="thumbs" id="rthumbs"></div>');
     var redo = function(){ shootRoom(el, rm); };
@@ -1062,11 +1099,6 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var add = function(inp){ Array.prototype.forEach.call(inp.files, keep); inp.value = ''; redo(); };
     el.querySelector('#rcamIn').onchange = function(){ add(this); };
     el.querySelector('#rpickIn').onchange = function(){ add(this); };
-    el.querySelector('#rcam').onclick = function(){
-      if(full) return;
-      var ok = window.burstCam && window.burstCam({ max:1, onShot:keep, onDone:redo });
-      if(!ok) el.querySelector('#rcamIn').click();
-    };
     el.querySelector('#rpick').onclick = function(){ if(!full) el.querySelector('#rpickIn').click(); };
     var thumbs = el.querySelector('#rthumbs');
     mine.forEach(function(f, i){
@@ -1088,11 +1120,21 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       h(el, 'Here’s your estimate', has('carpet') && A.tier ? 'Your package: <b>' + esc(S.carpet.tiers[A.tier].name) + '</b>' : '');
       var html = '<div class="est">' + e.rows.map(function(r){
         return '<div class="svc"><div class="ln"><span><b>' + esc(r.name) + '</b></span><b>' + money(r.cost) + '</b></div>' +
-          r.items.map(function(i){ return '<div class="ln sub"><span>' + esc(i.label) + '</span><span>' + (i.included ? 'Included' : money(i.cost)) + '</span></div>'; }).join('') + '</div>';
+          r.items.map(function(i){
+            var rl = i.rooms && i.rooms.length ? i.rooms : null;
+            return '<div class="ln sub">' + (rl ? '<button type="button" class="rmtog" aria-expanded="false" aria-label="Show rooms">+</button>' : '') +
+              '<span>' + esc(i.label) + '</span><span>' + (i.included ? 'Included' : money(i.cost)) + '</span></div>' +
+              (rl ? '<div class="rmlist" hidden>' + rl.map(function(x){ return '<div class="ln rm"><span>' + esc(x.t) + '</span><span class="rq">' + x.sq.toLocaleString() + ' sq ft</span><span>' + money(x.cost) + '</span></div>'; }).join('') + '</div>' : '');
+          }).join('') + '</div>';
       }).join('') + '<div class="tot"><span>Estimated total</span><b>' + money(e.total) + '</b></div></div>';
       if(e.total > e.sum) html += '<p class="note">Minimum service charge of ' + money(e.min) + ' applied.</p>';
       html += '<p class="note">' + (A.photos.length ? 'We’ll check your photos and confirm the exact price.' : 'Final price is confirmed on site.') + '</p>';
       el.insertAdjacentHTML('beforeend', html);
+      /* + next to a service's square footage drops down every room in it. */
+      [].forEach.call(el.querySelectorAll('.rmtog'), function(b){
+        b.onclick = function(){ var l = b.parentNode.nextElementSibling, open = l.hidden; l.hidden = !open;
+          b.textContent = open ? '\u2212' : '+'; b.setAttribute('aria-expanded', String(open)); b.setAttribute('aria-label', open ? 'Hide rooms' : 'Show rooms'); };
+      });
     }
     el.insertAdjacentHTML('beforeend', '<h2>Do any of these apply?</h2><p class="lead" style="margin:0">Check any that fit and we’ll call with your discounted price.</p><div class="checks" id="disc"></div>');
     var d = el.querySelector('#disc');
