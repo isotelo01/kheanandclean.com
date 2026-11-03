@@ -314,15 +314,16 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
   .sthumbs .smore{grid-column:1/-1;margin-top:0}
 }
 /* Estimates: room name + one photo, 50% bigger, no label; each row is a tappable card. */
-.sprow.est{grid-template-columns:minmax(0,1fr) 144px;gap:12px;padding:10px 12px;margin:10px 0 0;border:1px solid rgba(227,182,74,.28);border-radius:12px}
+.sprow.est{grid-template-columns:144px minmax(0,1fr);gap:12px;padding:10px 12px;margin:10px 0 0;border:1px solid rgba(227,182,74,.28);border-radius:12px}
 .sprev:not(.sall) .sprow.est.srest{display:none}
 .sprow.est b{font-size:16px}
 .sprow.est .spslot{border-radius:10px}
 .sprow.est .spslot::after{display:none}
-@media (max-width:420px){ .sprow.est{grid-template-columns:minmax(0,1fr) 120px} }
+.sprow.est .spslot{order:-1}   /* photo on the left, room name on the right */
+@media (max-width:420px){ .sprow.est{grid-template-columns:120px minmax(0,1fr)} }
 @media (min-width:760px){
   .sthumbs a.sprow.est{grid-template-columns:1fr;margin:0}
-  .sthumbs a.sprow.est .spslot{aspect-ratio:4/3}
+  .sthumbs a.sprow.est .spslot{aspect-ratio:4/3;order:0}
 }
 .summ .srow .spot{transform:none!important}
 .sumrow{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:22px}
