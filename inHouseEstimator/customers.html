@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="robots" content="noindex, nofollow">
-<title>Customers &middot; Khean &amp; Clean</title>
+<title>Contacts &middot; Khean &amp; Clean</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <style>
@@ -49,6 +49,9 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .row.bg-partner{background:#ece6f6}
 .row.bg-other{background:#eceef1}
 .row.bg-lead{background:#efe8fb}
+.row.bg-user{background:#e6f2ec}
+.row.bg-user a{color:inherit;text-decoration:none}
+.row.bg-user .who{display:block}
 .who{font-weight:700}
 /* Account number sits on its own line above the name, right-aligned,
    so a long name or address never has to share the line with it. */
@@ -175,6 +178,7 @@ label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding
 <style>
 /* Leads under the customers: purple, so they don't read as customers (dark theme). */
 .row.bg-lead{background:#3a2c5e}
+.row.bg-user{background:#1f4a3a}
 /* Phones: customer cards two across, a bit smaller. */
 @media (max-width:620px){
   .col{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -190,7 +194,7 @@ label select{display:block;width:100%;margin-top:4px;font:16px "Archivo";padding
 <div class="wrap">
   <div class="top">
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
-    <h1 id="title">Customers</h1>
+    <h1 id="title">Contacts</h1>
     <div class="nav">
       <!-- New quote: on a customer's page it opens the estimator filled in for that customer; on the list, a blank one. -->
       <a class="ghost" id="newQuote" href="./index.html" aria-label="New quote"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 12v6M9 15h6"/></svg><span class="lbl">New quote</span></a>
@@ -321,7 +325,7 @@ const GROUPS = [
   { key: "mentor",      label: "Mentors",               has: c => typeOf(c).v === "mentor" }
 ];
 
-let all = null, lastTerm = "", allLeads = null;   /* open leads, shown under the customers */
+let all = null, lastTerm = "", allLeads = null, allUsers = null;   /* allUsers: app users (partners), shown as contact cards */   /* open leads, shown under the customers */
 
 /* Phones and emails are lists; the first one is the primary.
    Records from before the lists only have the single phone/email field. */
@@ -348,8 +352,8 @@ async function findMatch(pks, eks, skipId){
 
 /* ---- List ---- */
 async function showList(){
-  titleEl.textContent = "Customers";
-  document.title = "Customers \u00b7 Khean & Clean";
+  titleEl.textContent = "Contacts";
+  document.title = "Contacts \u00b7 Khean & Clean";
   if (!all) {
     view.innerHTML = '<div class="msg">Loading&hellip;</div>';
     try {
@@ -371,6 +375,14 @@ async function showList(){
       allLeads = ls.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => !l.trashed && !l.converted)
         .sort((a, b) => (anyMs(b.createdAt) || 0) - (anyMs(a.createdAt) || 0));
     } catch (e) { console.error("leads:", e); allLeads = []; }
+  }
+  /* App users (partner logins from the Users page), one contact card each. If they can't load, the rest still shows. */
+  if (!allUsers) {
+    try {
+      const us = await getDocs(collection(db, "partners"));
+      allUsers = us.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => String(a.businessName || a.contactName || "").localeCompare(String(b.businessName || b.contactName || "")));
+    } catch (e) { console.error("users:", e); allUsers = []; }
   }
   view.innerHTML =
     '<div class="bar"><input id="q" type="search" placeholder="Search name, business, phone, email, or address" autocomplete="off" value="' + esc(lastTerm) + '"></div>' +
@@ -411,13 +423,26 @@ async function showList(){
     };
     const leadsHtml = leads.length ? '<section class="col"><h3 class="colhead">Leads</h3>' + leads.map(leadCard).join("") + '</section>' : "";
     if (leads.length) countEl.textContent += " \u00b7 " + leads.length + (leads.length === 1 ? " lead" : " leads");
+    /* Users: a contact card for each app user. Tap one to open the Users page. */
+    const users = (allUsers || []).filter(u => !t ||
+      [u.businessName, u.contactName, u.email, u.type].join(" ").toLowerCase().includes(t) ||
+      (td.length >= 3 && digits(u.phone).includes(td)));
+    const userCard = u => {
+      const tel = String(u.phone || "").replace(/[^\d+]/g, "");
+      const lines = [u.businessName && u.contactName ? u.contactName : "", u.type || "", u.email || ""].filter(x => String(x).trim());
+      return '<div class="row bg-user"><a class="who" href="./users.html">' + esc(u.businessName || u.contactName || u.email || "No name") + '</a>' +
+        lines.map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
+        (tel ? '<div class="meta"><a href="tel:' + esc(tel) + '">' + esc(u.phone) + '</a></div>' : "") + '</div>';
+    };
+    const usersHtml = users.length ? '<section class="col"><h3 class="colhead">Users</h3>' + users.map(userCard).join("") + '</section>' : "";
+    if (users.length) countEl.textContent += " \u00b7 " + users.length + (users.length === 1 ? " user" : " users");
     listEl.innerHTML = (rows.length
       ? GROUPS.map(g => {
           const inG = rows.filter(g.has);
           return inG.length ? '<section class="col"><h3 class="colhead">' + g.label + '</h3>' +
             inG.map(card).join("") + '</section>' : "";
         }).join("")
-      : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>') + leadsHtml;
+      : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>') + leadsHtml + usersHtml;
   };
   q.addEventListener("input", draw);
   draw();
