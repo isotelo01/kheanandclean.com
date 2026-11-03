@@ -42,9 +42,18 @@ a{ color:var(--gold); }
 .bar{ height:4px; background:rgba(255,255,255,.08); border-radius:4px; overflow:hidden; margin:0 0 20px; }
 .sqft{ margin:-12px 0 16px; text-align:right; color:var(--muted); font-size:.9rem; font-variant-numeric:tabular-nums; }
 .sqft b{ color:var(--gold); }
+/* Running price breakdown under the sq ft line: each service, its line items, then the total. */
+.inv{ margin:-6px 0 16px; padding:10px 14px; border:1px solid var(--line); border-radius:10px; font-size:.85rem; color:var(--muted); font-variant-numeric:tabular-nums; }
+.inv .r{ display:flex; justify-content:space-between; gap:10px; }
+.inv .svc{ color:#fff; font-weight:700; margin-top:6px; }
+.inv .svc:first-child{ margin-top:0; }
+.inv .it{ padding-left:12px; }
+.inv .tot{ border-top:1px solid var(--line); margin-top:8px; padding-top:6px; color:#fff; font-weight:700; }
+.inv .tot b{ color:var(--gold); }
+.inv .note{ font-size:.78rem; margin-top:2px; }
 .bar i{ display:block; height:100%; width:0; background:var(--gold); transition:width .3s ease; }
 /* First screen: full screen, no letterhead (it comes back on the next screen). */
-body.first .head, body.first .bar, body.first .sqft{ display:none; }
+body.first .head, body.first .bar, body.first .sqft, body.first .inv{ display:none; }
 body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 /* Opening: thank you, we're here for you, then the question slides up to the top. */
 .intro{ position:fixed; inset:0; z-index:50; background:var(--ink); display:flex; align-items:center; justify-content:center;
@@ -269,6 +278,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   </header>
   <div class="bar" aria-hidden="true"><i id="bar"></i></div>
   <p class="sqft" id="sqft" hidden></p>
+  <div class="inv" id="inv" hidden></div>
   <div class="navrow"><button type="button" class="back" id="back" hidden>&larr; Back</button>
     <button type="button" class="reset" id="resetBtn" hidden>&#8634; Reset</button></div>
   <main id="screen" aria-live="polite"></main>
@@ -477,6 +487,21 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(A.whole && A.wholeSqft){ total = A.wholeSqft; parts = []; }
     box.hidden = !total;
     box.innerHTML = total ? (parts.length > 1 ? esc(parts.join(' · ')) + '<br>' : '') + 'Est. <b>' + total.toLocaleString() + ' sq ft</b>' : '';
+    drawInv();
+  }
+  /* Full price breakdown at the top, same numbers as the final estimate. */
+  function drawInv(){
+    var inv = document.getElementById('inv'), e;
+    try{ e = estimate(); }catch(err){ e = null; }
+    if(!e || !e.rows.length){ inv.hidden = true; inv.innerHTML = ''; return; }
+    var h = '';
+    e.rows.forEach(function(r){
+      h += '<div class="r svc"><span>' + esc(r.name) + '</span><span>' + money(r.cost) + '</span></div>';
+      r.items.forEach(function(i){ h += '<div class="r it"><span>' + esc(i.label) + '</span><span>' + (i.included ? 'Included' : money(i.cost)) + '</span></div>'; });
+    });
+    h += '<div class="r tot"><span>Est. total</span><b>' + money(e.total) + '</b></div>';
+    if(e.total > e.sum) h += '<div class="note">Includes our ' + money(e.min) + ' minimum (subtotal ' + money(e.sum) + ')</div>';
+    inv.innerHTML = h; inv.hidden = false;
   }
   screen.addEventListener('click', drawSqft);
   var cur = null;
