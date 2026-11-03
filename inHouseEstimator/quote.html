@@ -27,6 +27,10 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 .brand .amp{font-family:"Cormorant Garamond",Georgia,serif;font-weight:700}
 .idblock{display:flex;align-items:center;gap:14px}
 .idblock img{width:62px;height:62px;object-fit:contain;border-radius:8px;flex:none}
+/* Logo hidden for now (it comes back later: drop "nologo" from the idblock); "Khean & Clean" centered. */
+.idblock.nologo>a{display:none}
+.idblock.nologo{width:100%;justify-content:center}
+.idblock.nologo>div{flex:1;text-align:center}
 .legal{font-size:13px;color:var(--gold);letter-spacing:.04em;text-transform:uppercase;margin-top:5px}
 .contact{font-size:14px;color:#c9d0de;margin-top:6px}
 .contact a{color:#fff}
@@ -859,7 +863,7 @@ function render(d){
 
   sheet.innerHTML = `
     <div class="top">
-      <div class="idblock">
+      <div class="idblock nologo">
         <a href="${SITE_URL}" target="_blank" rel="noopener" style="display:flex"><img src="../images/logo.png" alt="Khean &amp; Clean home"></a>
         <div style="position:relative">
           <div class="brand">Khean <span class="amp">&amp;</span> Clean</div>
