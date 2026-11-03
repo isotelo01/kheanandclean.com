@@ -269,9 +269,17 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .fpbtn:hover{background:#5a2fa0}
 /* "Add floor plan": the color-coded plan under Services performed (shows in the Summary too). */
 .fpwrap{margin:18px 0 6px}
-.fph{margin:0 0 8px;font-size:15px;color:var(--gold)}
+.fph{margin:0 0 8px;font-size:15px;color:var(--gold);display:flex;justify-content:space-between;align-items:baseline}
+.fph span{font-size:12px;font-weight:500;color:var(--muted)}
 .fpstory{font-size:13px;font-weight:700;margin:10px 0 4px}
-.fpsvg{display:block;width:100%;height:auto;max-height:70vh;background:#0b0f17;border-radius:10px}
+.fptap{cursor:zoom-in;background:#0b0f17;border:1px solid rgba(227,182,74,.25);border-radius:12px;padding:10px}
+.fpsvg{display:block;width:100%;height:auto;max-height:260px;margin:0 auto}
+.fpov{position:fixed;inset:0;z-index:1000;background:rgba(5,8,14,.96);display:flex;flex-direction:column}
+.fpovtop{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;color:var(--gold);font-size:16px}
+.fpovtop span{display:flex;gap:8px}
+.fpovtop button{background:#141b29;color:#fff;border:1px solid rgba(227,182,74,.45);border-radius:8px;padding:7px 14px;font:600 15px "Archivo",system-ui,sans-serif;cursor:pointer}
+.fpovbody{flex:1;overflow:auto;padding:0 12px 20px;-webkit-overflow-scrolling:touch}
+.fpbig{display:block;width:100%;height:auto;max-height:80vh;background:#0b0f17;border-radius:10px}
 .fpkey{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px}
 .fpkey span{display:inline-flex;align-items:center;gap:6px}
 .fpkey i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.35)}
@@ -532,6 +540,7 @@ function floorPlanHtml(q){
   const spots = q.spots || {}, saved = (q.floorPlan && q.floorPlan.rooms) || {};
   const lines = (q.onsite && Array.isArray(q.onsite.lines)) ? q.onsite.lines : (Array.isArray(q.lines) ? q.lines : []);
   const rot = (p, d) => { const a = d * Math.PI / 180, c = Math.cos(a), n = Math.sin(a); return [p[0] * c - p[1] * n, p[0] * n + p[1] * c]; };
+  const area = pts => Math.abs(pts.reduce((s, p, i) => { const t = pts[(i + 1) % pts.length]; return s + p[0] * t[1] - t[0] * p[1]; }, 0)) / 2;
   const rooms = [];
   lines.forEach((line, ln) => (Array.isArray(line.items) ? line.items : []).forEach((it, j) => {
     if (it.removed) return;
@@ -545,40 +554,82 @@ function floorPlanHtml(q){
         const st = spots[key] || {}; let sk = null; try { sk = JSON.parse(st.sketch || "null"); } catch (e) {}
         if (!sk || !Array.isArray(sk.pts) || sk.pts.length < 3) continue;
         const cx = sk.pts.reduce((a, p) => a + p[0], 0) / sk.pts.length, cy = sk.pts.reduce((a, p) => a + p[1], 0) / sk.pts.length;
-        const sv = saved[key] || {};
+        const loc = p => [p[0] - cx, p[1] - cy], sv = saved[key] || {};
+        const cuts = (Array.isArray(sk.cuts) ? sk.cuts : []).filter(c => Array.isArray(c.pts)).map(c => c.pts.map(loc));
         rooms.push({ name: n > 1 ? rm.name + " " + k : String(rm.name || "Room"), fl, story: Number.isInteger(st.story) ? st.story : 1,
-          pts: sk.pts.map(p => [p[0] - cx, p[1] - cy]), cuts: (Array.isArray(sk.cuts) ? sk.cuts : []).filter(c => Array.isArray(c.pts)).map(c => c.pts.map(p => [p[0] - cx, p[1] - cy])),
+          pts: sk.pts.map(loc), cuts, doors: Array.isArray(sk.doors) ? sk.doors : [],
+          sqft: Number(st.sketchSqft) > 0 ? Number(st.sketchSqft) : Math.round(area(sk.pts) - cuts.reduce((a, c) => a + area(c), 0)),
           x: Number(sv.x), y: Number(sv.y), rot: Number(sv.rot) || 0, placed: sv.x != null && Number.isFinite(Number(sv.x)) });
       } });
   }));
   if (!rooms.length) return '';
   const W = (rm, p) => { const t = rot(p, rm.rot); return [t[0] + rm.x, t[1] + rm.y]; };
+  const f2 = v => +v.toFixed(2);
   const STORY = ["Zero story", "1st story", "2nd story", "3rd story"];
   const stories = [...new Set(rooms.map(rm => rm.story))].sort();
   const used = new Map();
-  const drawings = stories.map(sto => {
+  stories.forEach(sto => {   /* rooms not placed on the Floor plan page yet go in a row to the right */
     const on = rooms.filter(rm => rm.story === sto);
     let edge = on.filter(rm => rm.placed).reduce((m, rm) => Math.max(m, ...rm.pts.map(p => W(rm, p)[0])), -Infinity);
     edge = isFinite(edge) ? edge + 4 : 0;
     on.filter(rm => !rm.placed).forEach(rm => { const xs = rm.pts.map(p => p[0]), ys = rm.pts.map(p => p[1]);
       rm.x = edge - Math.min(...xs); rm.y = -Math.min(...ys); rm.rot = 0; edge += Math.max(...xs) - Math.min(...xs) + 4; });
-    const all = on.flatMap(rm => rm.pts.map(p => W(rm, p)));
-    const x0 = Math.min(...all.map(p => p[0])) - 2, y0 = Math.min(...all.map(p => p[1])) - 2;
-    const w = Math.max(...all.map(p => p[0])) - x0 + 2, h = Math.max(...all.map(p => p[1])) - y0 + 2;
-    const fs = Math.max(1.1, Math.min(w, h) / 22);
-    let g = '<defs><pattern id="fpHatch" width="1.2" height="1.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.2" height="1.2" fill="#3a3f48"/><line x1="0" y1="0" x2="0" y2="1.2" stroke="#5b616c" stroke-width=".4"/></pattern></defs>';
-    on.forEach(rm => { used.set(rm.fl[2], rm.fl[1]);
-      const P = rm.pts.map(p => W(rm, p).map(v => +v.toFixed(2)).join(",")).join(" ");
-      g += '<polygon points="' + P + '" fill="' + (rm.fl[0] ? rm.fl[1] : 'url(#fpHatch)') + '" stroke="#E3B64A" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>';
-      rm.cuts.forEach(c => { g += '<polygon points="' + c.map(p => W(rm, p).map(v => +v.toFixed(2)).join(",")).join(" ") + '" fill="#0b0f17" stroke="#E3B64A" stroke-dasharray="4 3" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'; });
-      const c = W(rm, [0, 0]);
-      g += '<text x="' + c[0].toFixed(2) + '" y="' + c[1].toFixed(2) + '" font-size="' + fs.toFixed(2) + '" text-anchor="middle" dominant-baseline="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" fill="#0b0f17" stroke="#ffffff" stroke-width="' + (fs / 5).toFixed(2) + '" paint-order="stroke">' + esc(rm.name) + '</text>'; });
-    return (stories.length > 1 ? '<div class="fpstory">' + STORY[sto] + '</div>' : '') +
-      '<svg class="fpsvg" viewBox="' + [x0, y0, w, h].map(v => v.toFixed(2)).join(" ") + '" role="img" aria-label="Floor plan">' + g + '</svg>';
   });
-  return '<div class="fpwrap"><h3 class="fph">Floor plan</h3>' + drawings.join("") +
-    '<div class="fpkey">' + [...used].map(([nm, col]) => '<span><i style="background:' + (nm === "Not cleaned" ? 'repeating-linear-gradient(45deg,#3a3f48 0 3px,#5b616c 3px 4px)' : col) + '"></i>' + esc(nm) + '</span>').join("") + '</div></div>';
+  /* One story drawn. detail = the full version (wall lengths, sq ft, real doors); otherwise the clean preview. */
+  const draw = (sto, detail) => {
+    const on = rooms.filter(rm => rm.story === sto), all = on.flatMap(rm => rm.pts.map(p => W(rm, p)));
+    const pad = detail ? 4 : 1.5;
+    const x0 = Math.min(...all.map(p => p[0])) - pad, y0 = Math.min(...all.map(p => p[1])) - pad;
+    const w = Math.max(...all.map(p => p[0])) - x0 + pad, h = Math.max(...all.map(p => p[1])) - y0 + pad;
+    const cap = Math.max(w, h) / (detail ? 30 : 18);
+    let fills = "", walls = "", text = "";
+    on.forEach((rm, i) => { used.set(rm.fl[2], rm.fl[1]);
+      const P = rm.pts.map(p => W(rm, p)), pts = P.map(p => p.map(f2).join(",")).join(" ");
+      /* soft tint of the floor color, every other room a touch stronger so neighbors read apart */
+      fills += '<polygon points="' + pts + '" fill="' + (rm.fl[0] ? rm.fl[1] : '#5b616c') + '" fill-opacity="' + (i % 2 ? .78 : .62) + '"/>';
+      rm.cuts.forEach(c => { fills += '<polygon points="' + c.map(p => W(rm, p).map(f2).join(",")).join(" ") + '" fill="#0b0f17" stroke="#E3B64A" stroke-opacity=".6" stroke-dasharray="4 3" stroke-width="1.2" vector-effect="non-scaling-stroke"/>'; });
+      walls += '<polygon points="' + pts + '" fill="none" stroke="#E3B64A" stroke-width="' + (detail ? 2 : 2.4) + '" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>';
+      /* doors / openings: a gap in the wall (preview), the real door line (full version) */
+      rm.doors.forEach(o => { const a = rm.pts[o.w], b = rm.pts[(o.w + 1) % rm.pts.length]; if (!a || !b) return;
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, hw = Math.min((o.wd || 3) / 2, len / 2) / len;
+        const t0 = Math.max(0, Math.min(1 - 2 * hw, (Number(o.t) || .5) - hw)), t1 = t0 + 2 * hw;
+        const at = t => W(rm, [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]), u = at(t0), v = at(t1);
+        walls += '<line x1="' + f2(u[0]) + '" y1="' + f2(u[1]) + '" x2="' + f2(v[0]) + '" y2="' + f2(v[1]) + '" stroke="' + (detail ? '#9fb3d1' : '#0b0f17') + '" stroke-width="' + (detail ? 4 : 4.5) + '" vector-effect="non-scaling-stroke"' + (detail && o.k === "open" ? ' stroke-dasharray="6 4"' : '') + '/>'; });
+      /* name: plain lettering, sized to fit; turned sideways in tall, narrow rooms if it fits better that way */
+      const xs = P.map(p => p[0]), ys = P.map(p => p[1]), bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
+      const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2, n = Math.max(3, rm.name.length);
+      const fit = (along, across) => Math.min(along * .82 / (.58 * n), across * (detail ? .3 : .42), cap);
+      const fh = fit(bw, bh), fv = fit(bh, bw), turn = fv > fh * 1.15, fs = turn ? fv : fh;
+      const tf = turn ? ' transform="rotate(-90 ' + f2(cx) + ' ' + f2(cy) + ')"' : '';
+      text += '<text x="' + f2(cx) + '" y="' + f2(detail ? cy - fs * .25 : cy) + '"' + tf + ' font-size="' + f2(fs) + '" text-anchor="middle" dominant-baseline="middle" font-family="Archivo,Arial,Helvetica,sans-serif" font-weight="600" fill="#f4efe4" letter-spacing=".02em">' + esc(rm.name) +
+        (detail ? '<tspan x="' + f2(cx) + '" dy="' + f2(fs * 1.15) + '" font-size="' + f2(fs * .8) + '" font-weight="500" fill="#E3B64A">' + rm.sqft.toLocaleString() + ' sq ft</tspan>' : '') + '</text>';
+      if (detail) rm.pts.forEach((a, k) => { const b = rm.pts[(k + 1) % rm.pts.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (L < 1.5) return;   /* wall lengths, just inside each wall */
+        const m = W(rm, [(a[0] + b[0]) / 2 - (a[0] + b[0]) / 2 * .12, (a[1] + b[1]) / 2 - (a[1] + b[1]) / 2 * .12]);
+        let ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI + rm.rot; if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
+        text += '<text x="' + f2(m[0]) + '" y="' + f2(m[1]) + '" transform="rotate(' + f2(ang) + ' ' + f2(m[0]) + ' ' + f2(m[1]) + ')" font-size="' + f2(cap * .55) + '" text-anchor="middle" dominant-baseline="middle" font-family="Archivo,Arial,Helvetica,sans-serif" fill="#cfd6e3">' + (Math.round(L * 2) / 2) + ' ft</text>'; });
+    });
+    return (stories.length > 1 ? '<div class="fpstory">' + STORY[sto] + '</div>' : '') +
+      '<svg class="' + (detail ? 'fpbig' : 'fpsvg') + '" viewBox="' + [x0, y0, w, h].map(f2).join(" ") + '" role="img" aria-label="Floor plan">' + fills + walls + text + '</svg>';
+  };
+  const key = () => '<div class="fpkey">' + [...used].map(([nm, col]) => '<span><i style="background:' + (nm === "Not cleaned" ? '#5b616c' : col) + '"></i>' + esc(nm) + '</span>').join("") + '</div>';
+  const small = stories.map(sto => draw(sto, false)).join(""), keyHtml = key();
+  window.kcFloorPlanBig = '<div class="fpov" role="dialog" aria-label="Floor plan"><div class="fpovtop"><b>Floor plan</b><span>' +
+    '<button type="button" data-fpz="-1" aria-label="Zoom out">&minus;</button><button type="button" data-fpz="1" aria-label="Zoom in">+</button>' +
+    '<button type="button" data-fpx>Close</button></span></div><div class="fpovbody">' + stories.map(sto => draw(sto, true)).join("") + keyHtml + '</div></div>';
+  return '<div class="fpwrap"><h3 class="fph">Floor plan <span>Tap to open</span></h3><div class="fptap" role="button" tabindex="0" aria-label="Open the full floor plan">' + small + '</div>' + keyHtml + '</div>';
 }
+/* Tapping the small plan opens the full one; + / - zoom, Close (or tapping outside it) shuts it. */
+let fpZoom = 1;
+document.addEventListener("click", e => {
+  if (e.target.closest(".fptap") && window.kcFloorPlanBig) {
+    document.body.insertAdjacentHTML("beforeend", window.kcFloorPlanBig); fpZoom = 1; return; }
+  const ov = e.target.closest(".fpov"); if (!ov) return;
+  const z = e.target.closest("[data-fpz]");
+  if (z) { fpZoom = Math.max(1, Math.min(4, fpZoom + Number(z.dataset.fpz) * .75));
+    ov.querySelectorAll(".fpbig").forEach(s => { s.style.width = (fpZoom * 100) + "%"; s.style.maxHeight = fpZoom > 1 ? "none" : ""; }); return; }
+  if (e.target.closest("[data-fpx]") || e.target === ov) ov.remove();
+});
 if (PUBLIC) document.documentElement.classList.add("pub");
 const id = new URLSearchParams(location.search).get("id") || (PUBLIC ? "" : ss.get("kcJobSheetId"));
 if (id) ss.set("kcJobSheetId", id);
