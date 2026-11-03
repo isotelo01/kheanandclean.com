@@ -640,7 +640,7 @@ function floorPlanHtml(q){
     P: rm.pts.map(p => W(rm, p)), cuts: rm.cuts.map(c => c.map(p => W(rm, p))),
     doors: rm.doors.map(o => { const a = rm.pts[o.w], b = rm.pts[(o.w + 1) % rm.pts.length]; if (!a || !b) return null;
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, hw = Math.min((o.wd || 3) / 2, len / 2) / len;
-      const t0 = Math.max(0, Math.min(1 - 2 * hw, (Number(o.t) || .5) - hw)); return [o.w, t0, t0 + 2 * hw, o.k === "open"]; }).filter(Boolean) }));
+      const t0 = Math.max(0, Math.min(1 - 2 * hw, (Number(o.t) || .5) - hw)); return [o.w, t0, t0 + 2 * hw, o.k === "open", o.k === "double"]; }).filter(Boolean) }));
   /* One story drawn. detail = the full version (wall lengths, sq ft, real doors); otherwise the clean preview. */
   const draw = (sto, detail) => {
     const on = rooms.filter(rm => rm.story === sto), all = on.flatMap(rm => rm.pts.map(p => W(rm, p)));
@@ -805,9 +805,11 @@ async function open3D(host, opts = {}){
   const gold = new THREE.LineBasicMaterial({ color: "#3dff9a" });   /* wall edges: glowing green (gold everywhere else in the app) */
   const wallMat = new THREE.MeshStandardMaterial({ color: "#1b2438", roughness: .6, metalness: .1, transparent: true, opacity: .72 });
   const frameMat = new THREE.MeshStandardMaterial({ color: "#2a3a52", roughness: .5 });
-  const doorMat = new THREE.MeshStandardMaterial({ color: "#7a5230", roughness: .55 });   /* wood door */
+  const doorMat = new THREE.MeshStandardMaterial({ color: "#2f8cff", emissive: "#1255c4", emissiveIntensity: .5, roughness: .35, metalness: .3 });   /* all doors glowing blue */
   const doorEdge = new THREE.LineBasicMaterial({ color: "#3dff9a", transparent: true, opacity: .55 });
   const knobMat = new THREE.MeshStandardMaterial({ color: "#E3B64A", metalness: .8, roughness: .25 });
+  const frenchFrame = new THREE.MeshStandardMaterial({ color: "#2f8cff", emissive: "#1255c4", emissiveIntensity: .55, roughness: .35, metalness: .3 });
+  const frenchGlass = new THREE.MeshStandardMaterial({ color: "#7cc6ff", emissive: "#2a7bff", emissiveIntensity: .35, transparent: true, opacity: .42, roughness: .05, metalness: .2 });
   const label = (r, y) => {   /* name + sq ft on a little floating card, always facing you */
     const cv = document.createElement("canvas"), g = cv.getContext("2d"), W2 = 512, H2 = 160; cv.width = W2; cv.height = H2;
     g.fillStyle = "rgba(8,12,20,.78)"; g.strokeStyle = "rgba(227,182,74,.85)"; g.lineWidth = 4;
@@ -869,7 +871,7 @@ async function open3D(host, opts = {}){
     floors[r.color].photos.push(...(r.photo || []));
     /* walls, leaving gaps for doors and openings */
     r.P.forEach((a, k) => { const b = r.P[(k + 1) % r.P.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < .05) return;
-      const gaps = r.doors.filter(d => d[0] === k).map(d => [d[1], d[2], d[3]]).sort((p, q) => p[0] - q[0]);
+      const gaps = r.doors.filter(d => d[0] === k).map(d => [d[1], d[2], d[3], d[4]]).sort((p, q) => p[0] - q[0]);
       const pieces = []; let t = 0; gaps.forEach(([g0, g1]) => { if (g0 > t) pieces.push([t, g0]); t = Math.max(t, g1); }); if (t < 1) pieces.push([t, 1]);
       const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
       pieces.forEach(([t0, t1]) => { const L = (t1 - t0) * len; if (L < .05) return;
@@ -877,7 +879,7 @@ async function open3D(host, opts = {}){
         const geo = new THREE.BoxGeometry(L, H, T), m = new THREE.Mesh(geo, wallMat);
         m.position.set(mx, y + H / 2, mz); m.rotation.y = -ang; scene.add(m);
         const ed = new THREE.LineSegments(new THREE.EdgesGeometry(geo), gold); ed.position.copy(m.position); ed.rotation.copy(m.rotation); scene.add(ed); });
-      gaps.forEach(([g0, g1, open]) => {   /* a light blue threshold line where the door is */
+      gaps.forEach(([g0, g1, open, dbl]) => {   /* a light blue threshold line where the door is */
         const p0 = new THREE.Vector3(a[0] + (b[0] - a[0]) * g0, y + .06, a[1] + (b[1] - a[1]) * g0), p1 = new THREE.Vector3(a[0] + (b[0] - a[0]) * g1, y + .06, a[1] + (b[1] - a[1]) * g1);
         scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p0, p1]), new THREE.LineBasicMaterial({ color: "#9fb3d1" })));
         /* Doorways: the wall carries on above the opening (header), a frame on both sides, and on real doors
@@ -889,6 +891,20 @@ async function open3D(host, opts = {}){
         [p0, p1].forEach(P => { const jb = new THREE.Mesh(new THREE.BoxGeometry(.18, DH, T + .08), frameMat);
           jb.position.set(P.x, y + DH / 2, P.z); jb.rotation.y = -ang; scene.add(jb); });
         if (open) return;
+        const rcx0 = r.P.reduce((t, p) => t + p[0], 0) / r.P.length, rcz0 = r.P.reduce((t, p) => t + p[1], 0) / r.P.length;
+        if (dbl) {   /* double door: French doors, two glass leaves glowing blue, one hinged at each side, both open into the room */
+          const lw = Math.max(.8, (gw - .2) / 2), hx = Math.cos(-ang), hz = Math.sin(-ang);
+          [[p0, 1], [p1, -1]].forEach(([H0, dir]) => {
+            const leaf = new THREE.Group(), x0 = dir > 0 ? 0 : -lw;
+            const fr = (w, h, x, yy) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, .12), frenchFrame); m.position.set(x, yy, 0); leaf.add(m); };
+            fr(lw, .18, x0 + lw / 2, DH - .19); fr(lw, .3, x0 + lw / 2, .17); fr(.16, DH - .1, x0 + .08, (DH - .1) / 2); fr(.16, DH - .1, x0 + lw - .08, (DH - .1) / 2);
+            const gl = new THREE.Mesh(new THREE.BoxGeometry(lw - .3, DH - .6, .04), frenchGlass); gl.position.set(x0 + lw / 2, (DH - .1) / 2 + .05, 0); leaf.add(gl);
+            for (let q = 1; q < 5; q++) fr(lw - .3, .05, x0 + lw / 2, .32 + (DH - .6) * q / 5);   /* window grid */
+            fr(.05, DH - .6, x0 + lw / 2, (DH - .1) / 2 + .05);
+            const tip = s2 => { const a2 = -(-ang + s2 * Math.PI / 3); return [H0.x + dir * Math.cos(a2) * lw, H0.z + dir * Math.sin(a2) * lw]; };
+            const sw2 = [-1, 1].sort((u, v) => { const A = tip(u), B = tip(v); return Math.hypot(A[0] - rcx0, A[1] - rcz0) - Math.hypot(B[0] - rcx0, B[1] - rcz0); })[0];
+            leaf.position.set(H0.x, y + .02, H0.z); leaf.rotation.y = -ang + sw2 * dir * Math.PI / 3; scene.add(leaf); });
+          return; }
         const dw = Math.max(1, gw - .2), door = new THREE.Group();
         const panel = new THREE.Mesh(new THREE.BoxGeometry(dw, DH - .1, .14), doorMat); panel.position.set(dw / 2, (DH - .1) / 2, 0); door.add(panel);
         const pe = new THREE.LineSegments(new THREE.EdgesGeometry(panel.geometry), doorEdge); pe.position.copy(panel.position); door.add(pe);
