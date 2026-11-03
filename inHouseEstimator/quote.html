@@ -370,6 +370,37 @@ button.ghost{background:transparent;color:var(--ink);border-color:#2c3446}
 @media print{.contact,.contact a{color:#1c2230!important}}   /* phone and email show on the white printed page */
 @media print{.photos{display:none}}
 @media print{:root{--ink:#1c2230;--muted:#5f6675;--line:#dde1e8}body,.sheet,.top{background:#fff;color:var(--ink)}tr.head td{color:var(--ink)}tr.sub td,tr.room td{color:var(--muted)}}
+/* Print / Save as PDF: one clean page. All the info stays; the mascot, photos, note box, pay and
+   booking buttons come out, the logo and name shrink, and the spacing tightens. Screen is unchanged. */
+@media print{
+  @page{size:letter;margin:.45in}
+  body{font-size:12.5px;line-height:1.35}
+  .sheet{max-width:none!important;margin:0!important;border:0!important;border-radius:0}
+  .top{padding:0 0 8px!important;gap:6px!important}
+  .idblock.cornerlogo{flex-direction:row!important;align-items:center;justify-content:center;gap:10px!important}
+  .idblock.cornerlogo>a{order:-1;align-self:center}
+  .idblock.cornerlogo img{width:34px!important;height:34px!important}
+  .idblock.cornerlogo>div{flex:0 0 auto!important}
+  .idblock.cornerlogo .brand{font-size:26px!important;background:none!important;-webkit-text-fill-color:#b8862e!important;color:#b8862e!important}
+  .contact{margin-top:0!important;font-size:11.5px!important}
+  .kind{padding-top:6px!important}
+  .kind .t{font-size:20px!important}
+  .kind .kdate{font-size:11.5px!important;margin-bottom:2px!important}
+  .body{padding:10px 0 0!important}
+  .meta{margin-bottom:8px!important;row-gap:4px!important}
+  .meta strong{font-size:14px!important}
+  .mascot img,.mascot .grev,.estphotos,.photos,#photoBox,.mcbox,.pay,.paygrid,.paybox,.tipbox,.jobCal,.jobPick,.footbtns,.termsDlg,.jobrep{display:none!important}
+  .mascot span{font-size:11px!important;margin-top:4px!important}
+  th,td{padding:3px 6px!important;font-size:12px}
+  tr.room td{padding-top:1px!important;padding-bottom:1px!important;font-size:11px}
+  .totalrow{margin-top:6px!important}
+  .totals .disc{font-size:13px!important}
+  .grand span:last-child{font-size:22px!important}
+  .sig{margin-top:10px!important}
+  .sig .name{font-size:22px!important}
+  .foot{padding:6px 0 0!important;font-size:11.5px}
+  .top,.meta,table,.totalrow,.sig{break-inside:avoid}
+}
 </style>
 </head>
 <body>
