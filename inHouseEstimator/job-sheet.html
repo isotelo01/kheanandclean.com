@@ -267,6 +267,8 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .summ .sdel,.summ .spot__go,.summ .spot__tick:not(.thumb),.summ .svc__plus,.summ .addonbox,.summ .addroom,.summ .addsvc,
 .fpbtn{display:inline-block;text-decoration:none;background:#6a3cb4;color:#fff;border:1px solid #8b5cf6;border-radius:8px;padding:9px 16px;font:600 15px "Archivo",system-ui,sans-serif}
 .fpbtn:hover{background:#5a2fa0}
+.backq{display:inline-block;margin:10px 0;text-decoration:none;color:#fff;border:1px solid rgba(227,182,74,.6);border-radius:999px;padding:9px 18px;font:600 15px "Archivo",system-ui,sans-serif}
+.backq:hover{background:rgba(227,182,74,.12)}
 /* "Add floor plan": the color-coded plan under Services performed (shows in the Summary too). */
 .fpwrap{margin:18px 0 6px}
 .fph{margin:0 0 8px;font-size:15px;color:var(--gold);display:flex;justify-content:space-between;align-items:baseline}
@@ -1874,7 +1876,9 @@ async function show(){
     '<div class="meta staff" style="text-align:right"><a href="./quote.html?id=' + encodeURIComponent(id) + (q.originalQuote ? '&original=1' : '') +
       '" target="_blank" rel="noopener">Original quote &middot; ' + money(q.originalQuote ? q.originalQuote.total : cur.quoted) + '</a></div>' + jdisc;   /* Job discount under the total */
 
-  view.innerHTML =
+  /* Back to the estimate / invoice page (quote.html), at the top and bottom of the sheet. */
+  const backBtn = '<a class="backq" href="./quote.html?id=' + encodeURIComponent(id) + '">&lsaquo; Return to ' + (place === "quotes" ? "estimate" : "invoice") + '</a>';
+  view.innerHTML = backBtn +
     '<div class="panel">' +
       /* Header photo and headline: shown on the customer's job report as a banner at the very top.
          The headline saves with the Save button under Crew notes. */
@@ -1944,7 +1948,7 @@ async function show(){
             '<button type="button" class="new" id="extrasBtn">Quote extras only</button></div>' : '') +
       /* The updated quote's link, Preview / Text / Email, and whether it's been approved. */
       '<div class="revbox" id="revBox"></div>' +
-    '</div>';
+    '</div>' + backBtn;
   applyMode();
   const tripBox = document.getElementById("tripBox");
   if (tripBox) { try { mountTrip({ box: tripBox, db, place, id, addr, trip: q.trip, phone: c.phone || "", custName: c.name || c.business || "" }); } catch (e) { console.error("trip", e); } }
