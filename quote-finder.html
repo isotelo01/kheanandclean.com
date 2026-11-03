@@ -97,6 +97,20 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 .step.enter .opt, .step.enter .go{ opacity:0; transform:translateY(16px); }
 .step.go-in .opt, .step.go-in .go{ animation:rise .68s cubic-bezier(.2,.8,.2,1) forwards; }
 @keyframes rise{ to{ opacity:1; transform:none; } }
+/* Between questions: tapped answer glows, old question slides away and blurs, new one glides in. */
+#screen{ position:relative; overflow-x:clip; }
+.step.leaving{ position:absolute; top:0; left:0; right:0; pointer-events:none; animation:qOutL .32s cubic-bezier(.55,0,.8,.3) .12s both; }
+.step.leaving.to-right{ animation-name:qOutR; }
+@keyframes qOutL{ to{ opacity:0; transform:translateX(-22%) scale(.96); filter:blur(8px); } }
+@keyframes qOutR{ to{ opacity:0; transform:translateX(22%) scale(.96); filter:blur(8px); } }
+.step.from-right{ animation:qInR .55s cubic-bezier(.2,.8,.2,1) .4s both; }
+.step.from-left{ animation:qInL .55s cubic-bezier(.2,.8,.2,1) .4s both; }
+@keyframes qInR{ from{ opacity:0; transform:translateX(20%); filter:blur(8px); } to{ opacity:1; transform:none; filter:blur(0); } }
+@keyframes qInL{ from{ opacity:0; transform:translateX(-20%); filter:blur(8px); } to{ opacity:1; transform:none; filter:blur(0); } }
+.opt.q-in, .go.q-in{ animation:qOpt .55s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes qOpt{ from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:none; } }
+.opt.picked, .go.picked{ animation:qPick .5s ease both; border-color:var(--gold); }
+@keyframes qPick{ 0%{ box-shadow:0 0 0 0 rgba(227,182,74,0); } 35%{ box-shadow:0 0 0 2px rgba(227,182,74,.95), 0 0 30px 6px rgba(227,182,74,.55); background:rgba(227,182,74,.3); transform:scale(1.02); } 100%{ box-shadow:0 0 0 1px rgba(227,182,74,.8), 0 0 16px 2px rgba(227,182,74,.3); background:rgba(227,182,74,.22); transform:scale(1); } }
 /* Screens */
 .step h1{ font-size:1.55rem; line-height:1.2; margin:0 0 8px; font-weight:700; }
 .step .lead{ margin:0 0 18px; color:var(--muted); }
@@ -376,16 +390,31 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   /* ---- Screens ---- */
-  var hist = [];
+  var hist = [], navDir = '';
   function show(fn, push){
     if(push !== false && cur) hist.push(cur);
     cur = fn;
     document.body.classList.toggle('first', fn === sProblem);
     backBtn.hidden = !hist.length; resetBtn.hidden = !hist.length;
-    screen.innerHTML = '';
+    /* Moving between questions: the answer they tapped glows gold, the old question slides off and blurs
+       out, the new one glides in from the other side (going Back reverses it). Redraws don't animate. */
+    var dir = navDir || (push !== false ? 'fwd' : ''); navDir = '';
+    [].forEach.call(screen.querySelectorAll('.step.leaving'), function(x){ x.remove(); });
+    var old = screen.querySelector('.step');
+    var anim = dir && old && !document.querySelector('.intro2') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if(anim){
+      if(lastTap && Date.now() - lastTapAt < 800 && old.contains(lastTap)) lastTap.classList.add('picked');
+      old.classList.add('leaving', dir === 'back' ? 'to-right' : 'to-left');
+      setTimeout(function(){ old.remove(); }, 700);
+    } else screen.innerHTML = '';
     var el = document.createElement('section'); el.className = 'step';
     screen.appendChild(el);
     fn(el);
+    if(anim){
+      el.classList.add(dir === 'back' ? 'from-left' : 'from-right');
+      [].forEach.call(el.querySelectorAll('.opt, .go'), function(x, i){ x.classList.add('q-in'); x.style.animationDelay = (480 + Math.min(i, 10) * 45) + 'ms'; });
+      el.addEventListener('animationend', function done(e){ if(e.target !== el) return; el.classList.remove('from-left', 'from-right'); el.removeEventListener('animationend', done); });
+    }
     var i = FLOW().indexOf(fn); bar.style.width = (i < 0 ? 100 : Math.round(100 * i / (FLOW().length - 1))) + '%';
     window.scrollTo(0, 0);
     drawSqft();
@@ -477,7 +506,10 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       return fb.fs.setDoc(fb.fs.doc(fb.db, 'quoteProgress', id), { status:'sent', updatedAt:fb.fs.serverTimestamp() }, { merge:true });
     }).catch(function(){});
   }
-  backBtn.onclick = function(){ if(hist.length) show(hist.pop(), false); };
+  backBtn.onclick = function(){ if(hist.length){ navDir = 'back'; show(hist.pop(), false); } };
+  /* The answer they just tapped, so it can glow as the question slides away. */
+  var lastTap = null, lastTapAt = 0;
+  screen.addEventListener('pointerdown', function(e){ lastTap = e.target.closest('.opt, .go'); lastTapAt = Date.now(); }, true);
   /* Reset: asks first, then clears every answer and photo saved on this phone and starts the quote over. */
   var resetBtn = document.getElementById('resetBtn');
   resetBtn.onclick = function(){
