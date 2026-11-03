@@ -758,10 +758,17 @@ async function open3D(host){
   camera.position.set(cx + span * .55, midY + span * .95, cz + span * 1.05);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(cx, midY * .4, cz); controls.enableDamping = true; controls.dampingFactor = .08;
-  controls.maxPolarAngle = Math.PI / 2.05; controls.minDistance = 8; controls.maxDistance = span * 4;
+  controls.maxPolarAngle = Math.PI / 2.05; controls.minDistance = 8; controls.maxDistance = span * 6;
   controls.autoRotate = true; controls.autoRotateSpeed = .8;
   controls.addEventListener("start", () => { controls.autoRotate = false; host.querySelector(".fp3dhint")?.remove(); });
-  const resize = () => { const w = host.clientWidth || 300, h = host.clientHeight || 300; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+  /* Opening view: on a narrow (portrait phone) screen, back the camera off until the whole model fits across. */
+  let touched = false; controls.addEventListener("start", () => { touched = true; });
+  const home = camera.position.clone().sub(controls.target), homeLen = home.length();
+  const fitView = () => { if (touched) return; const a = camera.aspect, v = 42 * Math.PI / 180;
+    const hf = 2 * Math.atan(Math.tan(v / 2) * a), need = span * .75 / Math.sin(Math.min(v, hf) / 2);
+    const d = a < 1 ? Math.max(homeLen, need) : homeLen;
+    camera.position.copy(controls.target).add(home.clone().setLength(d)); };
+  const resize = () => { const w = host.clientWidth || 300, h = host.clientHeight || 300; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); fitView(); };
   const ro = new ResizeObserver(resize); ro.observe(host); resize();
   let raf = 0; const tick = () => { controls.update(); renderer.render(scene, camera); raf = requestAnimationFrame(tick); }; tick();
   return {
