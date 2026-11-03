@@ -515,6 +515,30 @@ function saveExpenseBox(rc, m, f) {
   document.body.appendChild(pv);
 }
 
+/* Letterhead (on by default): the email looks like a letter, same as the quote page. White card on gray,
+   logo + gold "Khean & Clean" on top, the date with the mascot on the right, the message, a contact footer.
+   The server builds the same thing for the email that goes out (mailSend, letterhead: true). */
+const LETTER_IMG = "https://kheanandclean.com/images/";
+const letterDate = () => new Date().toLocaleDateString("en-US", {month: "long", day: "numeric", year: "numeric"});
+const letterHtml = (bodyHtml, date) =>
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#e9eaec;border-collapse:collapse;border-radius:8px"><tr><td align="center" style="padding:24px 10px">' +
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:680px;background:#ffffff;border:1px solid #cfd3d8;border-radius:14px;border-collapse:separate;text-align:left">' +
+  '<tr><td style="padding:24px 26px 6px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>' +
+    '<td valign="middle" style="padding-right:14px"><img src="' + LETTER_IMG + 'logo-email.png" width="96" alt="K&amp;C Steam Cleaning" style="display:block;width:96px;height:auto;border:0"></td>' +
+    '<td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:32px;line-height:1.1;font-weight:bold;color:#C9962B">Khean &amp; Clean</td></tr></table></td></tr>' +
+  '<tr><td style="padding:0 26px 10px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1c2230"><a href="tel:+19167672520" style="color:#1c2230">(916) 767-2520</a> &middot; <a href="mailto:contact@kheanandclean.com" style="color:#1c2230">contact@kheanandclean.com</a></td></tr>' +
+  '<tr><td style="padding:0"><div style="height:1px;line-height:1px;font-size:0;background:#e2e4e8">&nbsp;</div></td></tr>' +
+  '<tr><td style="padding:16px 26px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+    '<td valign="top" style="font-family:Arial,Helvetica,sans-serif;color:#1c2230">' +
+      '<div style="font-size:15px;color:#5b6270">' + date + '</div>' +
+      '<div style="margin-top:12px;font-size:11px;letter-spacing:2px;font-weight:bold;color:#9a7a2b">STEAM CLEANING</div>' +
+      '<div style="margin-top:4px;font-size:14px;line-height:1.5">Folsom &amp; El Dorado Hills<br>kheanandclean.com</div></td>' +
+    '<td valign="top" align="right" width="140" style="width:140px"><img src="' + LETTER_IMG + 'mascot-email.png" width="140" alt="" style="display:block;width:140px;height:auto;border:0"></td></tr></table></td></tr>' +
+  '<tr><td style="padding:12px 26px 26px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#111111;white-space:pre-wrap">' + bodyHtml + '</td></tr>' +
+  '<tr><td style="padding:0 26px"><div style="height:2px;line-height:2px;font-size:0;background:#E3B64A">&nbsp;</div></td></tr>' +
+  '<tr><td align="center" style="padding:12px 26px 18px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#5b6270">Khean &amp; Clean LLC &middot; (916) 767-2520 &middot; kheanandclean.com</td></tr>' +
+  '</table></td></tr></table>';
+
 /* New email, or Reply to the open message. A reply goes out from the address the customer wrote to. */
 function showCompose(reply, preTo) {
   renderFolders();
@@ -539,7 +563,11 @@ function showCompose(reply, preTo) {
       '<label class="fld"><span>To</span><input id="cTo" type="email" multiple autocomplete="email" value="' + esc(to) + '" placeholder="customer@example.com"></label>' +
       '<label class="fld"><span>CC</span><input id="cCc" type="email" multiple autocomplete="email" placeholder="optional, separate with commas"></label>' +
       '<label class="fld"><span>Subject</span><input id="cSubj" type="text" maxlength="300" value="' + esc(subject) + '"></label>' +
-      '<label class="fld"><span>Message</span><textarea id="cBody">' + esc(body) + '</textarea></label>' +
+      '<label style="display:inline-flex;gap:8px;align-items:center;margin:2px 0 8px;font-size:14px;cursor:pointer"><input type="checkbox" id="cLetter" checked> Letterhead</label>' +
+      '<style>#cLetterWrap{margin:0 0 8px}#cLetterWrap textarea{display:block;width:100%;min-height:240px;box-sizing:border-box;border:1px dashed #d6d9de;border-radius:6px;' +
+        'background:#fff;color:#111;font:15px/1.6 Arial,Helvetica,sans-serif;padding:8px;resize:vertical;white-space:pre-wrap}</style>' +
+      '<div id="cLetterWrap"></div>' +
+      '<label class="fld" id="cPlain"><span>Message</span><textarea id="cBody">' + esc(body) + '</textarea></label>' +
       '<div id="cAtts" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px"></div>' +
       /* Quick attach: tap to pick (turns blue), tap again to drop. The files live on the server, not here. */
       '<style>.dchip{border:1px solid rgba(255,255,255,.4);background:transparent;color:inherit;border-radius:999px;padding:6px 12px;font-weight:600;font-size:13px;cursor:pointer}' +
@@ -554,6 +582,16 @@ function showCompose(reply, preTo) {
       '<p class="msg err" id="cErr" role="alert"></p>' +
     '</form></div>';
   const ta = document.getElementById("cBody");
+  /* Letterhead on: the message box sits inside the letter, so what you type is what they see. Off: plain box. */
+  const cLetter = document.getElementById("cLetter"), letterWrap = document.getElementById("cLetterWrap"), plainLbl = document.getElementById("cPlain");
+  letterWrap.innerHTML = letterHtml('<div id="cSlot"></div>', esc(letterDate()));
+  const placeBody = () => {
+    const on = cLetter.checked;
+    (on ? document.getElementById("cSlot") : plainLbl).appendChild(ta);
+    letterWrap.hidden = !on; plainLbl.hidden = on;
+  };
+  placeBody();
+  cLetter.addEventListener("change", () => { placeBody(); ta.focus(); });
   (to ? ta : document.getElementById("cTo")).focus();
   if (to) ta.setSelectionRange(0, 0);
   // Attachments picked so far: chips with the file name, x to remove.
@@ -597,11 +635,12 @@ function showCompose(reply, preTo) {
     pv.innerHTML = '<div><div style="font-size:13px;color:#555;line-height:1.6;border-bottom:1px solid #ddd;padding-bottom:8px;margin-bottom:14px">' +
       '<b>From:</b> Israel Sotelo - Khean &amp; Clean &lt;' + esc(v("cFrom")) + '&gt;<br><b>To:</b> ' + esc(v("cTo")) +
       (v("cCc") ? '<br><b>CC:</b> ' + esc(v("cCc")) : '') + '<br><b>Subject:</b> ' + esc(v("cSubj")) + '</div>' +
+      (cLetter.checked ? letterHtml(body, esc(letterDate())) :
       /* Same card the server sends: header-colored (#FEFEFE), rounded, thin gold border, black text, on cream. */
       '<div style="background:#f3f0ea;padding:16px 8px;border-radius:8px"><div style="max-width:680px;margin:0 auto;background:#FEFEFE;border:1px solid #e3d6b8;border-radius:12px">' +
         '<img src="https://kheanandclean.com/images/email-header-v2.jpg" alt="Khean &amp; Clean LLC" style="display:block;width:100%;height:auto;border-radius:12px 12px 0 0">' +
         '<div style="height:2px;background:#E3B64A;margin:0 28px"></div>' +
-        '<div style="padding:22px 28px 28px;font:15px/1.55 Arial,Helvetica,sans-serif;color:#000;white-space:pre-wrap">' + body + '</div></div></div>' +
+        '<div style="padding:22px 28px 28px;font:15px/1.55 Arial,Helvetica,sans-serif;color:#000;white-space:pre-wrap">' + body + '</div></div></div>') +
       '<div style="margin-top:16px;font-size:13px;color:#333;line-height:1.7"><b>Attached (' + links.length + '):</b> ' +
         (links.length ? links.map(l => '<a href="' + l[1] + '" target="_blank" rel="noopener" style="color:#1a56db">' + esc(l[0]) + '</a>').join(" &middot; ") : "nothing") +
         (links.length ? '<br><span style="color:#777">Tap a file to open it.</span>' : '') + '</div>' +
@@ -622,7 +661,7 @@ function showCompose(reply, preTo) {
     const btn = document.getElementById("cPrev"), err = document.getElementById("cErr");
     const data = {from: document.getElementById("cFrom").value, to: document.getElementById("cTo").value.trim(),
       cc: document.getElementById("cCc").value.trim(), docs: pickedDocs(),
-      subject: document.getElementById("cSubj").value.trim(), text: ta.value};
+      subject: document.getElementById("cSubj").value.trim(), text: ta.value, letterhead: cLetter.checked};
     if (!data.to) { err.textContent = "Add who it's going to."; return; }
     if (!data.text.trim()) { err.textContent = "Type a message first."; return; }
     if (m && m.messageId) { data.inReplyTo = m.messageId; data.references = m.references || []; }
