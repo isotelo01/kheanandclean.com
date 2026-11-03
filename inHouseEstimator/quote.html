@@ -31,6 +31,17 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 .idblock.nologo>a{display:none!important}   /* !important: the link has an inline display:flex */
 .idblock.nologo{width:100%;justify-content:center}
 .idblock.nologo>div{flex:1;text-align:center}
+/* Header: the logo as a brand mark in the top right corner, a bigger "Khean & Clean" centered under it,
+   phone and email centered. */
+.idblock.cornerlogo{flex-direction:column;align-items:stretch;gap:2px;width:100%}
+.idblock.cornerlogo>a{align-self:flex-end}
+.idblock.cornerlogo img{width:58px!important;height:58px!important}
+.idblock.cornerlogo>div{text-align:center}
+.idblock.cornerlogo .brand{font-size:46px}
+@media (max-width:400px){.idblock.cornerlogo .brand{font-size:38px}}
+@media (max-width:340px){.idblock.cornerlogo .brand{font-size:28px}}
+@media (min-width:561px){.idblock.cornerlogo .brand{font-size:clamp(60px,10.5vw,112px)}.idblock.cornerlogo img{width:96px!important;height:96px!important}}
+.top .contact{text-align:center}
 /* Room rows: name, then sq ft and price each lined up in their own column. */
 .rgrid{display:grid;grid-template-columns:minmax(0,1fr) 76px 68px;column-gap:8px;padding-right:84px}   /* spans the row; stops short of Amount */
 .rgrid>span:first-child{white-space:nowrap}
@@ -82,7 +93,7 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
   .meta > div:first-child{grid-column:1;grid-row:1;min-width:0}
   .meta .r{grid-column:1;grid-row:2;align-self:start}
   .mascot{display:contents}
-  .mascot img{grid-column:2;grid-row:1 / span 2;width:100%;max-width:225px;height:auto;align-self:start;justify-self:end;margin-top:-10px;margin-right:-6px;transform:translate(-40px,-66px);margin-bottom:-66px;position:relative;z-index:1}   /* up and left: his left foot stands on the Accepted pill */
+  .mascot img{grid-column:2;grid-row:1 / span 2;width:100%;max-width:225px;height:auto;align-self:start;justify-self:end;margin-top:-10px;margin-right:-6px;transform:translate(-75px,-78px);margin-bottom:-78px;position:relative;z-index:1}   /* up and left: his left foot stands on the Accepted pill */
   .adl{white-space:nowrap}
   .meta.nomascot .mascot img{display:none}
   .meta.nomascot{grid-template-columns:minmax(0,1fr)}   /* street on one line, city/state/zip on one line; the mascot gives up the room */
@@ -869,7 +880,7 @@ function render(d){
 
   sheet.innerHTML = `
     <div class="top">
-      <div class="idblock nologo">
+      <div class="idblock cornerlogo">
         <a href="${SITE_URL}" target="_blank" rel="noopener" style="display:flex"><img src="../images/logo.png" alt="Khean &amp; Clean home"></a>
         <div style="position:relative">
           <div class="brand">Khean <span class="amp">&amp;</span> Clean</div>
