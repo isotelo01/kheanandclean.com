@@ -756,11 +756,11 @@ async function open3D(host){
     const line = (shades.find(x => Math.abs(x.l - fl) > 28) || { c: field.map(v => Math.max(0, v - 40)) }).c;
     const C = 512, R = C / (2 * Math.sqrt(3)) * 1, cv = document.createElement("canvas"); cv.width = C; cv.height = Math.round(R * 3 * 2);
     const g = cv.getContext("2d"); g.fillStyle = "rgb(" + field + ")"; g.fillRect(0, 0, cv.width, cv.height);
-    g.strokeStyle = "rgb(" + line + ")"; g.lineWidth = R * .16; g.lineJoin = "round";
+    g.strokeStyle = "rgb(" + line + ")"; g.lineWidth = R * .11; g.lineJoin = "round";
     const hw = Math.sqrt(3) * R;
     for (let j = -1; j <= 4; j++) for (let i = -1; i <= 3; i++) {
       const cx = i * hw + (j % 2 ? hw / 2 : 0), cy = j * 1.5 * R; g.beginPath();
-      for (let k = 0; k < 6; k++) { const a = Math.PI / 3 * k + Math.PI / 6; g[k ? "lineTo" : "moveTo"](cx + R * .86 * Math.cos(a), cy + R * .86 * Math.sin(a)); }
+      for (let k = 0; k < 6; k++) { const a = Math.PI / 3 * k + Math.PI / 6; g[k ? "lineTo" : "moveTo"](cx + R * Math.cos(a), cy + R * Math.sin(a)); }   /* hexagons touch: one thin line between them, like the real carpet */
       g.closePath(); g.stroke(); }
     const img = g.getImageData(0, 0, cv.width, cv.height), q = img.data;   /* carpet fiber speckle */
     for (let i = 0; i < q.length; i += 4) { const n = (Math.random() - .5) * 26; q[i] += n; q[i + 1] += n; q[i + 2] += n; }
