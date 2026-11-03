@@ -1755,7 +1755,8 @@ async function show(){
       try { const pts = (JSON.parse(s.sketch || "null") || {}).pts;
         if (Array.isArray(pts) && pts.length > 2) { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
           skW = Math.max(...xs) - Math.min(...xs); skH = Math.max(...ys) - Math.min(...ys); } } catch (e) {}
-      const row = { name, b, a, href, gal, sk, skW, skH, sqft };
+      const rot = Number((((q.floorPlan || {}).rooms || {})[key] || {}).rot) || 0;   /* turned the way it sits on the floor plan */
+      const row = { name, b, a, href, gal, sk, skW, skH, sqft, rot };
       if ((b || a) && prev.length < 3) prev.push(row); else roomsAll.push(row); };
     items.forEach((it, j) => { if (it.removed || isNotBilled(it) || extras.includes(it)) return;   /* not billed, or a package extra (accelerated drying etc.): no photo card */
       if (Array.isArray(it.rooms) && it.rooms.length) { it.rooms.forEach((rm, r) => addPrev(rm.id, rm.name, spotLink(i, j, r), Number(rm.sqft) || 0)); return; }
@@ -1771,7 +1772,7 @@ async function show(){
        More ▾ (the dropdown) sits under the rows; the price stays up in the header. */
     /* Estimates: one bigger photo per room, no Before / After labels, no After box (nothing's been done yet). */
     const est = cur && cur.place === "quotes";
-    const rowHtml = (r, rest) => '<a class="sprow' + (est ? ' est' : '') + (rest ? ' srest' : '') + '" href="' + esc(r.href) + '"' + (r.gal.length ? ' data-gal="' + esc(JSON.stringify(r.gal)) + '"' : '') + '><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span>' + (est && r.sqft ? '<span class="sqft">' + Math.round(r.sqft).toLocaleString() + ' sq ft total</span>' : '') + '</b>' + (est ? slot(r.b || r.a, "") + (r.sk ? '<img class="spsk" alt="Room outline" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.sk) + '">' : '') : slot(r.b, "Before") + slot(r.a, "After")) +
+    const rowHtml = (r, rest) => '<a class="sprow' + (est ? ' est' : '') + (rest ? ' srest' : '') + '" href="' + esc(r.href) + '"' + (r.gal.length ? ' data-gal="' + esc(JSON.stringify(r.gal)) + '"' : '') + '><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span>' + (est && r.sqft ? '<span class="sqft">' + Math.round(r.sqft).toLocaleString() + ' sq ft total</span>' : '') + '</b>' + (est ? slot(r.b || r.a, "") + (r.sk ? '<img class="spsk" alt="Room outline"' + (r.rot ? ' style="transform:rotate(' + r.rot + 'deg)"' : '') + ' src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.sk) + '">' : '') : slot(r.b, "Before") + slot(r.a, "After")) +
       (r.gal.length > 2 ? '<span class="sgmore">More photos (' + r.gal.length + ')</span>' : '') + '</a>';
     const prevBox = (prev.length || roomsAll.length) ? '<div class="sthumbs sprev">' + prev.map(r => rowHtml(r, false)).join("") +
       roomsAll.map(r => rowHtml(r, true)).join("") +
