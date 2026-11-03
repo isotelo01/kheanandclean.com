@@ -889,7 +889,7 @@ async function open3D(host, opts = {}){
   const home = camera.position.clone().sub(controls.target), homeLen = home.length();
   const fitView = () => { if (touched) return; const a = camera.aspect, v = 42 * Math.PI / 180;
     const hf = 2 * Math.atan(Math.tan(v / 2) * a), need = span * .58 / Math.sin(Math.min(v, hf) / 2);
-    const d = opts.mini ? need : a < 1 ? Math.max(homeLen, need) : homeLen;   /* the small preview: just far enough that the whole model fits */
+    const d = opts.mini ? need * .68 : a < 1 ? Math.max(homeLen, need) : homeLen;   /* the small preview: just far enough that the whole model fits */
     camera.position.copy(controls.target).add(home.clone().setLength(d)); };
   const resize = () => { const w = host.clientWidth || 300, h = host.clientHeight || 300; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); fitView(); };
   const ro = new ResizeObserver(resize); ro.observe(host); resize();
