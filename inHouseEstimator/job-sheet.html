@@ -2235,6 +2235,10 @@ async function show(){
       /* Chemicals used: staff only, saved with the Save button under Crew notes. */
       '<div class="staff" style="margin-top:24px"><details class="chemfold"><summary><h2>Detergents used</h2><span class="chemsum" id="chemSum"></span></summary>' +
         '<div id="chems"><div class="msg">Loading&hellip;</div></div></details></div>' +
+      /* Rebooking reminder: when to remind this customer to book again (12 months by default). Saved with the job. */
+      '<div class="staff" style="margin-top:24px"><h2>Rebooking reminder</h2><label class="seclab"><b>Remind in</b><select id="rebook">' +
+        [4, 6, 12, 18].map(m => '<option value="' + m + '"' + ((js.rebookMonths || 12) === m ? ' selected' : '') + '>' + m + ' months</option>').join("") +
+        '</select><span class="note" id="rebookDue"></span></label></div>' +
       /* Crew notes: in the Summary, the saved text read-only; nothing at all when there's none. */
       '<div class="crewbox' + (String(js.crewNotes || "").trim() ? '' : ' empty') + '" style="margin-top:24px"><h2>Crew notes</h2>' +
       '<div class="crewro">' + esc(js.crewNotes || "") + '</div>' +
@@ -2734,6 +2738,15 @@ async function show(){
 
   /* Save: ticks and crew notes go onto the quote, so they follow it into the invoice. */
   const saveBtn = document.getElementById("saveBtn");
+  /* Rebooking due date = job day (or today) + the months picked. */
+  const rebookDue = () => {
+    const m = Number(document.getElementById("rebook").value) || 12;
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(q.scheduledDate || "") ? new Date(q.scheduledDate + "T12:00:00") : new Date();
+    d.setMonth(d.getMonth() + m);
+    return { months: m, due: d.toISOString().slice(0, 10), label: d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) };
+  };
+  const showRebook = () => { document.getElementById("rebookDue").textContent = "Due " + rebookDue().label; };
+  document.getElementById("rebook").addEventListener("change", showRebook); showRebook();
   saveBtn.addEventListener("click", async () => {
     saveBtn.disabled = true; note.textContent = "Saving\u2026"; note.classList.remove("err");
     try {
@@ -2743,6 +2756,7 @@ async function show(){
         headline: document.getElementById("headline").value.trim(),
         /* Chemicals only once the list has loaded, so a fast Save can't wipe what's already logged. */
         ...(chemReady ? (ch => ({ chemicals: ch, chemicalCost: Math.round(ch.reduce((a, c) => a + c.cost, 0) * 100) / 100 }))(readChems()) : {}),
+        rebookMonths: rebookDue().months, rebookDue: rebookDue().due,
         updatedAt: serverTimestamp() } }, { merge: true });
       note.textContent = "Saved.";
       /* The Summary's read-only copy follows what was just saved. */
