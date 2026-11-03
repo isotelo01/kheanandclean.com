@@ -322,6 +322,9 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
 .sprow.est b{grid-column:1/-1}   /* room name on top, photo under it */
 /* The room outline (Measure sketch) next to its photo, same height as the photo. */
 .sprow.est .spsk{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:contain;align-self:center}   /* no box, centered, as big as its side of the card so the wall lengths read */
+/* Phones (trying it out): each room's photo goes the full width of its card, tall, cropped from the bottom up;
+   the room outlines are hidden for now. */
+@media (max-width:759px){ .sprow.est{grid-template-columns:1fr!important} .sprow.est .spslot{aspect-ratio:4/5;width:100%} .sprow.est .spsk{display:none} }
 @media (min-width:760px){ .sthumbs a.sprow.est .spsk{height:auto;min-height:0;max-height:240px;aspect-ratio:4/3} }   /* wide screens: photo and outline stack */
 @media (max-width:420px){ .sprow.est{grid-template-columns:120px minmax(0,1fr)} }
 @media (min-width:760px){
