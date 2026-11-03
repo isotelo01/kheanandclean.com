@@ -267,6 +267,14 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .summ .sdel,.summ .spot__go,.summ .spot__tick:not(.thumb),.summ .svc__plus,.summ .addonbox,.summ .addroom,.summ .addsvc,
 .fpbtn{display:inline-block;text-decoration:none;background:#6a3cb4;color:#fff;border:1px solid #8b5cf6;border-radius:8px;padding:9px 16px;font:600 15px "Archivo",system-ui,sans-serif}
 .fpbtn:hover{background:#5a2fa0}
+/* "Add floor plan": the color-coded plan under Services performed (shows in the Summary too). */
+.fpwrap{margin:18px 0 6px}
+.fph{margin:0 0 8px;font-size:15px;color:var(--gold)}
+.fpstory{font-size:13px;font-weight:700;margin:10px 0 4px}
+.fpsvg{display:block;width:100%;height:auto;max-height:70vh;background:#0b0f17;border-radius:10px}
+.fpkey{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px}
+.fpkey span{display:inline-flex;align-items:center;gap:6px}
+.fpkey i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.35)}
 .summ .addfurn,.summ .staff,.summ .staffword,.summ .prog{display:none!important}
 /* Summary: each service starts folded, showing its first room photos; tap the header to open it. */
 .summ .svc:not(.sopen) .svc__body{display:none}   /* beats the working sheet's own open lines */
@@ -505,6 +513,72 @@ const ss = { get: k => { try { return sessionStorage.getItem(k) || ""; } catch (
              set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} } };
 /* Customer view: ?view=customer — read-only Summary, no sign-in, nothing clickable through to staff pages. */
 const PUBLIC = new URLSearchParams(location.search).get("view") === "customer";
+
+/* ===== Floor plan on the job sheet / Summary ("Add floor plan") =====
+   Every sketched room put together the way it sits on floor-plan.html (rooms not placed yet go in a row),
+   each filled by its floor type, with the room name, plus a color key. One drawing per story. */
+const FLOOR_COLORS = [
+  [/commercial\s*carpet/i, "#b89a72", "Commercial carpet"],
+  [/rug/i, "#E3B64A", "Area rug"],
+  [/carpet/i, "#e8dcc4", "Carpet"],
+  [/tile|grout/i, "#9cc9ec", "Tile & grout"],
+  [/lvp|vinyl|laminate/i, "#a8957c", "LVP"],
+  [/hardwood|wood/i, "#8b5a2b", "Hardwood"],
+  [/stone|marble|granite|travertine/i, "#6f8a7a", "Natural stone"],
+  [/commercial\s*hard|hard\s*floor/i, "#8a9099", "Commercial hard floor"],
+];
+const floorOf = label => FLOOR_COLORS.find(c => c[0].test(String(label || ""))) || [null, "#3a3f48", "Not cleaned"];
+function floorPlanHtml(q){
+  const spots = q.spots || {}, saved = (q.floorPlan && q.floorPlan.rooms) || {};
+  const lines = (q.onsite && Array.isArray(q.onsite.lines)) ? q.onsite.lines : (Array.isArray(q.lines) ? q.lines : []);
+  const rot = (p, d) => { const a = d * Math.PI / 180, c = Math.cos(a), n = Math.sin(a); return [p[0] * c - p[1] * n, p[0] * n + p[1] * c]; };
+  const rooms = [];
+  lines.forEach((line, ln) => (Array.isArray(line.items) ? line.items : []).forEach((it, j) => {
+    if (it.removed) return;
+    const fl = floorOf((it.label || "") + " " + (line.label || ""));
+    let r = 0;
+    const list = (!Array.isArray(it.rooms) || !it.rooms.length) && Array.isArray(it.areas) && it.areas.length
+      ? it.areas.map((nm, k) => ({ id: ln + "-" + j + "-" + k, name: String(nm || "Area"), qty: 1 })) : (Array.isArray(it.rooms) ? it.rooms : []);
+    list.forEach(rm => { const n = Math.max(1, Number(rm.qty) || 1);
+      for (let k = 1; k <= n; k++) {
+        const key = rm.id && n === 1 ? rm.id : ln + "-" + j + "-" + r; r++;
+        const st = spots[key] || {}; let sk = null; try { sk = JSON.parse(st.sketch || "null"); } catch (e) {}
+        if (!sk || !Array.isArray(sk.pts) || sk.pts.length < 3) continue;
+        const cx = sk.pts.reduce((a, p) => a + p[0], 0) / sk.pts.length, cy = sk.pts.reduce((a, p) => a + p[1], 0) / sk.pts.length;
+        const sv = saved[key] || {};
+        rooms.push({ name: n > 1 ? rm.name + " " + k : String(rm.name || "Room"), fl, story: Number.isInteger(st.story) ? st.story : 1,
+          pts: sk.pts.map(p => [p[0] - cx, p[1] - cy]), cuts: (Array.isArray(sk.cuts) ? sk.cuts : []).filter(c => Array.isArray(c.pts)).map(c => c.pts.map(p => [p[0] - cx, p[1] - cy])),
+          x: Number(sv.x), y: Number(sv.y), rot: Number(sv.rot) || 0, placed: sv.x != null && Number.isFinite(Number(sv.x)) });
+      } });
+  }));
+  if (!rooms.length) return '';
+  const W = (rm, p) => { const t = rot(p, rm.rot); return [t[0] + rm.x, t[1] + rm.y]; };
+  const STORY = ["Zero story", "1st story", "2nd story", "3rd story"];
+  const stories = [...new Set(rooms.map(rm => rm.story))].sort();
+  const used = new Map();
+  const drawings = stories.map(sto => {
+    const on = rooms.filter(rm => rm.story === sto);
+    let edge = on.filter(rm => rm.placed).reduce((m, rm) => Math.max(m, ...rm.pts.map(p => W(rm, p)[0])), -Infinity);
+    edge = isFinite(edge) ? edge + 4 : 0;
+    on.filter(rm => !rm.placed).forEach(rm => { const xs = rm.pts.map(p => p[0]), ys = rm.pts.map(p => p[1]);
+      rm.x = edge - Math.min(...xs); rm.y = -Math.min(...ys); rm.rot = 0; edge += Math.max(...xs) - Math.min(...xs) + 4; });
+    const all = on.flatMap(rm => rm.pts.map(p => W(rm, p)));
+    const x0 = Math.min(...all.map(p => p[0])) - 2, y0 = Math.min(...all.map(p => p[1])) - 2;
+    const w = Math.max(...all.map(p => p[0])) - x0 + 2, h = Math.max(...all.map(p => p[1])) - y0 + 2;
+    const fs = Math.max(1.1, Math.min(w, h) / 22);
+    let g = '<defs><pattern id="fpHatch" width="1.2" height="1.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.2" height="1.2" fill="#3a3f48"/><line x1="0" y1="0" x2="0" y2="1.2" stroke="#5b616c" stroke-width=".4"/></pattern></defs>';
+    on.forEach(rm => { used.set(rm.fl[2], rm.fl[1]);
+      const P = rm.pts.map(p => W(rm, p).map(v => +v.toFixed(2)).join(",")).join(" ");
+      g += '<polygon points="' + P + '" fill="' + (rm.fl[0] ? rm.fl[1] : 'url(#fpHatch)') + '" stroke="#E3B64A" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>';
+      rm.cuts.forEach(c => { g += '<polygon points="' + c.map(p => W(rm, p).map(v => +v.toFixed(2)).join(",")).join(" ") + '" fill="#0b0f17" stroke="#E3B64A" stroke-dasharray="4 3" stroke-width="1.5" vector-effect="non-scaling-stroke"/>'; });
+      const c = W(rm, [0, 0]);
+      g += '<text x="' + c[0].toFixed(2) + '" y="' + c[1].toFixed(2) + '" font-size="' + fs.toFixed(2) + '" text-anchor="middle" dominant-baseline="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" fill="#0b0f17" stroke="#ffffff" stroke-width="' + (fs / 5).toFixed(2) + '" paint-order="stroke">' + esc(rm.name) + '</text>'; });
+    return (stories.length > 1 ? '<div class="fpstory">' + STORY[sto] + '</div>' : '') +
+      '<svg class="fpsvg" viewBox="' + [x0, y0, w, h].map(v => v.toFixed(2)).join(" ") + '" role="img" aria-label="Floor plan">' + g + '</svg>';
+  });
+  return '<div class="fpwrap"><h3 class="fph">Floor plan</h3>' + drawings.join("") +
+    '<div class="fpkey">' + [...used].map(([nm, col]) => '<span><i style="background:' + (nm === "Not cleaned" ? 'repeating-linear-gradient(45deg,#3a3f48 0 3px,#5b616c 3px 4px)' : col) + '"></i>' + esc(nm) + '</span>').join("") + '</div></div>';
+}
 if (PUBLIC) document.documentElement.classList.add("pub");
 const id = new URLSearchParams(location.search).get("id") || (PUBLIC ? "" : ss.get("kcJobSheetId"));
 if (id) ss.set("kcJobSheetId", id);
@@ -1774,9 +1848,11 @@ async function show(){
 
       '<h2><span class="staffword">The Job</span><span class="sumword">Services performed</span></h2>' +
       /* Floor plan (staff only, purple): every sketched room on this job put together. */
-      (PUBLIC ? '' : '<div class="staff" style="margin:4px 0 12px"><a class="fpbtn" href="./floor-plan.html?id=' + encodeURIComponent(id) + '">Floor plan &rsaquo;</a></div>') +
+      (PUBLIC ? '' : '<div class="staff" style="margin:4px 0 12px;display:flex;gap:8px;flex-wrap:wrap"><a class="fpbtn" href="./floor-plan.html?id=' + encodeURIComponent(id) + '">Floor plan &rsaquo;</a>' +
+        '<button type="button" class="fpbtn" id="fpShow" style="cursor:pointer">' + ((q.floorPlan || {}).show ? 'Remove floor plan' : 'Add floor plan') + '</button></div>') +
       '<div class="prog" id="prog"></div>' +
       (sections || '<div class="msg">This quote has no line items.</div>') + addSvc + (sections ? jtotal : '') +
+      ((q.floorPlan || {}).show ? floorPlanHtml(q) : '') +   /* "Add floor plan": the color-coded plan, under the services */
 
       '<div style="margin-top:24px">' +
       photoBox("job", "Job photos", false, true) +   /* shown read-only in the Summary */
@@ -1836,6 +1912,13 @@ async function show(){
   view.querySelectorAll(".svc").forEach(sv => { const box = sv.querySelector(".sthumbs"); if (!box || box.classList.contains("sprev")) return;   /* Before / After rows keep their own photos */
     const ps = [...sv.querySelectorAll(".spot__tick[data-thumb]")].map(t => t.dataset.thumb).slice(0, box.classList.contains("six") ? 6 : 4);
     if (ps.length) box.innerHTML = ps.map(p => '<span data-sthumb="' + esc(p) + '"></span>').join(""); });
+  /* Add / Remove floor plan: saved on the job (floorPlan.show), then the page redraws with it. */
+  document.getElementById("fpShow")?.addEventListener("click", async e => {
+    const b = e.currentTarget, on = !(q.floorPlan || {}).show;
+    b.disabled = true; b.textContent = on ? "Adding…" : "Removing…";
+    try { await updateDoc(doc(db, place, id), { "floorPlan.show": on }); location.reload(); }
+    catch (x) { b.disabled = false; b.textContent = on ? "Add floor plan" : "Remove floor plan"; alert("Couldn't save: " + (x.message || x)); }
+  });
   view.querySelectorAll("[data-sthumb]").forEach(t =>
     getDownloadURL(ref(storage, t.dataset.sthumb)).then(u => { t.style.backgroundImage = 'url("' + u + '")'; })
       .catch(e => { console.error("Thumb " + t.dataset.sthumb, e); t.remove(); }));
