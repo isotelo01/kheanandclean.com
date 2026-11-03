@@ -752,8 +752,9 @@ async function open3D(host){
       const b0 = bins.get(k) || { n: 0, r: 0, g: 0, b: 0 }; b0.n++; b0.r += d[i]; b0.g += d[i + 1]; b0.b += d[i + 2]; bins.set(k, b0); }
     const shades = [...bins.values()].sort((x, y) => y.n - x.n).map(b0 => { const c = [b0.r / b0.n, b0.g / b0.n, b0.b / b0.n].map(Math.round);
       return { c, l: .299 * c[0] + .587 * c[1] + .114 * c[2] }; });
-    const field = shades[0].c, fl = shades[0].l;
-    const line = (shades.find(x => Math.abs(x.l - fl) > 28) || { c: field.map(v => Math.max(0, v - 40)) }).c;
+    const top = shades[0], other = shades.find(x => Math.abs(x.l - top.l) > 28) || { c: top.c.map(v => Math.min(255, v + 60)), l: top.l + 60 };
+    /* the darker of the two photo colors fills the hexagons, the lighter one is the lines (dark carpet, cream lines) */
+    const [field, line] = top.l <= other.l ? [top.c, other.c] : [other.c, top.c];
     const C = 512, R = C / (2 * Math.sqrt(3)) * 1, cv = document.createElement("canvas"); cv.width = C; cv.height = Math.round(R * 3 * 2);
     const g = cv.getContext("2d"); g.fillStyle = "rgb(" + field + ")"; g.fillRect(0, 0, cv.width, cv.height);
     g.strokeStyle = "rgb(" + line + ")"; g.lineWidth = R * .11; g.lineJoin = "round";
