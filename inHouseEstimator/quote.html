@@ -881,8 +881,9 @@ function render(d){
           return (its.length ? `<tr class="head"><td>${brandTier(esc(svc))}</td><td class="r"></td></tr>`
             : `<tr class="head"><td>${brandTier(twoLine(l.label))}</td><td class="r">${money(l.cost)}</td></tr>`) +
           its.map(it => { const lab = String(it.label || ""), sub = lab.startsWith(svc + " — ") ? lab.slice(svc.length + 3) : lab;
-            return `<tr class="sub"><td>${twoLine(sub)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>` +
-            (it.track ? [] : it.rooms || []).map(rm => `<tr class="room"><td>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)} · ${(Number(rm.sqft) || 0).toLocaleString()} sq ft</td><td class="r">${roomPrice(rm, it).replace(/^ · /, "")}</td></tr>`).join(""); }).join(""); }).join("")}</tbody>
+            /* Rooms first, then the sq ft line under them like a subtotal. */
+            return (it.track ? [] : it.rooms || []).map(rm => `<tr class="room"><td>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)} · ${(Number(rm.sqft) || 0).toLocaleString()} sq ft</td><td class="r">${roomPrice(rm, it).replace(/^ · /, "")}</td></tr>`).join("") +
+            `<tr class="sub"><td>${twoLine(sub)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>`; }).join(""); }).join("")}</tbody>
       </table>
       <div class="totalrow">
         <div class="totals">
