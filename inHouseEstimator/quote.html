@@ -876,9 +876,13 @@ function render(d){
       </div>
       <table>
         <thead><tr><th>Service</th><th class="r">Amount</th></tr></thead>
-        <tbody>${(d.lines || []).map(l => `<tr class="head"><td>${brandTier(twoLine(l.label))}</td><td class="r">${money(l.cost)}</td></tr>` +
-          (l.items || []).filter(it => !it.removed).map(it => `<tr class="sub"><td>${twoLine(it.label)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>` +
-            (it.track ? [] : it.rooms || []).map(rm => `<tr class="room"><td>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)} · ${(Number(rm.sqft) || 0).toLocaleString()} sq ft</td><td class="r">${roomPrice(rm, it).replace(/^ · /, "")}</td></tr>`).join("")).join("")).join("")}</tbody>
+        <tbody>${(d.lines || []).map(l => { const its = (l.items || []).filter(it => !it.removed), svc = String(l.label || "").split(" — ")[0];
+          /* Service header is just the name (no size, no price) when lines sit under it; each line shows once, without the name repeated. */
+          return (its.length ? `<tr class="head"><td>${brandTier(esc(svc))}</td><td class="r"></td></tr>`
+            : `<tr class="head"><td>${brandTier(twoLine(l.label))}</td><td class="r">${money(l.cost)}</td></tr>`) +
+          its.map(it => { const lab = String(it.label || ""), sub = lab.startsWith(svc + " — ") ? lab.slice(svc.length + 3) : lab;
+            return `<tr class="sub"><td>${twoLine(sub)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>` +
+            (it.track ? [] : it.rooms || []).map(rm => `<tr class="room"><td>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)} · ${(Number(rm.sqft) || 0).toLocaleString()} sq ft</td><td class="r">${roomPrice(rm, it).replace(/^ · /, "")}</td></tr>`).join(""); }).join(""); }).join("")}</tbody>
       </table>
       <div class="totalrow">
         <div class="totals">
