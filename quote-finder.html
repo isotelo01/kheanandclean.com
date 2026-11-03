@@ -54,6 +54,7 @@ a{ color:var(--gold); }
 .bar i{ display:block; height:100%; width:0; background:var(--gold); transition:width .3s ease; }
 /* First screen: full screen, no letterhead (it comes back on the next screen). */
 body.first .head, body.first .bar, body.first .sqft, body.first .inv{ display:none; }
+body.rp .inv{ display:none; }   /* no price breakdown on the room-by-room photo screens */
 body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 /* Opening: thank you, we're here for you, then the question slides up to the top. */
 .intro{ position:fixed; inset:0; z-index:50; background:var(--ink); display:flex; align-items:center; justify-content:center;
@@ -473,6 +474,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(push !== false && cur) hist.push(cur);
     cur = fn;
     document.body.classList.toggle('first', fn === sProblem);
+    document.body.classList.remove('rp');
     backBtn.hidden = !hist.length; resetBtn.hidden = !hist.length;
     /* Moving between questions: the answer they tapped glows gold, the old question slides off and blurs
        out, the new one glides in from the other side (going Back reverses it). Redraws don't animate. */
@@ -1064,6 +1066,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
   function roomShots(rm){ return A.photos.filter(function(f){ return f._room === rm.id; }); }
   function pickRoom(el){
+    document.body.classList.add('rp');
     var list = photoRooms(), any = list.some(function(rm){ return roomShots(rm).length; });
     h(el, any ? 'Which room next?' : 'Which room do you want to photograph first?', 'Tap a room. Stop anytime.');
     var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
@@ -1078,6 +1081,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     window.scrollTo(0, 0);
   }
   function shootRoom(el, rm){
+    document.body.classList.add('rp');
     var shots = rm.stairs ? ['From the bottom, shoot up the stairs', 'From the top, shoot down the stairs', 'Close-ups of any stains or worn spots']
       : rm.furn ? ['The whole piece, from the front', 'The seat cushions up close', 'Close-ups of any stains or pet spots']
       : ['Stand in the doorway and shoot into the room', 'Corner 1: shoot toward the opposite corner', 'Corner 2: shoot toward the opposite corner',
