@@ -1008,7 +1008,6 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       '<li>Aim at the floor and baseboards</li><li>Use the 0.5 (wide) zoom if your phone has it</li>' +
       '<li>Add close-ups of any stains or pet spots</li>' +
       '<li>Optional: if you have one, lay a sheet of white paper in the middle of the floor. It helps us see size and color.</li></ul>' +
-      '<div class="pbtns"><button type="button" class="go ghost" id="pick" style="margin:0">Choose photos</button></div>' +
       '<input type="file" id="pickIn" accept="image/*" multiple hidden>' +
       '<div class="thumbs" id="thumbs"></div><p class="note" id="pnote"></p>');
     var thumbs = el.querySelector('#thumbs'), urls = [];
@@ -1029,7 +1028,6 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       inp.value = ''; draw();
     }
     el.querySelector('#pickIn').onchange = function(){ add(this); };
-    el.querySelector('#pick').onclick = function(){ el.querySelector('#pickIn').click(); };
     var go = goBtn(el, 'Next', function(){ if(photoRooms().length) pickRoom(el); else { A.skippedPhotos = !A.photos.length; next(); } });
     /* Happy with the estimate: no measuring photos, just a softer ask for a few so we know the job. */
     goBtn(el, 'I’m happy with the estimated square footage', function(){ photosLite(el); }, true);
