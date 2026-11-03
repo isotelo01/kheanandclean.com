@@ -313,6 +313,17 @@ a.sprow:hover,a.sprow:active{background:rgba(227,182,74,.12)}
   .sthumbs .sprow b{grid-column:1/-1}
   .sthumbs .smore{grid-column:1/-1;margin-top:0}
 }
+/* Estimates: room name + one photo, 50% bigger, no label; each row is a tappable card. */
+.sprow.est{grid-template-columns:minmax(0,1fr) 144px;gap:12px;padding:10px 12px;margin:10px 0 0;border:1px solid rgba(227,182,74,.28);border-radius:12px}
+.sprev:not(.sall) .sprow.est.srest{display:none}
+.sprow.est b{font-size:16px}
+.sprow.est .spslot{border-radius:10px}
+.sprow.est .spslot::after{display:none}
+@media (max-width:420px){ .sprow.est{grid-template-columns:minmax(0,1fr) 120px} }
+@media (min-width:760px){
+  .sthumbs a.sprow.est{grid-template-columns:1fr;margin:0}
+  .sthumbs a.sprow.est .spslot{aspect-ratio:4/3}
+}
 .summ .srow .spot{transform:none!important}
 .sumrow{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:22px}
 /* Send to customer (Summary only): the updated quote goes back for approval. */
@@ -1620,7 +1631,9 @@ async function show(){
     const slot = (p, lbl) => '<span class="spslot" data-lbl="' + lbl + '"' + (p ? ' data-sthumb="' + esc(p) + '"' : '') + '></span>';
     /* Each row is one link: tap anywhere on it (name or photos) to open that room's / piece's photos.
        More ▾ (the dropdown) sits under the rows; the price stays up in the header. */
-    const rowHtml = (r, rest) => '<a class="sprow' + (rest ? ' srest' : '') + '" href="' + esc(r.href) + '"' + (r.gal.length ? ' data-gal="' + esc(JSON.stringify(r.gal)) + '"' : '') + '><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span></b>' + slot(r.b, "Before") + slot(r.a, "After") +
+    /* Estimates: one bigger photo per room, no Before / After labels, no After box (nothing's been done yet). */
+    const est = cur && cur.place === "quotes";
+    const rowHtml = (r, rest) => '<a class="sprow' + (est ? ' est' : '') + (rest ? ' srest' : '') + '" href="' + esc(r.href) + '"' + (r.gal.length ? ' data-gal="' + esc(JSON.stringify(r.gal)) + '"' : '') + '><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span></b>' + (est ? slot(r.b || r.a, "") : slot(r.b, "Before") + slot(r.a, "After")) +
       (r.gal.length > 2 ? '<span class="sgmore">More photos (' + r.gal.length + ')</span>' : '') + '</a>';
     const prevBox = (prev.length || roomsAll.length) ? '<div class="sthumbs sprev">' + prev.map(r => rowHtml(r, false)).join("") +
       roomsAll.map(r => rowHtml(r, true)).join("") +
