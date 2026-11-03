@@ -51,6 +51,14 @@ a{ color:var(--gold); }
 .inv .tot{ border-top:1px solid var(--line); margin-top:8px; padding-top:6px; color:#fff; font-weight:700; }
 .inv .tot b{ color:var(--gold); }
 .inv .note{ font-size:.78rem; margin-top:2px; }
+/* Package line: underlined, tap to drop down every room with its sq ft. */
+.inv .drop{ cursor:pointer; }
+.inv .drop > span:first-child{ text-decoration:underline; text-underline-offset:3px; }
+.inv .drop i{ font-style:normal; display:inline-block; margin-left:4px; transition:transform .2s; }
+.inv .drop.open i{ transform:rotate(180deg); }
+.inv .rm{ padding-left:26px; font-size:.95em; }
+.inv .gold{ color:var(--gold); }
+.inv [hidden]{ display:none; }
 .bar i{ display:block; height:100%; width:0; background:var(--gold); transition:width .3s ease; }
 /* First screen: full screen, no letterhead (it comes back on the next screen). */
 body.first .head, body.first .bar, body.first .sqft, body.first .inv{ display:none; }
@@ -517,19 +525,30 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function drawInv(){
     var inv = document.getElementById('inv'), e;
     try{ e = estimate(); }catch(err){ e = null; }
+    if(!invOpen) invOpen = {};
     if(!e || !e.rows.length){ inv.hidden = true; inv.innerHTML = ''; return; }
     var h = '', ft = function(n){ return n ? n.toLocaleString() + ' sq ft' : ''; };
+    /* Package names keep their branding: gold "Deep", red script "Signature". */
+    var brand = function(t){ return esc(t).replace(/^Deep\b/, '<span class="gold">Deep</span>').replace(/^Signature\b/, '<span class="sigScript">Signature</span>'); };
     e.rows.forEach(function(r){
       var rsq = r.key === 'whole' ? A.wholeSqft : r.items.reduce(function(t, i){ return t + (i.sq || 0); }, 0);
       h += '<div class="r svc"><span>' + esc(r.name) + '</span><span>' + ft(rsq) + '</span></div>';
       r.items.forEach(function(i){
         var label = i.sq ? i.label.replace(/ — .*sq ft$/, '') : r.key === 'whole' ? 'All floors' : i.label.replace(/^Flights? of Stairs.*$/, 'Stairs');
         var right = i.sq ? ft(i.sq) : i.flights ? i.flights + (i.flights > 1 ? ' flights' : ' flight') : '';
-        h += '<div class="r it"><span>' + esc(label) + '</span><span>' + right + '</span></div>';
+        var rms = i.sq && i.rooms && i.rooms.length ? i.rooms : null, id = r.key;
+        if(!rms){ h += '<div class="r it"><span>' + esc(label) + '</span><span>' + right + '</span></div>'; return; }
+        h += '<div class="r it drop' + (invOpen[id] ? ' open' : '') + '" data-drop="' + id + '" role="button" tabindex="0" aria-expanded="' + !!invOpen[id] + '"><span>' + brand(label) + '<i>▾</i></span><span>' + right + '</span></div>';
+        rms.forEach(function(x){ h += '<div class="r rm"' + (invOpen[id] ? '' : ' hidden') + '><span>' + esc(x.t) + '</span><span>' + ft(x.sq) + '</span></div>'; });
       });
     });
     inv.innerHTML = h; inv.hidden = false;
   }
+  var invOpen = invOpen || {};
+  document.getElementById('inv').addEventListener('click', function(e){
+    var d = e.target.closest('[data-drop]'); if(!d) return;
+    invOpen[d.dataset.drop] = !invOpen[d.dataset.drop]; drawInv();
+  });
   screen.addEventListener('click', drawSqft);
   var cur = null;
   var SAVE = 'kcQuoteBuilder';
