@@ -808,6 +808,7 @@ async function open3D(host, opts = {}){
   const doorMat = new THREE.MeshStandardMaterial({ color: "#2f8cff", emissive: "#1255c4", emissiveIntensity: .5, roughness: .35, metalness: .3 });   /* all doors glowing blue */
   const doorEdge = new THREE.LineBasicMaterial({ color: "#3dff9a", transparent: true, opacity: .55 });
   const knobMat = new THREE.MeshStandardMaterial({ color: "#E3B64A", metalness: .8, roughness: .25 });
+  const DOOR_SWING = 0;   /* doors shown closed, flush in their doorways (Math.PI / 3 would stand them open into the room) */
   const frenchFrame = new THREE.MeshStandardMaterial({ color: "#2f8cff", emissive: "#1255c4", emissiveIntensity: .55, roughness: .35, metalness: .3 });
   const frenchGlass = new THREE.MeshStandardMaterial({ color: "#7cc6ff", emissive: "#2a7bff", emissiveIntensity: .35, transparent: true, opacity: .42, roughness: .05, metalness: .2 });
   const label = (r, y) => {   /* name + sq ft on a little floating card, always facing you */
@@ -893,8 +894,9 @@ async function open3D(host, opts = {}){
         if (open) return;
         const rcx0 = r.P.reduce((t, p) => t + p[0], 0) / r.P.length, rcz0 = r.P.reduce((t, p) => t + p[1], 0) / r.P.length;
         if (dbl) {   /* double door: French doors, two glass leaves glowing blue, one hinged at each side, both open into the room */
-          const lw = Math.max(.8, (gw - .2) / 2), hx = Math.cos(-ang), hz = Math.sin(-ang);
+          const lw = Math.max(.8, (gw - .2) / 2);
           [[p0, 1], [p1, -1]].forEach(([H0, dir]) => {
+            H0 = H0.clone().add(new THREE.Vector3(Math.cos(-ang) * .1 * dir, 0, Math.sin(-ang) * .1 * dir));   /* just inside the frame */
             const leaf = new THREE.Group(), x0 = dir > 0 ? 0 : -lw;
             const fr = (w, h, x, yy) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, .12), frenchFrame); m.position.set(x, yy, 0); leaf.add(m); };
             fr(lw, .18, x0 + lw / 2, DH - .19); fr(lw, .3, x0 + lw / 2, .17); fr(.16, DH - .1, x0 + .08, (DH - .1) / 2); fr(.16, DH - .1, x0 + lw - .08, (DH - .1) / 2);
@@ -903,7 +905,7 @@ async function open3D(host, opts = {}){
             fr(.05, DH - .6, x0 + lw / 2, (DH - .1) / 2 + .05);
             const tip = s2 => { const a2 = -(-ang + s2 * Math.PI / 3); return [H0.x + dir * Math.cos(a2) * lw, H0.z + dir * Math.sin(a2) * lw]; };
             const sw2 = [-1, 1].sort((u, v) => { const A = tip(u), B = tip(v); return Math.hypot(A[0] - rcx0, A[1] - rcz0) - Math.hypot(B[0] - rcx0, B[1] - rcz0); })[0];
-            leaf.position.set(H0.x, y + .02, H0.z); leaf.rotation.y = -ang + sw2 * dir * Math.PI / 3; scene.add(leaf); });
+            leaf.position.set(H0.x, y + .02, H0.z); leaf.rotation.y = -ang + sw2 * dir * DOOR_SWING; scene.add(leaf); });
           return; }
         const dw = Math.max(1, gw - .2), door = new THREE.Group();
         const panel = new THREE.Mesh(new THREE.BoxGeometry(dw, DH - .1, .14), doorMat); panel.position.set(dw / 2, (DH - .1) / 2, 0); door.add(panel);
@@ -914,7 +916,7 @@ async function open3D(host, opts = {}){
         const rcx = r.P.reduce((t, p) => t + p[0], 0) / r.P.length, rcz = r.P.reduce((t, p) => t + p[1], 0) / r.P.length;
         const tip = s => { const a2 = -(-ang + s * Math.PI / 2.6); return [p0.x + Math.cos(a2) * dw, p0.z + Math.sin(a2) * dw]; };
         const sw = [-1, 1].sort((u, v) => { const A = tip(u), B = tip(v); return Math.hypot(A[0] - rcx, A[1] - rcz) - Math.hypot(B[0] - rcx, B[1] - rcz); })[0];
-        door.position.set(p0.x, y + .02, p0.z); door.rotation.y = -ang + sw * Math.PI / 2.6; scene.add(door); }); });
+        door.position.set(p0.x + Math.cos(-ang) * .1, y + .02, p0.z + Math.sin(-ang) * .1); door.rotation.y = -ang + sw * DOOR_SWING; scene.add(door); }); });
     if (!opts.mini) { scene.add(label(r, y)); if (r.box) dimLines(r, y); }   /* the small Summary preview: no labels or measurements */
   });
   applyFloors();
