@@ -93,7 +93,7 @@ tr.sub td{padding-left:22px;font-size:14px;color:var(--muted)}
   .meta > div:first-child{grid-column:1;grid-row:1;min-width:0}
   .meta .r{grid-column:1;grid-row:2;align-self:start}
   .mascot{display:contents}
-  .mascot img{grid-column:2;grid-row:1 / span 2;width:100%;max-width:225px;height:auto;align-self:start;justify-self:end;margin-top:-10px;margin-right:-6px;transform:translate(-75px,-78px);margin-bottom:-78px;position:relative;z-index:1}   /* up and left: his left foot stands on the Accepted pill */
+  .mascot img{grid-column:2;grid-row:1 / span 2;width:100%;max-width:225px;height:auto;align-self:start;justify-self:end;margin-top:-10px;margin-right:-6px;transform:translate(var(--mx,-75px),-78px);margin-bottom:-78px;position:relative;z-index:1}   /* up and left: his left foot stands on the Accepted pill */
   .adl{white-space:nowrap}
   .meta.nomascot .mascot img{display:none}
   .meta.nomascot{grid-template-columns:minmax(0,1fr)}   /* street on one line, city/state/zip on one line; the mascot gives up the room */
@@ -1061,7 +1061,17 @@ function render(d){
   const fitMascot = () => { const m = sheet.querySelector(".meta"); if (!m) return;
     m.classList.remove("nomascot");
     const over = [...m.querySelectorAll(".adl")].some(a => a.getBoundingClientRect().right > m.getBoundingClientRect().right - 90);
-    if (matchMedia("(max-width:560px)").matches && over) m.classList.add("nomascot"); };
+    if (matchMedia("(max-width:560px)").matches && over) m.classList.add("nomascot");
+    /* He slides left (up to 75px) toward the Accepted pill, but stops at the end of the longest
+       name / address line, so a long city, state and zip never sits under him. */
+    const img = m.querySelector(".mascot img"), box = m.querySelector(":scope > div:first-child");
+    if (!img || !box || m.classList.contains("nomascot") || !matchMedia("(max-width:560px)").matches) return;
+    img.style.setProperty("--mx", "0px");
+    const rg = document.createRange();
+    const textRight = Math.max(0, ...[...box.querySelectorAll("*")].filter(el => !el.children.length && el.textContent.trim())
+      .map(el => { rg.selectNodeContents(el); return rg.getBoundingClientRect().right; }));
+    const mx = Math.max(-75, Math.min(0, Math.round(textRight + 4 - img.getBoundingClientRect().left)));
+    img.style.setProperty("--mx", mx + "px"); };
   fitMascot(); addEventListener("resize", fitMascot);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMascot);
 
