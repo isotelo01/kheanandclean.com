@@ -156,6 +156,7 @@ if (PERSONAL) document.documentElement.classList.add("personal");
 const withAcct = fn => PERSONAL ? (d => fn({ ...d, acct: ACCT })) : fn;
 const mailList = withAcct(httpsCallable(fns, "mailList")), mailRead = withAcct(httpsCallable(fns, "mailRead"));
 const mailMove = withAcct(httpsCallable(fns, "mailMove")), mailSend = httpsCallable(fns, "mailSend");
+const mailAttachment = withAcct(httpsCallable(fns, "mailAttachment"));
 const mailWith = httpsCallable(fns, "mailWith");
 const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailSpam = httpsCallable(fns, "mailSpam", {timeout: 130000});
 const storage = getStorage(app);
@@ -400,8 +401,8 @@ async function showMessage(f, uid) {
         : '<button type="button" class="ghost danger" id="moveBtn" data-to="Trash">Delete</button>') + '</div>' +
     (m.html ? '<iframe class="body" id="mbody" title="Email" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"></iframe>'
       : '<div class="plain">' + esc(m.text || "(empty)") + '</div>') +
-    (m.attachments && m.attachments.length ? '<div class="att">Attachments (open in ' + (PERSONAL ? ACCT_NAME : 'Zoho') + ' to download): ' +
-      esc(m.attachments.map(a => a.name).join(", ")) + '</div>' : '') +
+    (m.attachments && m.attachments.length ? '<div class="att">Attachments: ' +
+      m.attachments.map((a, i) => '<button type="button" class="ghost attBtn" data-i="' + i + '">' + esc(a.name) + '</button>').join(" ") + '</div>' : '') +
     '<p class="msg err" id="mErr" role="alert"></p></div>';
   const fr = document.getElementById("mbody");
   if (fr) {
@@ -413,6 +414,30 @@ async function showMessage(f, uid) {
       try { fr.style.height = Math.min(Math.max(fr.contentDocument.documentElement.scrollHeight + 20, 300), 6000) + "px"; } catch (e) { /* keep default */ }
     });
   }
+  /* Attachments open full-screen right here: pictures and PDFs show; anything else gets Download. */
+  document.querySelectorAll(".attBtn").forEach(b => b.addEventListener("click", async () => {
+    const er = document.getElementById("mErr"), label = b.textContent;
+    er.textContent = ""; b.disabled = true; b.textContent = "Opening…";
+    try {
+      const r = (await mailAttachment({folder: f, uid, index: Number(b.dataset.i)})).data;
+      const bin = atob(r.data), u8 = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+      const url = URL.createObjectURL(new Blob([u8], {type: r.type}));
+      const img = /^image\//.test(r.type), pdf = r.type === "application/pdf";
+      const ov = document.createElement("div");
+      ov.style.cssText = "position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.88);display:flex;flex-direction:column";
+      ov.innerHTML = '<div style="display:flex;gap:8px;justify-content:flex-end;padding:10px">' +
+        '<a class="ghost" download="' + esc(r.name) + '" href="' + url + '">Download</a>' +
+        '<button type="button" class="ghost" id="attX">Close</button></div>' +
+        (img ? '<img alt="' + esc(r.name) + '" src="' + url + '" style="max-width:100%;max-height:calc(100% - 64px);margin:auto;object-fit:contain">'
+          : pdf ? '<iframe title="' + esc(r.name) + '" src="' + url + '" style="flex:1;border:0;background:#fff"></iframe>'
+          : '<p style="color:#fff;text-align:center;margin:auto;padding:16px">Can\'t preview ' + esc(r.name) + ' here. Tap Download.</p>');
+      document.body.appendChild(ov);
+      ov.querySelector("#attX").addEventListener("click", () => { ov.remove(); URL.revokeObjectURL(url); });
+    }
+    catch (err) { er.textContent = friendly(err); }
+    finally { b.disabled = false; b.textContent = label; }
+  }));
   /* AI Response: drafts a reply and opens it in Reply to edit. Nothing is sent until you press Send. */
   document.getElementById("aiBtn")?.addEventListener("click", async e => {
     const b = e.currentTarget, er = document.getElementById("mErr");
