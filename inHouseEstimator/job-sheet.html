@@ -823,7 +823,8 @@ async function open3D(host, opts = {}){
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
     const rx = r.P.map(p => p[0]), rz = r.P.map(p => p[1]), w = Math.max(...rx) - Math.min(...rx);
     const sw = Math.max(5, Math.min(13, w * .65)); sp.scale.set(sw, sw * H2 / W2, 1);
-    sp.position.set((Math.min(...rx) + Math.max(...rx)) / 2, y + H + .5, (Math.min(...rz) + Math.max(...rz)) / 2); sp.renderOrder = 11; return sp; };
+    const nameH = Math.max(6, Math.min(16, w * .8)) * 160 / 512;   /* sits just under the name card, not on it */
+    sp.position.set((Math.min(...rx) + Math.max(...rx)) / 2, y + H + 2.2 - nameH / 2 - sw * H2 / W2 / 2 - .3, (Math.min(...rz) + Math.max(...rz)) / 2); sp.renderOrder = 11; return sp; };
   data.forEach(r => {
     const y = lvl(r.story);
     /* floor */
