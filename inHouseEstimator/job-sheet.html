@@ -325,7 +325,7 @@ body.summ .fpwrap.hero3d .fph{font-size:18px}
 .fpovtop .fpmode button.on{background:linear-gradient(180deg,#f2d27a,#c9962b);color:#0b0f17}
 .fp3d{flex:1;position:relative;min-height:0;margin:0 12px;border-radius:14px;overflow:hidden;border:1px solid rgba(227,182,74,.3);box-shadow:inset 0 0 60px rgba(227,182,74,.06)}
 .fp3d canvas{display:block;width:100%;height:100%;touch-action:none}
-.fpmini{height:160px;border-radius:10px;overflow:hidden;pointer-events:none}
+.fpmini{height:240px;border-radius:10px;overflow:hidden;pointer-events:none}
 .fpmini canvas{display:block;width:100%;height:100%}
 .fptap.has3d .fpsvg{display:none}
 .fp3dhint{position:absolute;left:50%;bottom:14px;translate:-50% 0;z-index:1;pointer-events:none;font:600 13px "Archivo",system-ui,sans-serif;color:#fff;
@@ -694,6 +694,7 @@ let fpZoom = 1, fp3 = null;
 document.addEventListener("click", e => {
   if (e.target.closest(".fptap") && window.kcFloorPlanBig) {
     document.body.insertAdjacentHTML("beforeend", window.kcFloorPlanBig); fpZoom = 1;
+    try { history.pushState({ kcfp: 1 }, ""); } catch (er) {}   /* swiping back closes the plan, not the estimate */
     const ov = document.body.lastElementChild;
     fp3 = null; open3D(ov.querySelector(".fp3d")).then(v => { if (document.body.contains(ov)) fp3 = v; else v && v.dispose(); })
       .catch(err => { console.error("3D view", err); ov.querySelector('[data-fpm="flat"]').click(); ov.querySelector('[data-fpm="3d"]').hidden = true; });
@@ -712,8 +713,10 @@ document.addEventListener("click", e => {
   if (z) { if (!ov.querySelector(".fp3d").hidden && fp3) { fp3.zoom(Number(z.dataset.fpz)); return; }
     fpZoom = Math.max(1, Math.min(4, fpZoom + Number(z.dataset.fpz) * .75));
     ov.querySelectorAll(".fpbig").forEach(s => { s.style.width = (fpZoom * 100) + "%"; s.style.maxHeight = fpZoom > 1 ? "none" : ""; }); return; }
-  if (e.target.closest("[data-fpx]")) { if (fp3) fp3.dispose(); fp3 = null; ov.remove(); }
+  if (e.target.closest("[data-fpx]")) { if (history.state && history.state.kcfp) history.back(); else closeFP(); }
 });
+function closeFP(){ const ov = document.querySelector(".fpov"); if (!ov) return; if (fp3) fp3.dispose(); fp3 = null; ov.remove(); }
+addEventListener("popstate", () => closeFP());
 /* ===== 3D floor plan (three.js, loaded only when the plan is opened) =====
    Floors in their floor-type color, 8 ft walls with the doors and openings left open, glowing gold
    wall edges, each room's name and sq ft floating over it. Drag to turn, pinch / scroll to zoom. */
@@ -801,6 +804,10 @@ async function open3D(host, opts = {}){
   const grid = new THREE.GridHelper(span * 3, Math.round(span * 3 / 2), "#1d3354", "#101b2e"); grid.position.set(cx, -0.05, cz); scene.add(grid);
   const gold = new THREE.LineBasicMaterial({ color: "#3dff9a" });   /* wall edges: glowing green (gold everywhere else in the app) */
   const wallMat = new THREE.MeshStandardMaterial({ color: "#1b2438", roughness: .6, metalness: .1, transparent: true, opacity: .72 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: "#2a3a52", roughness: .5 });
+  const doorMat = new THREE.MeshStandardMaterial({ color: "#7a5230", roughness: .55 });   /* wood door */
+  const doorEdge = new THREE.LineBasicMaterial({ color: "#3dff9a", transparent: true, opacity: .55 });
+  const knobMat = new THREE.MeshStandardMaterial({ color: "#E3B64A", metalness: .8, roughness: .25 });
   const label = (r, y) => {   /* name + sq ft on a little floating card, always facing you */
     const cv = document.createElement("canvas"), g = cv.getContext("2d"), W2 = 512, H2 = 160; cv.width = W2; cv.height = H2;
     g.fillStyle = "rgba(8,12,20,.78)"; g.strokeStyle = "rgba(227,182,74,.85)"; g.lineWidth = 4;
@@ -862,7 +869,7 @@ async function open3D(host, opts = {}){
     floors[r.color].photos.push(...(r.photo || []));
     /* walls, leaving gaps for doors and openings */
     r.P.forEach((a, k) => { const b = r.P[(k + 1) % r.P.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < .05) return;
-      const gaps = r.doors.filter(d => d[0] === k).map(d => [d[1], d[2]]).sort((p, q) => p[0] - q[0]);
+      const gaps = r.doors.filter(d => d[0] === k).map(d => [d[1], d[2], d[3]]).sort((p, q) => p[0] - q[0]);
       const pieces = []; let t = 0; gaps.forEach(([g0, g1]) => { if (g0 > t) pieces.push([t, g0]); t = Math.max(t, g1); }); if (t < 1) pieces.push([t, 1]);
       const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
       pieces.forEach(([t0, t1]) => { const L = (t1 - t0) * len; if (L < .05) return;
@@ -870,9 +877,24 @@ async function open3D(host, opts = {}){
         const geo = new THREE.BoxGeometry(L, H, T), m = new THREE.Mesh(geo, wallMat);
         m.position.set(mx, y + H / 2, mz); m.rotation.y = -ang; scene.add(m);
         const ed = new THREE.LineSegments(new THREE.EdgesGeometry(geo), gold); ed.position.copy(m.position); ed.rotation.copy(m.rotation); scene.add(ed); });
-      gaps.forEach(([g0, g1]) => {   /* a light blue threshold line where the door is */
+      gaps.forEach(([g0, g1, open]) => {   /* a light blue threshold line where the door is */
         const p0 = new THREE.Vector3(a[0] + (b[0] - a[0]) * g0, y + .06, a[1] + (b[1] - a[1]) * g0), p1 = new THREE.Vector3(a[0] + (b[0] - a[0]) * g1, y + .06, a[1] + (b[1] - a[1]) * g1);
-        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p0, p1]), new THREE.LineBasicMaterial({ color: "#9fb3d1" }))); }); });
+        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p0, p1]), new THREE.LineBasicMaterial({ color: "#9fb3d1" })));
+        /* Doorways: the wall carries on above the opening (header), a frame on both sides, and on real doors
+           (not open entryways) a wood door standing partly open on its hinge. */
+        const gw = (g1 - g0) * len, DH = Math.min(6.8, H - .4), mx = (p0.x + p1.x) / 2, mz = (p0.z + p1.z) / 2;
+        const hd = new THREE.BoxGeometry(gw, H - DH, T), hm = new THREE.Mesh(hd, wallMat);
+        hm.position.set(mx, y + DH + (H - DH) / 2, mz); hm.rotation.y = -ang; scene.add(hm);
+        const he = new THREE.LineSegments(new THREE.EdgesGeometry(hd), gold); he.position.copy(hm.position); he.rotation.copy(hm.rotation); scene.add(he);
+        [p0, p1].forEach(P => { const jb = new THREE.Mesh(new THREE.BoxGeometry(.18, DH, T + .08), frameMat);
+          jb.position.set(P.x, y + DH / 2, P.z); jb.rotation.y = -ang; scene.add(jb); });
+        if (open) return;
+        const dw = Math.max(1, gw - .2), door = new THREE.Group();
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(dw, DH - .1, .14), doorMat); panel.position.set(dw / 2, (DH - .1) / 2, 0); door.add(panel);
+        const pe = new THREE.LineSegments(new THREE.EdgesGeometry(panel.geometry), doorEdge); pe.position.copy(panel.position); door.add(pe);
+        const knob = new THREE.Mesh(new THREE.SphereGeometry(.09, 12, 8), knobMat); knob.position.set(dw - .3, 3, .12); door.add(knob);
+        const k2 = knob.clone(); k2.position.z = -.12; door.add(k2);
+        door.position.set(p0.x, y + .02, p0.z); door.rotation.y = -ang - Math.PI / 2.6; scene.add(door); }); });
     if (!opts.mini) { scene.add(label(r, y)); if (r.box) dimLines(r, y); }   /* the small Summary preview: no labels or measurements */
   });
   applyFloors();
@@ -889,7 +911,7 @@ async function open3D(host, opts = {}){
   const home = camera.position.clone().sub(controls.target), homeLen = home.length();
   const fitView = () => { if (touched) return; const a = camera.aspect, v = 42 * Math.PI / 180;
     const hf = 2 * Math.atan(Math.tan(v / 2) * a), need = span * .58 / Math.sin(Math.min(v, hf) / 2);
-    const d = opts.mini ? need * .68 : a < 1 ? Math.max(homeLen, need) : homeLen;   /* the small preview: just far enough that the whole model fits */
+    const d = opts.mini ? need * .82 : a < 1 ? Math.max(homeLen, need) : homeLen;   /* the small preview: just far enough that the whole model fits */
     camera.position.copy(controls.target).add(home.clone().setLength(d)); };
   const resize = () => { const w = host.clientWidth || 300, h = host.clientHeight || 300; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); fitView(); };
   const ro = new ResizeObserver(resize); ro.observe(host); resize();
