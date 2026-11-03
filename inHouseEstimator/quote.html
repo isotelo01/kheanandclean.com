@@ -32,7 +32,8 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 .idblock.nologo{width:100%;justify-content:center}
 .idblock.nologo>div{flex:1;text-align:center}
 /* Room rows: name, then sq ft and price each lined up in their own column. */
-.rgrid{display:grid;grid-template-columns:minmax(0,1fr) 84px 72px;column-gap:10px}
+.rgrid{display:grid;grid-template-columns:minmax(0,1fr) 76px 68px;column-gap:8px;padding-right:84px}   /* spans the row; stops short of Amount */
+.rgrid>span:first-child{white-space:nowrap}
 .rgrid>span:nth-child(n+2){text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .legal{font-size:13px;color:var(--gold);letter-spacing:.04em;text-transform:uppercase;margin-top:5px}
 .contact{font-size:14px;color:#c9d0de;margin-top:6px}
@@ -893,7 +894,7 @@ function render(d){
             : `<tr class="head"><td>${brandTier(twoLine(l.label))}</td><td class="r">${money(l.cost)}</td></tr>`) +
           its.map(it => { const lab = String(it.label || ""), sub = lab.startsWith(svc + " — ") ? lab.slice(svc.length + 3) : lab;
             /* Rooms first, then the sq ft line under them like a subtotal. Room prices sit on the left (not in Amount) so the Amount column adds up to the subtotal. */
-            return (it.track ? [] : it.rooms || []).map(rm => `<tr class="room"><td><span class="rgrid"><span>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)}</span><span>${(Number(rm.sqft) || 0).toLocaleString()} sq ft</span><span>${roomPrice(rm, it).replace(/^ · /, "")}</span></span></td><td class="r"></td></tr>`).join("") +
+            return (it.track ? [] : it.rooms || []).map(rm => `<tr class="room"><td colspan="2"><span class="rgrid"><span>${esc(rm.qty > 1 ? rm.name + " \u00d7 " + rm.qty : rm.name)}</span><span>${(Number(rm.sqft) || 0).toLocaleString()} sq ft</span><span>${roomPrice(rm, it).replace(/^ · /, "")}</span></span></td></tr>`).join("") +
             `<tr class="sub"><td>${twoLine(sub)}</td><td class="r">${it.included ? "Included" : money(it.cost)}</td></tr>`; }).join(""); }).join("")}</tbody>
       </table>
       <div class="totalrow">
