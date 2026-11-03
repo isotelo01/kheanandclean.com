@@ -894,7 +894,11 @@ async function open3D(host, opts = {}){
         const pe = new THREE.LineSegments(new THREE.EdgesGeometry(panel.geometry), doorEdge); pe.position.copy(panel.position); door.add(pe);
         const knob = new THREE.Mesh(new THREE.SphereGeometry(.09, 12, 8), knobMat); knob.position.set(dw - .3, 3, .12); door.add(knob);
         const k2 = knob.clone(); k2.position.z = -.12; door.add(k2);
-        door.position.set(p0.x, y + .02, p0.z); door.rotation.y = -ang - Math.PI / 2.6; scene.add(door); }); });
+        /* swing into this room: pick the side whose door edge lands closer to the room's middle */
+        const rcx = r.P.reduce((t, p) => t + p[0], 0) / r.P.length, rcz = r.P.reduce((t, p) => t + p[1], 0) / r.P.length;
+        const tip = s => { const a2 = -(-ang + s * Math.PI / 2.6); return [p0.x + Math.cos(a2) * dw, p0.z + Math.sin(a2) * dw]; };
+        const sw = [-1, 1].sort((u, v) => { const A = tip(u), B = tip(v); return Math.hypot(A[0] - rcx, A[1] - rcz) - Math.hypot(B[0] - rcx, B[1] - rcz); })[0];
+        door.position.set(p0.x, y + .02, p0.z); door.rotation.y = -ang + sw * Math.PI / 2.6; scene.add(door); }); });
     if (!opts.mini) { scene.add(label(r, y)); if (r.box) dimLines(r, y); }   /* the small Summary preview: no labels or measurements */
   });
   applyFloors();
