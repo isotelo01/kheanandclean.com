@@ -105,6 +105,15 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 .tx .g-stone{ grid-template-columns:repeat(3,22px); } .tx .g-stone span{ height:20px; border-radius:7px 3px 8px 4px; } .tx .g-stone span:nth-child(even){ border-radius:3px 8px 4px 9px; }
 .tx .g-upholstery{ grid-template-columns:12px 44px 12px; align-items:end; } .tx .g-upholstery span{ height:30px; border-radius:6px; } .tx .g-upholstery span:nth-child(2){ height:22px; }
 .back{ background:none; border:0; color:var(--muted); font:500 .9rem "Archivo",sans-serif; padding:6px 0; margin:0 0 10px; cursor:pointer; }
+.navrow{ display:flex; justify-content:space-between; align-items:center; }
+.reset{ background:none; border:1px solid rgba(227,182,74,.45); border-radius:999px; color:var(--muted); font:500 .85rem "Archivo",sans-serif; padding:5px 12px; margin:0 0 10px auto; cursor:pointer; }
+.reset[hidden]{ display:none; }
+.rsask{ position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.72); display:flex; align-items:center; justify-content:center; padding:20px; }
+.rsask > div{ background:#111; border:1px solid rgba(227,182,74,.5); border-radius:16px; padding:22px 20px; max-width:340px; width:100%; text-align:center; }
+.rsask p{ margin:0 0 16px; font:600 1.1rem "Archivo",sans-serif; color:#fff; }
+.rsask button{ font:600 1rem "Archivo",sans-serif; border-radius:999px; padding:11px 20px; margin:0 5px; cursor:pointer; }
+.rsask .no{ background:none; color:#fff; border:1px solid rgba(255,255,255,.35); }
+.rsask .yes{ background:var(--gold, #E3B64A); color:#111; border:0; }
 :where(button,a,input,select):focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 /* Photos */
 .tips{ margin:0 0 16px; padding-left:20px; color:var(--muted); }
@@ -160,7 +169,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   </header>
   <div class="bar" aria-hidden="true"><i id="bar"></i></div>
   <p class="sqft" id="sqft" hidden></p>
-  <button type="button" class="back" id="back" hidden>&larr; Back</button>
+  <div class="navrow"><button type="button" class="back" id="back" hidden>&larr; Back</button>
+    <button type="button" class="reset" id="resetBtn" hidden>&#8634; Reset</button></div>
   <main id="screen" aria-live="polite"></main>
 </div>
 
@@ -331,7 +341,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(push !== false && cur) hist.push(cur);
     cur = fn;
     document.body.classList.toggle('first', fn === sProblem);
-    backBtn.hidden = !hist.length;
+    backBtn.hidden = !hist.length; resetBtn.hidden = !hist.length;
     screen.innerHTML = '';
     var el = document.createElement('section'); el.className = 'step';
     screen.appendChild(el);
@@ -428,6 +438,19 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     }).catch(function(){});
   }
   backBtn.onclick = function(){ if(hist.length) show(hist.pop(), false); };
+  /* Reset: asks first, then clears every answer and photo saved on this phone and starts the quote over. */
+  var resetBtn = document.getElementById('resetBtn');
+  resetBtn.onclick = function(){
+    var box = document.createElement('div'); box.className = 'rsask';
+    box.innerHTML = '<div role="dialog" aria-modal="true"><p>Do you want to restart the quote?</p>' +
+      '<button type="button" class="no">No</button><button type="button" class="yes">Yes, start over</button></div>';
+    document.body.appendChild(box);
+    box.onclick = function(e){
+      if(e.target.closest('.yes')){
+        try{ localStorage.removeItem(SAVE); }catch(err){}
+        dropPhotos(); location.reload(); return; }
+      if(e.target.closest('.no') || e.target === box) box.remove(); };
+  };
 
   /* The order of screens, worked out from the answers so far. */
   function FLOW(){
@@ -975,7 +998,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
 
   var textedQuote = false;
   function sDone(el, booked){
-    bar.style.width = '100%'; backBtn.hidden = true; hist = [];
+    bar.style.width = '100%'; backBtn.hidden = true; resetBtn.hidden = true; hist = [];
     el.className = 'step done';
     el.innerHTML = '<div class="big">✓</div><h1>Got it, thank you!</h1>' +
       '<p class="lead">' + (textedQuote ? 'We’re texting you your estimate now. You can approve it and pick a day right from the link.'
