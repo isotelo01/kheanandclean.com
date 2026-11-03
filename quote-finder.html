@@ -433,8 +433,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var sqft = 0, flat = 0;
     P.ROOM_TYPES.forEach(function(rt){ var q = x.rooms[rt.key] || 0; if(rt.flat != null) flat += q * rt.flat; else sqft += q * rt.sqft; });
     var rate = k === 'carpet' ? s.tiers[x.tier || 'essential'].sqft : s.rate;
-    if(sqft > 0) out.push({ label: (k === 'carpet' ? s.tiers[x.tier].name : s.name) + ' — Est. ' + sqft.toLocaleString() + ' sq ft', cost: sqft * rate, rooms: roomLines(k, rate) });
-    if(flat > 0) out.push({ label: (x.rooms.stairs >= 2 ? 'Flights of Stairs × ' + x.rooms.stairs : 'Flight of Stairs'), cost: flat });
+    if(sqft > 0) out.push({ label: (k === 'carpet' ? s.tiers[x.tier].name : s.name) + ' — Est. ' + sqft.toLocaleString() + ' sq ft', cost: sqft * rate, rooms: roomLines(k, rate), sq: sqft });
+    if(flat > 0) out.push({ label: (x.rooms.stairs >= 2 ? 'Flights of Stairs × ' + x.rooms.stairs : 'Flight of Stairs'), cost: flat, flights: x.rooms.stairs || 1 });
     Object.keys(s.addons || {}).forEach(function(a){
       var d = s.addons[a], o = x.addons[a];
       if(a === 'stairs') return;
@@ -513,18 +513,21 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     box.innerHTML = total ? (parts.length > 1 ? esc(parts.join(' · ')) + '<br>' : '') + 'Est. <b>' + total.toLocaleString() + ' sq ft</b>' : '';
     drawInv();
   }
-  /* Full price breakdown at the top, same numbers as the final estimate. */
+  /* Breakdown at the top: square feet on the right (no prices). Stairs show a count; rugs and extras just their name. */
   function drawInv(){
     var inv = document.getElementById('inv'), e;
     try{ e = estimate(); }catch(err){ e = null; }
     if(!e || !e.rows.length){ inv.hidden = true; inv.innerHTML = ''; return; }
-    var h = '';
+    var h = '', ft = function(n){ return n ? n.toLocaleString() + ' sq ft' : ''; };
     e.rows.forEach(function(r){
-      h += '<div class="r svc"><span>' + esc(r.name) + '</span><span>' + money(r.cost) + '</span></div>';
-      r.items.forEach(function(i){ h += '<div class="r it"><span>' + esc(i.label) + '</span><span>' + (i.included ? 'Included' : money(i.cost)) + '</span></div>'; });
+      var rsq = r.key === 'whole' ? A.wholeSqft : r.items.reduce(function(t, i){ return t + (i.sq || 0); }, 0);
+      h += '<div class="r svc"><span>' + esc(r.name) + '</span><span>' + ft(rsq) + '</span></div>';
+      r.items.forEach(function(i){
+        var label = i.sq ? i.label.replace(/ — .*sq ft$/, '') : r.key === 'whole' ? 'All floors' : i.label.replace(/^Flights? of Stairs.*$/, 'Stairs');
+        var right = i.sq ? ft(i.sq) : i.flights ? i.flights + (i.flights > 1 ? ' flights' : ' flight') : '';
+        h += '<div class="r it"><span>' + esc(label) + '</span><span>' + right + '</span></div>';
+      });
     });
-    h += '<div class="r tot"><span>Est. total</span><b>' + money(e.total) + '</b></div>';
-    if(e.total > e.sum) h += '<div class="note">Includes our ' + money(e.min) + ' minimum (subtotal ' + money(e.sum) + ')</div>';
     inv.innerHTML = h; inv.hidden = false;
   }
   screen.addEventListener('click', drawSqft);
@@ -894,21 +897,21 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function sMatters(el){
     h(el, 'What matters most to you?', 'We’ll match you with the right package.');
     var T = S.carpet.tiers;
-    /* Quick Dry is the base price; the higher packages show their estimated extra cost. */
+    /* Deep is the base and picked by default; the others show their estimated difference (+ or −). High to low. */
     var keep = A.tier, tot = {};
-    ['quickdry','deep','signature'].forEach(function(t){ A.tier = t; tot[t] = estimate().total; });
+    ['signature','deep','quickdry','essential'].forEach(function(t){ A.tier = t; tot[t] = estimate().total; });
     A.tier = keep;
-    var up = function(t){ var d = tot[t] - tot.quickdry; return d > 0 ? ' · est. +' + money(d) : ''; };
+    var up = function(t){ var d = Math.round(tot[t] - tot.deep); return d > 0 ? ' · est. +' + money(d) : d < 0 ? ' · est. −' + money(-d) : ''; };
     choices(el, [
-      { v:'quickdry', t:'Dry fast', s:T.quickdry.name + ', our fastest-drying clean' },
-      { v:'deep', t:'<span style="color:var(--gold)">Deep</span> Cleaning', s:'We get what your vacuum can’t' + up('deep') },
       { v:'signature', t:'Keep it clean longer', s:T.signature.name.replace('Signature', '<span class="sigScript">Signature</span>') + ', with deodorizer and stain protector' + up('signature') },
-      { v:'essential', t:T.essential.name, s:'The best price · a solid hot water clean for carpet that’s in good shape' }
-    ], function(v){ A.tier = v; A.matters = v; }, A.tier);
+      { v:'deep', t:'<span style="color:var(--gold)">Deep</span> Cleaning', s:'We get what your vacuum can’t' },
+      { v:'quickdry', t:'Dry fast', s:T.quickdry.name + ', our fastest-drying clean' + up('quickdry') },
+      { v:'essential', t:T.essential.name, s:'The best price · a solid hot water clean for carpet that’s in good shape' + up('essential') }
+    ], function(v){ A.tier = v; A.matters = v; }, A.tier || 'deep');
     /* Tapping a package picks it and moves on (as before). Each box also has a "More info" button on its
        right that pops up that package's home-page card, with an X and "Choose this". */
     [].forEach.call(el.querySelectorAll('.opts .opt'), function(b, i){
-      var v = ['quickdry', 'deep', 'signature', 'essential'][i];
+      var v = ['signature', 'deep', 'quickdry', 'essential'][i];
       var mi = document.createElement('span'); mi.className = 'optinfo'; mi.setAttribute('role', 'button'); mi.tabIndex = 0;
       mi.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>More info';
       var open = function(e){ e.stopPropagation(); e.preventDefault();
