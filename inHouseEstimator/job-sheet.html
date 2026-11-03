@@ -751,7 +751,7 @@ async function open3D(host){
     for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2], .299 * d[i] + .587 * d[i + 1] + .114 * d[i + 2]]);
     px.sort((x, y) => x[3] - y[3]);
     const med = arr => [0, 1, 2].map(k => arr.map(p => p[k]).sort((x, y) => x - y)[arr.length >> 1]);   /* a real pixel value, not a blend */
-    const field = med(px.slice(Math.round(px.length * .05), Math.round(px.length * .45)));
+    const field = med(px.slice(Math.round(px.length * .03), Math.round(px.length * .25)));
     const line = med(px.slice(Math.round(px.length * .9), Math.round(px.length * .98)));
     const C = 512, R = C / (2 * Math.sqrt(3)) * 1, cv = document.createElement("canvas"); cv.width = C; cv.height = Math.round(R * 3 * 2);
     const g = cv.getContext("2d"); g.fillStyle = "rgb(" + field + ")"; g.fillRect(0, 0, cv.width, cv.height);
