@@ -57,13 +57,14 @@
        of the photo. Pinned to the screen so they land in the same spots every time. */
     '.bcam.ios .bbar{position:relative;flex:none;box-sizing:border-box;width:calc(env(safe-area-inset-right) + 136px);flex-direction:column;justify-content:space-between;align-items:center;gap:16px}.bcam.ios .bleft{justify-content:center}.bcam.ios .bfwd{right:12px}' +
     /* 0.5 in the top right corner of the screen; light just left of it, both in the black column, clear of the
-       picture. The column starts lower so the count sits under them. */
+       picture: light against the photo's edge, away from 0.5. The column starts lower so the count sits under them. */
     '.bcam.ios .bbar{padding-top:calc(env(safe-area-inset-top) + 68px)}' +
-    '.bcam.ios .blight{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 80px)}' +
+    '.bcam.ios .blight{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 88px)}' +
     '.bcam.ios .btop{position:fixed;z-index:3;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 12px);display:flex}' +
     '.bcam.ios .btop .bzoom{box-sizing:border-box;width:60px;height:44px;padding:0}' +
     '.bcam.ios .bleft{order:1}.bcam.ios .bshut{order:2}.bcam.ios .bdone{order:3}' +
-    '.bcam.ios .btip{position:fixed;top:auto;left:auto;right:calc(env(safe-area-inset-right) + 148px);bottom:calc(env(safe-area-inset-bottom) + 12px);max-width:calc(100% - 172px)}' +
+    /* Label in the top left corner of the screen (may overlap the photo). */
+    '.bcam.ios .btip{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:calc(env(safe-area-inset-left) + 12px);right:auto;bottom:auto;max-width:calc(100% - 172px)}' +
     '.bcam.andr .btop{order:1}.bcam.andr .bshut{order:2}.bcam.andr .bleft{order:3;justify-content:center}.bcam.andr .bdone{order:4}}';
 
   window.burstCam = function(opts){
