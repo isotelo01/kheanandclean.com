@@ -1172,8 +1172,33 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     goBtn(el, any ? 'I’m done with photos' : 'Skip photos', function(){ A.skippedPhotos = !A.photos.length; next(); }, !any).classList.add('stick');
     window.scrollTo(0, 0);
   }
-  function shootRoom(el, rm){
+  /* Before a room's photos: which floor it's on (two-story homes only), then camera or library. */
+  var FLOORS = { '1':'First floor', '2':'Second floor' };
+  function roomAsk(el, title, lead, list){
+    h(el, title, lead);
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    list.forEach(function(o){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+      b.innerHTML = '<span>' + o.t + '</span>'; b.onclick = o.go; box.appendChild(b);
+    });
+    goBtn(el, 'Back to rooms', function(){ pickRoom(el); }, true);
+    window.scrollTo(0, 0);
+  }
+  function shootRoom(el, rm, how){
     document.body.classList.add('rp');
+    if(!A.roomFloor) A.roomFloor = {};
+    var room = !rm.furn && !rm.stairs;
+    if(room && A.story === '2' && !A.roomFloor[rm.id]){
+      roomAsk(el, 'What floor is the ' + esc(rm.t) + ' on?', '', ['1', '2'].map(function(v){
+        return { t:FLOORS[v], go:function(){ A.roomFloor[rm.id] = v; save(); shootRoom(el, rm); } }; }));
+      return;
+    }
+    if(!how && !roomShots(rm).length){
+      roomAsk(el, esc(rm.t) + ' photos', 'How do you want to add them?', [
+        { t:'Take photos of the room', go:function(){ shootRoom(el, rm, 'cam'); } },
+        { t:'I already have photos of the room', go:function(){ shootRoom(el, rm, 'lib'); el.querySelector('#rpickIn').click(); } }]);
+      return;
+    }
     var shots = rm.stairs ? ['From the bottom, shoot up the stairs', 'From the top, shoot down the stairs', 'Close-ups of any stains or worn spots']
       : rm.furn ? ['The whole piece, from the front', 'The seat cushions up close', 'Close-ups of any stains or pet spots']
       : ['Stand in the doorway and shoot into the room', 'Corner 1: shoot toward the opposite corner', 'Corner 2: shoot toward the opposite corner',
@@ -1187,15 +1212,18 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       : 'That’s everything for this room. Add more if you like.';
     el.appendChild(p);
     el.insertAdjacentHTML('beforeend',
-      '<div class="pbtns"><button type="button" class="go ghost" id="rpick" style="margin:0">Choose photos</button></div>' +
+      '<div class="pbtns">' + (how === 'lib' ? '' : '<button type="button" class="go" id="rcam" style="margin:0">Take photo</button>') +
+      '<button type="button" class="go ghost" id="rpick" style="margin:0">Choose photos</button></div>' +
       '<input type="file" id="rcamIn" accept="image/*" capture="environment" hidden>' +
       '<input type="file" id="rpickIn" accept="image/*" multiple hidden><div class="thumbs" id="rthumbs"></div>');
-    var redo = function(){ shootRoom(el, rm); };
-    var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = rm.t; A.photos.push(f); } };
+    var redo = function(){ shootRoom(el, rm, how || 'cam'); };
+    var fl = A.roomFloor[rm.id], label = rm.t + (fl && A.story === '2' ? ' (' + FLOORS[fl].toLowerCase() + ')' : '');
+    var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = label; A.photos.push(f); } };
     var add = function(inp){ Array.prototype.forEach.call(inp.files, keep); inp.value = ''; redo(); };
     el.querySelector('#rcamIn').onchange = function(){ add(this); };
     el.querySelector('#rpickIn').onchange = function(){ add(this); };
     el.querySelector('#rpick').onclick = function(){ if(!full) el.querySelector('#rpickIn').click(); };
+    var cam = el.querySelector('#rcam'); if(cam) cam.onclick = function(){ if(!full) el.querySelector('#rcamIn').click(); };
     var thumbs = el.querySelector('#rthumbs');
     mine.forEach(function(f, i){
       var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
