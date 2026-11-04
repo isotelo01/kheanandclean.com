@@ -546,7 +546,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(!invOpen) invOpen = {};
     var op = function(k){ return invAll || invOpen[k]; };
     if(!e || !e.rows.length){ inv.hidden = true; inv.innerHTML = ''; document.getElementById('sqft').classList.remove('dup'); return; }
-    var h = '', ft = function(n){ return n ? n.toLocaleString() + ' sq ft' : ''; };
+    var h = '', ft = function(n){ return n ? n.toLocaleString() + ' SF' : ''; };   /* rows say SF; only the Total says sq ft */
     /* Package names keep their branding: gold "Deep", red script "Signature". */
     var brand = function(t){ return esc(t).replace(/^Deep\b/, '<span class="gold">Deep</span>').replace(/^Signature\b/, '<span class="sigScript">Signature</span>'); };
     e.rows.forEach(function(r){
