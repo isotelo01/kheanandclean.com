@@ -255,6 +255,10 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 /* Photos */
 .tips{ margin:0 0 16px; padding-left:20px; color:var(--muted); }
 .tips li{ margin:3px 0; }
+/* Photo how-to page: the tips are the main thing (summary box is hidden there). */
+.tips.big{ padding-left:22px; color:var(--ivory); font-size:1.12rem; line-height:1.45; }
+.tips.big li{ margin:0 0 12px; }
+.tips.big li::marker{ color:var(--gold); }
 .pbtns{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .thumbs{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
 .thumbs div{ position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; background:#222; }
@@ -1072,10 +1076,10 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
   /* The measuring-photo page, reached from the green button: tips + photo picking. */
   function photosExact(el){
-    invAll = false; drawInv();
+    invAll = false; document.body.classList.add('hideSum');
     h(el, 'Snap a few photos', 'Here’s how to get the best shots.');
     el.insertAdjacentHTML('beforeend',
-      '<ul class="tips"><li>Stand in each corner of the room and shoot toward the opposite corner</li>' +
+      '<ul class="tips big"><li>Stand in each corner of the room and shoot toward the opposite corner</li>' +
       '<li>Aim at the floor and baseboards</li><li>Use the 0.5 (wide) zoom if your phone has it</li>' +
       '<li>Add close-ups of any stains or pet spots</li>' +
       '<li>Optional: if you have one, lay a sheet of white paper in the middle of the floor. It helps us see size and color.</li></ul>' +
