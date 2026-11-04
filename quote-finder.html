@@ -1454,7 +1454,9 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var ov = document.createElement('div'); ov.className = 'cmbox';
     ov.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="cmT"><h2 id="cmT">Additional comments</h2>' +
       '<textarea id="cmTx" maxlength="1500" placeholder="Gate code, water spigot, pets, parking…"></textarea>' +
-      '<button type="button" class="go ghost" id="cmPh">Add photos</button>' +
+      '<div class="pbtns"><button type="button" class="go ghost" id="cmCam" style="margin:0">Take photo</button>' +
+      '<button type="button" class="go ghost" id="cmPh" style="margin:0">Add photos</button></div>' +
+      '<input type="file" id="cmCamIn" accept="image/*" capture="environment" hidden>' +
       '<input type="file" id="cmIn" accept="image/*" multiple hidden><div class="thumbs" id="cmTh"></div>' +
       '<button type="button" class="go" id="cmGo">No thanks</button></div>';
     document.body.appendChild(ov);
@@ -1473,7 +1475,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       sync();
     };
     ov.querySelector('#cmPh').onclick = function(){ ov.querySelector('#cmIn').click(); };
-    ov.querySelector('#cmIn').onchange = function(){
+    ov.querySelector('#cmCam').onclick = function(){ ov.querySelector('#cmCamIn').click(); };
+    ov.querySelector('#cmCamIn').onchange = ov.querySelector('#cmIn').onchange = function(){
       Array.prototype.forEach.call(this.files, function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ A.photos.push(f); added.push(f); } });
       this.value = ''; draw(); };
     tx.addEventListener('input', sync);
