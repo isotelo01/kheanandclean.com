@@ -229,6 +229,7 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
   padding:16px; font:700 1.05rem "Archivo",sans-serif; cursor:pointer; }
 .go:disabled{ opacity:.5; cursor:default; }
 .go[hidden]{ display:none; }
+textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 /* "Gathering info for your quote" between no-photos and the price. */
 .gather{ min-height:52svh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:18px; }
 .gather .ring{ width:64px; height:64px; border-radius:50%; border:3px solid rgba(227,182,74,.2); border-top-color:var(--gold); animation:i2spin 1s linear infinite; }
@@ -310,9 +311,9 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 h2{ font-size:1.1rem; margin:22px 0 4px; }
 /* Contact form */
 label.f{ display:block; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:12px 0 5px; }
-input.t{ width:100%; background:rgba(255,255,255,.05); color:var(--ivory); border:1px solid var(--line);
+input.t, textarea.t{ width:100%; background:rgba(255,255,255,.05); color:var(--ivory); border:1px solid var(--line);
   border-radius:12px; padding:13px 14px; font:inherit; }
-input.t:focus{ outline:none; border-color:var(--gold); }
+input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
 .two{ display:grid; grid-template-columns:2fr 1fr; gap:10px; }
 .consent{ margin-top:18px; padding:14px; border:1px solid var(--line); border-radius:14px; }
 .consent p{ margin:0 0 8px; }
@@ -390,12 +391,12 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     carpet:{ name:'Carpet', word:'carpet' }, tile:{ name:'Tile & grout', word:'tile' },
     upholstery:{ name:'Upholstery', word:'furniture' }, lvp:{ name:'Hardwood / LVP', word:'hardwood' },
     rugs:{ name:'Area rugs', word:'rugs' },
-    stone:{ name:'Natural stone', word:'stone' }
+    stone:{ name:'Natural stone', word:'stone' }, other:{ name:'Other', word:'other' }
   };
   var ORDER = ['carpet','tile','lvp','stone','upholstery'];
   /* What they can pick on "What would you like cleaned?". Area rugs price as the carpet rug add-on,
      so someone who only wants rugs skips the carpet questions. */
-  var PICKS = ['carpet','rugs','tile','lvp','stone','upholstery'];
+  var PICKS = ['carpet','rugs','tile','lvp','stone','upholstery','other'];
 
   var room = function(k){ var r = null; P.ROOM_TYPES.forEach(function(x){ if(x.key === k) r = x; }); return r; };
   var sqftOf = function(k){ return k === 'beds' ? BED : ((room(k) || {}).sqft || 0); };
@@ -710,10 +711,11 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       var w = [sName, sProblem, sWholeSqft];
       if(has('rugs')) w.push(sRugs);
       if(has('upholstery')) w.push(sUph, sUphPets), uphCountOn() && w.push(sUphCount);
+      if(has('other')) w.push(sOther);
       return w.concat(tail());
     }
     var f = [sName, sProblem, sServices];
-    var floors = A.svcs.some(function(k){ return k !== 'upholstery' && k !== 'rugs'; });
+    var floors = A.svcs.some(function(k){ return k !== 'upholstery' && k !== 'rugs' && k !== 'other'; });
     if(floors) f.push(sStory);
     if(has('carpet')){
       f.push(sRooms('carpet'));
@@ -730,6 +732,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(has('lvp')) step('lvp', [sRooms('lvp')]);
     if(has('stone')) step('stone', [sRooms('stone')]);
     if(has('upholstery')) step('upholstery', uphCountOn() ? [sUph, sUphPets, sUphCount] : [sUph, sUphPets]);
+    if(has('other')) f.push(sOther);
     f.push.apply(f, tail());
     return f;
   }
@@ -860,9 +863,10 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(A.problems.indexOf('Dirty grout') > -1 && !has('tile')) A.svcs = A.svcs.concat('tile');
       if(A.problems.indexOf('Wood/LVP lost shine') > -1 && !has('lvp')) A.svcs = A.svcs.concat('lvp');
       if(A.problems.indexOf('Dull traffic lanes') > -1 && !has('carpet')) A.svcs = A.svcs.concat('carpet');
+      if(A.problems.indexOf('Other') > -1 && !has('other')) A.svcs = A.svcs.concat('other');
       A.svcs.sort(function(a, c){ return PICKS.indexOf(a) - PICKS.indexOf(c); });
       /* Whole home covers every floor at one price; only couches and rugs are still asked about. */
-      if(A.whole) A.svcs = A.svcs.filter(function(k){ return k === 'upholstery' || k === 'rugs'; });
+      if(A.whole) A.svcs = A.svcs.filter(function(k){ return k === 'upholstery' || k === 'rugs' || k === 'other'; });
       next();
     });
     done.disabled = !A.problems.length;
@@ -902,6 +906,39 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       box.appendChild(b);
     });
     go = goBtn(el, 'Next'); go.disabled = !A.svcs.length;
+  }
+
+  /* "Other": they type what they need and add photos. It all lands in the lead's customer notes; no price. */
+  function sOther(el){
+    h(el, 'Type what you need done' + hi(', '), 'Tell us what you need cleaned. Photos help.');
+    el.insertAdjacentHTML('beforeend', '<textarea class="t" id="otx" maxlength="2000" placeholder="What do you need done?"></textarea>' +
+      '<div class="pbtns" style="margin-top:12px"><button type="button" class="go" id="ocam" style="margin:0">Take photo</button>' +
+      '<button type="button" class="go ghost" id="opick" style="margin:0">Choose photos</button></div>' +
+      '<input type="file" id="ocamIn" accept="image/*" capture="environment" hidden><input type="file" id="opickIn" accept="image/*" multiple hidden>' +
+      '<div class="thumbs" id="othumbs"></div>');
+    var tx = el.querySelector('#otx'), th = el.querySelector('#othumbs');
+    tx.value = A.otherText || '';
+    tx.addEventListener('input', function(){ A.otherText = this.value; });
+    var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = 'other'; f._roomName = 'Other'; A.photos.push(f); } };
+    var draw = function(){
+      th.innerHTML = '';
+      A.photos.filter(function(f){ return f._room === 'other'; }).forEach(function(f, i){
+        var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
+        img.src = URL.createObjectURL(f); img.alt = 'Photo ' + (i + 1); img.onload = function(){ URL.revokeObjectURL(img.src); };
+        x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
+        x.onclick = function(){ A.photos.splice(A.photos.indexOf(f), 1); draw(); };
+        d.appendChild(img); d.appendChild(x); th.appendChild(d);
+      });
+    };
+    var add = function(){ Array.prototype.forEach.call(this.files, keep); this.value = ''; draw(); };
+    el.querySelector('#ocamIn').onchange = add; el.querySelector('#opickIn').onchange = add;
+    el.querySelector('#opick').onclick = function(){ el.querySelector('#opickIn').click(); };
+    el.querySelector('#ocam').onclick = function(){
+      var ok = window.burstCam && window.burstCam({ max: PMAX - A.photos.length, onShot: keep, onDone: function(){ save(); draw(); } });
+      if(!ok) el.querySelector('#ocamIn').click();
+    };
+    draw();
+    goBtn(el, 'Next', function(){ A.otherText = tx.value.trim(); next(); });
   }
 
   function sStory(el){
@@ -1538,6 +1575,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(has('upholstery')) L.push('Pet odor spots or stains on fabric: ' + (uphCountOn() ? UPH_SPOTS.filter(function(o){ return A.uphSpots[o.k]; }).map(function(o){ return o.n.toLowerCase() + ' × ' + ((A.uphN || {})[o.k] || 1); }).join(', ') : (A.uphPets || 'not answered')));
     var dq = Object.keys(A.disc).filter(function(k){ return A.disc[k]; });
     if(dq.length) L.push('DISCOUNTS TO CHECK: ' + dq.join(', '));
+    if(has('other') && A.otherText) L.push('Other request: ' + A.otherText);
     if(A.comments) L.push('Additional comments: ' + A.comments);
     if(A.discPick && A.discPick !== 'None') L.push('DISCOUNT PICKED: ' + A.discPick);
     if(A.noPics) L.push('Path: couldn’t take pictures; saw price, picked a discount');
@@ -1674,8 +1712,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
           estimateData: e.rows.length ? JSON.stringify({ v:1, active: (e.rows.filter(function(r){ return r.key !== 'whole'; })[0] || { key:'carpet' }).key, state: e.st, discAmt:'', discPct:'', waiveMin:false, quote: quoteOf(e) }) : '',
           services: A.whole ? ['Whole house'] : undefined,
           /* The answers already went into the estimate (estimateData) and the email; the lead's
-             message box is only for what the customer types, so it stays empty here. */
-          message: ''
+             message box (customer notes) gets only what the customer typed: Other request, comments. */
+          message: [has('other') && A.otherText ? 'Other request: ' + A.otherText : '', A.comments ? 'Additional comments: ' + A.comments : ''].filter(Boolean).join('\n')
         });
       });
     })).catch(function(x){ console.error('Lead save failed', x); })
