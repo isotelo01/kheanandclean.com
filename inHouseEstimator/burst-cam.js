@@ -55,6 +55,8 @@
       '<button type="button" class="bshut" aria-label="Take photo" disabled></button>' +
       '<button type="button" class="bdone">Done</button></div>';
     document.body.appendChild(box);
+    /* Android: go full screen so the browser's top bar is hidden (iPhone browsers don't allow it). */
+    if (!IOS && box.requestFullscreen) { try { box.requestFullscreen({ navigationUI: 'hide' }).catch(function(){}); } catch (e) {} }
     var video = box.querySelector('video'), shut = box.querySelector('.bshut'), msg = box.querySelector('.bmsg'),
         left = box.querySelector('.bleft'), top = box.querySelector('.btop');
     var say = function(t){ msg.textContent = t || ''; };
@@ -143,7 +145,9 @@
     function close(){
       if (closed) return; closed = true;
       window.removeEventListener('popstate', close);
-      stop(); if (lastUrl) URL.revokeObjectURL(lastUrl); box.remove();
+      stop(); if (lastUrl) URL.revokeObjectURL(lastUrl);
+      try { if (document.fullscreenElement === box) document.exitFullscreen().catch(function(){}); } catch (e) {}
+      box.remove();
       try { opts.onDone && opts.onDone(count); } catch (e) { console.error(e); }
     }
     try { history.pushState({ bcam: 1 }, ''); } catch (e) {}
