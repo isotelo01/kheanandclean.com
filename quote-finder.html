@@ -216,6 +216,12 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 .go:disabled{ opacity:.5; cursor:default; }
 .go.stick{ position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:5; box-shadow:0 6px 24px 10px var(--ink); }
 .go.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold); }
+/* Big shimmery green button (photo step). Shine runs on ::after so it doesn't fight the .go entry animations. */
+.go.shine{ position:relative; overflow:hidden; padding-top:20px; padding-bottom:20px; font-size:1.08rem; color:#0b2a1a;
+  background:linear-gradient(135deg,#5fc48c,#8fe0b2 45%,#4fb07a); box-shadow:0 6px 22px rgba(127,209,164,.35); }
+.go.shine::after{ content:''; position:absolute; top:0; left:-60%; width:45%; height:100%; pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.65),transparent); transform:skewX(-20deg); animation:shine 2.6s ease-in-out infinite; }
+@keyframes shine{ 0%{ left:-60%; } 55%,100%{ left:130%; } }
 .tx{ min-height:62svh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; cursor:pointer; }
 .tx .sw{ opacity:0; animation:swirl .9s cubic-bezier(.2,.8,.2,1) forwards; }
 @keyframes swirl{ 0%{ opacity:0; transform:rotate(-14deg) scale(.6) translateY(24px); } 60%{ opacity:1; transform:rotate(3deg) scale(1.04); } 100%{ opacity:1; transform:none; } }
@@ -1046,7 +1052,16 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   /* Photos: optional, never block anything. */
   var PMAX = 40;
   function sPhotos(el){
-    h(el, 'Want a more exact price? Snap a few photos.', 'Photos let us price your home exactly. Totally optional.');
+    el.innerHTML = '';
+    goBtn(el, 'More exact price? Snap a few photos.', function(){ photosExact(el); }).classList.add('shine');
+    el.insertAdjacentHTML('beforeend', '<p class="lead" style="margin-top:10px">Photos let us price your home more accurately.</p>');
+    /* Happy with the estimate: no measuring photos, just a softer ask for a few so we know the job. */
+    goBtn(el, 'I’m happy with the estimate of ' + sqftTotal().toLocaleString() + ' sq ft', function(){ photosLite(el); }, true);
+    goBtn(el, 'I can’t take pictures right now', function(){ A.skippedPhotos = true; next(); }, true);
+  }
+  /* The measuring-photo page, reached from the green button: tips + photo picking. */
+  function photosExact(el){
+    h(el, 'Snap a few photos', 'Here’s how to get the best shots.');
     el.insertAdjacentHTML('beforeend',
       '<ul class="tips"><li>Stand in each corner of the room and shoot toward the opposite corner</li>' +
       '<li>Aim at the floor and baseboards</li><li>Use the 0.5 (wide) zoom if your phone has it</li>' +
@@ -1073,14 +1088,11 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     }
     el.querySelector('#pickIn').onchange = function(){ add(this); };
     var go = goBtn(el, 'Next', function(){ if(photoRooms().length) pickRoom(el); else { A.skippedPhotos = !A.photos.length; next(); } });
-    /* Happy with the estimate: no measuring photos, just a softer ask for a few so we know the job. */
-    goBtn(el, 'I’m happy with the estimate of ' + sqftTotal().toLocaleString() + ' sq ft', function(){ photosLite(el); }, true);
-    goBtn(el, 'I can’t take pictures right now', function(){ A.skippedPhotos = true; next(); }, true);
-    draw();
+    draw(); window.scrollTo(0, 0);
   }
   function photosLite(el){
     el.innerHTML = '';
-    h(el, 'Could you snap a few photos?', 'No measuring needed. Just a few shots so we know a little about the job before we come: the rooms, any stains or pet spots.');
+    h(el, 'Could you snap a few photos?', 'Please snap a few photos of the areas to be cleaned. It helps us get a better feel for the job.');
     el.insertAdjacentHTML('beforeend',
       '<div class="pbtns"><button type="button" class="go ghost" id="lpick" style="margin:0">Choose photos</button></div>' +
       '<input type="file" id="lpickIn" accept="image/*" multiple hidden><div class="thumbs" id="lthumbs"></div><p class="note" id="lnote"></p>');
