@@ -52,13 +52,15 @@
     '@media (orientation:portrait){.bcam.andr .bbar{padding-bottom:calc(env(safe-area-inset-bottom) + 120px)}}' +
     '@media (orientation:landscape){.bcam{flex-direction:row}' +
     '.bcam .bbar{flex-direction:column;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) 16px}' +
-    /* iPhone sideways: right column is count, shutter, Done; light and 0.5 stacked just left of that column
-       (right edge of the picture area); label in the bottom left corner of the screen. */
-    '.bcam.ios .bbar{position:relative;flex-direction:column;justify-content:center;gap:24px}.bcam.ios .bleft{justify-content:center}.bcam.ios .bfwd{right:12px}' +
-    '.bcam.ios .blight{right:calc(100% + 12px);top:calc(50% - 56px)}' +
-    '.bcam.ios .btop{position:absolute;right:calc(100% + 12px);top:calc(50% + 4px);display:flex;justify-content:center}' +
+    /* iPhone sideways: right column (fixed width) is count at the top, shutter in the middle, Done at the bottom.
+       Light and 0.5 side by side in one row at the top, just left of that column; label at the bottom right
+       of the photo. Pinned to the screen so they land in the same spots every time. */
+    '.bcam.ios .bbar{position:relative;flex:none;box-sizing:border-box;width:calc(env(safe-area-inset-right) + 136px);flex-direction:column;justify-content:space-between;align-items:center;gap:16px}.bcam.ios .bleft{justify-content:center}.bcam.ios .bfwd{right:12px}' +
+    '.bcam.ios .blight{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 216px)}' +
+    '.bcam.ios .btop{position:fixed;z-index:3;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 148px);display:flex}' +
+    '.bcam.ios .btop .bzoom{box-sizing:border-box;width:60px;height:44px;padding:0}' +
     '.bcam.ios .bleft{order:1}.bcam.ios .bshut{order:2}.bcam.ios .bdone{order:3}' +
-    '.bcam.ios .btip{top:auto;right:auto;left:calc(env(safe-area-inset-left) + 12px);bottom:calc(env(safe-area-inset-bottom) + 12px)}' +
+    '.bcam.ios .btip{position:fixed;top:auto;left:auto;right:calc(env(safe-area-inset-right) + 148px);bottom:calc(env(safe-area-inset-bottom) + 12px);max-width:calc(100% - 172px)}' +
     '.bcam.andr .btop{order:1}.bcam.andr .bshut{order:2}.bcam.andr .bleft{order:3;justify-content:center}.bcam.andr .bdone{order:4}}';
 
   window.burstCam = function(opts){
