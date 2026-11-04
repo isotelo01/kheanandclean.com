@@ -5,35 +5,34 @@
    tip (optional): returns the HTML shown over the live view for the next shot (what to shoot, a small drawing). */
 (function(){
   var CSS = '.bcam{position:fixed;inset:0;z-index:9999;background:#000;color:#fff;font:16px system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}' +
-    '.bcam video{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}' +
+    '.bcam .bview{position:relative;flex:1;min-height:0;min-width:0;display:flex}' +
+    '.bcam video{flex:1;min-height:0;min-width:0;width:100%;height:100%;object-fit:contain;background:#000}' +
     '.bcam .bflash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .15s}' +
     '.bcam .bflash.on{opacity:.7;transition:none}' +
-    '.bcam .btop{position:absolute;top:0;left:0;right:0;display:flex;justify-content:center;gap:8px;padding:calc(env(safe-area-inset-top) + 12px) 12px 12px}' +
-    '.bcam .bzoom{font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:6px 14px;cursor:pointer}' +
-    '.bcam .bzoom.on{background:#E3B64A;color:#000;border-color:#E3B64A}' +
+    '.bcam .btop:empty{display:none}' +
+    '.bcam .bzoom{font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:8px 14px;cursor:pointer}' +
     '.bcam .bbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px calc(env(safe-area-inset-bottom) + 16px);background:#000}' +
-    '.bcam .bleft{width:90px;display:flex;align-items:center;gap:8px}' +
+    '.bcam .bleft{width:90px;display:flex;align-items:center;gap:8px;order:1}' +
     '.bcam .bleft img{width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.5)}' +
     '.bcam .bcount{font:700 18px system-ui,sans-serif}' +
-    '.bcam .bshut{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid #000;box-shadow:0 0 0 3px #fff;cursor:pointer;flex:none}' +
+    '.bcam .bshut{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid #000;box-shadow:0 0 0 3px #fff;cursor:pointer;flex:none;order:2}' +
+    '.bcam .btop{order:3}' +
     '.bcam .bshut:active{transform:scale(.92)}' +
     '.bcam .bshut:disabled{opacity:.4}' +
-    '.bcam .bdone{width:90px;font:700 17px system-ui,sans-serif;color:#000;background:#E3B64A;border:0;border-radius:8px;padding:12px 0;cursor:pointer}' +
-    '.bcam .btip{position:absolute;left:12px;right:auto;max-width:calc(100% - 24px);box-sizing:border-box;top:calc(env(safe-area-inset-top) + 62px);display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.62);border-left:3px solid #E3B64A;border-radius:10px;padding:10px 12px;font-weight:600;line-height:1.3;pointer-events:none}' +
+    '.bcam .bdone{width:90px;font:700 17px system-ui,sans-serif;color:#000;background:#E3B64A;border:0;border-radius:8px;padding:12px 0;cursor:pointer;order:4}' +
+    /* Shot label: top right of the picture. */
+    '.bcam .btip{position:absolute;right:12px;left:auto;max-width:calc(100% - 24px);box-sizing:border-box;top:calc(env(safe-area-inset-top) + 12px);display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.62);border-left:3px solid #E3B64A;border-radius:10px;padding:10px 12px;font-weight:600;line-height:1.3;pointer-events:none}' +
     '.bcam .btip:empty{display:none}' +
     '.bcam .btip svg{width:104px;max-width:104px;flex:none;margin:0}' +
-    '.bcam .bback{position:absolute;left:12px;top:calc(env(safe-area-inset-top) + 12px);font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:6px 14px;cursor:pointer}' +
-    '.bcam .bfwd{position:absolute;right:12px;top:calc(env(safe-area-inset-top) + 12px);font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:6px 14px;cursor:pointer}' +
+    /* Back / Forward: bottom left of the picture. */
+    '.bcam .bnav{position:absolute;left:calc(env(safe-area-inset-left) + 12px);bottom:12px;display:flex;gap:8px}' +
+    '.bcam .bback,.bcam .bfwd{font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:8px 14px;cursor:pointer}' +
     '.bcam .bback[hidden],.bcam .bfwd[hidden]{display:none}' +
-    '.bcam .bmsg{position:absolute;left:0;right:0;bottom:140px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}' +
-    /* Phone held sideways: the picture fills the screen and the shutter bar moves to the right side. */
+    '.bcam .bmsg{position:absolute;left:0;right:0;bottom:64px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}' +
+    /* Phone held sideways: the picture fills the height; the right column has, top to bottom: lens, shutter, count, Done. */
     '@media (orientation:landscape){.bcam{flex-direction:row}' +
-    '.bcam video{height:100%;min-width:0}' +
-    '.bcam .bbar{flex-direction:column-reverse;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) 16px}' +
-    '.bcam .bleft{justify-content:center}' +
-    '.bcam .btip{left:calc(env(safe-area-inset-left) + 12px);max-width:calc(100% - 180px)}' +
-    '.bcam .bfwd{right:calc(env(safe-area-inset-right) + 140px)}' +
-    '.bcam .bmsg{bottom:24px;right:130px}}';
+    '.bcam .bbar{flex-direction:column;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) 16px}' +
+    '.bcam .btop{order:1}.bcam .bshut{order:2}.bcam .bleft{order:3;justify-content:center}.bcam .bdone{order:4}}';
 
   window.burstCam = function(opts){
     opts = opts || {};
@@ -48,10 +47,10 @@
     }
     var box = document.createElement('div');
     box.className = 'bcam';
-    box.innerHTML = '<video playsinline muted autoplay></video><div class="bflash"></div><div class="btop"></div><div class="btip"></div>' +
-      '<button type="button" class="bback" hidden>&larr; Back</button><button type="button" class="bfwd" hidden>Forward &rarr;</button>' +
-      '<div class="bmsg">Opening camera&hellip;</div>' +
-      '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div>' +
+    box.innerHTML = '<div class="bview"><video playsinline muted autoplay></video><div class="bflash"></div><div class="btip"></div>' +
+      '<div class="bnav"><button type="button" class="bback" hidden>&larr; Back</button><button type="button" class="bfwd" hidden>Forward &rarr;</button></div>' +
+      '<div class="bmsg">Opening camera&hellip;</div></div>' +
+      '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div><div class="btop"></div>' +
       '<button type="button" class="bshut" aria-label="Take photo" disabled></button>' +
       '<button type="button" class="bdone">Done</button></div>';
     document.body.appendChild(box);
@@ -98,13 +97,14 @@
         var wide = cams.filter(function(d){ return /ultra ?wide/i.test(d.label); })[0];
         var main = cams.filter(function(d){ return /back/i.test(d.label) && !/ultra|tele|dual|triple/i.test(d.label); })[0];
         if (!wide || !main) return;
-        top.innerHTML = '<button type="button" class="bzoom" data-id="' + wide.deviceId + '">0.5</button>' +
-          '<button type="button" class="bzoom on" data-id="' + main.deviceId + '">1x</button>';
-        top.addEventListener('click', function(e){
-          var b = e.target.closest('.bzoom'); if (!b || b.classList.contains('on')) return;
-          top.querySelectorAll('.bzoom').forEach(function(x){ x.classList.toggle('on', x === b); });
+        /* One lens button: it names the lens you'd switch to (0.5 while on 1x, 1x while on 0.5). */
+        var onWide = false;
+        top.innerHTML = '<button type="button" class="bzoom">0.5</button>';
+        var zb = top.querySelector('.bzoom');
+        zb.addEventListener('click', function(){
+          onWide = !onWide; zb.textContent = onWide ? '1x' : '0.5';
           shut.disabled = true; say('Switching lens…');
-          open(b.dataset.id).catch(function(err){ say('Couldn’t switch lens.'); console.error(err); });
+          open((onWide ? wide : main).deviceId).catch(function(err){ say('Couldn’t switch lens.'); console.error(err); });
         });
       }).catch(function(){});
     }
