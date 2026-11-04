@@ -219,6 +219,10 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
   padding:16px; font:700 1.05rem "Archivo",sans-serif; cursor:pointer; }
 .go:disabled{ opacity:.5; cursor:default; }
 .go[hidden]{ display:none; }
+/* "Gathering info for your quote" between no-photos and the price. */
+.gather{ min-height:52svh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:18px; }
+.gather .ring{ width:64px; height:64px; border-radius:50%; border:3px solid rgba(227,182,74,.2); border-top-color:var(--gold); animation:i2spin 1s linear infinite; }
+.gather h1{ margin:0; }
 /* Room photo diagram: top-down room, where to stand, where to aim. */
 .shotmap{ display:block; width:100%; max-width:320px; margin:0 auto 16px; }
 .shotmap .cone{ animation:conePulse 1.8s ease-in-out infinite; }
@@ -504,8 +508,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function show(fn, push){
     if(push !== false && cur) hist.push(cur);
     cur = fn; invAll = false;
-    document.body.classList.toggle('hideSum', [sPhotos, sPrice, sWhen, sContact, sDone].indexOf(fn) < 0);
-    document.body.classList.toggle('first', fn === sProblem);
+    document.body.classList.toggle('hideSum', [sPhotos, sPrice, sDisc, sWhen, sContact, sDone].indexOf(fn) < 0);
+    document.body.classList.toggle('first', fn === sName);
     document.body.classList.remove('rp');
     backBtn.hidden = !hist.length; resetBtn.hidden = !hist.length;
     /* Moving between questions: the answer they tapped glows gold, the old question slides off and blurs
@@ -687,12 +691,12 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   /* The order of screens, worked out from the answers so far. */
   function FLOW(){
     if(A.whole){
-      var w = [sProblem, sWholeSqft];
+      var w = [sName, sProblem, sWholeSqft];
       if(has('rugs')) w.push(sRugs);
       if(has('upholstery')) w.push(sUph, sUphPets), uphCountOn() && w.push(sUphCount);
-      return w.concat(sPhotos, sPrice, sWhen, sContact);
+      return w.concat(tail());
     }
-    var f = [sProblem, sServices];
+    var f = [sName, sProblem, sServices];
     var floors = A.svcs.some(function(k){ return k !== 'upholstery' && k !== 'rugs'; });
     if(floors) f.push(sStory);
     if(has('carpet')){
@@ -710,8 +714,35 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(has('lvp')) step('lvp', [sRooms('lvp')]);
     if(has('stone')) step('stone', [sRooms('stone')]);
     if(has('upholstery')) step('upholstery', uphCountOn() ? [sUph, sUphPets, sUphCount] : [sUph, sUphPets]);
-    f.push(sPhotos, sPrice, sWhen, sContact);
+    f.push.apply(f, tail());
     return f;
+  }
+  /* "I can't take pictures right now": price, then pick a discount, then phone or email (no day picker). */
+  function tail(){ return A.noPics ? [sPhotos, sPrice, sDisc, sContact] : [sPhotos, sPrice, sWhen, sContact]; }
+  function firstName(){ return String(A.name || '').trim().split(/\s+/)[0] || ''; }
+  var hi = function(pre){ var n = firstName(); return n ? pre + esc(n) : ''; };
+
+  /* Very first question: their name, so the rest can talk to them by first name. */
+  function sName(el){
+    h(el, 'Who are we cleaning for today?');
+    el.insertAdjacentHTML('beforeend', '<input class="t" id="fn" placeholder="Your name" autocomplete="name" autocapitalize="words" maxlength="80" enterkeyhint="next">');
+    var inp = el.querySelector('#fn'), go;
+    inp.value = A.name || '';
+    var done = function(){ var v = inp.value.trim(); if(!v) return; A.name = v; (A.contact = A.contact || {}).nm = v; next(); };
+    inp.addEventListener('input', function(){
+      var at = this.selectionStart, v = this.value.replace(/(^|[\s'-])(\p{Ll})/gu, function(m, a, b){ return a + b.toUpperCase(); });
+      if(v !== this.value){ this.value = v; this.setSelectionRange(at, at); }
+      A.name = this.value.trim(); go.disabled = !A.name;
+    });
+    inp.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); done(); } });
+    go = goBtn(el, 'Next', done); go.disabled = !inp.value.trim();
+  }
+
+  /* One discount, their pick. Amounts are never shown; it goes on the official quote. */
+  var DISCS = ['Veteran', 'Senior', 'First responder', 'Folsom or El Dorado Hills neighbor', 'Friends & family', 'Bunch of kids at home', 'Pet lover'];
+  function sDisc(el){
+    h(el, 'Which one fits you best' + hi(', ') + '?', 'Pick one. We’ll apply it on your official quote.');
+    choices(el, DISCS.map(function(t){ return { v:t, t:t }; }).concat({ v:'None', t:'None of these' }), function(v){ A.discPick = v; }, A.discPick);
   }
   var cache = {};
   function sRooms(k){ return cache['rooms_' + k] || (cache['rooms_' + k] = function(el){ roomsScreen(el, k); }); }
@@ -774,7 +805,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   function sProblem(el){
-    h(el, 'What can we help you with?', 'Pick all that apply.');
+    h(el, 'What can we help you with' + hi(', ') + '?', 'Pick all that apply.');
     var list = [
       { v:'Whole home', t:'Whole home', s:'All floors, one simple price' },
       { v:'Dull traffic lanes', t:'Dull, matted traffic lanes' },
@@ -1080,10 +1111,17 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     el.insertAdjacentHTML('beforeend', '<p class="lead" style="margin-top:10px">Photos let us price your home more accurately.</p>');
     /* Happy with the estimate: no measuring photos, just a softer ask for a few so we know the job. */
     goBtn(el, 'I’m happy with the estimate of ' + sqftTotal().toLocaleString() + ' sq ft', function(){ photosLite(el); }, true).classList.add('sm');
-    goBtn(el, 'I can’t take pictures right now', function(){ A.skippedPhotos = true; next(); }, true).classList.add('sm');
+    goBtn(el, 'I can’t take pictures right now', function(){ A.skippedPhotos = true; A.noPics = true; gather(el); }, true).classList.add('sm');
+  }
+  /* No photos: a short "gathering" beat, then on to their price. */
+  function gather(el){
+    el.innerHTML = '<div class="gather"><div class="ring" aria-hidden="true"></div><h1>Gathering info for your quote' + hi(', ') + '…</h1></div>';
+    window.scrollTo(0, 0);
+    setTimeout(function(){ if(cur === sPhotos) next(); }, 2200);
   }
   /* The measuring-photo page, reached from the green button: tips + photo picking. */
   function photosExact(el){
+    A.noPics = false;
     invAll = false; document.body.classList.add('hideSum');
     h(el, 'Snap a few photos', 'Here’s how to get the best shots.');
     el.insertAdjacentHTML('beforeend',
@@ -1115,6 +1153,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     draw(); window.scrollTo(0, 0);
   }
   function photosLite(el){
+    A.noPics = false;
     el.innerHTML = ''; invAll = false; drawInv();
     h(el, 'Could you snap a few photos?', 'Please snap a few photos of the areas to be cleaned. It helps us get a better feel for the job.');
     el.insertAdjacentHTML('beforeend',
@@ -1286,7 +1325,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(!e.rows.length){
       h(el, 'We’ll price this one by phone', 'Send us your details and we’ll call you with your price.');
     } else {
-      h(el, 'Here’s your estimate', has('carpet') && A.tier ? 'Your package: <b>' + esc(S.carpet.tiers[A.tier].name) + '</b>' : '');
+      h(el, 'Here’s your estimate' + hi(', '), has('carpet') && A.tier ? 'Your package: <b>' + esc(S.carpet.tiers[A.tier].name) + '</b>' : '');
       var html = '<div class="est">' + e.rows.map(function(r){
         return '<div class="svc"><div class="ln"><span><b>' + esc(r.name) + '</b></span><b>' + money(r.cost) + '</b></div>' +
           r.items.map(function(i){
@@ -1304,6 +1343,11 @@ input.t:focus{ outline:none; border-color:var(--gold); }
         b.onclick = function(){ var l = b.parentNode.nextElementSibling, open = l.hidden; l.hidden = !open;
           b.textContent = open ? '\u2212' : '+'; b.setAttribute('aria-expanded', String(open)); b.setAttribute('aria-label', open ? 'Hide rooms' : 'Show rooms'); };
       });
+    }
+    if(A.noPics){
+      el.insertAdjacentHTML('beforeend', '<p class="pitch">Good news: you may qualify for a discount. Veterans, seniors, first responders, local neighbors and more.</p>');
+      goBtn(el, 'See if I qualify');
+      return;
     }
     el.insertAdjacentHTML('beforeend', '<h2>Do any of these apply?</h2><p class="lead" style="margin:0">Check any that fit and we’ll call with your discounted price.</p><div class="checks" id="disc"></div>');
     var d = el.querySelector('#disc');
@@ -1352,7 +1396,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   function sContact(el){
-    h(el, 'Where should we send your quote?');
+    h(el, A.noPics ? 'Please give us your phone number or email so we can send you an official quote.' : 'Where should we send your quote' + hi(', ') + '?');
     el.insertAdjacentHTML('beforeend',
       '<form id="f" novalidate>' +
       '<label class="f" for="nm">Name</label><input class="t" id="nm" autocomplete="name" autocapitalize="words" maxlength="120">' +
@@ -1373,6 +1417,14 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       '<button type="submit" class="go" id="send">Send my quote</button></form>');
     var $ = function(id){ return el.querySelector('#' + id); };
     var C = A.contact || {};
+    if(!C.nm && A.name) C.nm = A.name;
+    if(A.noPics){   // phone or email only: their name is already in, no address needed here
+      ['nm', 'st'].forEach(function(id){ $(id).style.display = 'none'; el.querySelector('label[for="' + id + '"]').style.display = 'none'; });
+      el.querySelector('.two').style.display = 'none';
+      el.querySelector('label[for="ph"]').textContent = 'Phone';
+      el.querySelector('label[for="em"]').textContent = 'or Email';
+      $('send').textContent = 'Send my official quote';
+    }
     ['nm','ph','em','st','ct','zp'].forEach(function(id){ if(C[id]) $(id).value = C[id]; $(id).addEventListener('input', function(){ (A.contact = A.contact || {})[id] = this.value; }); });
     /* Name: first letter of each word capitalized as they type. */
     $('nm').addEventListener('input', function(){
@@ -1393,7 +1445,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function sDone(el, booked){
     bar.style.width = '100%'; backBtn.hidden = true; resetBtn.hidden = true; hist = [];
     el.className = 'step done';
-    el.innerHTML = '<div class="big">✓</div><h1>Got it, thank you!</h1>' +
+    el.innerHTML = '<div class="big">✓</div><h1>Got it, thank you' + hi(', ') + '!</h1>' +
       '<p class="lead">' + (textedQuote ? 'We’re texting you your estimate now. You can approve it and pick a day right from the link.'
         : 'We’ll reach out shortly to confirm your price and pick a day.') +
       (A.skippedPhotos ? ' Want to add photos later? Text them to <a href="sms:+19167672520">(916) 767-2520</a>.' : '') + '</p>' +
@@ -1427,6 +1479,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(has('upholstery')) L.push('Pet odor spots or stains on fabric: ' + (uphCountOn() ? UPH_SPOTS.filter(function(o){ return A.uphSpots[o.k]; }).map(function(o){ return o.n.toLowerCase() + ' × ' + ((A.uphN || {})[o.k] || 1); }).join(', ') : (A.uphPets || 'not answered')));
     var dq = Object.keys(A.disc).filter(function(k){ return A.disc[k]; });
     if(dq.length) L.push('DISCOUNTS TO CHECK: ' + dq.join(', '));
+    if(A.discPick && A.discPick !== 'None') L.push('DISCOUNT PICKED: ' + A.discPick);
+    if(A.noPics) L.push('Path: couldn’t take pictures; saw price, picked a discount');
     L.push('When: ' + (A.when || 'not answered'));
     L.push(A.photos.length ? 'Photos: ' + A.photos.length + ' sent' : 'Photos: skipped');
     L.push('Walkthrough total: ' + (e.rows.length ? money(e.total) : 'no price, call'));
@@ -1519,7 +1573,12 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function send(el, $){
     var err = $('err'), btn = $('send'), sms = el.querySelector('input[name="sms"]:checked');
     var name = $('nm').value.trim(), phone = $('ph').value.trim(), email = $('em').value.trim();
+    var phOk = phone.replace(/\D/g, '').length >= 10, emOk = EMAIL_RE.test(email);
     var bad = !name ? ['nm', 'Please tell us your name.']
+      : A.noPics ? (!phone && !email ? ['ph', 'Please give us a phone number or an email.']
+        : phone && !phOk ? ['ph', 'Please give us a 10-digit phone number.']
+        : email && !emOk ? ['em', 'Please check your email address.']
+        : phone && !sms ? ['smsQ', 'Please choose Yes or No for texting.'] : null)
       : phone.replace(/\D/g, '').length < 10 ? ['ph', 'Please give us a 10-digit phone number.']
       : !EMAIL_RE.test(email) ? ['em', 'Please check your email address.']
       : !$('st').value.trim() ? ['st', 'Please give us the street address.']
@@ -1527,7 +1586,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(bad){ err.textContent = bad[1]; var t = $(bad[0]); if(t.focus) t.focus(); t.scrollIntoView({ block:'center' }); return; }
     err.textContent = '';
     btn.disabled = true; btn.textContent = A.photos.length ? 'Uploading photos…' : 'Sending…';
-    var e = estimate(), msg = summary(e), smsYes = sms.value === 'Yes', promoYes = $('promo').checked;
+    var e = estimate(), msg = summary(e), smsYes = !!sms && sms.value === 'Yes', promoYes = $('promo').checked;
     textedQuote = smsYes && e.rows.length > 0;   /* the backend texts them their estimate link */
     var key = Date.now() + '_' + Math.random().toString(36).slice(2, 8), isBot = $('hp').checked;
     var addr = { street: $('st').value.trim(), city: $('ct').value.trim(), state:'CA', zip: $('zp').value.trim() };
@@ -1590,7 +1649,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     A.photos = [];
     var f0 = FLOW();
     hist = (saved.hist || []).map(function(n){ return f0[n]; }).filter(Boolean);
-    show(f0[saved.at] || sProblem, false);
+    show(f0[saved.at] || sName, false);
     loadPhotos().then(function(ph){
       if(!ph.length) return;
       A.photos = ph; photoSig = '';
@@ -1598,7 +1657,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       if(cur === sPhotos) show(cur, false);   // redraw so their thumbnails show
     });
   } else {
-    show(sProblem, false);
+    show(sName, false);
     intro();
   }
 
