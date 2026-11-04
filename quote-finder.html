@@ -1411,7 +1411,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       if(full) return;
       var start = roomShots(rm).length, room = !rm.furn && !rm.stairs;
       var ok = window.burstCam && window.burstCam({ max: PMAX - A.photos.length,
-        tip: function(n){ var i = start + n; return i < shots.length ? (room ? shotMap(i) : '') + '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
+        tip: function(n){ var i = start + n; if(room && i === 0) return '<span>Doorway/threshold</span>'; return i < shots.length ? (room ? shotMap(i) : '') + '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
         onShot: keep, onDone: function(){ save(); redo(); } });
       if(!ok) el.querySelector('#rcamIn').click();
     };
