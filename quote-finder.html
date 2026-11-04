@@ -363,7 +363,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
 
   /* Everything the customer answers. */
   var A = { problem:'', svcs:[], story:'', rooms:{}, master:{}, rugs:{ med:0, lg:0 }, pet:0, stain:0,
-            vacuum:'', tier:'', matters:'', seal:'', uph:{}, uphPets:'', photos:[], skippedPhotos:false, disc:{} };
+            vacuum:'', tier:'', matters:'', seal:'', uph:{}, uphPets:'', uphSpots:{}, uphN:{}, photos:[], skippedPhotos:false, disc:{} };
   ORDER.forEach(function(k){ A.rooms[k] = {}; });
 
   function sqftFor(svc){
@@ -660,7 +660,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(A.whole){
       var w = [sProblem, sWholeSqft];
       if(has('rugs')) w.push(sRugs);
-      if(has('upholstery')) w.push(sUph, sUphPets);
+      if(has('upholstery')) w.push(sUph, sUphPets), uphCountOn() && w.push(sUphCount);
       return w.concat(sPhotos, sPrice, sWhen, sContact);
     }
     var f = [sProblem, sServices];
@@ -680,7 +680,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(has('tile')) step('tile', [sRooms('tile'), sSeal]);
     if(has('lvp')) step('lvp', [sRooms('lvp')]);
     if(has('stone')) step('stone', [sRooms('stone')]);
-    if(has('upholstery')) step('upholstery', [sUph, sUphPets]);
+    if(has('upholstery')) step('upholstery', uphCountOn() ? [sUph, sUphPets, sUphCount] : [sUph, sUphPets]);
     f.push(sPhotos, sPrice, sWhen, sContact);
     return f;
   }
@@ -1009,8 +1009,38 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     goBtn(el, 'That’s all the furniture').classList.add('stick');
   }
   function sUphPets(el){
-    h(el, 'Any pet odor spots or stains?', 'Helps us bring the right treatment.');
-    choices(el, [{ v:'Yes', t:'Yes' }, { v:'No', t:'No' }], function(v){ A.uphPets = v; }, A.uphPets);
+    h(el, 'Any pet odor spots or stains?', 'Tap one or both. Helps us bring the right treatment.');
+    if(!A.uphSpots) A.uphSpots = {};
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    var go;
+    /* Pet odor spots and Stains toggle (both can be on); No clears them and moves on. */
+    UPH_SPOTS.forEach(function(o){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+      b.innerHTML = '<span>' + o.t + '</span>';
+      b.setAttribute('aria-pressed', A.uphSpots[o.k] ? 'true' : 'false');
+      b.onclick = function(){ A.uphSpots[o.k] = !A.uphSpots[o.k]; A.uphPets = uphCountOn() ? 'Yes' : ''; no.removeAttribute('aria-pressed'); b.setAttribute('aria-pressed', A.uphSpots[o.k] ? 'true' : 'false'); go.disabled = !uphCountOn(); save(); };
+      box.appendChild(b);
+    });
+    var no = document.createElement('button'); no.type = 'button'; no.className = 'opt';
+    no.innerHTML = '<span>No</span>';
+    if(A.uphPets === 'No') no.setAttribute('aria-pressed', 'true');
+    no.onclick = function(){ A.uphSpots = {}; A.uphN = {}; A.uphPets = 'No'; next(); };
+    box.appendChild(no);
+    go = goBtn(el, 'Next'); go.disabled = !uphCountOn();
+  }
+  var UPH_SPOTS = [{ k:'pet', t:'Pet odor spots', n:'Pet odor spots' }, { k:'stain', t:'Stains', n:'Stains' }];
+  function uphCountOn(){ return !!(A.uphSpots && (A.uphSpots.pet || A.uphSpots.stain)); }
+  /* How many of each one they picked. */
+  function sUphCount(el){
+    h(el, 'How many?', 'Your best guess is fine.');
+    if(!A.uphN) A.uphN = {};
+    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    UPH_SPOTS.forEach(function(o){
+      if(!A.uphSpots[o.k]) return;
+      if(!A.uphN[o.k]) A.uphN[o.k] = 1;
+      box.appendChild(counter(o.n, '', function(){ return A.uphN[o.k] || 0; }, function(v){ A.uphN[o.k] = v; }, 20));
+    });
+    goBtn(el, 'Next');
   }
 
   /* Photos: optional, never block anything. */
@@ -1293,7 +1323,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(A.rugs.med || A.rugs.lg) L.push('Area rugs: ' + [A.rugs.med ? 'medium × ' + A.rugs.med : '', A.rugs.lg ? 'large × ' + A.rugs.lg : ''].filter(Boolean).join(', '));
     if(has('tile')){ var sa = Object.keys(A.sealAsk || {}).filter(function(k){ return A.sealAsk[k]; });
       L.push('Grout extras to quote on site: ' + (sa.length ? sa.join(', ') : 'none')); }
-    if(has('upholstery')) L.push('Pets or stains on fabric: ' + (A.uphPets || 'not answered'));
+    if(has('upholstery')) L.push('Pet odor spots or stains on fabric: ' + (uphCountOn() ? UPH_SPOTS.filter(function(o){ return A.uphSpots[o.k]; }).map(function(o){ return o.n.toLowerCase() + ' × ' + ((A.uphN || {})[o.k] || 1); }).join(', ') : (A.uphPets || 'not answered')));
     var dq = Object.keys(A.disc).filter(function(k){ return A.disc[k]; });
     if(dq.length) L.push('DISCOUNTS TO CHECK: ' + dq.join(', '));
     L.push('When: ' + (A.when || 'not answered'));
