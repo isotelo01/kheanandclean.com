@@ -1200,7 +1200,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
       });
       el.querySelector('#pnote').textContent = A.photos.length ? A.photos.length + ' of ' + PMAX + ' photos' : '';
-      go.textContent = A.photos.length ? 'Add these to my quote' : 'Next';
+      go.textContent = A.photos.length ? 'Add these to my quote' : photoRooms().length ? 'Take photos of rooms' : 'Next';
     }
     function add(inp){
       Array.prototype.forEach.call(inp.files, function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type)) A.photos.push(f); });
@@ -1208,6 +1208,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     }
     el.querySelector('#pickIn').onchange = function(){ add(this); };
     var go = goBtn(el, 'Next', function(){ if(photoRooms().length) pickRoom(el); else { A.skippedPhotos = !A.photos.length; next(); } });
+    /* Already have photos: pick from the library. Old photos weren't shot the measuring way, so say we can't size from them. */
+    var have = goBtn(el, 'Already have photos', function(){
+      if(!el.querySelector('#havenote')) have.insertAdjacentHTML('afterend', '<p class="note" id="havenote">We\u2019ll be unable to estimate size from photos you already have.</p>');
+      el.querySelector('#pickIn').click();
+    }, true);
     draw(); window.scrollTo(0, 0);
   }
   function photosLite(el){
