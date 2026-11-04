@@ -486,7 +486,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   var hist = [], navDir = '';
   function show(fn, push){
     if(push !== false && cur) hist.push(cur);
-    cur = fn;
+    cur = fn; invAll = false;
     document.body.classList.toggle('first', fn === sProblem);
     document.body.classList.remove('rp');
     backBtn.hidden = !hist.length; resetBtn.hidden = !hist.length;
@@ -538,6 +538,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var inv = document.getElementById('inv'), e;
     try{ e = estimate(); }catch(err){ e = null; }
     if(!invOpen) invOpen = {};
+    var op = function(k){ return invAll || invOpen[k]; };
     if(!e || !e.rows.length){ inv.hidden = true; inv.innerHTML = ''; return; }
     var h = '', ft = function(n){ return n ? n.toLocaleString() + ' sq ft' : ''; };
     /* Package names keep their branding: gold "Deep", red script "Signature". */
@@ -548,8 +549,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       var only = r.items.length === 1 ? r.items[0] : null;
       if(only && only.sq && only.label.replace(/ — .*sq ft$/, '') === r.name){
         var oid = r.key, orms = only.rooms || [];
-        h += '<div class="r svc' + (orms.length ? ' drop' + (invOpen[oid] ? ' open' : '') + '" data-drop="' + oid + '" role="button" tabindex="0" aria-expanded="' + !!invOpen[oid] : '') + '"><span>' + esc(r.name) + (orms.length ? '<i>▾</i>' : '') + '</span><span>' + ft(rsq) + '</span></div>';
-        orms.forEach(function(x){ h += '<div class="r rm"' + (invOpen[oid] ? '' : ' hidden') + '><span>' + esc(x.t) + '</span><span>' + ft(x.sq) + '</span></div>'; });
+        h += '<div class="r svc' + (orms.length ? ' drop' + (op(oid) ? ' open' : '') + '" data-drop="' + oid + '" role="button" tabindex="0" aria-expanded="' + !!op(oid) : '') + '"><span>' + esc(r.name) + (orms.length ? '<i>▾</i>' : '') + '</span><span>' + ft(rsq) + '</span></div>';
+        orms.forEach(function(x){ h += '<div class="r rm"' + (op(oid) ? '' : ' hidden') + '><span>' + esc(x.t) + '</span><span>' + ft(x.sq) + '</span></div>'; });
         return;
       }
       h += '<div class="r svc"><span>' + esc(r.name) + '</span><span>' + ft(rsq) + '</span></div>';
@@ -558,15 +559,16 @@ input.t:focus{ outline:none; border-color:var(--gold); }
         var right = i.sq ? ft(i.sq) : i.flights ? i.flights + (i.flights > 1 ? ' flights' : ' flight') : '';
         var rms = i.sq && i.rooms && i.rooms.length ? i.rooms : null, id = r.key;
         if(!rms){ h += '<div class="r it"><span>' + esc(label) + '</span><span>' + right + '</span></div>'; return; }
-        h += '<div class="r it drop' + (invOpen[id] ? ' open' : '') + '" data-drop="' + id + '" role="button" tabindex="0" aria-expanded="' + !!invOpen[id] + '"><span>' + brand(label) + '<i>▾</i></span><span>' + right + '</span></div>';
-        rms.forEach(function(x){ h += '<div class="r rm"' + (invOpen[id] ? '' : ' hidden') + '><span>' + esc(x.t) + '</span><span>' + ft(x.sq) + '</span></div>'; });
+        h += '<div class="r it drop' + (op(id) ? ' open' : '') + '" data-drop="' + id + '" role="button" tabindex="0" aria-expanded="' + !!op(id) + '"><span>' + brand(label) + '<i>▾</i></span><span>' + right + '</span></div>';
+        rms.forEach(function(x){ h += '<div class="r rm"' + (op(id) ? '' : ' hidden') + '><span>' + esc(x.t) + '</span><span>' + ft(x.sq) + '</span></div>'; });
       });
     });
     inv.innerHTML = h; inv.hidden = false;
   }
-  var invOpen = invOpen || {};
+  var invOpen = invOpen || {}, invAll = false;   // invAll: photo step opens every room list
   document.getElementById('inv').addEventListener('click', function(e){
     var d = e.target.closest('[data-drop]'); if(!d) return;
+    if(invAll){ [].forEach.call(this.querySelectorAll('[data-drop]'), function(x){ invOpen[x.dataset.drop] = true; }); invAll = false; }
     invOpen[d.dataset.drop] = !invOpen[d.dataset.drop]; drawInv();
   });
   screen.addEventListener('click', drawSqft);
@@ -1052,7 +1054,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   /* Photos: optional, never block anything. */
   var PMAX = 40;
   function sPhotos(el){
-    el.innerHTML = '';
+    el.innerHTML = ''; invAll = true; drawInv();
     goBtn(el, 'More exact price? Snap a few photos.', function(){ photosExact(el); }).classList.add('shine');
     el.insertAdjacentHTML('beforeend', '<p class="lead" style="margin-top:10px">Photos let us price your home more accurately.</p>');
     /* Happy with the estimate: no measuring photos, just a softer ask for a few so we know the job. */
@@ -1061,6 +1063,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
   /* The measuring-photo page, reached from the green button: tips + photo picking. */
   function photosExact(el){
+    invAll = false; drawInv();
     h(el, 'Snap a few photos', 'Here’s how to get the best shots.');
     el.insertAdjacentHTML('beforeend',
       '<ul class="tips"><li>Stand in each corner of the room and shoot toward the opposite corner</li>' +
@@ -1091,7 +1094,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     draw(); window.scrollTo(0, 0);
   }
   function photosLite(el){
-    el.innerHTML = '';
+    el.innerHTML = ''; invAll = false; drawInv();
     h(el, 'Could you snap a few photos?', 'Please snap a few photos of the areas to be cleaned. It helps us get a better feel for the job.');
     el.insertAdjacentHTML('beforeend',
       '<div class="pbtns"><button type="button" class="go ghost" id="lpick" style="margin:0">Choose photos</button></div>' +
