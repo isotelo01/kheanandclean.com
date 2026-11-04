@@ -262,6 +262,12 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 .rsask p{ margin:0 0 16px; font:600 1.1rem "Archivo",sans-serif; color:#fff; }
 .rsask button{ font:600 1rem "Archivo",sans-serif; border-radius:999px; padding:11px 20px; margin:0 5px; cursor:pointer; }
 .rsask .no{ background:none; color:#fff; border:1px solid rgba(255,255,255,.35); }
+.cmbox{ position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.72); display:flex; align-items:center; justify-content:center; padding:16px; }
+.cmbox > div{ background:#111; border:1px solid rgba(227,182,74,.5); border-radius:16px; padding:20px 18px; max-width:400px; width:100%; max-height:92svh; overflow:auto; }
+.cmbox h2{ margin:0 0 10px; font-size:1.25rem; color:#fff; }
+.cmbox textarea{ width:100%; min-height:110px; resize:vertical; background:rgba(255,255,255,.05); color:var(--ivory); border:1px solid var(--line); border-radius:12px; padding:12px; font:inherit; }
+.cmbox textarea:focus{ outline:none; border-color:var(--gold); }
+.cmbox .go{ margin-top:12px; }
 .rsask .yes{ background:var(--gold, #E3B64A); color:#111; border:0; }
 :where(button,a,input,select):focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 /* Photos */
@@ -1423,7 +1429,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       el.querySelector('.two').style.display = 'none';
       el.querySelector('label[for="ph"]').textContent = 'Phone';
       el.querySelector('label[for="em"]').textContent = 'or Email';
-      $('send').textContent = 'Send my official quote';
+      $('send').textContent = 'Send me an official quote';
+      A.askedComments = false;
     }
     ['nm','ph','em','st','ct','zp'].forEach(function(id){ if(C[id]) $(id).value = C[id]; $(id).addEventListener('input', function(){ (A.contact = A.contact || {})[id] = this.value; }); });
     /* Name: first letter of each word capitalized as they type. */
@@ -1439,6 +1446,43 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       this.value = !d ? '' : d.length < 4 ? (del ? d : '(' + d) : d.length < 7 ? '(' + d.slice(0,3) + ') ' + d.slice(3) : '(' + d.slice(0,3) + ') ' + d.slice(3,6) + '-' + d.slice(6);
     });
     $('f').addEventListener('submit', function(ev){ ev.preventDefault(); send(el, $); });
+  }
+
+  /* After "Send me an official quote": an optional comments box (gate code, water, pets, parking) with
+     photos. "No thanks" while it's empty, "Done" once they add something; either way it then sends. */
+  function comments(el, $){
+    var ov = document.createElement('div'); ov.className = 'cmbox';
+    ov.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="cmT"><h2 id="cmT">Additional comments</h2>' +
+      '<textarea id="cmTx" maxlength="1500" placeholder="Gate code, water spigot, pets, parking…"></textarea>' +
+      '<button type="button" class="go ghost" id="cmPh">Add photos</button>' +
+      '<input type="file" id="cmIn" accept="image/*" multiple hidden><div class="thumbs" id="cmTh"></div>' +
+      '<button type="button" class="go" id="cmGo">No thanks</button></div>';
+    document.body.appendChild(ov);
+    var tx = ov.querySelector('#cmTx'), go = ov.querySelector('#cmGo'), th = ov.querySelector('#cmTh'), added = [];
+    tx.value = A.comments || '';
+    var sync = function(){ go.textContent = tx.value.trim() || added.length ? 'Done' : 'No thanks'; };
+    var draw = function(){
+      th.innerHTML = '';
+      added.forEach(function(f, i){
+        var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
+        img.src = URL.createObjectURL(f); img.alt = 'Photo ' + (i + 1); img.onload = function(){ URL.revokeObjectURL(img.src); };
+        x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
+        x.onclick = function(){ added.splice(i, 1); A.photos.splice(A.photos.indexOf(f), 1); draw(); };
+        d.appendChild(img); d.appendChild(x); th.appendChild(d);
+      });
+      sync();
+    };
+    ov.querySelector('#cmPh').onclick = function(){ ov.querySelector('#cmIn').click(); };
+    ov.querySelector('#cmIn').onchange = function(){
+      Array.prototype.forEach.call(this.files, function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ A.photos.push(f); added.push(f); } });
+      this.value = ''; draw(); };
+    tx.addEventListener('input', sync);
+    go.onclick = function(){
+      A.comments = tx.value.trim(); A.askedComments = true;
+      if(A.photos.length) A.skippedPhotos = false;
+      ov.remove(); save(); send(el, $);
+    };
+    sync(); setTimeout(function(){ tx.focus(); }, 50);
   }
 
   var textedQuote = false;
@@ -1479,6 +1523,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(has('upholstery')) L.push('Pet odor spots or stains on fabric: ' + (uphCountOn() ? UPH_SPOTS.filter(function(o){ return A.uphSpots[o.k]; }).map(function(o){ return o.n.toLowerCase() + ' × ' + ((A.uphN || {})[o.k] || 1); }).join(', ') : (A.uphPets || 'not answered')));
     var dq = Object.keys(A.disc).filter(function(k){ return A.disc[k]; });
     if(dq.length) L.push('DISCOUNTS TO CHECK: ' + dq.join(', '));
+    if(A.comments) L.push('Additional comments: ' + A.comments);
     if(A.discPick && A.discPick !== 'None') L.push('DISCOUNT PICKED: ' + A.discPick);
     if(A.noPics) L.push('Path: couldn’t take pictures; saw price, picked a discount');
     L.push('When: ' + (A.when || 'not answered'));
@@ -1585,6 +1630,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       : !sms ? ['smsQ', 'Please choose Yes or No for texting.'] : null;
     if(bad){ err.textContent = bad[1]; var t = $(bad[0]); if(t.focus) t.focus(); t.scrollIntoView({ block:'center' }); return; }
     err.textContent = '';
+    if(A.noPics && !A.askedComments){ comments(el, $); return; }   // one last box before it sends
     btn.disabled = true; btn.textContent = A.photos.length ? 'Uploading photos…' : 'Sending…';
     var e = estimate(), msg = summary(e), smsYes = !!sms && sms.value === 'Yes', promoYes = $('promo').checked;
     textedQuote = smsYes && e.rows.length > 0;   /* the backend texts them their estimate link */
