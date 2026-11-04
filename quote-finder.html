@@ -1343,7 +1343,10 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       : ['Stand in the doorway and shoot into the room', 'Corner 1: shoot toward the opposite corner', 'Corner 2: shoot toward the opposite corner',
          'Corner 3: shoot toward the opposite corner', 'Corner 4: shoot toward the opposite corner', 'Close-ups of any stains or pet spots'];
     var mine = roomShots(rm), full = A.photos.length >= PMAX;
-    h(el, esc(rm.t) + ' photos', 'One at a time. Tap Done with this room whenever you want.' +
+    /* Two-story homes: the floor goes in the heading, e.g. "Bedroom 1 · second floor · carpet photos". */
+    var tparts = rm.t.split(' · ');
+    if(room && A.story === '2' && A.roomFloor[rm.id]) tparts.splice(1, 0, FLOORS[A.roomFloor[rm.id]].toLowerCase());
+    h(el, esc(tparts.join(' · ')) + ' photos', 'One at a time. Tap Done with this room whenever you want.' +
       (rm.furn || rm.stairs ? '' : ' Optional: a sheet of white paper in the middle of the floor helps us see size and color.'));
     var p = document.createElement('p'); p.className = 'pitch';
     p.textContent = full ? 'That’s the most photos we can take. Thank you!'
