@@ -218,6 +218,7 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 .go{ display:block; width:100%; margin-top:18px; background:var(--gold); color:var(--ink); border:0; border-radius:999px;
   padding:16px; font:700 1.05rem "Archivo",sans-serif; cursor:pointer; }
 .go:disabled{ opacity:.5; cursor:default; }
+.go[hidden]{ display:none; }
 .go.stick{ position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:5; box-shadow:0 6px 24px 10px var(--ink); }
 .go.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold); }
 /* Big shimmery green button (photo step). Shine runs on ::after so it doesn't fight the .go entry animations. */
@@ -1110,7 +1111,9 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     el.innerHTML = ''; invAll = false; drawInv();
     h(el, 'Could you snap a few photos?', 'Please snap a few photos of the areas to be cleaned. It helps us get a better feel for the job.');
     el.insertAdjacentHTML('beforeend',
-      '<div class="pbtns"><button type="button" class="go ghost" id="lpick" style="margin:0">Choose photos</button></div>' +
+      '<button type="button" class="go" id="lcam">Take photos</button>' +
+      '<button type="button" class="go ghost" id="lpick">Choose photos</button>' +
+      '<input type="file" id="lcamIn" accept="image/*" capture="environment" hidden>' +
       '<input type="file" id="lpickIn" accept="image/*" multiple hidden><div class="thumbs" id="lthumbs"></div><p class="note" id="lnote"></p>');
     var thumbs = el.querySelector('#lthumbs'), urls = [], go;
     var draw = function(){
@@ -1123,14 +1126,17 @@ input.t:focus{ outline:none; border-color:var(--gold); }
         d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
       });
       el.querySelector('#lnote').textContent = A.photos.length ? A.photos.length + ' of ' + PMAX + ' photos' : '';
-      go.textContent = A.photos.length ? 'Add these to my quote' : 'Next';
+      go.hidden = !A.photos.length;   // Next only once they've added photos
     };
-    el.querySelector('#lpickIn').onchange = function(){
-      Array.prototype.forEach.call(this.files, function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type)) A.photos.push(f); });
+    var addL = function(){
+      Array.prototype.forEach.call(this.files, function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')) A.photos.push(f); });
       this.value = ''; draw(); };
+    el.querySelector('#lpickIn').onchange = addL;
+    el.querySelector('#lcamIn').onchange = addL;
     el.querySelector('#lpick').onclick = function(){ el.querySelector('#lpickIn').click(); };
-    go = goBtn(el, 'Next', function(){ A.skippedPhotos = !A.photos.length; next(); });
+    el.querySelector('#lcam').onclick = function(){ el.querySelector('#lcamIn').click(); };
     goBtn(el, 'Skip photos for now', function(){ A.skippedPhotos = !A.photos.length; next(); }, true);
+    go = goBtn(el, 'Next', function(){ A.skippedPhotos = !A.photos.length; next(); });
     draw(); window.scrollTo(0, 0);
   }
 
