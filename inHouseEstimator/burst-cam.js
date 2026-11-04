@@ -38,6 +38,12 @@
     '.bcam.ios .btip{position:absolute;z-index:2;left:12px;max-width:calc(100% - 24px);top:calc(env(safe-area-inset-top) + 12px)}' +
     '.bcam.ios .bnav{position:absolute;left:12px;bottom:12px;display:flex;gap:8px;z-index:2}' +
     '.bcam.ios .bleft{order:1}.bcam.ios .bdone{order:2}.bcam.ios .bshut{order:3}.bcam.ios .btop{order:4}' +
+    /* iPhone upright: slim bar, evenly spaced: Done | shutter | 0.5. Count and last photo sit on the
+       picture's bottom right, so the picture gets the room. */
+    '@media (orientation:portrait){.bcam.ios .bbar{position:relative;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:12px 16px calc(env(safe-area-inset-bottom) + 12px)}' +
+    '.bcam.ios .bdone{grid-column:1;grid-row:1;justify-self:center}.bcam.ios .bshut{grid-column:2;grid-row:1}.bcam.ios .btop{grid-column:3;grid-row:1;justify-self:center}' +
+    '.bcam.ios .bleft{position:absolute;right:12px;bottom:calc(100% + 12px);width:auto;z-index:2;background:rgba(0,0,0,.5);border-radius:10px;padding:4px 10px 4px 4px}' +
+    '.bcam.ios .bleft:not(:has(img)){padding:6px 12px}.bcam.ios .blight{position:fixed}}' +
     /* Android: label centered at the top above the picture; Back / Forward bottom left of the picture;
        one lens button by the shutter; bar raised so Chrome's full screen notice doesn't cover it. */
     '.bcam.andr .btip{align-self:center;max-width:calc(100% - 24px);margin:calc(env(safe-area-inset-top) + 12px) 12px 10px}' +
@@ -60,7 +66,7 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
     var max = opts.max > 0 ? opts.max : 999, count = 0, pos = 0, files = [], stream = null, lastUrl = '', busy = false;
     /* Which way the phone is held, from gravity (iPhones report it with the opposite sign). */
-    var grav = { x: 0, y: 9.8 }, IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    var grav = { x: 0, y: 9.8 }, IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);   /* also iPhone/iPad set to desktop site */
     function onMot(e){ var a = e.accelerationIncludingGravity; if (a && a.x != null) { grav.x = IOS ? -a.x : a.x; grav.y = IOS ? -a.y : a.y; } }
     window.addEventListener('devicemotion', onMot);
     if (!document.getElementById('bcam-css')) {
