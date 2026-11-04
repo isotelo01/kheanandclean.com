@@ -644,8 +644,16 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   function keepPhotos(){
     var sig = A.photos.map(function(f){ return (f.name || '') + f.size + (f._room || ''); }).join('|');
     if(sig === photoSig) return; photoSig = sig;
-    var list = A.photos.map(function(f){ return { blob:f, name:f.name || 'photo.jpg', room:f._room || '', roomName:f._roomName || '' }; });
-    idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').put(list, 'all'); }).catch(function(){});
+    /* Saved as raw bytes, not Blobs: iPhone Safari loses Blobs kept in IndexedDB across a refresh,
+       which showed up as broken "?" photos. */
+    Promise.all(A.photos.map(function(f){
+      return f.arrayBuffer().then(function(buf){
+        return { buf:buf, type:f.type || 'image/jpeg', name:f.name || 'photo.jpg', room:f._room || '', roomName:f._roomName || '' };
+      }).catch(function(){ return null; });
+    })).then(function(list){
+      list = list.filter(Boolean);
+      return idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').put(list, 'all'); });
+    }).catch(function(){});
   }
   function loadPhotos(){
     return idb().then(function(db){
@@ -654,11 +662,17 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         r.onsuccess = function(){ ok(r.result || []); }; r.onerror = function(){ ok([]); };
       });
     }).then(function(list){
-      return list.map(function(x){
-        var f = x.blob; try{ f = new File([x.blob], x.name, { type:x.blob.type || 'image/jpeg' }); }catch(e){}
-        if(x.room){ f._room = x.room; f._roomName = x.roomName; }
-        return f;
-      });
+      /* Old saves kept Blobs; read them now and drop any the phone can no longer open. */
+      return Promise.all(list.map(function(x){
+        var get = x.buf ? Promise.resolve(x.buf) : x.blob && x.blob.arrayBuffer ? x.blob.arrayBuffer() : Promise.reject();
+        return get.then(function(buf){
+          if(!buf || !buf.byteLength) return null;
+          var type = x.type || (x.blob && x.blob.type) || 'image/jpeg', f;
+          try{ f = new File([buf], x.name, { type:type }); }catch(e){ f = new Blob([buf], { type:type }); f.name = x.name; }
+          if(x.room){ f._room = x.room; f._roomName = x.roomName; }
+          return f;
+        }).catch(function(){ return null; });
+      })).then(function(fs){ return fs.filter(Boolean); });
     }).catch(function(){ return []; });
   }
   function dropPhotos(){ photoSig = ''; idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').delete('all'); }).catch(function(){}); }
