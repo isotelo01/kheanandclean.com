@@ -57,6 +57,9 @@ a{ color:var(--gold); }
 .inv .drop i{ font-style:normal; display:inline-block; margin-left:4px; transition:transform .2s; }
 .inv .drop.open i{ transform:rotate(180deg); }
 .inv .rm{ padding-left:26px; font-size:.95em; }
+.inv .tot{ margin-top:8px; padding-top:8px; border-top:1px solid var(--line); color:#fff; font-weight:700; }
+.inv .tot b{ color:var(--gold); }
+body:not(.rp) .sqft.dup{ display:none; }   /* total lives at the bottom of the box instead */
 .inv .gold{ color:var(--gold); }
 .inv [hidden]{ display:none; }
 .bar i{ display:block; height:100%; width:0; background:var(--gold); transition:width .3s ease; }
@@ -539,7 +542,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     try{ e = estimate(); }catch(err){ e = null; }
     if(!invOpen) invOpen = {};
     var op = function(k){ return invAll || invOpen[k]; };
-    if(!e || !e.rows.length){ inv.hidden = true; inv.innerHTML = ''; return; }
+    if(!e || !e.rows.length){ inv.hidden = true; inv.innerHTML = ''; document.getElementById('sqft').classList.remove('dup'); return; }
     var h = '', ft = function(n){ return n ? n.toLocaleString() + ' sq ft' : ''; };
     /* Package names keep their branding: gold "Deep", red script "Signature". */
     var brand = function(t){ return esc(t).replace(/^Deep\b/, '<span class="gold">Deep</span>').replace(/^Signature\b/, '<span class="sigScript">Signature</span>'); };
@@ -563,7 +566,10 @@ input.t:focus{ outline:none; border-color:var(--gold); }
         rms.forEach(function(x){ h += '<div class="r rm"' + (op(id) ? '' : ' hidden') + '><span>' + esc(x.t) + '</span><span>' + ft(x.sq) + '</span></div>'; });
       });
     });
+    var tot = sqftTotal();
+    if(tot) h += '<div class="r tot"><span>Total</span><b>' + tot.toLocaleString() + ' sq ft</b></div>';
     inv.innerHTML = h; inv.hidden = false;
+    document.getElementById('sqft').classList.toggle('dup', !!tot);
   }
   var invOpen = invOpen || {}, invAll = false;   // invAll: photo step opens every room list
   document.getElementById('inv').addEventListener('click', function(e){
