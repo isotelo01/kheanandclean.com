@@ -199,6 +199,7 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 .step .lead{ margin:0 0 18px; color:var(--muted); }
 .step .pitch{ margin:0 0 18px; padding:12px 14px; border-left:3px solid var(--gold); background:rgba(227,182,74,.07); border-radius:0 10px 10px 0; }
 .opts{ display:grid; gap:10px; }
+.grplab{ margin:10px 0 -2px; color:var(--gold); font-size:.8rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
 .opt{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; text-align:left;
   background:var(--card); color:var(--ivory); border:1px solid var(--line); border-radius:14px;
   padding:15px 16px; font:600 1.02rem "Archivo",sans-serif; cursor:pointer; }
@@ -1279,7 +1280,24 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var list = photoRooms(), any = list.some(function(rm){ return roomShots(rm).length; });
     h(el, any ? 'Which room next?' : 'Which room do you want to photograph first?', 'Tap a room. Stop anytime.');
     var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
-    list.forEach(function(rm){
+    /* Two-story homes: group the rooms by the floor they're most likely on (or the floor the customer
+       already picked for that room). Upstairs first, then stairs, downstairs, furniture. */
+    var labs = {};
+    if(A.story === '2'){
+      var UP = { beds:1, master:1, hallway:1, loft:1, closet:1, fullBath:1, masterBath:1 };
+      var grp = function(rm){
+        if(rm.furn) return 3; if(rm.stairs) return 1;
+        var f = A.roomFloor && A.roomFloor[rm.id]; if(f) return f === '2' ? 0 : 2;
+        return UP[rm.id.split('_')[1]] ? 0 : 2;
+      };
+      var LAB = ['Usually upstairs', 'Stairs', 'Usually downstairs', 'Furniture'];
+      list = list.map(function(rm, i){ return { rm:rm, g:grp(rm), i:i }; })
+        .sort(function(x, y){ return x.g - y.g || x.i - y.i; });
+      var lastG = -1;
+      list = list.map(function(x, j){ if(x.g !== lastG){ lastG = x.g; labs[j] = LAB[x.g]; } return x.rm; });
+    }
+    list.forEach(function(rm, j){
+      if(labs[j]){ var lb = document.createElement('p'); lb.className = 'grplab'; lb.textContent = labs[j]; box.appendChild(lb); }
       var n = roomShots(rm).length, b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
       b.innerHTML = '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '') + '</span>';
       if(n) b.setAttribute('aria-pressed', 'true');
