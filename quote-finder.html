@@ -356,7 +356,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
 <script src="/day-picker.js"></script>
 <script src="/inHouseEstimator/pricing.js"></script>
 <script src="/inHouseEstimator/pricing-live.js"></script>
-<script src="/inHouseEstimator/burst-cam.js?v=20261104q" defer></script>
+<script src="/inHouseEstimator/burst-cam.js?v=20261104r" defer></script>
 <script>
 (function(){
   'use strict';
@@ -1434,7 +1434,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       var start = roomShots(rm).length, room = !rm.furn && !rm.stairs, IOSCAM = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);   /* Android label adds the room name */
       var ok = window.burstCam && window.burstCam({ max: PMAX - A.photos.length,
         tip: function(n){ var i = start + n; if(room && i < shots.length) return '<span>' + (IOSCAM ? '' : esc(rm.t.split(' · ')[0]) + ': ') + esc(shots[i]) + '</span>'; return i < shots.length ? '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
-        onShot: keep, onReplace: swap, onDone: function(){ save(); redo(); upNow(); } });   /* Done with this room: its photos start uploading */
+        start: start, onShot: keep, onReplace: swap,
+        onRemove: function(f){ var k = A.photos.indexOf(f); if(k > -1) A.photos.splice(k, 1); },   /* Erase in the camera's photo viewer */
+        onDone: function(){ save(); redo(); upNow(); } });   /* Done with this room: its photos start uploading */
       if(!ok) el.querySelector('#rcamIn').click();
     };
     var thumbs = el.querySelector('#rthumbs');

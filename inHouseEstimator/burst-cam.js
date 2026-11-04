@@ -18,9 +18,19 @@
     '.bcam .blight[hidden]{display:none}.bcam .blight svg{width:22px;height:22px}' +
     '.bcam .blight.on{background:#E3B64A;color:#000;border-color:#E3B64A}' +
     '.bcam .bbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px calc(env(safe-area-inset-bottom) + 16px);background:#000}' +
-    '.bcam .bleft{width:90px;display:flex;align-items:center;gap:8px;order:1}' +
+    '.bcam .bleft{min-width:90px;display:flex;align-items:center;gap:8px;order:1}' +
     '.bcam .bleft img{width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.5)}' +
-    '.bcam .bcount{font:700 18px system-ui,sans-serif}' +
+    '.bcam .bcount{font:700 18px system-ui,sans-serif;white-space:nowrap}.bcam .bleft img{cursor:pointer}' +
+    /* Photo viewer: opens from the thumbnail; swipe or arrows to go left/right; Erase top right; X top left. */
+    '.bcam .bpv{position:fixed;inset:0;z-index:20;background:#000;display:flex;align-items:center;justify-content:center;touch-action:pan-y}' +
+    '.bcam .bpv img{max-width:100%;max-height:100%;object-fit:contain}' +
+    '.bcam .bpv button{position:absolute;font:600 16px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.5);border-radius:22px;padding:10px 16px;cursor:pointer}' +
+    '.bcam .bpv .bpx{top:calc(env(safe-area-inset-top) + 12px);left:calc(env(safe-area-inset-left) + 12px);width:44px;height:44px;padding:0;font-size:24px}' +
+    '.bcam .bpv .bpe{top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 12px);background:#c0392b;border-color:#c0392b}' +
+    '.bcam .bpv .bpp,.bcam .bpv .bpn{top:50%;transform:translateY(-50%);width:48px;height:48px;padding:0;font-size:28px}' +
+    '.bcam .bpv .bpp{left:calc(env(safe-area-inset-left) + 12px)}.bcam .bpv .bpn{right:calc(env(safe-area-inset-right) + 12px)}' +
+    '.bcam .bpv [hidden]{display:none}' +
+    '.bcam .bpv .bpc{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 16px);text-align:center;font:700 17px system-ui,sans-serif;text-shadow:0 1px 4px #000}' +
     '.bcam .bshut{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid #000;box-shadow:0 0 0 3px #fff;cursor:pointer;flex:none;order:2}' +
     '.bcam .bshut:active{transform:scale(.92)}' +
     '.bcam .bshut:disabled{opacity:.4}' +
@@ -50,7 +60,7 @@
     '.bcam.andr .bnav{position:absolute;left:calc(env(safe-area-inset-left) + 12px);bottom:12px;display:flex;gap:8px}' +
     '.bcam.andr .btop{order:3}' +
     '@media (orientation:portrait){.bcam.andr .bbar{padding-bottom:calc(env(safe-area-inset-bottom) + 120px)}}' +
-    '@media (orientation:landscape){.bcam{flex-direction:row}' +
+    '@media (orientation:landscape){.bcam{flex-direction:row}.bcam .bleft{min-width:0;flex-direction:column;gap:4px}' +
     '.bcam .bbar{flex-direction:column;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) 16px}' +
     /* iPhone sideways: right column (fixed width) is count at the top, shutter in the middle, Done at the bottom.
        Light and 0.5 side by side in one row at the top, just left of that column; label at the bottom right
@@ -101,8 +111,15 @@
     /* Back / Forward (only when the page passes onReplace): step through this session's photos.
        Nothing is deleted; shooting on an earlier step replaces that photo, Forward skips ahead. */
     var back = box.querySelector('.bback'), fwd = box.querySelector('.bfwd');
+    /* The count follows Back / Forward: "3 of 7" while on an earlier photo, else the total.
+       opts.start = photos this room already had before the camera opened, so numbers carry on. */
+    var start = opts.start > 0 ? opts.start : 0;
+    var label = function(){ return pos < count ? (start + pos + 1) + ' of ' + (start + count) : String(start + count); };
     var thumb = function(f){ if (lastUrl) URL.revokeObjectURL(lastUrl); lastUrl = f ? URL.createObjectURL(f) : '';
-      left.innerHTML = (f ? '<img src="' + lastUrl + '" alt="">' : '') + '<span class="bcount">' + count + '</span>'; };
+      left.innerHTML = (f ? '<img src="' + lastUrl + '" alt="Open photos">' : '') + '<span class="bcount">' + label() + '</span>'; };
+    var refresh = function(){ thumb(count ? files[pos < count ? pos : count - 1] : null);
+      shut.disabled = !video.videoWidth || (pos >= count && count >= max);
+      say(pos < count ? 'Retake this photo, or tap Forward.' : ''); tip(); showBack(); };
     var showBack = function(){ back.hidden = !(opts.onReplace && pos > 0); fwd.hidden = !(opts.onReplace && pos < count); };
     var step = function(d){
       if (busy) return;
@@ -114,6 +131,43 @@
     };
     back.addEventListener('click', function(){ step(-1); });
     fwd.addEventListener('click', function(){ step(1); });
+
+    /* Tap the thumbnail: full-screen viewer of this session's photos. Swipe or arrows for left/right.
+       Erase (only when the page passes onRemove) asks first, then removes that photo. */
+    left.addEventListener('click', function(e){
+      if (!e.target.closest('img') || !count || busy) return;
+      var i = pos < count ? pos : count - 1, url = '';
+      var v = document.createElement('div'); v.className = 'bpv';
+      v.innerHTML = '<img alt=""><button type="button" class="bpx" aria-label="Close">&times;</button>' +
+        (opts.onRemove ? '<button type="button" class="bpe">Erase</button>' : '') +
+        '<button type="button" class="bpp" aria-label="Previous photo">&lsaquo;</button><button type="button" class="bpn" aria-label="Next photo">&rsaquo;</button><div class="bpc"></div>';
+      box.appendChild(v);
+      var img = v.querySelector('img'), pv = v.querySelector('.bpp'), nx = v.querySelector('.bpn');
+      var show = function(){ if (url) URL.revokeObjectURL(url); url = URL.createObjectURL(files[i]); img.src = url;
+        v.querySelector('.bpc').textContent = (start + i + 1) + ' of ' + (start + count);
+        pv.hidden = i <= 0; nx.hidden = i >= count - 1; };
+      var shut2 = function(){ if (url) URL.revokeObjectURL(url); v.remove(); };
+      var go = function(d){ var j = i + d; if (j < 0 || j >= count) return; i = j; show(); };
+      pv.addEventListener('click', function(){ go(-1); });
+      nx.addEventListener('click', function(){ go(1); });
+      v.querySelector('.bpx').addEventListener('click', shut2);
+      var sx = null;
+      v.addEventListener('touchstart', function(ev){ sx = ev.touches[0].clientX; }, { passive: true });
+      v.addEventListener('touchend', function(ev){ if (sx == null) return; var dx = ev.changedTouches[0].clientX - sx; sx = null;
+        if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
+      var er = v.querySelector('.bpe');
+      if (er) er.addEventListener('click', function(){
+        if (!window.confirm('Erase photo ' + (start + i + 1) + '?')) return;
+        var f = files.splice(i, 1)[0]; count--;
+        try { opts.onRemove(f); } catch (err) { console.error(err); }
+        if (pos > i) pos--; if (pos > count) pos = count;
+        refresh();
+        if (!count) { shut2(); return; }
+        if (i >= count) i = count - 1;
+        show();
+      });
+      show();
+    });
 
     function stop(){ window.removeEventListener('devicemotion', onMot); if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
     function open(deviceId){
@@ -158,6 +212,7 @@
 
     shut.addEventListener('click', function(){
       if (busy || (pos >= count && count >= max) || !video.videoWidth) return;
+      if (pos < count && !window.confirm('Replace photo ' + (start + pos + 1) + '?')) return;
       busy = true;
       /* Rotation lock: the screen stays upright, so a phone held sideways gives a sideways frame.
          Gravity says which way the phone is held; turn the photo to match. */
