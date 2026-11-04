@@ -1261,7 +1261,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       '<text x="' + from[0] + '" y="' + (from[1] + (from[1] > 70 ? -16 : 24)) + '" text-anchor="middle" font-size="10" fill="#fff" font-family="Archivo,sans-serif">You</text>';
     return g + '</svg>';
   }
-  /* Before a room's photos: which floor it's on (two-story homes only), then camera or library. */
+  /* Before a room's photos: which floor it's on (two-story homes only). */
   var FLOORS = { '1':'First floor', '2':'Second floor' };
   function roomAsk(el, title, lead, list){
     h(el, title, lead);
@@ -1280,12 +1280,6 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     if(room && A.story === '2' && !A.roomFloor[rm.id]){
       roomAsk(el, 'What floor is the ' + esc(rm.t) + ' on?', '', ['1', '2'].map(function(v){
         return { t:FLOORS[v], go:function(){ A.roomFloor[rm.id] = v; save(); shootRoom(el, rm); } }; }));
-      return;
-    }
-    if(!how && !roomShots(rm).length){
-      roomAsk(el, esc(rm.t) + ' photos', 'How do you want to add them?', [
-        { t:'Take photos of the room', go:function(){ shootRoom(el, rm, 'cam'); } },
-        { t:'I already have photos of the room', go:function(){ shootRoom(el, rm, 'lib'); el.querySelector('#rpickIn').click(); } }]);
       return;
     }
     var shots = rm.stairs ? ['From the bottom, shoot up the stairs', 'From the top, shoot down the stairs', 'Close-ups of any stains or worn spots']
