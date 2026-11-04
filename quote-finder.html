@@ -1188,19 +1188,12 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       '<li>Add close-ups of any stains or pet spots</li>' +
       '<li>Optional: if you have one, lay a sheet of white paper in the middle of the floor. It helps us see size and color.</li></ul>' +
       '<input type="file" id="pickIn" accept="image/*" multiple hidden>' +
-      '<div class="thumbs" id="thumbs"></div><p class="note" id="pnote"></p>');
-    var thumbs = el.querySelector('#thumbs'), urls = [];
+      '<p class="note" id="pnote"></p>');
+    /* No photo thumbnails on this page: just a count of library photos they added with Already have photos. */
     function draw(){
-      urls.forEach(URL.revokeObjectURL); urls = []; thumbs.innerHTML = '';
-      A.photos.forEach(function(f, i){
-        var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
-        img.src = URL.createObjectURL(f); urls.push(img.src); img.alt = 'Photo ' + (i + 1);
-        x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
-        x.onclick = function(){ A.photos.splice(i, 1); draw(); };
-        d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
-      });
-      el.querySelector('#pnote').textContent = A.photos.length ? A.photos.length + ' of ' + PMAX + ' photos' : '';
-      go.textContent = A.photos.length ? 'Add these to my quote' : photoRooms().length ? 'Take photos of rooms' : 'Next';
+      var lib = A.photos.filter(function(f){ return !f._room; }).length;
+      el.querySelector('#pnote').textContent = lib ? '\u2713 ' + lib + ' photo' + (lib > 1 ? 's' : '') + ' added' : '';
+      go.textContent = photoRooms().length ? 'Take photos of rooms' : 'Next';
     }
     function add(inp){
       Array.prototype.forEach.call(inp.files, function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type)) A.photos.push(f); });
