@@ -13,6 +13,10 @@
     '.bcam .btop:empty{display:none}' +
     '.bcam .bzoom{font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:8px 14px;cursor:pointer}' +
     '.bcam .bzoom.on{background:#E3B64A;color:#000;border-color:#E3B64A}' +
+    /* Light: icon button at the top right of the picture; gold while on. Only shown if the camera has a light. */
+    '.bcam .blight{position:absolute;right:12px;top:calc(env(safe-area-inset-top) + 12px);z-index:3;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);padding:0;cursor:pointer}' +
+    '.bcam .blight[hidden]{display:none}.bcam .blight svg{width:22px;height:22px}' +
+    '.bcam .blight.on{background:#E3B64A;color:#000;border-color:#E3B64A}' +
     '.bcam .bbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px calc(env(safe-area-inset-bottom) + 16px);background:#000}' +
     '.bcam .bleft{width:90px;display:flex;align-items:center;gap:8px;order:1}' +
     '.bcam .bleft img{width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.5)}' +
@@ -58,6 +62,7 @@
     box.className = 'bcam ' + (IOS ? 'ios' : 'andr');
     /* One lens button in the bar, next to the shutter (iPhone and Android). */
     box.innerHTML = '<div class="bmain"><div class="btip"></div><div class="bview"><video playsinline muted autoplay></video><div class="bflash"></div>' +
+      '<button type="button" class="blight" aria-label="Light" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></button>' +
       '<div class="bnav"><button type="button" class="bback" hidden>&larr; Back</button><button type="button" class="bfwd" hidden>Forward &rarr;</button></div>' +
       '<div class="bmsg">Opening camera&hellip;</div></div></div>' +
       '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div><div class="btop"></div>' +
@@ -97,8 +102,19 @@
       return navigator.mediaDevices.getUserMedia({ video: v, audio: false }).then(function(s){
         stream = s; video.srcObject = s;
         return video.play().catch(function(){});
-      }).then(function(){ shut.disabled = count >= max; say(count >= max ? 'That’s the most photos for now.' : ''); });
+      }).then(function(){ shut.disabled = count >= max; say(count >= max ? 'That’s the most photos for now.' : ''); setLight(); });
     }
+    /* Light: stays on while shooting (a web page can't fire a real flash). Kept on across lens switches. */
+    var lightBtn = box.querySelector('.blight'), lightOn = false;
+    function setLight(){
+      var t = stream && stream.getVideoTracks()[0], caps = {};
+      try { caps = t && t.getCapabilities ? t.getCapabilities() : {}; } catch (e) {}
+      lightBtn.hidden = !caps.torch;
+      if (!caps.torch) return;
+      t.applyConstraints({ advanced: [{ torch: lightOn }] }).catch(function(err){ console.error(err); });
+      lightBtn.classList.toggle('on', lightOn);
+    }
+    lightBtn.addEventListener('click', function(){ lightOn = !lightOn; setLight(); });
     /* 0.5 / 1x: shown when the phone lists an ultra wide back camera. */
     function lenses(){
       if (!navigator.mediaDevices.enumerateDevices) return;
