@@ -19,13 +19,21 @@
     '.bcam .bshut:active{transform:scale(.92)}' +
     '.bcam .bshut:disabled{opacity:.4}' +
     '.bcam .bdone{width:90px;font:700 17px system-ui,sans-serif;color:#000;background:#E3B64A;border:0;border-radius:8px;padding:12px 0;cursor:pointer}' +
-    '.bcam .btip{position:absolute;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 62px);display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.62);border-left:3px solid #E3B64A;border-radius:10px;padding:10px 12px;font-weight:600;line-height:1.3;pointer-events:none}' +
+    '.bcam .btip{position:absolute;left:12px;right:auto;max-width:calc(100% - 24px);box-sizing:border-box;top:calc(env(safe-area-inset-top) + 62px);display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.62);border-left:3px solid #E3B64A;border-radius:10px;padding:10px 12px;font-weight:600;line-height:1.3;pointer-events:none}' +
     '.bcam .btip:empty{display:none}' +
     '.bcam .btip svg{width:104px;max-width:104px;flex:none;margin:0}' +
     '.bcam .bback{position:absolute;left:12px;top:calc(env(safe-area-inset-top) + 12px);font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:6px 14px;cursor:pointer}' +
     '.bcam .bfwd{position:absolute;right:12px;top:calc(env(safe-area-inset-top) + 12px);font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:6px 14px;cursor:pointer}' +
     '.bcam .bback[hidden],.bcam .bfwd[hidden]{display:none}' +
-    '.bcam .bmsg{position:absolute;left:0;right:0;bottom:140px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}';
+    '.bcam .bmsg{position:absolute;left:0;right:0;bottom:140px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}' +
+    /* Phone held sideways: the picture fills the screen and the shutter bar moves to the right side. */
+    '@media (orientation:landscape){.bcam{flex-direction:row}' +
+    '.bcam video{height:100%;min-width:0}' +
+    '.bcam .bbar{flex-direction:column-reverse;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) 16px}' +
+    '.bcam .bleft{justify-content:center}' +
+    '.bcam .btip{left:calc(env(safe-area-inset-left) + 12px);max-width:calc(100% - 180px)}' +
+    '.bcam .bfwd{right:calc(env(safe-area-inset-right) + 140px)}' +
+    '.bcam .bmsg{bottom:24px;right:130px}}';
 
   window.burstCam = function(opts){
     opts = opts || {};
