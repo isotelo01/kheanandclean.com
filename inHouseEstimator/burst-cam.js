@@ -44,7 +44,10 @@
     '@media (orientation:portrait){.bcam.andr .bbar{padding-bottom:calc(env(safe-area-inset-bottom) + 120px)}}' +
     '@media (orientation:landscape){.bcam{flex-direction:row}' +
     '.bcam .bbar{flex-direction:column;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) 16px}' +
-    '.bcam.ios .bbar{flex-direction:column-reverse}.bcam.ios .bleft{justify-content:center}.bcam.ios .bfwd{right:12px}' +
+    /* iPhone sideways, right column top to bottom: light, 0.5, count, shutter, Done; label bottom right of the picture. */
+    '.bcam.ios .bbar{flex-direction:column}.bcam.ios .bleft{justify-content:center}.bcam.ios .bfwd{right:12px}' +
+    '.bcam.ios .blight{position:static;order:1}.bcam.ios .btop{order:2}.bcam.ios .bleft{order:3}.bcam.ios .bshut{order:4}.bcam.ios .bdone{order:5}' +
+    '.bcam.ios .btip{top:auto;left:auto;right:12px;bottom:calc(env(safe-area-inset-bottom) + 12px)}' +
     '.bcam.andr .btop{order:1}.bcam.andr .bshut{order:2}.bcam.andr .bleft{order:3;justify-content:center}.bcam.andr .bdone{order:4}}';
 
   window.burstCam = function(opts){
@@ -58,14 +61,15 @@
     if (!document.getElementById('bcam-css')) {
       var st = document.createElement('style'); st.id = 'bcam-css'; st.textContent = CSS; document.head.appendChild(st);
     }
+    /* Light button: over the picture on Android; in the bar on iPhone (top right upright, top of the right column sideways). */
+    var LIGHT = '<button type="button" class="blight" aria-label="Light" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></button>';
     var box = document.createElement('div');
     box.className = 'bcam ' + (IOS ? 'ios' : 'andr');
     /* One lens button in the bar, next to the shutter (iPhone and Android). */
-    box.innerHTML = '<div class="bmain"><div class="btip"></div><div class="bview"><video playsinline muted autoplay></video><div class="bflash"></div>' +
-      '<button type="button" class="blight" aria-label="Light" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></button>' +
+    box.innerHTML = '<div class="bmain"><div class="btip"></div><div class="bview"><video playsinline muted autoplay></video><div class="bflash"></div>' + (IOS ? '' : LIGHT) +
       '<div class="bnav"><button type="button" class="bback" hidden>&larr; Back</button><button type="button" class="bfwd" hidden>Forward &rarr;</button></div>' +
       '<div class="bmsg">Opening camera&hellip;</div></div></div>' +
-      '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div><div class="btop"></div>' +
+      '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div><div class="btop"></div>' + (IOS ? LIGHT : '') +
       '<button type="button" class="bshut" aria-label="Take photo" disabled></button>' +
       '<button type="button" class="bdone">Done</button></div>';
     document.body.appendChild(box);
