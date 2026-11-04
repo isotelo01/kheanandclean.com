@@ -204,6 +204,10 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
   background:var(--card); color:var(--ivory); border:1px solid var(--line); border-radius:14px;
   padding:15px 16px; font:600 1.02rem "Archivo",sans-serif; cursor:pointer; }
 .opt small{ display:block; font-weight:400; font-size:.85rem; color:var(--muted); margin-top:2px; }
+/* Room photos: First floor / Second floor toggle (two-story homes). */
+.flseg{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 14px; }
+.flseg button{ font:600 15px system-ui,sans-serif; color:var(--ivory); background:transparent; border:1px solid rgba(244,239,226,.35); border-radius:999px; padding:10px 0; cursor:pointer; }
+.flseg button[aria-pressed="true"]{ background:var(--gold); color:#000; border-color:var(--gold); }
 .opt:hover{ border-color:var(--gold-d); }
 .opt[aria-pressed="true"]{ border-color:var(--gold); background:rgba(227,182,74,.24); box-shadow:inset 0 0 0 1px var(--gold); }
 .opt[aria-pressed="true"]::after{ content:"\2713"; color:var(--gold); font-size:1.1rem; }
@@ -711,7 +715,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Phone swipe back / browser Back = the on-screen Back: one question at a time, not out of the page.
      A history step sits on top; each Back pops it, we step back and put it back. Nothing left to go
      back to: let the phone leave. The camera adds its own step and handles its own Back. */
-  try { history.pushState({ qf:1 }, ''); } catch(e){}
+  /* Added on the first tap, not on load: Android Chrome skips history steps a page adds before any tap,
+     so a load-time step let a swipe back leave the whole page. */
+  var qfStep = function(){ document.removeEventListener('pointerdown', qfStep, true);
+    try { if(!(history.state && history.state.qf)) history.pushState({ qf:1 }, ''); } catch(e){} };
+  document.addEventListener('pointerdown', qfStep, true);
   window.addEventListener('popstate', function(e){
     if(e.state && e.state.qf) return;              /* landed back on our step (camera closing) */
     if(document.querySelector('.bcam')) return;     /* camera open: it closes itself */
@@ -1372,15 +1380,14 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     document.body.classList.add('rp');
     if(!A.roomFloor) A.roomFloor = {};
     var room = !rm.furn && !rm.stairs;
+    /* Two-story homes: no separate floor question. The room starts on its likely floor (bedrooms, baths,
+       hallway, loft upstairs) and the First floor / Second floor buttons on this screen change it. */
     if(room && A.story === '2' && !A.roomFloor[rm.id]){
-      roomAsk(el, 'What floor is the ' + esc(rm.t) + ' on?', '', ['1', '2'].map(function(v){
-        return { t:FLOORS[v], go:function(){ A.roomFloor[rm.id] = v;
-          roomShots(rm).forEach(function(f){ f._roomName = rm.t + ' (' + FLOORS[v].toLowerCase() + ')'; });
-          save(); shootRoom(el, rm); } }; }));
-      return;
+      var UPS = { beds:1, master:1, hallway:1, loft:1, closet:1, fullBath:1, masterBath:1 };
+      A.roomFloor[rm.id] = UPS[rm.id.split('_')[1]] ? '2' : '1'; save();
     }
-    /* Back from this room's photos: two-story rooms go back to the floor question (to fix a wrong floor), others to the room list. */
-    rpBack = room && A.story === '2' ? function(){ delete A.roomFloor[rm.id]; save(); shootRoom(el, rm); } : function(){ pickRoom(el); };
+    /* Back from this room's photos: the room list. */
+    rpBack = function(){ pickRoom(el); };
     var shots = rm.stairs ? ['From the bottom, shoot up the stairs', 'From the top, shoot down the stairs', 'Close-ups of any stains or worn spots']
       : rm.furn ? ['The whole piece, from the front', 'The seat cushions up close', 'Close-ups of any stains or pet spots']
       : ['Doorway/threshold', 'Corner 1', 'Corner 2', 'Corner 3', 'Corner 4', 'Corner/stains/closet', 'Corner/stains/closet',
@@ -1391,6 +1398,17 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     if(room && A.story === '2' && A.roomFloor[rm.id]) tparts.splice(1, 0, FLOORS[A.roomFloor[rm.id]].toLowerCase());
     h(el, esc(tparts.join(' · ')) + ' photos', 'One at a time. Tap Done with this room whenever you want.' +
       (rm.furn || rm.stairs ? '' : ' Optional: a sheet of white paper in the middle of the floor helps us see size and color.'));
+    if(room && A.story === '2'){
+      var seg = document.createElement('div'); seg.className = 'flseg'; el.appendChild(seg);
+      ['1', '2'].forEach(function(v){
+        var b = document.createElement('button'); b.type = 'button'; b.textContent = FLOORS[v];
+        b.setAttribute('aria-pressed', A.roomFloor[rm.id] === v ? 'true' : 'false');
+        b.onclick = function(){ if(A.roomFloor[rm.id] === v) return; A.roomFloor[rm.id] = v;
+          roomShots(rm).forEach(function(f){ f._roomName = rm.t + ' (' + FLOORS[v].toLowerCase() + ')'; });
+          save(); shootRoom(el, rm, how); };
+        seg.appendChild(b);
+      });
+    }
     var p = document.createElement('p'); p.className = 'pitch';
     p.textContent = full ? 'That’s the most photos we can take. Thank you!'
       : mine.length < shots.length ? 'Photo ' + (mine.length + 1) + ' of ' + shots.length + ': ' + shots[mine.length]
