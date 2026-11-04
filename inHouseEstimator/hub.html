@@ -185,6 +185,13 @@ h1{background:linear-gradient(100deg,#c9962e 0%,#f6d77a 30%,#fff3cc 50%,#f6d77a 
   .groups .tile{flex-direction:row;align-items:center;gap:10px;padding-right:28px}
   .groups .ic{flex:none;width:34px;height:34px;margin-bottom:0}
   .groups .tname{font-size:16px;line-height:1.2}
+  /* Long names never get cut off: they wrap instead of running past the tile edge. */
+  .groups .tname{min-width:0;overflow-wrap:break-word}
+}
+/* Two tiles across: icon on top, name underneath, so the name gets the tile's full width. */
+@media (max-width:540px){
+  .groups .tile{flex-direction:column;align-items:flex-start;gap:8px;padding:12px 28px 12px 14px}
+  .groups .tname{font-size:15px}
 }
 @media (prefers-reduced-motion:reduce){ .grp,h1{animation:none} .groups .tile,.groups .tile::before{transition:none} }
 /* Settings moved to a small gear next to Sign out */
