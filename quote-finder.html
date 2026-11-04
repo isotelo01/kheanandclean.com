@@ -522,7 +522,10 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
 
   /* ---- Screens ---- */
   var hist = [], navDir = '';
+  /* Inside the room photos: Back steps photos -> floor question -> room list instead of leaving the screen. */
+  var rpBack = null;
   function show(fn, push){
+    rpBack = null;
     if(push !== false && cur) hist.push(cur);
     cur = fn; invAll = false;
     document.body.classList.toggle('hideSum', [sPhotos, sPrice, sDisc, sWhen, sContact, sDone].indexOf(fn) < 0);
@@ -687,7 +690,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       return fb.fs.setDoc(fb.fs.doc(fb.db, 'quoteProgress', id), { status:'sent', updatedAt:fb.fs.serverTimestamp() }, { merge:true });
     }).catch(function(){});
   }
-  backBtn.onclick = function(){ if(hist.length){ navDir = 'back'; show(hist.pop(), false); } };
+  backBtn.onclick = function(){ if(rpBack){ var f = rpBack; rpBack = null; f(); return; } if(hist.length){ navDir = 'back'; show(hist.pop(), false); } };
   /* The answer they just tapped, so it can glow as the question slides away. */
   var lastTap = null, lastTapAt = 0;
   screen.addEventListener('pointerdown', function(e){ lastTap = e.target.closest('.opt, .go'); lastTapAt = Date.now(); }, true);
@@ -1270,6 +1273,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
   function roomShots(rm){ return A.photos.filter(function(f){ return f._room === rm.id; }); }
   function pickRoom(el){
+    rpBack = null;
     document.body.classList.add('rp');
     var list = photoRooms(), any = list.some(function(rm){ return roomShots(rm).length; });
     h(el, any ? 'Which room next?' : 'Which room do you want to photograph first?', 'Tap a room. Stop anytime.');
@@ -1318,6 +1322,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       b.innerHTML = '<span>' + o.t + '</span>'; b.onclick = o.go; box.appendChild(b);
     });
     goBtn(el, 'Back to rooms', function(){ pickRoom(el); }, true);
+    rpBack = function(){ pickRoom(el); };
     window.scrollTo(0, 0);
   }
   function shootRoom(el, rm, how){
@@ -1326,9 +1331,13 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var room = !rm.furn && !rm.stairs;
     if(room && A.story === '2' && !A.roomFloor[rm.id]){
       roomAsk(el, 'What floor is the ' + esc(rm.t) + ' on?', '', ['1', '2'].map(function(v){
-        return { t:FLOORS[v], go:function(){ A.roomFloor[rm.id] = v; save(); shootRoom(el, rm); } }; }));
+        return { t:FLOORS[v], go:function(){ A.roomFloor[rm.id] = v;
+          roomShots(rm).forEach(function(f){ f._roomName = rm.t + ' (' + FLOORS[v].toLowerCase() + ')'; });
+          save(); shootRoom(el, rm); } }; }));
       return;
     }
+    /* Back from this room's photos: two-story rooms go back to the floor question (to fix a wrong floor), others to the room list. */
+    rpBack = room && A.story === '2' ? function(){ delete A.roomFloor[rm.id]; save(); shootRoom(el, rm); } : function(){ pickRoom(el); };
     var shots = rm.stairs ? ['From the bottom, shoot up the stairs', 'From the top, shoot down the stairs', 'Close-ups of any stains or worn spots']
       : rm.furn ? ['The whole piece, from the front', 'The seat cushions up close', 'Close-ups of any stains or pet spots']
       : ['Stand in the doorway and shoot into the room', 'Corner 1: shoot toward the opposite corner', 'Corner 2: shoot toward the opposite corner',
@@ -1372,7 +1381,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       x.onclick = function(){ A.photos.splice(A.photos.indexOf(f), 1); redo(); };
       d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
     });
-    goBtn(el, 'Done with this room', function(){ pickRoom(el); }).classList.add('stick');
+    goBtn(el, 'Done with this room', function(){ pickRoom(el); });   /* not sticky: it was covering Take photo / Choose photos */
   }
 
   function sPrice(el){
