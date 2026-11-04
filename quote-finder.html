@@ -219,6 +219,13 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
   padding:16px; font:700 1.05rem "Archivo",sans-serif; cursor:pointer; }
 .go:disabled{ opacity:.5; cursor:default; }
 .go[hidden]{ display:none; }
+/* Room photo diagram: top-down room, where to stand, where to aim. */
+.shotmap{ display:block; width:100%; max-width:320px; margin:0 auto 16px; }
+.shotmap .cone{ animation:conePulse 1.8s ease-in-out infinite; }
+@keyframes conePulse{ 0%,100%{ opacity:.16; } 50%{ opacity:.34; } }
+.camtip{ margin:14px 0 4px; padding:14px; border:1px solid var(--line); border-radius:12px; }
+.camtip p{ margin:0 0 10px; }
+.camtip .go{ margin-top:6px; }
 .go.stick{ position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:5; box-shadow:0 6px 24px 10px var(--ink); }
 .go.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold); }
 /* Big shimmery green button (photo step). Shine runs on ::after so it doesn't fight the .go entry animations. */
@@ -1134,7 +1141,14 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     el.querySelector('#lpickIn').onchange = addL;
     el.querySelector('#lcamIn').onchange = addL;
     el.querySelector('#lpick').onclick = function(){ el.querySelector('#lpickIn').click(); };
-    el.querySelector('#lcam').onclick = function(){ el.querySelector('#lcamIn').click(); };
+    /* First tap: a quick word on what to shoot, then their camera. */
+    el.querySelector('#lcam').onclick = function(){
+      var b = this, tip = document.createElement('div'); tip.className = 'camtip';
+      tip.innerHTML = '<p>Get the whole floor in each shot, plus close-ups of any stains or pet spots. Take as many as you like.</p>';
+      var open = document.createElement('button'); open.type = 'button'; open.className = 'go'; open.textContent = 'Open camera';
+      open.onclick = function(){ el.querySelector('#lcamIn').click(); };
+      tip.appendChild(open); b.replaceWith(tip);
+    };
     goBtn(el, 'Skip photos for now', function(){ A.skippedPhotos = !A.photos.length; next(); }, true);
     go = goBtn(el, 'Next', function(){ A.skippedPhotos = !A.photos.length; next(); });
     draw(); window.scrollTo(0, 0);
@@ -1178,6 +1192,30 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     goBtn(el, any ? 'I’m done with photos' : 'Skip photos', function(){ A.skippedPhotos = !A.photos.length; next(); }, !any).classList.add('stick');
     window.scrollTo(0, 0);
   }
+  /* Top-down drawing for room shot i: 0 = doorway, 1-4 = corners, 5 = close-ups. */
+  function shotMap(i){
+    var C = [[34,24],[166,24],[166,116],[34,116]], from, to;
+    if(i === 0){ from = [100,124]; to = [100,34]; }
+    else if(i >= 1 && i <= 4){ from = C[i - 1]; to = C[(i + 1) % 4]; }
+    var g = '<svg class="shotmap" viewBox="0 0 200 140" role="img" aria-label="Where to stand for this photo">' +
+      '<rect x="20" y="10" width="160" height="120" rx="4" fill="rgba(227,182,74,.06)" stroke="rgba(244,239,226,.55)" stroke-width="2"/>' +
+      '<line x1="86" y1="130" x2="114" y2="130" stroke="var(--ink)" stroke-width="4"/>' +
+      '<path d="M86 130 A28 28 0 0 1 114 130" fill="none" stroke="rgba(244,239,226,.3)" stroke-dasharray="2 3"/>';
+    if(!from){
+      return g + '<ellipse cx="92" cy="74" rx="16" ry="10" fill="rgba(160,100,60,.55)"/><ellipse cx="116" cy="62" rx="7" ry="5" fill="rgba(160,100,60,.45)"/>' +
+        '<circle cx="104" cy="70" r="26" fill="none" stroke="var(--gold)" stroke-width="3"/><line x1="123" y1="89" x2="140" y2="106" stroke="var(--gold)" stroke-width="5" stroke-linecap="round"/></svg>';
+    }
+    var dx = to[0] - from[0], dy = to[1] - from[1], L = Math.sqrt(dx*dx + dy*dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+    var tip = [to[0] - ux * 4, to[1] - uy * 4], base = [tip[0] - ux * 14, tip[1] - uy * 14];
+    var pt = function(a){ return a[0].toFixed(1) + ',' + a[1].toFixed(1); };
+    g += '<clipPath id="roomclip"><rect x="20" y="10" width="160" height="120" rx="4"/></clipPath>' +
+      '<polygon class="cone" clip-path="url(#roomclip)" points="' + pt(from) + ' ' + pt([to[0] + nx*40 + ux*20, to[1] + ny*40 + uy*20]) + ' ' + pt([to[0] - nx*40 + ux*20, to[1] - ny*40 + uy*20]) + '" fill="var(--gold)"/>' +
+      '<line x1="' + from[0] + '" y1="' + from[1] + '" x2="' + base[0].toFixed(1) + '" y2="' + base[1].toFixed(1) + '" stroke="var(--gold)" stroke-width="2.5" stroke-dasharray="5 4"/>' +
+      '<polygon points="' + pt(tip) + ' ' + pt([base[0] + nx*7, base[1] + ny*7]) + ' ' + pt([base[0] - nx*7, base[1] - ny*7]) + '" fill="var(--gold)"/>' +
+      '<rect x="' + (from[0] - 6) + '" y="' + (from[1] - 10) + '" width="12" height="20" rx="3" fill="var(--gold)" stroke="var(--ink)" stroke-width="1.5"/>' +
+      '<text x="' + from[0] + '" y="' + (from[1] + (from[1] > 70 ? -16 : 24)) + '" text-anchor="middle" font-size="10" fill="#fff" font-family="Archivo,sans-serif">You</text>';
+    return g + '</svg>';
+  }
   /* Before a room's photos: which floor it's on (two-story homes only), then camera or library. */
   var FLOORS = { '1':'First floor', '2':'Second floor' };
   function roomAsk(el, title, lead, list){
@@ -1217,6 +1255,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
       : mine.length < shots.length ? 'Photo ' + (mine.length + 1) + ' of ' + shots.length + ': ' + shots[mine.length]
       : 'That’s everything for this room. Add more if you like.';
     el.appendChild(p);
+    if(!rm.furn && !rm.stairs && !full && mine.length < shots.length) p.insertAdjacentHTML('afterend', shotMap(mine.length));
     el.insertAdjacentHTML('beforeend',
       '<div class="pbtns">' + (how === 'lib' ? '' : '<button type="button" class="go" id="rcam" style="margin:0">Take photo</button>') +
       '<button type="button" class="go ghost" id="rpick" style="margin:0">Choose photos</button></div>' +
