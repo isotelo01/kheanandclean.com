@@ -77,6 +77,13 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 .intro p .g{ color:var(--gold); }
 .intro p.d{ font-size:1.15rem; font-weight:500; color:var(--muted); }
 .intro.lift{ background:transparent; pointer-events:none; }
+/* The intro's starry backdrop, kept dimmed behind every screen of the builder. */
+.sky{ position:fixed; inset:0; z-index:-1; pointer-events:none; overflow:hidden; opacity:.6;
+  background:radial-gradient(120% 75% at 50% 32%, #1c1609 0%, #08090d 52%, #000 100%); }
+.sky canvas{ position:absolute; inset:0; width:100%; height:100%; }
+.sky .rays{ position:absolute; left:50%; top:34%; width:170vmax; height:170vmax; translate:-50% -50%; opacity:.55;
+  background:conic-gradient(from 0deg, transparent 0 7%, rgba(227,182,74,.09) 10%, transparent 13% 28%, rgba(227,182,74,.06) 31%, transparent 35% 54%, rgba(227,182,74,.08) 57%, transparent 61% 79%, rgba(227,182,74,.06) 82%, transparent 86%);
+  -webkit-mask-image:radial-gradient(circle, #000 0 14%, transparent 48%); mask-image:radial-gradient(circle, #000 0 14%, transparent 48%); animation:i2spin 60s linear infinite; }
 /* New opening (intro2): logo drawn in by a gold scan line, ring, shimmer, sparks, blur-in words. */
 .intro2{ position:fixed; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:24px; text-align:center; overflow:hidden; cursor:pointer;
   background:radial-gradient(120% 75% at 50% 32%, #1c1609 0%, #08090d 52%, #000 100%); transition:opacity .75s ease, filter .75s ease, transform .75s ease; }
@@ -1711,6 +1718,35 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     show(sName, false);
     intro();
   }
+
+  /* Starry backdrop behind the whole builder: the intro's glow and rays, dimmer, with a few slow gold sparks.
+     Still (no sparks) for people who turn motion off; pauses while the tab is hidden. */
+  (function sky(){
+    var bg = document.createElement('div'); bg.className = 'sky'; bg.setAttribute('aria-hidden', 'true');
+    bg.innerHTML = '<div class="rays"></div><canvas></canvas>';
+    document.body.insertBefore(bg, document.body.firstChild);
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches){ bg.querySelector('.rays').style.animation = 'none'; return; }
+    var cv = bg.querySelector('canvas'), g = cv.getContext('2d'), dpr = Math.min(2, window.devicePixelRatio || 1), P = [];
+    var size = function(){ cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; };
+    size(); addEventListener('resize', size);
+    for(var k = 0; k < 28; k++) P.push({ x:Math.random() * cv.width, y:Math.random() * cv.height, vx:(Math.random() - .5) * .1 * dpr,
+      vy:-(Math.random() * .22 + .05) * dpr, r:(Math.random() * 1.4 + .5) * dpr, tw:Math.random() * 6, age:Math.random() * 300 });
+    var tick = function(){
+      if(!document.hidden){
+        g.clearRect(0, 0, cv.width, cv.height); g.globalCompositeOperation = 'lighter';
+        P.forEach(function(q){
+          q.age++; q.x += q.vx; q.y += q.vy;
+          if(q.y < -10){ q.y = cv.height + 10; q.x = Math.random() * cv.width; }
+          var a = .5 * (.5 + .5 * Math.sin(q.age * .05 + q.tw));
+          var gr = g.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * 4);
+          gr.addColorStop(0, 'rgba(255,240,200,' + a + ')'); gr.addColorStop(.35, 'rgba(227,182,74,' + a * .7 + ')'); gr.addColorStop(1, 'rgba(227,182,74,0)');
+          g.fillStyle = gr; g.beginPath(); g.arc(q.x, q.y, q.r * 4, 0, Math.PI * 2); g.fill();
+        });
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  })();
 
   /* Opening graphic: the K&C logo is drawn in from the bottom by a glowing gold scan line, a gold ring
      draws itself around it while a shimmer sweeps the logo and gold sparks burst out, then the welcome
