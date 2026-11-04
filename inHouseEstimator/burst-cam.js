@@ -24,7 +24,9 @@
     '.bcam .bshut{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid #000;box-shadow:0 0 0 3px #fff;cursor:pointer;flex:none;order:2}' +
     '.bcam .bshut:active{transform:scale(.92)}' +
     '.bcam .bshut:disabled{opacity:.4}' +
-    '.bcam .bdone{width:90px;font:700 17px system-ui,sans-serif;color:#000;background:#E3B64A;border:0;border-radius:8px;padding:12px 0;cursor:pointer;order:4}' +
+    /* Done: gold pill with a check mark and a soft glow. */
+    '.bcam .bdone{width:96px;display:flex;align-items:center;justify-content:center;gap:6px;font:700 17px system-ui,sans-serif;color:#1a1300;background:linear-gradient(180deg,#F5D47A,#D8A22E);border:0;border-radius:999px;padding:12px 0;cursor:pointer;order:4;box-shadow:0 0 0 2px rgba(227,182,74,.35),0 4px 16px rgba(227,182,74,.45)}' +
+    '.bcam .bdone svg{width:18px;height:18px}.bcam .bdone:active{transform:scale(.95)}' +
     '.bcam .btip{box-sizing:border-box;display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.62);border-radius:10px;padding:10px 12px;font-weight:600;line-height:1.3;pointer-events:none}' +
     '.bcam .btip:empty{display:none}' +
     '.bcam .btip svg{width:104px;max-width:104px;flex:none;margin:0}' +
@@ -44,10 +46,13 @@
     '@media (orientation:portrait){.bcam.andr .bbar{padding-bottom:calc(env(safe-area-inset-bottom) + 120px)}}' +
     '@media (orientation:landscape){.bcam{flex-direction:row}' +
     '.bcam .bbar{flex-direction:column;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) 16px}' +
-    /* iPhone sideways, right column top to bottom: light, 0.5, count, shutter, Done; label bottom right of the picture. */
-    '.bcam.ios .bbar{flex-direction:column}.bcam.ios .bleft{justify-content:center}.bcam.ios .bfwd{right:12px}' +
-    '.bcam.ios .blight{position:static;order:1}.bcam.ios .btop{order:2}.bcam.ios .bleft{order:3}.bcam.ios .bshut{order:4}.bcam.ios .bdone{order:5}' +
-    '.bcam.ios .btip{top:auto;left:auto;right:12px;bottom:calc(env(safe-area-inset-bottom) + 12px)}' +
+    /* iPhone sideways: right column is count, shutter, Done; light and 0.5 stacked just left of that column
+       (right edge of the picture area); label in the bottom left corner of the screen. */
+    '.bcam.ios .bbar{position:relative;flex-direction:column;justify-content:center;gap:24px}.bcam.ios .bleft{justify-content:center}.bcam.ios .bfwd{right:12px}' +
+    '.bcam.ios .blight{right:calc(100% + 12px);top:calc(50% - 56px)}' +
+    '.bcam.ios .btop{position:absolute;right:calc(100% + 12px);top:calc(50% + 4px);display:flex;justify-content:center}' +
+    '.bcam.ios .bleft{order:1}.bcam.ios .bshut{order:2}.bcam.ios .bdone{order:3}' +
+    '.bcam.ios .btip{top:auto;right:auto;left:calc(env(safe-area-inset-left) + 12px);bottom:calc(env(safe-area-inset-bottom) + 12px)}' +
     '.bcam.andr .btop{order:1}.bcam.andr .bshut{order:2}.bcam.andr .bleft{order:3;justify-content:center}.bcam.andr .bdone{order:4}}';
 
   window.burstCam = function(opts){
@@ -71,7 +76,7 @@
       '<div class="bmsg">Opening camera&hellip;</div></div></div>' +
       '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div><div class="btop"></div>' + (IOS ? LIGHT : '') +
       '<button type="button" class="bshut" aria-label="Take photo" disabled></button>' +
-      '<button type="button" class="bdone">Done</button></div>';
+      '<button type="button" class="bdone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7"/></svg>Done</button></div>';
     document.body.appendChild(box);
     /* Android: go full screen so the browser's top bar is hidden (iPhone browsers don't allow it). */
     if (!IOS && box.requestFullscreen) { try { box.requestFullscreen({ navigationUI: 'hide' }).catch(function(){}); } catch (e) {} }
