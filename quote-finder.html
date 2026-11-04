@@ -693,6 +693,16 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     }).catch(function(){});
   }
   backBtn.onclick = function(){ if(rpBack){ var f = rpBack; rpBack = null; f(); return; } if(hist.length){ navDir = 'back'; show(hist.pop(), false); } };
+  /* Phone swipe back / browser Back = the on-screen Back: one question at a time, not out of the page.
+     A history step sits on top; each Back pops it, we step back and put it back. Nothing left to go
+     back to: let the phone leave. The camera adds its own step and handles its own Back. */
+  try { history.pushState({ qf:1 }, ''); } catch(e){}
+  window.addEventListener('popstate', function(e){
+    if(e.state && e.state.qf) return;              /* landed back on our step (camera closing) */
+    if(document.querySelector('.bcam')) return;     /* camera open: it closes itself */
+    if(rpBack || hist.length){ backBtn.onclick(); try { history.pushState({ qf:1 }, ''); } catch(er){} }
+    else history.back();
+  });
   /* The answer they just tapped, so it can glow as the question slides away. */
   var lastTap = null, lastTapAt = 0;
   screen.addEventListener('pointerdown', function(e){ lastTap = e.target.closest('.opt, .go'); lastTapAt = Date.now(); }, true);
