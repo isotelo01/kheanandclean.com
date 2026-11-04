@@ -30,6 +30,8 @@
     '.bcam .bback[hidden],.bcam .bfwd[hidden]{display:none}' +
     '.bcam .bmsg{position:absolute;left:0;right:0;bottom:64px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}' +
     /* Phone held sideways: the picture fills the height; the right column has, top to bottom: lens, shutter, count, Done. */
+    /* Android, phone upright: raise the shutter bar so Chrome's full screen notice doesn't cover it. */
+    '@media (orientation:portrait){.bcam.andr .bbar{padding-bottom:calc(env(safe-area-inset-bottom) + 80px)}}' +
     '@media (orientation:landscape){.bcam{flex-direction:row}' +
     '.bcam .bbar{flex-direction:column;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) 16px}' +
     '.bcam .btop{order:1}.bcam .bshut{order:2}.bcam .bleft{order:3;justify-content:center}.bcam .bdone{order:4}}';
@@ -46,7 +48,7 @@
       var st = document.createElement('style'); st.id = 'bcam-css'; st.textContent = CSS; document.head.appendChild(st);
     }
     var box = document.createElement('div');
-    box.className = 'bcam';
+    box.className = 'bcam' + (IOS ? '' : ' andr');
     box.innerHTML = '<div class="bview"><video playsinline muted autoplay></video><div class="bflash"></div><div class="btip"></div>' +
       '<div class="bnav"><button type="button" class="bback" hidden>&larr; Back</button><button type="button" class="bfwd" hidden>Forward &rarr;</button></div>' +
       '<div class="bmsg">Opening camera&hellip;</div></div>' +
