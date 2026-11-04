@@ -1382,7 +1382,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var shots = rm.stairs ? ['From the bottom, shoot up the stairs', 'From the top, shoot down the stairs', 'Close-ups of any stains or worn spots']
       : rm.furn ? ['The whole piece, from the front', 'The seat cushions up close', 'Close-ups of any stains or pet spots']
       : ['Stand in the doorway and shoot into the room', 'Corner 1: shoot toward the opposite corner', 'Corner 2: shoot toward the opposite corner',
-         'Corner 3: shoot toward the opposite corner', 'Corner 4: shoot toward the opposite corner', 'Close-ups of any stains or pet spots'];
+         'Corner 3: shoot toward the opposite corner', 'Corner 4: shoot toward the opposite corner', 'Close-ups of any stains or pet spots',
+         'Anything else you’d like us to see', 'Anything else you’d like us to see', 'Anything else you’d like us to see', 'Anything else you’d like us to see'];
     var mine = roomShots(rm), full = A.photos.length >= PMAX;
     /* Two-story homes: the floor goes in the heading, e.g. "Bedroom 1 · second floor · carpet photos". */
     var tparts = rm.t.split(' · ');
@@ -1394,7 +1395,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       : mine.length < shots.length ? 'Photo ' + (mine.length + 1) + ' of ' + shots.length + ': ' + shots[mine.length]
       : 'That’s everything for this room. Add more if you like.';
     el.appendChild(p);
-    if(!rm.furn && !rm.stairs && !full && mine.length < shots.length) p.insertAdjacentHTML('afterend', shotMap(mine.length));
+    if(!rm.furn && !rm.stairs && !full && mine.length < 6) p.insertAdjacentHTML('afterend', shotMap(mine.length));
     el.insertAdjacentHTML('beforeend',
       '<div class="pbtns" style="grid-template-columns:1fr">' + (how === 'lib' ? '' : '<button type="button" class="go" id="rcam" style="margin:0">Take photo</button>') +
       '</div>' +   /* Choose photos button removed: room photos are taken live, one shot at a time */
@@ -1403,6 +1404,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var redo = function(){ shootRoom(el, rm, how || 'cam'); };
     var fl = A.roomFloor[rm.id], label = rm.t + (fl && A.story === '2' ? ' (' + FLOORS[fl].toLowerCase() + ')' : '');
     var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = label; A.photos.push(f); } };
+    /* Back in the camera: drops this room's last photo so they can retake it. */
+    var unkeep = function(){ var m = roomShots(rm), f = m[m.length - 1], k = A.photos.indexOf(f); if(k > -1) A.photos.splice(k, 1); };
     var add = function(inp){ Array.prototype.forEach.call(inp.files, keep); inp.value = ''; redo(); };
     el.querySelector('#rcamIn').onchange = function(){ add(this); };
     el.querySelector('#rpickIn').onchange = function(){ add(this); };
@@ -1411,8 +1414,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       if(full) return;
       var start = roomShots(rm).length, room = !rm.furn && !rm.stairs;
       var ok = window.burstCam && window.burstCam({ max: PMAX - A.photos.length,
-        tip: function(n){ var i = start + n; if(room && i === 0) return '<span>Doorway/threshold</span>'; return i < shots.length ? (room ? shotMap(i) : '') + '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
-        onShot: keep, onDone: function(){ save(); redo(); } });
+        tip: function(n){ var i = start + n; if(room && i === 0) return '<span>Doorway/threshold</span>'; return i < shots.length ? (room && i < 6 ? shotMap(i) : '') + '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
+        onShot: keep, onBack: unkeep, onDone: function(){ save(); redo(); } });
       if(!ok) el.querySelector('#rcamIn').click();
     };
     var thumbs = el.querySelector('#rthumbs');
