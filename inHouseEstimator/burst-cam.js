@@ -81,6 +81,9 @@
     opts = opts || {};
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
     var max = opts.max > 0 ? opts.max : 999, count = 0, pos = 0, files = [], stream = null, lastUrl = '', busy = false;
+    /* opts.prior: photos this room already has. They load in first, so Back / Forward, the viewer and
+       Retake cover them too; new shots follow them. max counts them. */
+    if (opts.prior && opts.prior.length) { files = Array.prototype.slice.call(opts.prior); count = pos = files.length; }
     /* Which way the phone is held, from gravity (iPhones report it with the opposite sign). */
     var grav = { x: 0, y: 9.8 }, IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);   /* also iPhone/iPad set to desktop site */
     function onMot(e){ var a = e.accelerationIncludingGravity; if (a && a.x != null) { grav.x = IOS ? -a.x : a.x; grav.y = IOS ? -a.y : a.y; } }
@@ -131,6 +134,8 @@
     };
     back.addEventListener('click', function(){ step(-1); });
     fwd.addEventListener('click', function(){ step(1); });
+
+    if (count) thumb(files[count - 1]);   /* earlier photos: show the last one and the count right away */
 
     /* Tap the thumbnail: full-screen viewer of this session's photos. Swipe or arrows for left/right.
        Retake (when the page passes onReplace) goes back to the camera on that photo; the next shot replaces it. */
