@@ -21,12 +21,12 @@
     '.bcam .bleft{min-width:90px;display:flex;align-items:center;gap:8px;order:1}' +
     '.bcam .bleft img{width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.5)}' +
     '.bcam .bcount{font:700 18px system-ui,sans-serif;white-space:nowrap}.bcam .bleft img{cursor:pointer}' +
-    /* Photo viewer: opens from the thumbnail; swipe or arrows to go left/right; Erase top right; X top left. */
+    /* Photo viewer: opens from the thumbnail; swipe or arrows to go left/right; Retake top right; X top left. */
     '.bcam .bpv{position:fixed;inset:0;z-index:20;background:#000;display:flex;align-items:center;justify-content:center;touch-action:pan-y}' +
     '.bcam .bpv img{max-width:100%;max-height:100%;object-fit:contain}' +
     '.bcam .bpv button{position:absolute;font:600 16px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.5);border-radius:22px;padding:10px 16px;cursor:pointer}' +
     '.bcam .bpv .bpx{top:calc(env(safe-area-inset-top) + 12px);left:calc(env(safe-area-inset-left) + 12px);width:44px;height:44px;padding:0;font-size:24px}' +
-    '.bcam .bpv .bpe{top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 12px);background:#c0392b;border-color:#c0392b}' +
+    '.bcam .bpv .bpe{top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 12px);background:#E3B64A;border-color:#E3B64A;color:#000}' +
     '.bcam .bpv .bpp,.bcam .bpv .bpn{top:50%;transform:translateY(-50%);width:48px;height:48px;padding:0;font-size:28px}' +
     '.bcam .bpv .bpp{left:calc(env(safe-area-inset-left) + 12px)}.bcam .bpv .bpn{right:calc(env(safe-area-inset-right) + 12px)}' +
     '.bcam .bpv [hidden]{display:none}' +
@@ -113,7 +113,7 @@
     var back = box.querySelector('.bback'), fwd = box.querySelector('.bfwd');
     /* The count follows Back / Forward: "3 of 7" while on an earlier photo, else the total.
        opts.start = photos this room already had before the camera opened, so numbers carry on. */
-    var start = opts.start > 0 ? opts.start : 0;
+    var start = opts.start > 0 ? opts.start : 0, retake = false;
     var label = function(){ return pos < count ? (start + pos + 1) + ' of ' + (start + count) : String(start + count); };
     var thumb = function(f){ if (lastUrl) URL.revokeObjectURL(lastUrl); lastUrl = f ? URL.createObjectURL(f) : '';
       left.innerHTML = (f ? '<img src="' + lastUrl + '" alt="Open photos">' : '') + '<span class="bcount">' + label() + '</span>'; };
@@ -123,7 +123,7 @@
     var showBack = function(){ back.hidden = !(opts.onReplace && pos > 0); fwd.hidden = !(opts.onReplace && pos < count); };
     var step = function(d){
       if (busy) return;
-      pos = Math.max(0, Math.min(count, pos + d));
+      pos = Math.max(0, Math.min(count, pos + d)); retake = false;
       thumb(files[pos < count ? pos : count - 1]);
       shut.disabled = !video.videoWidth || (pos >= count && count >= max);
       say(pos < count ? 'Retake this photo, or tap Forward.' : '');
@@ -133,13 +133,13 @@
     fwd.addEventListener('click', function(){ step(1); });
 
     /* Tap the thumbnail: full-screen viewer of this session's photos. Swipe or arrows for left/right.
-       Erase (only when the page passes onRemove) asks first, then removes that photo. */
+       Retake (when the page passes onReplace) goes back to the camera on that photo; the next shot replaces it. */
     left.addEventListener('click', function(e){
       if (!e.target.closest('img') || !count || busy) return;
       var i = pos < count ? pos : count - 1, url = '';
       var v = document.createElement('div'); v.className = 'bpv';
       v.innerHTML = '<img alt=""><button type="button" class="bpx" aria-label="Close">&times;</button>' +
-        (opts.onRemove ? '<button type="button" class="bpe">Erase</button>' : '') +
+        (opts.onReplace ? '<button type="button" class="bpe">Retake</button>' : '') +
         '<button type="button" class="bpp" aria-label="Previous photo">&lsaquo;</button><button type="button" class="bpn" aria-label="Next photo">&rsaquo;</button><div class="bpc"></div>';
       box.appendChild(v);
       var img = v.querySelector('img'), pv = v.querySelector('.bpp'), nx = v.querySelector('.bpn');
@@ -157,14 +157,8 @@
         if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
       var er = v.querySelector('.bpe');
       if (er) er.addEventListener('click', function(){
-        if (!window.confirm('Erase photo ' + (start + i + 1) + '?')) return;
-        var f = files.splice(i, 1)[0]; count--;
-        try { opts.onRemove(f); } catch (err) { console.error(err); }
-        if (pos > i) pos--; if (pos > count) pos = count;
-        refresh();
-        if (!count) { shut2(); return; }
-        if (i >= count) i = count - 1;
-        show();
+        pos = i; retake = true; shut2(); refresh();
+        say('Retaking photo ' + (start + i + 1) + '. Tap the shutter.');
       });
       show();
     });
@@ -212,7 +206,9 @@
 
     shut.addEventListener('click', function(){
       if (busy || (pos >= count && count >= max) || !video.videoWidth) return;
-      if (pos < count && !window.confirm('Replace photo ' + (start + pos + 1) + '?')) return;
+      /* Shutter on an earlier photo asks first, unless they just chose Retake in the viewer. */
+      if (pos < count && !retake && !window.confirm('Replace photo ' + (start + pos + 1) + '?')) return;
+      retake = false;
       busy = true;
       /* Rotation lock: the screen stays upright, so a phone held sideways gives a sideways frame.
          Gravity says which way the phone is held; turn the photo to match. */
