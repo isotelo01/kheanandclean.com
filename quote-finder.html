@@ -1379,8 +1379,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     el.appendChild(p);
     if(!rm.furn && !rm.stairs && !full && mine.length < shots.length) p.insertAdjacentHTML('afterend', shotMap(mine.length));
     el.insertAdjacentHTML('beforeend',
-      '<div class="pbtns">' + (how === 'lib' ? '' : '<button type="button" class="go" id="rcam" style="margin:0">Take photo</button>') +
-      '<button type="button" class="go ghost" id="rpick" style="margin:0">Choose photos</button></div>' +
+      '<div class="pbtns" style="grid-template-columns:1fr">' + (how === 'lib' ? '' : '<button type="button" class="go" id="rcam" style="margin:0">Take photo</button>') +
+      '</div>' +   /* Choose photos button removed: room photos are taken live, one shot at a time */
       '<input type="file" id="rcamIn" accept="image/*" capture="environment" hidden>' +
       '<input type="file" id="rpickIn" accept="image/*" multiple hidden><div class="thumbs" id="rthumbs"></div>');
     var redo = function(){ shootRoom(el, rm, how || 'cam'); };
@@ -1389,7 +1389,6 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var add = function(inp){ Array.prototype.forEach.call(inp.files, keep); inp.value = ''; redo(); };
     el.querySelector('#rcamIn').onchange = function(){ add(this); };
     el.querySelector('#rpickIn').onchange = function(){ add(this); };
-    el.querySelector('#rpick').onclick = function(){ if(!full) el.querySelector('#rpickIn').click(); };
     /* Take photo: our own camera with this shot's tip and drawing over the live view; the phone's camera if that can't open. */
     var cam = el.querySelector('#rcam'); if(cam) cam.onclick = function(){
       if(full) return;
