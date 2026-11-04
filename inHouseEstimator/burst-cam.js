@@ -23,13 +23,14 @@
     '.bcam .btip:empty{display:none}' +
     '.bcam .btip svg{width:104px;max-width:104px;flex:none;margin:0}' +
     '.bcam .bback{position:absolute;left:12px;top:calc(env(safe-area-inset-top) + 12px);font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:6px 14px;cursor:pointer}' +
-    '.bcam .bback[hidden]{display:none}' +
+    '.bcam .bfwd{position:absolute;right:12px;top:calc(env(safe-area-inset-top) + 12px);font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:6px 14px;cursor:pointer}' +
+    '.bcam .bback[hidden],.bcam .bfwd[hidden]{display:none}' +
     '.bcam .bmsg{position:absolute;left:0;right:0;bottom:140px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}';
 
   window.burstCam = function(opts){
     opts = opts || {};
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
-    var max = opts.max > 0 ? opts.max : 999, count = 0, stream = null, lastUrl = '', busy = false;
+    var max = opts.max > 0 ? opts.max : 999, count = 0, pos = 0, files = [], stream = null, lastUrl = '', busy = false;
     /* Which way the phone is held, from gravity (iPhones report it with the opposite sign). */
     var grav = { x: 0, y: 9.8 }, IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     function onMot(e){ var a = e.accelerationIncludingGravity; if (a && a.x != null) { grav.x = IOS ? -a.x : a.x; grav.y = IOS ? -a.y : a.y; } }
@@ -40,7 +41,7 @@
     var box = document.createElement('div');
     box.className = 'bcam';
     box.innerHTML = '<video playsinline muted autoplay></video><div class="bflash"></div><div class="btop"></div><div class="btip"></div>' +
-      '<button type="button" class="bback" hidden>&larr; Back</button>' +
+      '<button type="button" class="bback" hidden>&larr; Back</button><button type="button" class="bfwd" hidden>Forward &rarr;</button>' +
       '<div class="bmsg">Opening camera&hellip;</div>' +
       '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div>' +
       '<button type="button" class="bshut" aria-label="Take photo" disabled></button>' +
@@ -50,20 +51,24 @@
         left = box.querySelector('.bleft'), top = box.querySelector('.btop');
     var say = function(t){ msg.textContent = t || ''; };
     var tipBox = box.querySelector('.btip');
-    var tip = function(){ if (opts.tip) { try { tipBox.innerHTML = opts.tip(count) || ''; } catch (e) { console.error(e); } } };
+    var tip = function(){ if (opts.tip) { try { tipBox.innerHTML = opts.tip(pos) || ''; } catch (e) { console.error(e); } } };
     tip();
-    /* Back (only when the page passes onBack): drops the last photo so they can retake it. */
-    var back = box.querySelector('.bback');
-    var showBack = function(){ back.hidden = !(opts.onBack && count > 0); };
-    back.addEventListener('click', function(){
-      if (busy || !count) return;
-      count--;
-      try { opts.onBack(); } catch (e) { console.error(e); }
-      if (lastUrl) { URL.revokeObjectURL(lastUrl); lastUrl = ''; }
-      left.innerHTML = '<span class="bcount">' + count + '</span>';
-      shut.disabled = !video.videoWidth; say('Retake the last photo.');
+    /* Back / Forward (only when the page passes onReplace): step through this session's photos.
+       Nothing is deleted; shooting on an earlier step replaces that photo, Forward skips ahead. */
+    var back = box.querySelector('.bback'), fwd = box.querySelector('.bfwd');
+    var thumb = function(f){ if (lastUrl) URL.revokeObjectURL(lastUrl); lastUrl = f ? URL.createObjectURL(f) : '';
+      left.innerHTML = (f ? '<img src="' + lastUrl + '" alt="">' : '') + '<span class="bcount">' + count + '</span>'; };
+    var showBack = function(){ back.hidden = !(opts.onReplace && pos > 0); fwd.hidden = !(opts.onReplace && pos < count); };
+    var step = function(d){
+      if (busy) return;
+      pos = Math.max(0, Math.min(count, pos + d));
+      thumb(files[pos < count ? pos : count - 1]);
+      shut.disabled = !video.videoWidth || (pos >= count && count >= max);
+      say(pos < count ? 'Retake this photo, or tap Forward.' : '');
       tip(); showBack();
-    });
+    };
+    back.addEventListener('click', function(){ step(-1); });
+    fwd.addEventListener('click', function(){ step(1); });
 
     function stop(){ window.removeEventListener('devicemotion', onMot); if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
     function open(deviceId){
@@ -95,7 +100,7 @@
     }
 
     shut.addEventListener('click', function(){
-      if (busy || count >= max || !video.videoWidth) return;
+      if (busy || (pos >= count && count >= max) || !video.videoWidth) return;
       busy = true;
       /* Rotation lock: the screen stays upright, so a phone held sideways gives a sideways frame.
          Gravity says which way the phone is held; turn the photo to match. */
@@ -109,14 +114,18 @@
       c.toBlob(function(b){
         busy = false;
         if (!b) { say('That photo didn’t save. Try again.'); return; }
-        count++;
         var f = new File([b], 'photo-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-        if (lastUrl) URL.revokeObjectURL(lastUrl);
-        lastUrl = URL.createObjectURL(b);
-        left.innerHTML = '<img src="' + lastUrl + '" alt=""><span class="bcount">' + count + '</span>';
-        if (count >= max) { shut.disabled = true; say('That’s the most photos for now. Tap Done.'); }
-        try { opts.onShot && opts.onShot(f); } catch (e) { console.error(e); }
-        if (count < max) say('');
+        if (pos < count) {   /* retake of an earlier photo */
+          try { opts.onReplace(files[pos], f); } catch (e) { console.error(e); }
+          files[pos] = f;
+        } else {
+          count++; files.push(f);
+          try { opts.onShot && opts.onShot(f); } catch (e) { console.error(e); }
+        }
+        pos++;
+        thumb(f);
+        say(pos < count ? 'Retake this photo, or tap Forward.' : '');
+        if (pos >= count && count >= max) { shut.disabled = true; say('That’s the most photos for now. Tap Done.'); }
         tip(); showBack();
       }, 'image/jpeg', 0.92);
     });

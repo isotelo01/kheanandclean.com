@@ -1404,8 +1404,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var redo = function(){ shootRoom(el, rm, how || 'cam'); };
     var fl = A.roomFloor[rm.id], label = rm.t + (fl && A.story === '2' ? ' (' + FLOORS[fl].toLowerCase() + ')' : '');
     var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = label; A.photos.push(f); } };
-    /* Back in the camera: drops this room's last photo so they can retake it. */
-    var unkeep = function(){ var m = roomShots(rm), f = m[m.length - 1], k = A.photos.indexOf(f); if(k > -1) A.photos.splice(k, 1); };
+    /* Retake from the camera's Back button: the new photo takes the old one's place. */
+    var swap = function(old, f){ var k = A.photos.indexOf(old); if(k > -1){ f._room = rm.id; f._roomName = label; A.photos[k] = f; } };
     var add = function(inp){ Array.prototype.forEach.call(inp.files, keep); inp.value = ''; redo(); };
     el.querySelector('#rcamIn').onchange = function(){ add(this); };
     el.querySelector('#rpickIn').onchange = function(){ add(this); };
@@ -1415,7 +1415,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       var start = roomShots(rm).length, room = !rm.furn && !rm.stairs;
       var ok = window.burstCam && window.burstCam({ max: PMAX - A.photos.length,
         tip: function(n){ var i = start + n; if(room && i === 0) return '<span>Doorway/threshold</span>'; return i < shots.length ? (room && i < 6 ? shotMap(i) : '') + '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
-        onShot: keep, onBack: unkeep, onDone: function(){ save(); redo(); } });
+        onShot: keep, onReplace: swap, onDone: function(){ save(); redo(); } });
       if(!ok) el.querySelector('#rcamIn').click();
     };
     var thumbs = el.querySelector('#rthumbs');
