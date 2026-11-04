@@ -723,8 +723,8 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     f.push.apply(f, tail());
     return f;
   }
-  /* "I can't take pictures right now": price, then pick a discount, then phone or email (no day picker). */
-  function tail(){ return A.noPics ? [sPhotos, sPrice, sDisc, sContact] : [sPhotos, sPrice, sWhen, sContact]; }
+  /* "I can't take pictures right now": price, then pick a discount, when, then phone or email. */
+  function tail(){ return A.noPics ? [sPhotos, sPrice, sDisc, sWhen, sContact] : [sPhotos, sPrice, sWhen, sContact]; }
   function firstName(){ return String(A.name || '').trim().split(/\s+/)[0] || ''; }
   var hi = function(pre){ var n = firstName(); return n ? pre + esc(n) : ''; };
 
@@ -1402,7 +1402,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   function sContact(el){
-    h(el, A.noPics ? 'Please give us your phone number or email so we can send you an official quote.' : 'Where should we send your quote' + hi(', ') + '?');
+    h(el, A.noPics ? 'Please provide your phone number or email so we can send you an official quote.' : 'Where should we send your quote' + hi(', ') + '?');
     el.insertAdjacentHTML('beforeend',
       '<form id="f" novalidate>' +
       '<label class="f" for="nm">Name</label><input class="t" id="nm" autocomplete="name" autocapitalize="words" maxlength="120">' +
