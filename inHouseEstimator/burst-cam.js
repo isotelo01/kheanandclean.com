@@ -25,7 +25,7 @@
     '.bcam .bshut:active{transform:scale(.92)}' +
     '.bcam .bshut:disabled{opacity:.4}' +
     '.bcam .bdone{width:90px;font:700 17px system-ui,sans-serif;color:#000;background:#E3B64A;border:0;border-radius:8px;padding:12px 0;cursor:pointer;order:4}' +
-    '.bcam .btip{box-sizing:border-box;display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.62);border-left:3px solid #E3B64A;border-radius:10px;padding:10px 12px;font-weight:600;line-height:1.3;pointer-events:none}' +
+    '.bcam .btip{box-sizing:border-box;display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.62);border-radius:10px;padding:10px 12px;font-weight:600;line-height:1.3;pointer-events:none}' +
     '.bcam .btip:empty{display:none}' +
     '.bcam .btip svg{width:104px;max-width:104px;flex:none;margin:0}' +
     '.bcam .bback,.bcam .bfwd{font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:8px 14px;cursor:pointer}' +
