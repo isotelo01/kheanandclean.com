@@ -27,13 +27,11 @@
     '.bcam .bback,.bcam .bfwd{font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:8px 14px;cursor:pointer}' +
     '.bcam .bback[hidden],.bcam .bfwd[hidden]{display:none}' +
     '.bcam .bmsg{position:absolute;left:0;right:0;bottom:64px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}' +
-    /* iPhone: the earlier layout. 0.5 / 1x across the top, Back top left, Forward top right, label on the left;
-       sideways, the right column is Done, shutter, count from the top. */
-    '.bcam.ios .btop{position:absolute;top:0;left:0;right:0;display:flex;justify-content:center;gap:8px;padding:calc(env(safe-area-inset-top) + 12px) 12px 12px;z-index:1}' +
-    '.bcam.ios .btip{position:absolute;z-index:2;left:12px;max-width:calc(100% - 24px);top:calc(env(safe-area-inset-top) + 62px)}' +
-    '.bcam.ios .bback{position:absolute;left:12px;top:calc(env(safe-area-inset-top) + 12px);z-index:2}' +
-    '.bcam.ios .bfwd{position:absolute;right:12px;top:calc(env(safe-area-inset-top) + 12px);z-index:2}' +
-    '.bcam.ios .bmsg{bottom:24px}' +
+    /* iPhone: label top left; Back / Forward bottom left of the picture; one lens button next to the shutter
+       (count, lens, shutter, Done); sideways, the right column is Done, shutter, lens, count from the top. */
+    '.bcam.ios .btip{position:absolute;z-index:2;left:12px;max-width:calc(100% - 24px);top:calc(env(safe-area-inset-top) + 12px)}' +
+    '.bcam.ios .bnav{position:absolute;left:12px;bottom:12px;display:flex;gap:8px;z-index:2}' +
+    '.bcam.ios .bleft{order:1}.bcam.ios .btop{order:2}.bcam.ios .bshut{order:3}.bcam.ios .bdone{order:4}' +
     /* Android: label centered at the top above the picture; Back / Forward bottom left of the picture;
        one lens button by the shutter; bar raised so Chrome's full screen notice doesn't cover it. */
     '.bcam.andr .btip{align-self:center;max-width:calc(100% - 24px);margin:calc(env(safe-area-inset-top) + 12px) 12px 10px}' +
@@ -58,11 +56,11 @@
     }
     var box = document.createElement('div');
     box.className = 'bcam ' + (IOS ? 'ios' : 'andr');
-    /* iPhone keeps the lens buttons across the top of the screen; Android puts its one lens button in the bar. */
+    /* One lens button in the bar, next to the shutter (iPhone and Android). */
     box.innerHTML = '<div class="bmain"><div class="btip"></div><div class="bview"><video playsinline muted autoplay></video><div class="bflash"></div>' +
       '<div class="bnav"><button type="button" class="bback" hidden>&larr; Back</button><button type="button" class="bfwd" hidden>Forward &rarr;</button></div>' +
-      '<div class="bmsg">Opening camera&hellip;</div></div>' + (IOS ? '<div class="btop"></div>' : '') + '</div>' +
-      '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div>' + (IOS ? '' : '<div class="btop"></div>') +
+      '<div class="bmsg">Opening camera&hellip;</div></div></div>' +
+      '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div><div class="btop"></div>' +
       '<button type="button" class="bshut" aria-label="Take photo" disabled></button>' +
       '<button type="button" class="bdone">Done</button></div>';
     document.body.appendChild(box);
@@ -109,18 +107,7 @@
         var wide = cams.filter(function(d){ return /ultra ?wide/i.test(d.label); })[0];
         var main = cams.filter(function(d){ return /back/i.test(d.label) && !/ultra|tele|dual|triple/i.test(d.label); })[0];
         if (!wide || !main) return;
-        if (IOS) {   /* iPhone: both buttons, the one in use is gold */
-          top.innerHTML = '<button type="button" class="bzoom" data-id="' + wide.deviceId + '">0.5</button>' +
-            '<button type="button" class="bzoom on" data-id="' + main.deviceId + '">1x</button>';
-          top.addEventListener('click', function(e){
-            var b = e.target.closest('.bzoom'); if (!b || b.classList.contains('on')) return;
-            top.querySelectorAll('.bzoom').forEach(function(x){ x.classList.toggle('on', x === b); });
-            shut.disabled = true; say('Switching lens…');
-            open(b.dataset.id).catch(function(err){ say('Couldn’t switch lens.'); console.error(err); });
-          });
-          return;
-        }
-        /* Android: one lens button that names the lens you'd switch to (0.5 while on 1x, 1x while on 0.5). */
+        /* One lens button that names the lens you'd switch to (0.5 while on 1x, 1x while on 0.5). */
         var onWide = false;
         top.innerHTML = '<button type="button" class="bzoom">0.5</button>';
         var zb = top.querySelector('.bzoom');
