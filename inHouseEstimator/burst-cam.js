@@ -104,9 +104,20 @@
         tip();
       }, 'image/jpeg', 0.92);
     });
-    box.querySelector('.bdone').addEventListener('click', function(){
+    /* Closing keeps the photos. The phone's Back (button or swipe) closes the camera too, back to the room,
+       instead of leaving the page: opening adds a history step, and Back pops it. */
+    var closed = false;
+    function close(){
+      if (closed) return; closed = true;
+      window.removeEventListener('popstate', close);
       stop(); if (lastUrl) URL.revokeObjectURL(lastUrl); box.remove();
       try { opts.onDone && opts.onDone(count); } catch (e) { console.error(e); }
+    }
+    try { history.pushState({ bcam: 1 }, ''); } catch (e) {}
+    window.addEventListener('popstate', close);
+    box.querySelector('.bdone').addEventListener('click', function(){
+      close();
+      try { if (history.state && history.state.bcam) history.back(); } catch (e) {}   /* drop the step we added */
     });
 
     /* Camera blocked or not working: offer the phone's own camera right here (a real tap, so it opens).
