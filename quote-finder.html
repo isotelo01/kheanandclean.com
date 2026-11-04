@@ -66,6 +66,7 @@ body:not(.rp) .sqft.dup{ display:none; }   /* total lives at the bottom of the b
 /* First screen: full screen, no letterhead (it comes back on the next screen). */
 body.first .head, body.first .bar, body.first .sqft, body.first .inv{ display:none; }
 body.rp .inv{ display:none; }   /* no price breakdown on the room-by-room photo screens */
+body.hideSum .sqft, body.hideSum .inv{ display:none; }   /* keep the question the focus until the photo step */
 body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 /* Opening: thank you, we're here for you, then the question slides up to the top. */
 .intro{ position:fixed; inset:0; z-index:50; background:var(--ink); display:flex; align-items:center; justify-content:center;
@@ -490,6 +491,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   function show(fn, push){
     if(push !== false && cur) hist.push(cur);
     cur = fn; invAll = false;
+    document.body.classList.toggle('hideSum', [sPhotos, sPrice, sWhen, sContact, sDone].indexOf(fn) < 0);
     document.body.classList.toggle('first', fn === sProblem);
     document.body.classList.remove('rp');
     backBtn.hidden = !hist.length; resetBtn.hidden = !hist.length;
