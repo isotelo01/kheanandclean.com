@@ -642,13 +642,13 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     });
   }
   function keepPhotos(){
-    var sig = A.photos.map(function(f){ return (f.name || '') + f.size + (f._room || ''); }).join('|');
+    var sig = A.photos.map(function(f){ return (f.name || '') + f.size + (f._room || '') + (f._up ? '^' : ''); }).join('|');
     if(sig === photoSig) return; photoSig = sig;
     /* Saved as raw bytes, not Blobs: iPhone Safari loses Blobs kept in IndexedDB across a refresh,
        which showed up as broken "?" photos. */
     Promise.all(A.photos.map(function(f){
       return f.arrayBuffer().then(function(buf){
-        return { buf:buf, type:f.type || 'image/jpeg', name:f.name || 'photo.jpg', room:f._room || '', roomName:f._roomName || '' };
+        return { buf:buf, type:f.type || 'image/jpeg', name:f.name || 'photo.jpg', room:f._room || '', roomName:f._roomName || '', up:f._up || '' };
       }).catch(function(){ return null; });
     })).then(function(list){
       list = list.filter(Boolean);
@@ -670,6 +670,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
           var type = x.type || (x.blob && x.blob.type) || 'image/jpeg', f;
           try{ f = new File([buf], x.name, { type:type }); }catch(e){ f = new Blob([buf], { type:type }); f.name = x.name; }
           if(x.room){ f._room = x.room; f._roomName = x.roomName; }
+          if(x.up) f._up = x.up;   /* already uploaded in the background */
           return f;
         }).catch(function(){ return null; });
       })).then(function(fs){ return fs.filter(Boolean); });
@@ -679,7 +680,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
 
   /* Their answers are also copied to Firebase (quoteProgress) as they go, so unfinished quotes show up
      on our end. Tied to an ID kept on their phone. expireAt lets a Firestore TTL policy clear
-     unfinished ones after 14 days. Photos are only uploaded when they send. */
+     unfinished ones after 14 days. Room photos upload in the background as each room is finished; the rest when they send. */
   var PID = 'kcQuoteBuilderId', cloudT = null;
   function progressId(){
     var id = null; try{ id = localStorage.getItem(PID); }catch(e){}
@@ -1186,7 +1187,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   /* Photos: optional, never block anything. */
-  var PMAX = 40;
+  var PMAX = 300;   /* photos now upload room by room, so the old 40 cap is gone; this is just a safety ceiling */
   function sPhotos(el){
     el.innerHTML = ''; invAll = true; drawInv();
     goBtn(el, 'More exact price? Snap a few photos.', function(){ photosExact(el); }).classList.add('shine', 'sm');
@@ -1252,7 +1253,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         x.onclick = function(){ A.photos.splice(i, 1); draw(); };
         d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
       });
-      el.querySelector('#lnote').textContent = A.photos.length ? A.photos.length + ' of ' + PMAX + ' photos' : '';
+      el.querySelector('#lnote').textContent = A.photos.length ? A.photos.length + ' photo' + (A.photos.length > 1 ? 's' : '') : '';
       go.hidden = !A.photos.length;   // Next only once they've added photos
     };
     var addL = function(){
@@ -1415,7 +1416,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       var start = roomShots(rm).length, room = !rm.furn && !rm.stairs, IOSCAM = /iPad|iPhone|iPod/.test(navigator.userAgent);   /* Android label adds the room name */
       var ok = window.burstCam && window.burstCam({ max: PMAX - A.photos.length,
         tip: function(n){ var i = start + n; if(room && i < shots.length) return '<span>' + (IOSCAM ? '' : esc(rm.t.split(' · ')[0]) + ': ') + esc(shots[i]) + '</span>'; return i < shots.length ? '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
-        onShot: keep, onReplace: swap, onDone: function(){ save(); redo(); } });
+        onShot: keep, onReplace: swap, onDone: function(){ save(); redo(); upNow(); } });   /* Done with this room: its photos start uploading */
       if(!ok) el.querySelector('#rcamIn').click();
     };
     var thumbs = el.querySelector('#rthumbs');
@@ -1696,16 +1697,32 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       img.src = url;
     });
   }
-  function upload(fb, key){
-    var paths = [];
-    return A.photos.reduce(function(chain, f, i){
-      return chain.then(function(){ return shrink(f); }).then(function(b){
-        if(b.size > 10 * 1024 * 1024) return;
-        var path = 'quick-quote-photos/' + key + '/' + Date.now() + '_' + i + '_' + (f._room || 'walkthrough') + '.jpg';
-        return fb.st.uploadBytes(fb.st.ref(fb.storage, path), b, { contentType:'image/jpeg' })
-          .then(function(s){ paths.push(s.ref.fullPath); }).catch(function(err){ console.error('Photo upload failed', err); });
-      });
-    }, Promise.resolve()).then(function(){ return paths; });
+  /* Photos upload one at a time in the background (after each room's Done), into one folder per quote.
+     Each photo remembers where it went (f._up), so nothing uploads twice and Send only uploads what's left. */
+  var upChain = Promise.resolve();
+  function upKey(){
+    if(!A.upKey) A.upKey = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    return A.upKey;
+  }
+  function upPending(fb){
+    var key = upKey();
+    upChain = upChain.then(function(){
+      return A.photos.filter(function(f){ return !f._up && !f._upBad; }).reduce(function(chain, f){
+        return chain.then(function(){ return f._up ? null : shrink(f); }).then(function(b){
+          if(!b || f._up) return;
+          if(b.size > 10 * 1024 * 1024){ f._upBad = true; return; }
+          var path = 'quick-quote-photos/' + key + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '_' + (f._room || 'walkthrough') + '.jpg';
+          return fb.st.uploadBytes(fb.st.ref(fb.storage, path), b, { contentType:'image/jpeg' })
+            .then(function(s){ f._up = s.ref.fullPath; }).catch(function(err){ console.error('Photo upload failed', err); });
+        });
+      }, Promise.resolve());
+    });
+    return upChain;
+  }
+  function upNow(){ firebase().then(upPending).catch(function(){}); }
+  /* At Send: finish anything not uploaded yet, then list every photo still in the quote. */
+  function upload(fb){
+    return upPending(fb).then(function(){ return A.photos.map(function(f){ return f._up; }).filter(Boolean); });
   }
   function saveLead(fb, lead){
     var row = Object.assign({}, lead, { status:'new', source:'estimator', createdAt: fb.fs.serverTimestamp() });
@@ -1757,7 +1774,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     if(isBot) fd.append('botcheck', 'true');
 
     (isBot ? Promise.resolve() : firebase().then(function(fb){
-      return (A.photos.length ? upload(fb, key) : Promise.resolve([])).then(function(paths){
+      return (A.photos.length ? upload(fb) : Promise.resolve([])).then(function(paths){
         fd.append('photo_count', String(paths.length));
         btn.textContent = 'Sending…';
         return saveLead(fb, {
@@ -1778,7 +1795,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       if(!res || !res.success) throw new Error((res && res.message) || 'failed');
       if(typeof gtag === 'function') gtag('event', 'generate_lead', { form_name:'quote_finder' });
       try{ localStorage.removeItem(SAVE); }catch(e){}   // sent: start fresh next time
-      dropPhotos(); cloudDone();
+      dropPhotos(); cloudDone(); delete A.upKey;   /* next quote gets its own photo folder */
       show(sDone, false);
     })
     .catch(function(x){
