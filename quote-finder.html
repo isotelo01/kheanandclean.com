@@ -352,7 +352,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
 <script src="/day-picker.js"></script>
 <script src="/inHouseEstimator/pricing.js"></script>
 <script src="/inHouseEstimator/pricing-live.js"></script>
-<script src="/inHouseEstimator/burst-cam.js" defer></script>
+<script src="/inHouseEstimator/burst-cam.js?v=20261104b" defer></script>
 <script>
 (function(){
   'use strict';
@@ -1381,9 +1381,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     rpBack = room && A.story === '2' ? function(){ delete A.roomFloor[rm.id]; save(); shootRoom(el, rm); } : function(){ pickRoom(el); };
     var shots = rm.stairs ? ['From the bottom, shoot up the stairs', 'From the top, shoot down the stairs', 'Close-ups of any stains or worn spots']
       : rm.furn ? ['The whole piece, from the front', 'The seat cushions up close', 'Close-ups of any stains or pet spots']
-      : ['Stand in the doorway and shoot into the room', 'Corner 1: shoot toward the opposite corner', 'Corner 2: shoot toward the opposite corner',
-         'Corner 3: shoot toward the opposite corner', 'Corner 4: shoot toward the opposite corner', 'Close-ups of any stains or pet spots',
-         'Anything else you’d like us to see', 'Anything else you’d like us to see', 'Anything else you’d like us to see', 'Anything else you’d like us to see'];
+      : ['Doorway/threshold', 'Corner 1', 'Corner 2', 'Corner 3', 'Corner 4', 'Corner/stains/closet', 'Corner/stains/closet',
+         'Anything else', 'Anything else', 'Anything else'];
     var mine = roomShots(rm), full = A.photos.length >= PMAX;
     /* Two-story homes: the floor goes in the heading, e.g. "Bedroom 1 · second floor · carpet photos". */
     var tparts = rm.t.split(' · ');
@@ -1414,7 +1413,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       if(full) return;
       var start = roomShots(rm).length, room = !rm.furn && !rm.stairs;
       var ok = window.burstCam && window.burstCam({ max: PMAX - A.photos.length,
-        tip: function(n){ var i = start + n; if(room && i === 0) return '<span>Doorway/threshold</span>'; return i < shots.length ? (room && i < 6 ? shotMap(i) : '') + '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
+        tip: function(n){ var i = start + n; if(room && i < shots.length) return '<span>' + esc(shots[i]) + '</span>'; return i < shots.length ? '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
         onShot: keep, onReplace: swap, onDone: function(){ save(); redo(); } });
       if(!ok) el.querySelector('#rcamIn').click();
     };
