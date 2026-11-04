@@ -509,6 +509,12 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var h = el.querySelector('h1'); if(h){ h.tabIndex = -1; h.focus({ preventScroll:true }); }
     save();
   }
+  /* Total estimated square feet (same math as the running total at the top). */
+  function sqftTotal(){
+    if(A.whole && A.wholeSqft) return A.wholeSqft;
+    var t = 0; ORDER.forEach(function(k){ if(k !== 'upholstery' && has(k)){ var n = sqftFor(k); if(n > 0) t += n; } });
+    return t;
+  }
   /* Running square footage at the top (no price), updated on every tap. */
   function drawSqft(){
     var box = document.getElementById('sqft'), parts = [], total = 0;
@@ -532,6 +538,14 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     var brand = function(t){ return esc(t).replace(/^Deep\b/, '<span class="gold">Deep</span>').replace(/^Signature\b/, '<span class="sigScript">Signature</span>'); };
     e.rows.forEach(function(r){
       var rsq = r.key === 'whole' ? A.wholeSqft : r.items.reduce(function(t, i){ return t + (i.sq || 0); }, 0);
+      /* One line that just repeats the header (Tile, Hardwood): the header itself becomes the dropdown. */
+      var only = r.items.length === 1 ? r.items[0] : null;
+      if(only && only.sq && only.label.replace(/ — .*sq ft$/, '') === r.name){
+        var oid = r.key, orms = only.rooms || [];
+        h += '<div class="r svc' + (orms.length ? ' drop' + (invOpen[oid] ? ' open' : '') + '" data-drop="' + oid + '" role="button" tabindex="0" aria-expanded="' + !!invOpen[oid] : '') + '"><span>' + esc(r.name) + (orms.length ? '<i>▾</i>' : '') + '</span><span>' + ft(rsq) + '</span></div>';
+        orms.forEach(function(x){ h += '<div class="r rm"' + (invOpen[oid] ? '' : ' hidden') + '><span>' + esc(x.t) + '</span><span>' + ft(x.sq) + '</span></div>'; });
+        return;
+      }
       h += '<div class="r svc"><span>' + esc(r.name) + '</span><span>' + ft(rsq) + '</span></div>';
       r.items.forEach(function(i){
         var label = i.sq ? i.label.replace(/ — .*sq ft$/, '') : r.key === 'whole' ? 'All floors' : i.label.replace(/^Flights? of Stairs.*$/, 'Stairs');
@@ -995,7 +1009,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     goBtn(el, 'That’s all the furniture').classList.add('stick');
   }
   function sUphPets(el){
-    h(el, 'Any pets or stains on the fabric?', 'Helps us bring the right treatment.');
+    h(el, 'Any pet odor spots or stains?', 'Helps us bring the right treatment.');
     choices(el, [{ v:'Yes', t:'Yes' }, { v:'No', t:'No' }], function(v){ A.uphPets = v; }, A.uphPets);
   }
 
@@ -1030,7 +1044,7 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     el.querySelector('#pickIn').onchange = function(){ add(this); };
     var go = goBtn(el, 'Next', function(){ if(photoRooms().length) pickRoom(el); else { A.skippedPhotos = !A.photos.length; next(); } });
     /* Happy with the estimate: no measuring photos, just a softer ask for a few so we know the job. */
-    goBtn(el, 'I’m happy with the estimated square footage', function(){ photosLite(el); }, true);
+    goBtn(el, 'I’m happy with the estimate of ' + sqftTotal().toLocaleString() + ' sq ft', function(){ photosLite(el); }, true);
     goBtn(el, 'I can’t do this right now', function(){ A.skippedPhotos = true; next(); }, true);
     draw();
   }
