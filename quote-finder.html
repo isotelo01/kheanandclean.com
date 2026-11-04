@@ -1307,7 +1307,15 @@ input.t:focus{ outline:none; border-color:var(--gold); }
     el.querySelector('#rcamIn').onchange = function(){ add(this); };
     el.querySelector('#rpickIn').onchange = function(){ add(this); };
     el.querySelector('#rpick').onclick = function(){ if(!full) el.querySelector('#rpickIn').click(); };
-    var cam = el.querySelector('#rcam'); if(cam) cam.onclick = function(){ if(!full) el.querySelector('#rcamIn').click(); };
+    /* Take photo: our own camera with this shot's tip and drawing over the live view; the phone's camera if that can't open. */
+    var cam = el.querySelector('#rcam'); if(cam) cam.onclick = function(){
+      if(full) return;
+      var start = roomShots(rm).length, room = !rm.furn && !rm.stairs;
+      var ok = window.burstCam && window.burstCam({ max: PMAX - A.photos.length,
+        tip: function(n){ var i = start + n; return i < shots.length ? (room ? shotMap(i) : '') + '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
+        onShot: keep, onDone: function(){ save(); redo(); } });
+      if(!ok) el.querySelector('#rcamIn').click();
+    };
     var thumbs = el.querySelector('#rthumbs');
     mine.forEach(function(f, i){
       var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');

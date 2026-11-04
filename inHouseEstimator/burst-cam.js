@@ -1,7 +1,8 @@
 /* Burst camera: stays open, every tap of the shutter saves a photo and counts up (1, 2, 3...).
    Done closes it. Used by the job sheet room pages and the website's quote finder.
-   burstCam({ max, onShot(file), onDone(count) }) -> false if this phone/browser can't do it
-   (then the page falls back to the phone's own camera). */
+   burstCam({ max, onShot(file), onDone(count), tip(count) }) -> false if this phone/browser can't do it
+   (then the page falls back to the phone's own camera).
+   tip (optional): returns the HTML shown over the live view for the next shot (what to shoot, a small drawing). */
 (function(){
   var CSS = '.bcam{position:fixed;inset:0;z-index:9999;background:#000;color:#fff;font:16px system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}' +
     '.bcam video{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}' +
@@ -18,6 +19,9 @@
     '.bcam .bshut:active{transform:scale(.92)}' +
     '.bcam .bshut:disabled{opacity:.4}' +
     '.bcam .bdone{width:90px;font:700 17px system-ui,sans-serif;color:#000;background:#E3B64A;border:0;border-radius:8px;padding:12px 0;cursor:pointer}' +
+    '.bcam .btip{position:absolute;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 62px);display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.62);border-left:3px solid #E3B64A;border-radius:10px;padding:10px 12px;font-weight:600;line-height:1.3;pointer-events:none}' +
+    '.bcam .btip:empty{display:none}' +
+    '.bcam .btip svg{width:104px;max-width:104px;flex:none;margin:0}' +
     '.bcam .bmsg{position:absolute;left:0;right:0;bottom:140px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}';
 
   window.burstCam = function(opts){
@@ -33,7 +37,7 @@
     }
     var box = document.createElement('div');
     box.className = 'bcam';
-    box.innerHTML = '<video playsinline muted autoplay></video><div class="bflash"></div><div class="btop"></div>' +
+    box.innerHTML = '<video playsinline muted autoplay></video><div class="bflash"></div><div class="btop"></div><div class="btip"></div>' +
       '<div class="bmsg">Opening camera&hellip;</div>' +
       '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div>' +
       '<button type="button" class="bshut" aria-label="Take photo" disabled></button>' +
@@ -42,6 +46,9 @@
     var video = box.querySelector('video'), shut = box.querySelector('.bshut'), msg = box.querySelector('.bmsg'),
         left = box.querySelector('.bleft'), top = box.querySelector('.btop');
     var say = function(t){ msg.textContent = t || ''; };
+    var tipBox = box.querySelector('.btip');
+    var tip = function(){ if (opts.tip) { try { tipBox.innerHTML = opts.tip(count) || ''; } catch (e) { console.error(e); } } };
+    tip();
 
     function stop(){ window.removeEventListener('devicemotion', onMot); if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
     function open(deviceId){
@@ -94,6 +101,7 @@
         left.innerHTML = '<img src="' + lastUrl + '" alt=""><span class="bcount">' + count + '</span>';
         if (count >= max) { shut.disabled = true; say('That’s the most photos for now. Tap Done.'); }
         try { opts.onShot && opts.onShot(f); } catch (e) { console.error(e); }
+        tip();
       }, 'image/jpeg', 0.92);
     });
     box.querySelector('.bdone').addEventListener('click', function(){
