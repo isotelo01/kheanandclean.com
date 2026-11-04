@@ -43,7 +43,7 @@ a{ color:var(--gold); }
 .sqft{ margin:-12px 0 16px; text-align:right; color:var(--muted); font-size:.9rem; font-variant-numeric:tabular-nums; }
 .sqft b{ color:var(--gold); }
 /* Running price breakdown under the sq ft line: each service, its line items, then the total. */
-.inv{ margin:-6px 0 16px; padding:10px 14px; border:1px solid var(--line); border-radius:10px; font-size:.85rem; color:var(--muted); font-variant-numeric:tabular-nums; }
+.inv{ margin:-6px 0 16px; padding:10px 14px; border:1px solid var(--line); border-radius:10px; font-size:1.05rem; line-height:1.45; color:var(--muted); font-variant-numeric:tabular-nums; }
 .inv .r{ display:flex; justify-content:space-between; gap:10px; }
 .inv .svc{ color:#fff; font-weight:700; margin-top:6px; }
 .inv .svc:first-child{ margin-top:0; }
@@ -56,8 +56,8 @@ a{ color:var(--gold); }
 .inv .drop > span:first-child{ text-decoration:underline; text-underline-offset:3px; }
 .inv .drop i{ font-style:normal; display:inline-block; margin-left:4px; transition:transform .2s; }
 .inv .drop.open i{ transform:rotate(180deg); }
-.inv .rm{ padding-left:26px; font-size:.95em; }
-.inv .tot{ margin-top:8px; padding-top:8px; border-top:1px solid var(--line); color:#fff; font-weight:700; }
+.inv .rm{ padding-left:26px; font-size:.97em; }
+.inv .tot{ margin-top:8px; padding-top:8px; border-top:1px solid var(--line); color:#fff; font-weight:700; font-size:1.15em; }
 .inv .tot b{ color:var(--gold); }
 body:not(.rp) .sqft.dup{ display:none; }   /* total lives at the bottom of the box instead */
 .inv .gold{ color:var(--gold); }
@@ -221,10 +221,11 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 .go.stick{ position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:5; box-shadow:0 6px 24px 10px var(--ink); }
 .go.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold); }
 /* Big shimmery green button (photo step). Shine runs on ::after so it doesn't fight the .go entry animations. */
-.go.shine{ position:relative; overflow:hidden; padding-top:20px; padding-bottom:20px; font-size:1.08rem; color:var(--green);
+.go.shine{ position:relative; overflow:hidden; color:var(--green);
   background:transparent; border:1px solid var(--green); }
 .go.shine::after{ content:''; position:absolute; top:0; left:-60%; width:45%; height:100%; pointer-events:none;
   background:linear-gradient(100deg,transparent,rgba(127,209,164,.22),transparent); transform:skewX(-20deg); animation:shine 2.6s ease-in-out infinite; }
+.go.sm{ padding:11px 14px; font-size:.95rem; margin-top:10px; }   /* smaller buttons on the photo step so the list gets the room */
 @keyframes shine{ 0%{ left:-60%; } 55%,100%{ left:130%; } }
 .tx{ min-height:62svh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; cursor:pointer; }
 .tx .sw{ opacity:0; animation:swirl .9s cubic-bezier(.2,.8,.2,1) forwards; }
@@ -1063,11 +1064,11 @@ input.t:focus{ outline:none; border-color:var(--gold); }
   var PMAX = 40;
   function sPhotos(el){
     el.innerHTML = ''; invAll = true; drawInv();
-    goBtn(el, 'More exact price? Snap a few photos.', function(){ photosExact(el); }).classList.add('shine');
+    goBtn(el, 'More exact price? Snap a few photos.', function(){ photosExact(el); }).classList.add('shine', 'sm');
     el.insertAdjacentHTML('beforeend', '<p class="lead" style="margin-top:10px">Photos let us price your home more accurately.</p>');
     /* Happy with the estimate: no measuring photos, just a softer ask for a few so we know the job. */
-    goBtn(el, 'I’m happy with the estimate of ' + sqftTotal().toLocaleString() + ' sq ft', function(){ photosLite(el); }, true);
-    goBtn(el, 'I can’t take pictures right now', function(){ A.skippedPhotos = true; next(); }, true);
+    goBtn(el, 'I’m happy with the estimate of ' + sqftTotal().toLocaleString() + ' sq ft', function(){ photosLite(el); }, true).classList.add('sm');
+    goBtn(el, 'I can’t take pictures right now', function(){ A.skippedPhotos = true; next(); }, true).classList.add('sm');
   }
   /* The measuring-photo page, reached from the green button: tips + photo picking. */
   function photosExact(el){
