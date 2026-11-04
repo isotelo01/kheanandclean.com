@@ -1130,21 +1130,21 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     h(el, 'Any pet spots or stains on your couch?', 'Tap one or both. Helps us bring the right treatment.');
     if(!A.uphSpots) A.uphSpots = {};
     var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
-    var go;
     /* Pet odor spots and Stains toggle (both can be on); No clears them and moves on. */
     UPH_SPOTS.forEach(function(o){
       var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
       b.innerHTML = '<span>' + o.t + '</span>';
       b.setAttribute('aria-pressed', A.uphSpots[o.k] ? 'true' : 'false');
-      b.onclick = function(){ A.uphSpots[o.k] = !A.uphSpots[o.k]; A.uphPets = uphCountOn() ? 'Yes' : ''; no.removeAttribute('aria-pressed'); b.setAttribute('aria-pressed', A.uphSpots[o.k] ? 'true' : 'false'); go.disabled = !uphCountOn(); save(); };
+      b.onclick = function(){ A.uphSpots[o.k] = !A.uphSpots[o.k]; A.uphPets = uphCountOn() ? 'Yes' : ''; no.removeAttribute('aria-pressed'); b.setAttribute('aria-pressed', A.uphSpots[o.k] ? 'true' : 'false'); noLabel(); save(); };
       box.appendChild(b);
     });
     var no = document.createElement('button'); no.type = 'button'; no.className = 'opt';
-    no.innerHTML = '<span>No</span>';
+    /* No separate Next button: "No" turns into "Next" once they tap Pet odor spots or Stains. */
+    var noLabel = function(){ no.innerHTML = '<span>' + (uphCountOn() ? 'Next' : 'No') + '</span>'; };
+    noLabel();
     if(A.uphPets === 'No') no.setAttribute('aria-pressed', 'true');
-    no.onclick = function(){ A.uphSpots = {}; A.uphN = {}; A.uphPets = 'No'; next(); };
+    no.onclick = function(){ if(uphCountOn()){ next(); return; } A.uphSpots = {}; A.uphN = {}; A.uphPets = 'No'; next(); };
     box.appendChild(no);
-    go = goBtn(el, 'Next'); go.disabled = !uphCountOn();
   }
   var UPH_SPOTS = [{ k:'pet', t:'Pet odor spots', n:'Pet odor spots' }, { k:'stain', t:'Stains', n:'Stains' }];
   function uphCountOn(){ return !!(A.uphSpots && (A.uphSpots.pet || A.uphSpots.stain)); }
