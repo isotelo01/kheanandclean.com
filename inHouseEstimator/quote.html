@@ -1048,7 +1048,7 @@ function render(d){
       </div>` : ""}
       ${sigHtml}
     </div>
-    <div class="foot"><span>Thank you for choosing Khean &amp; Clean.</span><span class="footbtns"><button class="ghost" onclick="print()">Print or save as PDF</button><button class="ghost" id="mcBtn" type="button">Email me a copy</button></span>
+    <div class="foot"><span>Thank you for choosing Khean &amp; Clean.</span><span class="footbtns"><button class="ghost" type="button" onclick="savePdf(this)">Print or save as PDF</button><button class="ghost" id="mcBtn" type="button">Email me a copy</button></span>
       <div class="mcbox" id="mcBox" hidden>
         ${(d.customer || {}).email ? `<label class="mcopt"><input type="radio" name="mcTo" value="${esc(d.customer.email)}" checked> ${esc(d.customer.email)}</label>` : ""}
         <label class="mcopt"><input type="radio" name="mcTo" value="new"${(d.customer || {}).email ? "" : " checked"}> New email</label>
@@ -1099,10 +1099,26 @@ function render(d){
     });
   })();
 
+  /* Save as PDF: show "Making your PDF…" right away, load every photo first (lazy photos are what made
+     the iPhone sit there after the tap), then open the print / save-as-PDF sheet. Gives up waiting after 8s. */
+  window.savePdf = async function (btn) {
+    const label = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = "Making your PDF\u2026"; }
+    const imgs = Array.from(document.images);
+    imgs.forEach(i => { if (i.loading === "lazy") i.loading = "eager"; });
+    await Promise.race([
+      Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => {
+        i.addEventListener("load", r, { once: true }); i.addEventListener("error", r, { once: true });
+      }))),
+      new Promise(r => setTimeout(r, 8000))
+    ]);
+    setTimeout(() => { print(); if (btn) { btn.disabled = false; btn.textContent = label; } }, 50);
+  };
+
   /* Email "Save as PDF" button opens ...&pdf=1: pop the print / save-as-PDF sheet once the page is drawn. */
   if (new URLSearchParams(location.search).get("pdf") === "1" && !window.__pdfOnce) {
     window.__pdfOnce = true;
-    setTimeout(() => print(), 800);
+    setTimeout(() => window.savePdf(), 800);
   }
 
   /* Tip: optional. It adds to every way to pay. The card's 3% fee is figured on the service total only,
