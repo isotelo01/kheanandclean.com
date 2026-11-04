@@ -34,10 +34,10 @@
     '.bcam .bback[hidden],.bcam .bfwd[hidden]{display:none}' +
     '.bcam .bmsg{position:absolute;left:0;right:0;bottom:64px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}' +
     /* iPhone: label top left; Back / Forward bottom left of the picture; one lens button next to the shutter
-       (count, lens, shutter, Done); sideways, the right column is Done, shutter, lens, count from the top. */
+       (count, Done, shutter, lens); sideways, the right column is Done, shutter, lens, count from the top. */
     '.bcam.ios .btip{position:absolute;z-index:2;left:12px;max-width:calc(100% - 24px);top:calc(env(safe-area-inset-top) + 12px)}' +
     '.bcam.ios .bnav{position:absolute;left:12px;bottom:12px;display:flex;gap:8px;z-index:2}' +
-    '.bcam.ios .bleft{order:1}.bcam.ios .btop{order:2}.bcam.ios .bshut{order:3}.bcam.ios .bdone{order:4}' +
+    '.bcam.ios .bleft{order:1}.bcam.ios .bdone{order:2}.bcam.ios .bshut{order:3}.bcam.ios .btop{order:4}' +
     /* Android: label centered at the top above the picture; Back / Forward bottom left of the picture;
        one lens button by the shutter; bar raised so Chrome's full screen notice doesn't cover it. */
     '.bcam.andr .btip{align-self:center;max-width:calc(100% - 24px);margin:calc(env(safe-area-inset-top) + 12px) 12px 10px}' +
