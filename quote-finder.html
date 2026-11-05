@@ -229,6 +229,13 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 /* Frosted glass over the starry background: see-through with a soft blur so text stays crisp. */
 .opt{ background:rgba(28,24,16,.42); border-color:rgba(244,239,226,.16); -webkit-backdrop-filter:blur(10px) saturate(1.2); backdrop-filter:blur(10px) saturate(1.2); }
 .opt[aria-pressed="true"]{ background:rgba(227,182,74,.22); }
+/* Rooms page: finished rooms get the Review card look (gold see-through gradient + first photo thumbnail),
+   unfinished ones stay see-through so the stars show behind them. */
+body.rp .opts .opt{ background:rgba(28,24,16,.22); border-radius:18px; }
+body.rp .opts .opt.done{ justify-content:flex-start; gap:14px; padding:12px 16px; border:1px solid rgba(227,182,74,.55); box-shadow:0 8px 24px rgba(0,0,0,.35);
+  background:linear-gradient(135deg,rgba(227,182,74,.18),rgba(227,182,74,.04)); }
+body.rp .opts .opt.done img{ width:52px; height:52px; border-radius:12px; object-fit:cover; flex:none; border:1px solid rgba(227,182,74,.5); }
+body.rp .opts .opt.done::after{ margin-left:auto; }
 /* Counter rows */
 .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--card);
   border:1px solid var(--line); border-radius:14px; padding:12px 12px 12px 16px; }
@@ -1346,8 +1353,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     list.forEach(function(rm, j){
       if(labs[j]){ var lb = document.createElement('p'); lb.className = 'grplab'; lb.textContent = labs[j]; box.appendChild(lb); }
       var n = roomShots(rm).length, b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
-      b.innerHTML = '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '') + '</span>';
-      if(n) b.setAttribute('aria-pressed', 'true');
+      b.innerHTML = (n ? '<img alt="">' : '') + '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '') + '</span>';
+      if(n){ b.setAttribute('aria-pressed', 'true'); b.classList.add('done');
+        var ti = b.querySelector('img'); ti.src = URL.createObjectURL(roomShots(rm)[0]); ti.onload = function(){ URL.revokeObjectURL(this.src); }; }
       b.onclick = function(){ any && !n ? quickRoom(el, rm) : shootRoom(el, rm); };   /* second room on: floor question (two-story), then straight to the camera */
       box.appendChild(b);
     });
