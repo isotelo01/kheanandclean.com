@@ -1396,8 +1396,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     /* Two-story homes: the floor goes in the heading, e.g. "Bedroom 1 · second floor · carpet photos". */
     var tparts = rm.t.split(' · ');
     if(room && A.story === '2' && A.roomFloor[rm.id]) tparts.splice(1, 0, FLOORS[A.roomFloor[rm.id]].toLowerCase());
-    h(el, esc(tparts.join(' · ')) + ' photos', 'One at a time. Tap Done with this room whenever you want.' +
-      (rm.furn || rm.stairs ? '' : ' Optional: a sheet of white paper in the middle of the floor helps us see size and color.'));
+    h(el, esc(tparts.join(' · ')) + ' photos', '');
+    el.insertAdjacentHTML('beforeend', '<div class="thumbs" id="rthumbs"></div>');   /* photos sit right under the title */
     if(room && A.story === '2'){
       var seg = document.createElement('div'); seg.className = 'flseg'; el.appendChild(seg);
       ['1', '2'].forEach(function(v){
@@ -1414,12 +1414,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       : mine.length < shots.length ? 'Photo ' + (mine.length + 1) + ' of ' + shots.length + ': ' + shots[mine.length]
       : 'That’s everything for this room. Add more if you like.';
     el.appendChild(p);
-    if(!rm.furn && !rm.stairs && !full && mine.length < 6) p.insertAdjacentHTML('afterend', shotMap(mine.length));
     el.insertAdjacentHTML('beforeend',
       '<div class="pbtns" style="grid-template-columns:1fr">' + (how === 'lib' ? '' : '<button type="button" class="go" id="rcam" style="margin:0">Take photo</button>') +
       '</div>' +   /* Choose photos button removed: room photos are taken live, one shot at a time */
       '<input type="file" id="rcamIn" accept="image/*" capture="environment" hidden>' +
-      '<input type="file" id="rpickIn" accept="image/*" multiple hidden><div class="thumbs" id="rthumbs"></div>');
+      '<input type="file" id="rpickIn" accept="image/*" multiple hidden>');
     var redo = function(){ shootRoom(el, rm, how || 'cam'); };
     var fl = A.roomFloor[rm.id], label = rm.t + (fl && A.story === '2' ? ' (' + FLOORS[fl].toLowerCase() + ')' : '');
     var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = label; A.photos.push(f); } };
@@ -1444,6 +1443,14 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
       img.src = URL.createObjectURL(f); img.alt = rm.t + ' photo ' + (i + 1);
       img.onload = function(){ URL.revokeObjectURL(img.src); };
+      img.style.cursor = 'zoom-in';
+      img.onclick = function(){   /* tap a photo to open it full size; tap again to close */
+        var u = URL.createObjectURL(f), ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+        ov.innerHTML = '<img src="' + u + '" alt="" style="max-width:100%;max-height:100%;object-fit:contain">';
+        ov.onclick = function(){ URL.revokeObjectURL(u); ov.remove(); };
+        document.body.appendChild(ov);
+      };
       x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
       x.onclick = function(){ A.photos.splice(A.photos.indexOf(f), 1); redo(); };
       d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
