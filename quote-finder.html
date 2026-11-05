@@ -205,8 +205,8 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
   padding:15px 16px; font:600 1.02rem "Archivo",sans-serif; cursor:pointer; }
 .opt small{ display:block; font-weight:400; font-size:.85rem; color:var(--muted); margin-top:2px; }
 /* Room photos: First floor / Second floor toggle (two-story homes). */
-.flseg{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 14px; }
-.flseg button{ font:600 15px system-ui,sans-serif; color:var(--ivory); background:transparent; border:1px solid rgba(244,239,226,.35); border-radius:999px; padding:10px 0; cursor:pointer; }
+.flseg{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:10px 0 12px; }
+.flseg button{ font:600 13px system-ui,sans-serif; color:var(--ivory); background:transparent; border:1px solid rgba(244,239,226,.35); border-radius:999px; padding:6px 0; cursor:pointer; }
 .flseg button[aria-pressed="true"]{ background:var(--gold); color:#000; border-color:var(--gold); }
 .opt:hover{ border-color:var(--gold-d); }
 .opt[aria-pressed="true"]{ border-color:var(--gold); background:rgba(227,182,74,.24); box-shadow:inset 0 0 0 1px var(--gold); }
@@ -1396,7 +1396,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     /* Two-story homes: the floor goes in the heading, e.g. "Bedroom 1 · second floor · carpet photos". */
     var tparts = rm.t.split(' · ');
     if(room && A.story === '2' && A.roomFloor[rm.id]) tparts.splice(1, 0, FLOORS[A.roomFloor[rm.id]].toLowerCase());
-    h(el, esc(tparts.join(' · ')) + ' photos', '');
+    /* Instructions and the drawing show only until the first photo; after that the photos take their place. */
+    h(el, esc(tparts.join(' · ')) + ' photos', mine.length ? '' : 'One at a time. Tap Done with this room whenever you want. Optional: a sheet of white paper in the middle of the floor helps us see size and color.');
+    if(!mine.length && room) el.insertAdjacentHTML('beforeend', shotMap(0));
     el.insertAdjacentHTML('beforeend', '<div class="thumbs" id="rthumbs"></div>');   /* photos sit right under the title */
     if(room && A.story === '2'){
       var seg = document.createElement('div'); seg.className = 'flseg'; el.appendChild(seg);
@@ -1438,19 +1440,45 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         onDone: function(){ save(); redo(); upNow(); } });   /* Done with this room: its photos start uploading */
       if(!ok) el.querySelector('#rcamIn').click();
     };
+    /* Full-size viewer: arrows or swipe go back and forth, Retake replaces the photo on screen, X closes. */
+    var viewShots = function(list, at){
+      var ov = document.createElement('div'), u = '';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column';
+      ov.innerHTML = '<div style="flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center">' +
+        '<img alt="" style="max-width:100%;max-height:100%;object-fit:contain">' +
+        '<button type="button" data-a="x" aria-label="Close" style="position:absolute;top:calc(10px + env(safe-area-inset-top));right:10px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font:600 22px system-ui,sans-serif">×</button>' +
+        '<button type="button" data-a="p" aria-label="Previous photo" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font:600 22px system-ui,sans-serif">‹</button>' +
+        '<button type="button" data-a="n" aria-label="Next photo" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font:600 22px system-ui,sans-serif">›</button></div>' +
+        '<div style="display:flex;align-items:center;gap:12px;padding:10px 16px calc(12px + env(safe-area-inset-bottom))">' +
+        '<span data-a="c" style="color:#fff;font:500 14px system-ui,sans-serif;flex:1"></span>' +
+        '<button type="button" class="go" data-a="r" style="margin:0;width:auto;padding:10px 22px">Retake</button></div>' +
+        '<input type="file" accept="image/*" capture="environment" hidden>';
+      var im = ov.querySelector('img'), q = function(a){ return ov.querySelector('[data-a="' + a + '"]'); }, inp = ov.querySelector('input');
+      var draw = function(){
+        if(u) URL.revokeObjectURL(u); u = URL.createObjectURL(list[at]); im.src = u;
+        q('c').textContent = 'Photo ' + (at + 1) + ' of ' + list.length;
+        q('p').style.visibility = at > 0 ? 'visible' : 'hidden';
+        q('n').style.visibility = at < list.length - 1 ? 'visible' : 'hidden';
+      };
+      var go = function(d){ var k = at + d; if(k >= 0 && k < list.length){ at = k; draw(); } };
+      var close = function(){ if(u) URL.revokeObjectURL(u); ov.remove(); redo(); };
+      q('x').onclick = close; q('p').onclick = function(){ go(-1); }; q('n').onclick = function(){ go(1); };
+      q('r').onclick = function(){ inp.click(); };
+      inp.onchange = function(){ var nf = inp.files[0]; inp.value = '';
+        if(nf && /^image\//.test(nf.type || 'image/jpeg')){ swap(list[at], nf); list[at] = nf; save(); draw(); } };
+      var sx = null;
+      im.addEventListener('touchstart', function(e){ sx = e.touches[0].clientX; }, { passive:true });
+      im.addEventListener('touchend', function(e){ if(sx === null) return; var dx = e.changedTouches[0].clientX - sx; sx = null;
+        if(Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
+      document.body.appendChild(ov); draw();
+    };
     var thumbs = el.querySelector('#rthumbs');
     mine.forEach(function(f, i){
       var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
       img.src = URL.createObjectURL(f); img.alt = rm.t + ' photo ' + (i + 1);
       img.onload = function(){ URL.revokeObjectURL(img.src); };
       img.style.cursor = 'zoom-in';
-      img.onclick = function(){   /* tap a photo to open it full size; tap again to close */
-        var u = URL.createObjectURL(f), ov = document.createElement('div');
-        ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out';
-        ov.innerHTML = '<img src="' + u + '" alt="" style="max-width:100%;max-height:100%;object-fit:contain">';
-        ov.onclick = function(){ URL.revokeObjectURL(u); ov.remove(); };
-        document.body.appendChild(ov);
-      };
+      img.onclick = function(){ viewShots(mine, i); };   /* tap a photo: full size, swipe between them, Retake */
       x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
       x.onclick = function(){ A.photos.splice(A.photos.indexOf(f), 1); redo(); };
       d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
