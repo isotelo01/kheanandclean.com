@@ -40,7 +40,8 @@
     '.bcam .btip{box-sizing:border-box;display:flex;align-items:center;gap:12px;background:rgba(0,0,0,.62);border-radius:10px;padding:10px 12px;font-weight:600;line-height:1.3;pointer-events:none}' +
     '.bcam .btip:empty{display:none}' +
     '.bcam .btip svg{width:104px;max-width:104px;flex:none;margin:0}' +
-    '.bcam .bback,.bcam .bfwd{font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:8px 14px;cursor:pointer}' +
+    '.bcam .bback,.bcam .bfwd{display:flex;align-items:center;justify-content:center;width:44px;height:44px;color:#fff;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.5);border-radius:50%;padding:0;cursor:pointer}' +
+    '.bcam .bback svg,.bcam .bfwd svg{width:22px;height:22px}' +
     '.bcam .bback[hidden],.bcam .bfwd[hidden]{display:none}' +
     '.bcam .bmsg{position:absolute;left:0;right:0;bottom:64px;text-align:center;font-size:15px;text-shadow:0 1px 4px #000;padding:0 16px}' +
     /* iPhone: label top left; Back / Forward bottom left of the picture; one lens button next to the shutter
@@ -107,7 +108,7 @@
     box.className = 'bcam ' + (IOS ? 'ios' : 'andr');
     /* One lens button in the bar, next to the shutter (iPhone and Android). */
     box.innerHTML = '<div class="bmain"><div class="btip"></div><div class="bview"><video playsinline muted autoplay></video><div class="bflash"></div>' + (IOS ? '' : LIGHT) +
-      '<div class="bnav"><button type="button" class="bback" hidden>&larr; Back</button><button type="button" class="bfwd" hidden>Forward &rarr;</button></div>' +
+      '<div class="bnav"><button type="button" class="bback" aria-label="Back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button><button type="button" class="bfwd" aria-label="Forward" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>' +
       '<div class="bmsg">Opening camera&hellip;</div></div></div>' +
       '<div class="bbar"><div class="bleft"><span class="bcount">0</span></div><div class="btop"></div>' + (IOS ? LIGHT : '') +
       '<button type="button" class="bshut" aria-label="Take photo" disabled></button>' +
@@ -127,7 +128,7 @@
     /* The count follows Back / Forward: "3 of 7" while on an earlier photo, else the total.
        opts.start = photos this room already had before the camera opened, so numbers carry on. */
     var start = opts.start > 0 ? opts.start : 0, retake = false;
-    var label = function(){ return pos < count ? (start + pos + 1) + ' of ' + (start + count) : String(start + count); };
+    var label = function(){ return pos < count ? String(start + pos + 1) : String(start + count); };
     var thumb = function(f){ if (lastUrl) URL.revokeObjectURL(lastUrl); lastUrl = f ? URL.createObjectURL(f) : '';
       left.innerHTML = (f ? '<img src="' + lastUrl + '" alt="Open photos">' : '') + '<span class="bcount">' + label() + '</span>'; };
     var refresh = function(){ thumb(count ? files[pos < count ? pos : count - 1] : null);
