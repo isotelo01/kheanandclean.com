@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="robots" content="noindex, nofollow">
+<title>Photo Pages &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Photo Pages: make a holiday card or a photo album, get a link to text to family.
+   Anyone with the link can view it; no account needed. The link preview shows the cover photo. */
+:root{--navy:#172239;--gold:#E3B64A}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:22px 18px 110px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.top img{width:56px;height:56px;border-radius:8px}
+h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
+.back{margin-left:auto;color:var(--gold);text-decoration:none;font-weight:600}
+h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:26px 0 10px}
+.box{background:var(--navy);border:1px solid var(--gold);border-radius:12px;padding:16px}
+label{display:block;font-weight:600;margin:12px 0 6px}
+input[type=text],textarea{width:100%;background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;font:inherit}
+textarea{min-height:90px;resize:vertical}
+.types{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.types button{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;font:600 15px "Archivo",sans-serif;cursor:pointer;text-align:left}
+.types button small{display:block;font-weight:400;color:rgba(255,255,255,.65)}
+.types button[aria-pressed=true]{border-color:var(--gold);background:rgba(227,182,74,.18)}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:12px 20px;font:700 15px "Archivo",sans-serif;cursor:pointer;text-decoration:none}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn:disabled{opacity:.5}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:10px}
+.thumbs div{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#222}
+.thumbs img{width:100%;height:100%;object-fit:cover}
+.thumbs b{position:absolute;left:4px;top:4px;background:var(--gold);color:#000;font-size:11px;padding:1px 6px;border-radius:6px}
+.thumbs button{position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(0,0,0,.7);color:#fff;cursor:pointer}
+.note{color:rgba(255,255,255,.7);font-size:14px;margin:6px 0 0}
+.err{color:#ff9b8a}
+.pg{display:flex;gap:12px;align-items:center;background:var(--navy);border:1px solid rgba(227,182,74,.5);border-radius:12px;padding:10px;margin-bottom:10px}
+.pg img{width:64px;height:64px;object-fit:cover;border-radius:8px;flex:none;background:#222}
+.pg .t{font-weight:700}
+.pg .s{font-size:13px;color:rgba(255,255,255,.7)}
+.pg .acts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.pg .acts button,.pg .acts a{background:none;border:1px solid var(--gold);color:var(--gold);border-radius:999px;padding:6px 12px;font:600 13px "Archivo",sans-serif;cursor:pointer;text-decoration:none}
+.empty{color:rgba(255,255,255,.6)}
+.done{border-color:#7fd1a4}
+.link{word-break:break-all;color:var(--gold);font-weight:600}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Photo Pages</h1>
+    <a class="back" href="./hub.html">&lsaquo; Hub</a>
+  </div>
+  <p id="authwait" class="note">Signing in…</p>
+
+  <h2>Make a new page</h2>
+  <div class="box" id="form">
+    <div class="types" id="types">
+      <button type="button" data-t="card" aria-pressed="true">Holiday card<small>One big photo, a greeting, falling snow</small></button>
+      <button type="button" data-t="album" aria-pressed="false">Photo album<small>Your favorite photos in a grid</small></button>
+    </div>
+    <label for="ti">Title</label>
+    <input type="text" id="ti" maxlength="80" placeholder="Merry Christmas from the Sotelos">
+    <label for="ms">Message (optional)</label>
+    <textarea id="ms" maxlength="1500" placeholder="Wishing you a wonderful holiday season…"></textarea>
+    <label>Photos</label>
+    <p class="note">The first photo is the cover. It's the picture people see in the text preview.</p>
+    <div class="row" style="margin-top:8px">
+      <button type="button" class="btn ghost" id="pick">Add photos</button>
+      <input type="file" id="pickIn" accept="image/*" multiple hidden>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+    <p class="err" id="err" role="alert"></p>
+    <div class="row"><button type="button" class="btn" id="make">Make my link</button></div>
+  </div>
+
+  <div class="box done" id="made" hidden style="margin-top:14px">
+    <div style="font-weight:700;margin-bottom:6px">Your link is ready</div>
+    <div class="link" id="madeLink"></div>
+    <div class="row">
+      <button type="button" class="btn" id="shareBtn">Share / text it</button>
+      <button type="button" class="btn ghost" id="copyBtn">Copy link</button>
+      <a class="btn ghost" id="viewBtn" target="_blank" rel="noopener">View</a>
+    </div>
+  </div>
+
+  <h2>Your pages</h2>
+  <div id="list"><div class="empty">Loading…</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, collection, getDocs, setDoc, deleteDoc, doc, query, orderBy, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app), storage = getStorage(app);
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const LINK = id => "https://kheanandclean.com/p/" + id;
+const MAXP = 60;
+let uid = "", type = "card", picks = [];
+
+/* Page lock: staff only (Israel, Tita). */
+onAuthStateChanged(auth, u => {
+  if (!u) { location.replace("./login.html?next=photo-pages.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  uid = u.uid; $("authwait")?.remove();
+  load();
+});
+
+$("types").onclick = e => {
+  const b = e.target.closest("button[data-t]"); if (!b) return;
+  type = b.dataset.t;
+  $("types").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+};
+
+/* Photos: shrunk to 2000px JPEGs before upload so pages open fast on a phone. */
+function shrink(file) {
+  return new Promise(res => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 2000 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => res(b || file), "image/jpeg", 0.86);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); res(file); };
+    img.src = url;
+  });
+}
+function drawThumbs() {
+  $("thumbs").innerHTML = "";
+  picks.forEach((f, i) => {
+    const d = document.createElement("div"), img = document.createElement("img"), x = document.createElement("button");
+    img.src = URL.createObjectURL(f); img.onload = () => URL.revokeObjectURL(img.src); img.alt = "Photo " + (i + 1);
+    x.type = "button"; x.textContent = "×"; x.setAttribute("aria-label", "Remove photo " + (i + 1));
+    x.onclick = () => { picks.splice(i, 1); drawThumbs(); };
+    d.appendChild(img); if (!i) d.insertAdjacentHTML("beforeend", "<b>Cover</b>"); d.appendChild(x);
+    $("thumbs").appendChild(d);
+  });
+}
+$("pick").onclick = () => $("pickIn").click();
+$("pickIn").onchange = function () {
+  [...this.files].forEach(f => { if (picks.length < MAXP && /^image\//.test(f.type || "image/jpeg")) picks.push(f); });
+  this.value = ""; drawThumbs();
+};
+
+$("make").onclick = async () => {
+  const title = $("ti").value.trim(), msg = $("ms").value.trim(), err = $("err"), btn = $("make");
+  if (!title) { err.textContent = "Give it a title."; $("ti").focus(); return; }
+  if (!picks.length) { err.textContent = "Add at least one photo."; return; }
+  err.textContent = ""; btn.disabled = true;
+  const id = Array.from(crypto.getRandomValues(new Uint8Array(8)), b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+  try {
+    const photos = [];
+    for (let i = 0; i < picks.length; i++) {
+      btn.textContent = "Uploading " + (i + 1) + " of " + picks.length + "…";
+      const blob = await shrink(picks[i]), r = sRef(storage, "photo-pages/" + id + "/" + String(i).padStart(3, "0") + ".jpg");
+      await uploadBytes(r, blob, { contentType: "image/jpeg" });
+      photos.push(await getDownloadURL(r));
+    }
+    btn.textContent = "Saving…";
+    await setDoc(doc(db, "photoPages", id), { type, title, message: msg, photos, cover: photos[0], owner: uid, createdAt: serverTimestamp() });
+    picks = []; drawThumbs(); $("ti").value = ""; $("ms").value = "";
+    showMade(id, title); load();
+  } catch (e) {
+    console.error(e); err.textContent = "That didn't save. Check your connection and try again.";
+  }
+  btn.disabled = false; btn.textContent = "Make my link";
+};
+
+function share(id, title) {
+  const url = LINK(id);
+  if (navigator.share) navigator.share({ title, url }).catch(() => {});
+  else location.href = "sms:?&body=" + encodeURIComponent(url);
+}
+function copy(id, b) {
+  navigator.clipboard?.writeText(LINK(id)).then(() => { const t = b.textContent; b.textContent = "Copied"; setTimeout(() => b.textContent = t, 1500); });
+}
+function showMade(id, title) {
+  $("made").hidden = false; $("madeLink").textContent = LINK(id);
+  $("shareBtn").onclick = () => share(id, title);
+  $("copyBtn").onclick = function () { copy(id, this); };
+  $("viewBtn").href = LINK(id);
+  $("made").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function load() {
+  try {
+    const snap = await getDocs(query(collection(db, "photoPages"), orderBy("createdAt", "desc")));
+    if (snap.empty) { $("list").innerHTML = '<div class="empty">No pages yet.</div>'; return; }
+    $("list").innerHTML = "";
+    snap.forEach(d => {
+      const p = d.data(), el = document.createElement("div"); el.className = "pg";
+      el.innerHTML = '<img src="' + esc(p.cover) + '" alt=""><div><div class="t">' + esc(p.title) + '</div><div class="s">' +
+        (p.type === "album" ? "Photo album" : "Holiday card") + " · " + (p.photos || []).length + " photos</div></div>" +
+        '<div class="acts"><button type="button" data-a="share">Share</button><button type="button" data-a="copy">Copy</button>' +
+        '<a href="' + LINK(d.id) + '" target="_blank" rel="noopener">View</a><button type="button" data-a="del">Delete</button></div>';
+      el.querySelector('[data-a="share"]').onclick = () => share(d.id, p.title);
+      el.querySelector('[data-a="copy"]').onclick = function () { copy(d.id, this); };
+      el.querySelector('[data-a="del"]').onclick = async function () {
+        if (!confirm("Delete \"" + p.title + "\"? The link will stop working.")) return;
+        this.disabled = true;
+        for (let i = 0; i < (p.photos || []).length; i++) await deleteObject(sRef(storage, "photo-pages/" + d.id + "/" + String(i).padStart(3, "0") + ".jpg")).catch(() => {});
+        await deleteDoc(doc(db, "photoPages", d.id)); el.remove();
+      };
+      $("list").appendChild(el);
+    });
+  } catch (e) { console.error(e); $("list").innerHTML = '<div class="empty">Couldn’t load your pages.</div>'; }
+}
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<!--OG-->
+<title>Photos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+<style>
+/* A shared photo page (holiday card or album), made in the app's Photo Pages. Anyone with the link can view.
+   Served at /p/<id>; worker.js fills in the link preview (title + cover photo) for texts. */
+*{box-sizing:border-box}
+:root{--gold:#E3B64A;--ink:#07080c;--ivory:#F4EFE2}
+html,body{margin:0;background:var(--ink);color:var(--ivory);font:17px/1.5 "Archivo",system-ui,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:28px 16px 60px;position:relative;z-index:1}
+h1{font:600 clamp(30px,7vw,52px)/1.15 "Playfair Display",Georgia,serif;margin:0 0 12px;text-align:center}
+.msg{white-space:pre-line;text-align:center;max-width:620px;margin:0 auto 26px;color:rgba(244,239,226,.85);font-size:18px}
+.cover{display:block;width:100%;max-height:78svh;object-fit:contain;border-radius:16px;margin:0 auto 22px;box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 0 1px rgba(227,182,74,.35)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;cursor:zoom-in;display:block}
+.card .grid{margin-top:10px}
+.box{position:fixed;inset:0;background:rgba(0,0,0,.94);display:flex;align-items:center;justify-content:center;z-index:5;cursor:zoom-out}
+.box img{max-width:96vw;max-height:92svh;object-fit:contain}
+.box .nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);color:#fff;border:0;font-size:34px;width:48px;height:64px;cursor:pointer}
+.box .l{left:4px}.box .r{right:4px}
+.foot{text-align:center;margin-top:34px;font-size:13px;color:rgba(244,239,226,.45)}
+.gone{text-align:center;padding:30vh 16px;color:rgba(244,239,226,.7)}
+canvas.snow{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+body.card{background:radial-gradient(120% 70% at 50% 0%,#1a2236 0%,#07080c 60%)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="gone">Loading…</div></div>
+<script>
+(function(){
+  var id = (location.pathname.match(/\/p\/([a-z0-9]{6,20})/) || [])[1] || new URLSearchParams(location.search).get('id') || '';
+  var app = document.getElementById('app');
+  var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); };
+  var gone = function(){ app.innerHTML = '<div class="gone">This page isn’t here anymore.</div>'; };
+  if(!/^[a-z0-9]{6,20}$/.test(id)){ gone(); return; }
+  var val = function(v){ if(!v) return ''; if('stringValue' in v) return v.stringValue;
+    if(v.arrayValue) return (v.arrayValue.values || []).map(val); return ''; };
+  fetch('https://firestore.googleapis.com/v1/projects/khean-estimator-78f3e/databases/(default)/documents/photoPages/' + id)
+    .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+    .then(function(d){
+      var f = d.fields || {}, p = { type: val(f.type), title: val(f.title), message: val(f.message), photos: val(f.photos) || [] };
+      document.title = p.title || 'Photos';
+      var card = p.type !== 'album', list = card ? p.photos.slice(1) : p.photos;
+      if(card) document.body.className = 'card';
+      app.className = 'wrap' + (card ? ' card' : '');
+      app.innerHTML = (card && p.photos[0] ? '<img class="cover" src="' + esc(p.photos[0]) + '" alt="">' : '') +
+        '<h1>' + esc(p.title) + '</h1>' + (p.message ? '<p class="msg">' + esc(p.message) + '</p>' : '') +
+        (list.length ? '<div class="grid">' + list.map(function(u, i){ return '<img src="' + esc(u) + '" alt="Photo ' + (i + 1) + '" loading="lazy" data-i="' + i + '">'; }).join('') + '</div>' : '') +
+        '<div class="foot">Made with Khean &amp; Clean</div>';
+      /* Tap a photo: full screen, arrows or swipe to flip, tap to close. */
+      var all = card ? p.photos : list;
+      var open = function(i){
+        var b = document.createElement('div'); b.className = 'box';
+        b.innerHTML = '<img alt=""><button class="nav l" aria-label="Previous">&lsaquo;</button><button class="nav r" aria-label="Next">&rsaquo;</button>';
+        var im = b.querySelector('img'), go = function(n){ i = (n + all.length) % all.length; im.src = all[i]; };
+        go(i); var x0 = null;
+        b.querySelector('.l').onclick = function(e){ e.stopPropagation(); go(i - 1); };
+        b.querySelector('.r').onclick = function(e){ e.stopPropagation(); go(i + 1); };
+        b.addEventListener('touchstart', function(e){ x0 = e.touches[0].clientX; }, { passive:true });
+        b.addEventListener('touchend', function(e){ if(x0 == null) return; var dx = e.changedTouches[0].clientX - x0; x0 = null; if(Math.abs(dx) > 40){ e.preventDefault(); go(i + (dx < 0 ? 1 : -1)); } });
+        b.onclick = function(){ b.remove(); };
+        document.body.appendChild(b);
+      };
+      app.addEventListener('click', function(e){
+        var t = e.target; if(t.tagName !== 'IMG') return;
+        open(t.classList.contains('cover') ? 0 : +t.dataset.i + (card ? 1 : 0));
+      });
+      if(card) snow();
+    })
+    .catch(gone);
+
+  /* Falling snow for holiday cards (still for people who turn motion off). */
+  function snow(){
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var cv = document.createElement('canvas'); cv.className = 'snow'; document.body.appendChild(cv);
+    var g = cv.getContext('2d'), dpr = Math.min(2, window.devicePixelRatio || 1), F = [];
+    var size = function(){ cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; };
+    size(); addEventListener('resize', size);
+    for(var k = 0; k < 90; k++) F.push({ x:Math.random(), y:Math.random(), r:Math.random() * 2.4 + .8, s:Math.random() * .6 + .3, w:Math.random() * 6 });
+    (function tick(){
+      g.clearRect(0, 0, cv.width, cv.height); g.fillStyle = 'rgba(255,255,255,.85)';
+      F.forEach(function(q){
+        q.y += q.s * .0016; q.w += .01; if(q.y > 1.02){ q.y = -.02; q.x = Math.random(); }
+        g.beginPath(); g.arc((q.x + Math.sin(q.w) * .01) * cv.width, q.y * cv.height, q.r * dpr, 0, Math.PI * 2); g.fill();
+      });
+      requestAnimationFrame(tick);
+    })();
+  }
+})();
+</script>
+</body>
+</html>
