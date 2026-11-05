@@ -1547,9 +1547,12 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       rpBack = function(){ pickRoom(el); };
       window.scrollTo(0, 0);
       /* Landscape only: open at the bottom so Next room is in view. */
-      if(window.matchMedia && window.matchMedia('(orientation:landscape)').matches){
-        requestAnimationFrame(function(){ window.scrollTo(0, document.documentElement.scrollHeight); });
-      }
+      /* Waits for the camera to finish closing (it can hold the page still), and also runs if the phone is turned to landscape on this screen. */
+      var land = function(){ return !!(window.matchMedia && window.matchMedia('(orientation:landscape)').matches); }, wasLand = null;
+      var toEnd = function(){ if(!document.body.contains(box)){ window.removeEventListener('resize', toEnd); return; }
+        var l = land(); if(l && wasLand !== true) window.scrollTo(0, document.documentElement.scrollHeight); wasLand = l; };
+      [60, 350, 800].forEach(function(t){ setTimeout(function(){ wasLand = null; toEnd(); }, t); });
+      window.addEventListener('resize', toEnd);   /* only acts when the phone turns into landscape, not on address-bar resizes */
     };
     var thumbs = el.querySelector('#rthumbs');
     mine.forEach(function(f, i){
