@@ -66,11 +66,13 @@
     /* iPhone sideways: right column (fixed width) is count at the top, shutter in the middle, Done at the bottom.
        Light and 0.5 side by side in one row at the top, just left of that column; label at the bottom right
        of the photo. Pinned to the screen so they land in the same spots every time. */
-    '.bcam.ios .bbar{position:relative;flex:none;box-sizing:border-box;width:calc(env(safe-area-inset-right) + 136px);flex-direction:column;justify-content:space-between;align-items:center;gap:16px}.bcam.ios .bleft{justify-content:center}.bcam.ios .bfwd{right:12px}' +
+    '.bcam.ios .bbar{position:relative;flex:none;box-sizing:border-box;width:calc(env(safe-area-inset-right) + 184px);flex-direction:column;justify-content:space-between;align-items:center;gap:16px}.bcam.ios .bleft{justify-content:center}.bcam.ios .bfwd{right:12px}' +
     /* 0.5 in the top right corner of the screen; light just left of it, both in the black column, clear of the
        picture: light against the photo's edge, away from 0.5. The column starts lower so the count sits under them. */
-    '.bcam.ios .bbar{padding-top:calc(env(safe-area-inset-top) + 68px)}' +
-    '.bcam.ios .blight{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 88px)}' +
+    '.bcam.ios .bbar{padding-top:calc(env(safe-area-inset-top) + 100px)}.bcam.ios .bshut{margin:auto 0}' +
+    '.bcam.ios .blight{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 132px)}' +
+    /* Top row, left to right: light, last photo (count under it), 0.5. */
+    '.bcam.ios .bleft{position:fixed;z-index:3;top:calc(env(safe-area-inset-top) + 11px);right:calc(env(safe-area-inset-right) + 80px)}' +
     '.bcam.ios .btop{position:fixed;z-index:3;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 12px);display:flex}' +
     '.bcam.ios .btop .bzoom{box-sizing:border-box;width:60px;height:44px;padding:0}' +
     '.bcam.ios .bleft{order:1}.bcam.ios .bshut{order:2}.bcam.ios .bdone{order:3}' +
