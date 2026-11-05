@@ -159,7 +159,7 @@ const mailList = withAcct(httpsCallable(fns, "mailList")), mailRead = withAcct(h
 const mailMove = withAcct(httpsCallable(fns, "mailMove")), mailSend = withAcct(httpsCallable(fns, "mailSend"));
 const mailAttachment = withAcct(httpsCallable(fns, "mailAttachment"));
 const mailWith = httpsCallable(fns, "mailWith");
-const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailSpam = httpsCallable(fns, "mailSpam", {timeout: 130000});
+const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailSpam = withAcct(httpsCallable(fns, "mailSpam", {timeout: 130000}));   /* Spam works on Yahoo and Gmail too */
 const storage = getStorage(app);
 /* Quick-attach docs: [key mailSend knows, button label, file name they'll see]. The files themselves are kept
    with the backend (functions/vendor-docs/), not on the public site. */
@@ -280,7 +280,7 @@ function rowButtons(f) {
   return iconBtn("del", "Delete", "del") +
     (f === "Archive" ? '' : iconBtn("arch", "Archive")) +
     (f === "Sent" || PERSONAL ? '' : iconBtn("ai", "AI Response")) +
-    (f === "Sent" || f === "Spam" || PERSONAL ? '' : iconBtn("spam", "Spam"));
+    (f === "Sent" || f === "Spam" ? '' : iconBtn("spam", "Spam / Unsubscribe"));
 }
 const toast = t => { const el = document.createElement("div"); el.className = "toast"; el.textContent = t;
   document.body.appendChild(el); setTimeout(() => el.remove(), 5000); };
@@ -297,7 +297,7 @@ async function sweepJunk() {
 /* Spam (AI): it decides junk / mailing list / real email and finds look-alikes. It asks the first few times;
    once he has confirmed a couple, a sure call (or junk he already banned) is done on its own. */
 async function runSpam(f, uid, btn) {
-  const label0 = btn.textContent; btn.disabled = true; btn.textContent = "Checking…";
+  const label0 = btn.innerHTML; btn.disabled = true; btn.textContent = "Checking…";   /* innerHTML keeps the row's icon */
   const done = r => {
     delete cache[f]; delete cache.Spam; delete cache.Trash;
     if (r.method === "link") { toast("This list only unsubscribes on their website. Opening it…"); window.open(r.link, "_blank", "noopener"); }
@@ -307,8 +307,8 @@ async function runSpam(f, uid, btn) {
   };
   let r;
   try { r = (await mailSpam({folder: f, uid})).data; }
-  catch (e) { btn.disabled = false; btn.textContent = label0; toast(friendly(e)); return; }
-  btn.disabled = false; btn.textContent = label0;
+  catch (e) { btn.disabled = false; btn.innerHTML = label0; toast(friendly(e)); return; }
+  btn.disabled = false; btn.innerHTML = label0;
   if (r.auto) { done(r); return; }
   const others = r.matches || [], froms = new Set(others.map(x => x.from).filter(Boolean));
   const pv = document.createElement("div"); pv.className = "pv";
@@ -397,7 +397,7 @@ async function showMessage(f, uid) {
       (f === "Sent" || f === "Drafts" || (PERSONAL && !GM) ? '' : '<a class="new" href="#reply">Reply</a>') +
       (f === "Drafts" && GM ? '<a class="new" href="#draft">Edit &amp; send</a>' : '') +
       (f === "Sent" || PERSONAL ? '' : '<button type="button" class="ghost" id="aiBtn">AI Response</button>') +
-      (f === "Sent" || f === "Trash" || f === "Spam" || PERSONAL ? '' : '<button type="button" class="ghost" id="spamBtn">Spam</button>') +
+      (f === "Sent" || f === "Trash" || f === "Spam" ? '' : '<button type="button" class="ghost" id="spamBtn">Spam</button>') +
       (f === "Trash" || f === "Archive" ? '' : '<button type="button" class="ghost" id="archBtn">Archive</button>') +
       (f === "Trash" ? '<button type="button" class="ghost" id="moveBtn" data-to="INBOX">Move to Inbox</button>'
         : '<button type="button" class="ghost danger" id="moveBtn" data-to="Trash">Delete</button>') + '</div>' +
