@@ -151,11 +151,12 @@ const fns = getFunctions(app, "us-central1");
 /* acct=personal is Yahoo, acct=gmail is his personal Gmail; both are "Personal Email". */
 const ACCT = ["personal", "gmail"].includes(new URLSearchParams(location.search).get("acct")) ? new URLSearchParams(location.search).get("acct") : "";
 const PERSONAL = !!ACCT;
+const GM = ACCT === "gmail";   // personal Gmail: also has Drafts, Reply, New email and Send (from his Gmail)
 const ACCT_NAME = ACCT === "gmail" ? "Gmail" : "Yahoo";
 if (PERSONAL) document.documentElement.classList.add("personal");
 const withAcct = fn => PERSONAL ? (d => fn({ ...d, acct: ACCT })) : fn;
 const mailList = withAcct(httpsCallable(fns, "mailList")), mailRead = withAcct(httpsCallable(fns, "mailRead"));
-const mailMove = withAcct(httpsCallable(fns, "mailMove")), mailSend = httpsCallable(fns, "mailSend");
+const mailMove = withAcct(httpsCallable(fns, "mailMove")), mailSend = withAcct(httpsCallable(fns, "mailSend"));
 const mailAttachment = withAcct(httpsCallable(fns, "mailAttachment"));
 const mailWith = httpsCallable(fns, "mailWith");
 const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailSpam = httpsCallable(fns, "mailSpam", {timeout: 130000});
@@ -178,8 +179,8 @@ async function uploadMailFiles(files) {
   return out;
 }
 
-const FOLDERS = [["INBOX", "Inbox"], ["Sent", "Sent"], ["Spam", "Spam"], ["Archive", "Archive"], ["Receipts", "Receipts"], ["Trash", "Trash"]]
-  .filter(x => !(PERSONAL && x[0] === "Receipts"));
+const FOLDERS = [["INBOX", "Inbox"], ["Sent", "Sent"], ["Drafts", "Drafts"], ["Spam", "Spam"], ["Archive", "Archive"], ["Receipts", "Receipts"], ["Trash", "Trash"]]
+  .filter(x => !(PERSONAL && x[0] === "Receipts") && !(x[0] === "Drafts" && !GM));
 // Addresses he can send from. Any other @kheanandclean.com address a message was sent to gets added
 // for that reply (the third alias), so replies go out from the address the customer wrote to.
 const FROMS = ["israel@kheanandclean.com", "contact@kheanandclean.com"];
@@ -393,7 +394,8 @@ async function showMessage(f, uid) {
       '<div class="mmeta"><b>To:</b> ' + esc(list(m.to)) + (m.cc && m.cc.length ? ' &nbsp; <b>Cc:</b> ' + esc(list(m.cc)) : '') + '</div>' +
       '<div class="mmeta">' + esc(whenLong(m.date)) + '</div></div>' +
     '<div class="acts"><a class="ghost" href="#' + f + '">&larr; ' + esc((FOLDERS.find(x => x[0] === f) || [, f])[1]) + '</a>' +
-      (f === "Sent" || PERSONAL ? '' : '<a class="new" href="#reply">Reply</a>') +
+      (f === "Sent" || f === "Drafts" || (PERSONAL && !GM) ? '' : '<a class="new" href="#reply">Reply</a>') +
+      (f === "Drafts" && GM ? '<a class="new" href="#draft">Edit &amp; send</a>' : '') +
       (f === "Sent" || PERSONAL ? '' : '<button type="button" class="ghost" id="aiBtn">AI Response</button>') +
       (f === "Sent" || f === "Trash" || f === "Spam" || PERSONAL ? '' : '<button type="button" class="ghost" id="spamBtn">Spam</button>') +
       (f === "Trash" || f === "Archive" ? '' : '<button type="button" class="ghost" id="archBtn">Archive</button>') +
@@ -542,14 +544,18 @@ const letterHtml = (bodyHtml, date) =>
   '</table></td></tr></table>';
 
 /* New email, or Reply to the open message. A reply goes out from the address the customer wrote to. */
-function showCompose(reply, preTo) {
+/* draft (personal Gmail only): the open draft loads into the form; Send sends it and it leaves Drafts. */
+function showCompose(reply, preTo, draft) {
   renderFolders();
-  const m = reply ? current : null;
-  if (reply && !m) { location.hash = folder; return; }
-  const froms = FROMS.slice();
-  let fromPick = FROMS[0], to = preTo || "", subject = "", body = "";
-  if (m) {
-    const ours = [...(m.to || []), ...(m.cc || [])].map(a => (a.address || "").toLowerCase()).filter(OURS);
+  const m = reply || draft ? current : null;
+  if ((reply || draft) && !m) { location.hash = folder; return; }
+  const froms = GM ? ["Your Gmail"] : FROMS.slice();
+  let fromPick = froms[0], to = preTo || "", cc = "", subject = "", body = "";
+  if (m && draft) {
+    to = (m.to || []).map(a => a.address).join(", "); cc = (m.cc || []).map(a => a.address).join(", ");
+    subject = m.subject || ""; body = String(m.text || "").replace(/\s+$/, "");
+  } else if (m) {
+    const ours = GM ? [] : [...(m.to || []), ...(m.cc || [])].map(a => (a.address || "").toLowerCase()).filter(OURS);
     ours.forEach(a => { if (!froms.includes(a)) froms.push(a); });
     if (ours.length) fromPick = ours[0];
     to = ((m.replyTo && m.replyTo[0]) || (m.from && m.from[0]) || {}).address || "";
@@ -558,12 +564,13 @@ function showCompose(reply, preTo) {
     body = (aiDraft ? aiDraft.trim() + "\n" : "") + "\n\n\nOn " + whenLong(m.date) + ", " + full((m.from || [])[0]) + " wrote:\n" + quoted;
   }
   aiDraft = "";
-  view.innerHTML = '<div class="panel"><div class="mhead"><h2>' + (m ? "Reply" : "New email") + '</h2></div>' +
+  const origBody = body;
+  view.innerHTML = '<div class="panel"><div class="mhead"><h2>' + (draft ? "Draft" : m ? "Reply" : "New email") + '</h2></div>' +
     '<form id="cForm" novalidate>' +
       '<label class="fld"><span>From</span><select id="cFrom">' +
         froms.map(a => '<option value="' + esc(a) + '"' + (a === fromPick ? ' selected' : '') + '>' + esc(a) + '</option>').join("") + '</select></label>' +
       '<label class="fld"><span>To</span><input id="cTo" type="email" multiple autocomplete="email" value="' + esc(to) + '" placeholder="customer@example.com"></label>' +
-      '<label class="fld"><span>CC</span><input id="cCc" type="email" multiple autocomplete="email" placeholder="optional, separate with commas"></label>' +
+      '<label class="fld"><span>CC</span><input id="cCc" type="email" multiple autocomplete="email" value="' + esc(cc) + '" placeholder="optional, separate with commas"></label>' +
       '<label class="fld"><span>Subject</span><input id="cSubj" type="text" maxlength="300" value="' + esc(subject) + '"></label>' +
       '<label style="display:inline-flex;gap:8px;align-items:center;margin:2px 0 8px;font-size:14px;cursor:pointer"><input type="checkbox" id="cLetter" checked> Letterhead</label>' +
       '<style>#cLetterWrap{margin:0 0 8px}#cLetterWrap textarea{display:block;width:100%;min-height:240px;box-sizing:border-box;border:1px dashed #d6d9de;border-radius:6px;' +
@@ -587,6 +594,7 @@ function showCompose(reply, preTo) {
   /* Letterhead on: the message box sits inside the letter, so what you type is what they see. Off: plain box. */
   const cLetter = document.getElementById("cLetter"), letterWrap = document.getElementById("cLetterWrap"), plainLbl = document.getElementById("cPlain");
   letterWrap.innerHTML = letterHtml('<div id="cSlot"></div>', esc(letterDate()));
+  if (GM) { cLetter.checked = false; cLetter.closest("label").hidden = true; document.getElementById("cDocs").hidden = true; }   // personal: no Khean letterhead or vendor docs
   const placeBody = () => {
     const on = cLetter.checked;
     (on ? document.getElementById("cSlot") : plainLbl).appendChild(ta);
@@ -635,9 +643,12 @@ function showCompose(reply, preTo) {
     const body = esc(ta.value).replace(/(https?:\/\/[^\s<]+|(?:[a-z0-9-]+\.)+(?:com|net|org)(?:\/[^\s<]*)?)/gi, '<a style="color:#1a56db">$1</a>');
     const pv = document.createElement("div"); pv.className = "pv";
     pv.innerHTML = '<div><div style="font-size:13px;color:#555;line-height:1.6;border-bottom:1px solid #ddd;padding-bottom:8px;margin-bottom:14px">' +
-      '<b>From:</b> Israel Sotelo - Khean &amp; Clean &lt;' + esc(v("cFrom")) + '&gt;<br><b>To:</b> ' + esc(v("cTo")) +
+      '<b>From:</b> ' + (GM ? 'Israel Sotelo (your personal Gmail)' : 'Israel Sotelo - Khean &amp; Clean &lt;' + esc(v("cFrom")) + '&gt;') + '<br><b>To:</b> ' + esc(v("cTo")) +
       (v("cCc") ? '<br><b>CC:</b> ' + esc(v("cCc")) : '') + '<br><b>Subject:</b> ' + esc(v("cSubj")) + '</div>' +
-      (cLetter.checked ? letterHtml(body, esc(letterDate())) :
+      /* An unchanged draft goes out with its own formatting, so that's what the preview shows. */
+      (draft && m.html && ta.value === origBody ? '<iframe title="Draft" sandbox srcdoc="' + esc(m.html) + '" style="width:100%;height:460px;border:1px solid #ddd;border-radius:8px;background:#fff"></iframe>' :
+      GM ? '<div style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px;font:15px/1.6 Arial,Helvetica,sans-serif;color:#111;white-space:pre-wrap">' + body + '</div>' :
+      cLetter.checked ? letterHtml(body, esc(letterDate())) :
       /* Same card the server sends: header-colored (#FEFEFE), rounded, thin gold border, black text, on cream. */
       '<div style="background:#f3f0ea;padding:16px 8px;border-radius:8px"><div style="max-width:680px;margin:0 auto;background:#FEFEFE;border:1px solid #e3d6b8;border-radius:12px">' +
         '<img src="https://kheanandclean.com/images/email-header-v2.jpg" alt="Khean &amp; Clean LLC" style="display:block;width:100%;height:auto;border-radius:12px 12px 0 0">' +
@@ -666,14 +677,17 @@ function showCompose(reply, preTo) {
       subject: document.getElementById("cSubj").value.trim(), text: ta.value, letterhead: cLetter.checked};
     if (!data.to) { err.textContent = "Add who it's going to."; return; }
     if (!data.text.trim()) { err.textContent = "Type a message first."; return; }
-    if (m && m.messageId) { data.inReplyTo = m.messageId; data.references = m.references || []; }
+    if (draft) {   // keeps the draft's thread (e.g. a reply), and tells the server which draft to clear
+      data.draftUid = m.uid; data.draftEdited = ta.value !== origBody;
+      if (m.inReplyTo) { data.inReplyTo = m.inReplyTo; data.references = m.references || []; }
+    } else if (m && m.messageId) { data.inReplyTo = m.messageId; data.references = m.references || []; }
     btn.disabled = true; btn.textContent = "Sending\u2026"; err.textContent = "";
     if (files.reduce((n, f) => n + f.size, 0) > ATT_TOTAL) { btn.disabled = false; btn.textContent = "Preview & send"; err.textContent = "Attachments are too big (20 MB total max)."; return; }
     try {
       if (files.length) data.attachments = await uploadMailFiles(files);
       await mailSend(data);
-      delete cache.Sent;
-      view.innerHTML = '<div class="panel"><div class="msg">Sent \u2713 from ' + esc(data.from) + '</div>' +
+      delete cache.Sent; delete cache.Drafts;
+      view.innerHTML = '<div class="panel"><div class="msg">Sent \u2713 from ' + esc(GM ? "your Gmail" : data.from) + '</div>' +
         '<div class="acts"><a class="ghost" href="#' + folder + '">Back to ' + esc((FOLDERS.find(x => x[0] === folder) || [, "Inbox"])[1]) + '</a></div></div>';
     } catch (x) { btn.disabled = false; btn.textContent = "Preview & send"; err.textContent = friendly(x); }
   });
@@ -682,7 +696,8 @@ function showCompose(reply, preTo) {
 /* ---------- which screen ---------- */
 const route = () => {
   const h = decodeURIComponent(location.hash.slice(1));
-  document.getElementById("newBtn").hidden = h === "new" || h.startsWith("new/") || h === "reply";
+  document.getElementById("newBtn").hidden = h === "new" || h.startsWith("new/") || h === "reply" || h === "draft" || (PERSONAL && !GM);
+  if (h === "draft") return showCompose(false, "", true);
   if (h === "new") return showCompose(false);
   if (h.startsWith("new/")) return showCompose(false, h.slice(4));   // #new/<address>: from a customer's or lead's email link
   if (h.startsWith("with/")) return showWith(h.slice(5));   // #with/<address>: a customer's Email history
