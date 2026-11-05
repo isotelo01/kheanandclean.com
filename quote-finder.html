@@ -274,7 +274,16 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 .camtip .go{ margin-top:6px; }
 .go.stick{ position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:5; box-shadow:0 6px 24px 10px var(--ink); }
 .go.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold); }
-.go.ghost.stick{ background:var(--ink); }   /* floating Skip photos: solid so the list behind doesn't show through */
+.go.ghost.stick{ background:var(--ink); }
+/* Landscape rooms page: done button shrinks to a small "Next" in the bottom-right corner. */
+@media (orientation:landscape){
+  .go.stick.lnext{ width:auto; min-width:120px; margin-left:auto; padding:11px 30px; font-size:1rem; box-shadow:0 4px 16px rgba(0,0,0,.6); }
+}
+.askd{ position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:16px; background:rgba(0,0,0,.6); }
+.askd-box{ width:100%; max-width:340px; background:#17130b; border:1px solid rgba(227,182,74,.55); border-radius:18px; padding:20px; text-align:center; }
+.askd-box p{ margin:0 0 4px; font-weight:700; font-size:1.1rem; color:var(--ivory); }
+.askd-box div{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.askd-box .go{ margin-top:14px; padding:12px; }   /* floating Skip photos: solid so the list behind doesn't show through */
 /* Big shimmery green button (photo step). Shine runs on ::after so it doesn't fight the .go entry animations. */
 .go.shine{ position:relative; overflow:hidden; color:var(--green);
   background:transparent; border:1px solid var(--green); }
@@ -1363,9 +1372,25 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       b.onclick = function(){ any && !n ? quickRoom(el, rm) : shootRoom(el, rm); };   /* second room on: floor question (two-story), then straight to the camera */
       box.appendChild(b);
     });
-    goBtn(el, any ? 'I’m done with photos' : 'Skip photos', function(){ A.skippedPhotos = !A.photos.length; next(); }, !any).classList.add('stick');
+    var finish = function(){ A.skippedPhotos = !A.photos.length; next(); };
+    var gb = goBtn(el, any ? 'I’m done with photos' : 'Skip photos', function(){
+      if(any && landQ.matches) askDone(finish); else finish(); }, !any);
+    gb.classList.add('stick');
+    /* Landscape: a small Next button in the corner (asks "Are you done with photos?") so the rooms get the screen. */
+    if(any){ gb.classList.add('lnext'); var lab = function(){ if(!document.body.contains(gb)){ landQ.removeEventListener && landQ.removeEventListener('change', lab); return; } gb.textContent = landQ.matches ? 'Next' : 'I’m done with photos'; };
+      lab(); landQ.addEventListener && landQ.addEventListener('change', lab); }
     window.scrollTo(0, 0);
     wheel(box);
+  }
+  var landQ = window.matchMedia ? window.matchMedia('(orientation:landscape)') : { matches:false };
+  /* "Are you done with photos?" — Yes moves on, Not yet closes. */
+  function askDone(yes){
+    var ov = document.createElement('div'); ov.className = 'askd';
+    ov.innerHTML = '<div class="askd-box"><p>Are you done with photos?</p><div><button type="button" class="go ghost">Not yet</button><button type="button" class="go">Yes</button></div></div>';
+    var bs = ov.querySelectorAll('button'), close = function(){ ov.remove(); };
+    bs[0].onclick = close; bs[1].onclick = function(){ close(); yes(); };
+    ov.onclick = function(e){ if(e.target === ov) close(); };
+    document.body.appendChild(ov); bs[1].focus();
   }
   /* Slot machine reel: as the page scrolls, each card turns on a wheel around the middle of the screen.
      Stops on its own once the rooms page is gone. */
