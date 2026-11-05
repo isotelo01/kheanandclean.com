@@ -1437,7 +1437,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       var ok = window.burstCam && window.burstCam({ max: PMAX - A.photos.length + prior.length, prior: prior,
         tip: function(n){ var i = n; if(room && i < shots.length) return '<span>' + (IOSCAM ? '' : esc(rm.t.split(' · ')[0]) + ': ') + esc(shots[i]) + '</span>'; return i < shots.length ? '<span>Photo ' + (i + 1) + ' of ' + shots.length + ': ' + esc(shots[i]) + '</span>' : '<span>That’s everything for this room. Tap Done, or keep shooting.</span>'; },
         onShot: keep, onReplace: swap,
-        onDone: function(){ save(); redo(); upNow(); } });   /* Done with this room: its photos start uploading */
+        onDone: function(){ save(); upNow(); afterDone(); } });   /* Done with this room: its photos save and start uploading, then ask what's next */
       if(!ok) el.querySelector('#rcamIn').click();
     };
     /* Full-size viewer: arrows or swipe go back and forth, Retake replaces the photo on screen, X closes. */
@@ -1471,6 +1471,19 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       im.addEventListener('touchend', function(e){ if(sx === null) return; var dx = e.changedTouches[0].clientX - sx; sx = null;
         if(Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
       document.body.appendChild(ov); draw();
+    };
+    /* After Done in the camera: preview this room's photos, or go to the next room (the rooms page). */
+    var afterDone = function(){
+      var got = roomShots(rm); if(!got.length){ redo(); return; }
+      h(el, 'Photos saved', 'Do you want to preview the photos or go to the next room?');
+      var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+      [['Preview photos', function(){ redo(); viewShots(roomShots(rm), 0); }],
+       ['Go to the next room', function(){ pickRoom(el); }]].forEach(function(o){
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
+        b.innerHTML = '<span>' + o[0] + '</span>'; b.onclick = o[1]; box.appendChild(b);
+      });
+      rpBack = function(){ pickRoom(el); };
+      window.scrollTo(0, 0);
     };
     var thumbs = el.querySelector('#rthumbs');
     mine.forEach(function(f, i){
