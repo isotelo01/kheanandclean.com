@@ -20,7 +20,7 @@
     '.bcam .bbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px calc(env(safe-area-inset-bottom) + 16px);background:#000}' +
     '.bcam .bleft{min-width:90px;display:flex;align-items:center;gap:8px;order:1}' +
     '.bcam .bleft img{width:46px;height:46px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.5)}' +
-    '.bcam .bcount{font:700 18px system-ui,sans-serif;white-space:nowrap}.bcam .bleft img{cursor:pointer}' +
+    '.bcam .bcount{font:700 18px system-ui,sans-serif;white-space:nowrap}.bcam .bleft{cursor:pointer}' +
     /* Photo viewer: opens from the thumbnail; swipe or arrows to go left/right; Retake top right; X top left. */
     '.bcam .bpv{position:fixed;inset:0;z-index:20;background:#000;display:flex;align-items:center;justify-content:center;touch-action:pan-y}' +
     '.bcam .bpv img{max-width:100%;max-height:100%;object-fit:contain}' +
@@ -75,7 +75,17 @@
     '.bcam.ios .bleft{order:1}.bcam.ios .bshut{order:2}.bcam.ios .bdone{order:3}' +
     /* Label in the top left corner of the screen (may overlap the photo). */
     '.bcam.ios .btip{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:calc(env(safe-area-inset-left) + 12px);right:auto;bottom:auto;max-width:calc(100% - 172px)}' +
-    '.bcam.andr .btop{order:1}.bcam.andr .bshut{order:2}.bcam.andr .bleft{order:3;justify-content:center}.bcam.andr .bdone{order:4}}';
+    /* Android sideways: the label runs down the left strip in big bold italics (off the top, so the picture
+       gets the full height); shutter dead center on the right where the thumb rests, Done and the count under it;
+       0.5 in the top right corner; light placed by script at the photo's top right corner; Back / Forward bottom right. */
+    '.bcam.andr .btip{position:absolute;z-index:2;left:calc(env(safe-area-inset-left) + 10px);top:calc(env(safe-area-inset-top) + 12px);margin:0;max-width:none;max-height:calc(100% - 24px);writing-mode:vertical-rl;background:none;border-radius:0;padding:0;font:italic 800 24px system-ui,sans-serif;letter-spacing:.02em;text-shadow:0 2px 8px rgba(0,0,0,.85)}' +
+    '.bcam.andr .bnav{left:auto;right:12px}' +
+    '.bcam.andr .bbar{flex:none;box-sizing:border-box;width:calc(env(safe-area-inset-right) + 136px);display:grid;grid-template-rows:1fr auto 1fr;justify-items:center;align-items:center;gap:0}' +
+    '.bcam.andr .bshut{grid-row:2;grid-column:1}' +
+    '.bcam.andr .bdone{grid-row:3;grid-column:1;align-self:start;margin-top:20px}' +
+    '.bcam.andr .bleft{grid-row:3;grid-column:1;align-self:start;margin-top:84px;justify-content:center}' +
+    '.bcam.andr .btop{position:fixed;z-index:3;top:calc(env(safe-area-inset-top) + 12px);right:calc(env(safe-area-inset-right) + 12px)}' +
+    '.bcam.andr .btop .bzoom{box-sizing:border-box;width:60px;height:44px;padding:0}}';
 
   window.burstCam = function(opts){
     opts = opts || {};
@@ -140,7 +150,7 @@
     /* Tap the thumbnail: full-screen viewer of this session's photos. Swipe or arrows for left/right.
        Retake (when the page passes onReplace) goes back to the camera on that photo; the next shot replaces it. */
     left.addEventListener('click', function(e){
-      if (!e.target.closest('img') || !count || busy) return;
+      if (!count || busy) return;
       var i = pos < count ? pos : count - 1, url = '';
       var v = document.createElement('div'); v.className = 'bpv';
       v.innerHTML = '<img alt=""><button type="button" class="bpx" aria-label="Close">&times;</button>' +
@@ -176,7 +186,7 @@
       return navigator.mediaDevices.getUserMedia({ video: v, audio: false }).then(function(s){
         stream = s; video.srcObject = s;
         return video.play().catch(function(){});
-      }).then(function(){ shut.disabled = count >= max; say(count >= max ? 'That’s the most photos for now.' : ''); setLight(); });
+      }).then(function(){ shut.disabled = count >= max; say(count >= max ? 'That’s the most photos for now.' : ''); setLight(); placeLight(); });
     }
     /* Light: stays on while shooting (a web page can't fire a real flash). Kept on across lens switches. */
     var lightBtn = box.querySelector('.blight'), lightOn = false;
@@ -189,6 +199,18 @@
       lightBtn.classList.toggle('on', lightOn);
     }
     lightBtn.addEventListener('click', function(){ lightOn = !lightOn; setLight(); });
+    /* Android sideways: the light sits right against the photo's top right corner (the picture is letterboxed,
+       so its corner is worked out from the video's size). Elsewhere it keeps its CSS spot. */
+    function placeLight(){
+      var s = lightBtn.style;
+      if (IOS || !window.matchMedia('(orientation:landscape)').matches || !video.videoWidth) { s.left = s.top = s.right = ''; return; }
+      var W = video.clientWidth, H = video.clientHeight, k = Math.min(W / video.videoWidth, H / video.videoHeight);
+      var pw = video.videoWidth * k, ph = video.videoHeight * k, x = (W - pw) / 2 + pw, y = (H - ph) / 2;
+      if (x + 44 > W) x = W - 44;   /* no room beside it: tuck inside the corner */
+      s.right = 'auto'; s.left = x + 'px'; s.top = y + 'px';
+    }
+    video.addEventListener('loadedmetadata', placeLight);
+    window.addEventListener('resize', placeLight);
     /* 0.5 / 1x: shown when the phone lists an ultra wide back camera. */
     function lenses(){
       if (!navigator.mediaDevices.enumerateDevices) return;
@@ -228,16 +250,17 @@
         busy = false;
         if (!b) { say('That photo didn’t save. Try again.'); return; }
         var f = new File([b], 'photo-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-        if (pos < count) {   /* retake of an earlier photo */
+        var redone = 0;
+        if (pos < count) {   /* retake of an earlier photo: replace it, then jump back to the next empty spot */
           try { opts.onReplace(files[pos], f); } catch (e) { console.error(e); }
-          files[pos] = f;
+          files[pos] = f; redone = start + pos + 1; pos = count;
         } else {
           count++; files.push(f);
           try { opts.onShot && opts.onShot(f); } catch (e) { console.error(e); }
+          pos++;
         }
-        pos++;
         thumb(f);
-        say(pos < count ? 'Retake this photo, or tap Forward.' : '');
+        say(redone ? 'Photo ' + redone + ' replaced.' : '');
         if (pos >= count && count >= max) { shut.disabled = true; say('That’s the most photos for now. Tap Done.'); }
         tip(); showBack();
       }, 'image/jpeg', 0.92);
@@ -247,7 +270,7 @@
     var closed = false;
     function close(){
       if (closed) return; closed = true;
-      window.removeEventListener('popstate', close);
+      window.removeEventListener('popstate', close); window.removeEventListener('resize', placeLight);
       stop(); if (lastUrl) URL.revokeObjectURL(lastUrl);
       try { if (document.fullscreenElement === box) document.exitFullscreen().catch(function(){}); } catch (e) {}
       box.remove();
