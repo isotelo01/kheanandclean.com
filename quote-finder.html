@@ -208,6 +208,21 @@ body.first .wrap{ padding-top:calc(28px + env(safe-area-inset-top)); }
 .flseg{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:10px 0 12px; }
 .flseg button{ font:600 13px system-ui,sans-serif; color:var(--ivory); background:transparent; border:1px solid rgba(244,239,226,.35); border-radius:999px; padding:6px 0; cursor:pointer; }
 .flseg button[aria-pressed="true"]{ background:var(--gold); color:#000; border-color:var(--gold); }
+/* After a room's photos: Review [room] and Next room cards slide in one after the other. */
+.nx{ display:grid; gap:14px; margin-top:28px; }
+.nx button{ display:flex; align-items:center; gap:14px; width:100%; text-align:left; border-radius:18px; padding:14px 16px;
+  font:600 1.1rem "Archivo",sans-serif; cursor:pointer; animation:nxIn .6s cubic-bezier(.2,.8,.2,1) both; transition:transform .15s; }
+.nx button:nth-child(2){ animation-delay:.14s; }
+.nx button:active{ transform:scale(.97); }
+.nx .rv{ background:linear-gradient(135deg,rgba(227,182,74,.18),rgba(227,182,74,.04)); color:var(--ivory); border:1px solid rgba(227,182,74,.55); box-shadow:0 8px 24px rgba(0,0,0,.35); }
+.nx .rv img{ width:58px; height:58px; border-radius:12px; object-fit:cover; flex:none; border:1px solid rgba(227,182,74,.5); }
+.nx .rv small{ display:block; font-weight:400; font-size:.85rem; color:var(--muted); margin-top:3px; }
+.nx .nr{ justify-content:center; padding:20px 16px; border:0; color:#140f05;
+  background:linear-gradient(180deg,#F2CB66,var(--gold) 55%,var(--gold-d)); box-shadow:0 10px 28px rgba(227,182,74,.28), inset 0 1px 0 rgba(255,255,255,.45); }
+.nx .ar{ margin-left:auto; font-size:1.4rem; color:var(--gold); }
+.nx .nr .ar{ margin-left:4px; color:inherit; }
+@keyframes nxIn{ from{ opacity:0; transform:translateX(48px); filter:blur(6px); } to{ opacity:1; transform:none; filter:blur(0); } }
+@media (prefers-reduced-motion:reduce){ .nx button{ animation:none; } }
 .opt:hover{ border-color:var(--gold-d); }
 .opt[aria-pressed="true"]{ border-color:var(--gold); background:rgba(227,182,74,.24); box-shadow:inset 0 0 0 1px var(--gold); }
 .opt[aria-pressed="true"]::after{ content:"\2713"; color:var(--gold); font-size:1.1rem; }
@@ -1485,13 +1500,15 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     /* After Done in the camera: preview this room's photos, or go to the next room (the rooms page). */
     var afterDone = function(){
       var got = roomShots(rm); if(!got.length){ redo(); return; }
-      h(el, 'Photos saved', 'Do you want to preview the photos or go to the next room?');
-      var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
-      [['Preview photos', function(){ redo(); viewShots(roomShots(rm), 0); }],
-       ['Go to the next room', function(){ pickRoom(el); }]].forEach(function(o){
-        var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
-        b.innerHTML = '<span>' + o[0] + '</span>'; b.onclick = o[1]; box.appendChild(b);
-      });
+      el.innerHTML = '';
+      var box = document.createElement('div'); box.className = 'nx'; el.appendChild(box);
+      var rv = document.createElement('button'); rv.type = 'button'; rv.className = 'rv';
+      rv.innerHTML = '<img alt=""><span>Review ' + esc(rm.t.split(' · ')[0]) + '<small>' + got.length + ' photo' + (got.length > 1 ? 's' : '') + '</small></span><span class="ar">›</span>';
+      var ti = rv.querySelector('img'); ti.src = URL.createObjectURL(got[0]); ti.onload = function(){ URL.revokeObjectURL(ti.src); };
+      rv.onclick = function(){ redo(); };   /* the room's card: its photos, Take photo, Done with this room */
+      var nr = document.createElement('button'); nr.type = 'button'; nr.className = 'nr';
+      nr.innerHTML = 'Next room<span class="ar">→</span>'; nr.onclick = function(){ pickRoom(el); };
+      box.appendChild(rv); box.appendChild(nr);
       rpBack = function(){ pickRoom(el); };
       window.scrollTo(0, 0);
     };
