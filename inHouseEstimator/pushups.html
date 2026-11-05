@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="robots" content="noindex, nofollow">
+<title>Push-ups &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Push-ups: morning water check, 100 push-ups a day in sets, and craving times that each ask for a set.
+   Saved on this phone (localStorage). Watch reminders come later. */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:22px 18px 110px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.top img{width:56px;height:56px;border-radius:8px}
+h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
+.back{margin-left:auto;color:var(--gold);text-decoration:none;font-weight:600}
+h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:26px 0 10px}
+.box{background:var(--navy);border:1px solid var(--gold);border-radius:12px;padding:16px}
+.ask{border-color:var(--ok);margin-bottom:12px}
+.ask .q{font:700 20px "Archivo",sans-serif;margin-bottom:12px}
+.yn{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:14px 20px;font:700 17px "Archivo",sans-serif;cursor:pointer;text-align:center}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.yes{background:var(--ok)}
+.count{font:700 64px/1 system-ui,sans-serif;text-align:center}
+.count small{font-size:24px;color:rgba(255,255,255,.6)}
+.bar{height:12px;background:#000;border-radius:6px;overflow:hidden;margin:14px 0}
+.bar i{display:block;height:100%;background:var(--gold);transition:width .3s}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row .btn{flex:1}
+input[type=number],input[type=time]{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;font:inherit;width:110px}
+.note{color:rgba(255,255,255,.7);font-size:14px;margin:8px 0 0}
+.crv{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.12)}
+.crv:last-child{border-bottom:0}
+.crv b{flex:1}
+.crv button{background:none;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:999px;padding:4px 12px;cursor:pointer}
+.days{display:grid;gap:6px}
+.day{display:flex;gap:10px;font-size:15px}
+.day span:first-child{width:90px;color:rgba(255,255,255,.7)}
+.day .w{margin-left:auto}
+.done{color:var(--ok);font-weight:700}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Push-ups</h1>
+    <a class="back" href="./personal.html">&lsaquo; Personal</a>
+  </div>
+
+  <div id="asks"></div>
+
+  <h2>Today</h2>
+  <div class="box">
+    <div class="count"><span id="cnt">0</span> <small>/ 100</small></div>
+    <div class="bar"><i id="bar" style="width:0"></i></div>
+    <div class="row">
+      <button type="button" class="btn" id="add10">+10 done</button>
+      <button type="button" class="btn ghost" id="undo">Undo</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input type="number" id="other" min="1" max="200" inputmode="numeric" placeholder="Other">
+      <button type="button" class="btn ghost" id="addOther">Add</button>
+    </div>
+    <p class="note" id="water"></p>
+  </div>
+
+  <h2>Craving times</h2>
+  <div class="box">
+    <p class="note" style="margin-top:0">At each time, it asks for 10 push-ups.</p>
+    <div id="crvList"></div>
+    <div class="row" style="margin-top:10px">
+      <input type="time" id="crvIn" value="13:00">
+      <button type="button" class="btn ghost" id="crvAdd">Add time</button>
+    </div>
+  </div>
+
+  <h2>Last 7 days</h2>
+  <div class="box"><div class="days" id="days"></div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=pushups.html"); return; }
+  if (!STAFF.includes(u.uid)) location.replace("./partner.html");
+});
+
+const GOAL = 100, SET = 10, KEY = "kcPushups";
+const $ = id => document.getElementById(id);
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { S = {}; }
+S.days = S.days || {}; S.cravings = S.cravings || [];
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+const ymd = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const today = () => { const k = ymd(new Date()); return S.days[k] = S.days[k] || { water: null, morning: null, sets: [], crv: {} }; };
+const total = d => d.sets.reduce((a, b) => a + b, 0);
+const t12 = hm => { let [h, m] = hm.split(":").map(Number); const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12; return h + ":" + String(m).padStart(2, "0") + " " + ap; };
+
+function addSet(n) { const d = today(); d.sets.push(n); save(); draw(); }
+
+/* Questions, one at a time: water first, then the morning set, then any craving time that has come. */
+function nextAsk() {
+  const d = today();
+  if (d.water === null) return { q: "Did you drink water?", y: () => d.water = true, n: () => d.water = false };
+  if (d.morning === null) return { q: "Did you do 10 push-ups?", y: () => { d.morning = true; d.sets.push(SET); }, n: () => d.morning = false };
+  const now = new Date(), hm = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+  const due = S.cravings.slice().sort().find(c => c <= hm && !d.crv[c]);
+  if (due) return { q: "Craving time (" + t12(due) + "). Did you do 10 push-ups?", y: () => { d.crv[due] = "yes"; d.sets.push(SET); }, n: () => d.crv[due] = "no" };
+  return null;
+}
+
+function draw() {
+  const d = today(), n = total(d);
+  const a = nextAsk();
+  $("asks").innerHTML = a ? '<div class="box ask"><div class="q">' + a.q + '</div><div class="yn"><button type="button" class="btn yes" id="ay">Yes</button><button type="button" class="btn ghost" id="an">No</button></div></div>' : "";
+  if (a) { $("ay").onclick = () => { a.y(); save(); draw(); }; $("an").onclick = () => { a.n(); save(); draw(); }; }
+  $("cnt").textContent = n;
+  $("cnt").className = n >= GOAL ? "done" : "";
+  $("bar").style.width = Math.min(100, n / GOAL * 100) + "%";
+  $("water").textContent = d.water === true ? "Water: yes" : d.water === false ? "Water: no" : "";
+  $("crvList").innerHTML = S.cravings.length ? S.cravings.slice().sort().map(c =>
+    '<div class="crv"><b>' + t12(c) + '</b><span>' + (d.crv[c] === "yes" ? "Done today" : d.crv[c] === "no" ? "Skipped today" : "") +
+    '</span><button type="button" data-c="' + c + '">Remove</button></div>').join("") : '<p class="note" style="margin:0">None yet.</p>';
+  $("crvList").querySelectorAll("button").forEach(b => b.onclick = () => { S.cravings = S.cravings.filter(c => c !== b.dataset.c); save(); draw(); });
+  let h = "";
+  for (let i = 0; i < 7; i++) {
+    const dt = new Date(); dt.setDate(dt.getDate() - i);
+    const x = S.days[ymd(dt)], t = x ? total(x) : 0;
+    h += '<div class="day"><span>' + (i ? dt.toLocaleDateString(undefined, { weekday: "short", month: "numeric", day: "numeric" }) : "Today") + '</span>' +
+      '<span class="' + (t >= GOAL ? "done" : "") + '">' + t + ' push-ups</span><span class="w">' + (x && x.water ? "Water ✓" : "") + '</span></div>';
+  }
+  $("days").innerHTML = h;
+}
+
+$("add10").onclick = () => addSet(SET);
+$("addOther").onclick = () => { const v = parseInt($("other").value, 10); if (v > 0) { addSet(v); $("other").value = ""; } };
+$("undo").onclick = () => { const d = today(); if (d.sets.length) { d.sets.pop(); save(); draw(); } };
+$("crvAdd").onclick = () => { const v = $("crvIn").value; if (v && !S.cravings.includes(v)) { S.cravings.push(v); save(); draw(); } };
+draw();
+setInterval(draw, 60000);   /* new day or a craving time arriving while the page is open */
+document.addEventListener("visibilitychange", () => { if (!document.hidden) draw(); });
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="robots" content="noindex, nofollow">
+<title>Personal &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Personal: Israel's non-business pages, kept apart from the Khean & Clean tools. */
+:root{--navy:#172239;--gold:#E3B64A}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:22px 18px 110px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.top img{width:56px;height:56px;border-radius:8px}
+h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
+.back{margin-left:auto;color:var(--gold);text-decoration:none;font-weight:600}
+.list{display:grid;gap:10px}
+.it{display:flex;align-items:center;gap:14px;background:var(--navy);border:1px solid rgba(227,182,74,.5);border-radius:12px;padding:14px;color:#fff;text-decoration:none}
+.it svg{width:28px;height:28px;flex:none;fill:none;stroke:var(--gold);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.it .t{font-weight:700}
+.it .s{font-size:14px;color:rgba(255,255,255,.7)}
+.it .go{margin-left:auto;color:var(--gold);font-size:24px}
+.it.off{opacity:.5}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Personal</h1>
+    <a class="back" href="./hub.html">&lsaquo; Hub</a>
+  </div>
+  <div class="list">
+    <a class="it" href="./pushups.html"><svg viewBox="0 0 24 24"><path d="M3 17h18M6 17l3-5h6l3 5M9 12l1-4M12 4a1.5 1.5 0 1 0 0 .01"/></svg><div><div class="t">Push-ups</div><div class="s">Morning water, 100 push-ups a day, craving times</div></div><span class="go">&rsaquo;</span></a>
+    <a class="it" href="./photo-pages.html"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="12" rx="2"/><path d="M7 21h12a2 2 0 0 0 2-2V9M6 14l3-3 3 3 2-2 3 3"/></svg><div><div class="t">Photo Pages</div><div class="s">Holiday cards and photo albums to text to family</div></div><span class="go">&rsaquo;</span></a>
+    <a class="it" href="./email.html?acct=personal"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><div><div class="t">Personal Email</div><div class="s">Yahoo and other personal inboxes</div></div><span class="go">&rsaquo;</span></a>
+    <div class="it off"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h6M15 12h6"/><circle cx="12" cy="12" r="3"/></svg><div><div class="t">Pok&eacute;mon Cards</div><div class="s">Card prices from recent sales. Not built yet</div></div></div>
+  </div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+/* Page lock: staff only. */
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=personal.html"); return; }
+  if (!STAFF.includes(u.uid)) location.replace("./partner.html");
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
