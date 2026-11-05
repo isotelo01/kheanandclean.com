@@ -135,14 +135,14 @@
       left.innerHTML = (f ? '<img src="' + lastUrl + '" alt="Open photos">' : '') + '<span class="bcount">' + label() + '</span>'; };
     var refresh = function(){ thumb(count ? files[pos < count ? pos : count - 1] : null);
       shut.disabled = !video.videoWidth || (pos >= count && count >= max);
-      say(pos < count ? 'Retake this photo, or tap Forward.' : ''); tip(); showBack(); };
+      say(pos < count ? 'Retaking photo ' + (start + pos + 1) + '. Tap the shutter.' : ''); tip(); showBack(); };
     var showBack = function(){ back.hidden = !(opts.onReplace && pos > 0); fwd.hidden = !(opts.onReplace && pos < count); };
     var step = function(d){
       if (busy) return;
       pos = Math.max(0, Math.min(count, pos + d)); retake = false;
       thumb(files[pos < count ? pos : count - 1]);
       shut.disabled = !video.videoWidth || (pos >= count && count >= max);
-      say(pos < count ? 'Retake this photo, or tap Forward.' : '');
+      say(pos < count ? 'Retaking photo ' + (start + pos + 1) + '. Tap the shutter.' : '');
       tip(); showBack();
     };
     back.addEventListener('click', function(){ step(-1); });
@@ -236,8 +236,7 @@
 
     shut.addEventListener('click', function(){
       if (busy || (pos >= count && count >= max) || !video.videoWidth) return;
-      /* Shutter on an earlier photo asks first, unless they just chose Retake in the viewer. */
-      if (pos < count && !retake && !window.confirm('Replace photo ' + (start + pos + 1) + '?')) return;
+      /* Shutter on an earlier photo just retakes it: no question, the old photo is replaced. */
       retake = false;
       busy = true;
       /* Rotation lock: the screen stays upright, so a phone held sideways gives a sideways frame.
