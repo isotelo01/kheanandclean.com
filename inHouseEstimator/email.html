@@ -724,6 +724,24 @@ onAuthStateChanged(getAuth(app), user => {
     sw.innerHTML = [["personal", "Yahoo"], ["gmail", "Gmail"]].map(([k, l]) =>
       '<a href="./email.html?acct=' + k + '"' + (k === ACCT ? ' class="on"' : '') + '>' + l + '</a>').join("");
     document.getElementById("folders").before(sw);
+    /* Sift Nextdoor: runs the daily Nextdoor sifter now, on both personal inboxes (rules on the Bots page). */
+    const sb = document.createElement("a"); sb.href = "#"; sb.textContent = "Sift Nextdoor"; sw.appendChild(sb);
+    sb.addEventListener("click", async e => {
+      e.preventDefault(); if (sb.dataset.busy) return;
+      sb.dataset.busy = "1"; sb.textContent = "Sifting\u2026";
+      try {
+        const r = (await httpsCallable(fns, "nextdoorSweepNow", {timeout: 310000})()).data;
+        cache = {};
+        const li = a => a.map(x => '<li>' + esc(x.acct) + ': ' + esc(x.subject) + ' <span style="opacity:.7">(' + esc(x.why) + ')</span></li>').join("");
+        view.innerHTML = '<div class="panel"><div class="mhead"><h2>Nextdoor sifted</h2></div>' +
+          '<div class="msg">Moved ' + r.trashed.length + ' to Trash, kept ' + r.kept.length + '.</div>' +
+          (r.kept.length ? '<p><b>Kept</b></p><ul>' + li(r.kept) + '</ul>' : '') +
+          (r.trashed.length ? '<p><b>Trash</b></p><ul>' + li(r.trashed) + '</ul>' : '') +
+          (r.errors.length ? '<p class="msg err">' + esc(r.errors.join(" / ")) + '</p>' : '') +
+          '<div class="acts"><a class="ghost" href="#INBOX">Back to Inbox</a></div></div>';
+      } catch (x) { view.innerHTML = '<div class="msg err">' + esc(friendly(x)) + '</div>'; }
+      finally { delete sb.dataset.busy; sb.textContent = "Sift Nextdoor"; }
+    });
   }
   if (!started) { started = true; window.addEventListener("hashchange", route); route(); }
 });
