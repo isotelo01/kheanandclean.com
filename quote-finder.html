@@ -1333,7 +1333,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       var n = roomShots(rm).length, b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
       b.innerHTML = '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '') + '</span>';
       if(n) b.setAttribute('aria-pressed', 'true');
-      b.onclick = function(){ shootRoom(el, rm); };
+      b.onclick = function(){ any && !n ? quickRoom(el, rm) : shootRoom(el, rm); };   /* second room on: floor question (two-story), then straight to the camera */
       box.appendChild(b);
     });
     goBtn(el, any ? 'I’m done with photos' : 'Skip photos', function(){ A.skippedPhotos = !A.photos.length; next(); }, !any).classList.add('stick');
@@ -1375,6 +1375,16 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     goBtn(el, 'Back to rooms', function(){ pickRoom(el); }, true);
     rpBack = function(){ pickRoom(el); };
     window.scrollTo(0, 0);
+  }
+  /* A new room after the first: two-story homes ask first or second floor, then the camera opens right away. */
+  function quickRoom(el, rm){
+    var open = function(){ shootRoom(el, rm); var c = el.querySelector('#rcam'); if(c) c.click(); };
+    if(!rm.furn && !rm.stairs && A.story === '2'){
+      if(!A.roomFloor) A.roomFloor = {};
+      roomAsk(el, esc(rm.t.split(' · ')[0]) + ': which floor?', '', ['1', '2'].map(function(v){
+        return { t:FLOORS[v], go:function(){ A.roomFloor[rm.id] = v; save(); open(); } };
+      }));
+    } else open();
   }
   function shootRoom(el, rm, how){
     document.body.classList.add('rp');
