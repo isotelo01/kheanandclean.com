@@ -886,6 +886,7 @@ boardEl.addEventListener("click", async e => {
   const del = e.target.closest(".del"), res = e.target.closest(".restore");
   if (!del && !res) return;
   e.preventDefault(); e.stopPropagation();
+  if (del && !confirm("Are you sure you want to delete this?")) return;
   const btn = del || res;
   btn.disabled = true;
   try {
