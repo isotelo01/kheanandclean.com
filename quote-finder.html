@@ -750,7 +750,29 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   /* Photos stay on their phone (IndexedDB) until they send the quote, so a refresh doesn't lose them. */
-  var photoSig = '', photoSeq = 0;
+  var photoSig = '', photoSeq = 0, UPL = 'kcQuoteBuilderUp';
+  function upLog(){ try{ return JSON.parse(localStorage.getItem(UPL) || '[]') || []; }catch(e){ return []; } }
+  /* Rooms whose photos are gone from the phone but were uploaded: download them back from Firebase. */
+  function recoverPhotos(){
+    var have = {}; A.photos.forEach(function(f){ if(f._room) have[f._room] = 1; });
+    var miss = upLog().filter(function(x){ return x.room && x.p && !have[x.room]; }).sort(function(a, b){ return a.p < b.p ? -1 : 1; });
+    if(!miss.length) return Promise.resolve();
+    var work = firebase().then(function(fb){
+      return Promise.all(miss.map(function(x){
+        var r = fb.st.ref(fb.storage, x.p);
+        return (fb.st.getBlob ? fb.st.getBlob(r) : Promise.reject()).catch(function(){
+          return fb.st.getDownloadURL(r).then(function(u){ return fetch(u); }).then(function(res){ return res.ok ? res.blob() : null; });
+        }).then(function(b){
+          if(!b || !b.size) return null;
+          var f, nm = x.p.split('/').pop();
+          try{ f = new File([b], nm, { type:'image/jpeg' }); }catch(e){ f = b; f.name = nm; }
+          f._room = x.room; f._roomName = x.rn; f._up = x.p;   /* already uploaded: never sent twice */
+          return f;
+        }).catch(function(){ return null; });
+      }));
+    }).then(function(fs){ fs = fs.filter(Boolean); if(fs.length) A.photos = A.photos.concat(fs); }).catch(function(){});
+    return Promise.race([work, new Promise(function(ok){ setTimeout(ok, 20000); })]);   /* never hang the page on it */
+  }
   function idb(){
     return new Promise(function(ok, no){
       var r = indexedDB.open('kcQuoteBuilder', 1);
@@ -762,6 +784,16 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var sig = A.photos.map(function(f){ return (f.name || '') + f.size + (f._room || '') + (f._up ? '^' : ''); }).join('|');
     if(sig === photoSig) return; photoSig = sig;
     var my = ++photoSeq;   /* only the newest save gets written, so an older, slower one can't overwrite it */
+    /* Uploaded-photo list (Firebase path + room): rooms with photos here are listed from these photos;
+       rooms that still exist but lost theirs keep their old entries, so a reload can pull them back. */
+    try{
+      var have = {}, ids = {};
+      A.photos.forEach(function(f){ if(f._room) have[f._room] = 1; });
+      photoRooms().forEach(function(rm){ ids[rm.id] = 1; });
+      var log = upLog().filter(function(x){ return !have[x.room] && ids[x.room]; })
+        .concat(A.photos.filter(function(f){ return f._up && f._room; }).map(function(f){ return { p:f._up, room:f._room, rn:f._roomName || '' }; }));
+      localStorage.setItem(UPL, JSON.stringify(log));
+    }catch(e){}
     /* Saved as raw bytes, not Blobs: iPhone Safari loses Blobs kept in IndexedDB across a refresh,
        which showed up as broken "?" photos. */
     Promise.all(A.photos.map(function(f){
@@ -795,7 +827,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       })).then(function(fs){ return fs.filter(Boolean); });
     }).catch(function(){ return []; });
   }
-  function dropPhotos(){ photoSig = ''; idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').delete('all'); }).catch(function(){}); }
+  function dropPhotos(){ photoSig = ''; try{ localStorage.removeItem(UPL); }catch(e){} idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').delete('all'); }).catch(function(){}); }
 
   /* Their answers are also copied to Firebase (quoteProgress) as they go, so unfinished quotes show up
      on our end. Tied to an ID kept on their phone. expireAt lets a Firestore TTL policy clear
@@ -2329,9 +2361,13 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     phReady = false;   /* photos come back from the phone a moment after the page; snapped rooms wait for them */
     show(f0[saved.at] || sName, false);
     loadPhotos().then(function(ph){
+      A.photos = ph;
+      return recoverPhotos();
+    }).then(function(){
       phReady = true;
+      var ph = A.photos;
       if(!ph.length){ if(cur === sSnap || cur === sConfirm) show(cur, false); return; }
-      A.photos = ph; photoSig = '';
+      photoSig = '';
       keepPhotos(); upNow();   /* finish uploads, then any photo measuring left */
       if(cur === sPhotos || cur === sSnap || cur === sConfirm || cur === sReport) show(cur, false);   // redraw so their thumbnails show
     });
