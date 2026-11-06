@@ -315,6 +315,8 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 .rresub{ position:absolute; top:10px; left:56px; height:38px; padding:0 14px; border-radius:999px; border:1px solid rgba(227,182,74,.6);
   background:rgba(0,0,0,.6); color:var(--gold); font:600 .85rem system-ui,sans-serif; cursor:pointer; z-index:2; }
 .rresub:disabled{ opacity:.7; }
+.cfpic{ display:block; width:100%; max-height:42vh; object-fit:cover; border-radius:18px; border:1px solid rgba(227,182,74,.45); margin:4px 0 6px; }
+.cfgrid{ grid-template-columns:1fr 1fr; }
 .rpts{ display:grid; gap:14px; margin:6px 0 4px; }
 .rpt{ border:1px solid rgba(227,182,74,.45); border-radius:18px; overflow:hidden; background:rgba(28,24,16,.5); }
 .rpt img{ display:block; width:100%; height:160px; object-fit:cover; }
@@ -847,15 +849,10 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var floors = A.svcs.some(function(k){ return k !== 'upholstery' && k !== 'rugs' && k !== 'other'; });
     /* Photos first: rooms, then their photos, then a report on each room read from the photos, then the price. */
     if(A.photoFirst){
-      var pf = [sName, sPhotoFirstQ, sServices];
-      if(floors) pf.push(sStory);
-      ['carpet','tile','lvp','stone'].forEach(function(k){ if(has(k)) pf.push(sRooms(k)); });
-      if(floors) pf.push(sPhotoGo, sReport);
+      /* No room picking: they snap each room, we guess what it is and the floor ("Is this your bedroom, with carpet?"), they tap Yes. */
+      var pf = [sName, sPhotoFirstQ, sSnap, sConfirm, sReport];
       if(has('carpet')) pf.push(sRugs, sVacuum, sMatters);
-      else if(has('rugs')) pf.push(sRugs);
       if(has('tile')) pf.push(sSeal);
-      if(has('upholstery')) pf.push.apply(pf, uphCountOn() ? [sUph, sUphPets, sUphCount] : [sUph, sUphPets]);
-      if(has('other')) pf.push(sOther);
       return pf.concat([sPrice, sWhen, sContact]);
     }
     var f = [sName, sPhotoFirstQ, sProblem, sServices];
@@ -884,6 +881,87 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     h(el, 'Want to go photos first' + hi(', ') + '?', 'Snap each room and we’ll read its size, floor and condition from your photos, then build your quote.');
     choices(el, [{ t:'Yes, photos first', s:'Pick your rooms, snap them, see a report on each', v:true }, { t:'No, just ask me questions', v:false }],
       function(v){ A.photoFirst = v; }, A.photoFirst === true ? true : A.photoFirst === false ? false : null);
+  }
+  /* Photos-first: snap each room they want cleaned. Snap a room opens the camera; Done comes back here. */
+  function sSnap(el){ snapRooms(el); }
+  function snapRooms(el){
+    document.body.classList.remove('rp'); rpBack = null;
+    if(phReady) A.pfRooms = (A.pfRooms || []).filter(function(id){ return A.photos.some(function(f){ return f._room === id; }); });   /* drop rooms left with no photos */
+    A.pfRooms = A.pfRooms || [];
+    var pf = A.pfRooms, done = photoRooms().filter(function(rm){ return !rm.pf && roomShots(rm).length; });
+    h(el, pf.length || done.length ? 'Snap your next room' + hi(', ') : 'Snap the rooms you want cleaned' + hi(', '),
+      'One room at a time: the doorway first, then each corner. We’ll figure out the room and the floor from your photos.');
+    var list = document.createElement('div'); list.className = 'opts'; el.appendChild(list);
+    done.concat(photoRooms().filter(function(rm){ return rm.pf; })).forEach(function(rm){
+      var n = roomShots(rm).length, w = document.createElement('div'); w.className = 'rwrap hasph';
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'opt done'; b.setAttribute('aria-pressed', 'true');
+      b.innerHTML = '<img alt=""><span>' + esc(rm.t.split(' · ')[0]) + '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small></span>';
+      var im = b.querySelector('img'); im.src = URL.createObjectURL(roomShots(rm)[0]); im.onload = function(){ URL.revokeObjectURL(im.src); };
+      b.onclick = function(){ shootRoom(el, rm); };
+      w.appendChild(b);
+      if(rm.pf){
+        var tr = document.createElement('button'); tr.type = 'button'; tr.className = 'rtrash'; tr.setAttribute('aria-label', 'Delete ' + rm.t);
+        tr.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
+        tr.onclick = function(){ ask('Delete ' + rm.t + '?', 'Deleting it deletes its ' + n + ' photo' + (n > 1 ? 's' : '') + ' too.', 'Keep it', 'Delete', function(){
+          for(var k = A.photos.length - 1; k >= 0; k--) if(A.photos[k]._room === rm.id) A.photos.splice(k, 1);
+          A.pfRooms = A.pfRooms.filter(function(x){ return x !== rm.id; }); save(); keepPhotos(); snapRooms(el); }); };
+        w.appendChild(tr);
+      }
+      list.appendChild(w);
+    });
+    goBtn(el, pf.length || done.length ? '+ Snap another room' : 'Snap a room', function(){
+      var id = 'pf_' + Date.now().toString(36); A.pfRooms.push(id); save();
+      quickRoom(el, { id:id, t:'Room ' + A.pfRooms.length, pf:true });
+    });
+    if(pf.length || done.length) goBtn(el, 'That’s all my rooms', next, true);
+    window.scrollTo(0, 0);
+  }
+  /* One snapped room at a time: "Is this your bedroom, with carpet?" Yes files it; No lets them pick. */
+  var cWait = '', phReady = true;
+  function floorKey(t){ t = String(t || '').toLowerCase(); return /carpet/.test(t) ? 'carpet' : /stone|marble|travertine|slate|granite/.test(t) ? 'stone' : /tile/.test(t) ? 'tile' : /hardwood|lvp|laminate|vinyl|wood/.test(t) ? 'lvp' : ''; }
+  function assignPf(id, k, key){
+    var r = A.rooms[k] = A.rooms[k] || {}; r[key] = (r[key] || 0) + 1;
+    var nid = k + '_' + key + '_' + (r[key] - 1), nm = ONE[key] || NAMES[key] || key;
+    if(A.svcs.indexOf(k) < 0) A.svcs.push(k);
+    A.photos.forEach(function(f){ if(f._room === id){ f._room = nid; f._roomName = nm; } });
+    if(A.photoSqft && A.photoSqft[id]){ A.photoSqft[nid] = A.photoSqft[id]; delete A.photoSqft[id]; }
+    if(mErr[id]){ mErr[nid] = mErr[id]; delete mErr[id]; }
+    A.pfRooms = (A.pfRooms || []).filter(function(x){ return x !== id; });
+    save(); keepPhotos();
+  }
+  function sConfirm(el){
+    upNow();
+    if(!phReady){ h(el, 'Loading your photos…'); return; }
+    A.pfRooms = (A.pfRooms || []).filter(function(id){ return A.photos.some(function(f){ return f._room === id; }); });
+    var pf = A.pfRooms;
+    if(!pf.length){ h(el, 'All your rooms are set' + hi(', '), 'Next, here’s what we see in each one.'); goBtn(el, 'Next'); return; }
+    var id = pf[0], rm = photoRooms().filter(function(x){ return x.id === id; })[0], r = (A.photoSqft || {})[id];
+    var pic = '<img class="cfpic" alt="" id="cfpic">';
+    var showPic = function(){ var im = el.querySelector('#cfpic'), f0 = roomShots(rm)[0]; if(im && f0){ im.src = URL.createObjectURL(f0); im.onload = function(){ URL.revokeObjectURL(im.src); }; } };
+    var choose = function(){
+      h(el, 'Which room is this?'); el.insertAdjacentHTML('beforeend', pic); showPic();
+      var box = document.createElement('div'); box.className = 'opts cfgrid'; el.appendChild(box);
+      ALL_ROOMS.forEach(function(key){ var b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = ONE[key] || NAMES[key];
+        b.onclick = function(){ pickFloor(key); }; box.appendChild(b); });
+    };
+    var pickFloor = function(key){
+      h(el, 'What floor is in the ' + esc((ONE[key] || NAMES[key]).toLowerCase()) + '?'); el.insertAdjacentHTML('beforeend', pic); showPic();
+      var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+      ['carpet','tile','lvp','stone'].forEach(function(k){ var b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = SVC[k].name;
+        b.onclick = function(){ assignPf(id, k, key); show(sConfirm, false); }; box.appendChild(b); });
+    };
+    if(!r && !mErr[id]){
+      cWait = id;
+      h(el, 'Reading ' + esc(rm.t) + '…', 'Hang tight, this takes about 20–40 seconds.'); el.insertAdjacentHTML('beforeend', pic + '<div class="gather" style="min-height:0;padding:18px 0"><div class="ring" aria-hidden="true"></div></div>'); showPic();
+      goBtn(el, 'I’ll pick the room myself', choose, true);
+      return;
+    }
+    var key = r && (r.guess === 'master' ? 'beds' : r.guess), k = r && floorKey((r.floor || {}).type);
+    if(!key || !k || !(ONE[key] || NAMES[key])){ choose(); return; }
+    h(el, 'Is this your ' + esc((ONE[key] || NAMES[key]).toLowerCase()) + ', with ' + esc(SVC[k].word) + '?', r.sqft ? 'About ' + r.sqft.toLocaleString() + ' sq ft.' : '');
+    el.insertAdjacentHTML('beforeend', pic); showPic();
+    goBtn(el, 'Yes', function(){ assignPf(id, k, key); show(sConfirm, false); });
+    goBtn(el, 'No, let me pick', choose, true);
   }
   /* Photos-first: straight to the photo tips, then the rooms page; Done there goes on to the report. */
   function sPhotoGo(el){ photosExact(el); }
@@ -1452,6 +1530,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         });
       });
     });
+    (A.pfRooms || []).forEach(function(id, i){ out.push({ id:id, t:'Room ' + (i + 1), pf:true }); });   /* photos-first, not confirmed yet */
     if(has('upholstery')) S.upholstery.items.forEach(function(it){
       var n = A.uph[it.key] || 0;
       for(var i = 0; i < n; i++) out.push({ id:'uph_' + it.key + '_' + i, t:it.name + (n > 1 ? ' ' + (i + 1) : ''), furn:true });
@@ -1460,6 +1539,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
   function roomShots(rm){ return A.photos.filter(function(f){ return f._room === rm.id; }); }
   function pickRoom(el){
+    if(A.photoFirst && cur === sSnap){ snapRooms(el); return; }
     rpBack = null;
     document.body.classList.add('rp');
     var list = photoRooms(), any = list.some(function(rm){ return roomShots(rm).length; });
@@ -2082,11 +2162,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       mNow = s; drawInv();
       return call({ key:upKey(), room:x.rm.t, roomType:kind, photos:roomShots(x.rm).slice(0, 8).map(function(f, i){
         return { path:f._up, label: i === 0 ? 'Doorway' : i <= 4 ? 'Corner ' + i : 'Room photo' }; }) })
-        .then(function(r){ var d = r.data || {}; A.photoSqft[id] = { sqft:d.sqft, low:d.low, high:d.high, conf:d.confidence, L:d.lengthFt, W:d.widthFt, rec:d.recommend || '',
+        .then(function(r){ var d = r.data || {}; A.photoSqft[id] = { sqft:d.sqft, low:d.low, high:d.high, conf:d.confidence, L:d.lengthFt, W:d.widthFt, rec:d.recommend || '', guess:d.roomGuess || '',
             floor:(function(f){ f = f || {}; return { type:f.type || '', detail:f.detail || '', condition:f.condition || '', pile:f.pile || '', fiber:f.fiber || '',
               color:f.color || '', rug:f.rug || '', grout:f.grout || '', tileSize:f.tileSize || '' }; })(d.floor) }; save(); },
               function(err){ mErr[id] = (err && err.message) || 'error'; console.error('Photo measure failed', err); })
-        .then(function(){ mNow = ''; drawInv(); if(cur === sReport) drawReport(); });
+        .then(function(){ mNow = ''; drawInv(); if(cur === sReport) drawReport(); if(cur === sConfirm && cWait === id){ cWait = ''; show(sConfirm, false); } });
     }); }, Promise.resolve()).then(function(){ mBusy = false; measurePhotos(fb); });
   }
   function drawPh(){
@@ -2204,12 +2284,14 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     A.photos = [];
     var f0 = FLOW();
     hist = (saved.hist || []).map(function(n){ return f0[n]; }).filter(Boolean);
+    phReady = false;   /* photos come back from the phone a moment after the page; snapped rooms wait for them */
     show(f0[saved.at] || sName, false);
     loadPhotos().then(function(ph){
-      if(!ph.length) return;
+      phReady = true;
+      if(!ph.length){ if(cur === sSnap || cur === sConfirm) show(cur, false); return; }
       A.photos = ph; photoSig = '';
       keepPhotos(); upNow();   /* finish uploads, then any photo measuring left */
-      if(cur === sPhotos) show(cur, false);   // redraw so their thumbnails show
+      if(cur === sPhotos || cur === sSnap || cur === sConfirm || cur === sReport) show(cur, false);   // redraw so their thumbnails show
     });
   } else {
     show(sName, false);
