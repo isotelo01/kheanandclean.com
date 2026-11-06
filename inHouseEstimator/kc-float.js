@@ -35,26 +35,58 @@ css.textContent =
   "@keyframes kcShine{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}" +
   "@media (prefers-reduced-motion:reduce){#kcBtn.mask::after{animation:none;display:none}}" +
   "#kcFloat.on #kcBtn.mask{background:#1a1300 url(../images/kc-mask-gold.png) center/cover no-repeat;box-shadow:0 0 0 3px #b3261e,0 0 14px rgba(179,38,30,.7)}" +
-  "#kcBubble{display:none;flex-direction:column;align-items:center;gap:6px;background:#172239;border:1px solid #E3B64A;border-radius:18px;padding:12px 12px 10px;box-shadow:0 6px 20px rgba(0,0,0,.35);width:150px}" +
+  /* Mask column: the small Text (chat) icon sits right above the mask while a call is on. */
+  "#kcCol{display:flex;flex-direction:column;align-items:center;gap:8px}" +
+  "#kcText{display:none;width:34px;height:34px;border-radius:50%;background:#E3B64A;color:#172239;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.35)}" +
+  "#kcText svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}" +
+  "#kcFloat.on #kcText{display:grid}" +
+  /* No box: the KC logo floats on its own with the transcript above it. Tap the logo to talk, tap again to turn the mic off. */
+  "#kcBubble{display:none;flex-direction:column;align-items:flex-end;gap:10px;max-width:min(260px,calc(100vw - 104px))}" +
   "#kcFloat.on #kcBubble{display:flex}" +
-  "#kcFace{width:84px;height:84px;border-radius:50%;background:#fff url(../images/icon-192.png) center/cover no-repeat;box-shadow:0 0 0 3px #E3B64A;transition:box-shadow .15s}" +
-  "#kcFloat.you #kcFace{animation:kcYou 1s infinite}" +
+  "#kcFace{position:relative;width:84px;height:84px;border-radius:50%;background:#fff url(../images/icon-192.png) center/cover no-repeat;box-shadow:0 0 0 3px #E3B64A,0 4px 14px rgba(0,0,0,.4);cursor:pointer;align-self:center;--lv:0}" +
+  /* Voice ring: a spinning green/gold ring while listening that swells with each word heard (--lv, 0 to 1). */
+  "#kcFace::before{content:'';position:absolute;inset:calc(-8px - var(--lv) * 10px);border-radius:50%;opacity:0;pointer-events:none;" +
+    "background:conic-gradient(from 0deg,#2e8a57,#7ee2a8,#E3B64A,#2e8a57,#7ee2a8,#E3B64A,#2e8a57);" +
+    "-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px - var(--lv) * 3px),#000 calc(100% - 3px - var(--lv) * 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px - var(--lv) * 3px),#000 calc(100% - 3px - var(--lv) * 3px));" +
+    "filter:drop-shadow(0 0 calc(4px + var(--lv) * 10px) rgba(126,226,168,.9));transition:opacity .2s}" +
+  "#kcFloat.listen #kcFace::before{opacity:calc(.55 + var(--lv) * .45);animation:kcSpin 2.4s linear infinite}" +
   "#kcFloat.kc #kcFace{animation:kcTalk .7s infinite}" +
-  "@keyframes kcYou{0%,100%{box-shadow:0 0 0 3px #2e8a57,0 0 0 6px rgba(46,138,87,.35)}50%{box-shadow:0 0 0 3px #2e8a57,0 0 0 14px rgba(46,138,87,0)}}" +
+  "#kcFloat.muted #kcFace{filter:grayscale(.6) brightness(.8)}" +
+  "@keyframes kcSpin{to{transform:rotate(360deg)}}" +
   "@keyframes kcTalk{0%,100%{box-shadow:0 0 0 3px #E3B64A,0 0 0 6px rgba(227,182,74,.4)}50%{box-shadow:0 0 0 3px #E3B64A,0 0 0 16px rgba(227,182,74,0)}}" +
-  "#kcState{color:#fff;font:600 13px/1.3 system-ui,sans-serif;text-align:center;min-height:17px}" +
-  "#kcText{font:600 14px system-ui,sans-serif;color:#172239;background:#E3B64A;border-radius:999px;padding:6px 18px;text-decoration:none}";
+  "@media (prefers-reduced-motion:reduce){#kcFloat.listen #kcFace::before{animation:none}}" +
+  /* Transcript: white text on black, about 3 lines; older lines slide up and off. Tap it to open and scroll back. */
+  "#kcLog{width:100%;box-sizing:border-box;background:rgba(0,0,0,.88);color:#fff;font:500 14px/20px system-ui,sans-serif;border-radius:10px;padding:6px 10px;max-height:72px;overflow:hidden;cursor:pointer;scroll-behavior:smooth}" +
+  "#kcLog:empty{display:none}" +
+  "#kcLog.open{max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch}" +
+  "#kcLog p{margin:0}#kcLog b{color:#E3B64A;font-weight:600}#kcLog .live{opacity:.7}" +
+  "#kcState{color:#fff;font:600 12px/1.3 system-ui,sans-serif;text-align:center;align-self:center;background:rgba(0,0,0,.75);border-radius:999px;padding:3px 10px}" +
+  "#kcState:empty{display:none}";
 document.head.appendChild(css);
 
 const wrap = document.createElement("div");
 wrap.id = "kcFloat";
 wrap.innerHTML =
-  '<button type="button" id="kcBtn" class="mask" aria-label="Call KC Jones" title="Call KC Jones"></button>' +
-  '<div id="kcBubble"><div id="kcFace" role="img" aria-label="KC Jones"></div><div id="kcState" aria-live="polite"></div><a id="kcText" href="./manager.html">Text</a></div>';
+  '<div id="kcCol"><a id="kcText" href="./manager.html" aria-label="Text KC Jones" title="Text KC Jones"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></svg></a>' +
+  '<button type="button" id="kcBtn" class="mask" aria-label="Call KC Jones" title="Call KC Jones"></button></div>' +
+  '<div id="kcBubble"><div id="kcLog" role="log" aria-label="Conversation with KC" title="Tap to read back"></div>' +
+  '<div id="kcFace" role="button" tabindex="0" aria-label="Talk to KC (tap again to turn the mic off)"></div><div id="kcState" aria-live="polite"></div></div>';
 document.body.appendChild(wrap);
 const $ = id => document.getElementById(id);
 const setState = t => { $("kcState").textContent = t; };
-const mode = m => { wrap.classList.remove("you", "kc"); if (m) wrap.classList.add(m); };
+const mode = m => { wrap.classList.remove("you", "kc", "listen"); if (m === "you") wrap.classList.add("listen"); else if (m) wrap.classList.add(m); };
+/* Voice ring level: each new word heard bumps it up, then it eases back down. */
+let lv = 0, lvRaf = 0;
+const bump = () => { lv = Math.min(1, lv + .45); if (!lvRaf) lvRaf = requestAnimationFrame(function step() { lv = Math.max(0, lv - .025); $("kcFace").style.setProperty("--lv", lv.toFixed(3)); lvRaf = lv > 0 ? requestAnimationFrame(step) : 0; }); };
+/* Transcript box: the conversation so far, newest at the bottom. Closed it shows ~3 lines; tap to open and scroll back. */
+const logBox = () => $("kcLog");
+function drawLog(live) {
+  const box = logBox(), esc = s => String(s).replace(/[&<>]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;"}[c]));
+  box.innerHTML = history.slice(-30).map(m => '<p>' + (m.role === "assistant" ? '<b>KC:</b> ' : '<b>You:</b> ') + esc(m.text) + '</p>').join("") +
+    (live ? '<p class="live"><b>You:</b> ' + esc(live) + '</p>' : "");
+  if (!box.classList.contains("open")) box.scrollTop = box.scrollHeight;
+}
+let muted = false;
 
 let history = [];
 try { history = JSON.parse(ss.get("mgrHistory", "[]")); } catch (e) { history = []; }
@@ -91,12 +123,12 @@ function speak(t, then, audio) {
 async function send(text) {
   text = String(text || "").trim(); if (!text || busy) return;
   busy = true; mode(""); setState("Thinking…");
-  history.push({ role: "user", text }); keep();
+  history.push({ role: "user", text }); keep(); drawLog();
   let reply = "", audio = null;
   try {
     const r = await managerBot({ history, voice: true });
     reply = (r.data && r.data.reply) || ""; audio = (r.data && r.data.audio) || null;
-    if (reply) { history.push({ role: "assistant", text: reply }); keep(); }
+    if (reply) { history.push({ role: "assistant", text: reply }); keep(); drawLog(); }
   } catch (e) {
     history.pop(); keep(); reply = ""; setState(e.message || "Couldn't reach KC.");
   }
@@ -114,22 +146,22 @@ function stopForTap(why) { paused = true; mode(""); setState((why ? why + " " : 
 function listen(fromTap) {
   if (!inCall || busy || rec) return;
   if (!SR) { setState("Voice isn't supported here. Tap Text."); return; }
-  if (paused && !fromTap) return;
-  paused = false;
+  if ((paused || muted) && !fromTap) return;
+  paused = false; muted = false; wrap.classList.remove("muted");
   rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
   let heard = "", err = "";
-  rec.onspeechstart = () => { mode("you"); setState("Listening…"); };
-  rec.onresult = e => { heard = ""; for (const r of e.results) heard += r[0].transcript; if (heard.trim()) { mode("you"); setState("“" + heard.trim().slice(-60) + "”"); } };
+  rec.onspeechstart = () => { mode("you"); bump(); setState("Listening…"); };
+  rec.onresult = e => { heard = ""; for (const r of e.results) heard += r[0].transcript; if (heard.trim()) { mode("you"); bump(); setState("Listening…"); drawLog(heard.trim()); } };
   rec.onerror = e => { err = e.error || "error"; };
   rec.onend = () => {
-    rec = null; mode(""); if (!inCall) return;
+    rec = null; mode(""); if (!inCall || muted) return;
     if (heard.trim()) { empties = 0; send(heard.trim()); return; }
     if (err === "not-allowed") { setState("Mic is blocked. Allow the microphone in Settings, then tap KC."); paused = true; return; }
     if (err && err !== "no-speech" && err !== "aborted") { stopForTap("Mic didn't start (" + err + ")."); return; }
     if (++empties >= 3) { empties = 0; stopForTap("I didn't hear anything."); return; }
     setTimeout(listen, 250);
   };
-  setState("Go ahead, I'm listening");
+  mode("you"); setState("Go ahead, I'm listening");
   try { rec.start(); } catch (e) { rec = null; stopForTap("Mic didn't start."); }
 }
 
@@ -137,7 +169,7 @@ function startCall(resume) {
   inCall = true; ss.set("kcCall", "1");
   wrap.classList.add("on"); $("kcBtn").setAttribute("aria-label", "Hang up on KC Jones");
   try { player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="; player.play().catch(() => {}); } catch (e) {}
-  empties = 0; paused = false;
+  empties = 0; paused = false; muted = false; wrap.classList.remove("muted"); drawLog();
   if (resume || history.length) { listen(); return; }
   const hi = "Hey, it's KC Jones. What do you need?";
   /* The greeting's voice is saved on the phone after the first call, so later calls start right away. */
@@ -155,18 +187,20 @@ function hangUp(keepNote) {
   if (rec) { try { rec.abort(); } catch (e) {} rec = null; }
   if (stopPlayer) stopPlayer();
   try { speechSynthesis.cancel(); } catch (e) {}
-  mode(""); wrap.classList.remove("on"); $("kcBtn").setAttribute("aria-label", "Call KC Jones");
+  mode(""); wrap.classList.remove("on", "muted"); logBox().classList.remove("open"); $("kcBtn").setAttribute("aria-label", "Call KC Jones");
   if (!keepNote) setState("");
 }
 $("kcBtn").onclick = () => inCall ? hangUp() : startCall(false);
-/* Tap KC's face: while he talks, it cuts him off and listens; otherwise it starts listening right from the tap. */
+/* Tap KC's logo: start talking (cuts him off if he's talking). Tap again while listening: mic off until the next tap. */
 $("kcFace").onclick = () => {
   if (!inCall || busy) return;
+  if (rec) { muted = true; paused = true; try { rec.abort(); } catch (e) {} rec = null; mode(""); wrap.classList.add("muted"); setState("Mic off. Tap KC to talk."); return; }
   if (stopPlayer) stopPlayer();
-  if (rec) return;   /* already listening */
   empties = 0; listen(true);
 };
-$("kcFace").style.cursor = "pointer";
+$("kcFace").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("kcFace").onclick(); } };
+/* Tap the transcript to open it and scroll back; tap again to shrink it to the last few lines. */
+logBox().onclick = () => { const b = logBox(); b.classList.toggle("open"); if (!b.classList.contains("open")) b.scrollTop = b.scrollHeight; };
 
 /* Picked back up after moving to another page. */
 if (ss.get("kcCall", "0") === "1") startCall(true);
