@@ -259,6 +259,10 @@ body.rp .opts .opt.empty small{ color:var(--gold); font-weight:600; font-size:.9
   body .bcam.ios .bdone{ grid-column:3; } body .bcam.ios .btop{ grid-column:1; }
   body .bcam.andr .bdone{ order:3; } body .bcam.andr .btop{ order:4; }
 }
+/* Which floor is this room on: two big side-by-side buttons, one tap moves on. */
+.opts.flr{ grid-template-columns:1fr 1fr; gap:14px; margin-top:8px; }
+.opts.flr .opt{ min-height:130px; justify-content:center; text-align:center; font-size:1.5rem; font-weight:700; border:2px solid var(--gold); border-radius:20px; }
+.opts.flr .opt small{ font-size:.95rem; color:var(--gold); }
 /* Counter rows */
 .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--card);
   border:1px solid var(--line); border-radius:14px; padding:12px 12px 12px 16px; }
@@ -1751,12 +1755,12 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   var FLOORS = { '1':'First floor', '2':'Second floor' };
   function roomAsk(el, title, lead, list){
     h(el, title, lead);
-    var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
+    var box = document.createElement('div'); box.className = 'opts flr'; el.appendChild(box);
     list.forEach(function(o){
       var b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
       b.innerHTML = '<span>' + o.t + '</span>'; b.onclick = o.go; box.appendChild(b);
     });
-    goBtn(el, 'Back to rooms', function(){ pickRoom(el); }, true);
+    /* no Back to rooms button: the Back button at the top goes to the rooms */
     rpBack = function(){ pickRoom(el); };
     window.scrollTo(0, 0);
   }
@@ -1765,8 +1769,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var open = function(){ shootRoom(el, rm); var c = el.querySelector('#rcam'); if(c) c.click(); };
     if(!rm.furn && !rm.stairs && A.story === '2'){
       if(!A.roomFloor) A.roomFloor = {};
-      roomAsk(el, esc(rm.t.split(' · ')[0]) + ': which floor?', '', ['1', '2'].map(function(v){
-        return { t:FLOORS[v], go:function(){ A.roomFloor[rm.id] = v; save(); open(); } };
+      roomAsk(el, 'Which floor is ' + esc(rm.t.split(' · ')[0]) + ' on?', '', ['1', '2'].map(function(v){
+        return { t:(v === '1' ? 'First' : 'Second') + '<small>floor</small>', go:function(){ A.roomFloor[rm.id] = v; save(); open(); } };
       }));
     } else open();
   }
