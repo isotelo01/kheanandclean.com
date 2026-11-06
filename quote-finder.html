@@ -48,6 +48,8 @@ a{ color:var(--gold); }
 .inv .svc{ color:#fff; font-weight:700; margin-top:6px; }
 .inv .svc:first-child{ margin-top:0; }
 .inv .it{ padding-left:12px; }
+.inv .phhd{ color:var(--gold); font-weight:700; font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
+.inv .phhd + .svc{ margin-top:0; }
 .inv .tot{ border-top:1px solid var(--line); margin-top:8px; padding-top:6px; color:#fff; font-weight:700; }
 .inv .tot b{ color:var(--gold); }
 .inv .note{ font-size:.78rem; margin-top:2px; }
@@ -2297,12 +2299,21 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var box = document.getElementById('phinv'), inv = document.getElementById('inv'); if(!box) return;
     var rows = phRows();
     if(!rows.length || !inv || inv.hidden && !rows.some(function(x){ return x.r; })){ box.hidden = true; box.innerHTML = ''; return; }
-    var tot = 0, h = '<div class="r svc"><span>Estimated from photos</span><span></span></div>';
-    rows.forEach(function(x){
-      var right = x.r && x.r.sqft ? x.r.sqft.toLocaleString() + ' sf' : x.n < 2 ? 'needs 2+ photos' : !x.s ? 'uploading…' :
-        mErr[x.rm.id] ? 'couldn’t measure' : 'measuring…';
-      if(x.r && x.r.sqft) tot += x.r.sqft;
-      h += '<div class="r it"><span>' + esc(x.rm.t) + '</span><span>' + right + '</span></div>';
+    /* Laid out like the quote below: a heading per service with its square feet, its rooms under it. */
+    var tot = 0, h = '<div class="r phhd"><span>Estimated from photos</span><span></span></div>';
+    var NM = { carpet:'Carpet Cleaning', tile:'Tile & Grout Cleaning', lvp:'Hardwood / LVP Cleaning', stone:'Natural Stone Cleaning' };
+    var groups = {}, order = ORDER.concat(['_']);
+    rows.forEach(function(x){ var k = x.rm.id.split('_')[0]; if(!NM[k]) k = '_'; (groups[k] = groups[k] || []).push(x); });
+    order.forEach(function(k){
+      var g = groups[k]; if(!g) return;
+      var sub = 0, rh = '';
+      g.forEach(function(x){
+        var right = x.r && x.r.sqft ? x.r.sqft.toLocaleString() + ' sf' : x.n < 2 ? 'needs 2+ photos' : !x.s ? 'uploading…' :
+          mErr[x.rm.id] ? 'couldn’t measure' : 'measuring…';
+        if(x.r && x.r.sqft){ tot += x.r.sqft; sub += x.r.sqft; }
+        rh += '<div class="r it"><span>' + esc(NM[k] ? x.rm.t.split(' · ')[0] : x.rm.t) + '</span><span>' + right + '</span></div>';
+      });
+      h += '<div class="r svc"><span>' + esc(NM[k] || 'Other rooms') + '</span><span>' + (sub ? sub.toLocaleString() + ' sf' : '') + '</span></div>' + rh;
     });
     if(tot) h += '<div class="r tot"><span>Photo total</span><b>' + tot.toLocaleString() + ' sq ft</b></div>';
     box.innerHTML = h; box.hidden = false;
