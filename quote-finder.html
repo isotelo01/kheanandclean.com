@@ -312,6 +312,13 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
     flex-direction:column; gap:6px; width:auto; margin:0; padding:8px; border:0; font-size:.9rem; }
   body.rp .raddbtn .pl{ width:52px; height:52px; font-size:1.8rem; }
 }
+.rmeas{ margin:14px 0 4px; padding:12px 14px; border:1px solid rgba(227,182,74,.45); border-radius:14px; background:rgba(227,182,74,.06); }
+.rmeas .rm-t{ color:var(--gold); font-size:.8rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.rmeas .rm-n{ font-size:1.3rem; font-weight:700; margin:2px 0 4px; }
+.rmeas .rm-n small{ font-size:.85rem; font-weight:400; color:var(--muted); }
+.rmeas p{ margin:6px 0 0; font-size:.95rem; }
+.rmeas .rec{ color:var(--ivory); }
+.rmeas .go{ margin-top:10px; }
 .rresub{ position:absolute; top:10px; left:56px; height:38px; padding:0 14px; border-radius:999px; border:1px solid rgba(227,182,74,.6);
   background:rgba(0,0,0,.6); color:var(--gold); font:600 .85rem system-ui,sans-serif; cursor:pointer; z-index:2; }
 .rresub:disabled{ opacity:.7; }
@@ -1574,14 +1581,6 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       tr.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
       tr.onclick = function(){ ask('Delete ' + rm.t + '?', n ? 'Deleting it deletes its ' + n + ' photo' + (n > 1 ? 's' : '') + ' too.' : '', 'Keep it', 'Delete', function(){ var y = window.scrollY; delRoom(rm); pickRoom(el); window.scrollTo(0, y); }); };
       w.appendChild(b); w.appendChild(tr);
-      /* Resubmit: measure this room's photos again (once measured, a room isn't re-measured on its own). */
-      if(n > 1 && !rm.furn && !rm.stairs){
-        var rs = document.createElement('button'); rs.type = 'button'; rs.className = 'rresub';
-        var pr = (A.photoSqft || {})[rm.id];
-        rs.textContent = pr && pr.sqft ? pr.sqft.toLocaleString() + ' sq ft · Resubmit' : 'Resubmit';
-        rs.onclick = function(){ if(A.photoSqft) delete A.photoSqft[rm.id]; delete mErr[rm.id]; save(); rs.textContent = 'Measuring…'; rs.disabled = true; upNow(); };
-        w.appendChild(rs);
-      }
       box.appendChild(w);
     });
     /* Add room: pick a room type, it joins the list. Plus sign with "Add room" under it (left side in landscape). */
@@ -1740,6 +1739,22 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     h(el, esc(tparts.join(' · ')) + ' photos', mine.length ? '' : 'One at a time. Tap Done with this room whenever you want. Optional: a sheet of white paper in the middle of the floor helps us see size and color.');
     if(!mine.length && room) el.insertAdjacentHTML('beforeend', shotMap(0));
     el.insertAdjacentHTML('beforeend', '<div class="thumbs" id="rthumbs"></div>');   /* photos sit right under the title */
+    /* What the photos say about this room, with Resubmit to measure it again after changing photos
+       (once measured, a room isn't re-measured on its own). */
+    if(room && mine.length > 1){
+      el.insertAdjacentHTML('beforeend', '<div class="rmeas" id="rmeas"></div>');
+      var mbox = el.querySelector('#rmeas');
+      measHook = function(){
+        if(!document.body.contains(mbox)){ measHook = null; return; }
+        var r = (A.photoSqft || {})[rm.id], f = (r && r.floor) || {}, busy = !r && !mErr[rm.id];
+        mbox.innerHTML = '<div class="rm-t">From your photos</div>' +
+          (r && r.sqft ? '<div class="rm-n">' + r.sqft.toLocaleString() + ' sq ft' + (r.L && r.W ? ' <small>about ' + r.L + ' × ' + r.W + ' ft</small>' : '') + '</div>' : '<div class="rm-n"><small>' + (busy ? 'Measuring…' : 'Couldn’t measure. Try Resubmit.') + '</small></div>') +
+          (f.condition ? '<p>' + esc(f.condition) + '</p>' : '') + (r && r.rec ? '<p class="rec">Recommended: ' + esc(r.rec) + '</p>' : '') +
+          '<button type="button" class="go ghost sm" id="rmGo"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Measuring…' : '↻ Resubmit') + '</button>';
+        mbox.querySelector('#rmGo').onclick = function(){ if(A.photoSqft) delete A.photoSqft[rm.id]; delete mErr[rm.id]; save(); measHook(); upNow(); };
+      };
+      measHook();
+    }
     if(room && A.story === '2'){
       var seg = document.createElement('div'); seg.className = 'flseg'; el.appendChild(seg);
       ['1', '2'].forEach(function(v){
@@ -2142,7 +2157,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* "Estimated from photos": each room with 2+ uploaded photos goes to the same room measurer the
      estimator uses (measureQuoteRoom on the backend). Once a room is measured it stays measured, even if
      its photos change; the Resubmit button on the rooms page measures it again. */
-  var mBusy = false, mErr = {}, mNow = '';
+  var mBusy = false, mErr = {}, mNow = '', measHook = null;
   function roomSig(rm){ var ps = roomShots(rm).slice(0, 8); return ps.length > 1 && ps.every(function(f){ return f._up; }) ? ps.map(function(f){ return f._up; }).join('|') : ''; }
   function phRows(){
     var R = A.photoSqft || {};
@@ -2166,7 +2181,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
             floor:(function(f){ f = f || {}; return { type:f.type || '', detail:f.detail || '', condition:f.condition || '', pile:f.pile || '', fiber:f.fiber || '',
               color:f.color || '', rug:f.rug || '', grout:f.grout || '', tileSize:f.tileSize || '' }; })(d.floor) }; save(); },
               function(err){ mErr[id] = (err && err.message) || 'error'; console.error('Photo measure failed', err); })
-        .then(function(){ mNow = ''; drawInv(); if(cur === sReport) drawReport(); if(cur === sConfirm && cWait === id){ cWait = ''; show(sConfirm, false); } });
+        .then(function(){ mNow = ''; drawInv(); if(measHook) measHook(); if(cur === sReport) drawReport(); if(cur === sConfirm && cWait === id){ cWait = ''; show(sConfirm, false); } });
     }); }, Promise.resolve()).then(function(){ mBusy = false; measurePhotos(fb); });
   }
   function drawPh(){
