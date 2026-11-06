@@ -1740,7 +1740,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var tparts = rm.t.split(' · ');
     if(room && A.story === '2' && A.roomFloor[rm.id]) tparts.splice(1, 0, FLOORS[A.roomFloor[rm.id]].toLowerCase());
     /* Instructions and the drawing show only until the first photo; after that the photos take their place. */
-    h(el, esc(tparts.join(' · ')) + ' photos', mine.length ? '' : 'One at a time. Tap Done with this room whenever you want. Optional: a sheet of white paper in the middle of the floor helps us see size and color.');
+    h(el, esc(tparts.join(' · ')) + ' photos', mine.length ? '' : 'One at a time. Tap Done whenever you want. Optional: a sheet of white paper in the middle of the floor helps us see size and color.');
     if(!mine.length && room) el.insertAdjacentHTML('beforeend', shotMap(0));
     el.insertAdjacentHTML('beforeend', '<div class="thumbs" id="rthumbs"></div>');   /* photos sit right under the title */
     /* What the photos say about this room, with Resubmit to measure it again after changing photos
@@ -1776,7 +1776,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       : 'That’s everything for this room. Add more if you like.';
     el.appendChild(p);
     el.insertAdjacentHTML('beforeend',
-      '<div class="pbtns" style="grid-template-columns:1fr">' + (how === 'lib' ? '' : '<button type="button" class="go" id="rcam" style="margin:0">Take photo</button>') +
+      '<div class="pbtns"' + (how === 'lib' ? ' style="grid-template-columns:1fr"' : '') + '>' + (how === 'lib' ? '' : '<button type="button" class="go" id="rcam" style="margin:0">Add photo</button>') +
       '</div>' +   /* Choose photos button removed: room photos are taken live, one shot at a time */
       '<input type="file" id="rcamIn" accept="image/*" capture="environment" hidden>' +
       '<input type="file" id="rpickIn" accept="image/*" multiple hidden>');
@@ -1864,7 +1864,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       x.onclick = function(){ A.photos.splice(A.photos.indexOf(f), 1); redo(); };
       d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
     });
-    goBtn(el, 'Done with this room', function(){ pickRoom(el); });   /* not sticky: it was covering Take photo / Choose photos */
+    /* Add photo and Done side by side on one row. */
+    goBtn(el.querySelector('.pbtns') || el, 'Done', function(){ pickRoom(el); }).style.margin = '0';
   }
 
   function sPrice(el){
