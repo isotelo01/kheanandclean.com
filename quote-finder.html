@@ -1883,7 +1883,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     }
     /* Back from this room's photos: the room list. */
     rpBack = function(){ pickRoom(el); };
-    var shots = rm.stairs ? ['From the bottom, shoot up the stairs', 'From the top, shoot down the stairs', 'Close-ups of any stains or worn spots']
+    var shots = rm.stairs ? STAIR_SHOTS
       : rm.rug ? ['The whole rug, from above', 'The edges and fringe', 'Close-ups of any stains or pet spots']
       : rm.furn ? ['The whole piece, from the front', 'The seat cushions up close', 'Close-ups of any stains or pet spots']
       : ['Doorway/threshold', 'Corner 1', 'Corner 2', 'Corner 3', 'Corner 4', 'Corner/stains/closet', 'Corner/stains/closet',
@@ -2222,7 +2222,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       if((A.master[k] || []).length) parts.push('Master bedrooms: ' + masterText(k));
       L.push(SVC[k].name + ' rooms: ' + (parts.join(', ') || 'none picked'));
     });
-    var phl = phRows().filter(function(x){ return x.r && x.r.sqft; });
+    var phl = phRows().filter(function(x){ return x.r && x.r.sqft && !x.rm.stairs; });   /* stairs are priced per flight */
     if(phl.length) L.push('Estimated from photos: ' + phl.map(function(x){ return x.rm.t + ' ' + x.r.sqft + ' sq ft (' + x.r.conf + ')'; }).join(', '));
     if(has('carpet')){
       L.push('Pre-vacuum: ' + (A.vacuum === 'us' ? 'NO, we vacuum (hair & debris added)' : A.vacuum === 'me' ? 'yes, customer vacuums' : 'not answered'));
@@ -2327,9 +2327,12 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
      its photos change; the Resubmit button on the rooms page measures it again. */
   var mBusy = false, mErr = {}, mNow = '', measHook = null;
   function roomSig(rm){ var ps = roomShots(rm).slice(0, 8); return ps.length > 1 && ps.every(function(f){ return f._up; }) ? ps.map(function(f){ return f._up; }).join('|') : ''; }
+  /* Stairs: six photos, and the AI reads them like a room (floor, condition, what to recommend). Still priced per flight. */
+  var STAIR_SHOTS = ['From the bottom, shoot up the stairs', 'From halfway up, shoot up', 'From the top, shoot down the stairs',
+    'From halfway down, shoot down', 'From the side, a few steps up close', 'Close-ups of any stains or worn spots'];
   function phRows(){
     var R = A.photoSqft || {};
-    return photoRooms().filter(function(rm){ return !rm.furn && !rm.stairs && roomShots(rm).length; })
+    return photoRooms().filter(function(rm){ return !rm.furn && roomShots(rm).length; })
       .map(function(rm){ var s = roomSig(rm); return { rm:rm, s:s, n:roomShots(rm).length, r:R[rm.id] }; });
   }
   function measurePhotos(fb){
@@ -2344,7 +2347,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       var p = x.rm.id.split('_'), kind = p[1] === 'master' ? 'Master bedroom' : (ONE[p[1]] || NAMES[p[1]] || '');
       mNow = s; drawInv();
       return call({ key:upKey(), room:x.rm.t, roomType:kind, photos:roomShots(x.rm).slice(0, 8).map(function(f, i){
-        return { path:f._up, label: i === 0 ? 'Doorway' : i <= 4 ? 'Corner ' + i : 'Room photo' }; }) })
+        return { path:f._up, label: x.rm.stairs ? (STAIR_SHOTS[i] || 'Stairs photo') : i === 0 ? 'Doorway' : i <= 4 ? 'Corner ' + i : 'Room photo' }; }) })
         .then(function(r){ var d = r.data || {}; A.photoSqft[id] = { sqft:d.sqft, low:d.low, high:d.high, conf:d.confidence, L:d.lengthFt, W:d.widthFt, rec:d.recommend || '', guess:d.roomGuess || '',
             floor:(function(f){ f = f || {}; return { type:f.type || '', detail:f.detail || '', condition:f.condition || '', pile:f.pile || '', fiber:f.fiber || '',
               color:f.color || '', rug:f.rug || '', grout:f.grout || '', tileSize:f.tileSize || '' }; })(d.floor) }; save(); },
