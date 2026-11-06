@@ -750,7 +750,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   /* Photos stay on their phone (IndexedDB) until they send the quote, so a refresh doesn't lose them. */
-  var photoSig = '';
+  var photoSig = '', photoSeq = 0;
   function idb(){
     return new Promise(function(ok, no){
       var r = indexedDB.open('kcQuoteBuilder', 1);
@@ -761,6 +761,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   function keepPhotos(){
     var sig = A.photos.map(function(f){ return (f.name || '') + f.size + (f._room || '') + (f._up ? '^' : ''); }).join('|');
     if(sig === photoSig) return; photoSig = sig;
+    var my = ++photoSeq;   /* only the newest save gets written, so an older, slower one can't overwrite it */
     /* Saved as raw bytes, not Blobs: iPhone Safari loses Blobs kept in IndexedDB across a refresh,
        which showed up as broken "?" photos. */
     Promise.all(A.photos.map(function(f){
@@ -769,7 +770,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       }).catch(function(){ return null; });
     })).then(function(list){
       list = list.filter(Boolean);
-      return idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').put(list, 'all'); });
+      if(my !== photoSeq) return;
+      return idb().then(function(db){ if(my === photoSeq) db.transaction('photos', 'readwrite').objectStore('photos').put(list, 'all'); });
     }).catch(function(){});
   }
   function loadPhotos(){
@@ -1802,9 +1804,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       '<input type="file" id="rpickIn" accept="image/*" multiple hidden>');
     var redo = function(){ shootRoom(el, rm, how || 'cam'); };
     var fl = A.roomFloor[rm.id], label = rm.t + (fl && A.story === '2' ? ' (' + FLOORS[fl].toLowerCase() + ')' : '');
-    var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = label; A.photos.push(f); } };
+    var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = label; A.photos.push(f); keepPhotos(); } };   /* saved to the phone right away */
     /* Retake from the camera's Back button: the new photo takes the old one's place. */
-    var swap = function(old, f){ var k = A.photos.indexOf(old); if(k > -1){ f._room = rm.id; f._roomName = label; A.photos[k] = f; } };
+    var swap = function(old, f){ var k = A.photos.indexOf(old); if(k > -1){ f._room = rm.id; f._roomName = label; A.photos[k] = f; keepPhotos(); } };
     var add = function(inp){ Array.prototype.forEach.call(inp.files, keep); inp.value = ''; redo(); };
     el.querySelector('#rcamIn').onchange = function(){ add(this); };
     el.querySelector('#rpickIn').onchange = function(){ add(this); };
