@@ -238,7 +238,8 @@ body.rp .opts .opt.done img{ width:52px; height:52px; border-radius:12px; object
 body.rp .opts .opt.done::after{ margin-left:auto; }
 /* Rooms page wheel: the list rolls like a slot machine reel. Cards tip back and shrink as they move
    away from the middle of the screen (set from script with rotate/scale, which the entrance animations don't touch). */
-body.rp .opts.wheel{ gap:16px; padding:30vh 0 38vh; }
+body.rp .opts.wheel{ gap:16px; padding:30vh 0 0; }
+body.rp .raddbtn{ margin-bottom:38vh; }   /* room under the last card so it can roll up to the middle */
 /* Showcase cards: a finished room is its photo across the whole card, name on a dark fade at the bottom. */
 body.rp .opts .opt.done{ position:relative; display:block; padding:0; overflow:hidden; height:clamp(150px, 44vh, 230px); border-radius:20px; }
 body.rp .opts .opt.done img{ position:absolute; inset:0; width:100%; height:100%; border:0; border-radius:0; object-fit:cover; }
@@ -285,6 +286,31 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 /* Landscape rooms page: done button shrinks to a small "Next" in the bottom-right corner. */
 @media (orientation:landscape){
   .go.stick.lnext{ width:auto; min-width:120px; margin-left:auto; padding:11px 30px; font-size:1rem; box-shadow:0 4px 16px rgba(0,0,0,.6); }
+}
+/* Rooms page: trash can on each room, Add room button. */
+.rwrap{ position:relative; }
+.rwrap > .opt{ padding-right:56px; }
+.rwrap.hasph > .opt{ padding-right:0; }
+.rtrash{ position:absolute; right:10px; top:50%; transform:translateY(-50%); width:38px; height:38px; display:grid; place-items:center;
+  border-radius:50%; border:1px solid rgba(244,239,226,.3); background:rgba(0,0,0,.55); color:var(--ivory); cursor:pointer; z-index:2; }
+.rwrap.hasph .rtrash{ top:10px; left:10px; right:auto; transform:none; }   /* photo cards: top-left, the check sits top-right */
+.raddbtn{ display:flex; align-items:center; justify-content:center; gap:10px; width:100%; margin-top:14px; padding:14px; cursor:pointer;
+  background:transparent; color:var(--gold); border:1px dashed rgba(227,182,74,.6); border-radius:18px; font:600 1rem "Archivo",sans-serif; }
+.raddbtn .pl{ width:30px; height:30px; display:grid; place-items:center; border-radius:50%; background:var(--gold); color:#140f05; font-size:1.3rem; line-height:1; }
+.radd{ max-width:420px; text-align:left; }
+.radd-list{ display:grid !important; grid-template-columns:1fr 1fr !important; gap:8px; max-height:60vh; overflow:auto; margin:12px 0 4px; }
+.radd-list h4{ grid-column:1 / -1; margin:8px 0 0; color:var(--gold); font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; }
+.radd-list .opt{ padding:11px 12px; font-size:.92rem; }
+.askd-box small{ display:block; color:var(--muted); margin-top:4px; }
+/* Landscape: Done in the blank space on the right, Add room (plus sign, words under it) on the left — never over a photo. */
+@media (orientation:landscape){
+  body.rp .wrap{ max-width:min(560px, calc(100vw - 260px)); }
+  body.rp .opts.wheel{ padding-bottom:38vh; }
+  body.rp .go.stick.lnext{ position:fixed; top:50%; bottom:auto; right:calc((100vw - min(560px, 100vw - 260px)) / 4); transform:none; translate:50% -50%; animation:none; opacity:1;
+    width:auto; min-width:0; margin:0; padding:12px 26px; }
+  body.rp .raddbtn{ position:fixed; z-index:5; top:50%; left:calc((100vw - min(560px, 100vw - 260px)) / 4); translate:-50% -50%;
+    flex-direction:column; gap:6px; width:auto; margin:0; padding:8px; border:0; font-size:.9rem; }
+  body.rp .raddbtn .pl{ width:52px; height:52px; font-size:1.8rem; }
 }
 .askd{ position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:16px; background:rgba(0,0,0,.6); }
 .askd-box{ width:100%; max-width:340px; background:#17130b; border:1px solid rgba(227,182,74,.55); border-radius:18px; padding:20px; text-align:center; }
@@ -1377,23 +1403,70 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       if(n){ b.setAttribute('aria-pressed', 'true'); b.classList.add('done');
         var ti = b.querySelector('img'); ti.src = URL.createObjectURL(roomShots(rm)[0]); ti.onload = function(){ URL.revokeObjectURL(this.src); }; }
       b.onclick = function(){ any && !n ? quickRoom(el, rm) : shootRoom(el, rm); };   /* second room on: floor question (two-story), then straight to the camera */
-      box.appendChild(b);
+      /* Trash can on each room: asks first, then removes the room and its photos. */
+      var w = document.createElement('div'); w.className = 'rwrap' + (n ? ' hasph' : ''); w.dataset.room = rm.id;
+      var tr = document.createElement('button'); tr.type = 'button'; tr.className = 'rtrash'; tr.setAttribute('aria-label', 'Delete ' + rm.t);
+      tr.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
+      tr.onclick = function(){ ask('Delete ' + rm.t + '?', n ? 'Deleting it deletes its ' + n + ' photo' + (n > 1 ? 's' : '') + ' too.' : '', 'Keep it', 'Delete', function(){ var y = window.scrollY; delRoom(rm); pickRoom(el); window.scrollTo(0, y); }); };
+      w.appendChild(b); w.appendChild(tr); box.appendChild(w);
     });
+    /* Add room: pick a room type, it joins the list. Plus sign with "Add room" under it (left side in landscape). */
+    var ad = document.createElement('button'); ad.type = 'button'; ad.className = 'raddbtn';
+    ad.innerHTML = '<span class="pl">+</span><span>Add room</span>';
+    ad.onclick = function(){ addRoom(function(id){ pickRoom(el); var nw = el.querySelector('[data-room="' + id + '"]'); if(nw) nw.scrollIntoView({ block:'center' }); }); };
+    el.appendChild(ad);
     var finish = function(){ A.skippedPhotos = !A.photos.length; next(); };
     var gb = goBtn(el, any ? 'I’m done with photos' : 'Skip photos', function(){
       if(any && landQ.matches) askDone(finish); else finish(); }, !any);
     gb.classList.add('stick');
-    /* Landscape: a small Next button in the corner (asks "Are you done with photos?") so the rooms get the screen. */
-    if(any){ gb.classList.add('lnext'); var lab = function(){ if(!document.body.contains(gb)){ landQ.removeEventListener && landQ.removeEventListener('change', lab); return; } gb.textContent = landQ.matches ? 'Next' : 'I’m done with photos'; };
+    /* Landscape: a small Done button in the blank space on the right (asks "Are you done with photos?") so it never covers a photo. */
+    if(any){ gb.classList.add('lnext'); var lab = function(){ if(!document.body.contains(gb)){ landQ.removeEventListener && landQ.removeEventListener('change', lab); return; } gb.textContent = landQ.matches ? 'Done' : 'I’m done with photos'; };
       lab(); landQ.addEventListener && landQ.addEventListener('change', lab); }
     window.scrollTo(0, 0);
     wheel(box);
   }
   var landQ = window.matchMedia ? window.matchMedia('(orientation:landscape)') : { matches:false };
   /* "Are you done with photos?" — Yes moves on, Not yet closes. */
-  function askDone(yes){
+  /* Delete a room from the photo list: drops its photos, lowers that room count (the quote follows),
+     and slides later rooms of the same kind down a number so their photos stay with the right room. */
+  function delRoom(rm){
+    var p = rm.id.split('_'), i = +p[p.length - 1], pre = p.slice(0, -1).join('_') + '_';
+    if(p[0] === 'uph'){ A.uph[p[1]] = Math.max(0, (A.uph[p[1]] || 0) - 1); }
+    else if(p[1] === 'master'){ (A.master[p[0]] || []).splice(i, 1); }
+    else { var r = A.rooms[p[0]] = A.rooms[p[0]] || {}; r[p[1]] = Math.max(0, (r[p[1]] || 0) - 1); }
+    for(var k = A.photos.length - 1; k >= 0; k--) if(A.photos[k]._room === rm.id) A.photos.splice(k, 1);
+    var num = function(id){ return id && id.indexOf(pre) === 0 && /^\d+$/.test(id.slice(pre.length)) ? +id.slice(pre.length) : -1; };
+    A.photos.forEach(function(f){ var j = num(f._room); if(j > i) f._room = pre + (j - 1); });
+    var RF = A.roomFloor = A.roomFloor || {};
+    for(var j = i; j < 60; j++){ var nx = RF[pre + (j + 1)]; if(nx) RF[pre + j] = nx; else delete RF[pre + j]; }
+    var by = {}; photoRooms().forEach(function(x){ by[x.id] = x; });
+    A.photos.forEach(function(f){ var x = by[f._room]; if(x && num(f._room) > -1){ var fl = RF[x.id];
+      f._roomName = x.t + (fl && A.story === '2' ? ' (' + FLOORS[fl].toLowerCase() + ')' : ''); } });
+    save(); keepPhotos();
+  }
+  /* Add room: pick a room type (grouped by floor type when there's more than one); it joins the list. */
+  function addRoom(done){
+    var floors = ORDER.filter(function(k){ return k !== 'upholstery' && has(k); });
     var ov = document.createElement('div'); ov.className = 'askd';
-    ov.innerHTML = '<div class="askd-box"><p>Are you done with photos?</p><div><button type="button" class="go ghost">Not yet</button><button type="button" class="go">Yes</button></div></div>';
+    var hd = '<div class="askd-box radd"><p>Add a room</p><div class="radd-list">';
+    floors.forEach(function(k){
+      if(floors.length > 1) hd += '<h4>' + esc(SVC[k].name) + '</h4>';
+      LISTS[k].forEach(function(key){ hd += '<button type="button" class="opt" data-k="' + k + '" data-key="' + key + '">' + esc(ONE[key] || NAMES[key]) + '</button>'; });
+    });
+    ov.innerHTML = hd + '</div><button type="button" class="go ghost">Cancel</button></div>';
+    var close = function(){ ov.remove(); };
+    ov.querySelector('.go.ghost').onclick = close;
+    ov.onclick = function(e){ if(e.target === ov) close(); };
+    [].forEach.call(ov.querySelectorAll('.radd-list .opt'), function(b){ b.onclick = function(){
+      var k = b.dataset.k, key = b.dataset.key, r = A.rooms[k] = A.rooms[k] || {};
+      r[key] = (r[key] || 0) + 1; save(); close(); done(k + '_' + key + '_' + (r[key] - 1));
+    }; });
+    document.body.appendChild(ov);
+  }
+  function askDone(yes){ ask('Are you done with photos?', '', 'Not yet', 'Yes', yes); }
+  function ask(q, sub, noT, yesT, yes){
+    var ov = document.createElement('div'); ov.className = 'askd';
+    ov.innerHTML = '<div class="askd-box"><p>' + esc(q) + '</p>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '<div><button type="button" class="go ghost">' + esc(noT) + '</button><button type="button" class="go">' + esc(yesT) + '</button></div></div>';
     var bs = ov.querySelectorAll('button'), close = function(){ ov.remove(); };
     bs[0].onclick = close; bs[1].onclick = function(){ close(); yes(); };
     ov.onclick = function(e){ if(e.target === ov) close(); };
