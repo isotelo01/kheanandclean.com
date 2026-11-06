@@ -315,6 +315,15 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 .rresub{ position:absolute; top:10px; left:56px; height:38px; padding:0 14px; border-radius:999px; border:1px solid rgba(227,182,74,.6);
   background:rgba(0,0,0,.6); color:var(--gold); font:600 .85rem system-ui,sans-serif; cursor:pointer; z-index:2; }
 .rresub:disabled{ opacity:.7; }
+.rpts{ display:grid; gap:14px; margin:6px 0 4px; }
+.rpt{ border:1px solid rgba(227,182,74,.45); border-radius:18px; overflow:hidden; background:rgba(28,24,16,.5); }
+.rpt img{ display:block; width:100%; height:160px; object-fit:cover; }
+.rpt-b{ padding:12px 16px 14px; }
+.rpt h3{ margin:0 0 8px; font-size:1.15rem; color:var(--ivory); }
+.rpt .rr{ display:flex; justify-content:space-between; gap:12px; padding:4px 0; border-top:1px solid rgba(244,239,226,.08); font-size:.95rem; }
+.rpt .rr span:first-child{ color:var(--muted); flex:none; }
+.rpt .rr span:last-child{ text-align:right; color:var(--ivory); }
+.rpt .rec{ margin:10px 0 0; padding:8px 12px; border-left:3px solid var(--gold); background:rgba(227,182,74,.08); border-radius:0 10px 10px 0; color:var(--ivory); font-size:.95rem; }
 .askd{ position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:16px; background:rgba(0,0,0,.6); }
 .askd-box{ width:100%; max-width:340px; background:#17130b; border:1px solid rgba(227,182,74,.55); border-radius:18px; padding:20px; text-align:center; }
 .askd-box p{ margin:0 0 4px; font-weight:700; font-size:1.1rem; color:var(--ivory); }
@@ -488,10 +497,18 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
             vacuum:'', tier:'', matters:'', seal:'', uph:{}, uphPets:'', uphSpots:{}, uphN:{}, photos:[], skippedPhotos:false, disc:{} };
   ORDER.forEach(function(k){ A.rooms[k] = {}; });
 
+  /* Photos-first: a room's measured size replaces its standard size (bedroom 144, etc.). */
+  function stdSize(rm){ var p = rm.id.split('_'); return p[1] === 'master' ? ((MASTER[(A.master[p[0]] || [])[+p[2]]] || {}).sqft || 0) : sqftOf(p[1]); }
+  function roomSize(rm){ var r = A.photoFirst && A.photoSqft && A.photoSqft[rm.id]; return r && r.sqft ? r.sqft : stdSize(rm); }
+  function photoDelta(k){
+    if(!A.photoFirst || !A.photoSqft) return 0;
+    return photoRooms().reduce(function(t, rm){ var r = A.photoSqft[rm.id];
+      return rm.id.indexOf(k + '_') === 0 && !rm.stairs && r && r.sqft ? t + r.sqft - stdSize(rm) : t; }, 0);
+  }
   function sqftFor(svc){
     var t = 0, r = A.rooms[svc] || {};
     Object.keys(r).forEach(function(k){ if(k !== 'stairs') t += (r[k] || 0) * sqftOf(k); });
-    t += masterSqft(svc);
+    t += masterSqft(svc) + photoDelta(svc);
     return t;
   }
 
@@ -521,7 +538,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         else if(s.rooms[rk] != null) s.rooms[rk] = r[rk];
         else extra += r[rk] * sqftOf(rk);
       });
-      extra += masterSqft(k);
+      extra += masterSqft(k) + photoDelta(k);
       if(extra) s.rooms.addSqft = (s.rooms.addSqft || 0) + extra;
       s.touched = true;
     });
@@ -542,6 +559,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Same rules as computeServiceItems on the homepage and in app.js. */
   /* Every room behind a service's square footage, for the drop-down on the estimate (stairs are their own line). */
   function roomLines(k, rate){
+    if(A.photoFirst && A.photoSqft) return photoRooms().filter(function(rm){ return rm.id.indexOf(k + '_') === 0 && !rm.stairs; }).map(function(rm){
+      var sq = roomSize(rm); return { t: rm.t.split(' · ')[0] + ((A.photoSqft[rm.id] || {}).sqft ? ' (from photos)' : ''), sq: sq, cost: sq * rate }; });
     var r = (A.svcs.indexOf(k) > -1 && A.rooms[k]) || {}, out = [];
     Object.keys(r).forEach(function(rk){
       var n = r[rk] || 0; if(!n || rk === 'stairs') return;
@@ -819,14 +838,27 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* The order of screens, worked out from the answers so far. */
   function FLOW(){
     if(A.whole){
-      var w = [sName, sProblem, sWholeSqft];
+      var w = [sName, sPhotoFirstQ, sProblem, sWholeSqft];
       if(has('rugs')) w.push(sRugs);
       if(has('upholstery')) w.push(sUph, sUphPets), uphCountOn() && w.push(sUphCount);
       if(has('other')) w.push(sOther);
       return w.concat(tail());
     }
-    var f = [sName, sProblem, sServices];
     var floors = A.svcs.some(function(k){ return k !== 'upholstery' && k !== 'rugs' && k !== 'other'; });
+    /* Photos first: rooms, then their photos, then a report on each room read from the photos, then the price. */
+    if(A.photoFirst){
+      var pf = [sName, sPhotoFirstQ, sServices];
+      if(floors) pf.push(sStory);
+      ['carpet','tile','lvp','stone'].forEach(function(k){ if(has(k)) pf.push(sRooms(k)); });
+      if(floors) pf.push(sPhotoGo, sReport);
+      if(has('carpet')) pf.push(sRugs, sVacuum, sMatters);
+      else if(has('rugs')) pf.push(sRugs);
+      if(has('tile')) pf.push(sSeal);
+      if(has('upholstery')) pf.push.apply(pf, uphCountOn() ? [sUph, sUphPets, sUphCount] : [sUph, sUphPets]);
+      if(has('other')) pf.push(sOther);
+      return pf.concat([sPrice, sWhen, sContact]);
+    }
+    var f = [sName, sPhotoFirstQ, sProblem, sServices];
     if(floors) f.push(sStory);
     if(has('carpet')){
       f.push(sRooms('carpet'));
@@ -846,6 +878,46 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     if(has('other')) f.push(sOther);
     f.push.apply(f, tail());
     return f;
+  }
+  /* Right after the name: photos first, or the usual questions. */
+  function sPhotoFirstQ(el){
+    h(el, 'Want to go photos first' + hi(', ') + '?', 'Snap each room and we’ll read its size, floor and condition from your photos, then build your quote.');
+    choices(el, [{ t:'Yes, photos first', s:'Pick your rooms, snap them, see a report on each', v:true }, { t:'No, just ask me questions', v:false }],
+      function(v){ A.photoFirst = v; }, A.photoFirst === true ? true : A.photoFirst === false ? false : null);
+  }
+  /* Photos-first: straight to the photo tips, then the rooms page; Done there goes on to the report. */
+  function sPhotoGo(el){ photosExact(el); }
+  /* One card per room: name, type, size, floor, what we see, what we recommend. No prices here; one total at the end. */
+  function sReport(el){
+    upNow();
+    h(el, 'Here’s what we see' + hi(', '), 'From your photos, room by room.');
+    var list = document.createElement('div'); list.className = 'rpts'; el.appendChild(list);
+    drawReport(list);
+    goBtn(el, 'Next');
+  }
+  function drawReport(list){
+    list = list || document.querySelector('.rpts'); if(!list) return;
+    var all = photoRooms().filter(function(rm){ return !rm.furn; }), H = '';
+    all.forEach(function(rm){
+      var x = phRows().filter(function(y){ return y.rm.id === rm.id; })[0], r = x && x.r, p = rm.id.split('_');
+      var kind = p[1] === 'master' ? 'Master bedroom' : (ONE[p[1]] || NAMES[p[1]] || '');
+      var pic = roomShots(rm)[0], f = (r && r.floor) || {};
+      H += '<div class="rpt" data-room="' + rm.id + '">' + (pic ? '<img alt="" data-pic="' + rm.id + '">' : '') + '<div class="rpt-b"><h3>' + esc(rm.t.split(' · ')[0]) + '</h3>';
+      var row = function(k, v){ if(v) H += '<div class="rr"><span>' + k + '</span><span>' + esc(v) + '</span></div>'; };
+      row('Room type', kind);
+      if(rm.stairs) row('Size', 'Priced per flight');
+      else if(r && r.sqft) row('Size', r.sqft.toLocaleString() + ' sq ft' + (r.L && r.W ? ' (about ' + r.L + ' × ' + r.W + ' ft)' : ''));
+      else row('Size', !x || x.n < 2 ? 'Standard size (add 2+ photos to measure)' : mErr[rm.id] ? 'Couldn’t read the size, using a standard size' : 'Reading your photos…');
+      row('Floor', [f.type, f.detail].filter(Boolean).join(', '));
+      row('What we see', f.condition);
+      if(r && r.rec) H += '<p class="rec">Recommended: ' + esc(r.rec) + '</p>';
+      H += '</div></div>';
+    });
+    list.innerHTML = H || '<p class="lead">No rooms to report yet.</p>';
+    [].forEach.call(list.querySelectorAll('img[data-pic]'), function(im){
+      var rm = all.filter(function(z){ return z.id === im.dataset.pic; })[0], f0 = rm && roomShots(rm)[0]; if(!f0) return;
+      im.src = URL.createObjectURL(f0); im.onload = function(){ URL.revokeObjectURL(im.src); };
+    });
   }
   /* "I can't take pictures right now": price, then pick a discount, when, then phone or email. */
   function tail(){ return A.noPics ? [sPhotos, sPrice, sDisc, sWhen, sContact] : [sPhotos, sPrice, sWhen, sContact]; }
@@ -2002,9 +2074,10 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       mNow = s; drawInv();
       return call({ key:upKey(), room:x.rm.t, roomType:kind, photos:roomShots(x.rm).slice(0, 8).map(function(f, i){
         return { path:f._up, label: i === 0 ? 'Doorway' : i <= 4 ? 'Corner ' + i : 'Room photo' }; }) })
-        .then(function(r){ var d = r.data || {}; A.photoSqft[id] = { sqft:d.sqft, low:d.low, high:d.high, conf:d.confidence }; save(); },
+        .then(function(r){ var d = r.data || {}; A.photoSqft[id] = { sqft:d.sqft, low:d.low, high:d.high, conf:d.confidence, L:d.lengthFt, W:d.widthFt, rec:d.recommend || '',
+            floor:{ type:(d.floor || {}).type || '', detail:(d.floor || {}).detail || '', condition:(d.floor || {}).condition || '' } }; save(); },
               function(err){ mErr[id] = (err && err.message) || 'error'; console.error('Photo measure failed', err); })
-        .then(function(){ mNow = ''; drawInv(); });
+        .then(function(){ mNow = ''; drawInv(); if(cur === sReport) drawReport(); });
     }); }, Promise.resolve()).then(function(){ mBusy = false; measurePhotos(fb); });
   }
   function drawPh(){
