@@ -143,6 +143,42 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .nsave[disabled],.nclear[disabled]{opacity:.6;cursor:default}
 .nstat{font-size:14px;color:var(--muted)}
 .nhint{font-size:13px;color:var(--muted);margin:10px 0 0}
+/* Tidy cards (Nov 2026): three clean rows, colour shown as a thin left edge instead of a full background.
+   Row 1 name + price, row 2 phone + note, row 3 status/date + buttons. Phones: buttons in an even row. */
+a.card{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:8px;padding:12px 14px 12px 16px}
+a.card .ctop{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-right:34px}
+a.card .ctop .nameline{min-width:0;flex:1 1 auto}
+a.card .who{font-size:17px;overflow-wrap:anywhere}
+a.card .cprice{flex:none;text-align:right;line-height:1.1}
+a.card .cprice .qnum{display:block;position:static;margin-top:3px;font-size:12px;color:var(--muted)}
+a.card .cmid{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+a.card .cmid:empty{display:none}
+a.card .cmid .meta,a.card .cmid .flagnote{margin:0}
+a.card .cbot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:9px}
+a.card .cstat{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+a.card .cstat .status{margin:0}
+a.card .cstat .cdate{position:static;font-size:12px;color:var(--muted)}
+a.card .cbtns{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
+a.card .cbtns button,a.card .cbtns .textmenu button,a.card .cbtns .markmenu button,a.card .cbtns .editmenu button{margin:0}
+a.card .cbtns .textmenu,a.card .cbtns .markmenu,a.card .cbtns .editmenu{margin:0}
+a.card .cbtns .feebtn{display:inline-block}
+a.card .del{top:10px;right:10px}
+/* Red (customer note) and purple (updated quote): same navy card, coloured left edge. */
+a.card.flag,a.card.rev:not(.flag){background:#172239;color:#fff}
+a.card.flag{border-left:5px solid var(--red);box-shadow:none}
+a.card.rev:not(.flag){border-left:5px solid #8b5cf6;box-shadow:none}
+a.card.rev:not(.flag) .meta{color:var(--muted)}
+.cardrow{align-items:stretch}
+@media (max-width:560px){
+  a.card{padding:12px}
+  a.card .ctop{padding-right:30px}
+  a.card .amt{font-size:18px}
+  a.card .cbtns{width:100%;margin-left:0;justify-content:stretch}
+  a.card .cbtns > button{flex:1 1 auto;min-width:0;padding:8px 6px;text-align:center;white-space:nowrap}
+  a.card .cbtns > span{flex:1 1 100%;display:flex;gap:6px}
+  a.card .cbtns > span button{flex:1 1 0}
+  a.card .cbtns .feebtn,a.card .cbtns .copyjob,a.card .cbtns .restore{flex:1 1 100%}
+}
 </style>
 <style id="authwait">body{visibility:hidden}</style>
 <link rel="stylesheet" href="./theme-dark.css">
@@ -250,32 +286,35 @@ const card = r =>
   '<a class="card' + (r.source !== "trash" && flags[r.id] && flags[r.id].by === "customer" ? ' flag' : '') +
     /* Purple: an on-site update (Q-1068-R1...) waiting on the customer's re-approval. */
     (r.revisionOf || (r.fromJobSheet && r.source === "quotes") ? ' rev' : '') + '" href="./quote.html?id=' + encodeURIComponent(r.id) + '">' +
-    '<div>' +
-      /* Name line: the customer's name, with the sheet button right beside it. */
+    /* Row 1: name + sheet button on the left; price with the quote number under it on the right. */
+    '<div class="ctop">' +
       '<div class="nameline">' +
       '<div class="who"' + (personHref(r) ? ' data-go="' + esc(personHref(r)) + '" title="Open profile"' : '') + '>' + esc(r.name || "No name") + '</div>' +
       (r.source === "acceptedQuotes" || r.source === "quotes" ? '<button type="button" class="jsq" data-js="' + esc(r.id) + '">' + (r.source === "quotes" ? 'Estimation sheet' : 'Job sheet') + '</button>' : '') +
       (r.source === "paidInvoices" ? '<button type="button" class="jsq" data-js="' + esc(r.id) + '">Job sheet</button>' +
         '<button type="button" class="jsq" data-jd="' + esc(r.id) + '">Job data</button>' : '') +
       '</div>' +
-      /* Phone under the name; quote number sits under the X (top right), the day in the bottom right. */
-      (r.phone ? '<div class="meta">' + esc(r.phone) + '</div>' : '') +
-      '<span class="meta qnum">' + esc(r.number) + '</span>' +
-      (r.date ? '<span class="meta cdate">' + esc(r.date) + '</span>' : '') +
-      (r.source === "trash" && trashLeftLabel(r) ? '<div class="meta">' + esc(trashLeftLabel(r)) + '</div>' : '') +
+      '<div class="cprice"><div class="amt">' + money(r.total) + '</div><span class="qnum">' + esc(r.number) + '</span></div>' +
+    '</div>' +
+    /* Row 2: phone, trash countdown, note chip. */
+    '<div class="cmid">' +
+      (r.phone ? '<span class="meta">' + esc(r.phone) + '</span>' : '') +
+      (r.source === "trash" && trashLeftLabel(r) ? '<span class="meta">' + esc(trashLeftLabel(r)) + '</span>' : '') +
       (r.source !== "trash" && flags[r.id]
         ? '<button type="button" class="flagnote' + (flags[r.id].by === "customer" ? '' : ' mine') + '" data-note="' + esc(r.id) + '" title="Open note">&#128172; ' +
             esc(notePreview(flags[r.id])) + '</button>'
         : '') +
     '</div>' +
-    /* Accepted estimates: a square Job sheet button in the open middle of the card. */
-    /* Paid invoices: the same square opens Job Data (drive, miles, time on site, sq ft, chemicals). */
-    '<div class="right">' +
-      '<div class="amt">' + money(r.total) + '</div>' +
-      /* Customer opened the link: "Viewed" + when (last time they opened it) instead of Awaiting reply / Invoiced. */
-      (r.viewedAt && ((r.source === "quotes" && r.state === "sent") || r.source === "invoices")
-        ? '<span class="status viewed">Viewed &middot; ' + esc(when(r.viewedAt)) + '</span>'
-        : '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>') +
+    /* Row 3: status and date on the left, the buttons on the right (an even grid on phones). */
+    '<div class="cbot">' +
+      '<div class="cstat">' +
+        /* Customer opened the link: "Viewed" + when (last time they opened it) instead of Awaiting reply / Invoiced. */
+        (r.viewedAt && ((r.source === "quotes" && r.state === "sent") || r.source === "invoices")
+          ? '<span class="status viewed">Viewed &middot; ' + esc(when(r.viewedAt)) + '</span>'
+          : '<span class="status ' + r.state + '">' + (LABEL[r.state] || r.state) + '</span>') +
+        (r.date ? '<span class="meta cdate">' + esc(r.date) + '</span>' : '') +
+      '</div>' +
+      '<div class="cbtns">' +
       (r.source === "trash"
         ? '<button type="button" class="restore" data-restore="' + esc(r.id) + '">Restore</button>'
         /* Same Edit button on every card. An updated quote from a job sheet (data-job) opens its job sheet. */
@@ -304,6 +343,7 @@ const card = r =>
       (r.source === "paidInvoices"
         ? '<button type="button" class="copyjob" data-copy="' + esc(r.id) + '">Copy job</button>'
         : '') +
+      '</div>' +
     '</div>' +
     (r.source !== "trash"
       ? '<button type="button" class="del" data-del="' + esc(r.id) + '" data-from="' + esc(r.source) + '" aria-label="Hide from Dashboard" title="Hide from Dashboard">&times;</button>'
