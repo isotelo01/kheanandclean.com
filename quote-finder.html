@@ -249,6 +249,11 @@ body.rp .opts .opt.done .psq{ position:absolute; right:16px; bottom:12px; font-s
 body.rp .opts .opt.done::after{ position:absolute; top:10px; right:10px; width:30px; height:30px; display:grid; place-items:center;
   border-radius:50%; background:var(--gold); color:#140f05; font-size:1rem; margin:0; }
 body.rp .opts.wheel > *{ transform-origin:50% 50%; will-change:rotate, scale; }
+/* Rooms with no photos yet: taller, bright gold dashed outline, camera + "Add photos" so they stand out between the photo cards. */
+body.rp .opts .opt.empty{ min-height:118px; justify-content:flex-start; gap:16px; padding:16px 60px 16px 18px; border:2px dashed var(--gold);
+  background:rgba(227,182,74,.14); border-radius:20px; font-size:1.15rem; }
+body.rp .opts .opt.empty .cam{ width:52px; height:52px; flex:none; display:grid; place-items:center; border-radius:50%; background:var(--gold); color:#140f05; }
+body.rp .opts .opt.empty small{ color:var(--gold); font-weight:600; font-size:.9rem; }
 /* Counter rows */
 .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--card);
   border:1px solid var(--line); border-radius:14px; padding:12px 12px 12px 16px; }
@@ -1574,8 +1579,10 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       /* no Usually upstairs / downstairs labels: one list (still upstairs rooms first) */
       var n = roomShots(rm).length, b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
       var psq = n && (A.photoSqft || {})[rm.id] && A.photoSqft[rm.id].sqft;   /* photo-measured size, bottom right on the photos line */
-      b.innerHTML = (n ? '<img alt="">' : '') + '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '') +
+      b.innerHTML = (n ? '<img alt="">' : '<span class="cam"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>') +
+        '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '<small>Add photos</small>') +
         (psq ? '<em class="psq">' + psq.toLocaleString() + ' sq ft</em>' : '') + '</span>';
+      if(!n) b.classList.add('empty');
       if(n){ b.setAttribute('aria-pressed', 'true'); b.classList.add('done');
         var ti = b.querySelector('img'); ti.src = URL.createObjectURL(roomShots(rm)[0]); ti.onload = function(){ URL.revokeObjectURL(this.src); }; }
       b.onclick = function(){ any && !n ? quickRoom(el, rm) : shootRoom(el, rm); };   /* second room on: floor question (two-story), then straight to the camera */
@@ -1601,6 +1608,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       lab(); landQ.addEventListener && landQ.addEventListener('change', lab); }
     /* Back from a room: open the list at that room, not the top. */
     var back = lastRm && box.querySelector('[data-room="' + lastRm + '"]');
+    /* Over 70% of rooms have photos: open the list at the first empty room from the top instead. */
+    var filled = list.filter(function(rm){ return roomShots(rm).length; }).length;
+    if(list.length && filled / list.length > 0.7){ var gap = box.querySelector('.rwrap:not(.hasph)'); if(gap) back = gap; }
     if(back){ back.scrollIntoView({ block:'center' }); requestAnimationFrame(function(){ back.scrollIntoView({ block:'center' }); }); } else window.scrollTo(0, 0);   /* again after layout settles */
     wheel(box);
   }
