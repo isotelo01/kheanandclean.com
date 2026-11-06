@@ -29,6 +29,12 @@ css.textContent =
   "#kcBtn svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}" +
   "#kcFloat.on #kcBtn{background:#b3261e;color:#fff}" +
   "#kcFloat.on #kcBtn svg{transform:rotate(135deg)}" +
+  /* KC's button: the gold hockey-mask emblem with a shine that sweeps across it. On a call it gets a red ring. */
+  "#kcBtn.mask{position:relative;overflow:hidden;width:56px;height:56px;background:#1a1300 url(../images/kc-mask-gold.png) center/cover no-repeat;box-shadow:0 0 0 2px rgba(227,182,74,.55),0 3px 12px rgba(0,0,0,.35)}" +
+  "#kcBtn.mask::after{content:'';position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 40%,rgba(255,248,220,.75) 50%,transparent 60%);transform:translateX(-120%);animation:kcShine 3.2s ease-in-out infinite}" +
+  "@keyframes kcShine{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}" +
+  "@media (prefers-reduced-motion:reduce){#kcBtn.mask::after{animation:none;display:none}}" +
+  "#kcFloat.on #kcBtn.mask{background:#1a1300 url(../images/kc-mask-gold.png) center/cover no-repeat;box-shadow:0 0 0 3px #b3261e,0 0 14px rgba(179,38,30,.7)}" +
   "#kcBubble{display:none;flex-direction:column;align-items:center;gap:6px;background:#172239;border:1px solid #E3B64A;border-radius:18px;padding:12px 12px 10px;box-shadow:0 6px 20px rgba(0,0,0,.35);width:150px}" +
   "#kcFloat.on #kcBubble{display:flex}" +
   "#kcFace{width:84px;height:84px;border-radius:50%;background:#fff url(../images/icon-192.png) center/cover no-repeat;box-shadow:0 0 0 3px #E3B64A;transition:box-shadow .15s}" +
@@ -43,7 +49,7 @@ document.head.appendChild(css);
 const wrap = document.createElement("div");
 wrap.id = "kcFloat";
 wrap.innerHTML =
-  '<button type="button" id="kcBtn" aria-label="Call KC Jones" title="Call KC Jones"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg></button>' +
+  '<button type="button" id="kcBtn" class="mask" aria-label="Call KC Jones" title="Call KC Jones"></button>' +
   '<div id="kcBubble"><div id="kcFace" role="img" aria-label="KC Jones"></div><div id="kcState" aria-live="polite"></div><a id="kcText" href="./manager.html">Text</a></div>';
 document.body.appendChild(wrap);
 const $ = id => document.getElementById(id);
