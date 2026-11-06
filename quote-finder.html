@@ -600,7 +600,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Every room behind a service's square footage, for the drop-down on the estimate (stairs are their own line). */
   function roomLines(k, rate){
     if((A.photoFirst || PH) && A.photoSqft) return photoRooms().filter(function(rm){ return rm.id.indexOf(k + '_') === 0 && !rm.stairs; }).map(function(rm){
-      var sq = roomSize(rm); return { t: rm.t.split(' · ')[0] + ((A.photoSqft[rm.id] || {}).sqft ? ' (from photos)' : ''), sq: sq, cost: sq * rate }; });
+      var sq = roomSize(rm), m = A.photoSqft[rm.id] || {};   /* measured rooms show their size from the photos, e.g. 12′ × 14′* */
+      var dim = m.sqft && m.L && m.W ? ' · ' + Math.round(m.L) + '′ × ' + Math.round(m.W) + '′*' : '';
+      return { t: rm.t.split(' · ')[0] + dim, sq: sq, cost: sq * rate }; });
     var r = (A.svcs.indexOf(k) > -1 && A.rooms[k]) || {}, out = [];
     Object.keys(r).forEach(function(rk){
       var n = r[rk] || 0; if(!n || rk === 'stairs') return;
@@ -2317,6 +2319,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var wait = rows.filter(function(x){ return !(x.r && x.r.sqft); }).length;
     if(wait) h += '<div class="r note"><span>' + wait + ' room' + (wait > 1 ? 's' : '') + ' not measured yet (using the usual size)</span><span></span></div>';
     if(tot) h += '<div class="r tot"><span>Photo total</span><b>' + tot.toLocaleString() + ' sq ft</b></div>';
+    h += '<div class="r note"><span>* All dimensions are taken from photos.</span><span></span></div>';
     box.innerHTML = h; box.hidden = false;
   }
   function upNow(){ firebase().then(function(fb){ return upPending(fb).then(function(){ measurePhotos(fb); }); }).catch(function(){}); }
