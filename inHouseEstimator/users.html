@@ -42,6 +42,7 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 4px;border-bott
 .tag{font:700 13px "Archivo",sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#fff;background:var(--c,#999);border-radius:999px;padding:4px 11px}
 .u .d{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:17px;color:#fff}
 .u .d a{color:#fff;overflow-wrap:anywhere}
+.u .d a.edit{flex-basis:100%;order:9;color:#3ddc84;font-weight:600;text-decoration:none}
 .none{color:#fff;background:#1f3a5f;border-radius:10px;padding:18px;text-align:center;font-size:17px}
 .err{color:#b3261e}
 .del{margin-left:auto;background:transparent;color:#b3261e;border:1px solid #b3261e;border-radius:999px;
@@ -91,6 +92,7 @@ import { getFirestore as fsGetFirestore, initializeFirestore, collection, getDoc
 /* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
+import { syncPartnerContacts } from "./partner-contacts.js";   /* every user is also an editable contact */
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
@@ -134,6 +136,7 @@ function draw(){
       '<span class="tag">' + esc(u.type || "Partner") + '</span>' +
       '<button type="button" class="w9' + (u.w9Access ? ' on' : '') + '" data-w9="' + esc(u.id) + '" aria-pressed="' + !!u.w9Access + '">' + (u.w9Access ? 'W-9: Can see' : 'W-9: Hidden') + '</button>' +
       '<button type="button" class="del" data-del="' + esc(u.id) + '">Delete</button></div><div class="d">' +
+      (u.customerId ? '<a class="edit" href="./customers.html#' + encodeURIComponent(u.customerId) + '">Edit contact &rsaquo;</a>' : '') +
       (u.contactName ? '<span>' + esc(u.contactName) + '</span>' : '') +
       (u.email ? '<a href="mailto:' + esc(u.email) + '">' + esc(u.email) + '</a>' : '') +
       (tel ? '<a href="tel:' + esc(tel) + '">' + esc(u.phone) + '</a>' : '') +
@@ -180,6 +183,8 @@ onAuthStateChanged(auth, async u => {
     users = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => ((b.createdAt && b.createdAt.toMillis && b.createdAt.toMillis()) || 0) - ((a.createdAt && a.createdAt.toMillis && a.createdAt.toMillis()) || 0));
     draw();
+    /* Link each user to their contact (makes one if needed), then show the Edit contact buttons. */
+    syncPartnerContacts(db, users).then(ch => { if (ch) draw(); }).catch(e => console.error("users -> contacts:", e));
   } catch (e) { console.error(e); $("list").innerHTML = '<div class="none err">Could not load users.</div>'; }
 });
 </script>

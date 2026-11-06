@@ -1,0 +1,69 @@
+/* USERS -> CONTACTS (Israel, Nov 2026)
+   Every app user (partner login on the Users page) gets a real, editable contact on the Contacts page.
+   The link is kept both ways: customers/<id>.partnerUid and partners/<uid>.customerId.
+   Uses the stacking rule in contact-match.js:
+     same name + same phone/email -> link to that contact and stack anything new onto it
+     same phone/email, different name -> left alone (shows under Users with an "Add to contacts" button)
+     nothing matches -> a new contact is made */
+import { collection, query, where, limit, getDocs, doc, setDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { sameName, stackPatch } from "./contact-match.js";
+
+const phoneKey = s => { const d = String(s || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? d : ""; };
+const emailKey = s => String(s || "").trim().toLowerCase();
+/* Users page type -> Contacts page type */
+const TYPE = { "Property management": "pm", "Realtor": "realtor", "Commercial": "commercial" };
+
+async function findMatch(db, pk, ek) {
+  const tries = [];
+  if (pk) tries.push(["phoneKeys", "array-contains", pk], ["phoneKey", "==", pk]);
+  if (ek) tries.push(["emailKeys", "array-contains", ek], ["emailKey", "==", ek]);
+  for (const [f, op, v] of tries) {
+    const s = await getDocs(query(collection(db, "customers"), where(f, op, v), limit(10)));
+    const hit = s.docs.find(d => !d.data().trashed);
+    if (hit) return { id: hit.id, ...hit.data() };
+  }
+  return null;
+}
+
+/* Make (or link) the contact for one user. force = add it even if the name is different (user said OK).
+   Returns the contact id, or "" when it was left alone. */
+export async function partnerToContact(db, u, force) {
+  if (u.customerId) return u.customerId;
+  const name = String(u.contactName || "").trim(), business = String(u.businessName || "").trim();
+  const phone = String(u.phone || "").trim(), email = String(u.email || "").trim();
+  if (!name && !business) return "";
+  const pk = phoneKey(phone), ek = emailKey(email);
+  const dup = (pk || ek) ? await findMatch(db, pk, ek) : null;
+  let id;
+  if (dup && !dup.partnerUid && (force || sameName(name || business, dup) || sameName(business, dup))) {
+    id = dup.id;
+    const stack = stackPatch(dup, { phones: phone ? [phone] : [], emails: email ? [email] : [], business });
+    await setDoc(doc(db, "customers", id), { ...stack, partnerUid: u.id, updatedAt: serverTimestamp() }, { merge: true });
+  } else if (dup && !force) {
+    return "";
+  } else {
+    id = doc(collection(db, "customers")).id;
+    await setDoc(doc(db, "customers", id), {
+      type: TYPE[u.type] || "partner", business, name, phone, email, notes: "", addresses: [],
+      phones: phone ? [phone] : [], emails: email ? [email] : [],
+      phoneKeys: pk ? [pk] : [], emailKeys: ek ? [ek] : [], phoneKey: pk, emailKey: ek,
+      contact: true, partnerUid: u.id, source: "app user",
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    }, { merge: true });
+  }
+  await setDoc(doc(db, "partners", u.id), { customerId: id }, { merge: true });
+  u.customerId = id;
+  return id;
+}
+
+/* Background pass over every user. Never blocks the page; one bad record doesn't stop the rest.
+   Returns true if anything new was linked or made. */
+export async function syncPartnerContacts(db, users) {
+  let changed = false;
+  for (const u of (users || []).filter(u => u && u.id && !u.customerId)) {
+    try { if (await partnerToContact(db, u, false)) changed = true; }
+    catch (e) { console.warn("user -> contact " + u.id, e); }
+  }
+  return changed;
+}

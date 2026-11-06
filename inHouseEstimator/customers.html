@@ -52,6 +52,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .row.bg-user{background:#e6f2ec}
 .row.bg-user a{color:inherit;text-decoration:none}
 .row.bg-user .who{display:block}
+.row.bg-user .addu{margin-top:8px;background:transparent;color:inherit;border:1px solid currentColor;border-radius:999px;padding:5px 12px;font:600 13px system-ui,sans-serif;cursor:pointer}
 .who{font-weight:700}
 /* Account number sits on its own line above the name, right-aligned,
    so a long name or address never has to share the line with it. */
@@ -216,6 +217,7 @@ const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPo
 import { tagContacts } from "./contacts.js";   /* everyone with a name and a number is a Contact */
 import { sameName, stackPatch } from "./contact-match.js";   /* when two entries are the same person */
 import { syncProfileToQuotes } from "./profile-sync.js";   /* saved edits go onto this customer's quotes */
+import { syncPartnerContacts, partnerToContact } from "./partner-contacts.js";   /* every app user gets an editable contact */
 import { myName } from "./my-name.js";   /* "this is Tyda" when Tyda is signed in */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL, uploadBytes, deleteObject } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
@@ -383,6 +385,14 @@ async function showList(){
       allUsers = us.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => String(a.businessName || a.contactName || "").localeCompare(String(b.businessName || b.contactName || "")));
     } catch (e) { console.error("users:", e); allUsers = []; }
+    /* Users become real contacts; if any were added, reload the contacts so they show. */
+    try {
+      if (await syncPartnerContacts(db, allUsers)) {
+        const snap = await getDocs(collection(db, "customers"));
+        all = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byName);
+        try { await backfillAcctNos(all); } catch (e) { console.error("account numbers:", e); }
+      }
+    } catch (e) { console.error("users -> contacts:", e); }
   }
   view.innerHTML =
     '<div class="bar"><input id="q" type="search" placeholder="Search name, business, phone, email, or address" autocomplete="off" value="' + esc(lastTerm) + '"></div>' +
@@ -423,8 +433,9 @@ async function showList(){
     };
     const leadsHtml = leads.length ? '<section class="col"><h3 class="colhead">Leads</h3>' + leads.map(leadCard).join("") + '</section>' : "";
     if (leads.length) countEl.textContent += " \u00b7 " + leads.length + (leads.length === 1 ? " lead" : " leads");
-    /* Users: a contact card for each app user. Tap one to open the Users page. */
-    const users = (allUsers || []).filter(u => !t ||
+    /* Users not yet in contacts (same phone/email as someone with a different name): add with a tap.
+       Everyone else is already a contact above. */
+    const users = (allUsers || []).filter(u => !u.customerId).filter(u => !t ||
       [u.businessName, u.contactName, u.email, u.type].join(" ").toLowerCase().includes(t) ||
       (td.length >= 3 && digits(u.phone).includes(td)));
     const userCard = u => {
@@ -432,7 +443,8 @@ async function showList(){
       const lines = [u.businessName && u.contactName ? u.contactName : "", u.type || "", u.email || ""].filter(x => String(x).trim());
       return '<div class="row bg-user"><a class="who" href="./users.html">' + esc(u.businessName || u.contactName || u.email || "No name") + '</a>' +
         lines.map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
-        (tel ? '<div class="meta"><a href="tel:' + esc(tel) + '">' + esc(u.phone) + '</a></div>' : "") + '</div>';
+        (tel ? '<div class="meta"><a href="tel:' + esc(tel) + '">' + esc(u.phone) + '</a></div>' : "") +
+        '<button type="button" class="addu" data-addu="' + esc(u.id) + '">Add to contacts</button></div>';
     };
     const usersHtml = users.length ? '<section class="col"><h3 class="colhead">Users</h3>' + users.map(userCard).join("") + '</section>' : "";
     if (users.length) countEl.textContent += " \u00b7 " + users.length + (users.length === 1 ? " user" : " users");
@@ -445,6 +457,17 @@ async function showList(){
       : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>') + leadsHtml + usersHtml;
   };
   q.addEventListener("input", draw);
+  /* Add to contacts: the phone/email is already on someone with a different name, so ask first. */
+  listEl.addEventListener("click", async e => {
+    const b = e.target.closest("[data-addu]"); if (!b) return;
+    const u = (allUsers || []).find(x => x.id === b.dataset.addu); if (!u) return;
+    if (!confirm("Add " + (u.businessName || u.contactName || "this user") + " to contacts?\n\nTheir phone or email is already on another contact with a different name.\nOK = add them to that contact\nCancel = don't add")) return;
+    b.disabled = true; b.textContent = "Adding\u2026";
+    try {
+      const id = await partnerToContact(db, u, true);
+      all = null; location.hash = "#" + encodeURIComponent(id);
+    } catch (ex) { console.error(ex); alert("Could not add. Try again."); b.disabled = false; b.textContent = "Add to contacts"; }
+  });
   draw();
 }
 
