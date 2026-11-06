@@ -548,7 +548,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   function stdSize(rm){ var p = rm.id.split('_'); return p[1] === 'master' ? ((MASTER[(A.master[p[0]] || [])[+p[2]]] || {}).sqft || 0) : sqftOf(p[1]); }
   var PH = false;   /* true while working out the "Estimated from photos" box: rooms use their photo-measured size */
   var NOPH = false, SPLIT = false;   /* NOPH: the usual sizes even after "Use new numbers"; SPLIT: one line per room (Bedroom 1, 2, 3) */
-  function phOn(){ return !NOPH && (A.photoFirst || PH || A.usePh); }   /* A.usePh: they tapped "Use new numbers", so the price uses the photo sizes */
+  function phOn(){ return !NOPH && (A.photoFirst || PH || (A.usePh && cur !== sPhotos)); }   /* A.usePh: they tapped "Use new numbers", so the price uses the photo sizes; the photos page always shows the estimator's sizes */
   function roomSize(rm){ var r = phOn() && A.photoSqft && A.photoSqft[rm.id]; return r && r.sqft ? r.sqft : stdSize(rm); }
   function photoDelta(k){
     if(!phOn() || !A.photoSqft) return 0;
