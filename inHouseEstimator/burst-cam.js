@@ -34,6 +34,13 @@
     '.bcam .bshut{width:62px;height:62px;border-radius:50%;background:#fff;border:4px solid #000;box-shadow:0 0 0 3px #fff,0 4px 18px rgba(0,0,0,.5);cursor:pointer;flex:none;order:2;transition:transform .08s}' +
     '.bcam .bshut:active{transform:scale(.92)}' +
     '.bcam .bshut:disabled{opacity:.4}' +
+    /* After each shot the shutter rests 2 seconds (no bumped double shots) while the tip on top slides out and the next one slides in. */
+    '.bcam .bshut.bwait{opacity:.4;transform:scale(.92)}' +
+    '.bcam .btip{transition:transform .35s ease-in,opacity .35s ease-in}' +
+    '.bcam .btip.bout{transform:translateX(-120%);opacity:0}' +
+    '.bcam .btip.bin{animation:btipIn .4s ease-out}' +
+    '@keyframes btipIn{from{transform:translateX(120%);opacity:0}to{transform:none;opacity:1}}' +
+    '@media (prefers-reduced-motion:reduce){.bcam .btip{transition:none}.bcam .btip.bin{animation:none}}' +
     /* Done: gold pill with a check mark and a soft glow. */
     '.bcam .bdone{width:96px;display:flex;align-items:center;justify-content:center;gap:6px;font:700 17px system-ui,sans-serif;color:#1a1300;background:linear-gradient(180deg,#F5D47A,#D8A22E);border:0;border-radius:999px;padding:12px 0;cursor:pointer;order:4;box-shadow:0 0 0 2px rgba(227,182,74,.35),0 4px 16px rgba(227,182,74,.45)}' +
     '.bcam .bdone svg{width:18px;height:18px}.bcam .bdone:active{transform:scale(.95)}' +
@@ -133,6 +140,18 @@
     var tipBox = box.querySelector('.btip');
     var tip = function(){ if (opts.tip) { try { tipBox.innerHTML = opts.tip(pos) || ''; } catch (e) { console.error(e); } } };
     tip();
+    /* After a shot: the shutter waits 2 seconds; the tip slides out, then the next tip slides in. */
+    var waitUntil = 0, waitT = null, slideT = null;
+    var hold = function(){
+      waitUntil = Date.now() + 2000; shut.classList.add('bwait');
+      clearTimeout(waitT); waitT = setTimeout(function(){ waitUntil = 0; shut.classList.remove('bwait'); }, 2000);
+    };
+    var slideTip = function(){
+      clearTimeout(slideT); tipBox.classList.remove('bin'); tipBox.classList.add('bout');
+      slideT = setTimeout(function(){
+        tip(); tipBox.classList.remove('bout'); void tipBox.offsetWidth; tipBox.classList.add('bin');
+      }, 400);
+    };
     /* Back / Forward (only when the page passes onReplace): step through this session's photos.
        Nothing is deleted; shooting on an earlier step replaces that photo, Forward skips ahead. */
     var back = box.querySelector('.bback'), fwd = box.querySelector('.bfwd');
@@ -244,7 +263,7 @@
     }
 
     shut.addEventListener('click', function(){
-      if (busy || (pos >= count && count >= max) || !video.videoWidth) return;
+      if (busy || Date.now() < waitUntil || (pos >= count && count >= max) || !video.videoWidth) return;
       /* Shutter on an earlier photo just retakes it: no question, the old photo is replaced. */
       retake = false;
       busy = true;
@@ -273,7 +292,7 @@
         thumb(f);
         say(redone ? 'Photo ' + redone + ' replaced.' : '');
         if (pos >= count && count >= max) { shut.disabled = true; say('That’s the most photos for now. Tap Done.'); }
-        tip(); showBack();
+        hold(); slideTip(); showBack();
       }, 'image/jpeg', 0.92);
     });
     /* Closing keeps the photos. The phone's Back (button or swipe) closes the camera too, back to the room,
