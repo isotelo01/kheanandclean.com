@@ -1834,6 +1834,12 @@ async function show(){
       const want = {}, add = (key, list) => { list = (list || []).filter(ok); if (key && list.length) want[key] = (want[key] || []).concat(list); };
       const srcKey = {}, ql = Array.isArray(q.lines) ? q.lines : [];
       let stairsKey = "", rugKey = {};
+      /* Every room on the sheet, the way it lists them (Bedroom × 3 = Bedroom 1, 2, 3), for matching older quotes by name. */
+      const norm = t => String(t || "").toLowerCase().replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim();
+      const sheetRooms = [];
+      ql.forEach((l, i) => (Array.isArray(l.items) ? l.items : []).forEach((it, j) => { let r = 0;
+        (Array.isArray(it.rooms) ? it.rooms : []).forEach(rm => { const n = Math.max(1, Number(rm && rm.qty) || 1);
+          for (let k = 1; k <= n; k++) sheetRooms.push({ key: i + "-" + j + "-" + (r++), svc: l.key || "", nm: norm(rm && rm.name) }); }); }));
       ql.forEach((l, i) => (Array.isArray(l.items) ? l.items : []).forEach((it, j) => {
         const lab = String(it.label || "");
         (Array.isArray(it.rooms) ? it.rooms : []).forEach((rm, r) => { if (!rm) return; const key = i + "-" + j + "-" + r;
@@ -1842,11 +1848,26 @@ async function show(){
         if (/stairs/i.test(lab) && !stairsKey) stairsKey = i + "-" + j;
         if (/rug/i.test(lab)) rugKey[/large/i.test(lab) ? "lg" : "med"] = i + "-" + j;
       }));
-      if (!Object.keys(want).length && q.leadId && Object.keys(srcKey).length) {   /* older quotes: from the lead */
+      /* Older quotes (no room ids saved): match the lead photo's room ("carpet_beds_1" = carpet, 2nd bedroom)
+         to the sheet's room by name and number, e.g. Bedroom 2, Kitchen, Master Bath. */
+      const ALIAS = { beds: ["bedroom"], master: ["master bedroom"], masterBed: ["master bedroom"], smallBed: ["bedroom"],
+        living: ["living family room", "living room", "family room"], hallway: ["hallway"], kitchen: ["kitchen"],
+        fullBath: ["full bath", "bathroom"], masterBath: ["master bath", "master bathroom"], halfBath: ["half bath", "powder room"],
+        foyer: ["foyer", "entry foyer", "entry"], grandFoyer: ["grand foyer"], laundry: ["laundry room", "laundry"], dining: ["dining room"],
+        greatRoom: ["great room"], loft: ["loft", "large loft", "loft bonus room"], den: ["den", "office", "large den office", "office den"],
+        closet: ["walk in closet"] };
+      const byName = rid => {
+        const p = rid.split("_"), svc = p[0], type = p[1], nth = Number(p[2]) || 0;
+        const names = (ALIAS[type] || []).concat(((PRICING.ROOM_TYPES || []).find(t => t.key === type) || {}).name || []).map(norm).filter(Boolean);
+        if (!names.length) return "";
+        const fits = sheetRooms.filter(x => (!x.svc || x.svc === svc) && names.some(n => x.nm.replace(/ \d+$/, "") === n));
+        return (fits[nth] || {}).key || "";
+      };
+      if (!Object.keys(want).length && q.leadId && sheetRooms.length + (stairsKey ? 1 : 0)) {   /* older quotes: from the lead */
         const ls = await getDoc(doc(db, "leads", q.leadId));
         (ls.exists() ? (ls.data().photoPaths || []) : []).filter(ok).forEach(p => {
           const rid = p.split("/").pop().replace(/\.jpe?g$/i, "").split("_").slice(2).join("_");
-          add(srcKey[rid] || (/_stairs_\d+$/.test(rid) ? stairsKey : /^rug_lg_/.test(rid) ? rugKey.lg : /^rug_med_/.test(rid) ? rugKey.med : ""), [p]);
+          add(srcKey[rid] || (/_stairs_\d+$/.test(rid) ? stairsKey : /^rug_lg_/.test(rid) ? rugKey.lg : /^rug_med_/.test(rid) ? rugKey.med : byName(rid)), [p]);
         });
       }
       const spots = Object.assign({}, q.spots || {}); let n = 0;
