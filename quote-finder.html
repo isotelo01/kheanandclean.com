@@ -2263,21 +2263,30 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
   /* The estimate in the in-house estimator's own quote format (window.KC_quote), so the backend can
      file it as a real estimate (quotes/) and text the customer the link. Labels match serviceLineLabel in app.js. */
+  /* Rooms on a quote line in the estimator's own format ({ name, qty, sqft, cost }), so the customer's
+     quote page lists every room with its square feet under the service. */
+  function qItems(items){
+    return items.map(function(i){
+      if(!i.rooms || !i.rooms.length) return i;
+      return Object.assign({}, i, { rooms: i.rooms.map(function(x){ return { name:x.t, qty:1, sqft:x.sq, cost:Math.round((x.cost || 0) * 100) / 100 }; }) });
+    });
+  }
   function quoteLines(e){
     return e.rows.map(function(r){
-      if(r.key === 'whole') return { key:'custom', label:'Whole-house cleaning \u2014 ' + A.wholeSqft.toLocaleString() + ' sq ft', cost:r.cost, items:r.items };
+      if(r.key === 'whole') return { key:'custom', label:'Whole-house cleaning \u2014 ' + A.wholeSqft.toLocaleString() + ' sq ft', cost:r.cost, items:qItems(r.items) };
       var s = S[r.key], x = e.st[r.key];
       if(s.mode !== 'area'){
         var ft = 0; s.items.forEach(function(it){ ft += (x.items[it.key] || 0) * it.ft; });
-        return { key:r.key, label: s.name + ' \u2014 ' + ft.toLocaleString() + ' linear ft', cost:r.cost, items:r.items };
+        return { key:r.key, label: s.name + ' \u2014 ' + ft.toLocaleString() + ' linear ft', cost:r.cost, items:qItems(r.items) };
       }
       var sq = 0, flat = 0;
       P.ROOM_TYPES.forEach(function(rt){ var q = x.rooms[rt.key] || 0; if(rt.flat != null) flat += q * rt.flat; else sq += q * rt.sqft; });
       return { key:r.key, sqft:sq, label: (r.key === 'carpet' ? 'Carpet ' + s.tiers[x.tier || 'essential'].name : s.name) + ' \u2014 ' +
-        sq.toLocaleString() + ' sq ft' + (flat ? ' + $' + flat.toLocaleString() : ''), cost:r.cost, items:r.items };
+        sq.toLocaleString() + ' sq ft' + (flat ? ' + $' + flat.toLocaleString() : ''), cost:r.cost, items:qItems(r.items) };
     });
   }
   function quoteOf(e){
+    SPLIT = true; try{ e = estimate(); }catch(err){} SPLIT = false;   /* same totals, every room on its own line (Bedroom 1, 2, 3) */
     var lines = quoteLines(e), sq = lines.reduce(function(t, l){ return t + (l.sqft || 0); }, 0);
     lines.forEach(function(l){ delete l.sqft; });
     return { lines:lines, subtotal:e.sum, total:e.total, minApplied: e.total > e.sum, sqftTotal: A.whole && A.wholeSqft ? A.wholeSqft : sq };
