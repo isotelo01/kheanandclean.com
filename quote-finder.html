@@ -958,7 +958,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     /* Photos first: rooms, then their photos, then a report on each room read from the photos, then the price. */
     if(A.photoFirst){
       /* No room picking: they snap each room, we guess what it is and the floor ("Is this your bedroom, with carpet?"), they tap Yes. */
-      var pf = [sName, sPhotoFirstQ, sSnap, sConfirm, sReport];
+      var pf = [sName, sPhotoFirstQ, sStory, sSnap, sConfirm, sReport];   /* one or two story first, then their first room */
       if(has('carpet')) pf.push(sRugs, sVacuum, sMatters);
       if(has('tile')) pf.push(sSeal);
       return pf.concat([sPrice, sWhen, sContact]);
@@ -1025,7 +1025,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     window.scrollTo(0, 0);
   }
   /* One snapped room at a time: "Is this your bedroom, with carpet?" Yes files it; No lets them pick. */
-  var cWait = '', phReady = true;
+  var cWait = '', cWaitFn = null, phReady = true;   /* cWaitFn: redraws the room card once its photos are read */
   function floorKey(t){ t = String(t || '').toLowerCase(); return /carpet/.test(t) ? 'carpet' : /stone|marble|travertine|slate|granite/.test(t) ? 'stone' : /tile/.test(t) ? 'tile' : /hardwood|lvp|laminate|vinyl|wood/.test(t) ? 'lvp' : ''; }
   function assignPf(id, k, key){
     var r = A.rooms[k] = A.rooms[k] || {}; r[key] = (r[key] || 0) + 1;
@@ -1033,6 +1033,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     if(A.svcs.indexOf(k) < 0) A.svcs.push(k);
     A.photos.forEach(function(f){ if(f._room === id){ f._room = nid; f._roomName = nm; } });
     if(A.photoSqft && A.photoSqft[id]){ A.photoSqft[nid] = A.photoSqft[id]; delete A.photoSqft[id]; }
+    if(A.roomFloor && A.roomFloor[id]){ A.roomFloor[nid] = A.roomFloor[id]; delete A.roomFloor[id]; }
     if(mErr[id]){ mErr[nid] = mErr[id]; delete mErr[id]; }
     A.pfRooms = (A.pfRooms || []).filter(function(x){ return x !== id; });
     save(); keepPhotos();
@@ -1043,7 +1044,23 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     A.pfRooms = (A.pfRooms || []).filter(function(id){ return A.photos.some(function(f){ return f._room === id; }); });
     var pf = A.pfRooms;
     if(!pf.length){ h(el, 'All your rooms are set' + hi(', '), 'Next, here’s what we see in each one.'); goBtn(el, 'Next'); return; }
-    var id = pf[0], rm = photoRooms().filter(function(x){ return x.id === id; })[0], r = (A.photoSqft || {})[id];
+    confirmOne(el, pf[0], function(){ show(sConfirm, false); });
+  }
+  /* One room's card: reads the photos, then "Is this your bedroom, with carpet?" (or pick it), and on a
+     two-story home which floor it's on. after() runs once it's filed. */
+  function confirmOne(el, id, after){
+    var rm = photoRooms().filter(function(x){ return x.id === id; })[0], r = (A.photoSqft || {})[id];
+    if(!rm){ after(); return; }
+    rpBack = null; window.scrollTo(0, 0);
+    A.roomFloor = A.roomFloor || {};
+    var flBox = function(guessKey){   /* two-story: First / Second floor on the card, starting on the likely floor */
+      if(A.story !== '2' || rm.stairs) return;
+      if(!A.roomFloor[id]) A.roomFloor[id] = { beds:1, master:1, hallway:1, loft:1, closet:1, fullBath:1, masterBath:1 }[guessKey] ? '2' : '1';
+      el.insertAdjacentHTML('beforeend', '<p class="lead" style="margin:6px 0 0">Which floor is this room on?</p><div class="flseg"><button type="button" data-f="1">First floor</button><button type="button" data-f="2">Second floor</button></div>');
+      var seg = el.querySelector('.flseg'), mark = function(){ [].forEach.call(seg.children, function(b){ b.setAttribute('aria-pressed', b.dataset.f === A.roomFloor[id] ? 'true' : 'false'); }); };
+      [].forEach.call(seg.children, function(b){ b.onclick = function(){ A.roomFloor[id] = b.dataset.f; save(); mark(); }; });
+      mark();
+    };
     var pic = '<img class="cfpic" alt="" id="cfpic">';
     var showPic = function(){ var im = el.querySelector('#cfpic'), f0 = roomShots(rm)[0]; if(im && f0){ im.src = URL.createObjectURL(f0); im.onload = function(){ URL.revokeObjectURL(im.src); }; } };
     var choose = function(){
@@ -1056,10 +1073,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       h(el, 'What floor is in the ' + esc((ONE[key] || NAMES[key]).toLowerCase()) + '?'); el.insertAdjacentHTML('beforeend', pic); showPic();
       var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
       ['carpet','tile','lvp','stone'].forEach(function(k){ var b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = SVC[k].name;
-        b.onclick = function(){ assignPf(id, k, key); show(sConfirm, false); }; box.appendChild(b); });
+        b.onclick = function(){ assignPf(id, k, key); after(); }; box.appendChild(b); });
+      flBox(key);
     };
     if(!r && !mErr[id]){
-      cWait = id;
+      cWait = id; cWaitFn = function(){ confirmOne(el, id, after); };
       h(el, 'Reading ' + esc(rm.t) + '…', 'Hang tight, this takes about 20–40 seconds.'); el.insertAdjacentHTML('beforeend', pic + '<div class="gather" style="min-height:0;padding:18px 0"><div class="ring" aria-hidden="true"></div></div>'); showPic();
       goBtn(el, 'I’ll pick the room myself', choose, true);
       return;
@@ -1068,7 +1086,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     if(!key || !k || !(ONE[key] || NAMES[key])){ choose(); return; }
     h(el, 'Is this your ' + esc((ONE[key] || NAMES[key]).toLowerCase()) + ', with ' + esc(SVC[k].word) + '?', r.sqft ? 'About ' + r.sqft.toLocaleString() + ' sq ft.' : '');
     el.insertAdjacentHTML('beforeend', pic); showPic();
-    goBtn(el, 'Yes', function(){ assignPf(id, k, key); show(sConfirm, false); });
+    flBox(key);
+    goBtn(el, 'Yes', function(){ assignPf(id, k, key); after(); });
     goBtn(el, 'No, let me pick', choose, true);
   }
   /* Photos-first: straight to the photo tips, then the rooms page; Done there goes on to the report. */
@@ -1876,7 +1895,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* A new room after the first: two-story homes ask first or second floor, then the camera opens right away. */
   function quickRoom(el, rm){
     var open = function(){ shootRoom(el, rm); var c = el.querySelector('#rcam'); if(c) c.click(); };
-    if(!rm.furn && !rm.stairs && A.story === '2'){
+    if(!rm.furn && !rm.stairs && !rm.pf && A.story === '2'){   /* photos-first rooms: the room card asks the floor */
       if(!A.roomFloor) A.roomFloor = {};
       roomAsk(el, 'Which floor is ' + esc(rm.t.split(' · ')[0]) + ' on?', '', ['1', '2'].map(function(v){
         return { t:(v === '1' ? 'First' : 'Second') + '<small>floor</small>', go:function(){ A.roomFloor[rm.id] = v; save(); open(); } };
@@ -2002,6 +2021,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     /* After Done in the camera: preview this room's photos, or go to the next room (the rooms page). */
     var afterDone = function(){
       var got = roomShots(rm); if(!got.length){ redo(); return; }
+      if(rm.pf){ document.body.classList.remove('rp'); confirmOne(el, rm.id, function(){ snapRooms(el); }); return; }   /* photos first: straight to the room card (AI fills it in) */
       el.innerHTML = '';
       var box = document.createElement('div'); box.className = 'nx'; el.appendChild(box);
       var rv = document.createElement('button'); rv.type = 'button'; rv.className = 'rv';
@@ -2379,7 +2399,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
             floor:(function(f){ f = f || {}; return { type:f.type || '', detail:f.detail || '', condition:f.condition || '', pile:f.pile || '', fiber:f.fiber || '',
               color:f.color || '', rug:f.rug || '', grout:f.grout || '', tileSize:f.tileSize || '' }; })(d.floor) }; save(); },
               function(err){ mErr[id] = (err && err.message) || 'error'; console.error('Photo measure failed', err); })
-        .then(function(){ mNow = ''; drawInv(); if(measHook) measHook(); if(cur === sReport) drawReport(); if(cur === sPhConfirm) drawPhConfirm(); if(cur === sConfirm && cWait === id){ cWait = ''; show(sConfirm, false); } });
+        .then(function(){ mNow = ''; drawInv(); if(measHook) measHook(); if(cur === sReport) drawReport(); if(cur === sPhConfirm) drawPhConfirm(); if(cWait === id && cWaitFn){ var cf = cWaitFn; cWait = ''; cWaitFn = null; if(cur === sConfirm || cur === sSnap) cf(); } });
     }); }, Promise.resolve()).then(function(){ mBusy = false; measurePhotos(fb); });
   }
   function drawPh(){
