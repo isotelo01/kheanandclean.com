@@ -99,7 +99,15 @@
     if (opts.prior && opts.prior.length) { files = Array.prototype.slice.call(opts.prior); count = pos = files.length; }
     /* Which way the phone is held, from gravity (iPhones report it with the opposite sign). */
     var grav = { x: 0, y: 9.8 }, IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);   /* also iPhone/iPad set to desktop site */
-    function onMot(e){ var a = e.accelerationIncludingGravity; if (a && a.x != null) { grav.x = IOS ? -a.x : a.x; grav.y = IOS ? -a.y : a.y; } }
+    /* held: how the phone is turned (-1 / 0 / 1), from the angle of gravity across the screen. Only updated while the
+       phone is tipped up enough to tell; aiming down at the floor (phone nearly flat) keeps the last clear reading,
+       and the in-between angles keep it too, so a small tilt can't flip a photo sideways. */
+    var held = 0;
+    function onMot(e){ var a = e.accelerationIncludingGravity; if (a && a.x != null) { grav.x = IOS ? -a.x : a.x; grav.y = IOS ? -a.y : a.y;
+      if (Math.sqrt(grav.x * grav.x + grav.y * grav.y) > 4) {
+        var d = Math.atan2(grav.x, grav.y) * 180 / Math.PI;   /* 0 upright, +90 / -90 sideways */
+        if (Math.abs(d) < 35) held = 0; else if (d > 55 && d < 125) held = -1; else if (d < -55 && d > -125) held = 1;
+      } } }
     window.addEventListener('devicemotion', onMot);
     if (!document.getElementById('bcam-css')) {
       var st = document.createElement('style'); st.id = 'bcam-css'; st.textContent = CSS; document.head.appendChild(st);
@@ -243,7 +251,7 @@
          Gravity says which way the phone is held; turn the photo to match. */
       var vw = video.videoWidth, vh = video.videoHeight, turn = 0;
       var upright = !(screen.orientation && screen.orientation.type) || /portrait/.test(screen.orientation.type);
-      if (upright && vh > vw && Math.abs(grav.x) > 6 && Math.abs(grav.x) > Math.abs(grav.y) * 1.5) turn = grav.x > 0 ? -1 : 1;
+      if (upright && vh > vw) turn = held;
       var c = document.createElement('canvas'), g = c.getContext('2d');
       if (turn) { c.width = vh; c.height = vw; g.translate(vh / 2, vw / 2); g.rotate(turn * Math.PI / 2); g.drawImage(video, -vw / 2, -vh / 2); }
       else { c.width = vw; c.height = vh; g.drawImage(video, 0, 0); }
