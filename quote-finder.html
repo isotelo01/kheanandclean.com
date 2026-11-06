@@ -245,6 +245,7 @@ body.rp .opts .opt.done{ position:relative; display:block; padding:0; overflow:h
 body.rp .opts .opt.done img{ position:absolute; inset:0; width:100%; height:100%; border:0; border-radius:0; object-fit:cover; }
 body.rp .opts .opt.done span{ position:absolute; left:0; right:0; bottom:0; padding:34px 16px 12px; font-size:1.15rem; text-align:left;
   background:linear-gradient(180deg,transparent,rgba(0,0,0,.6) 40%,rgba(0,0,0,.9)); }
+body.rp .opts .opt.done .psq{ position:absolute; right:16px; bottom:12px; font-style:normal; font-size:.85rem; font-weight:700; color:var(--gold); }
 body.rp .opts .opt.done::after{ position:absolute; top:10px; right:10px; width:30px; height:30px; display:grid; place-items:center;
   border-radius:50%; background:var(--gold); color:#140f05; font-size:1rem; margin:0; }
 body.rp .opts.wheel > *{ transform-origin:50% 50%; will-change:rotate, scale; }
@@ -1572,7 +1573,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     list.forEach(function(rm, j){
       /* no Usually upstairs / downstairs labels: one list (still upstairs rooms first) */
       var n = roomShots(rm).length, b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
-      b.innerHTML = (n ? '<img alt="">' : '') + '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '') + '</span>';
+      var psq = n && (A.photoSqft || {})[rm.id] && A.photoSqft[rm.id].sqft;   /* photo-measured size, bottom right on the photos line */
+      b.innerHTML = (n ? '<img alt="">' : '') + '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '') +
+        (psq ? '<em class="psq">' + psq.toLocaleString() + ' sq ft</em>' : '') + '</span>';
       if(n){ b.setAttribute('aria-pressed', 'true'); b.classList.add('done');
         var ti = b.querySelector('img'); ti.src = URL.createObjectURL(roomShots(rm)[0]); ti.onload = function(){ URL.revokeObjectURL(this.src); }; }
       b.onclick = function(){ any && !n ? quickRoom(el, rm) : shootRoom(el, rm); };   /* second room on: floor question (two-story), then straight to the camera */
