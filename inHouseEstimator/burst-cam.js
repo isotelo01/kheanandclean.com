@@ -31,7 +31,7 @@
     '.bcam .bpv .bpp{left:calc(env(safe-area-inset-left) + 12px)}.bcam .bpv .bpn{right:calc(env(safe-area-inset-right) + 12px)}' +
     '.bcam .bpv [hidden]{display:none}' +
     '.bcam .bpv .bpc{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 16px);text-align:center;font:700 17px system-ui,sans-serif;text-shadow:0 1px 4px #000}' +
-    '.bcam .bshut{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid #000;box-shadow:0 0 0 3px #fff;cursor:pointer;flex:none;order:2}' +
+    '.bcam .bshut{width:49px;height:49px;border-radius:50%;background:#fff;border:3px solid #000;box-shadow:0 0 0 2px #fff;cursor:pointer;flex:none;order:2}' +
     '.bcam .bshut:active{transform:scale(.92)}' +
     '.bcam .bshut:disabled{opacity:.4}' +
     /* Done: gold pill with a check mark and a soft glow. */
