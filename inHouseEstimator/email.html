@@ -158,6 +158,24 @@ const withAcct = fn => PERSONAL ? (d => fn({ ...d, acct: ACCT })) : fn;
 const mailList = withAcct(httpsCallable(fns, "mailList")), mailRead = withAcct(httpsCallable(fns, "mailRead"));
 const mailMove = withAcct(httpsCallable(fns, "mailMove")), mailSend = withAcct(httpsCallable(fns, "mailSend"));
 const mailAttachment = withAcct(httpsCallable(fns, "mailAttachment"));
+/* Word (.docx) preview: mammoth turns the file into plain HTML, shown in a locked-down frame (no scripts, no links out). */
+let mammothReady = null;
+function loadMammoth() {
+  return mammothReady || (mammothReady = new Promise((ok, no) => {
+    const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js";
+    s.onload = () => ok(window.mammoth); s.onerror = () => { mammothReady = null; no(new Error("load")); }; document.head.appendChild(s);
+  }));
+}
+async function showDocx(frame, url, name) {
+  const page = body => '<!doctype html><meta charset="utf-8"><style>body{font:16px/1.55 system-ui,sans-serif;color:#111;max-width:760px;margin:24px auto;padding:0 18px}' +
+    'table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}img{max-width:100%}</style>' + body;
+  frame.srcdoc = page('<p style="color:#666">Opening ' + esc(name) + '…</p>');
+  try {
+    const [m, buf] = await Promise.all([loadMammoth(), fetch(url).then(x => x.arrayBuffer())]);
+    const out = await m.convertToHtml({arrayBuffer: buf});
+    frame.srcdoc = page(out.value || '<p style="color:#666">This document is empty.</p>');
+  } catch (e) { frame.srcdoc = page('<p>Couldn\'t show ' + esc(name) + ' here. Tap Download.</p>'); }
+}
 const mailWith = httpsCallable(fns, "mailWith");
 const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailSpam = withAcct(httpsCallable(fns, "mailSpam", {timeout: 130000}));   /* Spam works on Yahoo and Gmail too */
 const storage = getStorage(app);
@@ -429,6 +447,7 @@ async function showMessage(f, uid) {
         url = URL.createObjectURL(new Blob([u8], {type: r.type}));
       }
       const img = /^image\//.test(r.type), pdf = r.type === "application/pdf";
+      const docx = /\.docx$/i.test(r.name || "") || /wordprocessingml/.test(r.type || "");   /* Word files: shown as a page, read-only */
       const ov = document.createElement("div");
       ov.style.cssText = "position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.88);display:flex;flex-direction:column";
       ov.innerHTML = '<div style="display:flex;gap:8px;justify-content:flex-end;padding:10px">' +
@@ -436,9 +455,11 @@ async function showMessage(f, uid) {
         '<button type="button" class="ghost" id="attX">Close</button></div>' +
         (img ? '<img alt="' + esc(r.name) + '" src="' + url + '" style="max-width:100%;max-height:calc(100% - 64px);margin:auto;object-fit:contain">'
           : pdf ? '<iframe title="' + esc(r.name) + '" src="' + url + '" style="flex:1;border:0;background:#fff"></iframe>'
+          : docx ? '<iframe title="' + esc(r.name) + '" id="attDoc" sandbox="" style="flex:1;border:0;background:#fff"></iframe>'
           : '<p style="color:#fff;text-align:center;margin:auto;padding:16px">Can\'t preview ' + esc(r.name) + ' here. Tap Download.</p>');
       document.body.appendChild(ov);
       ov.querySelector("#attX").addEventListener("click", () => { ov.remove(); if (!r.url) URL.revokeObjectURL(url); });
+      if (docx) showDocx(ov.querySelector("#attDoc"), url, r.name);
     }
     catch (err) { er.textContent = friendly(err); }
     finally { b.disabled = false; b.textContent = label; }
