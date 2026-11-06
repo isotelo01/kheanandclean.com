@@ -48,6 +48,14 @@ a{ color:var(--gold); }
 .inv .svc{ color:#fff; font-weight:700; margin-top:6px; }
 .inv .svc:first-child{ margin-top:0; }
 .inv .it{ padding-left:12px; }
+.pcold{ margin:0 0 16px; border:1px solid var(--line); border-radius:10px; padding:10px 14px; color:var(--muted); }
+.pcold summary{ cursor:pointer; display:flex; justify-content:space-between; color:#fff; font-weight:700; list-style:none; }
+.pcold summary::-webkit-details-marker{ display:none; }
+.pcold summary::after{ content:"▾"; margin-left:8px; color:var(--gold); }
+.pcold[open] summary::after{ content:"▴"; }
+.pcold summary b{ margin-left:auto; font-weight:600; color:var(--muted); }
+.pcold .inv{ margin:10px 0 0; border:0; padding:0; }
+body.hideSum .inv.pc{ display:block; }   /* the confirm page shows its own boxes */
 .inv .phhd{ color:var(--gold); font-weight:700; font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
 .inv .phhd + .svc{ margin-top:0; }
 .inv .tot{ border-top:1px solid var(--line); margin-top:8px; padding-top:6px; color:#fff; font-weight:700; }
@@ -539,9 +547,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Photos-first: a room's measured size replaces its standard size (bedroom 144, etc.). */
   function stdSize(rm){ var p = rm.id.split('_'); return p[1] === 'master' ? ((MASTER[(A.master[p[0]] || [])[+p[2]]] || {}).sqft || 0) : sqftOf(p[1]); }
   var PH = false;   /* true while working out the "Estimated from photos" box: rooms use their photo-measured size */
-  function roomSize(rm){ var r = (A.photoFirst || PH) && A.photoSqft && A.photoSqft[rm.id]; return r && r.sqft ? r.sqft : stdSize(rm); }
+  var NOPH = false, SPLIT = false;   /* NOPH: the usual sizes even after "Use new numbers"; SPLIT: one line per room (Bedroom 1, 2, 3) */
+  function phOn(){ return !NOPH && (A.photoFirst || PH || A.usePh); }   /* A.usePh: they tapped "Use new numbers", so the price uses the photo sizes */
+  function roomSize(rm){ var r = phOn() && A.photoSqft && A.photoSqft[rm.id]; return r && r.sqft ? r.sqft : stdSize(rm); }
   function photoDelta(k){
-    if(!(A.photoFirst || PH) || !A.photoSqft) return 0;
+    if(!phOn() || !A.photoSqft) return 0;
     return photoRooms().reduce(function(t, rm){ var r = A.photoSqft[rm.id];
       return rm.id.indexOf(k + '_') === 0 && !rm.stairs && r && r.sqft ? t + r.sqft - stdSize(rm) : t; }, 0);
   }
@@ -599,7 +609,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Same rules as computeServiceItems on the homepage and in app.js. */
   /* Every room behind a service's square footage, for the drop-down on the estimate (stairs are their own line). */
   function roomLines(k, rate){
-    if((A.photoFirst || PH) && A.photoSqft) return photoRooms().filter(function(rm){ return rm.id.indexOf(k + '_') === 0 && !rm.stairs; }).map(function(rm){
+    if(SPLIT && !phOn()) return photoRooms().filter(function(rm){ return rm.id.indexOf(k + '_') === 0 && !rm.stairs; }).map(function(rm){
+      var sq = stdSize(rm); return { t: rm.t.split(' · ')[0], sq: sq, cost: sq * rate }; });
+    if(phOn() && A.photoSqft) return photoRooms().filter(function(rm){ return rm.id.indexOf(k + '_') === 0 && !rm.stairs; }).map(function(rm){
       var sq = roomSize(rm), m = A.photoSqft[rm.id] || {};   /* measured rooms show their size from the photos, e.g. 12′ × 14′* */
       var dim = m.sqft && m.L && m.W ? ' · ' + Math.round(m.L) + '′ × ' + Math.round(m.W) + '′*' : '';
       return { t: rm.t.split(' · ')[0] + dim, sq: sq, cost: sq * rate }; });
@@ -1055,6 +1067,31 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     drawReport(list);
     goBtn(el, 'Next');
   }
+  /* After the room report: the estimate with the photo sizes (every room on its own line), the old estimate
+     tucked under a tap-to-open, and a choice. Rooms that didn't measure keep the usual size. Not choosing keeps the old numbers. */
+  function sPhConfirm(el){
+    upNow();
+    h(el, 'Your new square footage' + hi(', '), 'Measured from your photos. Any room we couldn’t measure uses our usual size.');
+    var box = document.createElement('div'); box.id = 'pcbox'; el.appendChild(box);
+    drawPhConfirm(box);
+    goBtn(el, 'Use new numbers', function(){ A.usePh = true; save(); next(); });
+    goBtn(el, 'Keep the old estimate', function(){ A.usePh = false; save(); next(); }, true);
+  }
+  function drawPhConfirm(box){
+    box = box || document.getElementById('pcbox'); if(!box) return;
+    var eN = null, tN = 0, eO = null, tO = 0, all = function(e, ns){ var o = {}; (e ? e.rows : []).forEach(function(r){ o[ns + r.key] = 1; }); return o; };
+    SPLIT = true;
+    PH = true; try{ eN = estimate(); tN = sqftTotal(); }catch(err){} PH = false;
+    NOPH = true; try{ eO = estimate(); tO = sqftTotal(); }catch(err){} NOPH = false;
+    SPLIT = false;
+    var tot = function(t, lab){ return t ? '<div class="r tot"><span>' + lab + '</span><b>' + t.toLocaleString() + ' sq ft</b></div>' : ''; };
+    var wait = phRows().filter(function(x){ return !(x.r && x.r.sqft) && x.n > 1 && !mErr[x.rm.id]; }).length;   /* failed or 1-photo rooms just use the usual size */
+    box.innerHTML = (eN && eN.rows.length ? '<div class="inv pc"><div class="r phhd"><span>New estimate from photos</span><span></span></div>' + invHtml(eN, all(eN, 'pcn_'), 'pcn_') +
+        (wait ? '<div class="r note"><span>Still measuring ' + wait + ' room' + (wait > 1 ? 's' : '') + '…</span><span></span></div>' : '') + tot(tN, 'New total') +
+        '<div class="r note"><span>* All dimensions are taken from photos.</span><span></span></div></div>' : '') +
+      (eO && eO.rows.length ? '<details class="pcold"><summary>Old estimate <b>' + tO.toLocaleString() + ' sq ft</b></summary><div class="inv pc">' +
+        invHtml(eO, all(eO, 'pco_'), 'pco_') + tot(tO, 'Old total') + '</div></details>' : '');
+  }
   function drawReport(list){
     list = list || document.querySelector('.rpts'); if(!list) return;
     var all = photoRooms().filter(function(rm){ return !rm.furn; }), H = '';
@@ -1086,7 +1123,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
   /* "I can't take pictures right now": price, then pick a discount, when, then phone or email. */
   function tail(){
-    var rep = photoRooms().some(function(rm){ return !rm.furn && roomShots(rm).length; }) ? [sReport] : [];   /* room report whenever rooms have photos */
+    var rep = photoRooms().some(function(rm){ return !rm.furn && roomShots(rm).length; }) ? [sReport, sPhConfirm] : [];   /* room report whenever rooms have photos, then confirm the new sizes */
     return A.noPics ? [sPhotos].concat(rep, [sPrice, sDisc, sWhen, sContact]) : [sPhotos].concat(rep, [sPrice, sWhen, sContact]);
   }
   function firstName(){ return String(A.name || '').trim().split(/\s+/)[0] || ''; }
@@ -2303,7 +2340,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
             floor:(function(f){ f = f || {}; return { type:f.type || '', detail:f.detail || '', condition:f.condition || '', pile:f.pile || '', fiber:f.fiber || '',
               color:f.color || '', rug:f.rug || '', grout:f.grout || '', tileSize:f.tileSize || '' }; })(d.floor) }; save(); },
               function(err){ mErr[id] = (err && err.message) || 'error'; console.error('Photo measure failed', err); })
-        .then(function(){ mNow = ''; drawInv(); if(measHook) measHook(); if(cur === sReport) drawReport(); if(cur === sConfirm && cWait === id){ cWait = ''; show(sConfirm, false); } });
+        .then(function(){ mNow = ''; drawInv(); if(measHook) measHook(); if(cur === sReport) drawReport(); if(cur === sPhConfirm) drawPhConfirm(); if(cur === sConfirm && cWait === id){ cWait = ''; show(sConfirm, false); } });
     }); }, Promise.resolve()).then(function(){ mBusy = false; measurePhotos(fb); });
   }
   function drawPh(){
