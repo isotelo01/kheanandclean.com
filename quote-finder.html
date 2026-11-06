@@ -2052,15 +2052,15 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       goBtn(el, 'See if I qualify');
       return;
     }
-    el.insertAdjacentHTML('beforeend', '<h2>Do any of these apply?</h2><p class="lead" style="margin:0">Check any that fit and we’ll call with your discounted price.</p><div class="checks" id="disc"></div>');
+    el.insertAdjacentHTML('beforeend', '<h2>See if you qualify for any of our discounts</h2><p class="lead" style="margin:0">Check any that fit and we’ll apply it to your official quote.</p><div class="checks" id="disc"></div>');
     var d = el.querySelector('#disc');
-    ['Veteran', 'Senior', 'Whole house', 'Move-out'].filter(function(t){ return !(A.whole && t === 'Whole house'); }).forEach(function(t){
+    ['Veteran', 'Senior', 'Whole house', 'Neighbors'].filter(function(t){ return !(A.whole && t === 'Whole house'); }).forEach(function(t){
       var l = document.createElement('label');
       l.innerHTML = '<input type="checkbox"' + (A.disc[t] ? ' checked' : '') + '> ' + t;
       l.querySelector('input').onchange = function(){ A.disc[t] = this.checked; };
       d.appendChild(l);
     });
-    goBtn(el, 'Get my quote');
+    goBtn(el, 'Schedule a date');   /* they've already seen the price; next is picking the day */
   }
 
   /* When would you like it done? The open-days calendar (same one as the Quick Quote, from the booking
