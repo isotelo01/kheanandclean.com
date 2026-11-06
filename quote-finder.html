@@ -679,7 +679,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     rpBack = null;
     if(push !== false && cur) hist.push(cur);
     cur = fn; invAll = false;
-    document.body.classList.toggle('hideSum', [sPhotos, sPrice, sDisc, sDone].indexOf(fn) < 0);   /* schedule page shows the priced quote instead; contact page is just the fields */
+    document.body.classList.toggle('hideSum', [sPhotos, sPrice, sDisc].indexOf(fn) < 0);   /* schedule and thank-you pages show the priced quote instead; contact page is just the fields */
     document.body.classList.toggle('first', fn === sName);
     document.body.classList.remove('rp');
     backBtn.hidden = !hist.length; resetBtn.hidden = !hist.length;
@@ -2203,6 +2203,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         : 'We’ll reach out shortly to confirm your price and pick a day.') +
       (A.skippedPhotos ? ' Want to add photos later? Text them to <a href="sms:+19167672520">(916) 767-2520</a>.' : '') + '</p>' +
       '<a class="go ghost" href="/" style="text-decoration:none;text-align:center">Back to the website</a>';
+    /* Their priced quote on top (dollar amounts; square feet inside it). */
+    var eq = null; try{ eq = estimate(); }catch(err){}
+    if(eq && eq.rows.length){ el.insertAdjacentHTML('afterbegin', '<div style="text-align:left">' + priceHtml(eq) + '</div>'); bindRooms(el); }
   }
 
   /* ---- Send: photos to Storage, the lead to the Leads page (green: it carries the estimate),
