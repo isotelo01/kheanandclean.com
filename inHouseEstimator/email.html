@@ -133,7 +133,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { getStorage, ref as sRef, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, collection, addDoc, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { findDupes, confirmDupes } from "./expense-dupes.js";   /* rule: let Israel know about duplicate receipts */
 /* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
@@ -532,6 +533,8 @@ function saveExpenseBox(rc, m, f) {
     if (!date || !vendor || !(amount > 0)) { err.textContent = "Date, vendor and amount are required."; return; }
     x.disabled = true; x.textContent = "Saving…";
     try {
+      const dupes = await findDupes({ collection, query, where, getDocs }, getFirestore(app), { date, vendor, amount }).catch(() => []);
+      if (!confirmDupes({ date, vendor, amount }, dupes)) { x.disabled = false; x.textContent = "Save"; err.textContent = "Not saved: it's already in Income & Expenses."; return; }
       const u = getAuth(app).currentUser;
       await addDoc(collection(getFirestore(app), "expenses"), {
         date, month: date.slice(0, 7), vendor, amount, category: v("xCat"), paidWith: v("xPaid"),

@@ -168,6 +168,7 @@ tfoot td{font-weight:700;border-bottom:none}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, collection, query, where, getDocs, getDoc, setDoc, addDoc, deleteDoc, doc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { findDupes, confirmDupes } from "./expense-dupes.js";   /* rule: let Israel know about duplicate receipts */
 /* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
@@ -336,6 +337,9 @@ $("saveBtn").addEventListener("click", async () => {
   if (!date || !vendor || !(amount > 0)) { msg.className = "msg err"; msg.textContent = "Date, vendor and amount are required."; return; }
   const btn = $("saveBtn"); btn.disabled = true; msg.className = "msg"; msg.textContent = "Saving\u2026";
   try {
+    /* Same amount on the same day, or same vendor within a week: ask before saving it again. */
+    const dupes = await findDupes({ collection, query, where, getDocs }, db, { date, vendor, amount }).catch(() => []);
+    if (!confirmDupes({ date, vendor, amount }, dupes)) { msg.textContent = "Not saved (duplicate)."; return; }
     await addDoc(collection(db, "expenses"), {
       date, month: date.slice(0, 7), vendor, amount,
       category: $("fCat").value, paidWith: $("fPaid").value,
