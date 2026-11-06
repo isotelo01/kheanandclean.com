@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Training Library &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Training Library: IICRC, carpet school and other learning material. Same look as the other app pages.
+   Files live in Storage (training/), the list in Firestore (training collection). Staff only. */
+:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 110px}
+.back{color:var(--muted);font-size:14px;text-decoration:none}
+h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 6px;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.sub{color:var(--muted);font-size:14px;margin:6px 0 16px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.bar input[type=search]{flex:1 1 220px;min-width:0;font:16px "Archivo",sans-serif;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.btn{background:var(--navy);color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:9px 16px;font:700 14px "Archivo",sans-serif;text-decoration:none;cursor:pointer}
+.btn.alt{background:var(--gold);color:var(--navy)}
+.btn:disabled{opacity:.6;cursor:default}
+.topic{font:700 13px "Archivo",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.item{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer}
+.item:hover{border-color:var(--gold)}
+.item .ic{flex:none;width:40px;height:40px;border-radius:8px;background:var(--navy);color:var(--gold);display:grid;place-items:center;font:700 11px "Archivo",sans-serif}
+.item .nm{font-weight:700;overflow-wrap:anywhere}
+.item .meta{color:var(--muted);font-size:13px}
+.item .x{margin-left:auto;flex:none;background:none;border:0;color:var(--muted);font-size:22px;cursor:pointer;padding:4px 8px}
+.empty{color:var(--muted);padding:20px 0}
+.msg{color:var(--muted);font-size:14px;min-height:1.3em}
+.msg.bad{color:#b42318}
+/* Add box */
+.add{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.add[hidden]{display:none}
+.add label{display:block;font-weight:700;font-size:14px;margin:8px 0 4px}
+.add input,.add textarea{width:100%;font:16px "Archivo",sans-serif;padding:9px 11px;border:1px solid var(--line);border-radius:8px}
+.add textarea{min-height:120px}
+.add .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+/* Viewer */
+.view{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.88);display:flex;flex-direction:column}
+.view .top{display:flex;gap:8px;align-items:center;padding:10px}
+.view .top .t{color:#fff;font-weight:700;margin-right:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.view iframe{flex:1;border:0;background:#fff}
+.view img{max-width:100%;max-height:calc(100% - 64px);margin:auto;object-fit:contain}
+.view .note{flex:1;overflow:auto;background:#fff;color:#111;padding:20px;white-space:pre-wrap;font-size:16px}
+:where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <a class="back" href="./hub.html">&lsaquo; Hub</a><br>
+  <h1>Training Library</h1>
+  <p class="sub">IICRC and carpet school material, manuals, class notes. PDFs, Word files, photos, or a typed note. Tap one to read it.</p>
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search by name, topic or note" aria-label="Search">
+    <button type="button" class="btn alt" id="addFiles">+ Add files</button>
+    <button type="button" class="btn" id="addNote">+ Add note</button>
+    <input type="file" id="pick" multiple hidden>
+  </div>
+  <div class="add" id="addBox" hidden>
+    <div id="addWhat" style="font-weight:700"></div>
+    <label for="topic">Topic</label>
+    <input id="topic" list="topics" placeholder="e.g. IICRC, Carpet school, Chemicals, Mark's notes" maxlength="60">
+    <datalist id="topics"></datalist>
+    <div id="noteFields" hidden>
+      <label for="ntitle">Title</label><input id="ntitle" maxlength="120">
+      <label for="nbody">Note</label><textarea id="nbody" maxlength="20000"></textarea>
+    </div>
+    <div class="row"><button type="button" class="btn alt" id="saveBtn">Save</button><button type="button" class="btn" id="cancelBtn">Cancel</button></div>
+  </div>
+  <p class="msg" id="msg"></p>
+  <div id="list"><div class="empty">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app), storage = getStorage(app), COL = collection(db, "training");
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const MAX = 100 * 1024 * 1024;   /* 100 MB a file */
+let items = [], pending = null;   /* pending: files waiting for a topic, or "note" */
+
+const kind = it => it.note != null ? "note" : /\.pdf$/i.test(it.name) || it.type === "application/pdf" ? "pdf"
+  : /\.docx$/i.test(it.name) ? "docx" : /^image\//.test(it.type || "") ? "img" : "file";
+const badge = k => ({note: "NOTE", pdf: "PDF", docx: "DOC", img: "IMG", file: "FILE"})[k];
+const size = n => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+
+async function load() {
+  try {
+    const snap = await getDocs(COL);
+    items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    draw();
+  } catch (e) { $("list").innerHTML = '<div class="empty">Couldn\'t load the library. ' + esc(e.message || "") + '</div>'; }
+}
+function draw() {
+  const q = $("q").value.trim().toLowerCase();
+  const rows = items.filter(it => !q || [it.name, it.title, it.topic, it.note].join(" ").toLowerCase().includes(q))
+    .sort((a, b) => (a.topic || "Other").localeCompare(b.topic || "Other") || String(a.title || a.name).localeCompare(String(b.title || b.name)));
+  $("topics").innerHTML = [...new Set(items.map(it => it.topic).filter(Boolean))].map(t => '<option value="' + esc(t) + '">').join("");
+  if (!rows.length) { $("list").innerHTML = '<div class="empty">' + (items.length ? "Nothing matches." : "Nothing here yet. Tap + Add files or + Add note.") + '</div>'; return; }
+  let h = "", last = null;
+  rows.forEach(it => {
+    const t = it.topic || "Other", k = kind(it);
+    if (t !== last) { h += '<div class="topic">' + esc(t) + '</div>'; last = t; }
+    h += '<div class="item" data-id="' + esc(it.id) + '" role="button" tabindex="0"><span class="ic">' + badge(k) + '</span><div><div class="nm">' + esc(it.title || it.name) + '</div>' +
+      '<div class="meta">' + (k === "note" ? "Note" : esc(it.name) + (it.size ? " · " + size(it.size) : "")) + '</div></div>' +
+      '<button type="button" class="x" data-del="' + esc(it.id) + '" aria-label="Delete ' + esc(it.title || it.name) + '">&times;</button></div>';
+  });
+  $("list").innerHTML = h;
+}
+$("q").addEventListener("input", draw);
+
+/* Adding: pick files (or a note), then a topic, then Save. */
+const openAdd = what => { $("addBox").hidden = false; $("addWhat").textContent = what; $("noteFields").hidden = pending !== "note"; $("topic").focus(); };
+const closeAdd = () => { pending = null; $("addBox").hidden = true; $("ntitle").value = ""; $("nbody").value = ""; };
+$("addFiles").onclick = () => $("pick").click();
+$("pick").onchange = () => {
+  const fs = [...$("pick").files]; $("pick").value = ""; if (!fs.length) return;
+  const big = fs.filter(f => f.size > MAX);
+  if (big.length) { $("msg").className = "msg bad"; $("msg").textContent = big.map(f => f.name).join(", ") + " is over 100 MB."; }
+  pending = fs.filter(f => f.size <= MAX); if (!pending.length) return;
+  openAdd(pending.length === 1 ? pending[0].name : pending.length + " files");
+};
+$("addNote").onclick = () => { pending = "note"; openAdd("New note"); };
+$("cancelBtn").onclick = closeAdd;
+$("saveBtn").onclick = async () => {
+  const topic = $("topic").value.trim().slice(0, 60), b = $("saveBtn"), msg = $("msg");
+  b.disabled = true; msg.className = "msg";
+  try {
+    if (pending === "note") {
+      const title = $("ntitle").value.trim().slice(0, 120), note = $("nbody").value.slice(0, 20000);
+      if (!title && !note.trim()) { msg.textContent = "Type a title or a note first."; return; }
+      await addDoc(COL, { title: title || "Note", note, topic, addedAt: serverTimestamp() });
+    } else {
+      for (let i = 0; i < pending.length; i++) {
+        const f = pending[i];
+        msg.textContent = "Uploading " + (i + 1) + " of " + pending.length + "…";
+        const path = "training/" + Date.now().toString(36) + "_" + f.name.replace(/[^\w.\- ]+/g, "_").slice(0, 120);
+        await uploadBytes(sRef(storage, path), f, { contentType: f.type || "application/octet-stream" });
+        await addDoc(COL, { name: f.name, path, type: f.type || "", size: f.size, topic, addedAt: serverTimestamp() });
+      }
+    }
+    msg.textContent = "Saved."; closeAdd(); await load();
+  } catch (e) { msg.className = "msg bad"; msg.textContent = "Didn't save. " + (e.message || ""); }
+  finally { b.disabled = false; }
+};
+
+/* Delete: asks first, removes the file and its listing. */
+$("list").addEventListener("click", async e => {
+  const del = e.target.closest("[data-del]");
+  if (del) {
+    e.stopPropagation();
+    const it = items.find(x => x.id === del.dataset.del); if (!it) return;
+    if (!confirm('Delete "' + (it.title || it.name) + '"? This can\'t be undone.')) return;
+    try { if (it.path) await deleteObject(sRef(storage, it.path)).catch(() => {}); await deleteDoc(doc(db, "training", it.id)); await load(); }
+    catch (err) { $("msg").className = "msg bad"; $("msg").textContent = "Didn't delete. " + (err.message || ""); }
+    return;
+  }
+  const row = e.target.closest(".item"); if (row) open(items.find(x => x.id === row.dataset.id));
+});
+$("list").addEventListener("keydown", e => { const row = e.target.closest(".item"); if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); row.click(); } });
+
+/* Viewer: PDF and photos as they are, Word files as a page, notes as text, anything else downloads. */
+let mammothReady = null;
+const loadMammoth = () => mammothReady || (mammothReady = new Promise((ok, no) => {
+  const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js";
+  s.onload = () => ok(window.mammoth); s.onerror = () => { mammothReady = null; no(new Error("load")); }; document.head.appendChild(s);
+}));
+const page = body => '<!doctype html><meta charset="utf-8"><style>body{font:16px/1.55 system-ui,sans-serif;color:#111;max-width:760px;margin:24px auto;padding:0 18px}' +
+  'table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}img{max-width:100%}</style>' + body;
+async function open(it) {
+  if (!it) return;
+  const k = kind(it), v = document.createElement("div"); v.className = "view";
+  v.innerHTML = '<div class="top"><span class="t">' + esc(it.title || it.name) + '</span>' + (it.path ? '<a class="btn" id="vDl" target="_blank" rel="noopener">Download</a>' : '') +
+    '<button type="button" class="btn alt" id="vX">Close</button></div>';
+  document.body.appendChild(v);
+  v.querySelector("#vX").onclick = () => v.remove();
+  if (k === "note") { const d = document.createElement("div"); d.className = "note"; d.textContent = it.note || ""; v.appendChild(d); return; }
+  try {
+    const url = await getDownloadURL(sRef(storage, it.path));
+    v.querySelector("#vDl").href = url;
+    if (k === "pdf") v.insertAdjacentHTML("beforeend", '<iframe title="' + esc(it.name) + '" src="' + esc(url) + '"></iframe>');
+    else if (k === "img") v.insertAdjacentHTML("beforeend", '<img alt="' + esc(it.name) + '" src="' + esc(url) + '">');
+    else if (k === "docx") {
+      const fr = document.createElement("iframe"); fr.title = it.name; fr.setAttribute("sandbox", ""); fr.srcdoc = page('<p style="color:#666">Opening…</p>'); v.appendChild(fr);
+      try { const [m, buf] = await Promise.all([loadMammoth(), fetch(url).then(r => r.arrayBuffer())]);
+        fr.srcdoc = page((await m.convertToHtml({ arrayBuffer: buf })).value || '<p>This document is empty.</p>'); }
+      catch (e) { fr.srcdoc = page('<p>Couldn\'t show this file here. Tap Download.</p>'); }
+    }
+    else v.insertAdjacentHTML("beforeend", '<p style="color:#fff;text-align:center;margin:auto;padding:16px">Can\'t preview ' + esc(it.name) + ' here. Tap Download.</p>');
+  } catch (e) { v.insertAdjacentHTML("beforeend", '<p style="color:#fff;text-align:center;margin:auto;padding:16px">Couldn\'t open it. ' + esc(e.message || "") + '</p>'); }
+}
+
+/* Page lock, same as hub.html. */
+onAuthStateChanged(auth, user => {
+  if (!user) { location.replace("./login.html?next=training.html"); return; }
+  if (!["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"].includes(user.uid)) {
+    location.replace("./partner.html"); return; }
+  document.getElementById("authwait")?.remove();
+  load();
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
