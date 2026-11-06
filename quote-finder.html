@@ -538,9 +538,10 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
 
   /* Photos-first: a room's measured size replaces its standard size (bedroom 144, etc.). */
   function stdSize(rm){ var p = rm.id.split('_'); return p[1] === 'master' ? ((MASTER[(A.master[p[0]] || [])[+p[2]]] || {}).sqft || 0) : sqftOf(p[1]); }
-  function roomSize(rm){ var r = A.photoFirst && A.photoSqft && A.photoSqft[rm.id]; return r && r.sqft ? r.sqft : stdSize(rm); }
+  var PH = false;   /* true while working out the "Estimated from photos" box: rooms use their photo-measured size */
+  function roomSize(rm){ var r = (A.photoFirst || PH) && A.photoSqft && A.photoSqft[rm.id]; return r && r.sqft ? r.sqft : stdSize(rm); }
   function photoDelta(k){
-    if(!A.photoFirst || !A.photoSqft) return 0;
+    if(!(A.photoFirst || PH) || !A.photoSqft) return 0;
     return photoRooms().reduce(function(t, rm){ var r = A.photoSqft[rm.id];
       return rm.id.indexOf(k + '_') === 0 && !rm.stairs && r && r.sqft ? t + r.sqft - stdSize(rm) : t; }, 0);
   }
@@ -598,7 +599,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Same rules as computeServiceItems on the homepage and in app.js. */
   /* Every room behind a service's square footage, for the drop-down on the estimate (stairs are their own line). */
   function roomLines(k, rate){
-    if(A.photoFirst && A.photoSqft) return photoRooms().filter(function(rm){ return rm.id.indexOf(k + '_') === 0 && !rm.stairs; }).map(function(rm){
+    if((A.photoFirst || PH) && A.photoSqft) return photoRooms().filter(function(rm){ return rm.id.indexOf(k + '_') === 0 && !rm.stairs; }).map(function(rm){
       var sq = roomSize(rm); return { t: rm.t.split(' · ')[0] + ((A.photoSqft[rm.id] || {}).sqft ? ' (from photos)' : ''), sq: sq, cost: sq * rate }; });
     var r = (A.svcs.indexOf(k) > -1 && A.rooms[k]) || {}, out = [];
     Object.keys(r).forEach(function(rk){
@@ -717,8 +718,15 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var inv = document.getElementById('inv'), e;
     try{ e = estimate(); }catch(err){ e = null; }
     if(!invOpen) invOpen = {};
-    var op = function(k){ return invAll || invOpen[k]; };
     if(!e || !e.rows.length){ inv.hidden = true; inv.innerHTML = ''; document.getElementById('sqft').classList.remove('dup'); return; }
+    var tot = sqftTotal(), h = invHtml(e, invOpen, '');
+    if(tot) h += '<div class="r tot"><span>Total</span><b>' + tot.toLocaleString() + ' sq ft</b></div>';
+    inv.innerHTML = h; inv.hidden = false;
+    document.getElementById('sqft').classList.toggle('dup', !!tot);
+  }
+  /* The quote breakdown: service, package with its room drop-down, stairs, add-ons. ns keeps each box's drop-downs separate. */
+  function invHtml(e, open, ns){
+    var op = function(k){ return invAll || open[k]; };
     var h = '', ft = function(n){ return n ? n.toLocaleString() + ' sf' : ''; };   /* rows say sf; only the Total says sq ft */
     /* Package names keep their branding: gold "Deep", red script "Signature". */
     var brand = function(t){ return esc(t).replace(/^Deep\b/, '<span class="gold">Deep</span>').replace(/^Signature\b/, '<span class="sigScript">Signature</span>'); };
@@ -727,7 +735,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       /* One line that just repeats the header (Tile, Hardwood): the header itself becomes the dropdown. */
       var only = r.items.length === 1 ? r.items[0] : null;
       if(only && only.sq && only.label.replace(/ — .*sq ft$/, '') === r.name){
-        var oid = r.key, orms = only.rooms || [];
+        var oid = ns + r.key, orms = only.rooms || [];
         h += '<div class="r svc' + (orms.length ? ' drop' + (op(oid) ? ' open' : '') + '" data-drop="' + oid + '" role="button" tabindex="0" aria-expanded="' + !!op(oid) : '') + '"><span>' + esc(r.name) + (orms.length ? '<i>▾</i>' : '') + '</span><span>' + ft(rsq) + '</span></div>';
         orms.forEach(function(x){ h += '<div class="r rm"' + (op(oid) ? '' : ' hidden') + '><span>' + esc(x.t) + '</span><span>' + ft(x.sq) + '</span></div>'; });
         return;
@@ -736,22 +744,23 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       r.items.forEach(function(i){
         var label = i.sq ? i.label.replace(/ — .*sq ft$/, '') : r.key === 'whole' ? 'All floors' : i.label.replace(/^Flights? of Stairs.*$/, 'Stairs');
         var right = i.sq ? ft(i.sq) : i.flights ? i.flights + (i.flights > 1 ? ' flights' : ' flight') : '';
-        var rms = i.sq && i.rooms && i.rooms.length ? i.rooms : null, id = r.key;
+        var rms = i.sq && i.rooms && i.rooms.length ? i.rooms : null, id = ns + r.key;
         if(!rms){ h += '<div class="r it"><span>' + esc(label) + '</span><span>' + right + '</span></div>'; return; }
         h += '<div class="r it drop' + (op(id) ? ' open' : '') + '" data-drop="' + id + '" role="button" tabindex="0" aria-expanded="' + !!op(id) + '"><span>' + brand(label) + '<i>▾</i></span><span>' + right + '</span></div>';
         rms.forEach(function(x){ h += '<div class="r rm"' + (op(id) ? '' : ' hidden') + '><span>' + esc(x.t) + '</span><span>' + ft(x.sq) + '</span></div>'; });
       });
     });
-    var tot = sqftTotal();
-    if(tot) h += '<div class="r tot"><span>Total</span><b>' + tot.toLocaleString() + ' sq ft</b></div>';
-    inv.innerHTML = h; inv.hidden = false;
-    document.getElementById('sqft').classList.toggle('dup', !!tot);
+    return h;
   }
   var invOpen = invOpen || {}, invAll = false;   // invAll: photo step opens every room list
   document.getElementById('inv').addEventListener('click', function(e){
     var d = e.target.closest('[data-drop]'); if(!d) return;
     if(invAll){ [].forEach.call(this.querySelectorAll('[data-drop]'), function(x){ invOpen[x.dataset.drop] = true; }); invAll = false; }
     invOpen[d.dataset.drop] = !invOpen[d.dataset.drop]; drawInv();
+  });
+  document.getElementById('phinv').addEventListener('click', function(e){
+    var d = e.target.closest('[data-drop]'); if(!d) return;
+    invOpen = invOpen || {}; invOpen[d.dataset.drop] = !invOpen[d.dataset.drop]; drawInv();
   });
   screen.addEventListener('click', drawSqft);
   var cur = null;
@@ -2299,22 +2308,14 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var box = document.getElementById('phinv'), inv = document.getElementById('inv'); if(!box) return;
     var rows = phRows();
     if(!rows.length || !inv || inv.hidden && !rows.some(function(x){ return x.r; })){ box.hidden = true; box.innerHTML = ''; return; }
-    /* Laid out like the quote below: a heading per service with its square feet, its rooms under it. */
-    var tot = 0, h = '<div class="r phhd"><span>Estimated from photos</span><span></span></div>';
-    var NM = { carpet:'Carpet Cleaning', tile:'Tile & Grout Cleaning', lvp:'Hardwood / LVP Cleaning', stone:'Natural Stone Cleaning' };
-    var groups = {}, order = ORDER.concat(['_']);
-    rows.forEach(function(x){ var k = x.rm.id.split('_')[0]; if(!NM[k]) k = '_'; (groups[k] = groups[k] || []).push(x); });
-    order.forEach(function(k){
-      var g = groups[k]; if(!g) return;
-      var sub = 0, rh = '';
-      g.forEach(function(x){
-        var right = x.r && x.r.sqft ? x.r.sqft.toLocaleString() + ' sf' : x.n < 2 ? 'needs 2+ photos' : !x.s ? 'uploading…' :
-          mErr[x.rm.id] ? 'couldn’t measure' : 'measuring…';
-        if(x.r && x.r.sqft){ tot += x.r.sqft; sub += x.r.sqft; }
-        rh += '<div class="r it"><span>' + esc(NM[k] ? x.rm.t.split(' · ')[0] : x.rm.t) + '</span><span>' + right + '</span></div>';
-      });
-      h += '<div class="r svc"><span>' + esc(NM[k] || 'Other rooms') + '</span><span>' + (sub ? sub.toLocaleString() + ' sf' : '') + '</span></div>' + rh;
-    });
+    /* The same quote as the box below (package, room drop-downs, stairs, add-ons), but every room that has
+       been measured from its photos uses that size. Both boxes stay up for comparing. */
+    var e = null, tot = 0;
+    PH = true; try{ e = estimate(); tot = sqftTotal(); }catch(err){} PH = false;
+    if(!e || !e.rows.length){ box.hidden = true; box.innerHTML = ''; return; }
+    var h = '<div class="r phhd"><span>Estimated from photos</span><span></span></div>' + invHtml(e, invOpen || {}, 'ph_');
+    var wait = rows.filter(function(x){ return !(x.r && x.r.sqft); }).length;
+    if(wait) h += '<div class="r note"><span>' + wait + ' room' + (wait > 1 ? 's' : '') + ' not measured yet (using the usual size)</span><span></span></div>';
     if(tot) h += '<div class="r tot"><span>Photo total</span><b>' + tot.toLocaleString() + ' sq ft</b></div>';
     box.innerHTML = h; box.hidden = false;
   }
