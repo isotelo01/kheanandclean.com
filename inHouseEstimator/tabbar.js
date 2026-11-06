@@ -42,6 +42,10 @@
   var live = document.createElement("script");
   live.type = "module"; live.src = "./live.js";
   document.body.appendChild(live);
+  // Count button taps for the Taps page (taps.js).
+  var taps = document.createElement("script");
+  taps.type = "module"; taps.src = "./taps.js";
+  document.body.appendChild(taps);
   // Keep the screen on while any app page is open (so the phone stays ready). Phones drop the lock
   // when you leave the app or lock the screen, so it's asked for again whenever the page is back.
   // Phones/browsers without wake lock just ignore this.

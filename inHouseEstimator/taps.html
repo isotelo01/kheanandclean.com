@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<title>Taps &middot; Khean &amp; Clean</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Taps: which buttons get pushed the most. Counts come from taps.js (settings/tapStats). Staff only. */
+:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Archivo",system-ui,sans-serif}
+#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
+.wrap{max-width:760px;margin:0 auto;padding:22px 16px 60px}
+.back{color:var(--muted);font-size:14px;text-decoration:none}
+h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 4px;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
+.sub{color:var(--muted);margin:4px 0 16px;font-size:15px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+.bar input{flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:var(--ink)}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--muted);padding:8px 14px;font:600 14px "Archivo",system-ui,sans-serif;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--navy);color:var(--gold)}
+.list{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;background:#1f3a5f;color:#fff;border-radius:10px;padding:12px 14px;position:relative;overflow:hidden}
+.row .bar2{position:absolute;left:0;top:0;bottom:0;background:rgba(227,182,74,.18);pointer-events:none}
+.row .rk{font-weight:700;color:var(--gold);position:relative}
+.row .nm{position:relative;min-width:0}
+.row .nm b{display:block;overflow-wrap:anywhere}
+.row .nm small{color:#cfd6e2}
+.row .ct{position:relative;font:700 20px "Archivo",system-ui,sans-serif}
+.none{color:#fff;background:#1f3a5f;border-radius:10px;padding:18px;text-align:center;font-size:17px}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div id="authwait"></div>
+<div class="wrap">
+  <a class="back" href="./hub.html">&lsaquo; Hub</a>
+  <h1>Taps</h1>
+  <p class="sub">Which buttons get pushed the most. Counting started Nov 6, 2026.</p>
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search a button or page" aria-label="Search">
+    <div class="seg" role="group" aria-label="Whose taps">
+      <button type="button" data-who="all" aria-pressed="true">Everyone</button>
+      <button type="button" data-who="me" aria-pressed="false">Just me</button>
+    </div>
+  </div>
+  <div class="list" id="list"><div class="none">Loading&hellip;</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app);
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let data = {}, me = "", who = "all";
+
+function draw(){
+  const src = (who === "me" ? (data.users || {})[me] : data.counts) || {};
+  const q = $("q").value.trim().toLowerCase();
+  const rows = Object.entries(src).map(([k, n]) => { const i = k.indexOf("|"); return { page: k.slice(0, i), name: k.slice(i + 1), n: Number(n) || 0 }; })
+    .filter(r => r.n > 0 && (!q || (r.page + " " + r.name).toLowerCase().includes(q)))
+    .sort((a, b) => b.n - a.n);
+  if (!rows.length) { $("list").innerHTML = '<div class="none">' + (q ? "No matches." : "No taps counted yet. Use the app for a bit and come back.") + '</div>'; return; }
+  const top = rows[0].n;
+  $("list").innerHTML = rows.map((r, i) =>
+    '<div class="row"><span class="bar2" style="width:' + Math.max(4, Math.round(r.n / top * 100)) + '%"></span>' +
+    '<span class="rk">' + (i + 1) + '</span><span class="nm"><b>' + esc(r.name) + '</b><small>' + esc(r.page) + '</small></span>' +
+    '<span class="ct">' + r.n.toLocaleString() + '</span></div>').join("");
+}
+$("q").addEventListener("input", draw);
+document.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
+  who = b.dataset.who;
+  document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  draw();
+});
+
+onAuthStateChanged(auth, async u => {
+  if (!u) { location.replace("./login.html?next=taps.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  me = u.uid; $("authwait")?.remove();
+  try { const s = await getDoc(doc(db, "settings", "tapStats")); data = s.exists() ? s.data() : {}; draw(); }
+  catch (e) { console.error(e); $("list").innerHTML = '<div class="none">Could not load the counts.</div>'; }
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
