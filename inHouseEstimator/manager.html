@@ -102,9 +102,10 @@ async function send(text) {
   busy = true; $("say").value = ""; $("sendBtn").disabled = true;
   history.push({ role: "user", text }); bubble("me", text);
   const wait = bubble("bot", "…"); setState(inCall ? "Thinking…" : "Tap to call");
-  let reply = "";
+  let reply = "", audio = null;
   try {
-    const r = await managerBot({ history });
+    const r = await managerBot({ history, voice: inCall });
+    audio = (r.data && r.data.audio) || null;
     reply = (r.data && r.data.reply) || "(no answer)";
     history.push({ role: "assistant", text: reply }); keep(); wait.textContent = reply;
     if (r.data && r.data.changed) bubble("note", "Bot rules updated.");
@@ -112,7 +113,7 @@ async function send(text) {
     console.error(e); history.pop(); wait.remove(); bubble("err", e.message || "Couldn't reach KC.");
   }
   busy = false; $("sendBtn").disabled = false;
-  if (inCall) { if (reply) speak(reply, listen); else listen(); }
+  if (inCall) { if (reply) speak(reply, listen, audio); else listen(); }
 }
 
 /* Male voice, so the Manager never sounds like the other bots. Uses the first male English voice the
@@ -128,7 +129,24 @@ function pickVoice() {
 pickVoice();
 try { speechSynthesis.onvoiceschanged = pickVoice; } catch (e) {}
 
-function speak(t, then) {
+/* KC Jones's real voice comes back from the backend as an MP3 (Google Chirp 3 HD "Charon").
+   One audio player, unlocked on the Call tap, so phones let it play later. If there's no MP3, the device voice reads it. */
+const player = new Audio();
+let stopPlayer = null;
+function unlockPlayer() {
+  try { player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="; player.play().catch(() => {}); } catch (e) {}
+}
+function speak(t, then, audio) {
+  if (audio) {
+    setState("Talking… (tap the chat to cut in)");
+    let done = false; const fin = () => { if (done) return; done = true; stopPlayer = null; if (then) then(); };
+    player.onended = fin;
+    player.onerror = () => { done = true; stopPlayer = null; speak(t, then); };
+    stopPlayer = () => { try { player.pause(); } catch (e) {} fin(); };
+    player.src = "data:audio/mpeg;base64," + audio;
+    player.play().catch(() => { if (!done) { done = true; stopPlayer = null; speak(t, then); } });
+    return;
+  }
   try {
     speechSynthesis.cancel(); setState("Talking… (tap the chat to cut in)");
     const u = new SpeechSynthesisUtterance(t); u.rate = 1.05;
@@ -152,16 +170,21 @@ function listen() {
 }
 function startCall() {
   inCall = true; $("callBtn").classList.add("on"); $("callBtn").setAttribute("aria-label", "Hang up");
-  if (!history.length) speak("Hey, it's KC Jones. What do you need?", listen); else listen();
+  unlockPlayer();
+  if (history.length) { listen(); return; }
+  const hi = "Hey, it's KC Jones. What do you need?";
+  setState("Calling…");
+  managerBot({ sayOnly: hi }).then(r => { if (inCall) speak(hi, listen, r.data && r.data.audio); }).catch(() => { if (inCall) speak(hi, listen); });
 }
 function hangUp() {
   inCall = false; $("callBtn").classList.remove("on", "listen"); $("callBtn").setAttribute("aria-label", "Call KC");
   if (rec) { try { rec.abort(); } catch (e) {} rec = null; }
   try { speechSynthesis.cancel(); } catch (e) {}
+  if (stopPlayer) stopPlayer();
   setState("Tap to call");
 }
 $("callBtn").onclick = () => inCall ? hangUp() : startCall();
-$("chat").onclick = () => { if (inCall && speechSynthesis.speaking) { speechSynthesis.cancel(); } };
+$("chat").onclick = () => { if (!inCall) return; if (stopPlayer) stopPlayer(); else if (speechSynthesis.speaking) speechSynthesis.cancel(); };
 $("sendBtn").onclick = () => send($("say").value);
 $("say").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("say").value); } };
 $("clearChat").onclick = () => { history = []; keep(); $("chat").innerHTML = ""; };
