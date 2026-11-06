@@ -96,30 +96,53 @@ async function send(text) {
   }
   busy = false;
   if (!inCall) return;
-  if (reply) speak(reply, listen, audio); else setTimeout(listen, 1200);
+  if (reply) speak(reply, listenSoon, audio); else setTimeout(listen, 1200);
 }
 
-function listen() {
-  if (!inCall || busy) return;
+/* After KC talks, a short pause so the iPhone can switch from speaker to mic before listening. */
+const listenSoon = () => setTimeout(listen, 350);
+/* Hands-free listening restarts on its own, but never forever: after 3 empty tries or a mic error it
+   stops and says "Tap KC to talk". Tapping his face always starts listening (iPhone allows the mic from a tap). */
+let empties = 0, paused = false;
+function stopForTap(why) { paused = true; mode(""); setState((why ? why + " " : "") + "Tap KC to talk."); }
+function listen(fromTap) {
+  if (!inCall || busy || rec) return;
   if (!SR) { setState("Voice isn't supported here. Tap Text."); return; }
+  if (paused && !fromTap) return;
+  paused = false;
   rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
-  let heard = "";
+  let heard = "", err = "";
   rec.onspeechstart = () => { mode("you"); setState("Listening…"); };
-  rec.onresult = e => { heard = ""; for (const r of e.results) heard += r[0].transcript; if (heard.trim()) setState("“" + heard.trim().slice(-60) + "”"); };
-  rec.onerror = e => { if (e.error === "not-allowed") { setState("Mic is blocked for this site."); hangUp(true); } };
-  rec.onend = () => { rec = null; mode(""); if (!inCall) return; if (heard.trim()) send(heard.trim()); else setTimeout(listen, 250); };
+  rec.onresult = e => { heard = ""; for (const r of e.results) heard += r[0].transcript; if (heard.trim()) { mode("you"); setState("“" + heard.trim().slice(-60) + "”"); } };
+  rec.onerror = e => { err = e.error || "error"; };
+  rec.onend = () => {
+    rec = null; mode(""); if (!inCall) return;
+    if (heard.trim()) { empties = 0; send(heard.trim()); return; }
+    if (err === "not-allowed") { setState("Mic is blocked. Allow the microphone in Settings, then tap KC."); paused = true; return; }
+    if (err && err !== "no-speech" && err !== "aborted") { stopForTap("Mic didn't start (" + err + ")."); return; }
+    if (++empties >= 3) { empties = 0; stopForTap("I didn't hear anything."); return; }
+    setTimeout(listen, 250);
+  };
   setState("Go ahead, I'm listening");
-  try { rec.start(); } catch (e) { setTimeout(listen, 500); }
+  try { rec.start(); } catch (e) { rec = null; stopForTap("Mic didn't start."); }
 }
 
 function startCall(resume) {
   inCall = true; ss.set("kcCall", "1");
   wrap.classList.add("on"); $("kcBtn").setAttribute("aria-label", "Hang up on KC Jones");
   try { player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="; player.play().catch(() => {}); } catch (e) {}
+  empties = 0; paused = false;
   if (resume || history.length) { listen(); return; }
   const hi = "Hey, it's KC Jones. What do you need?";
+  /* The greeting's voice is saved on the phone after the first call, so later calls start right away. */
+  let saved = null; try { saved = localStorage.getItem("kcHiAudio"); } catch (e) {}
+  if (saved) { speak(hi, listenSoon, saved); return; }
   setState("Calling…");
-  managerBot({ sayOnly: hi }).then(r => { if (inCall) speak(hi, listen, r.data && r.data.audio); }).catch(() => { if (inCall) speak(hi, listen); });
+  managerBot({ sayOnly: hi }).then(r => {
+    const a = r.data && r.data.audio;
+    if (a) { try { localStorage.setItem("kcHiAudio", a); } catch (e) {} }
+    if (inCall) speak(hi, listenSoon, a);
+  }).catch(() => { if (inCall) speak(hi, listenSoon); });
 }
 function hangUp(keepNote) {
   inCall = false; ss.set("kcCall", "0");
@@ -130,7 +153,14 @@ function hangUp(keepNote) {
   if (!keepNote) setState("");
 }
 $("kcBtn").onclick = () => inCall ? hangUp() : startCall(false);
-$("kcFace").onclick = () => { if (inCall && stopPlayer) stopPlayer(); };
+/* Tap KC's face: while he talks, it cuts him off and listens; otherwise it starts listening right from the tap. */
+$("kcFace").onclick = () => {
+  if (!inCall || busy) return;
+  if (stopPlayer) stopPlayer();
+  if (rec) return;   /* already listening */
+  empties = 0; listen(true);
+};
+$("kcFace").style.cursor = "pointer";
 
 /* Picked back up after moving to another page. */
 if (ss.get("kcCall", "0") === "1") startCall(true);
