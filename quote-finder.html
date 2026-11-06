@@ -324,6 +324,10 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 .radd-list{ display:grid !important; grid-template-columns:1fr 1fr !important; gap:8px; max-height:60vh; overflow:auto; margin:12px 0 4px; }
 .radd-list h4{ grid-column:1 / -1; margin:8px 0 0; color:var(--gold); font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; }
 .radd-list .opt{ padding:11px 12px; font-size:.92rem; }
+.radd-tabs{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.radd-tabs button{ border:1px solid rgba(227,182,74,.5); background:transparent; color:var(--ivory); border-radius:999px; padding:8px 12px;
+  font:600 .85rem "Archivo",sans-serif; cursor:pointer; }
+.radd-tabs button[aria-pressed="true"]{ background:var(--gold); color:#140f05; border-color:var(--gold); }
 .askd-box small{ display:block; color:var(--muted); margin-top:4px; }
 /* Landscape: Done in the blank space on the right, Add room (plus sign, words under it) on the left — never over a photo. */
 @media (orientation:landscape){
@@ -1700,22 +1704,37 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     save(); keepPhotos();
   }
   /* Add room: pick a room type (grouped by floor type when there's more than one); it joins the list. */
+  /* Add a room: every service is a button across the top (floors, Rugs, Upholstery). Tap one to see
+     its rooms or pieces; tapping one adds it (and turns that service on if they hadn't picked it). */
   function addRoom(done){
-    var floors = ORDER.filter(function(k){ return k !== 'upholstery' && has(k); });
+    var tabs = ORDER.filter(function(k){ return k !== 'upholstery'; }).concat(['rugs', 'upholstery']);
+    var items = function(k){
+      if(k === 'rugs') return (S.carpet.addons.rug.sizes || []).map(function(z){ return { key:z.key, t:z.label }; });
+      if(k === 'upholstery') return S.upholstery.items.map(function(it){ return { key:it.key, t:it.name }; });
+      return (LISTS[k] || []).map(function(key){ return { key:key, t:ONE[key] || NAMES[key] }; });
+    };
+    var tab = tabs.filter(function(k){ return has(k) && items(k).length; })[0] || tabs[0];
     var ov = document.createElement('div'); ov.className = 'askd';
-    var hd = '<div class="askd-box radd"><p>Add a room</p><div class="radd-list">';
-    floors.forEach(function(k){
-      if(floors.length > 1) hd += '<h4>' + esc(SVC[k].name) + '</h4>';
-      LISTS[k].forEach(function(key){ hd += '<button type="button" class="opt" data-k="' + k + '" data-key="' + key + '">' + esc(ONE[key] || NAMES[key]) + '</button>'; });
-    });
-    ov.innerHTML = hd + '</div><button type="button" class="go ghost">Cancel</button></div>';
-    var close = function(){ ov.remove(); };
+    ov.innerHTML = '<div class="askd-box radd"><p>Add a room</p><div class="radd-tabs">' +
+      tabs.map(function(k){ return '<button type="button" data-t="' + k + '">' + esc(SVC[k].name) + '</button>'; }).join('') +
+      '</div><div class="radd-list"></div><button type="button" class="go ghost">Cancel</button></div>';
+    var close = function(){ ov.remove(); }, list = ov.querySelector('.radd-list');
+    var draw = function(){
+      [].forEach.call(ov.querySelectorAll('.radd-tabs button'), function(b){ b.setAttribute('aria-pressed', b.dataset.t === tab ? 'true' : 'false'); });
+      list.innerHTML = items(tab).map(function(it){ return '<button type="button" class="opt" data-key="' + it.key + '">' + esc(it.t) + '</button>'; }).join('');
+      [].forEach.call(list.querySelectorAll('.opt'), function(b){ b.onclick = function(){
+        var k = tab, key = b.dataset.key, id;
+        if(!has(k)) A.svcs = A.svcs.concat(k);
+        if(k === 'rugs'){ A.rugs[key] = (A.rugs[key] || 0) + 1; id = 'rug_' + key + '_' + (A.rugs[key] - 1); }
+        else if(k === 'upholstery'){ A.uph[key] = (A.uph[key] || 0) + 1; id = 'uph_' + key + '_' + (A.uph[key] - 1); }
+        else { var r = A.rooms[k] = A.rooms[k] || {}; r[key] = (r[key] || 0) + 1; id = k + '_' + key + '_' + (r[key] - 1); }
+        save(); close(); done(id);
+      }; });
+    };
+    [].forEach.call(ov.querySelectorAll('.radd-tabs button'), function(b){ b.onclick = function(){ tab = b.dataset.t; draw(); list.scrollTop = 0; }; });
     ov.querySelector('.go.ghost').onclick = close;
     ov.onclick = function(e){ if(e.target === ov) close(); };
-    [].forEach.call(ov.querySelectorAll('.radd-list .opt'), function(b){ b.onclick = function(){
-      var k = b.dataset.k, key = b.dataset.key, r = A.rooms[k] = A.rooms[k] || {};
-      r[key] = (r[key] || 0) + 1; save(); close(); done(k + '_' + key + '_' + (r[key] - 1));
-    }; });
+    draw();
     document.body.appendChild(ov);
   }
   function askDone(yes){ ask('Are you done with photos?', '', 'Not yet', 'Yes', yes); }
