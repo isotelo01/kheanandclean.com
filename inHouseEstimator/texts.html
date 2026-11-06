@@ -301,7 +301,7 @@ const db = getFirestore(app);
 const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
 const fbSend = httpsCallable(getFunctions(app, "us-central1"), "fbSend");   // Messenger replies (threads "fb_<id>")
 const isFb = id => /^fb_\d+$/.test(id);
-const smsSuggest = httpsCallable(getFunctions(app, "us-central1"), "smsSuggest");   // reply assistant
+const smsSuggest = httpsCallable(getFunctions(app, "us-central1"), "smsSuggest", { timeout: 130000 });   // reply assistant (may ask KC Jones first, so allow longer)
 const storage = getStorage(app);
 
 /* Photos / videos on a text. Photos are shrunk to 1600px JPEGs; videos go as-is (texting limit is 5 MB).
