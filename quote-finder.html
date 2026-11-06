@@ -800,10 +800,14 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Photos stay on their phone (IndexedDB) until they send the quote, so a refresh doesn't lose them. */
   var photoSig = '', photoSeq = 0, UPL = 'kcQuoteBuilderUp';
   function upLog(){ try{ return JSON.parse(localStorage.getItem(UPL) || '[]') || []; }catch(e){ return []; } }
+  /* Photos they removed on purpose (their uploaded path). Everything else that was uploaded and then
+     disappears from the phone gets pulled back down from Firebase. */
+  function gone(f){ if(f && f._up){ A.goneUp = (A.goneUp || []).filter(function(p){ return p !== f._up; }).concat(f._up).slice(-500); } }
+  function goneSet(){ var g = {}; (A.goneUp || []).forEach(function(p){ g[p] = 1; }); return g; }
   /* Rooms whose photos are gone from the phone but were uploaded: download them back from Firebase. */
   function recoverPhotos(){
-    var have = {}; A.photos.forEach(function(f){ if(f._room) have[f._room] = 1; });
-    var miss = upLog().filter(function(x){ return x.room && x.p && !have[x.room]; }).sort(function(a, b){ return a.p < b.p ? -1 : 1; });
+    var have = {}, g = goneSet(); A.photos.forEach(function(f){ if(f._up) have[f._up] = 1; });
+    var miss = upLog().filter(function(x){ return x.room && x.p && !have[x.p] && !g[x.p]; }).sort(function(a, b){ return a.p < b.p ? -1 : 1; });
     if(!miss.length) return Promise.resolve();
     var work = firebase().then(function(fb){
       return Promise.all(miss.map(function(x){
@@ -835,10 +839,10 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     /* Uploaded-photo list (Firebase path + room): rooms with photos here are listed from these photos;
        rooms that still exist but lost theirs keep their old entries, so a reload can pull them back. */
     try{
-      var have = {}, ids = {};
-      A.photos.forEach(function(f){ if(f._room) have[f._room] = 1; });
+      var have = {}, ids = {}, g = goneSet();
+      A.photos.forEach(function(f){ if(f._up) have[f._up] = 1; });
       photoRooms().forEach(function(rm){ ids[rm.id] = 1; });
-      var log = upLog().filter(function(x){ return !have[x.room] && ids[x.room]; })
+      var log = upLog().filter(function(x){ return !have[x.p] && ids[x.room] && !g[x.p]; })
         .concat(A.photos.filter(function(f){ return f._up && f._room; }).map(function(f){ return { p:f._up, room:f._room, rn:f._roomName || '' }; }));
       localStorage.setItem(UPL, JSON.stringify(log));
     }catch(e){}
@@ -1026,7 +1030,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         var tr = document.createElement('button'); tr.type = 'button'; tr.className = 'rtrash'; tr.setAttribute('aria-label', 'Delete ' + rm.t);
         tr.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
         tr.onclick = function(){ ask('Delete ' + rm.t + '?', 'Deleting it deletes its ' + n + ' photo' + (n > 1 ? 's' : '') + ' too.', 'Keep it', 'Delete', function(){
-          for(var k = A.photos.length - 1; k >= 0; k--) if(A.photos[k]._room === rm.id) A.photos.splice(k, 1);
+          for(var k = A.photos.length - 1; k >= 0; k--) if(A.photos[k]._room === rm.id){ gone(A.photos[k]); A.photos.splice(k, 1); }
           A.pfRooms = A.pfRooms.filter(function(x){ return x !== rm.id; }); save(); keepPhotos(); snapRooms(el); }); };
         w.appendChild(tr);
       }
@@ -1362,7 +1366,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
         img.src = URL.createObjectURL(f); img.alt = 'Photo ' + (i + 1); img.onload = function(){ URL.revokeObjectURL(img.src); };
         x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
-        x.onclick = function(){ A.photos.splice(A.photos.indexOf(f), 1); draw(); };
+        x.onclick = function(){ gone(f); A.photos.splice(A.photos.indexOf(f), 1); draw(); };
         d.appendChild(img); d.appendChild(x); th.appendChild(d);
       });
     };
@@ -1656,7 +1660,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
         img.src = URL.createObjectURL(f); urls.push(img.src); img.alt = 'Photo ' + (i + 1);
         x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
-        x.onclick = function(){ A.photos.splice(i, 1); draw(); };
+        x.onclick = function(){ gone(A.photos[i]); A.photos.splice(i, 1); draw(); };
         d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
       });
       el.querySelector('#lnote').textContent = A.photos.length ? A.photos.length + ' photo' + (A.photos.length > 1 ? 's' : '') : '';
@@ -1790,7 +1794,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     else if(p[0] === 'rug'){ A.rugs[p[1]] = Math.max(0, (A.rugs[p[1]] || 0) - 1); }
     else if(p[1] === 'master'){ (A.master[p[0]] || []).splice(i, 1); }
     else { var r = A.rooms[p[0]] = A.rooms[p[0]] || {}; r[p[1]] = Math.max(0, (r[p[1]] || 0) - 1); }
-    for(var k = A.photos.length - 1; k >= 0; k--) if(A.photos[k]._room === rm.id) A.photos.splice(k, 1);
+    for(var k = A.photos.length - 1; k >= 0; k--) if(A.photos[k]._room === rm.id){ gone(A.photos[k]); A.photos.splice(k, 1); }
     var num = function(id){ return id && id.indexOf(pre) === 0 && /^\d+$/.test(id.slice(pre.length)) ? +id.slice(pre.length) : -1; };
     A.photos.forEach(function(f){ var j = num(f._room); if(j > i) f._room = pre + (j - 1); });
     var RF = A.roomFloor = A.roomFloor || {}, PS = A.photoSqft = A.photoSqft || {};
@@ -2064,7 +2068,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       img.style.cursor = 'zoom-in';
       img.onclick = function(){ viewShots(mine, i); };   /* tap a photo: full size, swipe between them, Retake */
       x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
-      x.onclick = function(){ A.photos.splice(A.photos.indexOf(f), 1); redo(); };
+      x.onclick = function(){ gone(f); A.photos.splice(A.photos.indexOf(f), 1); redo(); };
       d.appendChild(img); d.appendChild(x); thumbs.appendChild(d);
     });
     /* Add photo and Done side by side on one row. */
@@ -2225,7 +2229,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         var d = document.createElement('div'), img = document.createElement('img'), x = document.createElement('button');
         img.src = URL.createObjectURL(f); img.alt = 'Photo ' + (i + 1); img.onload = function(){ URL.revokeObjectURL(img.src); };
         x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo ' + (i + 1));
-        x.onclick = function(){ added.splice(i, 1); A.photos.splice(A.photos.indexOf(f), 1); draw(); };
+        x.onclick = function(){ added.splice(i, 1); gone(f); A.photos.splice(A.photos.indexOf(f), 1); draw(); };
         d.appendChild(img); d.appendChild(x); th.appendChild(d);
       });
       sync();
@@ -2383,8 +2387,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var key = upKey();
     upChain = upChain.then(function(){
       return A.photos.filter(function(f){ return !f._up && !f._upBad; }).reduce(function(chain, f){
+        /* An empty shot (iPhone Chrome sometimes hands over a 0-byte photo): never uploaded. */
+        if(!f.size){ f._upBad = true; return chain; }
         return chain.then(function(){ return f._up ? null : shrink(f); }).then(function(b){
           if(!b || f._up) return;
+          if(!b.size){ f._upBad = true; return; }
           if(b.size > 10 * 1024 * 1024){ f._upBad = true; return; }
           var path = 'quick-quote-photos/' + key + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '_' + (f._room || 'walkthrough') + '.jpg';
           return fb.st.uploadBytes(fb.st.ref(fb.storage, path), b, { contentType:'image/jpeg' })
