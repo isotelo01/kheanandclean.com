@@ -1,4 +1,4 @@
-/* KC Jones on every staff page (loaded by tabbar.js; manager.html has its own full page).
+/* Casey Jones on every staff page (loaded by tabbar.js; manager.html has its own full page).
    Gold KC button, bottom right. Tap it: the call starts and a floating KC logo circle pops up.
    The circle pulses while you talk (green) and while KC talks (gold). The same button ends the call.
    While the call is on, a small "Text" button sits next to it and opens KC's own page (manager.html).
@@ -67,8 +67,8 @@ document.head.appendChild(css);
 const wrap = document.createElement("div");
 wrap.id = "kcFloat";
 wrap.innerHTML =
-  '<div id="kcCol"><a id="kcText" href="./manager.html" aria-label="Text KC Jones" title="Text KC Jones"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></svg></a>' +
-  '<button type="button" id="kcBtn" class="mask" aria-label="Call KC Jones" title="Call KC Jones"></button></div>' +
+  '<div id="kcCol"><a id="kcText" href="./manager.html" aria-label="Text Casey Jones" title="Text Casey Jones"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></svg></a>' +
+  '<button type="button" id="kcBtn" class="mask" aria-label="Call Casey Jones" title="Call Casey Jones"></button></div>' +
   '<div id="kcBubble"><div id="kcLog" role="log" aria-label="Conversation with KC" title="Tap to read back"></div>' +
   '<div id="kcFace" role="button" tabindex="0" aria-label="Talk to KC (tap again to turn the mic off)"></div><div id="kcState" aria-live="polite"></div></div>';
 document.body.appendChild(wrap);
@@ -167,11 +167,11 @@ function listen(fromTap) {
 
 function startCall(resume) {
   inCall = true; ss.set("kcCall", "1");
-  wrap.classList.add("on"); $("kcBtn").setAttribute("aria-label", "Hang up on KC Jones");
+  wrap.classList.add("on"); $("kcBtn").setAttribute("aria-label", "Hang up on Casey Jones");
   try { player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="; player.play().catch(() => {}); } catch (e) {}
   empties = 0; paused = false; muted = false; wrap.classList.remove("muted"); drawLog();
   if (resume || history.length) { listen(); return; }
-  const hi = "Hey, it's KC Jones. What do you need?";
+  const hi = "Hey, it's Casey Jones. What do you need?";
   /* The greeting's voice is saved on the phone after the first call, so later calls start right away. */
   let saved = null; try { saved = localStorage.getItem("kcHiAudio"); } catch (e) {}
   if (saved) { speak(hi, listenSoon, saved); return; }
@@ -187,7 +187,7 @@ function hangUp(keepNote) {
   if (rec) { try { rec.abort(); } catch (e) {} rec = null; }
   if (stopPlayer) stopPlayer();
   try { speechSynthesis.cancel(); } catch (e) {}
-  mode(""); wrap.classList.remove("on", "muted"); logBox().classList.remove("open"); $("kcBtn").setAttribute("aria-label", "Call KC Jones");
+  mode(""); wrap.classList.remove("on", "muted"); logBox().classList.remove("open"); $("kcBtn").setAttribute("aria-label", "Call Casey Jones");
   if (!keepNote) setState("");
 }
 $("kcBtn").onclick = () => inCall ? hangUp() : startCall(false);

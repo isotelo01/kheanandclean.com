@@ -38,7 +38,7 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + t[2] + '</svg>' + t[1] + '</a>';
   }).join("");
   document.body.appendChild(nav);
-  // KC Jones (manager bot): gold call button + floating KC bubble on every staff page (kc-float.js).
+  // Casey Jones (manager bot): gold call button + floating KC bubble on every staff page (kc-float.js).
   if (here !== "manager") {
     var kc = document.createElement("script");
     kc.type = "module"; kc.src = "./kc-float.js";

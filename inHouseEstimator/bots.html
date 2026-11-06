@@ -39,6 +39,9 @@ h2{font:700 13px "Archivo",sans-serif;letter-spacing:.08em;text-transform:upperc
 .muted{color:var(--muted);font-size:14px}
 textarea,input[type=text]{width:100%;font:15px/1.45 "Archivo",system-ui,sans-serif;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}
 textarea{min-height:140px;resize:vertical}
+textarea.sm{min-height:72px}
+label.fl{display:block;font-weight:600;font-size:14px;margin:12px 0 4px}
+label.fl:first-of-type{margin-top:0}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
 button.btn{font:600 15px "Archivo",sans-serif;padding:9px 18px;border-radius:999px;border:0;background:var(--navy);color:#fff;cursor:pointer}
 button.ghost{font:600 15px "Archivo",sans-serif;padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
@@ -120,6 +123,35 @@ const COMING = [
   { name: "Investigator", ic: "In", does: "Researches a Cold Calls business and writes you a report before you reach out." },
 ];
 
+/* Each bot's setup boxes. They're all saved together as one text in settings/botRules[key], one "## Heading" per box,
+   so the backend (and Casey Jones, who can edit bot rules) reads them as-is. Old plain rules show up in the Rules box. */
+const FIELDS = [
+  { k: "name",      label: "Name",       one: true, hint: b => "Leave blank to keep \"" + b.name + "\"" },
+  { k: "job",       label: "Job",        one: true, hint: () => "What it's for, in one line." },
+  { k: "rules",     label: "Rules",      big: true, hint: b => b.hint },
+  { k: "knowledge", label: "Knowledge",  hint: () => "Facts it should know, like your prices, service area or Training Library notes." },
+  { k: "tools",     label: "Tools",      hint: () => "What it's allowed to touch. This can only limit it — new tools need code." },
+  { k: "tone",      label: "Tone",       one: true, hint: () => "How it talks, e.g. friendly and short." },
+  { k: "examples",  label: "Examples",   hint: () => "Q: Do you clean rugs?\nA: Yes! Area rugs start at…" },
+  { k: "reports",   label: "Reports to", one: true, hint: () => "Casey Jones" },
+];
+function parseSetup(text) {
+  const out = {}; text = String(text || "");
+  if (!/^##\s/m.test(text)) { if (text.trim()) out.rules = text.trim(); return out; }
+  let cur = "rules";
+  for (const line of text.split("\n")) {
+    const h = line.match(/^##\s*(.+?)\s*$/);
+    if (h) { const f = FIELDS.find(x => x.label.toLowerCase() === h[1].toLowerCase()); cur = f ? f.k : "rules"; if (!f) out.rules = ((out.rules || "") + "\n" + line).trim(); continue; }
+    out[cur] = ((out[cur] || "") + "\n" + line);
+  }
+  for (const k in out) out[k] = out[k].trim();
+  return out;
+}
+function composeSetup(f) {
+  return FIELDS.filter(x => (f[x.k] || "").trim()).map(x => "## " + x.label + "\n" + f[x.k].trim()).join("\n\n");
+}
+const botName = b => parseSetup(rules[b.key]).name || b.name;
+
 let rules = {}, learned = { texts: [], spam: [] }, current = null, history = [], rec = null, listening = false;
 let speakOn = true;
 try { speakOn = localStorage.getItem("botsSpeak") !== "0"; } catch (e) {}
@@ -146,10 +178,10 @@ function showList() {
   $("backLink").innerHTML = "&lsaquo; Hub"; $("backLink").href = "./hub.html"; $("backLink").onclick = null;
   window.history.replaceState(null, "", "./bots.html");
   $("view").innerHTML = '<div class="list">' +
-    '<a class="bot" href="./manager.html" style="text-decoration:none;border-color:var(--gold)"><span class="ic">Mg</span><span class="t"><b>KC Jones (Manager)</b>' +
+    '<a class="bot" href="./manager.html" style="text-decoration:none;border-color:var(--gold)"><span class="ic">Mg</span><span class="t"><b>Casey Jones (Manager)</b>' +
       '<span>The head bot. Talk to it about the business, or have it train the bots below.</span></span><span class="tag on">Call</span></a>' +
-    BOTS.map(b => '<button type="button" class="bot" data-k="' + b.key + '"><span class="ic">' + b.ic + '</span><span class="t"><b>' + esc(b.name) +
-      '</b><span>' + esc(b.where) + '</span></span><span class="tag' + ((rules[b.key] || "").trim() ? ' on">Your rules' : '">Built-in') + '</span></button>').join("") +
+    BOTS.map(b => '<button type="button" class="bot" data-k="' + b.key + '"><span class="ic">' + b.ic + '</span><span class="t"><b>' + esc(botName(b)) +
+      '</b><span>' + esc(b.where) + '</span></span><span class="tag' + ((rules[b.key] || "").trim() ? ' on">Your setup' : '">Built-in') + '</span></button>').join("") +
     COMING.map(b => '<button type="button" class="bot" disabled><span class="ic">' + b.ic + '</span><span class="t"><b>' + esc(b.name) +
       '</b><span>' + esc(b.does) + '</span></span><span class="tag">Coming</span></button>').join("") + '</div>';
   document.querySelectorAll(".bot[data-k]").forEach(el => el.onclick = () => showBot(el.dataset.k));
@@ -158,7 +190,8 @@ function showList() {
 function showBot(key) {
   const b = BOTS.find(x => x.key === key); current = b; history = [];
   window.history.replaceState(null, "", "./bots.html?bot=" + key);
-  $("title").textContent = b.name;
+  $("title").textContent = botName(b);
+  const setup = parseSetup(rules[key]);
   $("sub").innerHTML = 'Used on the <a href="' + b.page + '">' + esc(b.where) + '</a>.';
   $("backLink").innerHTML = "&lsaquo; All bots"; $("backLink").href = "./bots.html";
   $("backLink").onclick = e => { e.preventDefault(); showList(); };
@@ -166,11 +199,13 @@ function showBot(key) {
   const canTalk = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   $("view").innerHTML =
     '<section class="panel"><h2>What it does</h2><p>' + esc(b.does) + '</p>' +
-      '<p class="muted">Its built-in instructions stay as they are. Your rules below get added on top, every time it runs.</p></section>' +
-    '<section class="panel"><h2>Your rules</h2>' +
-      '<textarea id="rules" placeholder="' + esc(b.hint) + '">' + esc(rules[key] || "") + '</textarea>' +
-      '<div class="row"><button type="button" class="btn" id="saveRules">Save rules</button><span class="saved" id="savedMsg"></span></div>' +
-      '<p class="muted" style="margin-top:8px">One rule per line works best. Takes effect within a minute.</p></section>' +
+      '<p class="muted">Its built-in instructions stay as they are. Your setup below gets added on top, every time it runs.</p></section>' +
+    '<section class="panel"><h2>Setup</h2>' +
+      FIELDS.map(f => '<label class="fl" for="f_' + f.k + '">' + esc(f.label) + '</label>' +
+        (f.one ? '<input type="text" id="f_' + f.k + '" placeholder="' + esc(f.hint(b)) + '" value="' + esc(setup[f.k] || "") + '">'
+               : '<textarea id="f_' + f.k + '"' + (f.big ? '' : ' class="sm"') + ' placeholder="' + esc(f.hint(b)) + '">' + esc(setup[f.k] || "") + '</textarea>')).join("") +
+      '<div class="row"><button type="button" class="btn" id="saveRules">Save setup</button><span class="saved" id="savedMsg"></span></div>' +
+      '<p class="muted" style="margin-top:8px">Fill in only what you need. Knowledge and Examples make it smartest. Takes effect within a minute.</p></section>' +
     (lr ? '<section class="panel"><h2>What it has learned</h2>' + (lr.length ? '<ul class="learned">' + lr.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul>'
       : '<p class="muted">Nothing yet.</p>') + '</section>' : '') +
     '<section class="panel"><h2>Test it</h2>' +
@@ -189,11 +224,13 @@ function showBot(key) {
 }
 
 async function saveRules() {
-  const k = current.key, v = $("rules").value.trim();
+  const k = current.key, f = {};
+  FIELDS.forEach(x => { f[x.k] = $("f_" + x.k).value; });
+  const v = composeSetup(f);
   $("saveRules").disabled = true; $("savedMsg").textContent = "";
   try {
     await setDoc(doc(db, "settings", "botRules"), { [k]: v, updatedAt: serverTimestamp() }, { merge: true });
-    rules[k] = v; $("savedMsg").textContent = "Saved";
+    rules[k] = v; $("savedMsg").textContent = "Saved"; $("title").textContent = botName(current);
   } catch (e) { console.error(e); $("savedMsg").style.color = "#b3261e"; $("savedMsg").textContent = "Couldn't save. Try again."; }
   $("saveRules").disabled = false;
 }

@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0d1b2a">
 <meta name="robots" content="noindex, nofollow">
-<title>KC Jones &middot; Khean &amp; Clean</title>
+<title>Casey Jones &middot; Khean &amp; Clean</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="../images/icon-180.png">
 <style>
@@ -51,8 +51,8 @@ button:disabled{opacity:.5;cursor:default}
 <div id="authwait"></div>
 <div class="wrap">
   <a class="back" href="./hub.html">&lsaquo; Hub</a>
-  <h1>KC Jones</h1>
-  <p class="sub">KC Jones is your manager bot. Ask about leads, jobs, invoices and texts, or tell it how to train the other <a href="./bots.html">bots</a>.</p>
+  <h1>Casey Jones</h1>
+  <p class="sub">Casey Jones is your manager bot. Ask about leads, jobs, invoices and texts, or tell it how to train the other <a href="./bots.html">bots</a>.</p>
   <section class="panel callbox">
     <button type="button" class="call" id="callBtn" aria-label="Call KC"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg></button>
     <div class="state" id="state">Tap to call</div>
@@ -131,7 +131,7 @@ function pickVoice() {
 pickVoice();
 try { speechSynthesis.onvoiceschanged = pickVoice; } catch (e) {}
 
-/* KC Jones's real voice comes back from the backend as an MP3 (Google Chirp 3 HD "Charon").
+/* Casey Jones's real voice comes back from the backend as an MP3 (Google Chirp 3 HD "Charon").
    One audio player, unlocked on the Call tap, so phones let it play later. If there's no MP3, the device voice reads it. */
 const player = new Audio();
 let stopPlayer = null;
@@ -174,7 +174,7 @@ function startCall() {
   inCall = true; $("callBtn").classList.add("on"); $("callBtn").setAttribute("aria-label", "Hang up");
   unlockPlayer();
   if (history.length) { listen(); return; }
-  const hi = "Hey, it's KC Jones. What do you need?";
+  const hi = "Hey, it's Casey Jones. What do you need?";
   setState("Calling…");
   managerBot({ sayOnly: hi }).then(r => { if (inCall) speak(hi, listen, r.data && r.data.audio); }).catch(() => { if (inCall) speak(hi, listen); });
 }
