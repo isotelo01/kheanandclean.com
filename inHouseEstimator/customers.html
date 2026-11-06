@@ -52,6 +52,7 @@ h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid
 .row.bg-user{background:#e6f2ec}
 .row.bg-user a{color:inherit;text-decoration:none}
 .row.bg-user .who{display:block}
+.row.bg-user .dupnote a{text-decoration:underline}
 .row.bg-user .addu{margin-top:8px;background:transparent;color:inherit;border:1px solid currentColor;border-radius:999px;padding:5px 12px;font:600 13px system-ui,sans-serif;cursor:pointer}
 .who{font-weight:700}
 /* Account number sits on its own line above the name, right-aligned,
@@ -433,8 +434,8 @@ async function showList(){
     };
     const leadsHtml = leads.length ? '<section class="col"><h3 class="colhead">Leads</h3>' + leads.map(leadCard).join("") + '</section>' : "";
     if (leads.length) countEl.textContent += " \u00b7 " + leads.length + (leads.length === 1 ? " lead" : " leads");
-    /* Users not yet in contacts (same phone/email as someone with a different name): add with a tap.
-       Everyone else is already a contact above. */
+    /* Possible duplicates: a user with the same phone/email as a contact with a different name.
+       Flagged, not merged. Merge = stack onto that contact; Keep separate = their own contact. */
     const users = (allUsers || []).filter(u => !u.customerId).filter(u => !t ||
       [u.businessName, u.contactName, u.email, u.type].join(" ").toLowerCase().includes(t) ||
       (td.length >= 3 && digits(u.phone).includes(td)));
@@ -442,31 +443,33 @@ async function showList(){
       const tel = String(u.phone || "").replace(/[^\d+]/g, "");
       const lines = [u.businessName && u.contactName ? u.contactName : "", u.type || "", u.email || ""].filter(x => String(x).trim());
       return '<div class="row bg-user"><a class="who" href="./users.html">' + esc(u.businessName || u.contactName || u.email || "No name") + '</a>' +
+        (u.dupOf ? '<div class="meta dupnote">Same phone or email as <a href="#' + encodeURIComponent(u.dupOf) + '">' + esc(u.dupName || "another contact") + '</a></div>' : "") +
         lines.map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
         (tel ? '<div class="meta"><a href="tel:' + esc(tel) + '">' + esc(u.phone) + '</a></div>' : "") +
-        '<button type="button" class="addu" data-addu="' + esc(u.id) + '">Add to contacts</button></div>';
+        (u.dupOf ? '<button type="button" class="addu" data-addu="' + esc(u.id) + '" data-mode="merge">Merge</button> ' : "") +
+        '<button type="button" class="addu" data-addu="' + esc(u.id) + '" data-mode="separate">' + (u.dupOf ? "Keep separate" : "Add to contacts") + '</button></div>';
     };
-    const usersHtml = users.length ? '<section class="col"><h3 class="colhead">Users</h3>' + users.map(userCard).join("") + '</section>' : "";
-    if (users.length) countEl.textContent += " \u00b7 " + users.length + (users.length === 1 ? " user" : " users");
+    const usersHtml = users.length ? '<section class="col"><h3 class="colhead">Possible duplicates</h3>' + users.map(userCard).join("") + '</section>' : "";
+    if (users.length) countEl.textContent += " \u00b7 " + users.length + (users.length === 1 ? " possible duplicate" : " possible duplicates");
     listEl.innerHTML = (rows.length
       ? GROUPS.map(g => {
           const inG = rows.filter(g.has);
           return inG.length ? '<section class="col"><h3 class="colhead">' + g.label + '</h3>' +
             inG.map(card).join("") + '</section>' : "";
         }).join("")
-      : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>') + leadsHtml + usersHtml;
+      : '<div class="msg">' + (t ? "No customers match that." : "No customers yet. Send an estimate or press Add customer.") + '</div>') + leadsHtml;
+    if (usersHtml) listEl.insertAdjacentHTML("afterbegin", usersHtml);   /* duplicates first, so they get seen */
   };
   q.addEventListener("input", draw);
-  /* Add to contacts: the phone/email is already on someone with a different name, so ask first. */
+  /* Possible duplicate: Merge onto the flagged contact, or Keep separate (its own contact). */
   listEl.addEventListener("click", async e => {
     const b = e.target.closest("[data-addu]"); if (!b) return;
     const u = (allUsers || []).find(x => x.id === b.dataset.addu); if (!u) return;
-    if (!confirm("Add " + (u.businessName || u.contactName || "this user") + " to contacts?\n\nTheir phone or email is already on another contact with a different name.\nOK = add them to that contact\nCancel = don't add")) return;
-    b.disabled = true; b.textContent = "Adding\u2026";
+    const was = b.textContent; b.disabled = true; b.textContent = "Saving\u2026";
     try {
-      const id = await partnerToContact(db, u, true);
+      const id = await partnerToContact(db, u, b.dataset.mode);
       all = null; location.hash = "#" + encodeURIComponent(id);
-    } catch (ex) { console.error(ex); alert("Could not add. Try again."); b.disabled = false; b.textContent = "Add to contacts"; }
+    } catch (ex) { console.error(ex); alert("Could not save. Try again."); b.disabled = false; b.textContent = was; }
   });
   draw();
 }

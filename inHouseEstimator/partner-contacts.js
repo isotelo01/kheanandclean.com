@@ -3,7 +3,9 @@
    The link is kept both ways: customers/<id>.partnerUid and partners/<uid>.customerId.
    Uses the stacking rule in contact-match.js:
      same name + same phone/email -> link to that contact and stack anything new onto it
-     same phone/email, different name -> left alone (shows under Users with an "Add to contacts" button)
+     same phone/email, different name -> flagged as a possible duplicate (partners/<uid>.dupOf), nothing merged.
+       Flags show at the top of Contacts and as a red count on the hub's Contacts tile; Israel picks
+       Merge or Keep separate whenever he gets to it.
      nothing matches -> a new contact is made */
 import { collection, query, where, limit, getDocs, doc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -26,21 +28,28 @@ async function findMatch(db, pk, ek) {
   return null;
 }
 
-/* Make (or link) the contact for one user. force = add it even if the name is different (user said OK).
-   Returns the contact id, or "" when it was left alone. */
-export async function partnerToContact(db, u, force) {
+/* Make (or link) the contact for one user.
+   mode: "auto" (default), "merge" (stack onto the flagged match), "separate" (always a new contact).
+   Returns the contact id, or "" when it was flagged instead. */
+export async function partnerToContact(db, u, mode) {
+  const force = mode === "merge", separate = mode === "separate";
   if (u.customerId) return u.customerId;
   const name = String(u.contactName || "").trim(), business = String(u.businessName || "").trim();
   const phone = String(u.phone || "").trim(), email = String(u.email || "").trim();
   if (!name && !business) return "";
   const pk = phoneKey(phone), ek = emailKey(email);
-  const dup = (pk || ek) ? await findMatch(db, pk, ek) : null;
+  const dup = separate ? null : (pk || ek) ? await findMatch(db, pk, ek) : null;
   let id;
   if (dup && !dup.partnerUid && (force || sameName(name || business, dup) || sameName(business, dup))) {
     id = dup.id;
     const stack = stackPatch(dup, { phones: phone ? [phone] : [], emails: email ? [email] : [], business });
     await setDoc(doc(db, "customers", id), { ...stack, partnerUid: u.id, updatedAt: serverTimestamp() }, { merge: true });
   } else if (dup && !force) {
+    /* Possible duplicate: flag it once and move on. */
+    if (u.dupOf !== dup.id) {
+      await setDoc(doc(db, "partners", u.id), { dupOf: dup.id, dupName: dup.business || dup.name || "", dupAt: serverTimestamp() }, { merge: true });
+      u.dupOf = dup.id; u.dupName = dup.business || dup.name || "";
+    }
     return "";
   } else {
     id = doc(collection(db, "customers")).id;
@@ -52,8 +61,8 @@ export async function partnerToContact(db, u, force) {
       createdAt: serverTimestamp(), updatedAt: serverTimestamp()
     }, { merge: true });
   }
-  await setDoc(doc(db, "partners", u.id), { customerId: id }, { merge: true });
-  u.customerId = id;
+  await setDoc(doc(db, "partners", u.id), { customerId: id, dupOf: "", dupName: "" }, { merge: true });
+  u.customerId = id; u.dupOf = ""; u.dupName = "";
   return id;
 }
 
@@ -62,7 +71,7 @@ export async function partnerToContact(db, u, force) {
 export async function syncPartnerContacts(db, users) {
   let changed = false;
   for (const u of (users || []).filter(u => u && u.id && !u.customerId)) {
-    try { if (await partnerToContact(db, u, false)) changed = true; }
+    try { if (await partnerToContact(db, u)) changed = true; }
     catch (e) { console.warn("user -> contact " + u.id, e); }
   }
   return changed;

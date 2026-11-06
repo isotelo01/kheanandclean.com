@@ -87,6 +87,8 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px s
 /* Job Site Data: a normal tile in the grid. Tap it and the full details open in a panel under the grid
    (tap again to close). Recent jobs, estimated vs actual sq ft room by room (+/-, the most-off
    rooms highlighted), chemicals used, and chemical costs for the month and the year. */
+.dupct{position:absolute;top:10px;right:10px;min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:#d93025;color:#fff;
+  font:700 14px/24px system-ui,sans-serif;text-align:center}
 button.tile{font:inherit;text-align:left;cursor:pointer;width:100%}
 .tile.jsd{justify-content:flex-start;gap:10px;margin-top:12px;background:var(--navy);color:#fff}
 .tile.jsd[hidden]{display:none}
@@ -577,6 +579,13 @@ onAuthStateChanged(auth, user => {
   if (!["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2"].includes(user.uid)) {
     location.replace("./partner.html"); return; }
   document.getElementById("authwait")?.remove();
+  /* Possible duplicate contacts: red count on the Contacts tile (they're listed at the top of Contacts). */
+  getDocs(collection(db, "partners")).then(s => {
+    const n = s.docs.filter(d => { const x = d.data(); return x.dupOf && !x.customerId; }).length;
+    const t = document.querySelector('a.tile[href="./customers.html"]');
+    if (n && t && !t.querySelector(".dupct")) t.insertAdjacentHTML("beforeend",
+      '<span class="dupct" title="Possible duplicates">' + n + '</span>');
+  }).catch(e => console.error("duplicates:", e));
   if (!fiveLoaded) { fiveLoaded = true; loadFive().then(() => loadWeather().catch(e => console.error(e)))
       .catch(e => { console.error(e); fiveBox.innerHTML = '<div class="pnone">Could not load the schedule.</div>'; });
     loadJSD().catch(e => { console.error(e); jsdBox.innerHTML = '<div class="pnone">Could not load job site data.</div>'; }); }
