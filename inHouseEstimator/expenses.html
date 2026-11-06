@@ -21,7 +21,7 @@
 *{box-sizing:border-box}
 body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
 #authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
-.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 18px 60px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
 .home{display:flex;flex:none;border-radius:6px}
 .home img{display:block;width:34px;height:34px;border-radius:6px}
@@ -44,6 +44,8 @@ textarea{min-height:60px;resize:vertical}
 .tablewrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:15px}
 th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+/* Expenses: Ref # and date stay on one line. */
+#list td.ref,#list td:first-child{white-space:nowrap}
 th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 td.amt,th.amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 tfoot td{font-weight:700;border-bottom:none}
@@ -53,7 +55,7 @@ tfoot td{font-weight:700;border-bottom:none}
 .del{font:400 22px/1 "Archivo",system-ui,sans-serif;width:30px;height:30px}
 .restore{font-size:13px;padding:5px 10px}
 .note{color:var(--muted);font-size:13px}
-.sides{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.sides{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:16px;align-items:start}
 .sides .panel{margin-bottom:0;min-width:0}
 .pl{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center}
 .pl .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
@@ -280,7 +282,7 @@ function render(){
     '<th>Date</th><th>Vendor</th><th>Category</th><th class="pw">Paid with</th><th class="pw">Ref #</th><th class="amt">Amount</th></tr></thead><tbody>' +
     rows.map(r => '<tr class="exrow" data-id="' + esc(r.id) + '"><td>' + esc(String(r.date || "").replace(/^\d{4}-0?(\d{1,2})-0?(\d{1,2})$/, "$1/$2")) + '</td><td><span class="vname">' + esc(r.vendor) + '</span>' +
       '</td><td>' + esc(r.category) +
-      '</td><td class="pw">' + esc(r.paidWith) + '</td><td class="pw">' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
+      '</td><td class="pw">' + esc(r.paidWith) + '</td><td class="pw ref">' + esc(r.ref) + '</td><td class="amt">' + money(r.amount) +
       (r.receiptPath ? '<div><a href="#" class="rcpt" data-path="' + esc(r.receiptPath) + '">Receipt</a></div>' : '') +
       '</td></tr>').join("") +
     '</tbody><tfoot><tr><td colspan="3">Total (' + rows.length + ')</td><td class="pw"></td><td class="pw"></td><td class="amt">' + money(total) + '</td></tr></tfoot></table></div>';
