@@ -802,15 +802,47 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   function upLog(){ try{ return JSON.parse(localStorage.getItem(UPL) || '[]') || []; }catch(e){ return []; } }
   /* Photos they removed on purpose (their uploaded path). Everything else that was uploaded and then
      disappears from the phone gets pulled back down from Firebase. */
-  function gone(f){ if(f && f._up){ A.goneUp = (A.goneUp || []).filter(function(p){ return p !== f._up; }).concat(f._up).slice(-500); } }
-  function goneSet(){ var g = {}; (A.goneUp || []).forEach(function(p){ g[p] = 1; }); return g; }
+  /* Also kept in its own spot on the phone, so a removal sticks even if the page reloads on a room screen. */
+  var GONE = 'kcQuoteBuilderGone';
+  function goneLocal(){ try{ return JSON.parse(localStorage.getItem(GONE) || '[]') || []; }catch(e){ return []; } }
+  function gone(f){ if(f && f._up){ A.goneUp = (A.goneUp || []).filter(function(p){ return p !== f._up; }).concat(f._up).slice(-500);
+    try{ localStorage.setItem(GONE, JSON.stringify(goneLocal().filter(function(p){ return p !== f._up; }).concat(f._up).slice(-500))); }catch(e){} } }
+  function goneSet(){ var g = {}; (A.goneUp || []).concat(goneLocal()).forEach(function(p){ g[p] = 1; }); return g; }
   /* Rooms whose photos are gone from the phone but were uploaded: download them back from Firebase. */
+  /* Rooms on this quote with no photos on the phone: look in the quote's own Firebase folder and bring back
+     that room's newest set (photos taken within 10 minutes of its last one). Works even if the phone's list was lost. */
+  function folderMiss(fb, have, g){
+    if(!A.upKey || !fb.st.listAll) return Promise.resolve([]);
+    var rooms = {}, withPh = {};
+    photoRooms().forEach(function(rm){ rooms[rm.id] = rm; });
+    A.photos.forEach(function(f){ if(f._room) withPh[f._room] = 1; });
+    return fb.st.listAll(fb.st.ref(fb.storage, 'quick-quote-photos/' + A.upKey)).then(function(res){
+      var by = {}, out = [];
+      res.items.forEach(function(it){
+        var m = /^(\d+)_[a-z0-9]+_(.+)\.jpg$/.exec(it.name); if(!m) return;
+        var room = m[2];
+        if(!rooms[room] || withPh[room] || have[it.fullPath] || g[it.fullPath]) return;
+        (by[room] = by[room] || []).push({ p:it.fullPath, t:+m[1], room:room, rn:rooms[room].t });
+      });
+      Object.keys(by).forEach(function(room){
+        var l = by[room].sort(function(a, b){ return a.t - b.t; }), last = l[l.length - 1].t;
+        out = out.concat(l.filter(function(x){ return last - x.t < 6e5; }).slice(-20));
+      });
+      return out;
+    }).catch(function(err){ console.warn('Quote folder not listed', err && err.code); return []; });
+  }
   function recoverPhotos(){
     var have = {}, g = goneSet(); A.photos.forEach(function(f){ if(f._up) have[f._up] = 1; });
-    var miss = upLog().filter(function(x){ return x.room && x.p && !have[x.p] && !g[x.p]; }).sort(function(a, b){ return a.p < b.p ? -1 : 1; });
-    if(!miss.length) return Promise.resolve();
+    var logMiss = upLog().filter(function(x){ return x.room && x.p && !have[x.p] && !g[x.p]; });
+    if(!logMiss.length && !A.upKey) return Promise.resolve();
     var work = firebase().then(function(fb){
-      return Promise.all(miss.map(function(x){
+      return folderMiss(fb, have, g).then(function(more){
+        var seen = {}, miss = logMiss.concat(more).filter(function(x){ if(seen[x.p]) return false; seen[x.p] = 1; return true; })
+          .sort(function(a, b){ return a.p < b.p ? -1 : 1; });
+        return miss;
+      });
+    }).then(function(miss){
+      return firebase().then(function(fb){ return Promise.all(miss.map(function(x){
         var r = fb.st.ref(fb.storage, x.p);
         return (fb.st.getBlob ? fb.st.getBlob(r) : Promise.reject()).catch(function(){
           return fb.st.getDownloadURL(r).then(function(u){ return fetch(u); }).then(function(res){ return res.ok ? res.blob() : null; });
@@ -821,7 +853,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
           f._room = x.room; f._roomName = x.rn; f._up = x.p;   /* already uploaded: never sent twice */
           return f;
         }).catch(function(){ return null; });
-      }));
+      })); });
     }).then(function(fs){ fs = fs.filter(Boolean); if(fs.length) A.photos = A.photos.concat(fs); }).catch(function(){});
     return Promise.race([work, new Promise(function(ok){ setTimeout(ok, 20000); })]);   /* never hang the page on it */
   }
@@ -833,7 +865,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     });
   }
   function keepPhotos(){
-    var sig = A.photos.map(function(f){ return (f.name || '') + f.size + (f._room || '') + (f._up ? '^' : ''); }).join('|');
+    if(!phReady) return;   /* never save over the phone's copy before its photos have finished loading */
+    var sig =A.photos.map(function(f){ return (f.name || '') + f.size + (f._room || '') + (f._up ? '^' : ''); }).join('|');
     if(sig === photoSig) return; photoSig = sig;
     var my = ++photoSeq;   /* only the newest save gets written, so an older, slower one can't overwrite it */
     /* Uploaded-photo list (Firebase path + room): rooms with photos here are listed from these photos;
@@ -879,7 +912,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       })).then(function(fs){ return fs.filter(Boolean); });
     }).catch(function(){ return []; });
   }
-  function dropPhotos(){ photoSig = ''; try{ localStorage.removeItem(UPL); }catch(e){} idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').delete('all'); }).catch(function(){}); }
+  function dropPhotos(){ photoSig = ''; try{ localStorage.removeItem(UPL); localStorage.removeItem(UPK); localStorage.removeItem(GONE); }catch(e){} idb().then(function(db){ db.transaction('photos', 'readwrite').objectStore('photos').delete('all'); }).catch(function(){}); }
 
   /* Their answers are also copied to Firebase (quoteProgress) as they go, so unfinished quotes show up
      on our end. Tied to an ID kept on their phone. expireAt lets a Firestore TTL policy clear
@@ -1988,9 +2021,10 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       '<input type="file" id="rpickIn" accept="image/*" multiple hidden>');
     var redo = function(){ shootRoom(el, rm, how || 'cam'); };
     var fl = A.roomFloor[rm.id], label = rm.t + (fl && A.story === '2' ? ' (' + FLOORS[fl].toLowerCase() + ')' : '');
-    var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = label; A.photos.push(f); keepPhotos(); } };   /* saved to the phone right away */
-    /* Retake from the camera's Back button: the new photo takes the old one's place. */
-    var swap = function(old, f){ var k = A.photos.indexOf(old); if(k > -1){ f._room = rm.id; f._roomName = label; A.photos[k] = f; keepPhotos(); } };
+    var keep = function(f){ if(A.photos.length < PMAX && /^image\//.test(f.type || 'image/jpeg')){ f._room = rm.id; f._roomName = label; A.photos.push(f); keepPhotos(); upSoon(); } };   /* saved to the phone and uploaded right away */
+    /* Retake (camera Back or the full-size viewer): the new photo takes the old one's place, and the old one
+       is marked removed so it never comes back from Firebase. */
+    var swap = function(old, f){ var k = A.photos.indexOf(old); if(k > -1){ gone(old); f._room = rm.id; f._roomName = label; A.photos[k] = f; keepPhotos(); upSoon(); } };
     var add = function(inp){ Array.prototype.forEach.call(inp.files, keep); inp.value = ''; redo(); };
     el.querySelector('#rcamIn').onchange = function(){ add(this); };
     el.querySelector('#rpickIn').onchange = function(){ add(this); };
@@ -2379,8 +2413,13 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Photos upload one at a time in the background (after each room's Done), into one folder per quote.
      Each photo remembers where it went (f._up), so nothing uploads twice and Send only uploads what's left. */
   var upChain = Promise.resolve();
+  /* The quote's photo folder. Also kept in its own spot on the phone, so a reload on a room screen
+     (where answers aren't saved) still finds the same folder. */
+  var UPK = 'kcQuoteBuilderKey';
   function upKey(){
+    if(!A.upKey){ try{ A.upKey = localStorage.getItem(UPK) || ''; }catch(e){} }
     if(!A.upKey) A.upKey = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    try{ localStorage.setItem(UPK, A.upKey); }catch(e){}
     return A.upKey;
   }
   function upPending(fb){
@@ -2395,7 +2434,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
           if(b.size > 10 * 1024 * 1024){ f._upBad = true; return; }
           var path = 'quick-quote-photos/' + key + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '_' + (f._room || 'walkthrough') + '.jpg';
           return fb.st.uploadBytes(fb.st.ref(fb.storage, path), b, { contentType:'image/jpeg' })
-            .then(function(s){ f._up = s.ref.fullPath; }).catch(function(err){ console.error('Photo upload failed', err); });
+            .then(function(s){ f._up = s.ref.fullPath; keepPhotos(); }).catch(function(err){ console.error('Photo upload failed', err); upWarn(); });
         });
       }, Promise.resolve());
     });
@@ -2452,6 +2491,18 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     box.innerHTML = h; box.hidden = false;
   }
   function upNow(){ firebase().then(function(fb){ return upPending(fb).then(function(){ measurePhotos(fb); }); }).catch(function(){}); }
+  /* Each new photo uploads a moment after it's taken (no measuring until the room is Done). */
+  var upT = null;
+  function upSoon(){ clearTimeout(upT); upT = setTimeout(function(){ firebase().then(function(fb){ return upPending(fb); }).catch(function(){ upWarn(); }); }, 1500); }
+  /* A photo didn't upload: a small note at the bottom, once a minute at most. It's still on the phone and tries again on the next photo or Done. */
+  var upWarnAt = 0;
+  function upWarn(){
+    if(Date.now() - upWarnAt < 6e4) return; upWarnAt = Date.now();
+    var n = document.createElement('div');
+    n.textContent = 'A photo didn’t upload yet. It’s saved on your phone and will try again.';
+    n.style.cssText = 'position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:10000;background:#2a1d0c;color:#fff;border:1px solid #e3b343;border-radius:12px;padding:12px 14px;font:500 14px system-ui,sans-serif;text-align:center';
+    document.body.appendChild(n); setTimeout(function(){ n.remove(); }, 5000);
+  }
   /* At Send: finish anything not uploaded yet, then list every photo still in the quote. */
   function upload(fb){
     return upPending(fb).then(function(){ return A.photos.map(function(f){ return f._up; }).filter(Boolean); });
