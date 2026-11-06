@@ -254,6 +254,11 @@ body.rp .opts .opt.empty{ min-height:118px; justify-content:flex-start; gap:16px
   background:rgba(227,182,74,.14); border-radius:20px; font-size:1.15rem; }
 body.rp .opts .opt.empty .cam{ width:52px; height:52px; flex:none; display:grid; place-items:center; border-radius:50%; background:var(--gold); color:#140f05; }
 body.rp .opts .opt.empty small{ color:var(--gold); font-weight:600; font-size:.9rem; }
+/* Camera (upright): Done on the right, 0.5 on the left — this page only, the job sheet camera stays as is. */
+@media (orientation:portrait){
+  body .bcam.ios .bdone{ grid-column:3; } body .bcam.ios .btop{ grid-column:1; }
+  body .bcam.andr .bdone{ order:3; } body .bcam.andr .btop{ order:4; }
+}
 /* Counter rows */
 .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--card);
   border:1px solid var(--line); border-radius:14px; padding:12px 12px 12px 16px; }
