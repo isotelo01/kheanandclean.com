@@ -31,7 +31,7 @@
     '.bcam .bpv .bpp{left:calc(env(safe-area-inset-left) + 12px)}.bcam .bpv .bpn{right:calc(env(safe-area-inset-right) + 12px)}' +
     '.bcam .bpv [hidden]{display:none}' +
     '.bcam .bpv .bpc{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 16px);text-align:center;font:700 17px system-ui,sans-serif;text-shadow:0 1px 4px #000}' +
-    '.bcam .bshut{width:49px;height:49px;border-radius:50%;background:#fff;border:3px solid #000;box-shadow:0 0 0 2px #fff;cursor:pointer;flex:none;order:2}' +
+    '.bcam .bshut{width:62px;height:62px;border-radius:50%;background:#fff;border:4px solid #000;box-shadow:0 0 0 3px #fff,0 4px 18px rgba(0,0,0,.5);cursor:pointer;flex:none;order:2;transition:transform .08s}' +
     '.bcam .bshut:active{transform:scale(.92)}' +
     '.bcam .bshut:disabled{opacity:.4}' +
     /* Done: gold pill with a check mark and a soft glow. */
@@ -78,10 +78,11 @@
     '.bcam.ios .bleft{order:1}.bcam.ios .bshut{order:2}.bcam.ios .bdone{order:3}' +
     /* Label in the top left corner of the screen (may overlap the photo). */
     '.bcam.ios .btip{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:calc(env(safe-area-inset-left) + 12px);right:auto;bottom:auto;max-width:calc(100% - 172px)}' +
-    /* Android sideways: the label runs down the left strip in big bold italics (off the top, so the picture
-       gets the full height); shutter dead center on the right where the thumb rests, Done and the count under it;
+    /* Android sideways: the label is a small pill in the top left corner (no sideways text eating the left side,
+       the picture keeps the full height); shutter dead center on the right where the thumb rests, Done and the count under it;
        0.5 in the top right corner; light placed by script at the photo's top right corner; Back / Forward bottom right. */
-    '.bcam.andr .btip{position:absolute;z-index:2;left:calc(env(safe-area-inset-left) + 10px);top:calc(env(safe-area-inset-top) + 12px);margin:0;max-width:none;max-height:calc(100% - 24px);writing-mode:vertical-rl;background:none;border-radius:0;padding:0;font:italic 800 24px system-ui,sans-serif;letter-spacing:.02em;text-shadow:0 2px 8px rgba(0,0,0,.85)}' +
+    '.bcam.andr .btip{position:absolute;z-index:2;left:calc(env(safe-area-inset-left) + 12px);top:calc(env(safe-area-inset-top) + 12px);margin:0;max-width:60%;gap:8px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:7px 14px;font:600 15px/1.2 system-ui,sans-serif;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}' +
+    '.bcam.andr .btip svg{width:48px;max-width:48px}' +
     '.bcam.andr .bnav{left:auto;right:12px}' +
     '.bcam.andr .bbar{flex:none;box-sizing:border-box;width:calc(env(safe-area-inset-right) + 136px);display:grid;grid-template-rows:1fr auto 1fr;justify-items:center;align-items:center;gap:0}' +
     '.bcam.andr .bshut{grid-row:2;grid-column:1}' +
