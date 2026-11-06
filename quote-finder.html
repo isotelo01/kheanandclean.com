@@ -885,19 +885,33 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       var id = progressId(), step = (FLOW()[i] || {}).name || '';
       firebase().then(function(fb){
         return fb.fs.setDoc(fb.fs.doc(fb.db, 'quoteProgress', id), {
-          page:'quote-builder', status:'in progress', step:step, stepNo:i, answers:JSON.stringify(a),
-          photosOnPhone:A.photos.length, updatedAt:fb.fs.serverTimestamp(), expireAt:new Date(Date.now() + 14 * 864e5)
+          page:'quote-builder', status:A.sentAt ? 'sent, editing' : 'in progress', step:step, stepNo:i, answers:JSON.stringify(a),
+          photosOnPhone:A.photos.length, updatedAt:fb.fs.serverTimestamp(),
+          expireAt:A.sentAt ? fb.fs.deleteField() : new Date(Date.now() + 14 * 864e5)   /* a sent quote is their saved copy: kept */
         }, { merge:true });
       }).catch(function(x){ console.warn('Progress not saved to Firebase', x && x.code); });
     }, 1500);
   }
+  /* Sent: the progress doc becomes their saved copy (answers + uploaded photo paths), kept with no expiry,
+     so the saved-quote link (?q=id) can open it later in these same screens. */
   function cloudDone(){
-    var id = null; try{ id = localStorage.getItem(PID); localStorage.removeItem(PID); }catch(e){}
-    if(!id) return;
+    var id = progressId();
     clearTimeout(cloudT);
+    var a = JSON.parse(JSON.stringify(A, function(k, v){ return k === 'photos' ? [] : v; }));
+    var ph = A.photos.filter(function(f){ return f._up; }).map(function(f){ return { p:f._up, room:f._room || '', rn:f._roomName || '' }; });
     firebase().then(function(fb){
-      return fb.fs.setDoc(fb.fs.doc(fb.db, 'quoteProgress', id), { status:'sent', updatedAt:fb.fs.serverTimestamp() }, { merge:true });
-    }).catch(function(){});
+      return fb.fs.setDoc(fb.fs.doc(fb.db, 'quoteProgress', id), { status:'sent', answers:JSON.stringify(a), photos:JSON.stringify(ph),
+        sentAt:fb.fs.serverTimestamp(), updatedAt:fb.fs.serverTimestamp(), expireAt:fb.fs.deleteField() }, { merge:true });
+    }).catch(function(x){ console.warn('Saved copy not stored', x && x.code); });
+  }
+  function savedLink(){ return location.origin + location.pathname + '?q=' + encodeURIComponent(progressId()); }
+  /* After sending: keep everything on their phone and open at their quote next time (no 14-day limit). */
+  function keepSent(){
+    try{
+      var f = FLOW(), a = JSON.parse(JSON.stringify(A, function(k, v){ return k === 'photos' ? [] : v; }));
+      localStorage.setItem(SAVE, JSON.stringify({ a:a, at:Math.max(1, f.indexOf(sPrice)), hist:[], t:Date.now() }));
+    }catch(e){}
+    keepPhotos();
   }
   backBtn.onclick = function(){ if(rpBack){ var f = rpBack; rpBack = null; f(); return; } if(hist.length){ navDir = 'back'; show(hist.pop(), false); } };
   /* Phone swipe back / browser Back = the on-screen Back: one question at a time, not out of the page.
@@ -2051,6 +2065,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       h(el, 'We’ll price this one by phone', 'Send us your details and we’ll call you with your price.');
     } else {
       h(el, 'Here’s your estimate' + hi(', '), has('carpet') && A.tier ? 'Your package: <b>' + esc(S.carpet.tiers[A.tier].name) + '</b>' : '');
+      if(A.sentAt) el.insertAdjacentHTML('beforeend', '<p class="pitch">Welcome back! This is your saved quote. Tap Back to change rooms or anything else, then send a new request.</p>');
       el.insertAdjacentHTML('beforeend', priceHtml(e));
       bindRooms(el);
     }
@@ -2428,13 +2443,14 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     if(e.rows.length) fd.append('estimate', estText(e));
     fd.append('sms_consent', smsYes ? 'Yes' : 'No'); fd.append('marketing_consent', promoYes ? 'Yes' : 'No');
     if(isBot) fd.append('botcheck', 'true');
+    fd.append('saved_quote_link', savedLink());   /* opens their saved quote in the Instant Quote to edit */
 
     (isBot ? Promise.resolve() : firebase().then(function(fb){
       return (A.photos.length ? upload(fb) : Promise.resolve([])).then(function(paths){
         fd.append('photo_count', String(paths.length));
         btn.textContent = 'Sending…';
         return saveLead(fb, {
-          page:'quote-finder', photoPaths: paths, when: A.when && A.when !== 'Flexible' ? A.when : '', name:name, phone:phone, email:email,
+          page:'quote-finder', savedQuoteLink: savedLink(), photoPaths: paths, when: A.when && A.when !== 'Flexible' ? A.when : '', name:name, phone:phone, email:email,
           addresses:[addr], type:'residential', smsConsent: smsYes, marketingConsent: promoYes,
           /* The estimate in the estimators' own snapshot format, so New quote rebuilds it. */
           estimateData: e.rows.length ? JSON.stringify({ v:1, active: (e.rows.filter(function(r){ return r.key !== 'whole'; })[0] || { key:'carpet' }).key, state: e.st, discAmt:'', discPct:'', waiveMin:false, quote: quoteOf(e) }) : '',
@@ -2450,8 +2466,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     .then(function(res){
       if(!res || !res.success) throw new Error((res && res.message) || 'failed');
       if(typeof gtag === 'function') gtag('event', 'generate_lead', { form_name:'quote_finder' });
-      try{ localStorage.removeItem(SAVE); }catch(e){}   // sent: start fresh next time
-      dropPhotos(); cloudDone(); delete A.upKey;   /* next quote gets its own photo folder */
+      /* Sent: nothing is wiped. Their answers and photos stay as a saved copy (on the phone and in Firebase),
+         so they can come back, change rooms and send a new request. Reset still starts over. */
+      A.sentAt = Date.now(); keepSent(); cloudDone();
       show(sDone, false);
     })
     .catch(function(x){
@@ -2469,26 +2486,50 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   screen.addEventListener('input', function(){ save(); });
   screen.addEventListener('change', function(){ save(); });
   setInterval(keepPhotos, 2000);   /* camera shots land outside the screen; catch them too */
-  var saved = null;
-  try{ saved = JSON.parse(localStorage.getItem(SAVE) || 'null'); }catch(e){}
-  if(saved && saved.a && saved.at > 0 && Date.now() - (saved.t || 0) < 14 * 864e5){
+  function startSaved(saved){
     Object.keys(saved.a).forEach(function(k){ A[k] = saved.a[k]; });
     A.photos = [];
-    var f0 = FLOW();
-    hist = (saved.hist || []).map(function(n){ return f0[n]; }).filter(Boolean);
+    var f0 = FLOW(), sent = !!A.sentAt;
+    hist = sent ? f0.slice(0, Math.max(0, f0.indexOf(sPrice))) : (saved.hist || []).map(function(n){ return f0[n]; }).filter(Boolean);
     phReady = false;   /* photos come back from the phone a moment after the page; snapped rooms wait for them */
-    show(f0[saved.at] || sName, false);
+    show(sent ? sPrice : (f0[saved.at] || sName), false);   /* a sent quote opens at their quote */
     loadPhotos().then(function(ph){
       A.photos = ph;
       return recoverPhotos();
     }).then(function(){
       phReady = true;
+      if(sent){ var f1 = FLOW(); hist = f1.slice(0, Math.max(0, f1.indexOf(sPrice))); }   /* photo screens are in the flow now */
       var ph = A.photos;
       if(!ph.length){ if(cur === sSnap || cur === sConfirm) show(cur, false); return; }
       photoSig = '';
       keepPhotos(); upNow();   /* finish uploads, then any photo measuring left */
-      if(cur === sPhotos || cur === sSnap || cur === sConfirm || cur === sReport) show(cur, false);   // redraw so their thumbnails show
+      if(cur === sPhotos || cur === sSnap || cur === sConfirm || cur === sReport || cur === sPrice) show(cur, false);   // redraw so their thumbnails show
     });
+  }
+  var saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(SAVE) || 'null'); }catch(e){}
+  var qid = null; try{ qid = new URLSearchParams(location.search).get('q'); }catch(e){}
+  if(qid){
+    /* Saved-quote link: load that quote's copy from Firebase onto this phone, then open it like a returning customer. */
+    show(sName, false);
+    screen.querySelector('.step').innerHTML = '<div class="gather"><div class="ring" aria-hidden="true"></div><h1>Opening your saved quote…</h1></div>';
+    firebase().then(function(fb){ return fb.fs.getDoc(fb.fs.doc(fb.db, 'quoteProgress', qid)); }).then(function(d){
+      var x = d && d.exists() ? d.data() : null, a = x && x.answers ? JSON.parse(x.answers) : null;
+      if(!a) throw new Error('not found');
+      try{
+        localStorage.setItem(PID, qid);
+        localStorage.setItem(UPL, x.photos || '[]');   /* their uploaded photos come back down from Firebase */
+        history.replaceState(null, '', location.pathname);
+      }catch(e){}
+      dropPhotos(); try{ localStorage.setItem(UPL, x.photos || '[]'); }catch(e){}
+      if(!a.sentAt) a.sentAt = Date.now();
+      startSaved({ a:a, at:1, hist:[], t:Date.now() });
+    }).catch(function(x){
+      console.warn('Saved quote not opened', x && (x.code || x.message));
+      screen.querySelector('.step').innerHTML = '<h1>We couldn’t open that saved quote</h1><p class="lead">Please call or text <a href="tel:+19167672520">(916) 767-2520</a> and we’ll send you a new link.</p>';
+    });
+  } else if(saved && saved.a && saved.at > 0 && (saved.a.sentAt || Date.now() - (saved.t || 0) < 14 * 864e5)){
+    startSaved(saved);   /* sent quotes are kept for good; unfinished ones 14 days */
   } else {
     show(sName, false);
     intro();
