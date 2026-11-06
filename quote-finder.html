@@ -318,6 +318,7 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 .rmeas .rm-n small{ font-size:.85rem; font-weight:400; color:var(--muted); }
 .rmeas p{ margin:6px 0 0; font-size:.95rem; }
 .rmeas .rec{ color:var(--ivory); }
+.rmeas .rm-g b{ color:var(--gold); font-weight:600; }
 .rmeas .go{ margin-top:10px; }
 .rresub{ position:absolute; top:10px; left:56px; height:38px; padding:0 14px; border-radius:999px; border:1px solid rgba(227,182,74,.6);
   background:rgba(0,0,0,.6); color:var(--gold); font:600 .85rem system-ui,sans-serif; cursor:pointer; z-index:2; }
@@ -1753,6 +1754,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         var r = (A.photoSqft || {})[rm.id], f = (r && r.floor) || {}, busy = !r && !mErr[rm.id];
         mbox.innerHTML = '<div class="rm-t">From your photos</div>' +
           (r && r.sqft ? '<div class="rm-n">' + r.sqft.toLocaleString() + ' sq ft' + (r.L && r.W ? ' <small>about ' + r.L + ' × ' + r.W + ' ft</small>' : '') + '</div>' : '<div class="rm-n"><small>' + (busy ? 'Measuring…' : 'Couldn’t measure. Try Resubmit.') + '</small></div>') +
+          (r && (r.guess || f.type) ? '<p class="rm-g">Looks like: <b>' + esc([r.guess === 'master' ? 'Master bedroom' : r.guess ? (ONE[r.guess] || NAMES[r.guess] || r.guess) : '', [f.type, f.detail].filter(Boolean).join(', ')].filter(Boolean).join(' · ')) + '</b></p>' : '') +
           (f.condition ? '<p>' + esc(f.condition) + '</p>' : '') + (r && r.rec ? '<p class="rec">Recommended: ' + esc(r.rec) + '</p>' : '') +
           '<button type="button" class="go ghost sm" id="rmGo"' + (busy ? ' disabled' : '') + '>' + (busy ? 'Measuring…' : '↻ Resubmit') + '</button>';
         mbox.querySelector('#rmGo').onclick = function(){ if(A.photoSqft) delete A.photoSqft[rm.id]; delete mErr[rm.id]; save(); measHook(); upNow(); };
