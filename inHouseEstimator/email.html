@@ -178,6 +178,86 @@ async function showDocx(frame, url, name) {
     frame.srcdoc = page(out.value || '<p style="color:#666">This document is empty.</p>');
   } catch (e) { frame.srcdoc = page('<p>Couldn\'t show ' + esc(name) + ' here. Tap Download.</p>'); }
 }
+/* Zip attachments: opened right in the app. A list of what's inside; photos open full size (swipe or arrows
+   between them), PDFs open, anything else downloads. JSZip loads only the first time a zip is opened. */
+let jszipReady = null;
+function loadJSZip() {
+  return jszipReady || (jszipReady = new Promise((ok, no) => {
+    const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+    s.onload = () => ok(window.JSZip); s.onerror = () => { jszipReady = null; no(new Error("load")); }; document.head.appendChild(s);
+  }));
+}
+const ZIP_TYPES = {jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", heic: "image/heic", pdf: "application/pdf"};
+async function showZip(box, url, name) {
+  const msg = t => { box.innerHTML = '<p style="color:#fff;text-align:center;margin:auto;padding:16px">' + t + '</p>'; };
+  msg("Opening " + esc(name) + "…");
+  let files;
+  try {
+    const [JSZip, buf] = await Promise.all([loadJSZip(), fetch(url).then(x => { if (!x.ok) throw new Error("fetch"); return x.arrayBuffer(); })]);
+    const zip = await JSZip.loadAsync(buf);
+    files = Object.values(zip.files).filter(e => !e.dir && !/(^|\/)(__MACOSX|\.DS_Store|Thumbs\.db)/i.test(e.name))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+  } catch (e) { msg("Couldn't open " + esc(name) + " here. Tap Download."); return; }
+  if (!files.length) { msg(esc(name) + " is empty."); return; }
+  const kind = e => ZIP_TYPES[(e.name.split(".").pop() || "").toLowerCase()] || "";
+  const short = e => e.name.split("/").pop();
+  const pics = files.filter(e => /^image\/(jpeg|png|gif|webp)$/.test(kind(e)));
+  const urls = new Map();   /* each file is unpacked once, when first opened */
+  const blobUrl = async e => { if (!urls.has(e)) urls.set(e, URL.createObjectURL(new Blob([await e.async("uint8array")], {type: kind(e) || "application/octet-stream"}))); return urls.get(e); };
+  box._cleanup = () => urls.forEach(u => URL.revokeObjectURL(u));
+  const list = () => {
+    box.innerHTML = '<div style="flex:1;overflow:auto;padding:0 12px 16px">' +
+      '<p style="color:#fff;margin:4px 0 10px;font-size:14px;opacity:.8">' + esc(name) + ' · ' + files.length + ' file' + (files.length > 1 ? 's' : '') +
+      (pics.length ? ' · ' + pics.length + ' photo' + (pics.length > 1 ? 's' : '') : '') + '</p>' +
+      (pics.length ? '<div id="zGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;margin-bottom:12px"></div>' : '') +
+      '<div id="zList" style="display:flex;flex-direction:column;gap:6px"></div></div>';
+    const grid = box.querySelector("#zGrid"), lst = box.querySelector("#zList");
+    pics.forEach((e, i) => {
+      const t = document.createElement("button"); t.type = "button"; t.setAttribute("aria-label", "Open " + short(e));
+      t.style.cssText = "aspect-ratio:1;border:0;padding:0;border-radius:8px;overflow:hidden;background:#222;cursor:pointer";
+      grid.appendChild(t);
+      blobUrl(e).then(u => { t.innerHTML = '<img alt="" src="' + u + '" style="width:100%;height:100%;object-fit:cover;display:block">'; });
+      t.addEventListener("click", () => photo(i));
+    });
+    files.filter(e => !pics.includes(e)).forEach(e => {
+      const row = document.createElement("button"); row.type = "button"; row.className = "ghost";
+      row.style.cssText = "text-align:left;color:#fff;border-color:rgba(255,255,255,.35)";
+      row.textContent = short(e) + (kind(e) === "application/pdf" ? "  (open)" : "  (download)");
+      row.addEventListener("click", async () => {
+        const u = await blobUrl(e);
+        if (kind(e) === "application/pdf") {
+          box.innerHTML = '<div style="padding:0 10px 8px"><button type="button" class="ghost" id="zBack" style="color:#fff">‹ Back to the zip</button></div>' +
+            '<iframe title="' + esc(short(e)) + '" src="' + u + '" style="flex:1;border:0;background:#fff"></iframe>';
+          box.querySelector("#zBack").addEventListener("click", list);
+        } else { const a = document.createElement("a"); a.href = u; a.download = short(e); document.body.appendChild(a); a.click(); a.remove(); }
+      });
+      lst.appendChild(row);
+    });
+  };
+  /* Photo viewer: full size, arrows or swipe, Back returns to the list. */
+  const photo = at => {
+    box.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:0 10px 8px;color:#fff">' +
+      '<button type="button" class="ghost" id="zBack" style="color:#fff">‹ Back</button><span id="zCap" style="flex:1;font-size:14px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></div>' +
+      '<div style="flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center">' +
+      '<img id="zImg" alt="" style="max-width:100%;max-height:100%;object-fit:contain">' +
+      '<button type="button" id="zPrev" aria-label="Previous photo" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font:600 24px system-ui,sans-serif">‹</button>' +
+      '<button type="button" id="zNext" aria-label="Next photo" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font:600 24px system-ui,sans-serif">›</button></div>';
+    const img = box.querySelector("#zImg"), prev = box.querySelector("#zPrev"), next = box.querySelector("#zNext");
+    const draw = async () => {
+      box.querySelector("#zCap").textContent = (at + 1) + " of " + pics.length + " · " + short(pics[at]);
+      prev.style.visibility = at > 0 ? "visible" : "hidden"; next.style.visibility = at < pics.length - 1 ? "visible" : "hidden";
+      img.src = await blobUrl(pics[at]);
+    };
+    const go = d => { const k = at + d; if (k >= 0 && k < pics.length) { at = k; draw(); } };
+    prev.addEventListener("click", () => go(-1)); next.addEventListener("click", () => go(1));
+    box.querySelector("#zBack").addEventListener("click", list);
+    let sx = null;
+    img.addEventListener("touchstart", e => { sx = e.touches[0].clientX; }, {passive: true});
+    img.addEventListener("touchend", e => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); });
+    draw();
+  };
+  list();
+}
 const mailWith = httpsCallable(fns, "mailWith");
 const mailAi = httpsCallable(fns, "mailAi", {timeout: 70000}), mailSpam = withAcct(httpsCallable(fns, "mailSpam", {timeout: 130000}));   /* Spam works on Yahoo and Gmail too */
 const storage = getStorage(app);
@@ -459,6 +539,7 @@ async function showMessage(f, uid) {
       }
       const img = /^image\//.test(r.type), pdf = r.type === "application/pdf";
       const docx = /\.docx$/i.test(r.name || "") || /wordprocessingml/.test(r.type || "");   /* Word files: shown as a page, read-only */
+      const zip = /\.zip$/i.test(r.name || "") || /^application\/(x-)?zip(-compressed)?$/i.test(r.type || "");   /* zips: what's inside, photos in a viewer */
       const ov = document.createElement("div");
       ov.style.cssText = "position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.88);display:flex;flex-direction:column";
       ov.innerHTML = '<div style="display:flex;gap:8px;justify-content:flex-end;padding:10px">' +
@@ -467,10 +548,12 @@ async function showMessage(f, uid) {
         (img ? '<img alt="' + esc(r.name) + '" src="' + url + '" style="max-width:100%;max-height:calc(100% - 64px);margin:auto;object-fit:contain">'
           : pdf ? '<iframe title="' + esc(r.name) + '" src="' + url + '" style="flex:1;border:0;background:#fff"></iframe>'
           : docx ? '<iframe title="' + esc(r.name) + '" id="attDoc" sandbox="" style="flex:1;border:0;background:#fff"></iframe>'
+          : zip ? '<div id="attZip" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>'
           : '<p style="color:#fff;text-align:center;margin:auto;padding:16px">Can\'t preview ' + esc(r.name) + ' here. Tap Download.</p>');
       document.body.appendChild(ov);
-      ov.querySelector("#attX").addEventListener("click", () => { ov.remove(); if (!r.url) URL.revokeObjectURL(url); });
+      ov.querySelector("#attX").addEventListener("click", () => { const z = ov.querySelector("#attZip"); if (z && z._cleanup) z._cleanup(); ov.remove(); if (!r.url) URL.revokeObjectURL(url); });
       if (docx) showDocx(ov.querySelector("#attDoc"), url, r.name);
+      if (zip) showZip(ov.querySelector("#attZip"), url, r.name);
     }
     catch (err) { er.textContent = friendly(err); }
     finally { b.disabled = false; b.textContent = label; }
