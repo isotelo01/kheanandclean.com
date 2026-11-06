@@ -31,8 +31,8 @@ css.textContent =
   "#kcFloat.on #kcBtn svg{transform:rotate(135deg)}" +
   /* KC's button: the gold hockey-mask emblem with a shine that sweeps across it. On a call it gets a red ring. */
   "#kcBtn.mask{position:relative;overflow:hidden;width:56px;height:56px;background:#1a1300 url(../images/kc-mask-gold.png) center/cover no-repeat;box-shadow:0 0 0 2px rgba(227,182,74,.55),0 3px 12px rgba(0,0,0,.35)}" +
-  "#kcBtn.mask::after{content:'';position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 40%,rgba(255,248,220,.75) 50%,transparent 60%);transform:translateX(-120%);animation:kcShine 3.2s ease-in-out infinite}" +
-  "@keyframes kcShine{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}" +
+  "#kcBtn.mask::after{content:'';position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 40%,rgba(255,248,220,.75) 50%,transparent 60%);transform:translateX(-120%);animation:kcfMaskShine 3.2s ease-in-out infinite}" +
+  "@keyframes kcfMaskShine{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}" +
   "@media (prefers-reduced-motion:reduce){#kcBtn.mask::after{animation:none;display:none}}" +
   "#kcFloat.on #kcBtn.mask{background:#1a1300 url(../images/kc-mask-gold.png) center/cover no-repeat;box-shadow:0 0 0 3px #b3261e,0 0 14px rgba(179,38,30,.7)}" +
   /* Mask column: the small Text (chat) icon sits right above the mask while a call is on. */
@@ -49,11 +49,11 @@ css.textContent =
     "background:conic-gradient(from 0deg,#2e8a57,#7ee2a8,#E3B64A,#2e8a57,#7ee2a8,#E3B64A,#2e8a57);" +
     "-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px - var(--lv) * 3px),#000 calc(100% - 3px - var(--lv) * 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px - var(--lv) * 3px),#000 calc(100% - 3px - var(--lv) * 3px));" +
     "filter:drop-shadow(0 0 calc(4px + var(--lv) * 10px) rgba(126,226,168,.9));transition:opacity .2s}" +
-  "#kcFloat.listen #kcFace::before{opacity:calc(.55 + var(--lv) * .45);animation:kcSpin 2.4s linear infinite}" +
-  "#kcFloat.kc #kcFace{animation:kcTalk .7s infinite}" +
+  "#kcFloat.listen #kcFace::before{opacity:calc(.55 + var(--lv) * .45);animation:kcfSpin 2.4s linear infinite}" +
+  "#kcFloat.kc #kcFace{animation:kcfTalk .7s infinite}" +
   "#kcFloat.muted #kcFace{filter:grayscale(.6) brightness(.8)}" +
-  "@keyframes kcSpin{to{transform:rotate(360deg)}}" +
-  "@keyframes kcTalk{0%,100%{box-shadow:0 0 0 3px #E3B64A,0 0 0 6px rgba(227,182,74,.4)}50%{box-shadow:0 0 0 3px #E3B64A,0 0 0 16px rgba(227,182,74,0)}}" +
+  "@keyframes kcfSpin{to{transform:rotate(360deg)}}" +
+  "@keyframes kcfTalk{0%,100%{box-shadow:0 0 0 3px #E3B64A,0 0 0 6px rgba(227,182,74,.4)}50%{box-shadow:0 0 0 3px #E3B64A,0 0 0 16px rgba(227,182,74,0)}}" +
   "@media (prefers-reduced-motion:reduce){#kcFloat.listen #kcFace::before{animation:none}}" +
   /* Transcript: white text on black, about 3 lines; older lines slide up and off. Tap it to open and scroll back. */
   "#kcLog{width:100%;box-sizing:border-box;background:rgba(0,0,0,.88);color:#fff;font:500 14px/20px system-ui,sans-serif;border-radius:10px;padding:6px 10px;max-height:72px;overflow:hidden;cursor:pointer;scroll-behavior:smooth}" +
