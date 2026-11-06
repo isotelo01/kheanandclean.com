@@ -159,7 +159,7 @@ if (PERSONAL) document.documentElement.classList.add("personal");
 const withAcct = fn => PERSONAL ? (d => fn({ ...d, acct: ACCT })) : fn;
 const mailList = withAcct(httpsCallable(fns, "mailList")), mailRead = withAcct(httpsCallable(fns, "mailRead"));
 const mailMove = withAcct(httpsCallable(fns, "mailMove")), mailSend = withAcct(httpsCallable(fns, "mailSend"));
-const mailAttachment = withAcct(httpsCallable(fns, "mailAttachment"));
+const mailAttachment = withAcct(httpsCallable(fns, "mailAttachment", {timeout: 300000}));   /* big attachments can take a while */
 /* Word (.docx) preview: mammoth turns the file into plain HTML, shown in a locked-down frame (no scripts, no links out). */
 let mammothReady = null;
 function loadMammoth() {
@@ -432,7 +432,8 @@ async function showMessage(f, uid) {
     (m.html ? '<iframe class="body" id="mbody" title="Email" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"></iframe>'
       : '<div class="plain">' + esc(m.text || "(empty)") + '</div>') +
     (m.attachments && m.attachments.length ? '<div class="att">Attachments: ' +
-      m.attachments.map((a, i) => '<button type="button" class="ghost attBtn" data-i="' + i + '">' + esc(a.name) + '</button>').join(" ") + '</div>' : '') +
+      m.attachments.map((a, i) => '<button type="button" class="ghost attBtn" data-i="' + i + '">' + esc(a.name) + (a.size > 1048576 ? ' (' + (a.size / 1048576).toFixed(1) + ' MB)' : '') + '</button>').join(" ") +
+      (m.big ? '<div style="font-size:13px;margin-top:6px;opacity:.8">Big email: each attachment loads when you tap it, so a large one can take a minute.</div>' : '') + '</div>' : '') +
     '<p class="msg err" id="mErr" role="alert"></p></div>';
   const fr = document.getElementById("mbody");
   if (fr) {
