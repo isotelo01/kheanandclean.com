@@ -1825,6 +1825,42 @@ async function show(){
   if (place === "acceptedQuotes") document.getElementById("backBtn").href = "./approved-leads.html#" + encodeURIComponent(id);
   if (place === "quotes") document.getElementById("backBtn").href = "./dashboard.html";   /* update waiting on approval */
 
+  /* Instant Quote photos: the customer's room-by-room photos go into the same rooms on this sheet, once
+     (before anything is changed on site). Photos ride on the quote's rooms; older quotes fall back to the
+     lead's photos, matched by the room id at the end of each file name. Rooms that already have photos are left alone. */
+  if (!PUBLIC && !q.custPhotosSeeded && !(q.onsite && Array.isArray(q.onsite.lines))) {
+    try {
+      const ok = p => typeof p === "string" && p.startsWith("quick-quote-photos/") && !p.includes("..");
+      const want = {}, add = (key, list) => { list = (list || []).filter(ok); if (key && list.length) want[key] = (want[key] || []).concat(list); };
+      const srcKey = {}, ql = Array.isArray(q.lines) ? q.lines : [];
+      let stairsKey = "", rugKey = {};
+      ql.forEach((l, i) => (Array.isArray(l.items) ? l.items : []).forEach((it, j) => {
+        const lab = String(it.label || "");
+        (Array.isArray(it.rooms) ? it.rooms : []).forEach((rm, r) => { if (!rm) return; const key = i + "-" + j + "-" + r;
+          if (rm.src) srcKey[rm.src] = key; add(key, rm.photos); });
+        add(i + "-" + j, it.photos);
+        if (/stairs/i.test(lab) && !stairsKey) stairsKey = i + "-" + j;
+        if (/rug/i.test(lab)) rugKey[/large/i.test(lab) ? "lg" : "med"] = i + "-" + j;
+      }));
+      if (!Object.keys(want).length && q.leadId && Object.keys(srcKey).length) {   /* older quotes: from the lead */
+        const ls = await getDoc(doc(db, "leads", q.leadId));
+        (ls.exists() ? (ls.data().photoPaths || []) : []).filter(ok).forEach(p => {
+          const rid = p.split("/").pop().replace(/\.jpe?g$/i, "").split("_").slice(2).join("_");
+          add(srcKey[rid] || (/_stairs_\d+$/.test(rid) ? stairsKey : /^rug_lg_/.test(rid) ? rugKey.lg : /^rug_med_/.test(rid) ? rugKey.med : ""), [p]);
+        });
+      }
+      const spots = Object.assign({}, q.spots || {}); let n = 0;
+      Object.keys(want).forEach(key => {
+        const st = Object.assign({}, spots[key] || {}), list = Array.from(new Set(want[key]));
+        if (["photosBeforeThreshold", "photosBeforeAdjacent", "photosBefore", "photoPaths"].some(f => Array.isArray(st[f]) && st[f].length)) return;
+        if (key.split("-").length === 3) { st.photosBeforeThreshold = list.slice(0, 1); st.photosBefore = list.slice(1); }   /* a room: first photo is the doorway */
+        else st.photosBefore = list;
+        st.photoPaths = list; spots[key] = st; n++;
+      });
+      if (n) { await updateDoc(doc(db, place, id), { spots, custPhotosSeeded: true }); q.spots = spots; }
+    } catch (e) { console.warn("Customer photos not added to the sheet", e); }
+  }
+
   const c = q.customer || {};
   const name = (c.business && c.name ? c.business + " \u2014 " + c.name : c.name || c.business) || "No name";
   const sheetTitle = place === "quotes" ? "Estimate Sheet" : "Job Sheet";

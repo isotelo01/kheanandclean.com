@@ -610,11 +610,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Every room behind a service's square footage, for the drop-down on the estimate (stairs are their own line). */
   function roomLines(k, rate){
     if(SPLIT && !phOn()) return photoRooms().filter(function(rm){ return rm.id.indexOf(k + '_') === 0 && !rm.stairs; }).map(function(rm){
-      var sq = stdSize(rm); return { t: rm.t.split(' · ')[0], sq: sq, cost: sq * rate }; });
+      var sq = stdSize(rm); return { t: rm.t.split(' · ')[0], sq: sq, cost: sq * rate, id: rm.id }; });
     if(phOn() && A.photoSqft) return photoRooms().filter(function(rm){ return rm.id.indexOf(k + '_') === 0 && !rm.stairs; }).map(function(rm){
       var sq = roomSize(rm), m = A.photoSqft[rm.id] || {};   /* measured rooms show their size from the photos, e.g. 12′ × 14′* */
       var dim = m.sqft && m.L && m.W ? ' · ' + Math.round(m.L) + '′ × ' + Math.round(m.W) + '′*' : '';
-      return { t: rm.t.split(' · ')[0] + dim, sq: sq, cost: sq * rate }; });
+      return { t: rm.t.split(' · ')[0] + dim, sq: sq, cost: sq * rate, id: rm.id }; });
     var r = (A.svcs.indexOf(k) > -1 && A.rooms[k]) || {}, out = [];
     Object.keys(r).forEach(function(rk){
       var n = r[rk] || 0; if(!n || rk === 'stairs') return;
@@ -2285,10 +2285,20 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
      file it as a real estimate (quotes/) and text the customer the link. Labels match serviceLineLabel in app.js. */
   /* Rooms on a quote line in the estimator's own format ({ name, qty, sqft, cost }), so the customer's
      quote page lists every room with its square feet under the service. */
+  /* Each room also carries its id (src) and the customer's uploaded photos of it, so the Estimate Sheet
+     can put those photos into the same room. Stairs and rug lines carry theirs too. */
+  function upOf(test){ return A.photos.filter(function(f){ return f._up && f._room && test(f._room); }).map(function(f){ return f._up; }); }
   function qItems(items){
     return items.map(function(i){
+      var lab = String(i.label || ''), ph = null;
+      if(i.flights) ph = upOf(function(r){ return /_stairs_\d+$/.test(r); });
+      else if(/rug/i.test(lab)) ph = upOf(function(r){ return /medium/i.test(lab) ? /^rug_med_/.test(r) : /large/i.test(lab) ? /^rug_lg_/.test(r) : false; });
+      if(ph && ph.length) i = Object.assign({}, i, { photos: ph });
       if(!i.rooms || !i.rooms.length) return i;
-      return Object.assign({}, i, { rooms: i.rooms.map(function(x){ return { name:x.t, qty:1, sqft:x.sq, cost:Math.round((x.cost || 0) * 100) / 100 }; }) });
+      return Object.assign({}, i, { rooms: i.rooms.map(function(x){
+        var o = { name:x.t, qty:1, sqft:x.sq, cost:Math.round((x.cost || 0) * 100) / 100 };
+        if(x.id){ o.src = x.id; var rp = upOf(function(r){ return r === x.id; }); if(rp.length) o.photos = rp; }
+        return o; }) });
     });
   }
   function quoteLines(e){
