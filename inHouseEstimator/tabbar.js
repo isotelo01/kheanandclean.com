@@ -38,6 +38,20 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + t[2] + '</svg>' + t[1] + '</a>';
   }).join("");
   document.body.appendChild(nav);
+  // Manager bot: a gold call button on every staff page (bottom right, above the tab bar on phones).
+  if (here !== "manager") {
+    var mcss = document.createElement("style");
+    mcss.textContent =
+      "#mgrBtn{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:41;width:52px;height:52px;border-radius:50%;background:#E3B64A;color:#111;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.3);text-decoration:none}" +
+      "#mgrBtn svg{width:24px;height:24px}" +
+      "@media (max-width:759px){#mgrBtn{bottom:calc(89px + env(safe-area-inset-bottom))}}" +
+      "body:has(#callbar) #mgrBtn{display:none}";
+    document.head.appendChild(mcss);
+    var mgr = document.createElement("a");
+    mgr.id = "mgrBtn"; mgr.href = "./manager.html?call=1"; mgr.title = "Call the Manager"; mgr.setAttribute("aria-label", "Call the Manager bot");
+    mgr.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13v1M15 13v1M9 17h6"/></svg>';
+    document.body.appendChild(mgr);
+  }
   // Unread bubbles + the business phone on every page (live.js).
   var live = document.createElement("script");
   live.type = "module"; live.src = "./live.js";
