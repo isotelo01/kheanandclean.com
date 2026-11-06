@@ -2345,6 +2345,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
   function drawPh(){
     var box = document.getElementById('phinv'), inv = document.getElementById('inv'); if(!box) return;
+    box.hidden = true; box.innerHTML = ''; return;   /* off: the confirm page after the room report shows the photo numbers now */
     var rows = phRows();
     if(!rows.length || !inv || inv.hidden && !rows.some(function(x){ return x.r; })){ box.hidden = true; box.innerHTML = ''; return; }
     /* The same quote as the box below (package, room drop-downs, stairs, add-ons), but every room that has
