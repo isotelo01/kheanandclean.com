@@ -44,6 +44,7 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bot
 .qrview{position:fixed;inset:0;z-index:50;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;text-align:center}
 .qrview[hidden]{display:none}
 .qrview .qn{font:700 24px "Archivo",sans-serif}
+.qrview #qrBox{padding:14px;border:6px solid #E3B64A;border-radius:22px;background:#fff;line-height:0}
 .qrview #qrBox img,.qrview #qrBox canvas{width:min(80vw,80vh,420px)!important;height:auto!important}
 .qrview button{font:700 16px "Archivo",sans-serif;padding:10px 24px;border-radius:999px;border:0;background:#172239;color:#fff;cursor:pointer}
 /* Message box: shows the whole text before it sends. */
@@ -95,7 +96,20 @@ document.getElementById("list").addEventListener("click", e => {
   const b = e.target.closest("button[data-qr]"); if (!b) return;
   const [n, u] = LINKS[+b.dataset.qr], box = document.getElementById("qrBox");
   box.innerHTML = "";
-  try { new QRCode(box, { text: u, width: 420, height: 420, correctLevel: QRCode.CorrectLevel.M }); }
+  /* Branded: navy dots, K&C logo in the middle (high error correction so it still scans), gold frame. Same link as before. */
+  try {
+    new QRCode(box, { text: u, width: 420, height: 420, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
+    const cv = box.querySelector("canvas"), logo = new Image();
+    if (cv) logo.onload = () => {
+      const g = cv.getContext("2d"), W = cv.width, lw = W * 0.24, lh = lw * logo.height / logo.width, pad = W * 0.025;
+      const x = (W - lw) / 2, y = (W - lh) / 2;
+      g.fillStyle = "#fff"; g.strokeStyle = "#E3B64A"; g.lineWidth = W * 0.008;
+      g.beginPath(); if (g.roundRect) g.roundRect(x - pad, y - pad, lw + pad * 2, lh + pad * 2, W * 0.03); else g.rect(x - pad, y - pad, lw + pad * 2, lh + pad * 2); g.fill(); g.stroke();
+      g.drawImage(logo, x, y, lw, lh);
+      const im = box.querySelector("img"); if (im) { im.src = cv.toDataURL("image/png"); im.style.display = "block"; cv.style.display = "none"; }
+    };
+    logo.src = "../images/logo.png";
+  }
   catch (err) { box.textContent = "Couldn't make the QR code."; }
   document.getElementById("qrName").textContent = n;
   document.getElementById("qrUrl").textContent = u;
