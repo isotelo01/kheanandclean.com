@@ -909,6 +909,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       else if(r && r.sqft) row('Size', r.sqft.toLocaleString() + ' sq ft' + (r.L && r.W ? ' (about ' + r.L + ' × ' + r.W + ' ft)' : ''));
       else row('Size', !x || x.n < 2 ? 'Standard size (add 2+ photos to measure)' : mErr[rm.id] ? 'Couldn’t read the size, using a standard size' : 'Reading your photos…');
       row('Floor', [f.type, f.detail].filter(Boolean).join(', '));
+      var crp = /carpet/i.test(f.type || '');
+      if(crp){ row('Pile', f.pile); row('Fiber (best guess)', f.fiber); }
+      row('Color', f.color);
+      if(!crp){ row('Tile size', f.tileSize); row('Grout', f.grout); }
+      row('Area rugs', f.rug);
       row('What we see', f.condition);
       if(r && r.rec) H += '<p class="rec">Recommended: ' + esc(r.rec) + '</p>';
       H += '</div></div>';
@@ -920,7 +925,10 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     });
   }
   /* "I can't take pictures right now": price, then pick a discount, when, then phone or email. */
-  function tail(){ return A.noPics ? [sPhotos, sPrice, sDisc, sWhen, sContact] : [sPhotos, sPrice, sWhen, sContact]; }
+  function tail(){
+    var rep = photoRooms().some(function(rm){ return !rm.furn && roomShots(rm).length; }) ? [sReport] : [];   /* room report whenever rooms have photos */
+    return A.noPics ? [sPhotos].concat(rep, [sPrice, sDisc, sWhen, sContact]) : [sPhotos].concat(rep, [sPrice, sWhen, sContact]);
+  }
   function firstName(){ return String(A.name || '').trim().split(/\s+/)[0] || ''; }
   var hi = function(pre){ var n = firstName(); return n ? pre + esc(n) : ''; };
 
@@ -2075,7 +2083,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       return call({ key:upKey(), room:x.rm.t, roomType:kind, photos:roomShots(x.rm).slice(0, 8).map(function(f, i){
         return { path:f._up, label: i === 0 ? 'Doorway' : i <= 4 ? 'Corner ' + i : 'Room photo' }; }) })
         .then(function(r){ var d = r.data || {}; A.photoSqft[id] = { sqft:d.sqft, low:d.low, high:d.high, conf:d.confidence, L:d.lengthFt, W:d.widthFt, rec:d.recommend || '',
-            floor:{ type:(d.floor || {}).type || '', detail:(d.floor || {}).detail || '', condition:(d.floor || {}).condition || '' } }; save(); },
+            floor:(function(f){ f = f || {}; return { type:f.type || '', detail:f.detail || '', condition:f.condition || '', pile:f.pile || '', fiber:f.fiber || '',
+              color:f.color || '', rug:f.rug || '', grout:f.grout || '', tileSize:f.tileSize || '' }; })(d.floor) }; save(); },
               function(err){ mErr[id] = (err && err.message) || 'error'; console.error('Photo measure failed', err); })
         .then(function(){ mNow = ''; drawInv(); if(cur === sReport) drawReport(); });
     }); }, Promise.resolve()).then(function(){ mBusy = false; measurePhotos(fb); });
