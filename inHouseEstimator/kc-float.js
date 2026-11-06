@@ -22,8 +22,8 @@ const ss = { get(k, d) { try { const v = sessionStorage.getItem(k); return v == 
 
 const css = document.createElement("style");
 css.textContent =
-  "#kcFloat{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:41;display:flex;align-items:flex-end;gap:10px;flex-direction:row-reverse}" +
-  "@media (max-width:759px){#kcFloat{bottom:calc(89px + env(safe-area-inset-bottom))}}" +
+  "#kcFloat{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:41;display:flex;align-items:flex-end;gap:10px;flex-direction:row-reverse;--fb:calc(30px + env(safe-area-inset-bottom))}" +
+  "@media (max-width:759px){#kcFloat{bottom:calc(89px + env(safe-area-inset-bottom));--fb:calc(104px + env(safe-area-inset-bottom))}}" +
   "body:has(#callbar) #kcFloat{display:none}" +
   "#kcBtn{width:52px;height:52px;border-radius:50%;border:0;background:#E3B64A;color:#111;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.3);cursor:pointer;padding:0}" +
   "#kcBtn svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}" +
@@ -41,9 +41,15 @@ css.textContent =
   "#kcText svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}" +
   "#kcFloat.on #kcText{display:grid}" +
   /* No box: the KC logo floats on its own with the transcript above it. Tap the logo to talk, tap again to turn the mic off. */
-  "#kcBubble{display:none;flex-direction:column;align-items:flex-end;gap:10px;max-width:min(260px,calc(100vw - 104px))}" +
-  "#kcFloat.on #kcBubble{display:flex}" +
-  "#kcFace{position:relative;width:84px;height:84px;border-radius:50%;background:#fff url(../images/icon-192.png) center/cover no-repeat;box-shadow:0 0 0 3px #E3B64A,0 4px 14px rgba(0,0,0,.4);cursor:pointer;align-self:center;--lv:0}" +
+  /* KC's logo stays still in the center of the screen; the transcript sits above it and grows upward on its own. */
+  "#kcBubble{display:none}" +
+  "#kcFloat.on #kcBubble{display:block}" +
+  "#kcFace{position:fixed;left:50%;bottom:var(--fb);margin-left:-42px;width:84px;height:84px;border-radius:50%;background:#fff url(../images/icon-192.png) center/cover no-repeat;box-shadow:0 0 0 3px #E3B64A,0 4px 14px rgba(0,0,0,.4);cursor:pointer;--lv:0}" +
+  /* Mic button, left of KC: tap to mute, tap again to talk. */
+  "#kcMic{position:fixed;left:50%;bottom:calc(var(--fb) + 18px);margin-left:-114px;width:48px;height:48px;border-radius:50%;border:0;padding:0;background:#2e8a57;color:#fff;display:grid;place-items:center;box-shadow:0 2px 10px rgba(0,0,0,.4);cursor:pointer}" +
+  "#kcMic svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}" +
+  "#kcMic .slash{display:none}" +
+  "#kcFloat.muted #kcMic{background:#555}#kcFloat.muted #kcMic .slash{display:inline}" +
   /* Voice ring: a spinning green/gold ring while listening that swells with each word heard (--lv, 0 to 1). */
   "#kcFace::before{content:'';position:absolute;inset:calc(-8px - var(--lv) * 10px);border-radius:50%;opacity:0;pointer-events:none;" +
     "background:conic-gradient(from 0deg,#2e8a57,#7ee2a8,#E3B64A,#2e8a57,#7ee2a8,#E3B64A,#2e8a57);" +
@@ -51,16 +57,15 @@ css.textContent =
     "filter:drop-shadow(0 0 calc(4px + var(--lv) * 10px) rgba(126,226,168,.9));transition:opacity .2s}" +
   "#kcFloat.listen #kcFace::before{opacity:calc(.55 + var(--lv) * .45);animation:kcfSpin 2.4s linear infinite}" +
   "#kcFloat.kc #kcFace{animation:kcfTalk .7s infinite}" +
-  "#kcFloat.muted #kcFace{filter:grayscale(.6) brightness(.8)}" +
   "@keyframes kcfSpin{to{transform:rotate(360deg)}}" +
   "@keyframes kcfTalk{0%,100%{box-shadow:0 0 0 3px #E3B64A,0 0 0 6px rgba(227,182,74,.4)}50%{box-shadow:0 0 0 3px #E3B64A,0 0 0 16px rgba(227,182,74,0)}}" +
   "@media (prefers-reduced-motion:reduce){#kcFloat.listen #kcFace::before{animation:none}}" +
   /* Transcript: white text on black, about 3 lines; older lines slide up and off. Tap it to open and scroll back. */
-  "#kcLog{width:100%;box-sizing:border-box;background:rgba(0,0,0,.88);color:#fff;font:500 14px/20px system-ui,sans-serif;border-radius:10px;padding:6px 10px;max-height:72px;overflow:hidden;cursor:pointer;scroll-behavior:smooth}" +
+  "#kcLog{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--fb) + 122px);width:min(320px,calc(100vw - 32px));box-sizing:border-box;background:rgba(0,0,0,.88);color:#fff;font:500 14px/20px system-ui,sans-serif;border-radius:10px;padding:6px 10px;max-height:72px;overflow:hidden;cursor:pointer;scroll-behavior:smooth}" +
   "#kcLog:empty{display:none}" +
   "#kcLog.open{max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch}" +
   "#kcLog p{margin:0}#kcLog b{color:#E3B64A;font-weight:600}#kcLog .live{opacity:.7}" +
-  "#kcState{color:#fff;font:600 12px/1.3 system-ui,sans-serif;text-align:center;align-self:center;background:rgba(0,0,0,.75);border-radius:999px;padding:3px 10px}" +
+  "#kcState{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--fb) + 92px);width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box;color:#fff;font:600 12px/1.3 system-ui,sans-serif;text-align:center;align-self:center;background:rgba(0,0,0,.75);border-radius:999px;padding:3px 10px}" +
   "#kcState:empty{display:none}";
 document.head.appendChild(css);
 
@@ -70,7 +75,8 @@ wrap.innerHTML =
   '<div id="kcCol"><a id="kcText" href="./manager.html" aria-label="Text Casey Jones" title="Text Casey Jones"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></svg></a>' +
   '<button type="button" id="kcBtn" class="mask" aria-label="Call Casey Jones" title="Call Casey Jones"></button></div>' +
   '<div id="kcBubble"><div id="kcLog" role="log" aria-label="Conversation with KC" title="Tap to read back"></div>' +
-  '<div id="kcFace" role="button" tabindex="0" aria-label="Talk to KC (tap again to turn the mic off)"></div><div id="kcState" aria-live="polite"></div></div>';
+  '<button type="button" id="kcMic" aria-label="Mic: tap to mute or talk"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><path class="slash" d="M4 4l16 16"/></svg></button>' +
+  '<div id="kcFace" role="button" tabindex="0" aria-label="Tap KC to stop him talking"></div><div id="kcState" aria-live="polite"></div></div>';
 document.body.appendChild(wrap);
 const $ = id => document.getElementById(id);
 const setState = t => { $("kcState").textContent = t; };
@@ -99,7 +105,7 @@ const MALE = /\b(male|guy|david|mark|andrew|brian|christopher|eric|roger|aaron|a
 const maleVoice = () => { try { const en = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
   return en.find(v => /en-US/i.test(v.lang) && MALE.test(v.name) && !/female/i.test(v.name)) || en.find(v => MALE.test(v.name) && !/female/i.test(v.name)) || null; } catch (e) { return null; } };
 function speak(t, then, audio) {
-  mode("kc"); setState("KC is talking (tap him to cut in)");
+  mode("kc"); setState("KC is talking (tap him to stop)");
   let done = false;
   const fin = () => { if (done) return; done = true; stopPlayer = null; mode(""); if (then) then(); };
   if (audio) {
@@ -142,7 +148,7 @@ const listenSoon = () => setTimeout(listen, 350);
 /* Hands-free listening restarts on its own, but never forever: after 3 empty tries or a mic error it
    stops and says "Tap KC to talk". Tapping his face always starts listening (iPhone allows the mic from a tap). */
 let empties = 0, paused = false;
-function stopForTap(why) { paused = true; mode(""); setState((why ? why + " " : "") + "Tap KC to talk."); }
+function stopForTap(why) { paused = true; mode(""); setState((why ? why + " " : "") + "Tap the mic to talk."); }
 function listen(fromTap) {
   if (!inCall || busy || rec) return;
   if (!SR) { setState("Voice isn't supported here. Tap Text."); return; }
@@ -156,7 +162,7 @@ function listen(fromTap) {
   rec.onend = () => {
     rec = null; mode(""); if (!inCall || muted) return;
     if (heard.trim()) { empties = 0; send(heard.trim()); return; }
-    if (err === "not-allowed") { setState("Mic is blocked. Allow the microphone in Settings, then tap KC."); paused = true; return; }
+    if (err === "not-allowed") { setState("Mic is blocked. Allow the microphone in Settings, then tap the mic."); paused = true; return; }
     if (err && err !== "no-speech" && err !== "aborted") { stopForTap("Mic didn't start (" + err + ")."); return; }
     if (++empties >= 3) { empties = 0; stopForTap("I didn't hear anything."); return; }
     setTimeout(listen, 250);
@@ -191,11 +197,16 @@ function hangUp(keepNote) {
   if (!keepNote) setState("");
 }
 $("kcBtn").onclick = () => inCall ? hangUp() : startCall(false);
-/* Tap KC's logo: start talking (cuts him off if he's talking). Tap again while listening: mic off until the next tap. */
+/* Tap KC's logo: stops him talking. The mic then waits until you tap the mic button. */
 $("kcFace").onclick = () => {
+  if (!inCall || !stopPlayer) return;
+  paused = true; stopPlayer(); setState("Tap the mic to talk.");
+};
+/* Mic button: while listening, mute it. Otherwise turn it on and listen (stops KC if he's talking). */
+$("kcMic").onclick = () => {
   if (!inCall || busy) return;
-  if (rec) { muted = true; paused = true; try { rec.abort(); } catch (e) {} rec = null; mode(""); wrap.classList.add("muted"); setState("Mic off. Tap KC to talk."); return; }
-  if (stopPlayer) stopPlayer();
+  if (rec) { muted = true; paused = true; try { rec.abort(); } catch (e) {} rec = null; mode(""); wrap.classList.add("muted"); setState("Mic off. Tap the mic to talk."); return; }
+  if (stopPlayer) { paused = true; stopPlayer(); }
   empties = 0; listen(true);
 };
 $("kcFace").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("kcFace").onclick(); } };
