@@ -52,6 +52,11 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 6px;border-bott
 .view iframe{flex:1;border:0;background:#fff}
 .view img{max-width:100%;max-height:calc(100% - 64px);margin:auto;object-fit:contain}
 .view .note{flex:1;overflow:auto;background:#fff;color:#111;padding:20px;white-space:pre-wrap;font-size:16px}
+.pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin:10px 0}
+.pages .pg{position:relative}
+.pages img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
+.pages .n{position:absolute;left:4px;bottom:4px;background:var(--navy);color:var(--gold);font:700 12px "Archivo",sans-serif;border-radius:4px;padding:1px 6px}
+.pages .rm{position:absolute;right:2px;top:2px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:16px;line-height:1;cursor:pointer}
 :where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 </style>
 </head>
@@ -65,6 +70,8 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 6px;border-bott
     <input type="search" id="q" placeholder="Search by name, topic or note" aria-label="Search">
     <button type="button" class="btn alt" id="addFiles">+ Add files</button>
     <button type="button" class="btn" id="addNote">+ Add note</button>
+    <button type="button" class="btn" id="scanBtn">Scan pages</button>
+    <input type="file" id="scanPick" accept="image/*" capture="environment" multiple hidden>
     <input type="file" id="pick" multiple hidden>
   </div>
   <div class="add" id="addBox" hidden>
@@ -77,6 +84,17 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 6px;border-bott
       <label for="nbody">Note</label><textarea id="nbody" maxlength="20000"></textarea>
     </div>
     <div class="row"><button type="button" class="btn alt" id="saveBtn">Save</button><button type="button" class="btn" id="cancelBtn">Cancel</button></div>
+  </div>
+  <!-- Scan pages: snap a book page by page; the pages become one PDF in the library. -->
+  <div class="add" id="scanBox" hidden>
+    <div style="font-weight:700" id="scanCount">Scanning: 0 pages</div>
+    <div class="pages" id="scanPages"></div>
+    <div class="row"><button type="button" class="btn alt" id="scanMore">Take pages</button><button type="button" class="btn" id="scanCancel">Cancel</button></div>
+    <div id="scanSave" hidden>
+      <label for="sTitle">Title</label><input id="sTitle" maxlength="120" placeholder="e.g. Carpet school textbook, chapter 3">
+      <label for="sTopic">Topic</label><input id="sTopic" list="topics" maxlength="60" placeholder="e.g. Carpet school">
+      <div class="row"><button type="button" class="btn alt" id="scanDone">Save as one PDF</button></div>
+    </div>
   </div>
   <p class="msg" id="msg"></p>
   <div id="list"><div class="empty">Loading&hellip;</div></div>
@@ -212,6 +230,63 @@ async function open(it) {
   } catch (e) { v.insertAdjacentHTML("beforeend", '<p style="color:#fff;text-align:center;margin:auto;padding:16px">Couldn\'t open it. ' + esc(e.message || "") + '</p>'); }
 }
 
+/* Scan pages: the burst camera stays open, every shutter tap is a page. Done builds one PDF (one page per photo)
+   and saves it to the library like any other file. Pages can be removed before saving. */
+let scan = [];
+const drawScan = () => {
+  $("scanCount").textContent = "Scanning: " + scan.length + " page" + (scan.length === 1 ? "" : "s");
+  $("scanPages").innerHTML = scan.map((f, i) => '<div class="pg"><img alt="Page ' + (i + 1) + '" data-i="' + i + '"><span class="n">' + (i + 1) + '</span>' +
+    '<button type="button" class="rm" data-rm="' + i + '" aria-label="Remove page ' + (i + 1) + '">&times;</button></div>').join("");
+  $("scanPages").querySelectorAll("img").forEach(im => { im.src = URL.createObjectURL(scan[+im.dataset.i]); im.onload = () => URL.revokeObjectURL(im.src); });
+  $("scanSave").hidden = !scan.length; $("scanMore").textContent = scan.length ? "Take more pages" : "Take pages";
+};
+const takePages = () => {
+  const ok = window.burstCam && window.burstCam({ max: 300, onShot: f => { scan.push(f); }, onDone: () => drawScan(),
+    tip: n => '<span>Page ' + (scan.length + 1) + ': lay the page flat and fill the screen with it</span>' });
+  if (!ok) $("scanPick").click();   /* this phone can't keep the camera open: use its own camera */
+};
+$("scanBtn").onclick = () => { scan = []; $("scanBox").hidden = false; $("addBox").hidden = true; drawScan(); takePages(); };
+$("scanMore").onclick = takePages;
+$("scanPick").onchange = () => { scan.push(...[...$("scanPick").files].filter(f => /^image\//.test(f.type || "image/jpeg"))); $("scanPick").value = ""; drawScan(); };
+$("scanPages").addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { scan.splice(+b.dataset.rm, 1); drawScan(); } });
+$("scanCancel").onclick = () => { if (scan.length && !confirm("Throw away these " + scan.length + " pages?")) return; scan = []; $("scanBox").hidden = true; };
+let jspdfReady = null;
+const loadJsPdf = () => jspdfReady || (jspdfReady = new Promise((ok, no) => {
+  const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+  s.onload = () => ok(window.jspdf.jsPDF); s.onerror = () => { jspdfReady = null; no(new Error("Couldn't load the PDF maker.")); }; document.head.appendChild(s);
+}));
+const pageImg = f => new Promise((ok, no) => {   /* each page shrunk to 1700 px on its long side, JPEG */
+  const im = new Image(), u = URL.createObjectURL(f);
+  im.onload = () => { URL.revokeObjectURL(u); const k = Math.min(1, 1700 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+    c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+    ok({ data: c.toDataURL("image/jpeg", 0.82), w: c.width, h: c.height }); };
+  im.onerror = () => { URL.revokeObjectURL(u); no(new Error("Couldn't read a page photo.")); }; im.src = u;
+});
+$("scanDone").onclick = async () => {
+  const b = $("scanDone"), msg = $("msg"), title = $("sTitle").value.trim().slice(0, 120) || "Scanned pages", topic = $("sTopic").value.trim().slice(0, 60);
+  if (!scan.length) return;
+  b.disabled = true; msg.className = "msg";
+  try {
+    const JsPDF = await loadJsPdf(); let pdf = null;
+    for (let i = 0; i < scan.length; i++) {
+      msg.textContent = "Making the PDF: page " + (i + 1) + " of " + scan.length + "…";
+      const p = await pageImg(scan[i]), W = 612, H = Math.round(612 * p.h / p.w);   /* letter width, page height follows the photo */
+      if (!pdf) pdf = new JsPDF({ unit: "pt", format: [W, H], orientation: H >= W ? "portrait" : "landscape" });
+      else pdf.addPage([W, H], H >= W ? "portrait" : "landscape");
+      pdf.addImage(p.data, "JPEG", 0, 0, W, H);
+    }
+    const blob = pdf.output("blob"), name = title.replace(/[^\w.\- ]+/g, "_").slice(0, 100) + ".pdf";
+    if (blob.size > MAX) throw new Error("That's over 100 MB. Save it in two parts.");
+    msg.textContent = "Uploading…";
+    const path = "training/" + Date.now().toString(36) + "_" + name;
+    await uploadBytes(sRef(storage, path), blob, { contentType: "application/pdf" });
+    await addDoc(COL, { name, title, path, type: "application/pdf", size: blob.size, topic, pages: scan.length, addedAt: serverTimestamp() });
+    msg.textContent = "Saved " + scan.length + " pages as " + name + ".";
+    scan = []; $("scanBox").hidden = true; $("sTitle").value = ""; await load();
+  } catch (e) { msg.className = "msg bad"; msg.textContent = "Didn't save. " + (e.message || ""); }
+  finally { b.disabled = false; }
+};
+
 /* Page lock, same as hub.html. */
 onAuthStateChanged(auth, user => {
   if (!user) { location.replace("./login.html?next=training.html"); return; }
@@ -221,6 +296,7 @@ onAuthStateChanged(auth, user => {
   load();
 });
 </script>
+<script src="./burst-cam.js?v=20261105b" defer></script>
 <script src="./tabbar.js" defer></script>
 </body>
 </html>
