@@ -115,10 +115,25 @@ async function send(text) {
   if (inCall) { if (reply) speak(reply, listen); else listen(); }
 }
 
+/* Male voice, so the Manager never sounds like the other bots. Uses the first male English voice the
+   phone or computer has; if it has none, it drops the pitch instead. */
+const MALE = /\b(male|guy|david|mark|andrew|brian|christopher|eric|roger|steffan|aaron|arthur|daniel|fred|alex|rishi|tom|james|oliver|reed|evan|nathan)\b/i;
+let maleVoice = null;
+function pickVoice() {
+  try {
+    const en = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+    maleVoice = en.find(v => /en-US/i.test(v.lang) && MALE.test(v.name) && !/female/i.test(v.name)) || en.find(v => MALE.test(v.name) && !/female/i.test(v.name)) || null;
+  } catch (e) {}
+}
+pickVoice();
+try { speechSynthesis.onvoiceschanged = pickVoice; } catch (e) {}
+
 function speak(t, then) {
   try {
     speechSynthesis.cancel(); setState("Talking… (tap the chat to cut in)");
     const u = new SpeechSynthesisUtterance(t); u.rate = 1.05;
+    if (!maleVoice) pickVoice();
+    if (maleVoice) u.voice = maleVoice; else u.pitch = 0.7;
     u.onend = u.onerror = () => { if (then) then(); };
     speechSynthesis.speak(u);
   } catch (e) { if (then) then(); }
