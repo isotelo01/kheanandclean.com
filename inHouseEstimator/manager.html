@@ -80,12 +80,14 @@ const app = initializeApp({
 });
 const auth = getAuth(app);
 const managerBot = httpsCallable(getFunctions(app, "us-central1"), "managerBot", { timeout: 190000 });
-const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "5SNJ2DzfrycMrEfbex73Lywf7KB3", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
 const $ = id => document.getElementById(id);
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 /* The conversation lives for this browser tab only (refresh keeps it, closing the tab clears it). */
 let history = [];
+/* Came here from the floating KC bubble's Text button: that call ends here (this page has its own). */
+try { sessionStorage.setItem("kcCall", "0"); } catch (e) {}
 try { history = JSON.parse(sessionStorage.getItem("mgrHistory") || "[]"); } catch (e) { history = []; }
 const keep = () => { try { sessionStorage.setItem("mgrHistory", JSON.stringify(history.slice(-30))); } catch (e) {} };
 let inCall = false, rec = null, busy = false;
