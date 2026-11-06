@@ -238,7 +238,7 @@ body.rp .opts .opt.done img{ width:52px; height:52px; border-radius:12px; object
 body.rp .opts .opt.done::after{ margin-left:auto; }
 /* Rooms page wheel: the list rolls like a slot machine reel. Cards tip back and shrink as they move
    away from the middle of the screen (set from script with rotate/scale, which the entrance animations don't touch). */
-body.rp .opts.wheel{ gap:16px; padding:30vh 0 0; }
+body.rp .opts.wheel{ gap:16px; padding:0; }
 body.rp .raddbtn{ margin-bottom:38vh; }   /* room under the last card so it can roll up to the middle */
 /* Showcase cards: a finished room is its photo across the whole card, name on a dark fade at the bottom. */
 body.rp .opts .opt.done{ position:relative; display:block; padding:0; overflow:hidden; height:clamp(150px, 44vh, 230px); border-radius:20px; }
@@ -1569,7 +1569,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       list = list.map(function(x, j){ if(x.g !== lastG){ lastG = x.g; labs[j] = LAB[x.g]; } return x.rm; });
     }
     list.forEach(function(rm, j){
-      if(labs[j]){ var lb = document.createElement('p'); lb.className = 'grplab'; lb.textContent = labs[j]; box.appendChild(lb); }
+      /* no Usually upstairs / downstairs labels: one list (still upstairs rooms first) */
       var n = roomShots(rm).length, b = document.createElement('button'); b.type = 'button'; b.className = 'opt';
       b.innerHTML = (n ? '<img alt="">' : '') + '<span>' + esc(rm.t) + (n ? '<small>' + n + ' photo' + (n > 1 ? 's' : '') + '</small>' : '') + '</span>';
       if(n){ b.setAttribute('aria-pressed', 'true'); b.classList.add('done');
@@ -1595,7 +1595,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     /* Landscape: a small Done button in the blank space on the right (asks "Are you done with photos?") so it never covers a photo. */
     if(any){ gb.classList.add('lnext'); var lab = function(){ if(!document.body.contains(gb)){ landQ.removeEventListener && landQ.removeEventListener('change', lab); return; } gb.textContent = landQ.matches ? 'Done' : 'I’m done with photos'; };
       lab(); landQ.addEventListener && landQ.addEventListener('change', lab); }
-    window.scrollTo(0, 0);
+    /* Back from a room: open the list at that room, not the top. */
+    var back = lastRm && box.querySelector('[data-room="' + lastRm + '"]');
+    if(back){ back.scrollIntoView({ block:'center' }); requestAnimationFrame(function(){ back.scrollIntoView({ block:'center' }); }); } else window.scrollTo(0, 0);   /* again after layout settles */
     wheel(box);
   }
   var landQ = window.matchMedia ? window.matchMedia('(orientation:landscape)') : { matches:false };
@@ -1715,7 +1717,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       }));
     } else open();
   }
+  var lastRm = '';   /* the room they were just in, so the room list can open there */
   function shootRoom(el, rm, how){
+    lastRm = rm.id;
     document.body.classList.add('rp');
     if(!A.roomFloor) A.roomFloor = {};
     var room = !rm.furn && !rm.stairs;
