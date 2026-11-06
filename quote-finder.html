@@ -745,7 +745,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       h += '<div class="r svc"><span>' + esc(r.name) + '</span><span>' + ft(rsq) + '</span></div>';
       r.items.forEach(function(i){
         var label = i.sq ? i.label.replace(/ — .*sq ft$/, '') : r.key === 'whole' ? 'All floors' : i.label.replace(/^Flights? of Stairs.*$/, 'Stairs');
-        var right = i.sq ? ft(i.sq) : i.flights ? i.flights + (i.flights > 1 ? ' flights' : ' flight') : '';
+        var right = i.sq ? (i.sq === rsq ? '' : ft(i.sq)) : i.flights ? i.flights + (i.flights > 1 ? ' flights' : ' flight') : '';   /* same as the service line above: shown once */
         var rms = i.sq && i.rooms && i.rooms.length ? i.rooms : null, id = ns + r.key;
         if(!rms){ h += '<div class="r it"><span>' + esc(label) + '</span><span>' + right + '</span></div>'; return; }
         h += '<div class="r it drop' + (op(id) ? ' open' : '') + '" data-drop="' + id + '" role="button" tabindex="0" aria-expanded="' + !!op(id) + '"><span>' + brand(label) + '<i>▾</i></span><span>' + right + '</span></div>';
