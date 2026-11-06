@@ -48,7 +48,7 @@
       "body:has(#callbar) #mgrBtn{display:none}";
     document.head.appendChild(mcss);
     var mgr = document.createElement("a");
-    mgr.id = "mgrBtn"; mgr.href = "./manager.html?call=1"; mgr.title = "Call the Manager"; mgr.setAttribute("aria-label", "Call the Manager bot");
+    mgr.id = "mgrBtn"; mgr.href = "./manager.html?call=1"; mgr.title = "Call KC"; mgr.setAttribute("aria-label", "Call KC, the manager bot");
     mgr.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13v1M15 13v1M9 17h6"/></svg>';
     document.body.appendChild(mgr);
   }
