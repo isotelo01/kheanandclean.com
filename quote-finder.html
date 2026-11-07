@@ -1046,7 +1046,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     h(el, pf.length || done.length ? 'Snap your next room' + hi(', ') : 'Snap the rooms you want cleaned' + hi(', '),
       'One room at a time: the doorway first, then each corner. Tip: set a sheet of white paper in the middle of the floor so we can see size and color. We’ll figure out the room and the floor from your photos.');
     var list = document.createElement('div'); list.className = 'opts pfl'; el.appendChild(list);
-    done.concat(photoRooms().filter(function(rm){ return rm.pf; })).forEach(function(rm){
+    done.concat(photoRooms().filter(function(rm){ return rm.pf && roomShots(rm).length; })).forEach(function(rm){   /* a room with no photos yet (or still loading) gets no card */
       var n = roomShots(rm).length, w = document.createElement('div'); w.className = 'rwrap hasph';
       var b = document.createElement('button'); b.type = 'button'; b.className = 'opt done'; b.setAttribute('aria-pressed', 'true');
       /* The room card: what the photos say (room, floor, size) as soon as it's read, plus the photo count. */
