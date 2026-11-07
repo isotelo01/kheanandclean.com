@@ -367,7 +367,7 @@ const app = getApps().length ? getApp() : initializeApp({
   storageBucket: "khean-estimator-78f3e.firebasestorage.app", messagingSenderId: "581692353222", appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 });
 const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
-const db = getFirestore(app), checkNow = httpsCallable(getFunctions(app, "us-central1"), "leoSdsCheckNow", { timeout: 300000 });
+const db = getFirestore(app), checkNow = httpsCallable(getFunctions(app, "us-central1"), "leoSdsCheckNow", { timeout: 540000 });
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const facts = a => (a.use ? '<p style="margin:4px 0">' + esc(a.use) + '</p>' : '') +
@@ -399,7 +399,7 @@ $("leoCheck").onclick = async () => {
   const b = $("leoCheck"); b.disabled = true; $("leoMsg").textContent = "Leo is reading…";
   try {
     const r = (await checkNow()).data || {};
-    $("leoMsg").textContent = r.note || ("Read " + r.checked + " sheet" + (r.checked === 1 ? "" : "s") + ", " + r.added + " new product" + (r.added === 1 ? "" : "s") + "." + (r.left ? " " + r.left + " more next time." : ""));
+    $("leoMsg").textContent = r.note || ("Read " + r.checked + " sheet" + (r.checked === 1 ? "" : "s") + "." + (r.left ? " " + r.left + " more left, tap again." : ""));
     await load();
   } catch (e) { console.error(e); $("leoMsg").textContent = e.message || "Leo couldn't check. Try again."; }
   b.disabled = false;

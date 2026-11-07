@@ -58,6 +58,32 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 6px;border-bott
 .pages .n{position:absolute;left:4px;bottom:4px;background:var(--navy);color:var(--gold);font:700 12px "Archivo",sans-serif;border-radius:4px;padding:1px 6px}
 .pages .rm{position:absolute;right:2px;top:2px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:16px;line-height:1;cursor:pointer}
 :where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* Chemicals: one profile card per product (Firestore "products"), built by Leo from its SDS sheet. */
+.chem{margin:4px 0 6px}
+.chem h2{font:700 13px "Archivo",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 0 8px}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.ctile{text-align:left;background:#fff;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:10px;padding:10px 12px;cursor:pointer;font:inherit;color:inherit}
+.ctile:hover{border-color:var(--gold)}
+.ctile b{display:block;overflow-wrap:anywhere}
+.ctile span{display:block;color:var(--muted);font-size:13px}
+.pcard{flex:1;overflow:auto;background:#fff;color:var(--ink);padding:18px 18px 40px}
+.pcard .in{max-width:720px;margin:0 auto}
+.pcard h2{font:700 24px/1.2 "Archivo",sans-serif;margin:0}
+.pcard .mk{color:var(--muted);margin:2px 0 12px}
+.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.quick div{background:var(--bg);border-radius:8px;padding:8px 10px}
+.quick small{display:block;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.quick b{font-size:17px}
+.fact{border-top:1px solid var(--line);padding:9px 0}
+.fact .lb{font-weight:700;font-size:14px;color:var(--navy)}
+.fact .v{white-space:pre-wrap}
+.fact .none{color:var(--muted);font-style:italic}
+.src{display:inline-block;font-size:11.5px;font-weight:600;color:#8a6a12;background:#fbf3dc;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:middle}
+.fact input,.fact textarea{width:100%;font:15px "Archivo",sans-serif;padding:7px 9px;border:1px solid var(--line);border-radius:8px;margin-top:4px}
+.fact textarea{min-height:58px}
+.chips2{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.chips2 span{background:var(--bg);border-radius:999px;padding:3px 10px;font-size:14px}
+.pacts{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
 </style>
 </head>
 <body>
@@ -97,13 +123,16 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 6px;border-bott
     </div>
   </div>
   <p class="msg" id="msg"></p>
+  <!-- Chemicals: a profile card per product, its SDS sheet attached. Leo builds them from the SDS sheets (topic SDS). -->
+  <section class="chem" id="chem" hidden><h2>Chemicals</h2><div class="cgrid" id="cgrid"></div></section>
   <div id="list"><div class="empty">Loading&hellip;</div></div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, getDoc, addDoc, deleteDoc, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -129,6 +158,7 @@ async function load() {
     const snap = await getDocs(COL);
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     draw();
+    loadChem();
   } catch (e) { $("list").innerHTML = '<div class="empty">Couldn\'t load the library. ' + esc(e.message || "") + '</div>'; }
 }
 function draw() {
@@ -147,7 +177,87 @@ function draw() {
   });
   $("list").innerHTML = h;
 }
-$("q").addEventListener("input", draw);
+$("q").addEventListener("input", () => { draw(); drawChem(); });
+
+/* ---- Chemicals: product profile cards ---- */
+const leoRefresh = httpsCallable(getFunctions(app, "us-central1"), "leoProductRefresh", { timeout: 300000 });
+const FACTS = [["cleans", "What it cleans"], ["mix", "Mix rate"], ["dwell", "Dwell time"], ["safeOn", "Safe on"], ["neverOn", "Never on"],
+  ["dontMix", "Don't mix with"], ["safety", "Safety"], ["rinse", "Rinse"], ["shelfLife", "Shelf life"], ["temperature", "Temperature"]];
+let products = [], chemPrices = [];
+async function loadChem() {
+  try {
+    const [ps, cs] = await Promise.all([getDocs(collection(db, "products")), getDoc(doc(db, "settings", "chemicals")).catch(() => null)]);
+    products = ps.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    chemPrices = (cs && cs.exists() && cs.data().items) || [];
+  } catch (e) { console.error(e); products = []; }
+  drawChem();
+}
+/* Price comes from the Settings chemical list (matched by name), so it's never typed twice. */
+const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+function priceOf(p) {
+  const n = norm(p.name), hit = chemPrices.find(c => norm(c.name) && (norm(c.name) === n || n.includes(norm(c.name)) || norm(c.name).includes(n)));
+  if (!hit || hit.cost == null || hit.cost === "") return "";
+  return "$" + Number(hit.cost).toFixed(2) + (hit.unit === "qt" ? " / quart" : " / ounce");
+}
+function drawChem() {
+  const q = $("q").value.trim().toLowerCase();
+  const rows = products.filter(p => !q || JSON.stringify([p.name, p.maker, p.keywords, p.stains, p.fields && p.fields.cleans]).toLowerCase().includes(q));
+  $("chem").hidden = !products.length || !rows.length;
+  $("cgrid").innerHTML = rows.map(p => '<button type="button" class="ctile" data-p="' + esc(p.id) + '"><b>' + esc(p.name) + '</b><span>' +
+    esc([p.maker, p.fields && p.fields.ph && p.fields.ph.v ? "pH " + p.fields.ph.v : ""].filter(Boolean).join(" · ")) + '</span></button>').join("");
+  $("cgrid").querySelectorAll("[data-p]").forEach(b => b.onclick = () => openProduct(products.find(x => x.id === b.dataset.p)));
+}
+const fv = (p, k) => (p.fields && p.fields[k]) || { v: "", src: "" };
+const srcTag = s => s ? '<span class="src">' + esc(s) + '</span>' : '';
+function openProduct(p, editing) {
+  if (!p) return;
+  document.querySelector(".view.prod")?.remove();
+  const v = document.createElement("div"); v.className = "view prod";
+  const price = priceOf(p), sds = items.find(x => x.id === p.sdsId);
+  const fact = (k, label) => { const f = fv(p, k);
+    return '<div class="fact"><div class="lb">' + esc(label) + (editing ? '' : srcTag(f.v && f.src)) + '</div>' +
+      (editing ? '<textarea data-f="' + k + '">' + esc(f.v) + '</textarea>' : f.v ? '<div class="v">' + esc(f.v) + '</div>' : '<div class="none">Not found yet</div>') + '</div>'; };
+  const plain = (k, label, ph) => '<div class="fact"><div class="lb">' + esc(label) + '</div>' +
+    (editing ? '<input data-p="' + k + '" value="' + esc(p[k] || "") + '" placeholder="' + esc(ph) + '">' : p[k] ? '<div class="v">' + esc(p[k]) + '</div>' : '<div class="none">' + esc(ph) + '</div>') + '</div>';
+  v.innerHTML = '<div class="top"><span class="t">' + esc(p.name) + '</span><button type="button" class="btn alt" id="pX">Close</button></div>' +
+    '<div class="pcard"><div class="in"><h2>' + esc(p.name) + '</h2><p class="mk">' + esc(p.maker || "Maker not found") + '</p>' +
+    '<div class="quick"><div><small>pH</small><b>' + esc(fv(p, "ph").v || "–") + '</b>' + (editing ? '' : srcTag(fv(p, "ph").v && fv(p, "ph").src)) + '</div>' +
+      '<div><small>Price</small><b>' + esc(price || "–") + '</b>' + (price ? '<span class="src">Settings</span>' : '') + '</div>' +
+      '<div><small>Stock</small><b>' + esc(p.stock || "–") + '</b></div></div>' +
+    (editing ? '<div class="fact"><div class="lb">pH</div><input data-f="ph" value="' + esc(fv(p, "ph").v) + '"></div>' : '') +
+    FACTS.map(([k, l]) => fact(k, l)).join("") +
+    plain("stock", "Stock", "How many on the shelf") + plain("buyAt", "Where to buy", "Store or website") +
+    '<div class="fact"><div class="lb">Comparable products</div>' +
+      ((p.ours || []).length ? '<div class="meta" style="margin-top:4px">You carry</div><div class="chips2">' + p.ours.map(o => '<span>' + esc(o) + '</span>').join("") + '</div>' : '') +
+      ((p.others || []).length ? '<div class="meta" style="margin-top:6px">Other brands</div><div class="chips2">' + p.others.map(o => '<span>' + esc(o.name) + (o.maker ? ' · ' + esc(o.maker) : '') + '</span>').join("") + '</div>' : '') +
+      (!(p.ours || []).length && !(p.others || []).length ? '<div class="none">None found yet</div>' : '') + '</div>' +
+    ((p.sources || []).length ? '<div class="fact"><div class="lb">Where Leo looked</div><div class="v" style="font-size:13px">' + p.sources.map(u => esc(u)).join("<br>") + '</div></div>' : '') +
+    '<div class="pacts">' + (editing ? '<button type="button" class="btn alt" id="pSave">Save</button><button type="button" class="btn" id="pCancel">Cancel</button>'
+      : (sds ? '<button type="button" class="btn alt" id="pSds">Open SDS sheet</button>' : '') + '<button type="button" class="btn" id="pEdit">Edit</button>' +
+        (p.sdsId ? '<button type="button" class="btn" id="pLeo">Ask Leo to look again</button>' : '')) + '</div><p class="msg" id="pMsg"></p></div></div>';
+  document.body.appendChild(v);
+  v.querySelector("#pX").onclick = () => v.remove();
+  if (editing) {
+    v.querySelector("#pCancel").onclick = () => openProduct(p);
+    v.querySelector("#pSave").onclick = async () => {
+      const up = {};
+      v.querySelectorAll("[data-f]").forEach(el => { const k = el.dataset.f, old = fv(p, k), val = el.value.trim().slice(0, 500);
+        if (val !== (old.v || "")) up["fields." + k] = { v: val, src: val ? "You" : "" }; });
+      v.querySelectorAll("[data-p]").forEach(el => { const val = el.value.trim().slice(0, 200); if (val !== (p[el.dataset.p] || "")) up[el.dataset.p] = val; });
+      if (!Object.keys(up).length) { openProduct(p); return; }
+      try { await updateDoc(doc(db, "products", p.id), { ...up, updatedAt: serverTimestamp() }); await loadChem(); openProduct(products.find(x => x.id === p.id)); }
+      catch (e) { v.querySelector("#pMsg").className = "msg bad"; v.querySelector("#pMsg").textContent = "Didn't save. " + (e.message || ""); }
+    };
+    return;
+  }
+  v.querySelector("#pEdit").onclick = () => openProduct(p, true);
+  if (sds) v.querySelector("#pSds").onclick = () => open(sds);
+  if (v.querySelector("#pLeo")) v.querySelector("#pLeo").onclick = async e => {
+    const b = e.target; b.disabled = true; v.querySelector("#pMsg").className = "msg"; v.querySelector("#pMsg").textContent = "Leo is reading the SDS and looking online. About a minute…";
+    try { await leoRefresh({ id: p.id }); await loadChem(); openProduct(products.find(x => x.id === p.id)); }
+    catch (err) { b.disabled = false; v.querySelector("#pMsg").className = "msg bad"; v.querySelector("#pMsg").textContent = err.message || "Leo couldn't finish. Try again."; }
+  };
+}
 
 /* Adding: pick files (or a note), then a topic, then Save. */
 const openAdd = what => { $("addBox").hidden = false; $("addWhat").textContent = what; $("noteFields").hidden = pending !== "note"; $("topic").focus(); };
