@@ -1036,7 +1036,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
   /* Photos-first: snap each room they want cleaned. Snap a room opens the camera; Done comes back here. */
   function sSnap(el){ snapRooms(el); }
-  function snapRooms(el){
+  var snapEl = null;   /* the rooms page, so a room's card can fill in on its own once its photos are read */
+  function snapRooms(el, stay){
+    snapEl = el;
     document.body.classList.remove('rp'); rpBack = null;
     if(phReady) A.pfRooms = (A.pfRooms || []).filter(function(id){ return A.photos.some(function(f){ return f._room === id; }); });   /* drop rooms left with no photos */
     A.pfRooms = A.pfRooms || [];
@@ -1048,14 +1050,21 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       var n = roomShots(rm).length, w = document.createElement('div'); w.className = 'rwrap hasph';
       var b = document.createElement('button'); b.type = 'button'; b.className = 'opt done'; b.setAttribute('aria-pressed', 'true');
       /* The room card: what the photos say (room, floor, size) as soon as it's read, plus the photo count. */
-      var r = (A.photoSqft || {})[rm.id], fl = r && r.floor && r.floor.type, info = [];
-      if(rm.pf && r && r.guess) info.push(r.guess === 'master' ? 'Master bedroom' : (ONE[r.guess] || NAMES[r.guess] || r.guess));
-      if(fl) info.push(fl);
-      if(r && r.sqft) info.push('about ' + r.sqft.toLocaleString() + ' sq ft');
-      if(rm.pf && !r && !mErr[rm.id]) info.push('reading photos…');
-      info.push(n + ' photo' + (n > 1 ? 's' : ''));
+      /* Stacked: room name on top, floor under it, then "Estimate: 6′ × 10′, 62 sq ft". Odd-shaped rooms list
+         each rectangle ("12′ × 14′ + 4′ × 6′") when the measurer sends them, then the total. */
+      var r = (A.photoSqft || {})[rm.id], fl = r && r.floor && r.floor.type, lines = [];
+      var cap = function(t){ t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); };
+      var title = rm.pf ? (r && r.guess ? (r.guess === 'master' ? 'Master bedroom' : (ONE[r.guess] || NAMES[r.guess] || cap(r.guess))) : '') : rm.t.split(' · ')[0];
+      if(fl) lines.push(cap(fl));
+      if(r && r.sqft){
+        var dims = (r.parts || []).filter(function(q){ return q && q.L && q.W; }).map(function(q){ return Math.round(q.L) + '′ × ' + Math.round(q.W) + '′'; }).join(' + ')
+          || (r.L && r.W ? Math.round(r.L) + '′ × ' + Math.round(r.W) + '′' : '');
+        lines.push('Estimate: ' + (dims ? dims + ', ' : '') + r.sqft.toLocaleString() + ' sq ft');
+      }
+      if(rm.pf && !r && !mErr[rm.id]){ title = title || 'Reading photos…'; }
+      if(!title) title = 'Room';
       if(rm.pf) b.className += ' pfnew';
-      b.innerHTML = '<img alt=""><span>' + esc(rm.t.split(' · ')[0]) + '<small>' + esc(info.join(' · ')) + '</small></span>';
+      b.innerHTML = '<img alt=""><span>' + esc(title) + lines.map(function(t){ return '<small>' + esc(t) + '</small>'; }).join('') + '</span>';
       var im = b.querySelector('img'); im.src = URL.createObjectURL(roomShots(rm)[0]); im.onload = function(){ URL.revokeObjectURL(im.src); };
       b.onclick = function(){ shootRoom(el, rm); };
       w.appendChild(b);
@@ -1074,7 +1083,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       quickRoom(el, { id:id, t:'Room ' + A.pfRooms.length, pf:true });
     });
     if(pf.length || done.length) goBtn(el, 'That’s all my rooms', next, true);
-    window.scrollTo(0, 0);
+    if(!stay) window.scrollTo(0, 0);
   }
   /* One snapped room at a time: "Is this your bedroom, with carpet?" Yes files it; No lets them pick. */
   var cWait = '', cWaitFn = null, phReady = true;   /* cWaitFn: redraws the room card once its photos are read */
@@ -2074,7 +2083,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     /* After Done in the camera: preview this room's photos, or go to the next room (the rooms page). */
     var afterDone = function(){
       var got = roomShots(rm); if(!got.length){ redo(); return; }
-      if(rm.pf){ document.body.classList.remove('rp'); confirmOne(el, rm.id, function(){ snapRooms(el); }); return; }   /* photos first: straight to the room card (AI fills it in) */
+      if(rm.pf){ document.body.classList.remove('rp'); snapRooms(el); return; }   /* photos first: back to the rooms page right away; this room's card fills in on its own (reading takes ~30 s) */
       el.innerHTML = '';
       var box = document.createElement('div'); box.className = 'nx'; el.appendChild(box);
       var rv = document.createElement('button'); rv.type = 'button'; rv.className = 'rv';
@@ -2466,11 +2475,11 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       mNow = s; drawInv();
       return call({ key:upKey(), room:x.rm.t, roomType:kind, photos:roomShots(x.rm).slice(0, 8).map(function(f, i){
         return { path:f._up, label: x.rm.stairs ? (STAIR_SHOTS[i] || 'Stairs photo') : i === 0 ? 'Doorway' : i <= 4 ? 'Corner ' + i : 'Room photo' }; }) })
-        .then(function(r){ var d = r.data || {}; A.photoSqft[id] = { sqft:d.sqft, low:d.low, high:d.high, conf:d.confidence, L:d.lengthFt, W:d.widthFt, rec:d.recommend || '', guess:d.roomGuess || '',
+        .then(function(r){ var d = r.data || {}; A.photoSqft[id] = { sqft:d.sqft, low:d.low, high:d.high, conf:d.confidence, L:d.lengthFt, W:d.widthFt, parts:(d.sections || d.parts || []).map(function(q){ return { L:q.lengthFt || q.L, W:q.widthFt || q.W }; }), rec:d.recommend || '', guess:d.roomGuess || '',
             floor:(function(f){ f = f || {}; return { type:f.type || '', detail:f.detail || '', condition:f.condition || '', pile:f.pile || '', fiber:f.fiber || '',
               color:f.color || '', rug:f.rug || '', grout:f.grout || '', tileSize:f.tileSize || '' }; })(d.floor) }; save(); },
               function(err){ mErr[id] = (err && err.message) || 'error'; console.error('Photo measure failed', err); })
-        .then(function(){ mNow = ''; drawInv(); if(measHook) measHook(); if(cur === sReport) drawReport(); if(cur === sPhConfirm) drawPhConfirm(); if(cWait === id && cWaitFn){ var cf = cWaitFn; cWait = ''; cWaitFn = null; if(cur === sConfirm || cur === sSnap) cf(); } });
+        .then(function(){ mNow = ''; drawInv(); if(measHook) measHook(); if(cur === sReport) drawReport(); if(cur === sPhConfirm) drawPhConfirm(); if(cur === sSnap && snapEl && snapEl.querySelector('.pfl')) snapRooms(snapEl, true); if(cWait === id && cWaitFn){ var cf = cWaitFn; cWait = ''; cWaitFn = null; if(cur === sConfirm || cur === sSnap) cf(); } });
     }); }, Promise.resolve()).then(function(){ mBusy = false; measurePhotos(fb); });
   }
   function drawPh(){
