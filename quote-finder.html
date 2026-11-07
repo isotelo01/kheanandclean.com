@@ -328,6 +328,13 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
   border-radius:50%; border:1px solid rgba(244,239,226,.3); background:rgba(0,0,0,.55); color:var(--ivory); cursor:pointer; z-index:2; }
 .rwrap.hasph .rtrash{ top:10px; left:10px; right:auto; transform:none; }   /* photo cards: top-left, the check sits top-right */
 /* Photos-first room list: small room cards (thumbnail, room, what the photos say), not a full-size photo. */
+/* Photos-first, two-story: tap the floor on the house picture */
+.house{ display:block; width:100%; max-width:340px; margin:14px auto 0; }
+.house .fl{ cursor:pointer; }
+.house .fl rect.bg{ fill:var(--card); stroke:var(--gold); stroke-width:2; transition:fill .15s; }
+.house .fl .win{ fill:rgba(227,182,74,.25); stroke:var(--gold); stroke-width:1.5; }
+.house .fl text{ fill:var(--ivory); font:700 17px system-ui, -apple-system, sans-serif; text-anchor:middle; pointer-events:none; }
+.house .fl:active rect.bg, .house .fl.on rect.bg{ fill:rgba(227,182,74,.35); }
 .pfl .opt.done{ display:flex; align-items:center; gap:14px; padding:12px 16px; text-align:left; }
 .pfl .opt.done img{ width:56px; height:56px; border-radius:12px; object-fit:cover; flex:none; border:1px solid rgba(227,182,74,.5); }
 .pfl .opt.done span{ flex:1; min-width:0; }
@@ -1963,9 +1970,17 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       }));
     } else if(rm.pf && A.story === '2' && !(A.roomFloor || {})[rm.id]){   /* photos-first, two-story: one yes/no before the camera */
       if(!A.roomFloor) A.roomFloor = {};
-      roomAsk(el, 'Is this room upstairs?', '', [{ v:'2', t:'Yes' }, { v:'1', t:'No, downstairs' }].map(function(o){
-        return { t:o.t, go:function(){ A.roomFloor[rm.id] = o.v; save(); open(); } };
-      }));
+      h(el, 'Which floor is this room on?', 'Tap it on the house.');
+      var win = function(x, y){ return '<rect class="win" x="' + x + '" y="' + y + '" width="34" height="30" rx="3"/>'; };
+      el.insertAdjacentHTML('beforeend', '<svg class="house" viewBox="0 0 300 290" role="group" aria-label="Pick the floor">' +
+        '<path d="M20 112 L150 22 L280 112 Z" fill="var(--ink-2)" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"/>' +
+        '<g class="fl" data-f="2" role="button" aria-label="Upstairs"><rect class="bg" x="40" y="112" width="220" height="84"/>' + win(62, 124) + win(204, 124) + '<text x="150" y="160">Upstairs</text></g>' +
+        '<g class="fl" data-f="1" role="button" aria-label="Downstairs"><rect class="bg" x="40" y="196" width="220" height="84"/>' + win(62, 208) +
+        '<rect x="214" y="226" width="30" height="54" rx="3" fill="var(--ink-2)" stroke="var(--gold)" stroke-width="1.5"/><text x="150" y="244">Downstairs</text></g></svg>');
+      [].forEach.call(el.querySelectorAll('.house .fl'), function(g){ g.onclick = function(){
+        if(el.dataset.flgo) return; el.dataset.flgo = 1; g.classList.add('on');
+        A.roomFloor[rm.id] = g.dataset.f; save();
+        setTimeout(function(){ delete el.dataset.flgo; open(); }, 250); }; });
       rpBack = function(){ snapRooms(el); };
     } else open();
   }
