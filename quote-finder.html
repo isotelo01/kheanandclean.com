@@ -329,12 +329,18 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 .rwrap.hasph .rtrash{ top:10px; left:10px; right:auto; transform:none; }   /* photo cards: top-left, the check sits top-right */
 /* Photos-first room list: small room cards (thumbnail, room, what the photos say), not a full-size photo. */
 /* Photos-first, two-story: tap the floor on the house picture */
-.house{ display:block; width:100%; max-width:340px; margin:14px auto 0; }
-.house .fl{ cursor:pointer; }
-.house .fl rect.bg{ fill:var(--card); stroke:var(--gold); stroke-width:2; transition:fill .15s; }
-.house .fl .win{ fill:rgba(227,182,74,.25); stroke:var(--gold); stroke-width:1.5; }
-.house .fl text{ fill:var(--ivory); font:700 17px system-ui, -apple-system, sans-serif; text-anchor:middle; pointer-events:none; }
-.house .fl:active rect.bg, .house .fl.on rect.bg{ fill:rgba(227,182,74,.35); }
+.house{ display:block; width:100%; max-width:340px; margin:10px auto 0; overflow:visible; }
+.house .fl{ cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.house .fl .base{ fill:#7a5f22; }   /* the button's bottom edge, so each floor looks pressable */
+.house .fl .bg{ fill:url(#hsFill); stroke:var(--gold); stroke-width:2.5; transition:transform .12s, fill .15s; animation:hsPulse 2.4s ease-in-out infinite; }
+.house .fl[data-f="1"] .bg{ animation-delay:1.2s; }
+.house .fl .win{ fill:rgba(227,182,74,.18); stroke:rgba(227,182,74,.7); stroke-width:1.5; }
+.house .fl .lbl{ fill:var(--ivory); font:800 19px system-ui, -apple-system, sans-serif; text-anchor:middle; pointer-events:none; }
+.house .fl .tap{ fill:var(--gold); font:600 12px system-ui, -apple-system, sans-serif; text-anchor:middle; letter-spacing:.08em; pointer-events:none; }
+.house .fl .top{ transition:transform .12s; }
+.house .fl:active .top, .house .fl.on .top{ transform:translateY(4px); }
+.house .fl.on .bg{ fill:var(--gold); animation:none; } .house .fl.on .lbl{ fill:var(--ink); } .house .fl.on .tap{ fill:var(--ink); }
+@keyframes hsPulse{ 0%,100%{ stroke-opacity:.55; } 50%{ stroke-opacity:1; stroke-width:3.5; } }
 .pfl .opt.done{ display:flex; align-items:center; gap:14px; padding:12px 16px; text-align:left; }
 .pfl .opt.done img{ width:56px; height:56px; border-radius:12px; object-fit:cover; flex:none; border:1px solid rgba(227,182,74,.5); }
 .pfl .opt.done span{ flex:1; min-width:0; }
@@ -1970,13 +1976,21 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       }));
     } else if(rm.pf && A.story === '2' && !(A.roomFloor || {})[rm.id]){   /* photos-first, two-story: one yes/no before the camera */
       if(!A.roomFloor) A.roomFloor = {};
-      h(el, 'Which floor is this room on?', 'Tap it on the house.');
-      var win = function(x, y){ return '<rect class="win" x="' + x + '" y="' + y + '" width="34" height="30" rx="3"/>'; };
-      el.insertAdjacentHTML('beforeend', '<svg class="house" viewBox="0 0 300 290" role="group" aria-label="Pick the floor">' +
-        '<path d="M20 112 L150 22 L280 112 Z" fill="var(--ink-2)" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"/>' +
-        '<g class="fl" data-f="2" role="button" aria-label="Upstairs"><rect class="bg" x="40" y="112" width="220" height="84"/>' + win(62, 124) + win(204, 124) + '<text x="150" y="160">Upstairs</text></g>' +
-        '<g class="fl" data-f="1" role="button" aria-label="Downstairs"><rect class="bg" x="40" y="196" width="220" height="84"/>' + win(62, 208) +
-        '<rect x="214" y="226" width="30" height="54" rx="3" fill="var(--ink-2)" stroke="var(--gold)" stroke-width="1.5"/><text x="150" y="244">Downstairs</text></g></svg>');
+      h(el, 'Which floor is this room on?', 'Tap Upstairs or Downstairs on the house.');
+      /* Each floor is a raised button: gold edge underneath, a pulsing outline, "TAP" under the label; it sinks and fills gold when tapped. */
+      var win = function(x, y){ return '<rect class="win" x="' + x + '" y="' + y + '" width="26" height="24" rx="4"/>'; };
+      var floor = function(f, y, name, wins){ return '<g class="fl" data-f="' + f + '" role="button" aria-label="' + name + '">' +
+        '<rect class="base" x="44" y="' + (y + 4) + '" width="212" height="76" rx="14"/><g class="top">' +
+        '<rect class="bg" x="44" y="' + y + '" width="212" height="76" rx="14"/>' + wins +
+        '<text class="lbl" x="150" y="' + (y + 40) + '">' + name + '</text><text class="tap" x="150" y="' + (y + 59) + '">TAP</text></g></g>'; };
+      el.insertAdjacentHTML('beforeend', '<svg class="house" viewBox="0 0 300 300" role="group" aria-label="Pick the floor">' +
+        '<defs><linearGradient id="hsFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a301c"/><stop offset="1" stop-color="#211c13"/></linearGradient></defs>' +
+        '<rect x="206" y="40" width="22" height="46" rx="2" fill="var(--ink-2)" stroke="var(--gold)" stroke-width="2"/>' +
+        '<path d="M26 112 L150 28 L274 112 Z" fill="var(--ink-2)" stroke="var(--gold)" stroke-width="2.5" stroke-linejoin="round"/>' +
+        '<rect x="36" y="112" width="228" height="182" rx="6" fill="#e3b64a" fill-opacity=".06" stroke="#e3b64a" stroke-opacity=".35" stroke-width="1.5"/>' +
+        floor('2', 120, 'Upstairs', win(58, 132) + win(216, 132)) +
+        floor('1', 206, 'Downstairs', win(58, 218) + '<rect x="216" y="226" width="24" height="46" rx="4" fill="#000" fill-opacity=".35" stroke="#e3b64a" stroke-opacity=".7" stroke-width="1.5"/>') +
+        '</svg>');
       [].forEach.call(el.querySelectorAll('.house .fl'), function(g){ g.onclick = function(){
         if(el.dataset.flgo) return; el.dataset.flgo = 1; g.classList.add('on');
         A.roomFloor[rm.id] = g.dataset.f; save();
