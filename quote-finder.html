@@ -1044,7 +1044,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     A.pfRooms = A.pfRooms || [];
     var pf = A.pfRooms, done = photoRooms().filter(function(rm){ return !rm.pf && roomShots(rm).length; });
     h(el, pf.length || done.length ? 'Snap your next room' + hi(', ') : 'Snap the rooms you want cleaned' + hi(', '),
-      'One room at a time: the doorway first, then each corner. We’ll figure out the room and the floor from your photos.');
+      'One room at a time: the doorway first, then each corner. Tip: set a sheet of white paper in the middle of the floor so we can see size and color. We’ll figure out the room and the floor from your photos.');
     var list = document.createElement('div'); list.className = 'opts pfl'; el.appendChild(list);
     done.concat(photoRooms().filter(function(rm){ return rm.pf; })).forEach(function(rm){
       var n = roomShots(rm).length, w = document.createElement('div'); w.className = 'rwrap hasph';
@@ -1961,6 +1961,12 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       roomAsk(el, 'Which floor is ' + esc(rm.t.split(' · ')[0]) + ' on?', '', ['1', '2'].map(function(v){
         return { t:(v === '1' ? 'First' : 'Second') + '<small>floor</small>', go:function(){ A.roomFloor[rm.id] = v; save(); open(); } };
       }));
+    } else if(rm.pf && A.story === '2' && !(A.roomFloor || {})[rm.id]){   /* photos-first, two-story: one yes/no before the camera */
+      if(!A.roomFloor) A.roomFloor = {};
+      roomAsk(el, 'Is this room upstairs?', '', [{ v:'2', t:'Yes' }, { v:'1', t:'No, downstairs' }].map(function(o){
+        return { t:o.t, go:function(){ A.roomFloor[rm.id] = o.v; save(); open(); } };
+      }));
+      rpBack = function(){ snapRooms(el); };
     } else open();
   }
   var lastRm = '';   /* the room they were just in, so the room list can open there */
