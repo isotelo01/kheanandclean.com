@@ -43,6 +43,14 @@ table{width:100%;border-collapse:collapse;font-size:14px}
 td,th{text-align:left;padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.12);vertical-align:top}
 th{color:var(--gold);font-weight:600}
 .none{color:var(--muted);margin-top:14px;display:none}
+.leo{border:1px dashed var(--gold);font-size:12px;font-weight:600;color:var(--gold);border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:middle}
+#leoBox[hidden]{display:none}
+.leoitem{border-top:1px solid rgba(255,255,255,.12);padding:10px 0}
+.leoitem:first-of-type{border-top:0}
+.leoitem .acts{display:flex;gap:8px;margin-top:6px}
+.gbtn{font:600 14px "Archivo",sans-serif;border-radius:999px;padding:6px 14px;cursor:pointer;border:1.5px solid var(--gold);background:transparent;color:var(--gold)}
+.gbtn.fill{background:var(--gold);color:var(--navy)}
+.gbtn:disabled{opacity:.5;cursor:default}
 </style>
 </head>
 <body>
@@ -277,6 +285,15 @@ th{color:var(--gold);font-weight:600}
     </ul>
   </div>
 
+  <!-- Leo (the Librarian bot) reads new SDS sheets from the Training Library and suggests new products here.
+       Nothing shows on the guide until Israel approves it. -->
+  <div class="box" id="leoBox" hidden>
+    <h2>New products from Leo</h2>
+    <p class="meta" style="margin:0 0 8px">Leo checks the Training Library every morning for new SDS sheets (topic "SDS"). Approve a product to add it to the guide. He only fills in what the SDS says, so add the steps from the label.</p>
+    <button type="button" class="gbtn" id="leoCheck">Check SDS now</button> <span class="meta" id="leoMsg"></span>
+    <div id="leoList"></div>
+  </div>
+
   <div class="box">
     <h2>Fiber quick check</h2>
     <table>
@@ -317,14 +334,14 @@ th{color:var(--gold);font-weight:600}
 <script>
 /* Search + chips: show only the stains that match. */
 (function () {
-  var cards = [].slice.call(document.querySelectorAll(".card")), q = document.getElementById("q"),
+  var q = document.getElementById("q"),
     chips = document.getElementById("chips"), none = document.getElementById("none");
   var picks = ["Coffee", "Urine", "Poop", "Blood", "Wine", "Red dye", "Yellowing", "Rust", "Gum", "Paint", "Ink"];
   chips.innerHTML = picks.map(function (p) { return '<button type="button">' + p + "</button>"; }).join("");
   function show(t) {
     t = String(t || "").toLowerCase().trim(); var n = 0;
     if (t === "yellowing") t = "yellow";
-    cards.forEach(function (c) {
+    [].forEach.call(document.querySelectorAll(".card"), function (c) {   /* every time, so Leo's approved cards are searched too */
       var hit = !t || (c.dataset.k + " " + c.textContent).toLowerCase().indexOf(t) > -1;
       c.hidden = !hit; if (hit) n++;
     });
@@ -338,6 +355,56 @@ th{color:var(--gold);font-weight:600}
     if (on) { b.classList.add("on"); q.value = ""; show(b.textContent); } else show("");
   });
 })();
+</script>
+<script type="module">
+/* Leo's SDS suggestions (stainGuideAdds): pending ones to approve or dismiss, approved ones shown as cards. Staff login only. */
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+const app = getApps().length ? getApp() : initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg", authDomain: "khean-estimator-78f3e.firebaseapp.com", projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app", messagingSenderId: "581692353222", appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const db = getFirestore(app), checkNow = httpsCallable(getFunctions(app, "us-central1"), "leoSdsCheckNow", { timeout: 300000 });
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const facts = a => (a.use ? '<p style="margin:4px 0">' + esc(a.use) + '</p>' : '') +
+  (a.stains && a.stains.length ? '<p class="meta" style="margin:2px 0">For: ' + esc(a.stains.join(", ")) + '</p>' : '') +
+  (a.fibers ? '<p class="meta" style="margin:2px 0">Fibers/surfaces: ' + esc(a.fibers) + '</p>' : '') +
+  (a.hazards && a.hazards.length ? '<p class="warn"><b>From the SDS:</b> ' + esc(a.hazards.join(". ")) + '</p>' : '');
+async function load() {
+  let rows = [];
+  try { rows = (await getDocs(collection(db, "stainGuideAdds"))).docs.map(d => ({ id: d.id, ...d.data() })); } catch (e) { console.error(e); return; }
+  document.querySelectorAll(".card.fromLeo").forEach(c => c.remove());
+  rows.filter(a => a.status === "approved").forEach(a => {
+    const c = document.createElement("section"); c.className = "card fromLeo";
+    c.dataset.k = [...(a.keywords || []), ...(a.stains || []), a.product].join(" ").toLowerCase();
+    c.innerHTML = '<h2>' + esc(a.product) + '<span class="leo">From SDS · Leo</span></h2>' + (a.maker ? '<p class="also">' + esc(a.maker) + '</p>' : '') +
+      '<span class="prod">' + esc(a.product) + '</span> <span class="meta">' + (a.ph ? 'pH ' + esc(a.ph) : 'pH not on the SDS') + '</span>' + facts(a) +
+      '<p class="nolabel">Steps and dwell time aren\'t on the SDS. Check the label.</p>';
+    $("cards").appendChild(c);
+  });
+  const pend = rows.filter(a => a.status === "pending");
+  $("leoList").innerHTML = pend.length ? pend.map(a => '<div class="leoitem"><b>' + esc(a.product) + '</b>' + (a.ph ? ' <span class="meta">· pH ' + esc(a.ph) + '</span>' : '') +
+    (a.maker ? ' <span class="meta">· ' + esc(a.maker) + '</span>' : '') + facts(a) + '<p class="meta" style="margin:2px 0">From: ' + esc(a.source || "") + '</p>' +
+    '<div class="acts"><button type="button" class="gbtn fill" data-ok="' + a.id + '">Add to guide</button><button type="button" class="gbtn" data-no="' + a.id + '">Dismiss</button></div></div>').join("")
+    : '<p class="meta" style="margin:10px 0 0">Nothing new waiting.</p>';
+  const set = async (id, status, b) => { b.disabled = true; try { await updateDoc(doc(db, "stainGuideAdds", id), { status, decidedAt: serverTimestamp() }); await load(); } catch (e) { console.error(e); b.disabled = false; alert("Couldn't save. Try again."); } };
+  document.querySelectorAll("[data-ok]").forEach(b => b.onclick = () => set(b.dataset.ok, "approved", b));
+  document.querySelectorAll("[data-no]").forEach(b => b.onclick = () => set(b.dataset.no, "dismissed", b));
+}
+$("leoCheck").onclick = async () => {
+  const b = $("leoCheck"); b.disabled = true; $("leoMsg").textContent = "Leo is reading…";
+  try {
+    const r = (await checkNow()).data || {};
+    $("leoMsg").textContent = r.note || ("Read " + r.checked + " sheet" + (r.checked === 1 ? "" : "s") + ", " + r.added + " new product" + (r.added === 1 ? "" : "s") + "." + (r.left ? " " + r.left + " more next time." : ""));
+    await load();
+  } catch (e) { console.error(e); $("leoMsg").textContent = e.message || "Leo couldn't check. Try again."; }
+  b.disabled = false;
+};
+onAuthStateChanged(getAuth(app), u => { if (u && STAFF.includes(u.uid)) { $("leoBox").hidden = false; load(); } });
 </script>
 <script src="./tabbar.js" defer></script>
 </body>
