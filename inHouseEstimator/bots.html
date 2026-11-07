@@ -62,6 +62,19 @@ button:disabled{opacity:.5;cursor:default}
 .send{flex:none}
 label.chk{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--muted)}
 .saved{font-size:13.5px;color:#2e8a57}
+.crew{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.crew>.bot{border:0;border-radius:0}
+.team{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 12px 66px}
+.chip{font:600 13px "Archivo",sans-serif;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:4px 11px;cursor:pointer}
+.chip[disabled]{opacity:.55;cursor:default}
+.secth{margin:18px 0 8px}
+.note{display:flex;gap:10px;align-items:flex-start;border-top:1px solid var(--line);padding:9px 0}
+.note:first-child{border-top:0}
+.note .nt{flex:1;min-width:0;font-size:15px}
+.note .nb{display:inline-block;font-size:12px;font-weight:600;color:var(--gold);margin-right:6px}
+.note .by{display:block;font-size:12.5px;color:var(--muted)}
+.note button{flex:none;border:0;background:transparent;color:#b3261e;font:600 13px "Archivo",sans-serif;cursor:pointer;padding:2px 4px}
+select{font:15px "Archivo",system-ui,sans-serif;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:#fff;color:var(--ink)}
 :where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
@@ -78,7 +91,7 @@ label.chk{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--mut
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, getDoc, setDoc, serverTimestamp, collection, getDocs, addDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 /* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
@@ -118,10 +131,39 @@ const BOTS = [
     does: "Estimates a room's floor size from corner photos, with a low/high range, floor type, rugs and condition.",
     hint: "e.g. Standard bedrooms around here run about 10 by 12. Don't count the closet unless it's in the photo." },
 ];
-const COMING = [
-  { name: "Call answering bot", ic: "Ca", does: "Answers the business line when you can't, books jobs and texts you a summary." },
-  { name: "Investigator", ic: "In", does: "Researches a Cold Calls business and writes you a report before you reach out." },
+/* The crew (TMNT names). Casey Jones runs them all and they hand work to each other. Each turtle leads a team of
+   the little bots above. key = its field in settings/botRules and the name botTest knows it by.
+   live: its real job is working now; setup: you can set it up and talk it through, its real job comes next. */
+const CREW = [
+  { key: "leo", name: "Leo", full: "Leonardo", ic: "Le", job: "The librarian. Knows your Training Library and gets the facts.", team: [], live: true,
+    where: "Training Library", page: "./training.html", hint: "e.g. Always say which book or note the answer came from." },
+  { key: "donnie", name: "Donnie", full: "Donatello", ic: "Do", job: "Measures rooms and reads the job photos.", team: ["measure", "photos"], live: true,
+    where: "Job sheet rooms", page: "./measure.html", hint: "e.g. Bedrooms around here usually run about 10 by 12." },
+  { key: "mikey", name: "Mikey", full: "Michelangelo", ic: "Mi", job: "Runs all communication: email, texts and calls. Turns your rough idea into a clean reply.", team: ["mail", "spam", "nextdoor", "texts", "calls", "yelp"], live: true,
+    where: "Email and Texts pages", page: "./texts.html", hint: "e.g. Keep texts under 3 sentences. End customer texts with Thank you." },
+  { key: "raph", name: "Raph", full: "Raphael", ic: "Ra", job: "Investigates cold-call leads, finds where they're most active, and works out the best way in.", team: [],
+    where: "Cold Calls", page: "./cold-calls.html", hint: "e.g. For realtors, check LinkedIn first. Low volume, one run per company." },
+  { key: "splinter", name: "Splinter", full: "Splinter", ic: "Sp", job: "The coach. Watches how the bots work together, reviews the notebooks, and coaches them to get better.", team: [],
+    where: "Crew", page: "", hint: "e.g. Check Donnie's photo estimates against my real measurements every week." },
+  { key: "april", name: "April", full: "April O'Neil", ic: "Ap", job: "The reporter. Briefings on everything, wins you can show people, and website analytics.", team: ["taps"],
+    where: "Crew", page: "", hint: "e.g. Lead with new leads, then messages waiting on me." },
+  { key: "shredder", name: "Shredder", full: "Shredder", ic: "Sh", job: "The tester. Tries to break the app and reports what fails.", team: [], live: true,
+    where: "Casey's Run test", page: "./manager.html", hint: "e.g. Always check the Instant Quote and the job sheet photos." },
+  { key: "krang", name: "Krang", full: "Krang", ic: "Kr", job: "The brain on competitor watch: other local carpet cleaners' prices, ads and reviews.", team: [],
+    where: "Crew", page: "", hint: "e.g. Watch cleaners in Folsom, El Dorado Hills and Roseville." },
 ];
+/* Little bots that are planned but not built yet. */
+const COMING = {
+  photos: { name: "Photos bot", ic: "Ph", does: "Reads job photos for useful details for the customer profile." },
+  calls:  { name: "Call answering", ic: "Ca", does: "Answers the business line when you can't, books jobs and texts you a summary." },
+  yelp:   { name: "Yelp replies", ic: "Ye", does: "Drafts fast replies to Yelp quote requests." },
+};
+/* Little bots that already have their own page. */
+const LINKED = {
+  taps: { name: "Button tracker", href: "./taps.html", does: "Counts which buttons you use most and least (Taps page). Shortcut suggestions come next." },
+};
+const ALL = () => [...BOTS, ...CREW];
+const ON_TEAM = new Set(CREW.flatMap(c => c.team));
 
 /* Each bot's setup boxes. They're all saved together as one text in settings/botRules[key], one "## Heading" per box,
    so the backend (and Casey Jones, who can edit bot rules) reads them as-is. Old plain rules show up in the Rules box. */
@@ -151,6 +193,7 @@ function composeSetup(f) {
   return FIELDS.filter(x => (f[x.k] || "").trim()).map(x => "## " + x.label + "\n" + f[x.k].trim()).join("\n\n");
 }
 const botName = b => parseSetup(rules[b.key]).name || b.name;
+const crewOf = k => CREW.find(c => c.team.includes(k));
 
 let rules = {}, learned = { texts: [], spam: [] }, current = null, history = [], rec = null, listening = false;
 let speakOn = true;
@@ -168,7 +211,9 @@ async function load() {
   const pats = (s && s.exists() && s.data().patterns) || [];
   learned.spam = (Array.isArray(pats) ? pats : Object.values(pats)).map(p => typeof p === "string" ? p : [p.kind, p.label || p.phrase].filter(Boolean).join(": "));
   const open = new URLSearchParams(location.search).get("bot");
-  if (open && BOTS.some(b => b.key === open)) showBot(open); else showList();
+  if (open && ALL().some(b => b.key === open)) showBot(open);
+  else if (new URLSearchParams(location.search).get("view") === "notes") showNotes();
+  else showList();
 }
 
 function showList() {
@@ -177,29 +222,42 @@ function showList() {
   $("sub").textContent = "Your AI helpers. Tap one to give it rules and test it.";
   $("backLink").innerHTML = "&lsaquo; Hub"; $("backLink").href = "./hub.html"; $("backLink").onclick = null;
   window.history.replaceState(null, "", "./bots.html");
+  const tag = b => '<span class="tag' + ((rules[b.key] || "").trim() ? ' on">Your setup' : '">' + (b.live === false || (CREW.includes(b) && !b.live) ? 'Set up' : 'Built-in')) + '</span>';
+  const chip = k => { const b = BOTS.find(x => x.key === k); if (b) return '<button type="button" class="chip" data-k="' + k + '">' + esc(botName(b)) + '</button>';
+    const l = LINKED[k]; if (l) return '<a class="chip" style="text-decoration:none" href="' + l.href + '" title="' + esc(l.does) + '">' + esc(l.name) + '</a>';
+    const c = COMING[k]; return c ? '<button type="button" class="chip" disabled title="' + esc(c.does) + '">' + esc(c.name) + ' · coming</button>' : ''; };
+  const others = BOTS.filter(b => !ON_TEAM.has(b.key));
   $("view").innerHTML = '<div class="list">' +
-    '<a class="bot" href="./manager.html" style="text-decoration:none;border-color:var(--gold)"><span class="ic">Mg</span><span class="t"><b>Casey Jones (Manager)</b>' +
-      '<span>The head bot. Talk to it about the business, or have it train the bots below.</span></span><span class="tag on">Call</span></a>' +
-    BOTS.map(b => '<button type="button" class="bot" data-k="' + b.key + '"><span class="ic">' + b.ic + '</span><span class="t"><b>' + esc(botName(b)) +
-      '</b><span>' + esc(b.where) + '</span></span><span class="tag' + ((rules[b.key] || "").trim() ? ' on">Your setup' : '">Built-in') + '</span></button>').join("") +
-    COMING.map(b => '<button type="button" class="bot" disabled><span class="ic">' + b.ic + '</span><span class="t"><b>' + esc(b.name) +
-      '</b><span>' + esc(b.does) + '</span></span><span class="tag">Coming</span></button>').join("") + '</div>';
-  document.querySelectorAll(".bot[data-k]").forEach(el => el.onclick = () => showBot(el.dataset.k));
+    '<a class="bot" href="./manager.html" style="text-decoration:none;border-color:var(--gold)"><span class="ic">CJ</span><span class="t"><b>Casey Jones (Manager)</b>' +
+      '<span>Runs the whole crew. Talk to him about the business, or have him train the bots.</span></span><span class="tag on">Call</span></a>' +
+    '<button type="button" class="bot" id="notesBtn"><span class="ic">Nb</span><span class="t"><b>Notebooks</b><span>What the bots share so nobody asks twice.</span></span><span class="tag">Open</span></button></div>' +
+    '<h2 class="secth">The crew</h2><div class="list">' +
+    CREW.map(c => '<div class="crew"><button type="button" class="bot" data-k="' + c.key + '"><span class="ic">' + c.ic + '</span><span class="t"><b>' + esc(botName(c)) +
+      '</b><span>' + esc(c.job) + '</span></span>' + tag(c) + '</button>' +
+      (c.team.length ? '<div class="team">' + c.team.map(chip).join("") + '</div>' : '') + '</div>').join("") + '</div>' +
+    (others.length ? '<h2 class="secth">Other helpers</h2><div class="list">' + others.map(b => '<button type="button" class="bot" data-k="' + b.key + '"><span class="ic">' + b.ic +
+      '</span><span class="t"><b>' + esc(botName(b)) + '</b><span>' + esc(b.where) + '</span></span>' + tag(b) + '</button>').join("") + '</div>' : '');
+  document.querySelectorAll("[data-k]").forEach(el => el.onclick = () => showBot(el.dataset.k));
+  $("notesBtn").onclick = showNotes;
 }
 
 function showBot(key) {
-  const b = BOTS.find(x => x.key === key); current = b; history = [];
+  const b = ALL().find(x => x.key === key); current = b; history = [];
+  const isCrew = CREW.includes(b), lead = crewOf(key);
   window.history.replaceState(null, "", "./bots.html?bot=" + key);
   $("title").textContent = botName(b);
   const setup = parseSetup(rules[key]);
-  $("sub").innerHTML = 'Used on the <a href="' + b.page + '">' + esc(b.where) + '</a>.';
+  $("sub").innerHTML = isCrew ? esc(b.full) + (b.page ? ' · <a href="' + b.page + '">' + esc(b.where) + '</a>' : ' · on the crew')
+    : 'Used on the <a href="' + b.page + '">' + esc(b.where) + '</a>.' + (lead ? ' On ' + esc(botName(lead)) + "'s team." : '');
   $("backLink").innerHTML = "&lsaquo; All bots"; $("backLink").href = "./bots.html";
   $("backLink").onclick = e => { e.preventDefault(); showList(); };
   const lr = learned[key] || null;
   const canTalk = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   $("view").innerHTML =
-    '<section class="panel"><h2>What it does</h2><p>' + esc(b.does) + '</p>' +
-      '<p class="muted">Its built-in instructions stay as they are. Your setup below gets added on top, every time it runs.</p></section>' +
+    '<section class="panel"><h2>What it does</h2><p>' + esc(isCrew ? b.job : b.does) + '</p>' +
+      (isCrew && b.team.length ? '<p>Team: ' + b.team.map(k => esc((BOTS.find(x => x.key === k) || COMING[k] || LINKED[k] || {}).name || k)).join(", ") + '</p>' : '') +
+      (isCrew && !b.live ? '<p class="muted">Its real job gets built next. For now, set it up and talk it through so it thinks the way you want.</p>' : '') +
+      '<p class="muted">Its built-in instructions stay as they are. Your setup below gets added on top, every time it runs, along with the shared notebooks it can see.</p></section>' +
     '<section class="panel"><h2>Setup</h2>' +
       FIELDS.map(f => '<label class="fl" for="f_' + f.k + '">' + esc(f.label) + '</label>' +
         (f.one ? '<input type="text" id="f_' + f.k + '" placeholder="' + esc(f.hint(b)) + '" value="' + esc(setup[f.k] || "") + '">'
@@ -221,6 +279,48 @@ function showBot(key) {
   $("speak").onchange = e => { speakOn = e.target.checked; try { localStorage.setItem("botsSpeak", speakOn ? "1" : "0"); } catch (x) {} if (!speakOn) try { speechSynthesis.cancel(); } catch (x) {} };
   $("clearChat").onclick = () => { history = []; $("chat").innerHTML = ""; };
   if ($("micBtn")) $("micBtn").onclick = toggleMic;
+}
+
+/* Notebooks: "main" every bot reads; partner notebooks (e.g. mikey+raph) are read by those crew members and their teams. */
+let notes = [];
+async function showNotes() {
+  current = null; history = []; stopMic();
+  window.history.replaceState(null, "", "./bots.html?view=notes");
+  $("title").textContent = "Notebooks";
+  $("sub").textContent = "What the bots share, so nobody asks twice. Every bot reads Main; partner notebooks are just for those two.";
+  $("backLink").innerHTML = "&lsaquo; All bots"; $("backLink").href = "./bots.html";
+  $("backLink").onclick = e => { e.preventDefault(); showList(); };
+  const opts = '<option value="main">Main (every bot)</option>' + CREW.flatMap((a, i) => CREW.slice(i + 1).map(c => {
+    const v = [a.key, c.key].sort().join("+"); return '<option value="' + v + '">' + esc(botName(a)) + ' + ' + esc(botName(c)) + '</option>'; })).join("");
+  $("view").innerHTML = '<section class="panel"><h2>Add a note</h2>' +
+      '<textarea class="sm" id="noteText" placeholder="e.g. Jenny on Oak St: gate code 4412, dog in the backyard."></textarea>' +
+      '<div class="row"><select id="noteBook" aria-label="Notebook">' + opts + '</select><button type="button" class="btn" id="addNote">Save note</button><span class="saved" id="noteMsg"></span></div></section>' +
+    '<section class="panel"><h2>Notes</h2><div id="noteList"><p class="muted">Loading…</p></div></section>';
+  $("addNote").onclick = addNote;
+  await loadNotes();
+}
+const bookName = b => b === "main" ? "Main" : b.split("+").map(k => { const c = CREW.find(x => x.key === k); return c ? botName(c) : k; }).join(" + ");
+async function loadNotes() {
+  try {
+    const s = await getDocs(query(collection(db, "botNotes"), orderBy("at", "desc"), limit(200)));
+    notes = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) { console.error(e); $("noteList").innerHTML = '<p class="muted">Couldn\'t load the notes.</p>'; return; }
+  $("noteList").innerHTML = notes.length ? notes.map(n => '<div class="note"><div class="nt"><span class="nb">' + esc(bookName(n.book || "main")) + '</span>' + esc(n.text) +
+    '<span class="by">' + esc(n.by || "") + (n.at && n.at.toDate ? ' · ' + n.at.toDate().toLocaleDateString() : '') + '</span></div>' +
+    '<button type="button" data-del="' + n.id + '">Delete</button></div>').join("") : '<p class="muted">No notes yet. Add one above, or tell Casey "note that…".</p>';
+  document.querySelectorAll("[data-del]").forEach(el => el.onclick = async () => {
+    if (!confirm("Delete this note?")) return;
+    try { await deleteDoc(doc(db, "botNotes", el.dataset.del)); await loadNotes(); } catch (e) { console.error(e); alert("Couldn't delete it. Try again."); }
+  });
+}
+async function addNote() {
+  const text = $("noteText").value.trim(); if (!text) return;
+  $("addNote").disabled = true; $("noteMsg").textContent = "";
+  try {
+    await addDoc(collection(db, "botNotes"), { book: $("noteBook").value, text: text.slice(0, 600), by: (auth.currentUser && (auth.currentUser.displayName || auth.currentUser.email)) || "", at: serverTimestamp() });
+    $("noteText").value = ""; $("noteMsg").textContent = "Saved"; await loadNotes();
+  } catch (e) { console.error(e); $("noteMsg").style.color = "#b3261e"; $("noteMsg").textContent = "Couldn't save. Try again."; }
+  $("addNote").disabled = false;
 }
 
 async function saveRules() {
