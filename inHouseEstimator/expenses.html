@@ -136,6 +136,16 @@ h1::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;border
 .monthbar .lab{color:#fff;font-size:19px;min-width:170px;letter-spacing:.01em}
 .wrap .monthbar button.ghost{width:40px;height:40px;padding:0;border-radius:50%;background:#0b1222;border:1px solid rgba(227,182,74,.45);color:var(--gold);font-size:24px;line-height:1}
 .wrap .monthbar button.ghost:hover{background:rgba(227,182,74,.16)}
+/* header layout: logo left, title with Trash/Dashboard/Contacts under it to the right; month bar almost full width */
+.top{flex-wrap:nowrap;justify-content:flex-start;align-items:center}
+.titlecol{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0}
+.monthbar{width:96%;max-width:96%;justify-content:space-between}
+.monthbar .lab{flex:1}
+@media (max-width:759px){
+  h1{font-size:24px}
+  .wrap .top a.ghost,.wrap .top button.ghost{padding:7px 12px;font-size:14px}
+  .titlecol > div{gap:6px !important}
+}
 /* cards */
 .wrap .panel,.wrap .sides .panel{position:relative;background:linear-gradient(165deg,rgba(28,41,70,.92),rgba(12,18,33,.94));
   border:1px solid rgba(227,182,74,.28);border-radius:18px;padding:18px;margin-bottom:16px;
@@ -199,11 +209,13 @@ tfoot td.amt{color:#f6dc8e;font-size:17px}
 <div class="wrap">
   <div class="top">
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <div class="titlecol">
     <h1>Income &amp; Expenses</h1>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button type="button" class="ghost" id="trashBtn" aria-expanded="false">Trash <span id="trashCount"></span></button>
       <a class="ghost" href="./dashboard.html">Dashboard</a>
       <a class="ghost" href="./customers.html">Contacts</a>
+    </div>
     </div>
   </div>
 
