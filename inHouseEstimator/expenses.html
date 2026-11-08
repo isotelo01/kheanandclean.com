@@ -116,6 +116,83 @@ tfoot td{font-weight:700;border-bottom:none}
 @media (max-width:759px){.itemsBox{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0}}
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
+<style>
+/* Income & Expenses look: navy glass cards, gold trim, gold pills. Comes after the dark theme so it wins. Screen only. */
+@media screen{
+body{background:radial-gradient(120% 60% at 50% -10%, #1a2540 0%, #0a0f1c 45%, #000 100%) fixed}
+#authwait{background:#000}
+.wrap{padding-top:18px}
+/* header */
+.home img{border-radius:18px;box-shadow:0 0 0 1px rgba(227,182,74,.45),0 8px 30px rgba(227,182,74,.18)}
+h1{color:#fff;border-bottom:0;padding-bottom:8px;position:relative;letter-spacing:-.01em}
+h1::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px;background:linear-gradient(90deg,#b98f2e,#f6dc8e 45%,#E3B64A 70%,rgba(227,182,74,0))}
+.wrap .top a.ghost,.wrap .top button.ghost{border-radius:999px;background:rgba(23,34,57,.55);border:1px solid rgba(227,182,74,.35);color:#fff;
+  padding:8px 16px;font-weight:600;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .2s,border-color .2s}
+.wrap .top a.ghost:hover,.wrap .top button.ghost:hover{background:rgba(227,182,74,.14);border-color:var(--gold)}
+#trashCount:not(:empty){display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--gold);color:#172239;font-size:12px;line-height:20px;text-align:center}
+/* month picker: one glass capsule */
+.monthbar{width:max-content;max-width:100%;margin:6px auto 18px;padding:6px;gap:6px;border-radius:999px;
+  background:rgba(23,34,57,.6);border:1px solid rgba(227,182,74,.3);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.monthbar .lab{color:#fff;font-size:19px;min-width:170px;letter-spacing:.01em}
+.wrap .monthbar button.ghost{width:40px;height:40px;padding:0;border-radius:50%;background:#0b1222;border:1px solid rgba(227,182,74,.45);color:var(--gold);font-size:24px;line-height:1}
+.wrap .monthbar button.ghost:hover{background:rgba(227,182,74,.16)}
+/* cards */
+.wrap .panel,.wrap .sides .panel{position:relative;background:linear-gradient(165deg,rgba(28,41,70,.92),rgba(12,18,33,.94));
+  border:1px solid rgba(227,182,74,.28);border-radius:18px;padding:18px;margin-bottom:16px;
+  box-shadow:0 1px 0 rgba(255,240,200,.08) inset,0 14px 40px rgba(0,0,0,.45);overflow:hidden}
+.wrap .panel::before{content:"";position:absolute;left:18px;right:18px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(246,220,142,.7),transparent)}
+.panel h2{color:#fff;border-bottom:0;padding-bottom:10px;position:relative;font-size:19px}
+.panel h2::after{content:"";position:absolute;left:0;bottom:0;width:64px;height:3px;border-radius:3px;background:linear-gradient(90deg,#E3B64A,#f6dc8e)}
+/* add a payment: navy pill with gold edge, same height as the scan button */
+#toggleForm.new{border-radius:999px;padding:12px 22px;background:#0b1222;border:1px solid var(--gold);color:#fff;font-weight:700;
+  box-shadow:0 0 18px rgba(227,182,74,.12)}
+#toggleForm.new:hover{background:rgba(227,182,74,.12)}
+#csvBtn.ghost{border-radius:999px;background:transparent;border:1px solid rgba(227,182,74,.5);color:var(--gold);font-weight:700;padding:9px 18px}
+#csvBtn.ghost:hover{background:rgba(227,182,74,.12)}
+#saveBtn.new{border-radius:999px;padding:11px 28px;border:0;color:#172239;font-weight:700;background:linear-gradient(135deg,#f6dc8e,#E3B64A 50%,#b98f2e);box-shadow:0 6px 18px rgba(227,182,74,.3)}
+/* form */
+#formWrap{margin-top:14px;padding:16px;border-radius:14px;background:rgba(0,0,0,.35);border:1px solid rgba(227,182,74,.22)}
+#formWrap h2{margin-top:0 !important}
+label{color:#c9cfdb;letter-spacing:.02em}
+.wrap input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),.wrap select,.wrap textarea{
+  border-radius:10px;background:#060a14 !important;border-color:#33415f !important;transition:border-color .15s,box-shadow .15s}
+.wrap input:focus,.wrap select:focus,.wrap textarea:focus{outline:none;border-color:var(--gold) !important;box-shadow:0 0 0 3px rgba(227,182,74,.22)}
+/* tables */
+th{color:#d9b866;font-size:11px;letter-spacing:.09em;border-bottom:1px solid rgba(227,182,74,.35)}
+td{border-bottom:1px solid rgba(255,255,255,.07)}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:rgba(227,182,74,.06)}
+#list .exrow{cursor:pointer}
+td.amt{color:#fff;font-weight:700}
+.panel a{color:var(--gold)}
+a.rcpt{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;border:1px solid rgba(227,182,74,.5);background:rgba(227,182,74,.10);
+  color:var(--gold);font-size:12px;font-weight:700;text-decoration:none;letter-spacing:.02em}
+tfoot td{border-top:1px solid rgba(227,182,74,.45);color:#fff;padding-top:12px}
+tfoot td.amt{color:#f6dc8e;font-size:17px}
+.del{color:#ff8a7a}
+.wrap .msg{color:#aeb6c6}
+/* profit: three stat tiles */
+#profitBox .pl{gap:10px}
+#profitBox .pl > div{padding:14px 8px;border-radius:14px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08)}
+#profitBox .pl > div:last-child{border-color:rgba(227,182,74,.45);background:rgba(227,182,74,.07)}
+.pl .lbl{color:#d9b866;letter-spacing:.1em}
+.pl .big{color:#fff;margin-top:4px}
+.pl .pos{color:#3ddc84;text-shadow:0 0 18px rgba(61,220,132,.35)}
+.pl .neg{color:#ff6b5b;text-shadow:0 0 18px rgba(255,107,91,.3)}
+/* receipt pop-up */
+.itemsBox{border-radius:18px;border:1px solid rgba(227,182,74,.45) !important;background:linear-gradient(165deg,#1c2946,#0c1221) !important;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.itemsBox::backdrop{background:rgba(0,0,0,.65);backdrop-filter:blur(4px)}
+/* phones: keep the cards, a little tighter */
+@media (max-width:759px){
+  .wrap .panel,.wrap .sides .panel{padding:16px 14px;margin:0 0 14px;border:1px solid rgba(227,182,74,.28);border-radius:16px;
+    background:linear-gradient(165deg,rgba(28,41,70,.92),rgba(12,18,33,.94))}
+  .wrap .sides{gap:0}
+  .top{justify-content:flex-start}
+  .monthbar .lab{min-width:150px;font-size:18px}
+  .itemsBox{border-radius:0}
+}
+}
+</style>
 </head>
 <body>
 <div id="authwait"></div>
