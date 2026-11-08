@@ -16,6 +16,9 @@ export function guessFromTexts(texts) {
       /* Signed at the end, like "... -Jenny" or "— Jenny". */
       const sig = t.match(/(?:^|\s)[-–—]\s?([A-Z][a-z'’-]+)\s*$/);
       if (!m && sig) name = sig[1];
+      /* A text that's only their name, like "Bobby Edwards". */
+      const bare = t.match(/^([A-Z][a-z'’-]+(?:\s+[A-Z][a-z'’-]+){1,2})[.!]?$/);
+      if (!name && bare && !/^(?:Thank|Thanks|Hello|Hi|Hey|Good|Ok|Okay|Yes|No|Sounds|See|Have)\b/.test(bare[1])) name = bare[1];
     }
     if (!referredBy) {
       const m = t.match(/\b(?:referred (?:me |us )?(?:to you )?by|referral from|recommended by|got your (?:number|name|info|contact info|contact) from|heard about you (?:from|through))\s+([^.,!?;\n]{2,40})/i)

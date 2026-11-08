@@ -430,7 +430,10 @@ const msOf = v => v && typeof v.toMillis === "function" ? v.toMillis() : (Number
 const isTrashed = t => !!t.trashedAt && msOf(t.lastAt) <= t.trashedAt;
 function showList() {
   view.innerHTML = '<div class="msg">Loading&hellip;</div>';
-  stop.push(onSnapshot(query(collection(db, "smsThreads"), orderBy("lastAt", "desc"), limit(200)), snap => {
+  let lastSnap = null;   // redrawn once Leads / Contacts load, so numbers turn into names
+  stop.push(() => { window.kcRelist = null; });
+  stop.push(onSnapshot(query(collection(db, "smsThreads"), orderBy("lastAt", "desc"), limit(200)), window.kcRelist = snap => {
+    if (!snap) { if (!lastSnap) return; snap = lastSnap; } else lastSnap = snap;
     if (snap.empty) {
       view.innerHTML = '<div class="msg">No texts yet. When a customer texts (916) 767-2520, it shows up here. ' +
         'Tap <b>New text</b> to start one.</div>';
@@ -1224,8 +1227,14 @@ async function loadPeople() {
     [].concat(Array.isArray(c.phones) ? c.phones : [], c.phone || []).forEach(ph => { const k = key(ph); if (k) profileByKey[k] = "./customers.html#" + encodeURIComponent(c.id); });
   });
   [L, A, C, P].forEach(s => { if (s.status === "rejected") console.warn("people load", s.reason); });
+  // Contacts with more than one phone: every number shows their name.
+  docs(C).filter(c => !c.trashed).forEach(c => {
+    const nm = (c.type && !/resid/i.test(c.type) && c.business) || c.name || c.business;
+    [].concat(Array.isArray(c.phones) ? c.phones : [], c.phone || []).forEach(ph => { const k = key(ph); if (k && nm && !nameByKey[k]) nameByKey[k] = nm; });
+  });
   peopleLoaded = true;
   renderPeople();
+  if (window.kcRelist) window.kcRelist();   // text list: show names instead of numbers
   // An open conversation with no saved name picks one up now.
   const cn = document.getElementById("cname"), h = location.hash.slice(1);
   if (cn && nameByKey[h] && cn.textContent === pretty(h)) cn.textContent = nameByKey[h];
