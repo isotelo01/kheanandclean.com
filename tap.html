@@ -4,263 +4,95 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#02050d">
+<meta name="theme-color" content="#000000">
 <title>K&amp;C Floor Cleaning</title>
+<link rel="preload" as="image" href="/images/logo-clear-1280.png">
 <style>
-  html, body { margin: 0; height: 100%; background: #02050d; overflow: hidden;
-    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; }
-  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-  .name { position: fixed; left: 0; right: 0; bottom: max(48px, env(safe-area-inset-bottom)); text-align: center;
-    color: #ece4d0; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; font-weight: 500;
-    opacity: 0; transition: opacity 1s ease; }
-  .name.show { opacity: .75; }
-  .btn { position: fixed; left: 50%; bottom: max(96px, calc(env(safe-area-inset-bottom) + 48px)); transform: translateX(-50%);
-    padding: 14px 26px; border-radius: 999px; background: #d9a94a; color: #1a1004; font-weight: 600; font-size: 16px;
-    text-decoration: none; opacity: 0; pointer-events: none; transition: opacity .3s; white-space: nowrap; }
-  .btn.show { opacity: 1; pointer-events: auto; }
+/* Same opening as the Instant Quote intro (quote-finder.html .intro2), without the words. */
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden;
+  font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.intro2{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; overflow:hidden;
+  background:radial-gradient(120% 75% at 50% 42%, #1c1609 0%, #08090d 52%, #000 100%); }
+.intro2 canvas{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.intro2 .rays{ position:absolute; left:50%; top:50%; width:170vmax; height:170vmax; translate:-50% -50%; opacity:0; transition:opacity 1.8s ease; pointer-events:none;
+  background:conic-gradient(from 0deg, transparent 0 7%, rgba(227,182,74,.09) 10%, transparent 13% 28%, rgba(227,182,74,.06) 31%, transparent 35% 54%, rgba(227,182,74,.08) 57%, transparent 61% 79%, rgba(227,182,74,.06) 82%, transparent 86%);
+  -webkit-mask-image:radial-gradient(circle, #000 0 14%, transparent 48%); mask-image:radial-gradient(circle, #000 0 14%, transparent 48%); animation:i2spin 30s linear infinite; }
+.intro2.on .rays{ opacity:1; }
+@keyframes i2spin{ to{ rotate:360deg; } }
+.intro2 .mark{ position:relative; width:min(54vw,230px); aspect-ratio:1280/1143; z-index:1; }
+.intro2 .mark img{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; clip-path:inset(100% 0 0 0); transition:clip-path 1.6s cubic-bezier(.45,.05,.25,1), filter 1.2s ease;
+  filter:drop-shadow(0 0 22px rgba(227,182,74,.55)) brightness(1.25); }
+.intro2.on .mark img{ clip-path:inset(-10% -10% -10% -10%); }
+.intro2.drawn .mark img{ filter:drop-shadow(0 0 14px rgba(227,182,74,.35)) brightness(1); }
+.intro2 .scan{ position:absolute; left:-12%; right:-12%; bottom:0; height:3px; border-radius:3px; opacity:0;
+  background:linear-gradient(90deg, transparent, #fff3cf 30%, #fffaf0 50%, #fff3cf 70%, transparent); box-shadow:0 0 16px 4px rgba(227,182,74,.85), 0 0 46px 10px rgba(227,182,74,.35);
+  transition:bottom 1.6s cubic-bezier(.45,.05,.25,1), opacity .3s ease; }
+.intro2.on .scan{ bottom:100%; opacity:1; }
+.intro2.drawn .scan{ opacity:0; }
+.intro2 .shine{ position:absolute; inset:0; pointer-events:none; background:linear-gradient(105deg, transparent 38%, rgba(255,246,220,.85) 50%, transparent 62%) no-repeat; background-size:260% 100%; background-position:160% 0;
+  -webkit-mask:url(/images/logo-clear-1280.png) center/contain no-repeat; mask:url(/images/logo-clear-1280.png) center/contain no-repeat; mix-blend-mode:screen; }
+.intro2.drawn .shine{ transition:background-position 1.3s ease .15s; background-position:-60% 0; }
+.intro2 svg{ position:absolute; left:50%; top:50%; width:150%; height:auto; translate:-50% -50%; overflow:visible; pointer-events:none; }
+.intro2 circle{ fill:none; stroke:#E3B64A; stroke-linecap:round; filter:drop-shadow(0 0 4px rgba(227,182,74,.9)); }
+.intro2 .r1{ stroke-width:1.1; stroke-dasharray:352; stroke-dashoffset:352; transform-origin:60px 60px; transform:rotate(-90deg); transition:stroke-dashoffset 1.2s cubic-bezier(.6,0,.2,1); }
+.intro2.drawn .r1{ stroke-dashoffset:0; }
+.intro2 .r2{ stroke-width:.6; stroke-dasharray:2 7; opacity:0; transform-origin:60px 60px; transition:opacity 1s ease .4s; animation:i2spin 18s linear infinite reverse; }
+.intro2.drawn .r2{ opacity:.7; }
+.btn{ position:fixed; left:50%; bottom:max(48px, calc(env(safe-area-inset-bottom) + 24px)); translate:-50% 0; z-index:2;
+  padding:14px 26px; border-radius:999px; background:#E3B64A; color:#1a1004; font-weight:600; font-size:16px; text-decoration:none;
+  opacity:0; pointer-events:none; transition:opacity .3s; white-space:nowrap; }
+.btn.show{ opacity:1; pointer-events:auto; }
+@media (prefers-reduced-motion: reduce){
+  .intro2 .mark img{ clip-path:none; transition:none; } .intro2 .scan, .intro2 .shine{ display:none; }
+}
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div class="name" id="name">K&amp;C Floor Cleaning</div>
+<div class="intro2" id="ov" aria-hidden="true">
+  <div class="rays"></div><canvas></canvas>
+  <div class="mark"><svg viewBox="0 0 120 120"><circle class="r1" cx="60" cy="60" r="56"/><circle class="r2" cx="60" cy="60" r="51"/></svg>
+    <img src="/images/logo-clear-1280.png" alt=""><i class="scan"></i><i class="shine"></i></div>
+</div>
 <a class="btn" id="save" href="khean-clean.vcf">Save contact</a>
 <script>
-(function () {
-  var CARD = 'khean-clean.vcf', GO_AT = 3.4;
-  var cv = document.getElementById('c'), ctx = cv.getContext('2d');
-  var W, H, DPR, WL, S, MX, MY, MR; // size, waterline, logo size, moon
-  var logo = new Image(), off = document.createElement('canvas'), octx = off.getContext('2d');
-  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+(function(){
+  var CARD = 'khean-clean.vcf';
+  var ov = document.getElementById('ov');
+  var at = function(ms, f){ setTimeout(f, ms); };
 
-  function size() {
-    DPR = Math.min(window.devicePixelRatio || 1, 3);
-    W = innerWidth; H = innerHeight;
-    cv.width = W * DPR; cv.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    WL = Math.round(H * 0.58);
-    S = Math.min(230, W * 0.62, H * 0.32);
-    MX = W * .78; MY = Math.max(70, H * .12); MR = Math.min(W, H) * .075;
-    if (moonCv) buildMoon();
-  }
+  /* Gold sparks: drifting up the whole time, plus one burst out of the logo when it finishes drawing. */
+  var cv = ov.querySelector('canvas'), g = cv.getContext('2d'), dpr = Math.min(2, window.devicePixelRatio || 1), P = [];
+  var size = function(){ cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; };
   size(); addEventListener('resize', size);
+  var spark = function(x, y, vx, vy, life){ P.push({ x:x, y:y, vx:vx, vy:vy, life:life, age:0, r:(Math.random() * 1.6 + .6) * dpr, tw:Math.random() * 6 }); };
+  for(var k = 0; k < 46; k++) spark(Math.random() * cv.width, Math.random() * cv.height, (Math.random() - .5) * .15 * dpr, -(Math.random() * .35 + .1) * dpr, 400 + Math.random() * 400);
+  var tick = function(){
+    g.clearRect(0, 0, cv.width, cv.height); g.globalCompositeOperation = 'lighter';
+    for(var i = P.length - 1; i >= 0; i--){ var q = P[i]; q.age++; q.x += q.vx; q.y += q.vy; q.vx *= .992; q.vy = q.vy * .992 - .002 * dpr;
+      if(q.age > q.life){ if(P.length < 120 && !q.burst){ q.x = Math.random() * cv.width; q.y = cv.height + 10; q.age = 0; } else { P.splice(i, 1); continue; } }
+      var a = Math.min(1, q.age / 30) * Math.min(1, (q.life - q.age) / 60) * (.55 + .45 * Math.sin(q.age * .12 + q.tw));
+      var gr = g.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.r * 4);
+      gr.addColorStop(0, 'rgba(255,240,200,' + a + ')'); gr.addColorStop(.35, 'rgba(227,182,74,' + a * .7 + ')'); gr.addColorStop(1, 'rgba(227,182,74,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(q.x, q.y, q.r * 4, 0, Math.PI * 2); g.fill(); }
+    requestAnimationFrame(tick); };
+  tick();
+  var burst = function(){
+    var m = ov.querySelector('.mark').getBoundingClientRect(), cx = (m.left + m.width / 2) * dpr, cy = (m.top + m.height / 2) * dpr;
+    for(var j = 0; j < 70; j++){ var an = Math.random() * Math.PI * 2, sp = (Math.random() * 3 + 1.2) * dpr;
+      spark(cx + Math.cos(an) * m.width * .35 * dpr, cy + Math.sin(an) * m.height * .35 * dpr, Math.cos(an) * sp, Math.sin(an) * sp, 70 + Math.random() * 60);
+      P[P.length - 1].burst = true; } };
 
-  // ---- helpers
-  function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
-  function ease(x) { x = clamp(x, 0, 1); return 1 - Math.pow(1 - x, 3); }
-  function backOut(x) { x = clamp(x, 0, 1); var c = 1.4; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); }
-
-  // ---- things in the scene
-  var ripples = [], motes = [];
-  function ripple(x, t0, big) { ripples.push({ x: x, t0: t0, max: big ? W * 0.55 : 60 + Math.random() * 40, life: big ? 2.2 : 1.2 }); }
-  for (var i = 0; i < 70; i++) motes.push(newMote(true));
-  function newMote(anywhere) {
-    return { x: Math.random() * W, y: anywhere ? Math.random() * WL : WL + Math.random() * 10,
-      r: .6 + Math.random() * 1.8, v: 6 + Math.random() * 22, ph: Math.random() * 6.28,
-      hue: Math.random() < .75 ? 0 : 1, a: 0 };
-  }
-  var emerged = [false, false, false];
-  function rnd(a, b) { return a + Math.random() * (b - a); }
-  function gauss() { return (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; }
-  var waves = [], glints = [];
-  for (var wv = 0; wv < 260; wv++) waves.push({ x: Math.random(), y: Math.random(), len: rnd(.4, 1), ph: rnd(0, 6.28), sp: rnd(.4, 1.1), lite: Math.random() < .5 });
-  for (var gl = 0; gl < 240; gl++) glints.push({ u: gauss(), y: Math.random(), ph: rnd(0, 6.28), sp: rnd(1.5, 4.5) });
-
-  // a realistic full moon, painted once
-  var moonCv = document.createElement('canvas'), mctx = moonCv.getContext('2d');
-  function buildMoon() {
-    var R = MR, sz = Math.ceil(R * 2 * DPR);
-    moonCv.width = sz; moonCv.height = sz;
-    mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    mctx.save();
-    mctx.beginPath(); mctx.arc(R, R, R, 0, 6.283); mctx.clip();
-    var base = mctx.createRadialGradient(R * .92, R * .9, 0, R, R, R);
-    base.addColorStop(0, '#fcfbf6'); base.addColorStop(.7, '#eeece4'); base.addColorStop(1, '#cfccc3');
-    mctx.fillStyle = base; mctx.fillRect(0, 0, R * 2, R * 2);
-    // the dark "seas" (maria), placed roughly where they are on the real moon
-    [[.36,.30,.24,.50],[.58,.33,.13,.48],[.70,.50,.15,.46],[.24,.56,.24,.42],[.42,.73,.13,.36],
-     [.85,.40,.07,.42],[.55,.58,.09,.30],[.18,.32,.12,.30],[.64,.70,.08,.24],[.30,.42,.10,.30]].forEach(function (m) {
-      var g = mctx.createRadialGradient(m[0] * 2 * R, m[1] * 2 * R, 0, m[0] * 2 * R, m[1] * 2 * R, m[2] * 2 * R);
-      g.addColorStop(0, 'rgba(120,124,134,' + m[3] + ')'); g.addColorStop(.55, 'rgba(120,124,134,' + m[3] * .75 + ')'); g.addColorStop(1, 'rgba(120,124,134,0)');
-      mctx.fillStyle = g; mctx.fillRect(0, 0, R * 2, R * 2);
-    });
-    // fine surface grain and small craters
-    for (var k = 0; k < 160; k++) {
-      var a = Math.random() * 6.283, d = Math.sqrt(Math.random()) * R, x = R + Math.cos(a) * d, y = R + Math.sin(a) * d;
-      mctx.fillStyle = Math.random() < .5 ? 'rgba(100,104,112,.06)' : 'rgba(255,255,250,.08)';
-      mctx.beginPath(); mctx.arc(x, y, rnd(.2, 1.1) * R / 40, 0, 6.283); mctx.fill();
-    }
-    // Tycho: a bright young crater with faint rays, lower part of the moon
-    var tx = R * .88, ty = R * 1.62;
-    mctx.strokeStyle = 'rgba(255,255,250,.07)'; mctx.lineWidth = R * .02;
-    for (var ry = 0; ry < 14; ry++) { var ang = ry / 14 * 6.283 + rnd(-.2, .2), ln = R * rnd(.4, 1.1);
-      mctx.beginPath(); mctx.moveTo(tx, ty); mctx.lineTo(tx + Math.cos(ang) * ln, ty + Math.sin(ang) * ln); mctx.stroke(); }
-    mctx.fillStyle = 'rgba(255,255,252,.45)'; mctx.beginPath(); mctx.arc(tx, ty, R * .03, 0, 6.283); mctx.fill();
-    // edge darkening so it reads as a ball
-    var limb = mctx.createRadialGradient(R, R, R * .7, R, R, R);
-    limb.addColorStop(0, 'rgba(20,24,35,0)'); limb.addColorStop(1, 'rgba(20,24,35,.18)');
-    mctx.fillStyle = limb; mctx.fillRect(0, 0, R * 2, R * 2);
-    mctx.restore();
-  }
-  buildMoon();
-  var stars = [];
-  for (var st = 0; st < 160; st++) stars.push({ x: Math.random(), y: Math.pow(Math.random(), 1.4), r: .3 + Math.random() * 1.1,
-    ph: Math.random() * 6.28, sp: .8 + Math.random() * 2.5, b: .3 + Math.random() * .7 });
-
-  // ---- the logo, drawn onto its own canvas so we can shine it and reflect it
-  function logoFrame(shineX) {
-    var lw = S, lh = S * (logo.height / logo.width);
-    off.width = Math.ceil(lw * DPR); off.height = Math.ceil(lh * DPR);
-    octx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    octx.clearRect(0, 0, lw, lh);
-    octx.drawImage(logo, 0, 0, lw, lh);
-    // moonlight catching the gold from the upper right
-    octx.globalCompositeOperation = 'source-atop';
-    var ml = octx.createLinearGradient(lw, 0, lw * .35, lh * .8);
-    ml.addColorStop(0, 'rgba(225,235,255,.38)'); ml.addColorStop(.45, 'rgba(225,235,255,.08)'); ml.addColorStop(1, 'rgba(225,235,255,0)');
-    octx.fillStyle = ml; octx.fillRect(0, 0, lw, lh);
-    octx.globalCompositeOperation = 'source-over';
-    if (shineX !== null) {
-      octx.globalCompositeOperation = 'source-atop';
-      var g = octx.createLinearGradient(shineX - 70, 0, shineX + 70, lh * .4);
-      g.addColorStop(0, 'rgba(255,250,230,0)'); g.addColorStop(.5, 'rgba(255,250,230,.9)'); g.addColorStop(1, 'rgba(255,250,230,0)');
-      octx.fillStyle = g; octx.fillRect(0, 0, lw, lh);
-      octx.globalCompositeOperation = 'source-over';
-    }
-    return { w: lw, h: lh };
-  }
-
-  function draw(t) {
-    // sky + water
-    var sky = ctx.createLinearGradient(0, 0, 0, WL);
-    sky.addColorStop(0, '#02050d'); sky.addColorStop(.6, '#071230'); sky.addColorStop(1, '#10224a');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, WL);
-    // twinkling stars
-    for (var si = 0; si < stars.length; si++) {
-      var Sx = stars[si], tw2 = .35 + .65 * (.5 + .5 * Math.sin(t * Sx.sp + Sx.ph));
-      ctx.globalAlpha = Sx.b * tw2 * (1 - Sx.y * .6);
-      ctx.fillStyle = '#eef3ff'; ctx.beginPath(); ctx.arc(Sx.x * W, Sx.y * WL * .95, Sx.r, 0, 6.283); ctx.fill();
-      if (Sx.r > 1.1 && tw2 > .85) { ctx.fillRect(Sx.x * W - 4, Sx.y * WL * .95 - .3, 8, .6); ctx.fillRect(Sx.x * W - .3, Sx.y * WL * .95 - 4, .6, 8); }
-    }
-    ctx.globalAlpha = 1;
-    // bright full moon
-    var halo = ctx.createRadialGradient(MX, MY, MR * .8, MX, MY, MR * 6);
-    halo.addColorStop(0, 'rgba(210,225,255,.35)'); halo.addColorStop(.3, 'rgba(160,190,255,.10)'); halo.addColorStop(1, 'rgba(160,190,255,0)');
-    ctx.fillStyle = halo; ctx.fillRect(0, 0, W, WL);
-    ctx.shadowColor = 'rgba(225,235,255,.85)'; ctx.shadowBlur = 45;
-    ctx.drawImage(moonCv, MX - MR, MY - MR, MR * 2, MR * 2); ctx.shadowBlur = 0;
-    // water: picks up the sky's blue near the horizon, darker up close
-    var rise = ease((t - .25) / 1.6);
-    var sea = ctx.createLinearGradient(0, WL, 0, H);
-    sea.addColorStop(0, '#16315c'); sea.addColorStop(.25, '#0b1f45'); sea.addColorStop(1, '#020818');
-    ctx.fillStyle = sea; ctx.fillRect(0, WL, W, H - WL);
-    // soft column of moonlight under the moon
-    var col = ctx.createLinearGradient(MX - W * .25, 0, MX + W * .25, 0);
-    col.addColorStop(0, 'rgba(190,210,255,0)'); col.addColorStop(.5, 'rgba(190,210,255,.10)'); col.addColorStop(1, 'rgba(190,210,255,0)');
-    ctx.fillStyle = col; ctx.fillRect(0, WL, W, H - WL);
-    // gentle wavelets, smaller and closer together toward the horizon
-    for (var wi = 0; wi < waves.length; wi++) {
-      var Wv = waves[wi], d2 = Math.pow(Wv.y, 1.8), wy = WL + 2 + d2 * (H - WL);
-      var wl = (8 + d2 * 60) * Wv.len, wx = ((Wv.x * (W + 80) + t * Wv.sp * (4 + d2 * 10)) % (W + 80)) - 40;
-      var bend = Math.sin(t * Wv.sp + Wv.ph) * (.6 + d2 * 2.5);
-      ctx.strokeStyle = Wv.lite ? 'rgba(150,185,240,' + (.10 + d2 * .08) + ')' : 'rgba(0,6,20,' + (.25 + d2 * .2) + ')';
-      ctx.lineWidth = .6 + d2 * 1.4;
-      ctx.beginPath(); ctx.moveTo(wx - wl / 2, wy); ctx.quadraticCurveTo(wx, wy + bend, wx + wl / 2, wy); ctx.stroke();
-    }
-    // moon glitter: little sparkles on the waves, spreading wider as they come closer
-    for (var gi = 0; gi < glints.length; gi++) {
-      var G = glints[gi], d3 = Math.pow(G.y, 1.6), gy = WL + 2 + d3 * (H - WL);
-      var gx = MX + G.u * (8 + d3 * W * .22);
-      var on = Math.pow(Math.max(0, Math.sin(t * G.sp + G.ph)), 3);
-      if (on < .02) continue;
-      ctx.globalAlpha = on * (.9 - d3 * .35) * (1 - Math.abs(G.u) * .5);
-      ctx.fillStyle = '#f1f5ff';
-      ctx.beginPath(); ctx.ellipse(gx, gy, 1.2 + d3 * 7, .5 + d3 * 1.1, 0, 0, 6.283); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    // warm light from the logo on the water
-    var glow = ctx.createRadialGradient(W / 2, WL, 0, W / 2, WL, W * .6);
-    glow.addColorStop(0, 'rgba(217,169,74,' + (.16 * rise) + ')'); glow.addColorStop(1, 'rgba(217,169,74,0)');
-    ctx.fillStyle = glow; ctx.fillRect(0, WL - H * .25, W, H * .5);
-
-    // logo position: rises out of the water, settles, then breathes
-    var lift = backOut((t - .25) / 1.6);
-    var bob = Math.sin(t * 2.1) * 4 * ease((t - 1.8) / 1);
-    var shineX = (t > 1.9 && t < 2.8) ? -80 + (t - 1.9) / .9 * (S + 160) : null;
-    var L = logoFrame(shineX);
-    var cy = WL + L.h * .55 - lift * (L.h * .55 + L.h * .62) + bob;   // centre of logo
-    var dw = L.w, dh = L.h;                                        // always its true shape
-
-    // reflection under the waterline, rippling row by row
-    var top = cy - dh / 2;
-    var vis = clamp((WL - top) / dh, 0, 1);
-    if (vis > 0) {
-      var rowH = 2, rows = Math.ceil((WL - top) * .85 / rowH);
-      for (var r = 0; r < rows; r++) {
-        var srcRow = (WL - (r * rowH) / .85) - top;            // mirror across the waterline
-        if (srcRow < 0 || srcRow > L.h) continue;
-        var dy = WL + r * rowH;
-        var wob = Math.sin(r * .12 + t * 2.4) * (.6 + r * .025) + Math.sin(r * .05 - t * 1.3) * .8;
-        ctx.globalAlpha = .32 * (1 - r / rows) * vis;
-        ctx.drawImage(off, 0, srcRow * DPR, off.width, rowH / .85 * DPR,
-          W / 2 - dw / 2 + wob, dy, dw, rowH + .5);
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // ripples
-    for (var j = ripples.length - 1; j >= 0; j--) {
-      var R = ripples[j], age = (t - R.t0) / R.life;
-      if (age < 0) continue;
-      if (age > 1) { ripples.splice(j, 1); continue; }
-      for (var n = 0; n < 3; n++) {
-        var aa = age - n * .08; if (aa <= 0) continue;
-        var rad = ease(aa) * R.max;
-        ctx.beginPath(); ctx.ellipse(R.x, WL + 2, rad, rad * .16, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(225,230,240,' + (.3 * (1 - age) * (1 - n * .3)) + ')';
-        ctx.lineWidth = 1.2 - n * .3; ctx.stroke();
-      }
-    }
-    [.3, .75, 1.25].forEach(function (when, i) { if (!emerged[i] && t > when) { emerged[i] = true; ripple(W / 2, t, true); } });
-
-    // the logo itself, cut off at the waterline while it's coming up
-    ctx.save();
-    ctx.beginPath(); ctx.rect(0, 0, W, WL + 1); ctx.clip();
-    ctx.shadowColor = 'rgba(240,198,112,' + (.3 * rise) + ')'; ctx.shadowBlur = 18;
-    ctx.drawImage(off, W / 2 - dw / 2, cy - dh / 2, dw, dh);
-    ctx.restore();
-    // wet line where it breaks the surface
-    if (cy + dh / 2 > WL - 2 && t > .25) {
-      ctx.fillStyle = 'rgba(252,231,174,.35)';
-      ctx.fillRect(W / 2 - dw / 2, WL - 1, dw, 2);
-    }
-
-    // glowing motes drifting up, like the light is lifting off the water
-    for (var m = 0; m < motes.length; m++) {
-      var M = motes[m];
-      M.y -= M.v / 60 * (.6 + rise); M.x += Math.sin(t * .8 + M.ph) * .25;
-      M.a = Math.min(1, M.a + .02);
-      if (M.y < -10) motes[m] = newMote(false);
-      var tw = .5 + .5 * Math.sin(t * 3 + M.ph), fade = clamp(M.y / WL, 0, 1);
-      ctx.beginPath(); ctx.arc(M.x, M.y, M.r, 0, Math.PI * 2);
-      ctx.fillStyle = M.hue ? 'rgba(200,225,255,' + (.5 * tw * fade * M.a) + ')' : 'rgba(252,231,174,' + (.7 * tw * fade * M.a) + ')';
-      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 8;
-      ctx.fill(); ctx.shadowBlur = 0;
-    }
-  }
-
-  var start = null, sent = false;
-  function loop(now) {
-    if (start === null) start = now;
-    var t = (now - start) / 1000;
-    if (still) t = 4;
-    draw(t);
-    if (t > 2.1) document.getElementById('name').classList.add('show');
-    if (!sent && t > GO_AT) { sent = true; window.location.href = CARD;
-      setTimeout(function () { document.getElementById('save').classList.add('show'); }, 800); }
-    requestAnimationFrame(loop);
-  }
-  logo.onload = function () { requestAnimationFrame(loop); };
-  logo.onerror = function () { window.location.href = CARD; };
-  logo.src = 'images/logo.png';
+  var go = function(){
+    window.location.href = CARD;
+    at(800, function(){ document.getElementById('save').classList.add('show'); });
+  };
+  var img = ov.querySelector('.mark img');
+  var start = function(){
+    at(30, function(){ ov.classList.add('on'); });                 /* rays fade in, logo draws up */
+    at(1700, function(){ ov.classList.add('drawn'); burst(); });   /* ring, shimmer, sparks burst */
+    at(3200, go);                                                  /* card pops right after the shimmer */
+  };
+  if (img.complete) start(); else { img.onload = start; img.onerror = go; }
 })();
 </script>
 </body>
