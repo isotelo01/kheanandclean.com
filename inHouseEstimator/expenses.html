@@ -146,6 +146,11 @@ h1::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;border
   .wrap .top a.ghost,.wrap .top button.ghost{padding:7px 12px;font-size:14px}
   .titlecol > div{gap:6px !important}
 }
+/* icon-only top buttons, one line; trash count as a small gold badge on the corner */
+.wrap .top .ghost.ic{width:44px;height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;position:relative;flex:none}
+.wrap .top .ghost.ic svg{width:22px;height:22px}
+.titlecol > div{flex-wrap:nowrap !important}
+.wrap .top #trashCount:not(:empty){position:absolute;top:-6px;right:-6px;margin:0}
 /* cards */
 .wrap .panel,.wrap .sides .panel{position:relative;background:linear-gradient(165deg,rgba(28,41,70,.92),rgba(12,18,33,.94));
   border:1px solid rgba(227,182,74,.28);border-radius:18px;padding:18px;margin-bottom:16px;
@@ -212,9 +217,9 @@ tfoot td.amt{color:#f6dc8e;font-size:17px}
     <div class="titlecol">
     <h1>Income &amp; Expenses</h1>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <button type="button" class="ghost" id="trashBtn" aria-expanded="false">Trash <span id="trashCount"></span></button>
-      <a class="ghost" href="./dashboard.html">Dashboard</a>
-      <a class="ghost" href="./customers.html">Contacts</a>
+      <button type="button" class="ghost ic" id="trashBtn" aria-expanded="false" aria-label="Trash" title="Trash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg><span id="trashCount"></span></button>
+      <a class="ghost ic" href="./dashboard.html" aria-label="Dashboard" title="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></a>
+      <a class="ghost ic" href="./customers.html" aria-label="Contacts" title="Contacts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.8c1.7.8 2.7 2.6 3 5.2"/></svg></a>
     </div>
     </div>
   </div>
@@ -515,7 +520,7 @@ async function loadTrash(){
 }
 
 function renderTrash(){
-  $("trashCount").textContent = trashRows && trashRows.length ? "(" + trashRows.length + ")" : "";
+  $("trashCount").textContent = trashRows && trashRows.length ? String(trashRows.length) : "";
   if (trashRows === null) { $("trashList").innerHTML = '<div class="msg err">Could not load the trash.</div>'; return; }
   if (!trashRows.length) { $("trashList").innerHTML = '<div class="msg">The trash is empty.</div>'; return; }
   $("trashList").innerHTML = '<div class="tablewrap"><table><thead><tr><th>Type</th><th>Who</th><th>Ref</th><th class="amt">Amount</th><th>Erased</th><th></th></tr></thead><tbody>' +
