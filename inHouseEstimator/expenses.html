@@ -429,6 +429,7 @@ $("uploadBtn").addEventListener("click", () => $("uploadFile").click());   // pi
     $("toggleForm").setAttribute("aria-expanded", "true");
     $("toggleForm").textContent = "Close";
     msg.textContent = "Check it over, then Save.";
+    $("formWrap").scrollIntoView({ behavior: "smooth", block: "start" });   // jump to the filled-in "Add a paid invoice" box
   } catch (e) {
     console.error(e);
     msg.className = "msg err"; msg.textContent = "Could not read receipt: " + e.message;
