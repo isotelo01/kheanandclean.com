@@ -210,12 +210,13 @@
     });
 
     function stop(){ window.removeEventListener('devicemotion', onMot); if (stream) stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+    var lastDevice, camOk = false;
     function open(deviceId){
-      stop();
+      stop(); lastDevice = deviceId;
       var v = { width: { ideal: 4032 }, height: { ideal: 3024 } };
       if (deviceId) v.deviceId = { exact: deviceId }; else v.facingMode = { ideal: 'environment' };
       return navigator.mediaDevices.getUserMedia({ video: v, audio: false }).then(function(s){
-        stream = s; video.srcObject = s;
+        stream = s; video.srcObject = s; camOk = true;
         return video.play().catch(function(){});
       }).then(function(){ shut.disabled = count >= max; say(count >= max ? 'That’s the most photos for now.' : ''); setLight(); placeLight(); });
     }
@@ -240,6 +241,17 @@
       if (x + 44 > W) x = W - 44;   /* no room beside it: tuck inside the corner */
       s.right = 'auto'; s.left = x + 'px'; s.top = y + 'px';
     }
+    /* Phone locked or app switched mid-shoot: the phone kills the camera and the picture freezes on the last frame.
+       Coming back, if the camera isn't live, restart it on the same lens and clear a shot that never finished. */
+    function wake(){
+      if (closed || !camOk || document.hidden) return;
+      var t = stream && stream.getVideoTracks()[0];
+      if (t && t.readyState === 'live' && !t.muted && !video.paused) return;
+      busy = false; shut.disabled = true; say('Waking the camera…');
+      open(lastDevice).catch(function(err){ console.error(err); say('Camera didn’t come back. Tap Done and open it again.'); });
+    }
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('pageshow', wake);
     video.addEventListener('loadedmetadata', placeLight);
     window.addEventListener('resize', placeLight);
     /* 0.5 / 1x: shown when the phone lists an ultra wide back camera. */
@@ -301,6 +313,7 @@
     function close(){
       if (closed) return; closed = true;
       window.removeEventListener('popstate', close); window.removeEventListener('resize', placeLight);
+      document.removeEventListener('visibilitychange', wake); window.removeEventListener('pageshow', wake);
       stop(); if (lastUrl) URL.revokeObjectURL(lastUrl);
       try { if (document.fullscreenElement === box) document.exitFullscreen().catch(function(){}); } catch (e) {}
       box.remove();
