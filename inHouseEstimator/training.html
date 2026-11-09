@@ -125,6 +125,8 @@ h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 6px;border-bott
   <p class="msg" id="msg"></p>
   <!-- Chemicals: a profile card per product, its SDS sheet attached. Leo builds them from the SDS sheets (topic SDS). -->
   <section class="chem" id="chem" hidden><h2>Chemicals</h2><div class="cgrid" id="cgrid"></div></section>
+  <!-- Claude's SDS notes (sds-cards.json): fills only the blank fields on each card, never overwrites, adds cards that are missing. -->
+  <p class="meta" style="margin:4px 0 10px"><button type="button" class="btn" id="fillSds">Fill blanks from Claude's SDS notes</button> <span id="fillMsg"></span></p>
   <div id="list"><div class="empty">Loading&hellip;</div></div>
 </div>
 
@@ -192,6 +194,31 @@ async function loadChem() {
   } catch (e) { console.error(e); products = []; }
   drawChem();
 }
+/* Fill blanks: reads Claude's notes, fills only empty fields (src "Claude · <where>"), adds missing products. Your edits are never touched. */
+$("fillSds").onclick = async () => {
+  const b = $("fillSds"), m = $("fillMsg"); b.disabled = true; m.textContent = "Filling…";
+  try {
+    const notes = await (await fetch("sds-cards.json?" + Date.now())).json();
+    let filled = 0, added = 0;
+    for (const n of notes) {
+      const a = norm(n.name), p = products.find(x => { const b = norm(x.name); return b && (b === a || b.includes(a) || a.includes(b)); });
+      if (!p) {
+        await addDoc(collection(db, "products"), { name: n.name, maker: n.maker || "", sources: n.sources || [], updatedAt: serverTimestamp(),
+          fields: Object.fromEntries(Object.entries(n.fields).filter(([, f]) => f.v).map(([k, f]) => [k, { v: f.v, src: "Claude · " + f.src }])) });
+        added++; continue;
+      }
+      const up = {};
+      for (const [k, f] of Object.entries(n.fields)) if (f.v && !fv(p, k).v) up["fields." + k] = { v: f.v, src: "Claude · " + f.src };
+      if (!p.maker && n.maker) up.maker = n.maker;
+      if (n.sources && n.sources.length) up.sources = [...new Set([...(p.sources || []), ...n.sources])];
+      const count = Object.keys(up).filter(k => k.startsWith("fields.")).length;
+      if (count || up.maker) { await updateDoc(doc(db, "products", p.id), { ...up, updatedAt: serverTimestamp() }); filled += count; }
+    }
+    await loadChem();
+    m.textContent = "Done. Filled " + filled + " blanks, added " + added + " new cards.";
+  } catch (e) { m.textContent = "Didn't finish. " + (e.message || ""); }
+  finally { b.disabled = false; }
+};
 /* Price comes from the Settings chemical list (matched by name), so it's never typed twice. */
 const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 function priceOf(p) {
