@@ -57,7 +57,10 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden;
 <a class="btn" id="save" href="khean-clean.vcf">Save contact</a>
 <script>
 (function(){
-  var CARD = 'khean-clean.vcf?v=' + Date.now();   /* always fetch the newest card, never a cached copy */
+  var who = (location.search.match(/[?&]c=([a-z0-9-]+)/) || [])[1];   /* tap?c=tyda opens tyda.vcf; plain tap opens khean-clean.vcf */
+  var FILE = (who || 'khean-clean') + '.vcf';
+  document.getElementById('save').href = FILE;
+  var CARD = FILE + '?v=' + Date.now();   /* always fetch the newest card, never a cached copy */
   var ov = document.getElementById('ov');
   var at = function(ms, f){ setTimeout(f, ms); };
 
