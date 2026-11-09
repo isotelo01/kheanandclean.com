@@ -27,10 +27,11 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 h1{font-family:var(--display);font-weight:400;font-size:2.1rem;line-height:1.05;margin:12px 0 4px;text-wrap:balance}
 .sub{color:var(--muted);margin:0}
 .name{color:var(--accent);font-weight:800;font-size:1.5rem;margin:0 0 4px}
-.pic{width:150px;height:150px;margin:12px auto 0;display:grid;place-items:center;border-radius:50%;background:var(--accent2);overflow:hidden;cursor:pointer;color:#2a2238;font-weight:800;font-size:14px}
+.pic{width:150px;height:150px;margin:12px auto 0;display:grid;place-items:center;border-radius:50%;background:var(--accent2);overflow:hidden;color:#2a2238;font-weight:800;font-size:14px}
 .pic img{width:100%;height:100%;object-fit:cover;display:none}
 .pic.has img{display:block}.pic.has span{display:none}
-.pic input{display:none}
+#jack{cursor:pointer}
+#picIn{display:none}
 h2{font-family:var(--display);font-weight:400;font-size:1.15rem;margin:0 0 10px;color:var(--accent)}
 .meter{height:22px;background:var(--line);border-radius:99px;overflow:hidden}
 .fill{height:100%;width:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));animation:grow 1.6s ease-out}
@@ -53,12 +54,12 @@ button:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
 <div class="wrap">
   <section class="card hero">
     <span class="badge">Official Fan Club · Member #001</span>
-    <label class="pic" id="pic">
-      <span>📷 Tap to add photo</span>
+    <div class="pic" id="pic">
+      <span>📷</span>
       <img id="picImg" alt="Fan photo">
-      <input type="file" id="picIn" accept="image/*">
-    </label>
-    <h1>Jack's Number One Fan</h1>
+    </div>
+    <input type="file" id="picIn" accept="image/*">
+    <h1><span id="jack">Jack</span>'s Number One Fan</h1>
     <p class="name">Marty McNatt</p>
     <p class="sub">Card-carrying, foam-finger-waving, no-shame devotee</p>
   </section>
@@ -98,21 +99,53 @@ button:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
 </div>
 
 <script>
-const pic=document.getElementById('pic'),picImg=document.getElementById('picImg');
-function showPic(src){picImg.src=src;pic.classList.add('has');}
-try{const s=localStorage.getItem('jackFanPic');if(s)showPic(s);}catch(e){}
-document.getElementById('picIn').addEventListener('change',e=>{
-  const f=e.target.files[0];if(!f)return;
-  const img=new Image();img.onload=()=>{
-    const cv=document.createElement('canvas'),z=400,m=Math.min(img.width,img.height);
-    cv.width=cv.height=z;cv.getContext('2d').drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,z,z);
-    const d=cv.toDataURL('image/jpeg',.85);showPic(d);
-    try{localStorage.setItem('jackFanPic',d);}catch(e){}
-  };img.src=URL.createObjectURL(f);
-});
 let n=0;const c=document.getElementById('count');
 const lines=["Jack has been notified.","Jack is blushing.","Jack says please stop.","Jack has filed a complaint.","Jack moved to another table."];
 document.getElementById('love').addEventListener('click',()=>{n++;c.textContent=n+" love letter"+(n===1?"":"s")+" sent. "+lines[Math.min(n-1,lines.length-1)];});
+</script>
+<script type="module">
+/* Profile photo: saved in the app's Firebase (same as Photo Pages, id "jackfan01") so everyone sees it.
+   Tap "Jack" to change it — only works when signed in to the app on this phone as staff. */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore, setDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), ID = "jackfan01";
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const pic = document.getElementById("pic"), picImg = document.getElementById("picImg"), picIn = document.getElementById("picIn");
+const show = src => { picImg.src = src; pic.classList.add("has"); };
+fetch("https://firestore.googleapis.com/v1/projects/khean-estimator-78f3e/databases/(default)/documents/photoPages/" + ID)
+  .then(r => r.ok ? r.json() : null).then(d => { const u = d?.fields?.cover?.stringValue; if (u) show(u); }).catch(() => {});
+let user = null;
+onAuthStateChanged(auth, u => { user = u; });
+document.getElementById("jack").onclick = () => {
+  if (!user || !STAFF.includes(user.uid)) { alert("Sign in to the Khean & Clean app on this phone first, then tap Jack again."); return; }
+  picIn.click();
+};
+picIn.onchange = async () => {
+  const f = picIn.files[0]; if (!f) return;
+  const img = new Image(); img.src = URL.createObjectURL(f); await img.decode();
+  const cv = document.createElement("canvas"), z = 600, m = Math.min(img.width, img.height);
+  cv.width = cv.height = z; cv.getContext("2d").drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, z, z);
+  show(cv.toDataURL("image/jpeg", .85));
+  try {
+    const blob = await new Promise(r => cv.toBlob(r, "image/jpeg", .85));
+    const r = sRef(getStorage(app), "photo-pages/" + ID + "/000.jpg");
+    await uploadBytes(r, blob, { contentType: "image/jpeg" });
+    const url = await getDownloadURL(r);
+    await setDoc(doc(getFirestore(app), "photoPages", ID), { type: "card", title: "Jack fan page photo", message: "", photos: [url], cover: url, owner: user.uid, createdAt: serverTimestamp() });
+    alert("Photo saved.");
+  } catch (e) { console.error(e); alert("That didn't save. Try again."); }
+  picIn.value = "";
+};
 </script>
 </body>
 </html>
