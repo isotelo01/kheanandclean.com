@@ -26,6 +26,17 @@ TLDR → Pass/Fail on each criterion → Way in → The good / The bad → Raph'
 
 ---
 
+## Realtor lessons
+- **Agent and team sites may not load from the sandbox.** Direct fetches of realtor sites (onyxrealestate.com, thefriedrichteam.com, folsomlakerealty.com, turnerdemarco.com, realtorwithravereviews.com) were blocked (not on allowlist, proxy 403). Open them in the browser. Don't mark activity Pass without seeing a dated post, listing or sold post.
+- **Portal pages give address and rating, not fresh dates.** Homes.com, Zillow, HomeLight, RateMyAgent and Birdeye show relative dates ("7 years ago", "10 months ago") or only a last-review date. Use them for rating and count, never as proof of 2-week activity.
+- **Chamber directory pages are blank to a fetch** (El Dorado Hills Chamber loads by script). Use the browser, or take only the name from search.
+- **Team names differ by source.** Turner DeMarco shows as "Friedman Team eXp" (Chamber, Redfin) and "Bolger Real Estate Team" (Birdeye). Record both and ask which is current.
+- **eXp and team addresses are often virtual or stale.** Friedrich's MapQuest address (Suncast Ln) was not on the team's own site. Confirm an office on the company site before relying on it.
+- **The agent's office can differ from the lead.** Freitas is listed under a Roseville Keller Williams office (Gibson Dr), not El Dorado Hills. Roseville still qualifies, but flag it.
+- **Don't confirm staff from review text.** Names in reviews (Turner DeMarco, Folsom Lake) are not proof of staff. Only the company site or LinkedIn counts.
+- **A recent sale is not recent activity.** A sold date months old fails the 2-week test unless a dated post shows more.
+- **Big brokerage office (Windermere):** no single decision-maker. Find the managing broker or one active agent, and expect a personal pitch rather than a vendor form.
+
 ## Case files
 
 ### Keyrenter Folsom: PASS (best lead)
@@ -57,3 +68,90 @@ TLDR → Pass/Fail on each criterion → Way in → The good / The bad → Raph'
 - **Reviews:** no rating shown on the site.
 - **Way in:** Folsom Chamber of Commerce member, so meet them there. Facebook is facebook.com/RPMFolsomLake.
 - **Opinion:** hold until Facebook shows activity. Big franchise, so vendors are likely routed through Neighborly.
+
+### Realtors
+Checked Nov 8 2026. Company sites could not be opened from the sandbox, so website, email and 2-week activity are unconfirmed for all six. Finish each in the browser.
+
+#### Onyx Real Estate: MAYBE (unverified)
+- **Website:** onyxrealestate.com (given; not opened)
+- **Office:** 3941 Park Dr, El Dorado Hills (given; not confirmed on the site)
+- **Phone / email:** not found
+- **People:** Mela Fratarcangeli is listed as a broker at Onyx on the EDH Chamber and HomeLight (not confirmed by company site)
+- **Social:** not found
+- **Active:** not found. HomeLight shows no sale or review dates.
+- **Reviews:** not found. HomeLight shows no rating for Mela.
+- **Criteria:** site Maybe, office Maybe, activity Maybe, reviews Maybe, reachable Maybe
+- **Way in:** the site contact form, or Mela via the EDH Chamber.
+- **Good:** small independent, in the right city.
+- **Bad:** nothing confirmed.
+- **Opinion:** worth 10 minutes in the browser (site, Google Maps, Facebook).
+
+#### Windermere Signature Properties: MAYBE
+- **Website:** windermere.com/directory/offices/lyon-re-edh (Windermere's office page)
+- **Office:** 3900 Park Drive, Suite 100, El Dorado Hills 95762 (confirmed)
+- **Phone:** 916-939-5300 (confirmed). Email: not found.
+- **People:** none confirmed (office page lists no agents). A Julie Matteson profile shows in search; her office was not checked.
+- **Social / activity / reviews:** not found
+- **Criteria:** site Maybe (corporate directory, not its own site), office Pass, activity Maybe, reviews Maybe, reachable Pass (phone)
+- **Way in:** call the office and ask for the managing broker, then an active agent.
+- **Good:** confirmed local office and number.
+- **Bad:** large brokerage, no single owner, activity and reviews unknown.
+- **Opinion:** call, then pick one active agent to build the relationship with.
+
+#### The Friedrich Team (eXp): MAYBE, leaning fail
+- **Website:** thefriedrichteam.com (given; not opened)
+- **Office:** 1035 Suncast Ln Ste 120, El Dorado Hills (MapQuest only; unconfirmed)
+- **Phone / email:** not found
+- **People:** Maic and Renee Friedrich (Zillow, RateMyAgent). Joined eXp Dec 2016 per RateMyAgent.
+- **Social:** not found
+- **Active:** not found. RateMyAgent says no sales in the last 12 months (weak source).
+- **Reviews:** Zillow shows 45 team reviews, all five visible ones 5.0, but the newest visible is 5/20/2024.
+- **Criteria:** site Maybe, office Maybe, activity Fail-ish, reviews Maybe (not recent), reachable Maybe
+- **Way in:** website contact form.
+- **Good:** strong rating, long track record.
+- **Bad:** newest review is 2024, eXp virtual office, no activity seen.
+- **Opinion:** check Facebook and Instagram first. Drop if nothing new in 2026.
+
+#### Folsom Lake Realty: MAYBE
+- **Website:** folsomlakerealty.com (linked from Birdeye; not opened)
+- **Office:** 5170 Golden Foothill Pkwy, El Dorado Hills (Birdeye; unconfirmed on site)
+- **Phone / email:** not found
+- **People:** Mark and Amie (named by reviews, HomeLight and the lead; not confirmed by company site)
+- **Social:** not found
+- **Active:** not found. RateMyAgent shows 4 listings (3 for sale in EDH, 1 pending), undated.
+- **Reviews:** Birdeye 5.0 on 124 (97 Google, 27 Facebook), but the visible newest are "7 years ago". HomeLight 5.0 on 8.
+- **Criteria:** site Maybe, office Pass (Birdeye), activity Maybe, reviews Maybe (strong count, recency unclear), reachable Maybe
+- **Way in:** site contact form; confirm the email on the site.
+- **Good:** small owner-run team, high review count, live listings.
+- **Bad:** review recency and posting not verified.
+- **Opinion:** best of the six to check next. Look at Google Maps for the newest reviews.
+
+#### Turner DeMarco + Friedman: MAYBE
+- **Website:** turnerdemarco.com (Birdeye; not opened)
+- **Office:** 4970 Windplay Dr Unit 7, El Dorado Hills (Birdeye; unconfirmed on site)
+- **Phone / email:** not found
+- **People:** none confirmed. Review names (Valerie Maples, Jay, Alex Souza, Nicole Scott) are not proof of staff.
+- **Name flag:** "Turner DeMarco Friedman Team eXp Realty" (Chamber, Redfin) vs "Turner DeMarco-Bolger Real Estate Team" (Birdeye).
+- **Active:** not found
+- **Reviews:** Birdeye 5.0 on 282 Google reviews. Newest shown about 10 months ago.
+- **Criteria:** site Maybe, office Pass (Birdeye), activity Maybe, reviews Pass on rating and count, recency Maybe, reachable Maybe
+- **Way in:** site contact form.
+- **Good:** biggest review count, EDH office, real team site.
+- **Bad:** name confusion, newest review about 10 months old, no dated activity seen.
+- **Opinion:** check the site's recent sold posts and Facebook. Likely the strongest if they are current.
+
+#### Leisha Freitas (Keller Williams): MAYBE, leaning fail
+- **Website:** realtorwithravereviews.com (given; not opened)
+- **Office:** 548 Gibson Dr Ste 200, Roseville 95678 (Homes.com). Not El Dorado Hills as the lead said. Roseville qualifies.
+- **Phone:** 279-205-3375 (Homes.com). Email: not found.
+- **People:** Leisha Freitas only
+- **Social:** not found
+- **Active:** latest sale seen is 5277 Garlenda Dr, El Dorado Hills, sold May 22, 2026. Nothing within 2 weeks seen.
+- **Reviews:** Homes.com 5.0 on 29. Newest review Mar 27, 2024 (Google).
+- **Criteria:** site Maybe (personal agent site), office Pass (Roseville), activity Fail-ish, reviews Maybe (not recent), reachable Pass (phone)
+- **Way in:** call or text the number, or the site form.
+- **Good:** solo agent who answers, strong rating.
+- **Bad:** old reviews, last sale May 2026, KW agent site rather than a company site.
+- **Opinion:** low priority unless her socials show recent posts.
+
+Sources: Windermere office page (windermere.com/directory/offices/lyon-re-edh); Homes.com (homes.com/real-estate-agents/leisha-freitas/531etdp); Birdeye pages for Folsom Lake Realty and Turner DeMarco-Bolger; Zillow profile "The Friedrich Team"; RateMyAgent (Maic Friedrich, Folsom Lake Realty); HomeLight (Mela Fratarcangeli, Mark & Amie); MapQuest (Friedrich Team).
