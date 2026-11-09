@@ -39,7 +39,7 @@ h2{font-family:var(--display);font-weight:400;font-size:1.15rem;margin:0 0 10px;
 .meterfor{margin:-8px 0 10px;font-weight:800}
 .thermo{position:relative;background:var(--meter-bg);border-radius:14px;overflow:hidden}
 .thermo canvas{display:block;width:100%;height:440px}
-.readout{position:absolute;right:12px;bottom:28px;text-align:right;pointer-events:none;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.readout{position:absolute;right:12px;bottom:40px;text-align:right;pointer-events:none;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
 .pct{font-size:2.1rem;font-weight:800;line-height:1;color:var(--meter-liquid);font-variant-numeric:tabular-nums}
 .status{font-size:.7rem;font-weight:700;color:var(--meter-text);margin-top:6px;text-transform:uppercase;letter-spacing:.06em}
 #again{margin-top:10px}
@@ -127,7 +127,7 @@ const col=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim
 function size(){
   const dpr=devicePixelRatio||1;W=cv.clientWidth;H=cv.clientHeight;
   cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
-  G={cx:W/2,bulbR:52,bulbCy:150,stemW:62,stemBottom:H-30,t:7};
+  G={cx:W/2,bulbR:52,bulbCy:215,stemW:62,stemBottom:H+40,t:7};
 }
 addEventListener('resize',size);size();
 function glass(inset){
@@ -166,13 +166,15 @@ function frame(now){
     for(let x=0;x<=W;x+=6)ctx.lineTo(x,level-2-Math.sin(x/7+s*8)*2);
     ctx.lineTo(W,level+4);ctx.lineTo(0,level+4);ctx.fill();}
   ctx.restore();
+  ctx.fillStyle='#3b2f27';ctx.fillRect(0,H-26,W,26);
+  ctx.fillStyle='#5a4636';ctx.fillRect(0,H-26,W,4);
   ctx.fillStyle=col('--meter-edge');ctx.fillRect(cx-7,bulbCy-bulbR-12,14,12);
   if(p>=100){
     const over=(p-100)/10,k=Math.round(2+over*5);
     for(let i=0;i<k;i++)parts.push({x:cx+(Math.random()-.5)*6,y:bulbCy-bulbR-12,
       vx:(Math.random()-.5)*(1.2+over*3.2),vy:-(6+Math.random()*1.5+over*1.1),r:2+Math.random()*3,splash:false});
   }
-  const floor=H-8;
+  const floor=H-28;
   for(const d of parts){
     d.vy+=0.28;d.x+=d.vx;d.y+=d.vy;
     if(d.y>floor&&!d.splash){d.dead=true;
