@@ -155,3 +155,22 @@ Checked Nov 8 2026. Company sites could not be opened from the sandbox, so websi
 - **Opinion:** low priority unless her socials show recent posts.
 
 Sources: Windermere office page (windermere.com/directory/offices/lyon-re-edh); Homes.com (homes.com/real-estate-agents/leisha-freitas/531etdp); Birdeye pages for Folsom Lake Realty and Turner DeMarco-Bolger; Zillow profile "The Friedrich Team"; RateMyAgent (Maic Friedrich, Folsom Lake Realty); HomeLight (Mela Fratarcangeli, Mark & Amie); MapQuest (Friedrich Team).
+
+### Update Nov 8 2026 (Israel's rules)
+- **Always check for a vendor sign-up** on every lead, and record the result even when it's "none." Do this homework before anyone walks in or calls.
+- **A physical office or storefront counts as a real business,** even without a website. Approach those leads.
+- **Multi-office brokerages:** find who runs the local office, not the head office.
+
+### Onyx Real Estate: GOOD (walk-in)
+- **Office:** 3941 Park Dr, Suite 30, El Dorado Hills (La Borgata)
+- **Phone:** (279) 529-5373
+- **Website:** onyx-re.com (wouldn't open from here)
+- **Broker:** Mela Fratarcangeli
+- **Active:** sold 1942 Sheffield Dr on Oct 15, 2026 (Homes.com).
+- **Vendor sign-up:** not checked yet (site blocked). Check it in the browser.
+
+### Friends Real Estate Services: MAYBE (walk-in)
+- **Main office:** Sonora (broker John Friend). Has an El Dorado Hills office, but no address found for it yet.
+- **Local person:** not confirmed. One El Dorado Hills sale (821 Bonita Dr, Sep 25, 2026) lists Patrick Hake, but that page names both eXp and Friends, so it's unconfirmed.
+- **Vendor sign-up:** none found.
+- **Next:** the agent roster and Facebook page are blocked from here. Ask at the office who the local manager is.
