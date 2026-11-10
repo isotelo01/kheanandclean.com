@@ -998,7 +998,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     box.onclick = function(e){
       if(e.target.closest('.yes')){
         try{ localStorage.removeItem(SAVE); }catch(err){}
-        dropPhotos(); location.reload(); return; }
+        dropPhotos();
+        if(linkQS) location.replace(location.pathname + linkQS); else location.reload();   /* a texted link keeps their name and number */
+        return; }
       if(e.target.closest('.no') || e.target === box) box.remove(); };
   };
 
@@ -1239,17 +1241,47 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   /* Very first question: their name, so the rest can talk to them by first name. */
   function sName(el){
     h(el, 'Who are we cleaning for today?');
-    el.insertAdjacentHTML('beforeend', '<input class="t" id="fn" placeholder="Your name" autocomplete="name" autocapitalize="words" maxlength="80" enterkeyhint="next">');
-    var inp = el.querySelector('#fn'), go;
-    inp.value = A.name || '';
-    var done = function(){ var v = inp.value.trim(); if(!v) return; A.name = v; (A.contact = A.contact || {}).nm = v; next(); };
+    /* Name, plus a phone number or an email (at least one), up front so the lead comes in even if they stop halfway.
+       A link texted to a contact comes in already filled. */
+    el.insertAdjacentHTML('beforeend',
+      '<input class="t" id="fn" placeholder="Your name" autocomplete="name" autocapitalize="words" maxlength="80" enterkeyhint="next">' +
+      '<label class="f" for="fph">Phone</label><input class="t" id="fph" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" enterkeyhint="next">' +
+      '<label class="f" for="fem">or Email</label><input class="t" id="fem" type="email" autocomplete="email" maxlength="160" enterkeyhint="next">' +
+      '<p class="err" id="fErr" role="alert"></p>');
+    var inp = el.querySelector('#fn'), ph = el.querySelector('#fph'), em = el.querySelector('#fem'), fErr = el.querySelector('#fErr'), go;
+    var C = A.contact = A.contact || {};
+    inp.value = A.name || ''; ph.value = C.ph || ''; em.value = C.em || '';
+    var ok = function(){
+      var d = ph.value.replace(/\D/g, ''), e = em.value.trim();
+      return !!inp.value.trim() && (d.length === 10 || EMAIL_RE.test(e)) && (!d || d.length === 10) && (!e || EMAIL_RE.test(e));
+    };
+    var done = function(){
+      var v = inp.value.trim(), d = ph.value.replace(/\D/g, ''), e = em.value.trim();
+      var bad = !v ? [inp, 'Please tell us your name.']
+        : !d && !e ? [ph, 'Please give us a phone number or an email.']
+        : d && d.length !== 10 ? [ph, 'Please give us a 10-digit phone number.']
+        : e && !EMAIL_RE.test(e) ? [em, 'Please check your email address.'] : null;
+      if(bad){ fErr.textContent = bad[1]; bad[0].focus(); return; }
+      fErr.textContent = '';
+      A.name = v; C.nm = v; C.ph = ph.value.trim(); C.em = e; next();
+    };
+    var sync = function(){ C.ph = ph.value.trim(); C.em = em.value.trim(); go.disabled = !ok(); };
     inp.addEventListener('input', function(){
       var at = this.selectionStart, v = this.value.replace(/(^|[\s'-])(\p{Ll})/gu, function(m, a, b){ return a + b.toUpperCase(); });
       if(v !== this.value){ this.value = v; this.setSelectionRange(at, at); }
-      A.name = this.value.trim(); go.disabled = !A.name;
+      A.name = this.value.trim(); sync();
     });
-    inp.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); done(); } });
-    go = goBtn(el, 'Next', done); go.disabled = !inp.value.trim();
+    /* Phone: (916) 767-2520 as they type. */
+    ph.addEventListener('input', function(e){
+      var del = e.inputType && e.inputType.indexOf('delete') === 0, d = this.value.replace(/\D/g, '');
+      if(d.length > 10 && d.charAt(0) === '1') d = d.slice(1);
+      d = d.slice(0, 10);
+      this.value = !d ? '' : d.length < 4 ? (del ? d : '(' + d) : d.length < 7 ? '(' + d.slice(0,3) + ') ' + d.slice(3) : '(' + d.slice(0,3) + ') ' + d.slice(3,6) + '-' + d.slice(6);
+      sync();
+    });
+    em.addEventListener('input', sync);
+    [inp, ph, em].forEach(function(x){ x.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); done(); } }); });
+    go = goBtn(el, 'Next', done); go.disabled = !ok();
   }
 
   /* One discount, their pick. Amounts are never shown; it goes on the official quote. */
@@ -2669,7 +2701,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   var qid = null; try{ qid = new URLSearchParams(location.search).get('q'); }catch(e){}
   /* Link texted to an existing contact (?n=Name&p=9165551234&e=email): their name and number come filled in.
      Only fills what's still empty, then takes them off the address bar. */
-  var link = {};
+  var link = {}, linkQS = /[?&](n|p|e)=/.test(location.search) ? location.search : '';
   try{ var sp = new URLSearchParams(location.search);
     link = { nm:(sp.get('n') || '').trim().slice(0, 80), ph:(sp.get('p') || '').replace(/\D/g, '').slice(-10), em:(sp.get('e') || '').trim().slice(0, 160) }; }catch(e){}
   function fillFromLink(){
