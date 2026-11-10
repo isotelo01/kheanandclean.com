@@ -345,6 +345,7 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 .pfl .opt.done img{ width:56px; height:56px; border-radius:12px; object-fit:cover; flex:none; border:1px solid rgba(227,182,74,.5); }
 .pfl .opt.done span{ flex:1; min-width:0; }
 .pfl .opt.done small{ display:block; opacity:.8; font-weight:400; }
+.pfl .opt.done .rsk{ width:76px; height:64px; flex:none; overflow:visible; }
 .pfl .rwrap.hasph > .opt.pfnew{ padding-right:56px; }
 .pfl .rwrap.hasph .rtrash{ top:50%; left:auto; right:10px; transform:translateY(-50%); }
 .raddbtn{ display:flex; align-items:center; justify-content:center; gap:10px; width:100%; margin-top:14px; padding:14px; cursor:pointer;
@@ -1050,6 +1051,38 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       function(v){ A.photoFirst = v; }, A.photoFirst === true ? true : A.photoFirst === false ? false : null);
   }
   /* Photos-first: snap each room they want cleaned. Snap a room opens the camera; Done comes back here. */
+  /* Little floor sketch on a room card: the outline the measurer sends (fireplaces notched in), doorways and
+     openings in gold, and a label on each fireplace or built-in. Nothing shows until the room is read. */
+  function roomSketch(r){
+    var k = r && r.sk, pts = k && Array.isArray(k.outline) && k.outline.length >= 3 ? k.outline : null;
+    if(!pts) return '';
+    var xs = pts.map(function(p){ return p[0]; }), ys = pts.map(function(p){ return p[1]; });
+    var x0 = Math.min.apply(null, xs), y0 = Math.min.apply(null, ys);
+    var w = (Math.max.apply(null, xs) - x0) || 1, hh = (Math.max.apply(null, ys) - y0) || 1;
+    var S = 84 / Math.max(w, hh), P = 8, W = w * S + P * 2, H = hh * S + P * 2;
+    var X = function(v){ return ((v - x0) * S + P).toFixed(1); }, Y = function(v){ return ((v - y0) * S + P).toFixed(1); };
+    var g = '<polygon points="' + pts.map(function(p){ return X(p[0]) + ',' + Y(p[1]); }).join(' ') + '" fill="rgba(227,182,74,.08)" stroke="#f3ead8" stroke-width="2" stroke-linejoin="round"/>';
+    (k.cutouts || []).forEach(function(c){ g += '<rect x="' + X(c[0]) + '" y="' + Y(c[1]) + '" width="' + (c[2] * S).toFixed(1) + '" height="' + (c[3] * S).toFixed(1) + '" fill="none" stroke="#f3ead8" stroke-width="1.2" stroke-dasharray="3 2"/>'; });
+    /* a stretch of wall i, from a to b feet along it, in gold */
+    var seg = function(i, a, b){
+      var p = pts[i], q = pts[(i + 1) % pts.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+      a = Math.max(0, Math.min(a, L)); b = Math.max(a, Math.min(b, L));
+      var at = function(t){ return [p[0] + (q[0] - p[0]) * t / L, p[1] + (q[1] - p[1]) * t / L]; }, u = at(a), v = at(b);
+      return '<line x1="' + X(u[0]) + '" y1="' + Y(u[1]) + '" x2="' + X(v[0]) + '" y2="' + Y(v[1]) + '" stroke="#e3b64a" stroke-width="4.5" stroke-linecap="round"/>';
+    };
+    var ops = (k.openings || []).filter(function(o){ return o.wall >= 0 && o.wall < pts.length; });
+    ops.forEach(function(o){ g += seg(o.wall, o.from || 0, (o.from || 0) + o.width); });
+    if(!ops.length && Number.isInteger(k.door) && k.door >= 0 && k.door < pts.length){   /* only the entry wall known: a 3 ft door mid-wall */
+      var p = pts[k.door], q = pts[(k.door + 1) % pts.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      g += seg(k.door, L / 2 - 1.5, L / 2 + 1.5);
+    }
+    (k.features || []).forEach(function(f){
+      var side = f.at[0] - x0 > w * 0.66 ? 'end' : f.at[0] - x0 < w * 0.33 ? 'start' : 'middle';   /* keep the word inside the room */
+      var nx = +X(f.at[0]) + (side === 'end' ? -5 : side === 'start' ? 5 : 0);
+      g += '<text x="' + nx.toFixed(1) + '" y="' + Y(f.at[1]) + '" font-size="9" fill="#e3b64a" text-anchor="' + side + '" dominant-baseline="middle" font-family="system-ui,sans-serif">' + esc(f.label) + '</text>';
+    });
+    return '<svg class="rsk" viewBox="0 0 ' + W.toFixed(1) + ' ' + H.toFixed(1) + '" role="img" aria-label="Room sketch">' + g + '</svg>';
+  }
   function sSnap(el){ snapRooms(el); }
   var snapEl = null;   /* the rooms page, so a room's card can fill in on its own once its photos are read */
   function snapRooms(el, stay){
@@ -1079,7 +1112,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       if(rm.pf && !r && !mErr[rm.id]){ title = title || 'Reading photos…'; }
       if(!title) title = 'Room';
       if(rm.pf) b.className += ' pfnew';
-      b.innerHTML = '<img alt=""><span>' + esc(title) + lines.map(function(t){ return '<small>' + esc(t) + '</small>'; }).join('') + '</span>';
+      b.innerHTML = '<img alt=""><span>' + esc(title) + lines.map(function(t){ return '<small>' + esc(t) + '</small>'; }).join('') + '</span>' + roomSketch(r);
       var im = b.querySelector('img'); im.src = URL.createObjectURL(roomShots(rm)[0]); im.onload = function(){ URL.revokeObjectURL(im.src); };
       b.onclick = function(){ shootRoom(el, rm); };
       w.appendChild(b);
@@ -2553,6 +2586,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       return call({ key:upKey(), room:x.rm.t, roomType:kind, photos:roomShots(x.rm).slice(0, 8).map(function(f, i){
         return { path:f._up, label: x.rm.stairs ? (STAIR_SHOTS[i] || 'Stairs photo') : i === 0 ? 'Doorway' : i <= 4 ? 'Corner ' + i : 'Room photo' }; }) })
         .then(function(r){ var d = r.data || {}; A.photoSqft[id] = { sqft:d.sqft, low:d.low, high:d.high, conf:d.confidence, L:d.lengthFt, W:d.widthFt, parts:(d.sections || d.parts || []).map(function(q){ return { L:q.lengthFt || q.L, W:q.widthFt || q.W }; }), rec:d.recommend || '', guess:d.roomGuess || '',
+            sk:{ outline:d.outline || null, door:d.door, openings:d.openings || [], cutouts:d.cutouts || [], features:d.features || [] },
             floor:(function(f){ f = f || {}; return { type:f.type || '', detail:f.detail || '', condition:f.condition || '', pile:f.pile || '', fiber:f.fiber || '',
               color:f.color || '', rug:f.rug || '', grout:f.grout || '', tileSize:f.tileSize || '' }; })(d.floor) }; save(); },
               function(err){ mErr[id] = (err && err.message) || 'error'; console.error('Photo measure failed', err); })
