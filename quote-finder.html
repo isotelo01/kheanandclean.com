@@ -2613,7 +2613,12 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
           message: [has('other') && A.otherText ? 'Other request: ' + A.otherText : '', A.comments ? 'Additional comments: ' + A.comments : ''].filter(Boolean).join('\n')
         });
       });
-    })).catch(function(x){ console.error('Lead save failed', x); })
+    })).catch(function(x){
+      /* The lead didn't reach the Leads page: say so at the top of the email, with the exact error, so it's never lost quietly. */
+      console.error('Lead save failed', x);
+      fd.set('message', 'LEAD SAVE FAILED (not on the Leads page): ' + ((x && (x.code || x.message)) || String(x)) + '\n\n' + msg);
+      fd.set('subject', 'LEAD SAVE FAILED: ' + fd.get('subject'));
+    })
     .then(function(){ return fetch('https://api.web3forms.com/submit', { method:'POST', headers:{ Accept:'application/json' }, body: fd }); })
     .then(function(r){ return r.json().catch(function(){ return { success: r.ok }; }); })
     .then(function(res){
