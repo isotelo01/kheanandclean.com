@@ -44,7 +44,7 @@ textarea{min-height:70px;resize:vertical}
 [hidden]{display:none!important}
 .note{color:rgba(255,255,255,.7);font-size:14px;margin:6px 0 0}
 .err{color:#ff9b8a}
-.pic{display:flex;align-items:center;gap:12px;margin-top:6px}
+.pic{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
 .pic .av{width:64px;height:64px;border-radius:50%;background:#222 center/cover;border:1px solid rgba(255,255,255,.3);flex:none}
 .done{border-color:#7fd1a4}
 .link{word-break:break-all;color:var(--gold);font-weight:700;font-size:18px;margin:4px 0 2px}
@@ -56,6 +56,14 @@ textarea{min-height:70px;resize:vertical}
 .vc .acts button,.vc .acts a{background:none;border:1px solid var(--gold);color:var(--gold);border-radius:999px;padding:6px 12px;font:600 13px "Archivo",sans-serif;cursor:pointer;text-decoration:none}
 .vc .acts .cp{background:var(--gold);color:#000}
 .empty{color:rgba(255,255,255,.6)}
+/* Adjust logo: the card photo with a box to drag over the logo. Photo as big as the screen allows. */
+.crop{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column}
+.crop .stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+.crop .stage canvas{max-width:100%;max-height:100%;display:block}
+.crop .sel{position:absolute;border:2px solid var(--gold);box-shadow:0 0 0 9999px rgba(0,0,0,.55);touch-action:none;cursor:move}
+.crop .sel i{position:absolute;right:-14px;bottom:-14px;width:28px;height:28px;border-radius:50%;background:var(--gold);cursor:nwse-resize}
+.crop .bar{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:10px 12px max(12px,env(safe-area-inset-bottom))}
+.crop .bar .hint{width:100%;text-align:center;color:rgba(255,255,255,.75);font-size:14px}
 @media (max-width:520px){ .vc{flex-wrap:wrap} .vc .acts{margin-left:0;width:100%;justify-content:flex-start} }
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
@@ -94,9 +102,10 @@ textarea{min-height:70px;resize:vertical}
       <div><label for="fZip">Zip</label><input type="text" id="fZip" inputmode="numeric" autocomplete="off"></div>
     </div>
     <label for="fNote">Note (optional, goes on the contact)</label><textarea id="fNote" maxlength="500"></textarea>
-    <label>Photo (optional)</label>
+    <label>Logo or photo (optional)</label>
     <div class="pic"><div class="av" id="picAv"></div>
       <button type="button" class="btn ghost" id="picBtn">Add photo</button>
+      <button type="button" class="btn ghost" id="logoBtn" hidden>Adjust logo</button>
       <button type="button" class="btn ghost" id="picRm" hidden>Remove</button>
       <input type="file" id="picIn" accept="image/*" hidden></div>
     <p class="err" id="err" role="alert"></p>
@@ -116,6 +125,14 @@ textarea{min-height:70px;resize:vertical}
       <a class="btn ghost" id="viewBtn" target="_blank" rel="noopener">View</a>
       <a class="btn ghost" id="vcfBtn">Download .vcf</a>
     </div>
+  </div>
+
+  <div class="crop" id="crop" hidden>
+    <div class="stage" id="cropStage"><canvas id="cropCv"></canvas><div class="sel" id="cropSel"><i id="cropGrip"></i></div></div>
+    <div class="bar"><div class="hint">Drag the box over the logo. Pull the gold dot to resize.</div>
+      <button type="button" class="btn ghost" id="cropSide" hidden>Back of card</button>
+      <button type="button" class="btn ghost" id="cropCancel">Cancel</button>
+      <button type="button" class="btn" id="cropUse">Use logo</button></div>
   </div>
 
   <h2>Your vCards</h2>
@@ -146,7 +163,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const LINK = id => "https://kheanandclean.com/v/" + id;
 const F = { first: "fFirst", last: "fLast", title: "fTitle", company: "fCompany", mobile: "fMobile", work: "fWork",
   email: "fEmail", website: "fWeb", street: "fStreet", city: "fCity", state: "fState", zip: "fZip", note: "fNote" };
-let uid = "", photo = "", editId = "", side = "front", cards = {};
+let uid = "", photo = "", editId = "", side = "front", cards = {}, scans = {}, cropSide = "front";
 
 /* Page lock: staff only. */
 onAuthStateChanged(auth, u => {
@@ -163,14 +180,18 @@ $("scanIn").onchange = async function () {
   const b = $("scanBtn"), note = $("scanNote");
   b.disabled = true; note.className = "note"; note.textContent = "Reading card… (first time takes a bit)";
   try {
-    const { out } = await window.KCCardScan.read(f);
+    const res = await window.KCCardScan.read(f), { out } = res;
     const fill = (id, val) => { const el = $(id); if (val && !el.value.trim()) { el.value = val; return 1; } return 0; };
     const parts = (out.name || "").split(" ");
     let n = fill("fFirst", parts[0]) + fill("fLast", parts.slice(1).join(" ")) + fill("fTitle", out.title) + fill("fCompany", out.business) +
       fill("fMobile", out.phone) + fill("fWork", out.phone2) + fill("fEmail", out.email) + fill("fWeb", out.website) +
       fill("fStreet", out.street) + fill("fCity", out.city) + fill("fZip", out.zip);
     if (out.state && out.zip) $("fState").value = out.state;
-    note.textContent = n ? "Filled " + n + " box" + (n > 1 ? "es" : "") + ". Check them before making the card." : "Couldn't pick out details. Type them in.";
+    /* Logo: keep the card photo; if there's no picture yet, use the logo it found. */
+    scans[side] = { card: res.card, logo: res.logo }; $("logoBtn").hidden = false;
+    let logoMsg = "";
+    if (!photo && res.logo) { photo = window.KCCardScan.logoPhoto(res.card, res.logo); drawPic(); logoMsg = " Logo added; tap Adjust logo if it's off."; }
+    note.textContent = (n ? "Filled " + n + " box" + (n > 1 ? "es" : "") + ". Check them before making the card." : "Couldn't pick out details. Type them in.") + logoMsg;
     side = "back"; b.querySelector("span").textContent = "Scan back of card";
   } catch (e) { console.error(e); note.className = "note err"; note.textContent = "Couldn't read the card: " + e.message; }
   b.disabled = false;
@@ -191,6 +212,45 @@ $("picIn").onchange = function () {
   img.src = u;
 };
 
+/* Adjust logo: show the scanned card, drag the gold box over the logo, Use logo. */
+let box = null;   /* in card-photo pixels */
+function openCrop(which) {
+  cropSide = which; const sc = scans[which]; if (!sc) return;
+  const cv = $("cropCv"); cv.width = sc.card.width; cv.height = sc.card.height; cv.getContext("2d").drawImage(sc.card, 0, 0);
+  const W = cv.width, H = cv.height;
+  box = sc.logo ? { ...sc.logo } : { x: W * 0.3, y: H * 0.3, w: W * 0.4, h: H * 0.4 };
+  $("cropSide").hidden = !(scans.front && scans.back);
+  $("cropSide").textContent = which === "front" ? "Back of card" : "Front of card";
+  $("crop").hidden = false; requestAnimationFrame(drawSel);
+}
+function drawSel() {
+  const cv = $("cropCv"), r = cv.getBoundingClientRect(), st = $("cropStage").getBoundingClientRect(), k = r.width / cv.width, sel = $("cropSel");
+  sel.style.left = (r.left - st.left + box.x * k) + "px"; sel.style.top = (r.top - st.top + box.y * k) + "px";
+  sel.style.width = box.w * k + "px"; sel.style.height = box.h * k + "px";
+}
+(() => {
+  let drag = null;
+  const down = mode => e => { e.preventDefault(); e.stopPropagation();
+    drag = { mode, x: e.clientX, y: e.clientY, b: { ...box }, k: $("cropCv").getBoundingClientRect().width / $("cropCv").width };
+    e.target.setPointerCapture(e.pointerId); };
+  $("cropSel").addEventListener("pointerdown", down("move"));
+  $("cropGrip").addEventListener("pointerdown", down("size"));
+  const move = e => { if (!drag) return;
+    const W = $("cropCv").width, H = $("cropCv").height, dx = (e.clientX - drag.x) / drag.k, dy = (e.clientY - drag.y) / drag.k, m = Math.max(W, H) * 0.04;
+    if (drag.mode === "move") { box.x = Math.min(Math.max(0, drag.b.x + dx), W - box.w); box.y = Math.min(Math.max(0, drag.b.y + dy), H - box.h); }
+    else { box.w = Math.min(Math.max(m, drag.b.w + dx), W - box.x); box.h = Math.min(Math.max(m, drag.b.h + dy), H - box.y); }
+    drawSel(); };
+  ["cropSel", "cropGrip"].forEach(id => { $(id).addEventListener("pointermove", move); $(id).addEventListener("pointerup", () => drag = null); $(id).addEventListener("pointercancel", () => drag = null); });
+  addEventListener("resize", () => { if (!$("crop").hidden) drawSel(); });
+})();
+$("logoBtn").onclick = () => openCrop(scans.front ? "front" : "back");
+$("cropSide").onclick = () => openCrop(cropSide === "front" ? "back" : "front");
+$("cropCancel").onclick = () => { $("crop").hidden = true; };
+$("cropUse").onclick = () => {
+  const sc = scans[cropSide]; sc.logo = { ...box };
+  photo = window.KCCardScan.logoPhoto(sc.card, box); drawPic(); $("crop").hidden = true;
+};
+
 const val = id => $(id).value.trim();
 const slugOf = (first, last, company) => {
   const base = [first, last].join(" ").trim() || company || "contact";
@@ -199,7 +259,7 @@ const slugOf = (first, last, company) => {
 };
 function resetForm() {
   Object.values(F).forEach(id => $(id).value = ""); $("fState").value = "CA";
-  photo = ""; drawPic(); editId = ""; side = "front";
+  photo = ""; drawPic(); editId = ""; side = "front"; scans = {}; $("logoBtn").hidden = true;
   $("scanBtn").querySelector("span").textContent = "Scan business card"; $("scanNote").className = "note";
   $("scanNote").textContent = "Take a picture of the front, then the back. Or just type it in.";
   $("formHead").textContent = "Make a contact card"; $("make").textContent = "Make vCard"; $("cancelRow").hidden = true;
