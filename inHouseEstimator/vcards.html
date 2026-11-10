@@ -56,6 +56,7 @@ textarea{min-height:70px;resize:vertical}
 .vc .acts button,.vc .acts a{background:none;border:1px solid var(--gold);color:var(--gold);border-radius:999px;padding:6px 12px;font:600 13px "Archivo",sans-serif;cursor:pointer;text-decoration:none}
 .vc .acts .cp{background:var(--gold);color:#000}
 .empty{color:rgba(255,255,255,.6)}
+.linkbtn{background:none;border:0;padding:6px 0 0;color:var(--gold);font:600 14px "Archivo",sans-serif;text-decoration:underline;cursor:pointer}
 /* Adjust logo: the card photo with a box to drag over the logo. Photo as big as the screen allows. */
 .crop{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column}
 .crop .stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
@@ -80,8 +81,10 @@ textarea{min-height:70px;resize:vertical}
   <h2 id="formHead">Make a contact card</h2>
   <div class="box" id="form">
     <button type="button" class="btn big" id="scanBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h6M6 14h9"/></svg><span>Scan business card</span></button>
-    <input type="file" id="scanIn" accept="image/*" hidden>
+    <input type="file" id="scanIn" accept="image/*" capture="environment" hidden>   <!-- straight to the camera -->
+    <input type="file" id="scanPick" accept="image/*" hidden>   <!-- photo library -->
     <p class="note" id="scanNote">Take a picture of the front, then the back. Or just type it in.</p>
+    <button type="button" class="linkbtn" id="pickBtn">Choose a photo instead</button>
 
     <div class="two">
       <div><label for="fFirst">First name</label><input type="text" id="fFirst" autocapitalize="words" autocomplete="off"></div>
@@ -175,7 +178,8 @@ onAuthStateChanged(auth, u => {
 
 /* Scan: front, then back. Only fills empty boxes, so the back never overwrites the front. */
 $("scanBtn").onclick = () => $("scanIn").click();
-$("scanIn").onchange = async function () {
+$("pickBtn").onclick = () => $("scanPick").click();
+$("scanPick").onchange = $("scanIn").onchange = async function () {
   const f = this.files[0]; this.value = ""; if (!f) return;
   const b = $("scanBtn"), note = $("scanNote");
   b.disabled = true; note.className = "note"; note.textContent = "Reading card… (first time takes a bit)";

@@ -310,7 +310,8 @@ function showNewLead() {
     '<button type="button" class="new" id="nlSaveTop">Save</button></div>' +
     /* Business card scanner: front, then back. Reads the card on the phone and fills empty boxes. */
     '<button type="button" class="phbtn" id="nlCardBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h6M6 14h9"/></svg><span>Scan business card</span></button>' +
-    '<input type="file" id="nlCardIn" accept="image/*" hidden><span class="note" id="nlCardNote"></span>' +
+    '<input type="file" id="nlCardIn" accept="image/*" capture="environment" hidden><input type="file" id="nlCardPick" accept="image/*" hidden>' +
+    '<button type="button" class="ghost" id="nlCardPickBtn" style="margin-left:8px">Choose photo</button><span class="note" id="nlCardNote"></span>' +
     '<label for="nlName">Name</label><input id="nlName" autocomplete="off" autocapitalize="words">' +
     '<label for="nlType">Type</label>' + typeSelect("nlType") +
     /* Business name: shows for every type except Residential. */
@@ -347,9 +348,11 @@ function showNewLead() {
   const cardBtn = document.getElementById("nlCardBtn"), cardIn = document.getElementById("nlCardIn"), cardNote = document.getElementById("nlCardNote");
   let cardSide = "front";
   /* The reader itself lives in card-scan.js (shared with the vCard maker). */
-  cardBtn.addEventListener("click", () => cardIn.click());
-  cardIn.addEventListener("change", async () => {
-    const f = cardIn.files[0]; cardIn.value = ""; if (!f) return;
+  cardBtn.addEventListener("click", () => cardIn.click());   /* camera */
+  const cardPick = document.getElementById("nlCardPick");
+  document.getElementById("nlCardPickBtn").addEventListener("click", () => cardPick.click());   /* photo library */
+  const onCard = async e => {
+    const inp = e.target, f = inp.files[0]; inp.value = ""; if (!f) return;
     cardBtn.disabled = true; cardNote.className = "note"; cardNote.textContent = "Reading card… (first time takes a bit)";
     try {
       const { out, raw } = await window.KCCardScan.read(f);
@@ -366,7 +369,8 @@ function showNewLead() {
       console.error(err); cardNote.className = "note err"; cardNote.textContent = "Couldn't read the card: " + err.message;
     }
     cardBtn.disabled = false;
-  });
+  };
+  cardIn.addEventListener("change", onCard); cardPick.addEventListener("change", onCard);
   /* Save, Text and Text promo all save the lead first. Text then opens Texts with this number;
      Text promo opens Promotions with this lead as Send to. Both need a 10-digit phone. */
   const save = (b, mode) => {
