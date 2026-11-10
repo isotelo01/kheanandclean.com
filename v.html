@@ -25,13 +25,24 @@ h1{font-size:26px;line-height:1.2;margin:0 0 4px;font-weight:700}
 .rows small{display:block;color:var(--soft);font-size:12px}
 .save{position:fixed;left:50%;bottom:max(28px,calc(env(safe-area-inset-bottom) + 16px));translate:-50% 0;padding:15px 30px;border-radius:999px;background:var(--btn);color:var(--btnInk);font-weight:600;font-size:17px;text-decoration:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .gone{text-align:center;padding:30vh 16px;color:var(--soft)}
+.editbtn{display:block;margin:16px auto 0;background:none;border:0;color:var(--soft);font:inherit;font-size:15px;text-decoration:underline;cursor:pointer}
+.edit{background:var(--card);border-radius:22px;padding:18px 20px 22px;margin-top:16px;box-shadow:0 10px 40px rgba(0,0,0,.08)}
+.edit h2{font-size:19px;margin:0 0 6px}
+.edit label{display:block;font-size:13px;color:var(--soft);margin:12px 0 4px}
+.edit input,.edit textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+.edit .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.edit .acts{display:flex;gap:10px;margin-top:16px}
+.edit .acts button{flex:1;padding:13px;border-radius:999px;font:inherit;font-weight:600;cursor:pointer;border:1px solid var(--line);background:none;color:var(--ink)}
+.edit .acts .go{background:var(--btn);color:var(--btnInk);border:0}
+.edit .msg{margin:10px 0 0;font-size:14px;color:var(--soft)}
 </style>
 </head>
 <body>
 <div class="wrap" id="app"><div class="gone">Loading…</div></div>
 <script>
 (function(){
-  var id = (location.pathname.match(/\/v\/([a-z0-9-]{3,60})\/?$/) || [])[1] || new URLSearchParams(location.search).get('id') || '';
+  var pm = location.pathname.match(/\/(v|sample)\/([a-z0-9-]{3,60})\/?$/) || [], seg = pm[1] || 'sample';
+  var id = pm[2] || new URLSearchParams(location.search).get('id') || '';
   var app = document.getElementById('app');
   var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); };
   var gone = function(){ app.innerHTML = '<div class="gone">This contact isn’t here anymore.</div>'; };
@@ -42,8 +53,9 @@ h1{font-size:26px;line-height:1.2;margin:0 0 4px;font-weight:700}
     web:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
     pin:'<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'
   };
-  var vcf = '/v/' + id + '.vcf';
-  fetch('https://firestore.googleapis.com/v1/projects/khean-estimator-78f3e/databases/(default)/documents/vcards/' + id)
+  var vcf = '/' + seg + '/' + id + '.vcf';
+  var DOCURL = 'https://firestore.googleapis.com/v1/projects/khean-estimator-78f3e/databases/(default)/documents/vcards/' + id;
+  fetch(DOCURL)
     .then(function(r){ if(!r.ok) throw 0; return r.json(); })
     .then(function(d){
       var f = d.fields || {}, g = function(k){ return (f[k] && f[k].stringValue) || ''; };
@@ -65,9 +77,39 @@ h1{font-size:26px;line-height:1.2;margin:0 0 4px;font-weight:700}
       app.innerHTML = '<div class="card"><div class="av"' + (g('photo') ? ' style="background-image:url(' + esc(g('photo')) + ')">' : '>' + esc(ini)) + '</div>' +
         '<h1>' + esc(name) + '</h1>' + (sub ? '<p class="sub">' + esc(sub) + '</p>' : '<p class="sub"></p>') +
         (rows ? '<div class="rows">' + rows + '</div>' : '') + '</div>' +
+        '<button type="button" class="editbtn" id="editBtn">Edit card</button><div id="editBox"></div>' +
         '<a class="save" href="' + vcf + '">Save contact</a>';
+      /* Edit card: anyone with the link can fix their own card (it's a sample). Saves straight to the card. */
+      var FIELDS = [['first','First name'],['last','Last name'],['title','Job title'],['company','Company'],['mobile','Mobile'],['work','Work phone'],
+        ['email','Email'],['website','Website'],['street','Street'],['city','City'],['state','State'],['zip','Zip'],['note','Note']];
+      document.getElementById('editBtn').onclick = function(){
+        var box = document.getElementById('editBox'); this.hidden = true; document.querySelector('.save').style.display = 'none';   /* keep it off the form */
+        var inp = function(k, l){ var t = k === 'mobile' || k === 'work' ? 'tel' : k === 'email' ? 'email' : k === 'website' ? 'url' : 'text';
+          return '<div><label for="e_' + k + '">' + l + '</label>' + (k === 'note' ? '<textarea id="e_note" rows="3" maxlength="500">' + esc(g(k)) + '</textarea>'
+            : '<input id="e_' + k + '" type="' + t + '" maxlength="120" value="' + esc(g(k)) + '">') + '</div>'; };
+        var pair = function(a, b){ return '<div class="two">' + inp(a[0], a[1]) + inp(b[0], b[1]) + '</div>'; };
+        box.innerHTML = '<div class="edit"><h2>Edit card</h2>' + pair(FIELDS[0], FIELDS[1]) + inp('title','Job title') + inp('company','Company') +
+          pair(FIELDS[4], FIELDS[5]) + inp('email','Email') + inp('website','Website') + inp('street','Street') + pair(FIELDS[9], FIELDS[10]) + inp('zip','Zip') + inp('note','Note') +
+          '<div class="acts"><button type="button" id="eCancel">Cancel</button><button type="button" class="go" id="eSave">Save</button></div><p class="msg" id="eMsg"></p></div>';
+        box.scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('eCancel').onclick = function(){ box.innerHTML = ''; document.getElementById('editBtn').hidden = false; document.querySelector('.save').style.display = ''; };
+        document.getElementById('eSave').onclick = function(){
+          var b = this, msg = document.getElementById('eMsg'), body = { fields: {} }, mask = [];
+          FIELDS.forEach(function(p){ var v = document.getElementById('e_' + p[0]).value.trim().slice(0, p[0] === 'note' ? 500 : 120);
+            if(p[0] === 'website' && v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+            body.fields[p[0]] = { stringValue: v }; mask.push('updateMask.fieldPaths=' + p[0]); });
+          body.fields.editedAt = { stringValue: new Date().toISOString() }; mask.push('updateMask.fieldPaths=editedAt');
+          var F = body.fields;
+          if(!F.first.stringValue && !F.last.stringValue && !F.company.stringValue){ msg.textContent = 'Enter a name or a company.'; return; }
+          b.disabled = true; msg.textContent = 'Saving…';
+          fetch(DOCURL + '?' + mask.join('&') + '&currentDocument.exists=true', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+            .then(function(r){ if(!r.ok) throw 0; try { sessionStorage.setItem('vEdited', id); } catch(e){} location.reload(); })
+            .catch(function(){ b.disabled = false; msg.textContent = 'That didn’t save. Try again.'; });
+        };
+      };
       /* On a phone (an NFC tap), pop the Save contact sheet right away, like the other contact links. */
-      if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) setTimeout(function(){ location.href = vcf; }, 700);
+      var fromEdit = false; try { fromEdit = sessionStorage.getItem('vEdited') === id; sessionStorage.removeItem('vEdited'); } catch(e){}
+      if(!fromEdit && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) setTimeout(function(){ location.href = vcf; }, 700);
     })
     .catch(gone);
 })();

@@ -17,7 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* vCards: scan someone's business card (or type it), make a public contact page for them at
-   kheanandclean.com/v/<name>, then copy the link into the NFC writer app. The page shows only
+   kheanandclean.com/sample/<name>, then copy the link into the NFC writer app. The page shows only
    their info; anyone who taps it gets the Save contact card. */
 :root{--navy:#172239;--gold:#E3B64A}
 *{box-sizing:border-box}
@@ -160,7 +160,7 @@ const auth = getAuth(app), db = getFirestore(app);
 const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const LINK = id => "https://kheanandclean.com/v/" + id;
+const LINK = id => "https://kheanandclean.com/sample/" + id;   /* /v/ links made before still work */
 const F = { first: "fFirst", last: "fLast", title: "fTitle", company: "fCompany", mobile: "fMobile", work: "fWork",
   email: "fEmail", website: "fWeb", street: "fStreet", city: "fCity", state: "fState", zip: "fZip", note: "fNote" };
 let uid = "", photo = "", editId = "", side = "front", cards = {}, scans = {}, cropSide = "front";

@@ -7,7 +7,7 @@ const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const v = url.pathname.match(/^\/v\/([a-z0-9-]{3,60})(\.vcf)?\/?$/);
+    const v = url.pathname.match(/^\/(?:v|sample)\/([a-z0-9-]{3,60})(\.vcf)?\/?$/);   /* new cards use /sample/, older ones /v/ */
     if (v) return vcard(request, env, url, v[1], !!v[2]);
     const m = url.pathname.match(/^\/p\/([a-z0-9]{6,20})\/?$/);
     if (!m) return env.ASSETS.fetch(request);
@@ -35,8 +35,8 @@ export default {
   },
 };
 
-/* vCards (the app's vCards page): /v/<id> is the contact page (v.html) with a link preview,
-   /v/<id>.vcf is the contact file itself, built fresh from the vcards doc every time. */
+/* vCards (the app's vCards page): /sample/<id> (older ones /v/<id>) is the contact page (v.html) with a link preview,
+   /sample/<id>.vcf is the contact file itself, built fresh from the vcards doc every time. */
 const VDOC = 'https://firestore.googleapis.com/v1/projects/khean-estimator-78f3e/databases/(default)/documents/vcards/';
 const vesc = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
 const fold = (line) => { const out = []; let s = line; out.push(s.slice(0, 75)); s = s.slice(75); while (s) { out.push(' ' + s.slice(0, 74)); s = s.slice(74); } return out.join('\r\n'); };
