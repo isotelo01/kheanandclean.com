@@ -2150,7 +2150,17 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     /* After Done in the camera: preview this room's photos, or go to the next room (the rooms page). */
     var afterDone = function(){
       var got = roomShots(rm); if(!got.length){ redo(); return; }
-      if(rm.pf){ document.body.classList.remove('rp'); snapRooms(el); return; }   /* photos first: back to the rooms page right away; this room's card fills in on its own (reading takes ~30 s) */
+      if(rm.pf){   /* photos first: back to the rooms page right away; this room's card fills in on its own (reading takes ~30 s) */
+        document.body.classList.remove('rp'); snapRooms(el, true);
+        /* Open at the buttons ("+ Snap another room", "That's all my rooms"), not the top of the page, in portrait and
+           landscape. Runs again as the camera finishes closing and if the phone turns. */
+        var btns = el.querySelectorAll('.go'), last = btns[btns.length - 1];
+        var onTurn = function(){ setTimeout(toBtns, 300); };
+        var toBtns = function(){ if(!last || !document.body.contains(last)){ window.removeEventListener('orientationchange', onTurn); return; }
+          last.scrollIntoView({ block:'end' }); window.scrollBy(0, 16); };
+        toBtns(); [60, 350, 800].forEach(function(t){ setTimeout(toBtns, t); });
+        window.addEventListener('orientationchange', onTurn);
+        return; }
       el.innerHTML = '';
       var box = document.createElement('div'); box.className = 'nx'; el.appendChild(box);
       var rv = document.createElement('button'); rv.type = 'button'; rv.className = 'rv';
