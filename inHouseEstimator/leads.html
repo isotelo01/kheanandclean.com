@@ -141,6 +141,7 @@ h1#title[hidden]{display:none}   /* its inline-block style was beating "hidden" 
 </div>
 
 <script src="./phone-format.js"></script>
+<script src="./card-scan.js"></script>
 <script src="./places.js" defer></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -345,54 +346,13 @@ function showNewLead() {
      Only empty boxes get filled; the card photo joins the lead's photos; the card text goes in Notes. */
   const cardBtn = document.getElementById("nlCardBtn"), cardIn = document.getElementById("nlCardIn"), cardNote = document.getElementById("nlCardNote");
   let cardSide = "front";
-  const loadOcr = () => window.Tesseract ? Promise.resolve() : new Promise((ok, no) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"; s.onload = ok; s.onerror = () => no(new Error("reader didn't load"));
-    document.head.appendChild(s);
-  });
-  /* Shrink to 1800px and turn grey so the reader does better and phones don't choke. */
-  const cardCanvas = f => new Promise((ok, no) => {
-    const img = new Image(), u = URL.createObjectURL(f);
-    img.onload = () => {
-      const k = Math.min(1, 1800 / Math.max(img.width, img.height)), c = document.createElement("canvas");
-      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-      const g = c.getContext("2d"); g.filter = "grayscale(1) contrast(1.3)"; g.drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(u); ok(c);
-    };
-    img.onerror = () => { URL.revokeObjectURL(u); no(new Error("couldn't open the photo")); };
-    img.src = u;
-  });
-  const parseCard = text => {
-    const lines = text.split(/\n/).map(s => s.replace(/[|_~]+/g, " ").replace(/\s+/g, " ").trim()).filter(s => s.length > 1);
-    const out = {}, all = lines.join("\n");
-    const em = all.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/); if (em) out.email = em[0].toLowerCase();
-    /* Phones: skip fax lines; prefer a line marked cell / mobile / c / m. */
-    const phones = [];
-    lines.forEach(l => { (l.match(/(?:\+?1[\s.-]*)?\(?\d{3}\)?[\s.-]*\d{3}[\s.-]*\d{4}/g) || []).forEach(p => {
-      if (/\bfax\b|\bf[:.]/i.test(l)) return;
-      phones.push({ d: p.replace(/\D/g, "").slice(-10), cell: /cell|mobile|\bc[:.]|\bm[:.]/i.test(l) });
-    }); });
-    const ph = phones.find(p => p.cell) || phones[0];
-    if (ph) out.phone = "(" + ph.d.slice(0, 3) + ") " + ph.d.slice(3, 6) + "-" + ph.d.slice(6);
-    const csz = all.match(/([A-Za-z .]+),?\s+([A-Z]{2})\.?\s+(\d{5})(?:-\d{4})?/);
-    if (csz) { out.city = csz[1].replace(/^.*\d\s*/, "").trim(); out.state = csz[2]; out.zip = csz[3]; }
-    const st = lines.find(l => /^\d+\s+\S+.*\b(st|street|ave|avenue|way|rd|road|dr|drive|blvd|ln|lane|ct|court|pl|place|pkwy|parkway|cir|circle|hwy|suite|ste)\b/i.test(l));
-    if (st) out.street = st.replace(/,?\s*[A-Za-z .]+,?\s+[A-Z]{2}\.?\s+\d{5}.*$/, "").trim();
-    const BIZ = /\b(inc|llc|co|corp|company|realty|real estate|properties|property|management|group|services|homes|partners|associates|brokerage|keller|coldwell|century|compass|remax|re\/max|sotheby|berkshire|exp)\b/i;
-    const JOB = /\b(agent|realtor|broker|manager|director|owner|president|ceo|associate|specialist|consultant|dre|lic|license|www|http|\.com)\b/i;
-    const biz = lines.find(l => BIZ.test(l) && !/@/.test(l) && !/\d{3}/.test(l)); if (biz) out.business = biz;
-    const nm = lines.find(l => l !== biz && /^[A-Za-z][A-Za-z.'-]*(\s+[A-Za-z][A-Za-z.'-]*){1,2}$/.test(l) && !BIZ.test(l) && !JOB.test(l) && l.length <= 30);
-    if (nm) out.name = nm.replace(/\b\w+/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-    return { out, raw: lines.join("\n") };
-  };
+  /* The reader itself lives in card-scan.js (shared with the vCard maker). */
   cardBtn.addEventListener("click", () => cardIn.click());
   cardIn.addEventListener("change", async () => {
     const f = cardIn.files[0]; cardIn.value = ""; if (!f) return;
     cardBtn.disabled = true; cardNote.className = "note"; cardNote.textContent = "Reading card… (first time takes a bit)";
     try {
-      await loadOcr();
-      const r = await window.Tesseract.recognize(await cardCanvas(f), "eng");
-      const { out, raw } = parseCard(r.data.text || "");
+      const { out, raw } = await window.KCCardScan.read(f);
       const fill = (id, val) => { const el = document.getElementById(id); if (val && el && !el.value.trim()) { el.value = val; return 1; } return 0; };
       let n = fill("nlName", out.name) + fill("nlPhone", out.phone) + fill("nlEmail", out.email) +
         fill("nlAddr", out.street) + fill("nlCity", out.city) + fill("nlZip", out.zip);

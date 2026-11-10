@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="K&amp;C Estimator">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="robots" content="noindex, nofollow">
+<title>vCards &middot; Khean &amp; Clean</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* vCards: scan someone's business card (or type it), make a public contact page for them at
+   kheanandclean.com/v/<name>, then copy the link into the NFC writer app. The page shows only
+   their info; anyone who taps it gets the Save contact card. */
+:root{--navy:#172239;--gold:#E3B64A}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:22px 16px 110px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.top img{width:56px;height:56px;border-radius:8px}
+h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
+.back{margin-left:auto;color:var(--gold);text-decoration:none;font-weight:600}
+h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:26px 0 10px}
+.box{background:var(--navy);border:1px solid var(--gold);border-radius:12px;padding:16px}
+label{display:block;font-weight:600;margin:12px 0 6px}
+input[type=text],input[type=tel],input[type=email],input[type=url],textarea{width:100%;background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;font:inherit}
+textarea{min-height:70px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.csz{display:grid;grid-template-columns:2fr 1fr 1.2fr;gap:8px}
+.two label,.csz label{margin-top:12px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--gold);color:#000;border:0;border-radius:999px;padding:12px 20px;font:700 15px "Archivo",sans-serif;cursor:pointer;text-decoration:none}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.big{width:100%;justify-content:center;padding:15px 20px;font-size:17px}
+.btn:disabled{opacity:.5}
+.btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brow{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+[hidden]{display:none!important}
+.note{color:rgba(255,255,255,.7);font-size:14px;margin:6px 0 0}
+.err{color:#ff9b8a}
+.pic{display:flex;align-items:center;gap:12px;margin-top:6px}
+.pic .av{width:64px;height:64px;border-radius:50%;background:#222 center/cover;border:1px solid rgba(255,255,255,.3);flex:none}
+.done{border-color:#7fd1a4}
+.link{word-break:break-all;color:var(--gold);font-weight:700;font-size:18px;margin:4px 0 2px}
+.vc{display:flex;gap:12px;align-items:center;background:var(--navy);border:1px solid rgba(227,182,74,.5);border-radius:12px;padding:10px;margin-bottom:10px}
+.vc .av{width:52px;height:52px;border-radius:50%;background:#2a3550 center/cover;flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--gold)}
+.vc .t{font-weight:700}
+.vc .s{font-size:13px;color:rgba(255,255,255,.7)}
+.vc .acts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.vc .acts button,.vc .acts a{background:none;border:1px solid var(--gold);color:var(--gold);border-radius:999px;padding:6px 12px;font:600 13px "Archivo",sans-serif;cursor:pointer;text-decoration:none}
+.vc .acts .cp{background:var(--gold);color:#000}
+.empty{color:rgba(255,255,255,.6)}
+@media (max-width:520px){ .vc{flex-wrap:wrap} .vc .acts{margin-left:0;width:100%;justify-content:flex-start} }
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>vCards</h1>
+    <a class="back" href="./hub.html">&lsaquo; Hub</a>
+  </div>
+  <p id="authwait" class="note">Signing in…</p>
+
+  <h2 id="formHead">Make a contact card</h2>
+  <div class="box" id="form">
+    <button type="button" class="btn big" id="scanBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h6M6 14h9"/></svg><span>Scan business card</span></button>
+    <input type="file" id="scanIn" accept="image/*" hidden>
+    <p class="note" id="scanNote">Take a picture of the front, then the back. Or just type it in.</p>
+
+    <div class="two">
+      <div><label for="fFirst">First name</label><input type="text" id="fFirst" autocapitalize="words" autocomplete="off"></div>
+      <div><label for="fLast">Last name</label><input type="text" id="fLast" autocapitalize="words" autocomplete="off"></div>
+    </div>
+    <label for="fTitle">Job title</label><input type="text" id="fTitle" autocapitalize="words" autocomplete="off">
+    <label for="fCompany">Company</label><input type="text" id="fCompany" autocapitalize="words" autocomplete="off">
+    <div class="two">
+      <div><label for="fMobile">Mobile</label><input type="tel" id="fMobile" autocomplete="off"></div>
+      <div><label for="fWork">Work phone</label><input type="tel" id="fWork" autocomplete="off"></div>
+    </div>
+    <label for="fEmail">Email</label><input type="email" id="fEmail" autocapitalize="off" autocomplete="off">
+    <label for="fWeb">Website</label><input type="url" id="fWeb" autocapitalize="off" autocomplete="off" placeholder="www.example.com">
+    <label for="fStreet">Street</label><input type="text" id="fStreet" autocomplete="off">
+    <div class="csz">
+      <div><label for="fCity">City</label><input type="text" id="fCity" autocomplete="off"></div>
+      <div><label for="fState">State</label><input type="text" id="fState" autocomplete="off" value="CA"></div>
+      <div><label for="fZip">Zip</label><input type="text" id="fZip" inputmode="numeric" autocomplete="off"></div>
+    </div>
+    <label for="fNote">Note (optional, goes on the contact)</label><textarea id="fNote" maxlength="500"></textarea>
+    <label>Photo (optional)</label>
+    <div class="pic"><div class="av" id="picAv"></div>
+      <button type="button" class="btn ghost" id="picBtn">Add photo</button>
+      <button type="button" class="btn ghost" id="picRm" hidden>Remove</button>
+      <input type="file" id="picIn" accept="image/*" hidden></div>
+    <p class="err" id="err" role="alert"></p>
+    <div class="brow"><button type="button" class="btn big" id="make">Make vCard</button></div>
+    <div class="brow" id="cancelRow" hidden><button type="button" class="btn ghost" id="cancelEdit">Cancel edit</button></div>
+  </div>
+
+  <div class="box done" id="made" hidden style="margin-top:14px">
+    <div style="font-weight:700">Link is ready</div>
+    <div class="link" id="madeLink"></div>
+    <p class="note">Copy it, then paste it into your NFC writer app as a URL.</p>
+    <div class="brow">
+      <button type="button" class="btn big" id="copyBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>Copy URL</span></button>
+    </div>
+    <div class="brow">
+      <button type="button" class="btn ghost" id="shareBtn">Share / text it</button>
+      <a class="btn ghost" id="viewBtn" target="_blank" rel="noopener">View</a>
+      <a class="btn ghost" id="vcfBtn">Download .vcf</a>
+    </div>
+  </div>
+
+  <h2>Your vCards</h2>
+  <div id="list"><div class="empty">Loading…</div></div>
+</div>
+
+<script src="./card-scan.js"></script>
+<script src="./phone-format.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, collection, getDocs, setDoc, deleteDoc, doc, query, orderBy, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const auth = getAuth(app), db = getFirestore(app);
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const LINK = id => "https://kheanandclean.com/v/" + id;
+const F = { first: "fFirst", last: "fLast", title: "fTitle", company: "fCompany", mobile: "fMobile", work: "fWork",
+  email: "fEmail", website: "fWeb", street: "fStreet", city: "fCity", state: "fState", zip: "fZip", note: "fNote" };
+let uid = "", photo = "", editId = "", side = "front", cards = {};
+
+/* Page lock: staff only. */
+onAuthStateChanged(auth, u => {
+  if (!u) { location.replace("./login.html?next=vcards.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  uid = u.uid; $("authwait")?.remove();
+  load();
+});
+
+/* Scan: front, then back. Only fills empty boxes, so the back never overwrites the front. */
+$("scanBtn").onclick = () => $("scanIn").click();
+$("scanIn").onchange = async function () {
+  const f = this.files[0]; this.value = ""; if (!f) return;
+  const b = $("scanBtn"), note = $("scanNote");
+  b.disabled = true; note.className = "note"; note.textContent = "Reading card… (first time takes a bit)";
+  try {
+    const { out } = await window.KCCardScan.read(f);
+    const fill = (id, val) => { const el = $(id); if (val && !el.value.trim()) { el.value = val; return 1; } return 0; };
+    const parts = (out.name || "").split(" ");
+    let n = fill("fFirst", parts[0]) + fill("fLast", parts.slice(1).join(" ")) + fill("fTitle", out.title) + fill("fCompany", out.business) +
+      fill("fMobile", out.phone) + fill("fWork", out.phone2) + fill("fEmail", out.email) + fill("fWeb", out.website) +
+      fill("fStreet", out.street) + fill("fCity", out.city) + fill("fZip", out.zip);
+    if (out.state && out.zip) $("fState").value = out.state;
+    note.textContent = n ? "Filled " + n + " box" + (n > 1 ? "es" : "") + ". Check them before making the card." : "Couldn't pick out details. Type them in.";
+    side = "back"; b.querySelector("span").textContent = "Scan back of card";
+  } catch (e) { console.error(e); note.className = "note err"; note.textContent = "Couldn't read the card: " + e.message; }
+  b.disabled = false;
+};
+
+/* Photo: a small square JPEG (400px) kept right on the card, so it shows in their Contacts too. */
+const drawPic = () => { $("picAv").style.backgroundImage = photo ? "url(" + photo + ")" : ""; $("picRm").hidden = !photo; $("picBtn").textContent = photo ? "Change photo" : "Add photo"; };
+$("picBtn").onclick = () => $("picIn").click();
+$("picRm").onclick = () => { photo = ""; drawPic(); };
+$("picIn").onchange = function () {
+  const f = this.files[0]; this.value = ""; if (!f) return;
+  const img = new Image(), u = URL.createObjectURL(f);
+  img.onload = () => {
+    const s = Math.min(img.width, img.height), c = document.createElement("canvas"); c.width = c.height = 400;
+    c.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 400, 400);
+    URL.revokeObjectURL(u); photo = c.toDataURL("image/jpeg", 0.82); drawPic();
+  };
+  img.src = u;
+};
+
+const val = id => $(id).value.trim();
+const slugOf = (first, last, company) => {
+  const base = [first, last].join(" ").trim() || company || "contact";
+  const s = base.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "contact";
+  return s + "-" + Array.from(crypto.getRandomValues(new Uint8Array(4)), b => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+};
+function resetForm() {
+  Object.values(F).forEach(id => $(id).value = ""); $("fState").value = "CA";
+  photo = ""; drawPic(); editId = ""; side = "front";
+  $("scanBtn").querySelector("span").textContent = "Scan business card"; $("scanNote").className = "note";
+  $("scanNote").textContent = "Take a picture of the front, then the back. Or just type it in.";
+  $("formHead").textContent = "Make a contact card"; $("make").textContent = "Make vCard"; $("cancelRow").hidden = true;
+}
+$("cancelEdit").onclick = resetForm;
+
+$("make").onclick = async () => {
+  const err = $("err"), btn = $("make"), d = {};
+  Object.entries(F).forEach(([k, id]) => d[k] = val(id).slice(0, k === "note" ? 500 : 120));
+  if (!d.first && !d.last && !d.company) { err.textContent = "Enter a name or a company."; $("fFirst").focus(); return; }
+  if (!d.mobile && !d.work && !d.email) { err.textContent = "Add a phone number or email."; $("fMobile").focus(); return; }
+  if (d.website && !/^https?:\/\//i.test(d.website)) d.website = "https://" + d.website.replace(/^\/+/, "");
+  err.textContent = ""; btn.disabled = true; btn.textContent = "Saving…";
+  const id = editId || slugOf(d.first, d.last, d.company);
+  try {
+    const rec = { ...d, photo, owner: uid, updatedAt: serverTimestamp() };
+    if (!editId) rec.createdAt = serverTimestamp(); else rec.createdAt = cards[id]?.createdAt || serverTimestamp();
+    await setDoc(doc(db, "vcards", id), rec);
+    const name = [d.first, d.last].filter(Boolean).join(" ") || d.company;
+    resetForm(); showMade(id, name); load();
+  } catch (e) { console.error(e); err.textContent = "That didn't save. Check your connection and try again."; }
+  btn.disabled = false; if (!editId) btn.textContent = "Make vCard";
+};
+
+function share(id, name) {
+  const url = LINK(id);
+  if (navigator.share) navigator.share({ title: name, url }).catch(() => {});
+  else location.href = "sms:?&body=" + encodeURIComponent(url);
+}
+function copy(id, b) {
+  const done = () => { const s = b.querySelector("span") || b, t = s.textContent; s.textContent = "Copied"; setTimeout(() => s.textContent = t, 1500); };
+  if (navigator.clipboard) navigator.clipboard.writeText(LINK(id)).then(done, () => prompt("Copy this link:", LINK(id)));
+  else prompt("Copy this link:", LINK(id));
+}
+function showMade(id, name) {
+  $("made").hidden = false; $("madeLink").textContent = LINK(id);
+  $("copyBtn").onclick = function () { copy(id, this); };
+  $("shareBtn").onclick = () => share(id, name);
+  $("viewBtn").href = LINK(id); $("vcfBtn").href = LINK(id) + ".vcf";
+  $("made").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function edit(id) {
+  const c = cards[id]; if (!c) return;
+  Object.entries(F).forEach(([k, el]) => $(el).value = c[k] || "");
+  photo = c.photo || ""; drawPic(); editId = id;
+  $("formHead").textContent = "Edit contact card"; $("make").textContent = "Save changes"; $("cancelRow").hidden = false;
+  $("made").hidden = true; $("formHead").scrollIntoView({ behavior: "smooth" });
+}
+
+async function load() {
+  try {
+    const snap = await getDocs(query(collection(db, "vcards"), orderBy("createdAt", "desc")));
+    cards = {};
+    if (snap.empty) { $("list").innerHTML = '<div class="empty">No vCards yet.</div>'; return; }
+    $("list").innerHTML = "";
+    snap.forEach(d => {
+      const c = cards[d.id] = d.data(), el = document.createElement("div"); el.className = "vc";
+      const name = [c.first, c.last].filter(Boolean).join(" ") || c.company || "Contact";
+      const ini = (name.match(/\b\w/g) || []).slice(0, 2).join("").toUpperCase();
+      el.innerHTML = '<div class="av"' + (c.photo ? ' style="background-image:url(' + esc(c.photo) + ')">' : '>' + esc(ini)) + '</div>' +
+        '<div><div class="t">' + esc(name) + '</div><div class="s">' + esc([c.title, c.company].filter(Boolean).join(" · ") || c.mobile || c.email) + '</div></div>' +
+        '<div class="acts"><button type="button" class="cp" data-a="copy">Copy URL</button><button type="button" data-a="share">Share</button>' +
+        '<a href="' + LINK(d.id) + '" target="_blank" rel="noopener">View</a><button type="button" data-a="edit">Edit</button><button type="button" data-a="del">Delete</button></div>';
+      el.querySelector('[data-a="copy"]').onclick = function () { copy(d.id, this); };
+      el.querySelector('[data-a="share"]').onclick = () => share(d.id, name);
+      el.querySelector('[data-a="edit"]').onclick = () => edit(d.id);
+      el.querySelector('[data-a="del"]').onclick = async function () {
+        if (!confirm("Delete " + name + "'s vCard? The link (and any NFC tag pointing to it) will stop working.")) return;
+        this.disabled = true; await deleteDoc(doc(db, "vcards", d.id)); el.remove();
+      };
+      $("list").appendChild(el);
+    });
+  } catch (e) { console.error(e); $("list").innerHTML = '<div class="empty">Couldn’t load your vCards.</div>'; }
+}
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>
