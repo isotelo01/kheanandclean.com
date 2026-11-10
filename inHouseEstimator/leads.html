@@ -155,6 +155,7 @@ import { tagContacts } from "./contacts.js";   /* everyone with a name and a num
 import { sameName, stackPatch } from "./contact-match.js";   /* when two entries are the same person */
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref, getDownloadURL, uploadBytes } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -355,7 +356,7 @@ function showNewLead() {
     const inp = e.target, f = inp.files[0]; inp.value = ""; if (!f) return;
     cardBtn.disabled = true; cardNote.className = "note"; cardNote.textContent = "Reading card… (first time takes a bit)";
     try {
-      const { out, raw } = await window.KCCardScan.read(f);
+      const { out, raw } = await window.KCCardScan.read(f, image => httpsCallable(getFunctions(app, "us-central1"), "readCard")({ image }).then(r => r.data));   /* AI reads it; phone reader if that fails */
       const fill = (id, val) => { const el = document.getElementById(id); if (val && el && !el.value.trim()) { el.value = val; return 1; } return 0; };
       let n = fill("nlName", out.name) + fill("nlPhone", out.phone) + fill("nlEmail", out.email) +
         fill("nlAddr", out.street) + fill("nlCity", out.city) + fill("nlZip", out.zip);

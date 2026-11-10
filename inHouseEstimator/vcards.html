@@ -47,6 +47,7 @@ textarea{min-height:70px;resize:vertical}
 .pic{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
 .pic .av{width:64px;height:64px;border-radius:50%;background:#222 center/cover;border:1px solid rgba(255,255,255,.3);flex:none}
 .done{border-color:#7fd1a4}
+.logobox{width:150px;height:72px;border-radius:10px;background:#fff center/contain no-repeat;border:1px solid rgba(255,255,255,.3);flex:none;display:flex;align-items:center;justify-content:center;color:#777;font-size:13px}
 .link{word-break:break-all;color:var(--gold);font-weight:700;font-size:18px;margin:4px 0 2px}
 .vc{display:flex;gap:12px;align-items:center;background:var(--navy);border:1px solid rgba(227,182,74,.5);border-radius:12px;padding:10px;margin-bottom:10px}
 .vc .av{width:52px;height:52px;border-radius:50%;background:#2a3550 center/cover;flex:none;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--gold)}
@@ -105,10 +106,13 @@ textarea{min-height:70px;resize:vertical}
       <div><label for="fZip">Zip</label><input type="text" id="fZip" inputmode="numeric" autocomplete="off"></div>
     </div>
     <label for="fNote">Note (optional, goes on the contact)</label><textarea id="fNote" maxlength="500"></textarea>
-    <label>Logo or photo (optional)</label>
+    <label>Logo (from the card)</label>
+    <div class="pic"><div class="logobox" id="logoBox">No logo</div>
+      <button type="button" class="btn ghost" id="logoBtn" hidden>Adjust logo</button>
+      <button type="button" class="btn ghost" id="logoRm" hidden>Remove</button></div>
+    <label>Photo of them (optional)</label>
     <div class="pic"><div class="av" id="picAv"></div>
       <button type="button" class="btn ghost" id="picBtn">Add photo</button>
-      <button type="button" class="btn ghost" id="logoBtn" hidden>Adjust logo</button>
       <button type="button" class="btn ghost" id="picRm" hidden>Remove</button>
       <input type="file" id="picIn" accept="image/*" hidden></div>
     <p class="err" id="err" role="alert"></p>
@@ -149,6 +153,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, collection, getDocs, setDoc, deleteDoc, doc, query, orderBy, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
 const app = initializeApp({
@@ -160,13 +165,16 @@ const app = initializeApp({
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 });
 const auth = getAuth(app), db = getFirestore(app);
+/* AI card reader (backend readCard). If it fails, card-scan.js reads the card on the phone instead. */
+const readCardFn = httpsCallable(getFunctions(app, "us-central1"), "readCard");
+const readCardAi = image => readCardFn({ image }).then(r => r.data);
 const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LINK = id => "https://kheanandclean.com/sample/" + id;   /* /v/ links made before still work */
 const F = { first: "fFirst", last: "fLast", title: "fTitle", company: "fCompany", mobile: "fMobile", work: "fWork",
   email: "fEmail", website: "fWeb", street: "fStreet", city: "fCity", state: "fState", zip: "fZip", note: "fNote" };
-let uid = "", photo = "", editId = "", side = "front", cards = {}, scans = {}, cropSide = "front";
+let uid = "", photo = "", logo = "", logoSq = "", editId = "", side = "front", cards = {}, scans = {}, cropSide = "front";
 
 /* Page lock: staff only. */
 onAuthStateChanged(auth, u => {
@@ -184,17 +192,20 @@ $("scanPick").onchange = $("scanIn").onchange = async function () {
   const b = $("scanBtn"), note = $("scanNote");
   b.disabled = true; note.className = "note"; note.textContent = "Reading card… (first time takes a bit)";
   try {
-    const res = await window.KCCardScan.read(f), { out } = res;
+    const res = await window.KCCardScan.read(f, readCardAi), { out } = res;
     const fill = (id, val) => { const el = $(id); if (val && !el.value.trim()) { el.value = val; return 1; } return 0; };
     const parts = (out.name || "").split(" ");
-    let n = fill("fFirst", parts[0]) + fill("fLast", parts.slice(1).join(" ")) + fill("fTitle", out.title) + fill("fCompany", out.business) +
+    let n = fill("fFirst", out.first || parts[0]) + fill("fLast", out.last || (out.first ? "" : parts.slice(1).join(" "))) + fill("fTitle", out.title) + fill("fCompany", out.business) +
       fill("fMobile", out.phone) + fill("fWork", out.phone2) + fill("fEmail", out.email) + fill("fWeb", out.website) +
       fill("fStreet", out.street) + fill("fCity", out.city) + fill("fZip", out.zip);
     if (out.state && out.zip) $("fState").value = out.state;
-    /* Logo: keep the card photo; if there's no picture yet, use the logo it found. */
+    /* License number and anything else useful go in the Note. */
+    const extra = [out.license, out.other].filter(Boolean).join("\n");
+    if (extra && !$("fNote").value.includes(extra)) $("fNote").value = ($("fNote").value.trim() ? $("fNote").value.trim() + "\n" : "") + extra;
+    /* Logo: keep the card photo; if there's no logo yet, use the one it found. */
     scans[side] = { card: res.card, logo: res.logo }; $("logoBtn").hidden = false;
     let logoMsg = "";
-    if (!photo && res.logo) { photo = window.KCCardScan.logoPhoto(res.card, res.logo); drawPic(); logoMsg = " Logo added; tap Adjust logo if it's off."; }
+    if (!logo && res.logo) { setLogo(res.card, res.logo); logoMsg = " Logo added; tap Adjust logo if it's off."; }
     note.textContent = (n ? "Filled " + n + " box" + (n > 1 ? "es" : "") + ". Check them before making the card." : "Couldn't pick out details. Type them in.") + logoMsg;
     side = "back"; b.querySelector("span").textContent = "Scan back of card";
   } catch (e) { console.error(e); note.className = "note err"; note.textContent = "Couldn't read the card: " + e.message; }
@@ -203,6 +214,9 @@ $("scanPick").onchange = $("scanIn").onchange = async function () {
 
 /* Photo: a small square JPEG (400px) kept right on the card, so it shows in their Contacts too. */
 const drawPic = () => { $("picAv").style.backgroundImage = photo ? "url(" + photo + ")" : ""; $("picRm").hidden = !photo; $("picBtn").textContent = photo ? "Change photo" : "Add photo"; };
+const drawLogo = () => { const b = $("logoBox"); b.style.backgroundImage = logo ? "url(" + logo + ")" : ""; b.textContent = logo ? "" : "No logo"; $("logoRm").hidden = !logo; };
+function setLogo(card, box) { logo = window.KCCardScan.logoCrop(card, box); logoSq = window.KCCardScan.logoPhoto(card, box); drawLogo(); }
+$("logoRm").onclick = () => { logo = logoSq = ""; drawLogo(); };
 $("picBtn").onclick = () => $("picIn").click();
 $("picRm").onclick = () => { photo = ""; drawPic(); };
 $("picIn").onchange = function () {
@@ -252,7 +266,7 @@ $("cropSide").onclick = () => openCrop(cropSide === "front" ? "back" : "front");
 $("cropCancel").onclick = () => { $("crop").hidden = true; };
 $("cropUse").onclick = () => {
   const sc = scans[cropSide]; sc.logo = { ...box };
-  photo = window.KCCardScan.logoPhoto(sc.card, box); drawPic(); $("crop").hidden = true;
+  setLogo(sc.card, box); $("crop").hidden = true;
 };
 
 const val = id => $(id).value.trim();
@@ -263,7 +277,7 @@ const slugOf = (first, last, company) => {
 };
 function resetForm() {
   Object.values(F).forEach(id => $(id).value = ""); $("fState").value = "CA";
-  photo = ""; drawPic(); editId = ""; side = "front"; scans = {}; $("logoBtn").hidden = true;
+  photo = ""; drawPic(); logo = logoSq = ""; drawLogo(); editId = ""; side = "front"; scans = {}; $("logoBtn").hidden = true;
   $("scanBtn").querySelector("span").textContent = "Scan business card"; $("scanNote").className = "note";
   $("scanNote").textContent = "Take a picture of the front, then the back. Or just type it in.";
   $("formHead").textContent = "Make a contact card"; $("make").textContent = "Make vCard"; $("cancelRow").hidden = true;
@@ -279,7 +293,7 @@ $("make").onclick = async () => {
   err.textContent = ""; btn.disabled = true; btn.textContent = "Saving…";
   const id = editId || slugOf(d.first, d.last, d.company);
   try {
-    const rec = { ...d, photo, owner: uid, updatedAt: serverTimestamp() };
+    const rec = { ...d, photo, logo, logoSq, owner: uid, updatedAt: serverTimestamp() };
     if (!editId) rec.createdAt = serverTimestamp(); else rec.createdAt = cards[id]?.createdAt || serverTimestamp();
     await setDoc(doc(db, "vcards", id), rec);
     const name = [d.first, d.last].filter(Boolean).join(" ") || d.company;
@@ -308,7 +322,7 @@ function showMade(id, name) {
 function edit(id) {
   const c = cards[id]; if (!c) return;
   Object.entries(F).forEach(([k, el]) => $(el).value = c[k] || "");
-  photo = c.photo || ""; drawPic(); editId = id;
+  photo = c.photo || ""; drawPic(); logo = c.logo || ""; logoSq = c.logoSq || ""; drawLogo(); editId = id;
   $("formHead").textContent = "Edit contact card"; $("make").textContent = "Save changes"; $("cancelRow").hidden = false;
   $("made").hidden = true; $("formHead").scrollIntoView({ behavior: "smooth" });
 }
@@ -323,7 +337,8 @@ async function load() {
       const c = cards[d.id] = d.data(), el = document.createElement("div"); el.className = "vc";
       const name = [c.first, c.last].filter(Boolean).join(" ") || c.company || "Contact";
       const ini = (name.match(/\b\w/g) || []).slice(0, 2).join("").toUpperCase();
-      el.innerHTML = '<div class="av"' + (c.photo ? ' style="background-image:url(' + esc(c.photo) + ')">' : '>' + esc(ini)) + '</div>' +
+      const pic = c.photo || c.logoSq;
+      el.innerHTML = '<div class="av"' + (pic ? ' style="background-image:url(' + esc(pic) + ')">' : '>' + esc(ini)) + '</div>' +
         '<div><div class="t">' + esc(name) + '</div><div class="s">' + esc([c.title, c.company].filter(Boolean).join(" · ") || c.mobile || c.email) + '</div></div>' +
         '<div class="acts"><button type="button" class="cp" data-a="copy">Copy URL</button><button type="button" data-a="share">Share</button>' +
         '<a href="' + LINK(d.id) + '" target="_blank" rel="noopener">View</a><button type="button" data-a="edit">Edit</button><button type="button" data-a="del">Delete</button></div>';

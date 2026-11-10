@@ -1,6 +1,7 @@
 /* Business card scanner, shared by the New lead form (leads.html) and the vCard maker (vcards.html).
-   Tesseract reads the photo right on the phone (nothing is sent anywhere).
-   KCCardScan.read(file) -> { out: { name, title, business, phone, email, website, street, city, state, zip }, raw } */
+   AI reads the card (the page passes its readCard backend call); if that fails, Tesseract reads it on the phone.
+   KCCardScan.read(file, ai) -> { out: { name, first, last, title, business, phone, phone2, email, website,
+   street, city, state, zip, license, other }, raw, card (color canvas), logo ({x,y,w,h} on card, or null), by } */
 (function () {
   const loadOcr = () => window.Tesseract ? Promise.resolve() : new Promise((ok, no) => {
     const s = document.createElement("script");
@@ -97,17 +98,48 @@
     g.imageSmoothingQuality = "high"; g.drawImage(cv, b.x, b.y, b.w, b.h, (400 - w) / 2, (400 - h) / 2, w, h);
     return c.toDataURL("image/jpeg", 0.88);
   };
+  /* The card for the AI: color, 1568px on the long side (what it reads best), JPEG. */
+  const forAi = cv => {
+    const k = Math.min(1, 1568 / Math.max(cv.width, cv.height)), c = document.createElement("canvas");
+    c.width = Math.round(cv.width * k); c.height = Math.round(cv.height * k);
+    c.getContext("2d").drawImage(cv, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.85);
+  };
+  const fmtPhone = v => { const d = String(v || "").replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+    return d.length === 10 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : String(v || ""); };
   window.KCCardScan = {
-    /* out/raw: the details and card text. card: the color photo (canvas). logo: the guessed logo box, or null. */
-    async read(file) {
-      await loadOcr();
+    async read(file, ai) {
       const cv = await cardCanvas(file);
+      if (ai) {
+        try {
+          const a = await ai(forAi(cv.color));
+          const W = cv.color.width, H = cv.color.height;
+          const out = { first: a.first, last: a.last, name: [a.first, a.last].filter(Boolean).join(" "), title: a.title, business: a.company,
+            phone: fmtPhone(a.mobile || a.work), phone2: a.mobile ? fmtPhone(a.work) : "", email: (a.email || "").toLowerCase(), website: a.website,
+            street: a.street, city: a.city, state: a.state, zip: a.zip, license: a.license, other: a.other };
+          Object.keys(out).forEach(k => { if (!out[k]) delete out[k]; });
+          const raw = [out.name, a.title, a.company, a.mobile && "Mobile " + a.mobile, a.work && "Work " + a.work, a.fax && "Fax " + a.fax, a.email, a.website,
+            a.street, [a.city, a.state, a.zip].filter(Boolean).join(" "), a.license, a.other].filter(Boolean).join("\n");
+          let logo = a.logo ? { x: a.logo.x * W, y: a.logo.y * H, w: Math.min(a.logo.w * W, W - a.logo.x * W), h: Math.min(a.logo.h * H, H - a.logo.y * H) } : null;
+          if (logo && (logo.w < 8 || logo.h < 8)) logo = null;
+          return { out, raw, card: cv.color, logo, by: "ai" };
+        } catch (e) { console.warn("AI card reader failed, reading on the phone instead", e); }
+      }
+      await loadOcr();
       const r = await window.Tesseract.recognize(cv, "eng");
       const res = parseCard(r.data.text || "");
-      res.card = cv.color;
+      res.card = cv.color; res.by = "phone";
       try { res.logo = findLogo(cv.color, r.data.words); } catch (e) { res.logo = null; }
       return res;
     },
-    logoPhoto
+    logoPhoto,
+    /* The logo by itself, tight, for the logo spot on the card page (up to 700 x 350). */
+    logoCrop(cv, b) {
+      const k = Math.min(1, 700 / b.w, 350 / b.h), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(b.w * k)); c.height = Math.max(1, Math.round(b.h * k));
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+      g.imageSmoothingQuality = "high"; g.drawImage(cv, b.x, b.y, b.w, b.h, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.9);
+    }
   };
 })();

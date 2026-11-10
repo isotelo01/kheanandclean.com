@@ -16,6 +16,9 @@ html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:16
 .wrap{max-width:440px;margin:0 auto;padding:max(28px,env(safe-area-inset-top)) 16px 120px}
 .card{background:var(--card);border-radius:22px;padding:28px 20px 10px;box-shadow:0 10px 40px rgba(0,0,0,.08);text-align:center}
 .av{width:108px;height:108px;border-radius:50%;margin:0 auto 14px;background:#d9dde3 center/cover;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:600;color:#4a5160}
+/* The company logo, from their business card, at the top of the card. */
+.logo{display:flex;justify-content:center;margin:-6px 0 16px}
+.logo img{max-width:220px;max-height:90px;object-fit:contain;border-radius:8px}
 h1{font-size:26px;line-height:1.2;margin:0 0 4px;font-weight:700}
 .sub{color:var(--soft);margin:0 0 18px}
 .rows{text-align:left;border-top:1px solid var(--line);margin:0 -20px}
@@ -74,7 +77,9 @@ h1{font-size:26px;line-height:1.2;margin:0 0 4px;font-weight:700}
       if(addr.length) rows += '<a href="https://maps.apple.com/?q=' + encodeURIComponent(addr.join(', ')) + '" target="_blank" rel="noopener">' + I.pin +
         '<span>' + addr.map(esc).join('<br>') + '<small>Address</small></span></a>';
       document.title = name;
-      app.innerHTML = '<div class="card"><div class="av"' + (g('photo') ? ' style="background-image:url(' + esc(g('photo')) + ')">' : '>' + esc(ini)) + '</div>' +
+      /* Logo spot on top. The round picture is their photo; with a logo and no photo, the logo stands on its own. */
+      app.innerHTML = '<div class="card">' + (g('logo') ? '<div class="logo"><img src="' + esc(g('logo')) + '" alt="' + esc(g('company') || 'Logo') + '"></div>' : '') +
+        (g('photo') || !g('logo') ? '<div class="av"' + (g('photo') ? ' style="background-image:url(' + esc(g('photo')) + ')">' : '>' + esc(ini)) + '</div>' : '') +
         '<h1>' + esc(name) + '</h1>' + (sub ? '<p class="sub">' + esc(sub) + '</p>' : '<p class="sub"></p>') +
         (rows ? '<div class="rows">' + rows + '</div>' : '') + '</div>' +
         '<button type="button" class="editbtn" id="editBtn">Edit card</button><div id="editBox"></div>' +

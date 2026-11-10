@@ -58,7 +58,7 @@ async function vcard(request, env, url, id, isFile) {
     if (g('website')) L.push('URL:' + g('website'));
     if (g('street') || g('city') || g('zip')) L.push('ADR;TYPE=WORK:;;' + [g('street'), g('city'), g('state'), g('zip')].map(vesc).join(';') + ';USA');
     if (g('note')) L.push('NOTE:' + vesc(g('note')));
-    const ph = g('photo').match(/^data:image\/jpeg;base64,(.+)$/);
+    const ph = (g('photo') || g('logoSq')).match(/^data:image\/jpeg;base64,(.+)$/);   /* their photo, or the logo */
     if (ph) L.push('PHOTO;ENCODING=b;TYPE=JPEG:' + ph[1]);
     L.push('END:VCARD');
     const file = (name || 'contact').replace(/[^A-Za-z0-9 ._-]/g, '').trim().replace(/\s+/g, '-') || 'contact';
