@@ -2245,8 +2245,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       '<form id="f" novalidate>' +
       '<label class="f" for="nm">Name</label><input class="t" id="nm" autocomplete="name" autocapitalize="words" maxlength="120">' +
       '<label class="f" for="ph">Phone</label><input class="t" id="ph" type="tel" inputmode="tel" autocomplete="tel" maxlength="20">' +
-      '<label class="f" for="em">Email</label><input class="t" id="em" type="email" autocomplete="email" maxlength="160">' +
-      '<label class="f" for="st">Street address</label><input class="t" id="st" autocomplete="street-address" maxlength="160">' +
+      '<label class="f" for="em">or Email</label><input class="t" id="em" type="email" autocomplete="email" maxlength="160">' +
+      '<label class="f" for="st">Street address (optional)</label><input class="t" id="st" autocomplete="street-address" maxlength="160">' +
       '<div class="two"><div><label class="f" for="ct">City</label><input class="t" id="ct" autocomplete="address-level2" maxlength="80"></div>' +
       '<div><label class="f" for="zp">Zip</label><input class="t" id="zp" inputmode="numeric" autocomplete="postal-code" maxlength="10"></div></div>' +
       '<div class="consent" role="radiogroup" aria-labelledby="smsQ">' +
@@ -2571,15 +2571,12 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     var err = $('err'), btn = $('send'), sms = el.querySelector('input[name="sms"]:checked');
     var name = $('nm').value.trim(), phone = $('ph').value.trim(), email = $('em').value.trim();
     var phOk = phone.replace(/\D/g, '').length >= 10, emOk = EMAIL_RE.test(email);
+    /* Name, plus a phone number or an email (at least one). Address is optional. */
     var bad = !name ? ['nm', 'Please tell us your name.']
-      : A.noPics ? (!phone && !email ? ['ph', 'Please give us a phone number or an email.']
-        : phone && !phOk ? ['ph', 'Please give us a 10-digit phone number.']
-        : email && !emOk ? ['em', 'Please check your email address.']
-        : phone && !sms ? ['smsQ', 'Please choose Yes or No for texting.'] : null)
-      : phone.replace(/\D/g, '').length < 10 ? ['ph', 'Please give us a 10-digit phone number.']
-      : !EMAIL_RE.test(email) ? ['em', 'Please check your email address.']
-      : !$('st').value.trim() ? ['st', 'Please give us the street address.']
-      : !sms ? ['smsQ', 'Please choose Yes or No for texting.'] : null;
+      : !phone && !email ? ['ph', 'Please give us a phone number or an email.']
+      : phone && !phOk ? ['ph', 'Please give us a 10-digit phone number.']
+      : email && !emOk ? ['em', 'Please check your email address.']
+      : phone && !sms ? ['smsQ', 'Please choose Yes or No for texting.'] : null;
     if(bad){ err.textContent = bad[1]; var t = $(bad[0]); if(t.focus) t.focus(); t.scrollIntoView({ block:'center' }); return; }
     err.textContent = '';
     if(A.noPics && !A.askedComments){ comments(el, $); return; }   // one last box before it sends
@@ -2665,6 +2662,20 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   var saved = null;
   try{ saved = JSON.parse(localStorage.getItem(SAVE) || 'null'); }catch(e){}
   var qid = null; try{ qid = new URLSearchParams(location.search).get('q'); }catch(e){}
+  /* Link texted to an existing contact (?n=Name&p=9165551234&e=email): their name and number come filled in.
+     Only fills what's still empty, then takes them off the address bar. */
+  var link = {};
+  try{ var sp = new URLSearchParams(location.search);
+    link = { nm:(sp.get('n') || '').trim().slice(0, 80), ph:(sp.get('p') || '').replace(/\D/g, '').slice(-10), em:(sp.get('e') || '').trim().slice(0, 160) }; }catch(e){}
+  function fillFromLink(){
+    if(!link.nm && !link.ph && !link.em) return;
+    var C = A.contact = A.contact || {};
+    if(link.nm && !A.name){ A.name = link.nm; }
+    if(link.nm && !C.nm) C.nm = link.nm;
+    if(link.ph.length === 10 && !C.ph) C.ph = '(' + link.ph.slice(0, 3) + ') ' + link.ph.slice(3, 6) + '-' + link.ph.slice(6);
+    if(EMAIL_RE.test(link.em) && !C.em) C.em = link.em;
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+  }
   if(qid){
     /* Saved-quote link: load that quote's copy from Firebase onto this phone, then open it like a returning customer. */
     show(sName, false);
@@ -2686,7 +2697,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     });
   } else if(saved && saved.a && saved.at > 0 && (saved.a.sentAt || Date.now() - (saved.t || 0) < 14 * 864e5)){
     startSaved(saved);   /* sent quotes are kept for good; unfinished ones 14 days */
+    fillFromLink();
   } else {
+    fillFromLink();
     show(sName, false);
     intro();
   }

@@ -232,7 +232,9 @@ document.getElementById("list").addEventListener("click", async e => {
   const b = e.target.closest("button[data-text]"); if (!b) return;
   pick();
   if (target.to.length !== 10) { alert("Pick a contact or type a 10-digit phone number at the top first."); sendTo.focus(); return; }
-  const [n, u] = LINKS[+b.dataset.text], first = firstOf(target.name);
+  const [n, u0] = LINKS[+b.dataset.text], first = firstOf(target.name);
+  /* Instant Quote to a contact: their name and number ride along so the quote opens already filled in. */
+  const u = n === "Instant Quote" ? u0 + "?" + (target.name ? "n=" + encodeURIComponent(target.name) + "&" : "") + "p=" + target.to : u0;
   const body = await askText("Text to " + fmt(target.to) + " (edit if you like):",
     "Hi" + (first ? " " + first : "") + ", this is " + myName() + " with Khean & Clean. Here's our " + n + ": " + u);
   if (!body || !body.trim()) return;
