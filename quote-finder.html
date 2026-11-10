@@ -946,7 +946,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       firebase().then(function(fb){
         return fb.fs.setDoc(fb.fs.doc(fb.db, 'quoteProgress', id), {
           page:'quote-builder', status:A.sentAt ? 'sent, editing' : 'in progress', step:step, stepNo:i, answers:JSON.stringify(a),
-          photosOnPhone:A.photos.length, updatedAt:fb.fs.serverTimestamp(),
+          photosOnPhone:A.photos.length, updatedAt:fb.fs.serverTimestamp(), leadId:A.softLeadId || '',
           expireAt:A.sentAt ? fb.fs.deleteField() : new Date(Date.now() + 14 * 864e5)   /* a sent quote is their saved copy: kept */
         }, { merge:true });
       }).catch(function(x){ console.warn('Progress not saved to Firebase', x && x.code); });
@@ -1000,7 +1000,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     document.body.appendChild(box);
     box.onclick = function(e){
       if(e.target.closest('.yes')){
-        try{ localStorage.removeItem(SAVE); }catch(err){}
+        try{ localStorage.removeItem(SAVE); localStorage.removeItem(PID); }catch(err){}   /* a new quote: its own id and its own lead */
         dropPhotos();
         if(linkQS) location.replace(location.pathname + linkQS); else location.reload();   /* a texted link keeps their name and number */
         return; }
@@ -1291,6 +1291,19 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   var hi = function(pre){ var n = firstName(); return n ? pre + esc(n) : ''; };
 
   /* Very first question: their name, so the rest can talk to them by first name. */
+  /* The lead is made the moment the first screen is done (name + phone or email), in the background, so it
+     shows on the Leads page under Instant Quote leads even if they stop halfway. One per quote: Reset starts a new one.
+     The finished quote, when they send it, carries this id (softLeadId) and takes its place. */
+  function startLead(name, phone, email){
+    if(A.softLeadId || startLead.busy) return;
+    startLead.busy = true;
+    firebase().then(function(fb){
+      return saveLead(fb, { page:'quote-finder', savedQuoteLink: savedLink(), name:name, phone:phone, email:email,
+        type:'residential', addresses:[], message:'' });
+    }).then(function(id){ if(id){ A.softLeadId = id; save(); } })
+      .catch(function(x){ console.warn('Lead not started', x && (x.code || x.message)); })
+      .then(function(){ startLead.busy = false; });
+  }
   function sName(el){
     h(el, 'Who are we cleaning for today?');
     /* Name, plus a phone number or an email (at least one), up front so the lead comes in even if they stop halfway.
@@ -1315,7 +1328,9 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         : e && !EMAIL_RE.test(e) ? [em, 'Please check your email address.'] : null;
       if(bad){ fErr.textContent = bad[1]; bad[0].focus(); return; }
       fErr.textContent = '';
-      A.name = v; C.nm = v; C.ph = ph.value.trim(); C.em = e; next();
+      A.name = v; C.nm = v; C.ph = ph.value.trim(); C.em = e;
+      startLead(v, C.ph, e);
+      next();
     };
     var sync = function(){ C.ph = ph.value.trim(); C.em = em.value.trim(); go.disabled = !ok(); };
     inp.addEventListener('input', function(){
@@ -2650,6 +2665,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   function saveLead(fb, lead){
     var row = Object.assign({}, lead, { status:'new', source:'estimator', createdAt: fb.fs.serverTimestamp() });
     if(row.services === undefined) delete row.services;   /* only whole-home leads carry services */
+    if(!row.softLeadId) delete row.softLeadId;
     var leads = fb.fs.collection(fb.db, 'leads');
     return fb.fs.addDoc(leads, row).then(function(r){ return r.id; }, function(err){
       /* Same fallback as the homepage: if the database won't take the texting answers, they go at the top of the message. */
@@ -2700,7 +2716,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         btn.textContent = 'Sending…';
         return saveLead(fb, {
           page:'quote-finder', savedQuoteLink: savedLink(), photoPaths: paths, when: A.when && A.when !== 'Flexible' ? A.when : '', name:name, phone:phone, email:email,
-          addresses:[addr], type:'residential', smsConsent: smsYes, marketingConsent: promoYes,
+          addresses:[addr], type:'residential', smsConsent: smsYes, marketingConsent: promoYes, softLeadId: A.softLeadId || undefined,
           /* The estimate in the estimators' own snapshot format, so New quote rebuilds it. */
           estimateData: e.rows.length ? JSON.stringify({ v:1, active: (e.rows.filter(function(r){ return r.key !== 'whole'; })[0] || { key:'carpet' }).key, state: e.st, discAmt:'', discPct:'', waiveMin:false, quote: quoteOf(e) }) : '',
           services: A.whole ? ['Whole house'] : undefined,

@@ -657,6 +657,7 @@ async function showList(old = false){
     return '<a class="row ' + (inHistory(l) ? "done" : tintOf(l)) + '" href="#' + encodeURIComponent(l.id) + '">' +
       (String(l.when || "").trim() ? '<span class="star" title="Wants ' + esc(wantsDay(l)) + '" aria-label="Wants ' + esc(wantsDay(l)) + '">\u2605</span>' : '') +
       '<div class="who">' + esc(l.name || "No name") + '</div>' +
+      (l.leadNumber ? '<div class="meta">' + esc(l.leadNumber) + (l.page === "quote-finder" ? ' \u00b7 Instant Quote' : '') + '</div>' : '') +
       (refOf(l) ? '<div class="meta ref">Referral from ' + esc(refOf(l).from) + '</div>' : '') +
       (l.editOfNumber ? '<div class="meta chg">Change request \u00b7 ' + esc(l.editOfNumber) + '</div>' : '') +
       lines.filter(x => x && String(x).trim()).map(x => '<div class="meta">' + esc(x) + '</div>').join("") +
@@ -664,18 +665,21 @@ async function showList(old = false){
     '</a>';
   };
   const olds = all.filter(isOld);
-  const live = old ? olds : all.filter(l => !inHistory(l) && !isOld(l));
+  const live0 = old ? olds : all.filter(l => !inHistory(l) && !isOld(l));
+  const iq = old ? [] : live0.filter(l => l.page === "quote-finder");   /* Instant Quote leads: started or sent, not approved yet */
+  const live = live0.filter(l => !iq.includes(l));
   const converted = old ? [] : all.filter(l => l.converted && !l.trashed);
   view.innerHTML = (old
       ? '<div class="msg">No change in ' + OLD_DAYS + ' days. Open one and update it to move it back to Leads. <a href="#">Back to Leads</a></div>'
       : olds.length ? '<div class="actions"><a class="ghost" href="#old">Old leads (' + olds.length + ')</a></div>' : '') +
+    (iq.length ? '<section class="col"><h3 class="colhead">Instant Quote leads (' + iq.length + ')</h3>' + iq.map(card).join("") + '</section>' : "") +
     (live.length
     ? STATUSES.map(s => {
         const inS = live.filter(l => statusOf(l).v === s.v);
         return inS.length ? '<section class="col"><h3 class="colhead">' + (s.v === "quoted" ? "Quoted, not hired" : s.label) + ' (' + inS.length + ')</h3>' +
           inS.map(card).join("") + '</section>' : "";
       }).join("")
-    : '<div class="msg">' + (old ? "No old leads." : "No open leads. Quick quotes from the website land here.") + '</div>') +
+    : iq.length ? "" : '<div class="msg">' + (old ? "No old leads." : "No open leads. Quick quotes from the website land here.") + '</div>') +
     (converted.length
       ? '<section class="col"><h3 class="colhead">Quoted leads (' + converted.length + ')</h3>' +
         converted.map(card).join("") + '</section>' : "") +
@@ -732,7 +736,7 @@ async function showLead(id){
   const cur = statusOf(l).v;
   view.innerHTML =
     '<div class="panel' + (inHistory(l) ? '' : ' ' + tintOf(l)) + '">' +
-      '<div class="leadhead"><h2>Lead</h2>' +
+      '<div class="leadhead"><h2>Lead' + (l.leadNumber ? ' ' + esc(l.leadNumber) : '') + '</h2>' +
         (when(l) ? '<span class="leadtime">' + esc(when(l)) + '</span>' : '') +
       '</div>' +
       '<div class="read">' +
