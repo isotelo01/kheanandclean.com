@@ -33,7 +33,7 @@ label{display:block;font-weight:600;margin:12px 0 6px}
 input[type=text],input[type=tel],input[type=email],input[type=url],textarea{width:100%;background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;font:inherit}
 textarea{min-height:70px;resize:vertical}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.csz{display:grid;grid-template-columns:2fr 1fr 1.2fr;gap:8px}
+.csz{display:grid;grid-template-columns:2.6fr .8fr 1.2fr;gap:8px}
 .two label,.csz label{margin-top:12px}
 .btn{display:inline-flex;align-items:center;gap:8px;background:var(--gold);color:#000;border:0;border-radius:999px;padding:12px 20px;font:700 15px "Archivo",sans-serif;cursor:pointer;text-decoration:none}
 .btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
@@ -109,6 +109,7 @@ textarea{min-height:70px;resize:vertical}
     <label>Logo (from the card)</label>
     <div class="pic"><div class="logobox" id="logoBox">No logo</div>
       <button type="button" class="btn ghost" id="logoBtn" hidden>Adjust logo</button>
+      <button type="button" class="btn ghost" id="logoTurn" hidden>Rotate</button>
       <button type="button" class="btn ghost" id="logoRm" hidden>Remove</button></div>
     <label>Photo of them (optional)</label>
     <div class="pic"><div class="av" id="picAv"></div>
@@ -214,7 +215,11 @@ $("scanPick").onchange = $("scanIn").onchange = async function () {
 
 /* Photo: a small square JPEG (400px) kept right on the card, so it shows in their Contacts too. */
 const drawPic = () => { $("picAv").style.backgroundImage = photo ? "url(" + photo + ")" : ""; $("picRm").hidden = !photo; $("picBtn").textContent = photo ? "Change photo" : "Add photo"; };
-const drawLogo = () => { const b = $("logoBox"); b.style.backgroundImage = logo ? "url(" + logo + ")" : ""; b.textContent = logo ? "" : "No logo"; $("logoRm").hidden = !logo; };
+const drawLogo = () => { const b = $("logoBox"); b.style.backgroundImage = logo ? "url(" + logo + ")" : ""; b.textContent = logo ? "" : "No logo"; $("logoRm").hidden = $("logoTurn").hidden = !logo; };
+$("logoTurn").onclick = async () => {
+  try { logo = await window.KCCardScan.rotate(logo); logoSq = await window.KCCardScan.rotate(logoSq); drawLogo(); }
+  catch (e) { alert(e.message); }
+};
 function setLogo(card, box) { logo = window.KCCardScan.logoCrop(card, box); logoSq = window.KCCardScan.logoPhoto(card, box); drawLogo(); }
 $("logoRm").onclick = () => { logo = logoSq = ""; drawLogo(); };
 $("picBtn").onclick = () => $("picIn").click();
