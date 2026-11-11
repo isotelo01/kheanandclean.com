@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<title>Player Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Player Tracker (proof of concept): players log in/out from a link on their phone, no app.
+   Identified by player's card number. Two jobs: waitlist and table hours.
+   Floor view (no ?card) is staff only. Player view (?card=100001) needs no login. */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--felt:#0f6b3a;--rail:#5a3518}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:22px 18px 110px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+h1{font:700 28px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
+.back{margin-left:auto;color:var(--gold);text-decoration:none;font-weight:600}
+h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:24px 0 10px}
+.box{background:var(--navy);border:1px solid rgba(227,182,74,.5);border-radius:12px;padding:14px}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:12px 18px;font:700 16px "Archivo",sans-serif;cursor:pointer;text-align:center;text-decoration:none}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.ok{background:var(--ok)}
+.btn.sm{padding:6px 12px;font-size:14px}
+.btn[disabled]{opacity:.35;cursor:default}
+.note{color:rgba(255,255,255,.7);font-size:14px;margin:8px 0 0}
+.warn{background:#5a1d1d;border:1px solid #f87171;border-radius:10px;padding:10px;font-size:14px;margin-bottom:12px;display:none}
+svg.table{width:100%;height:auto;display:block}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.12);flex-wrap:wrap}
+.row:last-child{border-bottom:0}
+.row .nm{flex:1;min-width:150px}
+.row .nm b{display:block}
+.row .nm span{font-size:13px;color:rgba(255,255,255,.65)}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px}
+.tag.wait{background:var(--gold);color:#000}
+.tag.seated{background:var(--ok);color:#000}
+.tag.out{background:rgba(255,255,255,.15)}
+.me{text-align:center}
+.me .who{font:700 26px "Archivo",sans-serif;color:var(--gold)}
+.me .card{color:rgba(255,255,255,.65)}
+.me .status{font:700 20px "Archivo",sans-serif;margin:16px 0}
+.me .hrs{font:700 48px/1 system-ui,sans-serif;margin:10px 0}
+.me .grid{display:grid;gap:10px;margin-top:16px}
+input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;font:inherit;width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="warn" id="warn">Not syncing with the server. Changes are saved on this phone only.</div>
+  <div id="floor" hidden>
+    <div class="top">
+      <h1>Player Tracker</h1>
+      <a class="back" href="./personal.html">&lsaquo; Personal</a>
+    </div>
+    <div class="box"><svg class="table" id="tbl" viewBox="0 0 400 250"></svg></div>
+    <h2>Waitlist</h2>
+    <div class="box" id="waitList"></div>
+    <h2>Test players</h2>
+    <div class="box" id="players"></div>
+    <p class="note">Each player's link logs them in/out. Copy a link and text it to a tester.</p>
+    <p style="margin-top:16px"><button class="btn ghost sm" id="reset">Reset all</button></p>
+  </div>
+  <div id="player" hidden>
+    <div class="box me" id="meBox"></div>
+  </div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+const db = getFirestore(app);
+const REF = doc(db, "playerTracker", "poc");
+
+/* 10 test players: racehorse-style names, made-up card numbers. */
+const ROSTER = {
+  "100001": "Hold My Coffee",   "100002": "Sir Rents-a-Lot",   "100003": "Dealer's Choice",
+  "100004": "Mama's Last Dollar","100005": "Lucky Leftovers",  "100006": "Not Tonight Dear",
+  "100007": "Fold the Laundry", "100008": "Uncle Ray's Pickup","100009": "Running on Fumes",
+  "100010": "Who Ordered Pie"
+};
+const SEATS = 7;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const LS = "playerTracker.poc";
+let state = {};             // card -> { status:'out'|'wait'|'seated', seat, since, waitAt, totalMs }
+try { state = JSON.parse(localStorage.getItem(LS) || "{}"); } catch (e) {}
+const get = c => state[c] || { status: "out", totalMs: 0 };
+const fmtHrs = ms => { const m = Math.floor(ms / 60000); return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
+const liveMs = p => (p.totalMs || 0) + (p.status === "seated" && p.since ? Date.now() - p.since : 0);
+
+function save(card, p) {
+  state[card] = p;
+  try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
+  render();
+  setDoc(REF, { [card]: p }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+}
+function openSeat() {
+  const taken = Object.values(state).filter(p => p.status === "seated").map(p => p.seat);
+  for (let s = 1; s <= SEATS; s++) if (!taken.includes(s)) return s;
+  return 0;
+}
+/* Actions shared by floor and player views. */
+const act = {
+  wait(c)  { const p = get(c); save(c, { ...p, status: "wait", waitAt: Date.now() }); },
+  seat(c)  { const p = get(c); const s = openSeat(); if (!s) { alert("Table is full."); return; }
+             save(c, { ...p, status: "seated", seat: s, since: Date.now(), waitAt: null }); },
+  out(c)   { const p = get(c); save(c, { status: "out", totalMs: liveMs(p), seat: null, since: null, waitAt: null }); }
+};
+
+const params = new URLSearchParams(location.search);
+let myCard = params.get("card");
+if (myCard) { try { localStorage.setItem("playerTracker.card", myCard); } catch (e) {} }
+else if (params.has("me")) { try { myCard = localStorage.getItem("playerTracker.card"); } catch (e) {} }
+
+function drawTable() {
+  /* Top-down blackjack table: dealer on the straight edge at top, 7 seats around the curve. */
+  const cx = 200, cy = 40, r = 170;
+  let s = `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
+        + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="var(--felt)"/>`
+        + `<rect x="${cx - 60}" y="${cy - 28}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
+        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="12" font-weight="700" text-anchor="middle">DEALER</text>`
+        + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
+        + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
+        + `<path d="M${cx - 110} ${cy + 70} A 125 125 0 0 0 ${cx + 110} ${cy + 70}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>`
+        + `<text x="${cx}" y="${cy + 105}" fill="rgba(255,255,255,.55)" font-size="10" text-anchor="middle">BLACKJACK PAYS 3 TO 2</text>`;
+  const seated = {};
+  for (const [c, p] of Object.entries(state)) if (p.status === "seated") seated[p.seat] = c;
+  for (let i = 1; i <= SEATS; i++) {
+    /* Seat 1 is first base (dealer's left = player's right side of the picture). */
+    const a = Math.PI * (i / (SEATS + 1));
+    const x = cx + Math.cos(a) * (r - 30), y = cy + Math.sin(a) * (r - 30);
+    const c = seated[i];
+    s += `<circle cx="${x}" cy="${y}" r="20" fill="${c ? "var(--gold)" : "rgba(0,0,0,.35)"}" stroke="#fff" stroke-width="1.5"/>`
+       + `<text x="${x}" y="${y + 5}" fill="${c ? "#000" : "#fff"}" font-size="14" font-weight="700" text-anchor="middle">${i}</text>`;
+    if (c) {
+      const nm = ROSTER[c] || c;
+      s += `<text x="${x}" y="${y + 34}" fill="#fff" font-size="9" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`;
+    }
+  }
+  $("tbl").innerHTML = s;
+}
+
+function renderFloor() {
+  drawTable();
+  const waiting = Object.entries(state).filter(([, p]) => p.status === "wait").sort((a, b) => a[1].waitAt - b[1].waitAt);
+  $("waitList").innerHTML = waiting.length ? waiting.map(([c], i) =>
+    `<div class="row"><div class="nm"><b>${i + 1}. ${esc(ROSTER[c] || c)}</b><span>#${c}</span></div>
+     <button class="btn sm ok" data-a="seat" data-c="${c}">Seat</button>
+     <button class="btn sm ghost" data-a="out" data-c="${c}">Remove</button></div>`).join("")
+    : `<div class="note" style="margin:0">Nobody on the list.</div>`;
+  const base = location.origin + location.pathname;
+  $("players").innerHTML = Object.entries(ROSTER).map(([c, nm]) => {
+    const p = get(c), link = base + "?card=" + c;
+    const tag = p.status === "seated" ? `<span class="tag seated">Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
+    return `<div class="row"><div class="nm"><b>${esc(nm)}</b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
+      <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div>`;
+  }).join("");
+}
+
+function renderPlayer() {
+  const nm = ROSTER[myCard];
+  if (!nm) { $("meBox").innerHTML = `<div class="who">Card not found</div><p class="note">Ask the floor for your link.</p>`; return; }
+  const p = get(myCard);
+  const st = p.status === "seated" ? `You're seated at seat ${p.seat}` : p.status === "wait" ? `You're on the list (#${
+    Object.values(state).filter(q => q.status === "wait" && q.waitAt <= p.waitAt).length})` : "You're logged out";
+  $("meBox").innerHTML = `<div class="who">${esc(nm)}</div><div class="card">Card #${myCard}</div>
+    <div class="status">${st}</div>
+    <div class="note">Hours today</div><div class="hrs">${fmtHrs(liveMs(p))}</div>
+    <div class="grid">
+      <button class="btn" data-a="wait" data-c="${myCard}" ${p.status !== "out" ? "disabled" : ""}>Join the list</button>
+      <button class="btn ok" data-a="seat" data-c="${myCard}" ${p.status === "seated" ? "disabled" : ""}>Log in (I'm seated)</button>
+      <button class="btn ghost" data-a="out" data-c="${myCard}" ${p.status === "out" ? "disabled" : ""}>Log out</button>
+    </div>`;
+}
+
+function render() { if (myCard) renderPlayer(); else renderFloor(); }
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  const c = b.dataset.c, a = b.dataset.a;
+  if (a === "copy") {
+    const l = b.dataset.l;
+    (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(
+      () => { b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy link", 1500); },
+      () => prompt("Copy this link:", l));
+    return;
+  }
+  if (act[a]) act[a](c);
+});
+$("reset").onclick = () => {
+  if (!confirm("Log everyone out and clear all hours?")) return;
+  state = {}; try { localStorage.removeItem(LS); } catch (e) {}
+  const blank = {}; for (const c of Object.keys(ROSTER)) blank[c] = { status: "out", totalMs: 0 };
+  setDoc(REF, blank).catch(() => { $("warn").style.display = "block"; });
+  render();
+};
+
+function start() {
+  render();
+  onSnapshot(REF, snap => {
+    $("warn").style.display = "none";
+    state = snap.exists() ? snap.data() : {};
+    try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
+    render();
+  }, () => { $("warn").style.display = "block"; });
+  setInterval(render, 30000);   // keep the hours ticking
+}
+
+if (myCard) { $("player").hidden = false; start(); }
+else {
+  /* Floor view: staff only. */
+  onAuthStateChanged(getAuth(app), u => {
+    if (!u) { location.replace("./login.html?next=player-tracker.html"); return; }
+    if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+    $("floor").hidden = false; start();
+  });
+}
+</script>
+</body>
+</html>
