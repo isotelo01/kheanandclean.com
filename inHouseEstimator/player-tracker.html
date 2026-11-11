@@ -60,6 +60,8 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <div class="box"><svg class="table" id="tbl" viewBox="0 0 400 250"></svg></div>
     <h2>Waitlist</h2>
     <div class="box" id="waitList"></div>
+    <h2>Dealers</h2>
+    <div class="box" id="dealers"></div>
     <h2>Test players</h2>
     <div class="box" id="players"></div>
     <p class="note">Each player's link logs them in/out. Copy a link and text it to a tester.</p>
@@ -93,6 +95,8 @@ const ROSTER = {
   "100007": "Fold the Laundry", "100008": "Uncle Ray's Pickup","100009": "Running on Fumes",
   "100010": "Who Ordered Pie"
 };
+/* 2 test dealers. One dealer on the table at a time; a new dealer logging in pushes the other off. */
+const DEALERS = { "D001": "Ace in the Hole", "D002": "Shuffle Off Home" };
 const SEATS = 7;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -119,11 +123,14 @@ const act = {
   wait(c)  { const p = get(c); save(c, { ...p, status: "wait", waitAt: Date.now() }); },
   seat(c)  { const p = get(c); const s = openSeat(); if (!s) { alert("Table is full."); return; }
              save(c, { ...p, status: "seated", seat: s, since: Date.now(), waitAt: null }); },
-  out(c)   { const p = get(c); save(c, { status: "out", totalMs: liveMs(p), seat: null, since: null, waitAt: null }); }
+  out(c)   { const p = get(c); save(c, { status: "out", totalMs: liveMs(p), seat: null, since: null, waitAt: null }); },
+  deal(c)  { for (const d of Object.keys(DEALERS)) if (d !== c && get(d).status === "seated") act.out(d);
+             const p = get(c); save(c, { ...p, status: "seated", seat: 0, since: Date.now() }); }
 };
+const onTableDealer = () => Object.keys(DEALERS).find(d => get(d).status === "seated");
 
 const params = new URLSearchParams(location.search);
-let myCard = params.get("card");
+let myCard = params.get("card") || params.get("dealer");
 if (myCard) { try { localStorage.setItem("playerTracker.card", myCard); } catch (e) {} }
 else if (params.has("me")) { try { myCard = localStorage.getItem("playerTracker.card"); } catch (e) {} }
 
@@ -133,7 +140,7 @@ function drawTable() {
   let s = `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
         + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="var(--felt)"/>`
         + `<rect x="${cx - 60}" y="${cy - 28}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
-        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="12" font-weight="700" text-anchor="middle">DEALER</text>`
+        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(onTableDealer() ? DEALERS[onTableDealer()] : "NO DEALER")}</text>`
         + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
         + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
         + `<path d="M${cx - 110} ${cy + 70} A 125 125 0 0 0 ${cx + 110} ${cy + 70}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>`
@@ -164,6 +171,12 @@ function renderFloor() {
      <button class="btn sm ghost" data-a="out" data-c="${c}">Remove</button></div>`).join("")
     : `<div class="note" style="margin:0">Nobody on the list.</div>`;
   const base = location.origin + location.pathname;
+  $("dealers").innerHTML = Object.entries(DEALERS).map(([c, nm]) => {
+    const p = get(c), link = base + "?dealer=" + c;
+    const tag = p.status === "seated" ? `<span class="tag seated">On table</span>` : `<span class="tag out">Off</span>`;
+    return `<div class="row"><div class="nm"><b>${esc(nm)}</b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
+      <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div>`;
+  }).join("");
   $("players").innerHTML = Object.entries(ROSTER).map(([c, nm]) => {
     const p = get(c), link = base + "?card=" + c;
     const tag = p.status === "seated" ? `<span class="tag seated">Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
@@ -172,7 +185,19 @@ function renderFloor() {
   }).join("");
 }
 
+function renderDealer() {
+  const p = get(myCard), on = p.status === "seated";
+  $("meBox").innerHTML = `<div class="who">${esc(DEALERS[myCard])}</div><div class="card">Dealer #${myCard}</div>
+    <div class="status">${on ? "You're on the table" : "You're off the table"}</div>
+    <div class="note">Hours today</div><div class="hrs">${fmtHrs(liveMs(p))}</div>
+    <div class="grid">
+      <button class="btn ok" data-a="deal" data-c="${myCard}" ${on ? "disabled" : ""}>Log in to table</button>
+      <button class="btn ghost" data-a="out" data-c="${myCard}" ${on ? "" : "disabled"}>Log out</button>
+    </div>`;
+}
+
 function renderPlayer() {
+  if (DEALERS[myCard]) return renderDealer();
   const nm = ROSTER[myCard];
   if (!nm) { $("meBox").innerHTML = `<div class="who">Card not found</div><p class="note">Ask the floor for your link.</p>`; return; }
   const p = get(myCard);
@@ -205,7 +230,7 @@ document.addEventListener("click", e => {
 $("reset").onclick = () => {
   if (!confirm("Log everyone out and clear all hours?")) return;
   state = {}; try { localStorage.removeItem(LS); } catch (e) {}
-  const blank = {}; for (const c of Object.keys(ROSTER)) blank[c] = { status: "out", totalMs: 0 };
+  const blank = {}; for (const c of [...Object.keys(ROSTER), ...Object.keys(DEALERS)]) blank[c] = { status: "out", totalMs: 0 };
   setDoc(REF, blank).catch(() => { $("warn").style.display = "block"; });
   render();
 };
