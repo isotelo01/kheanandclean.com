@@ -7,6 +7,7 @@ const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/logo') return siteLogo(url.searchParams.get('site'));
     const v = url.pathname.match(/^\/(?:v|sample)\/([a-z0-9-]{3,60})(\.vcf)?\/?$/);   /* new cards use /sample/, older ones /v/ */
     if (v) return vcard(request, env, url, v[1], !!v[2]);
     const m = url.pathname.match(/^\/p\/([a-z0-9]{6,20})\/?$/);
@@ -80,4 +81,41 @@ async function vcard(request, env, url, id, isFile) {
   return new Response(html.replace('<!--OG-->', tags), {
     headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
   });
+}
+
+/* /logo?site=<web address from a business card>: finds the company's logo on their website and sends the picture back
+   from our own site, so the vCards page can use it. No AI, no cost. Order tried: an <img> marked "logo", the
+   apple-touch-icon, the og:image link preview picture, then the site icon. */
+async function siteLogo(site) {
+  const fail = (m) => new Response(m, { status: 404, headers: { 'access-control-allow-origin': '*' } });
+  try {
+    if (!site) return fail('no site');
+    if (!/^https?:\/\//i.test(site)) site = 'https://' + site.trim();
+    const base = new URL(site);
+    const ua = { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' };
+    const r = await fetch(base, { headers: ua, redirect: 'follow' });
+    if (!r.ok) return fail('site not found');
+    const html = (await r.text()).slice(0, 600000), from = new URL(r.url || base);
+    const attr = (tag, a) => { const m = tag.match(new RegExp('\\b' + a + '\\s*=\\s*["\']([^"\']+)["\']', 'i')); return m ? m[1] : ''; };
+    const tags = (re) => html.match(re) || [];
+    const picks = [];
+    tags(/<img\b[^>]*>/gi).forEach((t) => { const src = attr(t, 'src') || attr(t, 'data-src');
+      if (src && /logo/i.test(src + ' ' + attr(t, 'class') + ' ' + attr(t, 'id') + ' ' + attr(t, 'alt'))) picks.push(src); });
+    tags(/<link\b[^>]*>/gi).forEach((t) => { if (/apple-touch-icon/i.test(attr(t, 'rel'))) picks.push(attr(t, 'href')); });
+    tags(/<meta\b[^>]*>/gi).forEach((t) => { if (/og:image$/i.test(attr(t, 'property') || attr(t, 'name'))) picks.push(attr(t, 'content')); });
+    tags(/<link\b[^>]*>/gi).forEach((t) => { if (/(^|\s)icon\b/i.test(attr(t, 'rel'))) picks.push(attr(t, 'href')); });
+    picks.push('/apple-touch-icon.png');
+    for (const p of picks) {
+      if (!p || /^data:/i.test(p)) continue;
+      try {
+        const img = await fetch(new URL(p.replace(/&amp;/g, '&'), from), { headers: ua });
+        const type = img.headers.get('content-type') || '';
+        if (!img.ok || !/^image\//i.test(type) || /x-icon|vnd\.microsoft/i.test(type)) continue;
+        const body = await img.arrayBuffer();
+        if (body.byteLength < 300 || body.byteLength > 3000000) continue;
+        return new Response(body, { headers: { 'content-type': type, 'cache-control': 'public, max-age=86400', 'access-control-allow-origin': '*' } });
+      } catch (e) { /* try the next one */ }
+    }
+    return fail('no logo found');
+  } catch (e) { return fail('could not open site'); }
 }

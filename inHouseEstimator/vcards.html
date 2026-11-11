@@ -110,6 +110,7 @@ textarea{min-height:70px;resize:vertical}
     <div class="pic"><div class="logobox" id="logoBox">No logo</div>
       <button type="button" class="btn ghost" id="logoBtn" hidden>Adjust logo</button>
       <button type="button" class="btn ghost" id="logoTurn" hidden>Rotate</button>
+      <button type="button" class="btn ghost" id="logoWeb">Website logo</button>
       <button type="button" class="btn ghost" id="logoRm" hidden>Remove</button></div>
     <label>Photo of them (optional)</label>
     <div class="pic"><div class="av" id="picAv"></div>
@@ -206,6 +207,8 @@ $("scanPick").onchange = $("scanIn").onchange = async function () {
     /* Logo: keep the card photo; if there's no logo yet, use the one it found. */
     scans[side] = { card: res.card, logo: res.logo }; $("logoBtn").hidden = false;
     let logoMsg = "";
+    /* Try their website's logo first; if that fails, cut it from the card photo. */
+    if (!logo && $("fWeb").value.trim()) { note.textContent = "Getting their logo from the website…"; if (await webLogo(true)) logoMsg = " Logo from their website added."; }
     if (!logo && res.logo) { setLogo(res.card, res.logo); logoMsg = " Logo added; tap Adjust logo if it's off."; }
     note.textContent = (n ? "Filled " + n + " box" + (n > 1 ? "es" : "") + ". Check them before making the card." : "Couldn't pick out details. Type them in.") + logoMsg;
     side = "back"; b.querySelector("span").textContent = "Scan back of card";
@@ -220,6 +223,16 @@ $("logoTurn").onclick = async () => {
   try { logo = await window.KCCardScan.rotate(logo); logoSq = await window.KCCardScan.rotate(logoSq); drawLogo(); }
   catch (e) { alert(e.message); }
 };
+/* Website logo: pull the company's real logo off the website in the Website box (free, no AI). */
+async function webLogo(quiet) {
+  const site = $("fWeb").value.trim(), note = $("scanNote");
+  if (!site) { if (!quiet) { note.className = "note err"; note.textContent = "Put their website in first."; } return false; }
+  try { const r = await window.KCCardScan.fromSite(site); logo = r.logo; logoSq = r.logoSq; drawLogo(); return true; }
+  catch (e) { if (!quiet) { note.className = "note err"; note.textContent = "Couldn't get a logo from " + site + ". Use Adjust logo instead."; } return false; }
+}
+$("logoWeb").onclick = async () => { const b = $("logoWeb"); b.disabled = true; b.textContent = "Getting logo…";
+  if (await webLogo(false)) { $("scanNote").className = "note"; $("scanNote").textContent = "Logo from their website added."; }
+  b.disabled = false; b.textContent = "Website logo"; };
 function setLogo(card, box) { logo = window.KCCardScan.logoCrop(card, box); logoSq = window.KCCardScan.logoPhoto(card, box); drawLogo(); }
 $("logoRm").onclick = () => { logo = logoSq = ""; drawLogo(); };
 $("picBtn").onclick = () => $("picIn").click();

@@ -104,10 +104,10 @@
     g.putImageData(im, 0, 0); return c;
   };
   /* Just the logo part of the card, brightened. */
-  const logoPart = (cv, b) => {
+  const logoPart = (cv, b, clean) => {
     const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(b.w)); c.height = Math.max(1, Math.round(b.h));
     c.getContext("2d").drawImage(cv, b.x, b.y, b.w, b.h, 0, 0, c.width, c.height);
-    return brighten(c);
+    return clean ? c : brighten(c);   /* clean = website logo, leave it as is */
   };
   /* Turn a saved logo picture a quarter turn to the right (for a card photo taken sideways). */
   const rotate = url => new Promise((ok, no) => {
@@ -119,11 +119,11 @@
     img.onerror = () => no(new Error("couldn't turn the logo")); img.src = url;
   });
   /* A cut-out logo, centered on white at 400x400 with room around it so a round contact picture doesn't clip it. */
-  const logoPhoto = (cv, b) => {
+  const logoPhoto = (cv, b, clean) => {
     const c = document.createElement("canvas"); c.width = c.height = 400; const g = c.getContext("2d");
     g.fillStyle = "#fff"; g.fillRect(0, 0, 400, 400);
     const k = Math.min(270 / b.w, 270 / b.h), w = b.w * k, h = b.h * k;
-    g.imageSmoothingQuality = "high"; g.drawImage(logoPart(cv, b), (400 - w) / 2, (400 - h) / 2, w, h);
+    g.imageSmoothingQuality = "high"; g.drawImage(logoPart(cv, b, clean), (400 - w) / 2, (400 - h) / 2, w, h);
     return c.toDataURL("image/jpeg", 0.88);
   };
   /* The card for the AI: color, 1568px on the long side (what it reads best), JPEG. */
@@ -162,12 +162,25 @@
     },
     logoPhoto,
     rotate,
+    /* The company's logo off their own website (our /logo lookup in worker.js). Returns { logo, logoSq } or throws. */
+    async fromSite(site) {
+      const r = await fetch("/logo?site=" + encodeURIComponent(site));
+      if (!r.ok) throw new Error("no logo on their website");
+      const u = URL.createObjectURL(await r.blob());
+      try {
+        const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error("couldn't open their logo")); i.src = u; });
+        const w = img.naturalWidth || 300, h = img.naturalHeight || 300, full = { x: 0, y: 0, w, h };
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+        return { logo: this.logoCrop(c, full, true), logoSq: logoPhoto(c, full, true) };
+      } finally { URL.revokeObjectURL(u); }
+    },
     /* The logo by itself, tight, for the logo spot on the card page (up to 700 x 350). */
-    logoCrop(cv, b) {
+    logoCrop(cv, b, clean) {
       const k = Math.min(1, 700 / b.w, 350 / b.h), c = document.createElement("canvas");
       c.width = Math.max(1, Math.round(b.w * k)); c.height = Math.max(1, Math.round(b.h * k));
       const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
-      g.imageSmoothingQuality = "high"; g.drawImage(logoPart(cv, b), 0, 0, c.width, c.height);
+      g.imageSmoothingQuality = "high"; g.drawImage(logoPart(cv, b, clean), 0, 0, c.width, c.height);
       return c.toDataURL("image/jpeg", 0.9);
     }
   };
