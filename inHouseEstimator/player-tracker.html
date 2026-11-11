@@ -46,6 +46,14 @@ svg.table{width:100%;height:auto;display:block}
 .me .status{font:700 20px "Archivo",sans-serif;margin:16px 0}
 .me .hrs{font:700 48px/1 system-ui,sans-serif;margin:10px 0}
 .me .grid{display:grid;gap:10px;margin-top:16px}
+.nm a{color:#fff;text-decoration:underline;text-decoration-color:rgba(227,182,74,.6)}
+.pf{display:grid;gap:10px}
+.pf label{display:grid;gap:4px;font-size:13px;color:rgba(255,255,255,.7)}
+textarea{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;font:inherit;width:100%}
+input:disabled{opacity:.6}
+.lg{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.12);font-size:15px}
+.lg:last-child{border-bottom:0}
+.lg span:first-child{width:130px;flex:none;color:rgba(255,255,255,.65)}
 input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;font:inherit;width:100%}
 </style>
 </head>
@@ -67,6 +75,25 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <p class="note">Each player's link logs them in/out. Copy a link and text it to a tester.</p>
     <p style="margin-top:16px"><button class="btn ghost sm" id="reset">Reset all</button></p>
   </div>
+  <div id="prof" hidden>
+    <div class="top">
+      <h1 id="pfName">Profile</h1>
+      <a class="back" href="./player-tracker.html">&lsaquo; Tracker</a>
+    </div>
+    <div class="box">
+      <div class="pf"><label>Name<input id="pf_name"></label>
+      <label id="pfIdLbl">Card #<input id="pf_id" disabled></label>
+      <label>Phone<input id="pf_phone" type="tel"></label>
+      <label>Email<input id="pf_email" type="email"></label>
+      <label>Birthday<input id="pf_bday" type="date"></label>
+      <label>Notes<textarea id="pf_notes" rows="3"></textarea></label></div>
+      <p style="margin:12px 0 0"><button class="btn" id="pfSave">Save</button> <span class="note" id="pfMsg"></span></p>
+    </div>
+    <h2>Today</h2>
+    <div class="box" id="pfNow"></div>
+    <h2>Log</h2>
+    <div class="box" id="pfLog"></div>
+  </div>
   <div id="player" hidden>
     <div class="box me" id="meBox"></div>
   </div>
@@ -74,7 +101,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -87,6 +114,8 @@ const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc");
+const LOGREF = doc(db, "playerTracker", "log");        // { events: [{ c, a, t }] } every log in / log out
+const PROFREF = doc(db, "playerTracker", "profiles");  // { card: { name, phone, email, bday, notes } }
 
 /* 10 test players: racehorse-style names, made-up card numbers. */
 const ROSTER = {
@@ -107,7 +136,23 @@ const get = c => state[c] || { status: "out", totalMs: 0 };
 const fmtHrs = ms => { const m = Math.floor(ms / 60000); return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
 const liveMs = p => (p.totalMs || 0) + (p.status === "seated" && p.since ? Date.now() - p.since : 0);
 
+let events = [], profiles = {};
+try { events = JSON.parse(localStorage.getItem("playerTracker.log") || "[]"); profiles = JSON.parse(localStorage.getItem("playerTracker.profiles") || "{}"); } catch (e) {}
+const nameOf = c => (profiles[c] && profiles[c].name) || ROSTER[c] || DEALERS[c] || c;
+function logEvent(c, a) {
+  const ev = { c, a, t: Date.now() };
+  events.push(ev);
+  try { localStorage.setItem("playerTracker.log", JSON.stringify(events.slice(-2000))); } catch (e) {}
+  setDoc(LOGREF, { events: arrayUnion(ev) }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+}
 function save(card, p) {
+  const old = get(card);
+  if (old.status !== p.status) {
+    const a = p.status === "wait" ? "Joined the list"
+      : p.status === "seated" ? (DEALERS[card] ? "Logged in to table" : "Seated at seat " + p.seat)
+      : "Logged out" + (old.status === "seated" && old.since ? " after " + fmtHrs(Date.now() - old.since) : old.status === "wait" ? " (left the list)" : "");
+    logEvent(card, a);
+  }
   state[card] = p;
   try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
   render();
@@ -140,7 +185,7 @@ function drawTable() {
   let s = `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
         + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="var(--felt)"/>`
         + `<rect x="${cx - 60}" y="${cy - 28}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
-        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(onTableDealer() ? DEALERS[onTableDealer()] : "NO DEALER")}</text>`
+        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(onTableDealer() ? nameOf(onTableDealer()) : "NO DEALER")}</text>`
         + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
         + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
         + `<path d="M${cx - 110} ${cy + 70} A 125 125 0 0 0 ${cx + 110} ${cy + 70}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>`
@@ -155,7 +200,7 @@ function drawTable() {
     s += `<circle cx="${x}" cy="${y}" r="20" fill="${c ? "var(--gold)" : "rgba(0,0,0,.35)"}" stroke="#fff" stroke-width="1.5"/>`
        + `<text x="${x}" y="${y + 5}" fill="${c ? "#000" : "#fff"}" font-size="14" font-weight="700" text-anchor="middle">${i}</text>`;
     if (c) {
-      const nm = ROSTER[c] || c;
+      const nm = nameOf(c);
       s += `<text x="${x}" y="${y + 34}" fill="#fff" font-size="9" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`;
     }
   }
@@ -166,7 +211,7 @@ function renderFloor() {
   drawTable();
   const waiting = Object.entries(state).filter(([, p]) => p.status === "wait").sort((a, b) => a[1].waitAt - b[1].waitAt);
   $("waitList").innerHTML = waiting.length ? waiting.map(([c], i) =>
-    `<div class="row"><div class="nm"><b>${i + 1}. ${esc(ROSTER[c] || c)}</b><span>#${c}</span></div>
+    `<div class="row"><div class="nm"><b>${i + 1}. <a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c}</span></div>
      <button class="btn sm ok" data-a="seat" data-c="${c}">Seat</button>
      <button class="btn sm ghost" data-a="out" data-c="${c}">Remove</button></div>`).join("")
     : `<div class="note" style="margin:0">Nobody on the list.</div>`;
@@ -174,20 +219,20 @@ function renderFloor() {
   $("dealers").innerHTML = Object.entries(DEALERS).map(([c, nm]) => {
     const p = get(c), link = base + "?dealer=" + c;
     const tag = p.status === "seated" ? `<span class="tag seated">On table</span>` : `<span class="tag out">Off</span>`;
-    return `<div class="row"><div class="nm"><b>${esc(nm)}</b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
+    return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
       <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div>`;
   }).join("");
   $("players").innerHTML = Object.entries(ROSTER).map(([c, nm]) => {
     const p = get(c), link = base + "?card=" + c;
     const tag = p.status === "seated" ? `<span class="tag seated">Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
-    return `<div class="row"><div class="nm"><b>${esc(nm)}</b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
+    return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
       <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div>`;
   }).join("");
 }
 
 function renderDealer() {
   const p = get(myCard), on = p.status === "seated";
-  $("meBox").innerHTML = `<div class="who">${esc(DEALERS[myCard])}</div><div class="card">Dealer #${myCard}</div>
+  $("meBox").innerHTML = `<div class="who">${esc(nameOf(myCard))}</div><div class="card">Dealer #${myCard}</div>
     <div class="status">${on ? "You're on the table" : "You're off the table"}</div>
     <div class="note">Hours today</div><div class="hrs">${fmtHrs(liveMs(p))}</div>
     <div class="grid">
@@ -203,7 +248,7 @@ function renderPlayer() {
   const p = get(myCard);
   const st = p.status === "seated" ? `You're seated at seat ${p.seat}` : p.status === "wait" ? `You're on the list (#${
     Object.values(state).filter(q => q.status === "wait" && q.waitAt <= p.waitAt).length})` : "You're logged out";
-  $("meBox").innerHTML = `<div class="who">${esc(nm)}</div><div class="card">Card #${myCard}</div>
+  $("meBox").innerHTML = `<div class="who">${esc(nameOf(myCard))}</div><div class="card">Card #${myCard}</div>
     <div class="status">${st}</div>
     <div class="note">Hours today</div><div class="hrs">${fmtHrs(liveMs(p))}</div>
     <div class="grid">
@@ -213,7 +258,38 @@ function renderPlayer() {
     </div>`;
 }
 
-function render() { if (myCard) renderPlayer(); else renderFloor(); }
+const profId = params.get("profile");
+const fmtWhen = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+let pfFilled = false;
+function renderProfile() {
+  const c = profId, pr = profiles[c] || {}, p = get(c), isD = !!DEALERS[c];
+  $("pfName").textContent = nameOf(c);
+  if (!pfFilled) {   // fill the form once so live updates don't wipe what's being typed
+    $("pf_name").value = pr.name || ROSTER[c] || DEALERS[c] || "";
+    $("pf_id").value = c; $("pfIdLbl").firstChild.textContent = isD ? "Dealer #" : "Card #";
+    $("pf_phone").value = pr.phone || ""; $("pf_email").value = pr.email || "";
+    $("pf_bday").value = pr.bday || ""; $("pf_notes").value = pr.notes || "";
+    pfFilled = true;
+  }
+  const st = p.status === "seated" ? (isD ? "On the table" : "Seated at seat " + p.seat) : p.status === "wait" ? "On the list" : "Logged out";
+  $("pfNow").innerHTML = `<div class="lg"><span>Status</span><b>${st}</b></div><div class="lg"><span>Hours today</span><b>${fmtHrs(liveMs(p))}</b></div>`;
+  const mine = events.filter(e => e.c === c).sort((a, b) => b.t - a.t);
+  $("pfLog").innerHTML = mine.length ? mine.map(e => `<div class="lg"><span>${fmtWhen(e.t)}</span>${esc(e.a)}</div>`).join("")
+    : `<div class="note" style="margin:0">No log ins yet.</div>`;
+}
+$("pfSave").onclick = () => {
+  const c = profId;
+  const pr = { name: $("pf_name").value.trim(), phone: $("pf_phone").value.trim(), email: $("pf_email").value.trim(),
+               bday: $("pf_bday").value, notes: $("pf_notes").value.trim() };
+  profiles[c] = pr;
+  try { localStorage.setItem("playerTracker.profiles", JSON.stringify(profiles)); } catch (e) {}
+  $("pfMsg").textContent = "Saved";
+  setTimeout(() => $("pfMsg").textContent = "", 1500);
+  setDoc(PROFREF, { [c]: pr }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+  render();
+};
+
+function render() { if (myCard) renderPlayer(); else if (profId) renderProfile(); else renderFloor(); }
 
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-a]"); if (!b) return;
@@ -243,6 +319,8 @@ function start() {
     try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
     render();
   }, () => { $("warn").style.display = "block"; });
+  onSnapshot(LOGREF, snap => { events = (snap.exists() && snap.data().events) || []; render(); }, () => {});
+  onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; render(); }, () => {});
   setInterval(render, 30000);   // keep the hours ticking
 }
 
@@ -252,7 +330,7 @@ else {
   onAuthStateChanged(getAuth(app), u => {
     if (!u) { location.replace("./login.html?next=player-tracker.html"); return; }
     if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
-    $("floor").hidden = false; start();
+    $(profId ? "prof" : "floor").hidden = false; start();
   });
 }
 </script>
