@@ -75,6 +75,26 @@ const markHeads = () => {
 };
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", markHeads); else markHeads();
 
+/* ---- Live wait lists (Floor and Waitlist pages). A list builds off the games that are running:
+   - an open poker table with a game picked (e.g. "1/2 No-Limit Hold'em") has a live list;
+   - when no open table runs that game, a list that still has names stays as an interest list;
+   - an empty list with no open table hides. Lists started by hand (Start list bubbles) always show.
+   tables = playerTracker/tables { n: { open } }, list = playerTracker/tablelist { n: { variant, stakes, deleted } }. */
+export const openGameNames = (tables, list) => new Set(Object.entries(list || {})
+  .filter(([n, t]) => t && t.variant && !t.deleted && tables && tables[n] && tables[n].open)
+  .map(([, t]) => (t.stakes ? t.stakes + " " : "") + t.variant));
+export function liveLists(games, wait, tables, list) {
+  const open = openGameNames(tables, list), out = [];
+  for (const [gid, g] of Object.entries(games || {})) {
+    if (!g || !g.name) continue;
+    const count = Object.values(wait || {}).filter(v => v && v.name && v.game === gid).length;
+    const isOpen = open.has(g.name);
+    if (!isOpen && !count && !g.manual) continue;   // hidden
+    out.push({ gid, name: g.name, at: g.at || 0, count, open: isOpen, interest: !isOpen && count > 0 });
+  }
+  return out.sort((a, b) => b.open - a.open || a.at - b.at);
+}
+
 /* 10 test dealers: four-digit number -> name. */
 export const DEALERS = {
   "4821": "Ace in the Hole",  "7350": "Shuffle Off Home", "1946": "Chip Stackhouse", "6083": "River Turner",

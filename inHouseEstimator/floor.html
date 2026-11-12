@@ -147,7 +147,7 @@ body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, openGameNames, liveLists } from "./pt-people.js";   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -173,6 +173,7 @@ const POKER_GAMES = { nlh: "No-Limit Hold'em", lhe: "Limit Hold'em", plh: "Pot-L
 /* Stakes bubbles: limit games get limit stakes, no-limit and pot-limit games get blinds. */
 const LIMIT_IDS = ["lhe", "lo", "o8"];
 const STAKES_NL = ["1/2", "1/3", "2/3", "2/5", "5/10"], STAKES_LIMIT = ["1/3", "4/8", "6/12", "12/24"];
+const makingList = new Set();   // lists being made for open tables (so a redraw doesn't make two)
 let pg = { fav: {}, custom: {}, stakes: {}, hide: {} };   // stakes: { gameId: ["1/2/5/10", ...] } your own blinds; hide: built-in stakes removed
 let stakeFor = "";   // game whose "+" (add your own blinds) box is open
 const pgName = id => POKER_GAMES[id] || (pg.custom[id] && pg.custom[id].name) || "";
@@ -326,16 +327,20 @@ function draw() {
   /* Wait list entry (left column): one box per game the floor built, with a box to add a name and how many are
      waiting. The lists themselves are on waitlist.html. Table games don't get lists. */
   const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor" }));
-  const gl = Object.entries(games).filter(([, g]) => g && g.name).sort((a, b) => a[1].at - b[1].at);
-  let html = gl.map(([gid, g]) => {
-    const list = names.filter(w => w.game === gid).sort((a, b) => a.at - b.at);
-    return `<div class="gbox"><div class="gh" style="margin:0"><b>${esc(g.name)}</b><span class="cnt">${list.length} waiting</span><button data-delgame="${esc(gid)}" title="Remove this list">&times;</button></div></div>`;
-  }).join("");
+  /* Lists build off open poker tables (see liveLists in pt-people.js): every open table's game gets a list. */
+  for (const nm of openGameNames(tables, list)) if (!listFor(nm) && !makingList.has(nm)) {
+    makingList.add(nm); const gid = "g" + Date.now() + Math.random().toString(36).slice(2, 5);
+    games[gid] = { name: nm, at: Date.now() }; setDoc(GAMESREF, { [gid]: games[gid] }, { merge: true }).catch(fail);
+  }
+  const live = liveLists(games, wait, tables, list), gl = live.map(L => [L.gid, games[L.gid]]);
+  let html = live.map(L => `<div class="gbox"><div class="gh" style="margin:0"><b>${esc(L.name)}</b>
+      ${L.open ? `<span class="tag" style="background:var(--ok);color:#000">Open</span>` : L.interest ? `<span class="tag">Interest list</span>` : `<span class="tag">No table open</span>`}
+      <span class="cnt">${L.count} waiting</span><button data-delgame="${esc(L.gid)}" title="Remove this list">&times;</button></div></div>`).join("");
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
     .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
   const other = names.filter(w => !games[w.game]);
   if (phones.length || other.length) html += `<p class="hint" style="margin:10px 0 0">${[phones.length ? phones.length + " from phones" : "", other.length ? other.length + " in Other" : ""].filter(Boolean).join(" &middot; ")} &mdash; see the Waitlist.</p>`;
-  if (!html) html = `<div class="empty">No lists yet. Start one with "+ Add a poker game".</div>`;
+  if (!html) html = `<div class="empty">No lists yet. Open a poker table with its game picked, or start one in "+ Add a poker game".</div>`;
   const wg = $("wGame"), wv = wg.value;   // game picker for + Add to wait list
   wg.innerHTML = gl.length ? gl.map(([gid, g]) => `<option value="${esc(gid)}">${esc(g.name)}</option>`).join("") : `<option value="">No lists yet</option>`;
   if (wv && games[wv]) wg.value = wv;
@@ -468,7 +473,9 @@ $("pgBox").addEventListener("click", e => {
     setDoc(PGREF, { fav: { [id]: on ? true : deleteField() } }, { merge: true }).catch(fail);
   } else if (go) {
     const name = go.dataset.stake + " " + pgName(go.dataset.pgstart);   // e.g. "1/2 No-Limit Hold'em"
-    if (!listFor(name)) { const gid = "g" + Date.now(); games[gid] = { name, at: Date.now() }; setDoc(GAMESREF, { [gid]: games[gid] }, { merge: true }).catch(fail); }
+    const had = listFor(name);   // started by hand: shows even with no table open
+    if (!had) { const gid = "g" + Date.now(); games[gid] = { name, at: Date.now(), manual: true }; setDoc(GAMESREF, { [gid]: games[gid] }, { merge: true }).catch(fail); }
+    else if (!games[had].manual) { games[had].manual = true; setDoc(GAMESREF, { [had]: { ...games[had] } }, { merge: true }).catch(fail); }
   } else if (del) {
     const id = del.dataset.pgdel; delete pg.custom[id]; delete pg.fav[id];
     setDoc(PGREF, { custom: { [id]: deleteField() }, fav: { [id]: deleteField() } }, { merge: true }).catch(fail);

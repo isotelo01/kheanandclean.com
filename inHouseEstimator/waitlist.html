@@ -26,6 +26,8 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .gbox{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px}
 .gh{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .gh b{flex:1;color:var(--gold);font-size:18px}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.12)}
+.tag.on{background:var(--ok);color:#000}
 .gh .cnt{font-size:13px;color:rgba(255,255,255,.7)}
 .row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
 .row:last-child{border-bottom:0}
@@ -45,7 +47,7 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists } from "./pt-people.js";   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -60,11 +62,12 @@ const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPo
 const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
 const WAITREF = doc(db, "playerTracker", "waitlist"), GAMESREF = doc(db, "playerTracker", "waitgames");
+const TBLREF = doc(db, "playerTracker", "tables"), LISTREF = doc(db, "playerTracker", "tablelist");   // which tables are open, and their games
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m" : Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
 const fail = () => { $("warn").style.display = "block"; };
-let state = {}, roster = {}, profiles = {}, wait = {}, games = {};
+let state = {}, roster = {}, profiles = {}, wait = {}, games = {}, tables = {}, tlist = {};
 const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
 const isPlayer = c => !!(ROSTER[c] || roster[c]);
 
@@ -72,17 +75,18 @@ function draw() {
   const row = (w, i) => `<div class="row">
       <div class="nm"><b>${i + 1}. ${w.src === "app" ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.id)}" style="color:#fff">${esc(w.name)}</a>` : esc(w.name)}</b><span>waiting ${ago(w.at)}</span></div>
       <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
-  const box = (title, list) => `<div class="gbox"><div class="gh"><b>${esc(title)}</b><span class="cnt">${list.length} waiting</span></div>
+  const box = (title, list, tag) => `<div class="gbox"><div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span></div>
       ${list.length ? list.map(row).join("") : `<div class="empty">Nobody waiting.</div>`}</div>`;
   const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor" }));
-  let html = Object.entries(games).filter(([, g]) => g && g.name).sort((a, b) => a[1].at - b[1].at)
-    .map(([gid, g]) => box(g.name, names.filter(w => w.game === gid).sort((a, b) => a.at - b.at))).join("");
+  /* Live: open poker tables' games first, then interest lists (game not running, people still on it). */
+  let html = liveLists(games, wait, tables, tlist).map(L => box(L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.at - b.at),
+    L.open ? `<span class="tag on">Open</span>` : L.interest ? `<span class="tag">Interest list</span>` : `<span class="tag">No table open</span>`)).join("");
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
     .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
   if (phones.length) html += box("From phones", phones);
   const other = names.filter(w => !games[w.game]).sort((a, b) => a.at - b.at);
   if (other.length) html += box("Other", other);
-  $("lists").innerHTML = html || `<div class="empty">No games yet. Start a list with "+ Add a game" on the Floor page.</div>`;
+  $("lists").innerHTML = html || `<div class="empty">No lists yet. Open a poker table with its game picked on the Floor page.</div>`;
 }
 document.addEventListener("click", e => {
   const rm = e.target.closest("[data-rm]"); if (!rm) return;
@@ -98,7 +102,7 @@ onAuthStateChanged(getAuth(app), u => {
   document.body.style.visibility = "visible";
   draw();
   const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
-  on(REF, v => state = v); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v);
+  on(REF, v => state = v); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v); on(TBLREF, v => tables = v); on(LISTREF, v => tlist = v);
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   setInterval(draw, 30000);   // keep the wait times ticking
