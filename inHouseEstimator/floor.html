@@ -195,7 +195,10 @@ function draw() {
     const P = q => ((q[0] - mx) * FT_PX + 20).toFixed(1) + "," + ((q[1] - my) * FT_PX + 20).toFixed(1);
     bld = `<polygon points="${building.pts.map(P).join(" ")}" fill="rgba(255,255,255,.04)" stroke="rgba(227,182,74,.7)" stroke-width="4" stroke-linejoin="round"/>`
         + (building.cuts || []).filter(c => c && Array.isArray(c.pts) && c.pts.length >= 3)
-            .map(c => `<polygon points="${c.pts.map(P).join(" ")}" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.35)"/>`).join("");
+            .map(c => `<polygon points="${c.pts.map(P).join(" ")}" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.35)"/>`).join("")
+        + (building.walls || []).filter(w => w && w.a && w.b)   // inside walls drawn in the building editor
+            .map(w => { const [x1, y1] = P(w.a).split(","), [x2, y2] = P(w.b).split(",");
+              return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(227,182,74,.7)" stroke-width="4" stroke-linecap="round"/>`; }).join("");
     vbW = Math.max(vbW, (Math.max(...xs) - mx) * FT_PX + 40); vbH = Math.max(vbH, (Math.max(...ys) - my) * FT_PX + 40);
   }
   for (const n of Object.keys(TABLES)) { const q = plan[n] || PLAN_DEFAULT[n]; vbW = Math.max(vbW, q.x + 230); vbH = Math.max(vbH, q.y + 210); }
