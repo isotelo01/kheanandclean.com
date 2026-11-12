@@ -1208,6 +1208,27 @@ document.addEventListener("click", e => {
   cur.disc = { ...cur.disc, waiveMin: !cur.disc.waiveMin };
   saveOnsite().then(show).catch(err => { fail(err); show(); });
 });
+/* Bill these rooms: a not-billed line (rooms kept at $0 after the estimate changed) goes back on the bill,
+   each room at the service's rate (carpet: the line's package). Saves; the variance / Resend estimate then shows it. */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-billit]"); if (!b || !cur) return;
+  if (priceLocked()) { lockedMsg(); show(); return; }
+  const l = cur.lines[Number(b.getAttribute("data-billit"))]; if (!l) return;
+  const S = PRICING.SERVICES[l.key] || {}, T = (l.key === "carpet" || !l.key ? TIERS[tierOf(l)] : null) || {};
+  let rate = Number(T.sqft) || Number(S.rate) || Number(S.sqft) || 0;
+  if (!rate) { rate = Number(prompt("Price per sq ft for these rooms?", "")) || 0; if (!rate) return; }
+  const name = T.name || S.name || String(l.label || "Cleaning").replace(/\s*\(not billed\)/gi, "").split(/\s+[—-]\s+/)[0];
+  (l.items || []).forEach(it => {
+    if (!it.notBilled || !Array.isArray(it.rooms) || !it.rooms.length) return;
+    const sq = it.rooms.reduce((a, rm) => a + (Number(rm.sqft) || 0), 0);
+    it.label = name + " - " + sq.toLocaleString("en-US") + " sq ft @ $" + rate.toFixed(2) + "/sq ft";
+    it.perSqft = rate; it.cost = 0; delete it.notBilled; delete it.track;
+  });
+  delete l.notBilled; delete l.addedOnSite;
+  l.label = String(l.label || "").replace(/\s*\(not billed\)/gi, "");
+  recalc(l);
+  saveOnsite().then(show).catch(err => { fail(err); show(); });
+});
 const fail = e => { console.error(e); const n = document.getElementById("note"); if (n) { n.textContent = "Could not save: " + e.message; n.classList.add("err"); } };
 
 /* ---- Summarize / Edit: the clean customer view of this same sheet, remembered for this job while the tab is open. ---- */
@@ -2162,6 +2183,7 @@ async function show(){
         '<span>' + esc(head).replace(/\bDeep(?= Clean)/, '<span class="segGold">Deep</span>').replace(/\bSignature(?= Clean)/, '<span class="segScript">Signature</span>') + '</span><span class="amt">' + (plus ? '<span class="sprice" style="color:var(--ink)">' + money(l.cost) + '</span>' : money(l.cost) + ' ') + '<span class="caret">▾</span></span></button>' +
       (plus ? '<button type="button" class="svc__plus" data-addons="' + i + '" aria-label="Add-ons">+</button>' : '') +
       '</div>' +
+      (!PUBLIC && isNotBilled(l) ? '<button type="button" class="new" data-billit="' + i + '" style="margin:6px 0 10px">Bill these rooms</button>' : '') +
       (prevBox || (thumbs.length ? '<div class="sthumbs' + (thumbMax === 6 ? ' six' : '') + '">' + thumbs.map(p => '<span data-sthumb="' + esc(p) + '"></span>').join("") + '</div>' : '')) +
       (plus ? '<div class="addonbox" data-line="' + i + '"><div class="rpick" hidden>' +
         lineAddons.map(a =>
@@ -2324,6 +2346,9 @@ async function show(){
       /* Staff only: pull an accepted job or unpaid invoice back into Dashboard > Estimates (same id, same link). */
       (!PUBLIC && (place === "acceptedQuotes" || place === "invoices")
         ? '<div class="actions" style="margin-top:14px"><button type="button" class="new" id="toEstBtn">Back to Estimates</button></div>' : '') +
+      /* Resend estimate always at the bottom (staff), even with no variance showing. Same button as the variance box's. */
+      (!PUBLIC && !showVar && (place === "acceptedQuotes" || place === "quotes")
+        ? '<div class="actions" style="margin-top:14px"><button type="button" class="new" id="revBtn">Resend estimate</button></div>' : '') +
       /* Invoiced or paid: price locked. Whole job = the estimator's Copy job; Quote extras only = a new
          on-site estimate with just what was added at no charge, priced, to discount and send. */
       ((place === "invoices" || place === "paidInvoices") && !PUBLIC
