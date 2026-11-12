@@ -2706,7 +2706,7 @@ async function show(){
       const originals = inPlace ? prevOGs : prevOGs.concat([snap]);
       const orig = originals[0];   /* first original: what invoices and older pages read as originalQuote */
       const rev = { ...q };
-      ["id", "revision", "revisionOf", "expiresAt", "trashedFrom", "trashedAt"].forEach(k => delete rev[k]);
+      ["id", "revision", "revisionOf", "expiresAt", "trashedFrom", "trashedAt", "dashHidden", "dashHiddenAt"].forEach(k => delete rev[k]);
       Object.assign(rev, {
         /* The live quote keeps the plain number (Q-1068); only superseded ones get OG labels. */
         type: "quote", status: "sent", fromJobSheet: true, revNo, baseNumber: base, number: base,
