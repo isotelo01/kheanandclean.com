@@ -93,7 +93,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, chairForSeat } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, chairForSeat, clockStart } from "./pt-people.js";   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -144,6 +144,7 @@ const fail = () => { $("warn").style.display = "block"; };
 
 function logEvent(c, a) { setDoc(LOGREF, { events: arrayUnion({ c, a, t: Date.now() }) }, { merge: true }).catch(fail); }
 let layout = {};   // table 1 chair spots (playerTracker/layout)
+let tables = null;   // which tables are open (playerTracker/tables): hours only count at an open table
 function save(c, p, logText) {
   state[c] = p; draw(); if (logText) logEvent(c, logText);
   setDoc(REF, { [c]: p }, { merge: true }).catch(fail);
@@ -335,7 +336,7 @@ function openSeat(n) {
       <button class="btn ghost" id="outBtn">Log out</button></div>`);
   $("brkBtn").onclick = () => {
     const q = get(c);
-    if (q.breakAt) save(c, { ...q, breakAt: null, since: Date.now() }, "Back from break after " + fmtHrs(Date.now() - q.breakAt) + " (seat " + n + ")");
+    if (q.breakAt) save(c, { ...q, breakAt: null, since: clockStart(tables, T) }, "Back from break after " + fmtHrs(Date.now() - q.breakAt) + " (seat " + n + ")");
     else save(c, { ...q, totalMs: liveMs(q), sessionMs: seatedMs(q), since: null, breakAt: Date.now() }, "On break, seat " + n + " held");   // hours stop
     closeModal();
   };
@@ -427,7 +428,7 @@ function seatPlayer(c, n, how = "scanned") {
   const p = get(c);
   if (whoIn(n) && whoIn(n) !== c) { alert("Seat " + n + " is taken."); return; }
   if (p.status === "seated") save(c, { ...p, seat: n, table: T }, "Moved from table " + (p.table || 1) + " seat " + p.seat + " to table " + T + " seat " + n);
-  else save(c, { ...p, status: "seated", seat: n, table: T, since: Date.now(), waitAt: null, breakAt: null, sessionMs: 0 }, "Seated at table " + T + " (" + TB.game + ") seat " + n + " (" + how + ")");
+  else save(c, { ...p, status: "seated", seat: n, table: T, since: clockStart(tables, T), waitAt: null, breakAt: null, sessionMs: 0 }, "Seated at table " + T + " (" + TB.game + ") seat " + n + " (" + how + ")");
 }
 
 async function startScan(n) {
@@ -491,6 +492,7 @@ onAuthStateChanged(getAuth(app), async u => {
   draw();
   onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);
   setInterval(draw, 30000);   // keep seated and break times ticking (and turn red at 30 min)
+  onSnapshot(doc(db, "playerTracker", "tables"), snap => { tables = snap.exists() ? snap.data() : {}; }, () => {});
   onSnapshot(doc(db, "playerTracker", "layout"), snap => { layout = snap.exists() ? snap.data() : {}; }, () => {});   // where table 1's chairs are
   onSnapshot(REQREF, snap => { requests = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});

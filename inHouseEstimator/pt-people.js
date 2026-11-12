@@ -95,6 +95,12 @@ export function liveLists(games, wait, tables, list) {
   return out.sort((a, b) => b.open - a.open || a.at - b.at);
 }
 
+/* ---- Hours only count at an open table. When a player sits down (or comes back from break) the clock starts
+   only if their table is open (playerTracker/tables { n: { open } }); closing a table stops everyone's clock there
+   and opening it starts them again (Floor page). tables = null means this page can't see table status (a player's
+   phone), so the clock starts. */
+export const clockStart = (tables, t) => !tables || (tables[t || 1] && tables[t || 1].open) ? Date.now() : null;
+
 /* ---- Table 1 chairs (same layout as player-tracker.html: table centre 200,40, radius 170, 7 seats, ~45 units a foot).
    The chair that goes with a seat: the chair sitting closest to that seat (from playerTracker/layout, where chairs
    were dragged), or chair n for seat n if no chair is near it. Used when the dealer moves a player who's logged in

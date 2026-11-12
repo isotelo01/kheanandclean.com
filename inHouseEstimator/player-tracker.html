@@ -138,7 +138,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, TEST_PHONES, TEST_INFO, DEALERS, CASINO, casinoDoc, withCasino, chairForSeat } from "./pt-people.js";
+import { ROSTER, TEST_PHONES, TEST_INFO, DEALERS, CASINO, casinoDoc, withCasino, chairForSeat, clockStart } from "./pt-people.js";
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -158,6 +158,7 @@ const ROSTREF = doc(db, "playerTracker", "roster");     // { card: { name } } pl
 const IDXREF = doc(db, "playerTracker", "phoneIndex");
 const REQREF = doc(db, "playerTracker", "requests");    // { card: { t, s, at } } seat requests waiting for the dealer  // { "h_<sha256 of phone>": card, "l4_<last 4>": [cards] } — no phone numbers in it
 let roster = {};
+let tables = null;   // playerTracker/tables (open/closed); null = not known here (player phones), clock just starts
 const LAYREF = doc(db, "playerTracker", "layout");     // { seatNumber: { x, y } } where each chair was dragged to
 let layout = {};
 try { layout = JSON.parse(localStorage.getItem("playerTracker.layout") || "{}"); } catch (e) {}
@@ -208,7 +209,7 @@ function openSeat() {
 const act = {
   wait(c)  { const p = get(c); save(c, { ...p, status: "wait", waitAt: Date.now() }); },
   seat(c, n) { const p = get(c); const s = n || openSeat(); if (!s) { alert("Table is full."); return; }
-             save(c, { ...p, status: "seated", seat: s, table: 1, since: Date.now(), waitAt: null }); },
+             save(c, { ...p, status: "seated", seat: s, table: 1, since: clockStart(tables, 1), waitAt: null }); },
   out(c)   { const p = get(c); save(c, { status: "out", totalMs: liveMs(p), seat: null, since: null, waitAt: null }); },
   deal(c)  { for (const d of Object.keys(DEALERS)) if (d !== c && get(d).status === "seated" && (get(d).table || 1) === 1) act.out(d);
              const p = get(c); save(c, { ...p, status: "seated", seat: 0, table: 1, since: Date.now() }); }
@@ -295,12 +296,12 @@ function applyChair(n) {
   }
   if (p.status === "seated" && (p.table || 1) === 1) {
     if (p.seat === s && !p.breakAt) return { r: "seated", seat: s };
-    save(c, { ...p, seat: s, table: 1, breakAt: null, since: p.breakAt ? Date.now() : p.since });
+    save(c, { ...p, seat: s, table: 1, breakAt: null, since: p.breakAt ? clockStart(tables, 1) : p.since });
     logEvent(c, p.breakAt && p.seat === s ? "Chair " + n + " pushed back in: back from break, seat " + s
                                           : "Chair " + n + " moved: seat " + p.seat + " to seat " + s);
     return { r: "seated", seat: s };
   }
-  save(c, { ...p, status: "seated", seat: s, table: 1, since: Date.now(), waitAt: null, breakAt: null, sessionMs: 0 });
+  save(c, { ...p, status: "seated", seat: s, table: 1, since: clockStart(tables, 1), waitAt: null, breakAt: null, sessionMs: 0 });
   logEvent(c, "Chair " + n + ": seated at seat " + s);
   return { r: "seated", seat: s };
 }
@@ -720,6 +721,7 @@ function start() {
     render();
   }, () => {});
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; render(); }, () => {});
+  if (!myCard) onSnapshot(doc(db, "playerTracker", "tables"), snap => { tables = snap.exists() ? snap.data() : {}; }, () => {});   // hours only at an open table
   if (!myCard) onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; render(); }, () => {});   // phones/emails: staff pages only
   setInterval(render, 30000);   // keep the hours ticking
 }
@@ -770,7 +772,7 @@ async function maybeRequestSeat() {
   if (params.has("sit")) {
     const p = all[c] || get(c);
     save(c, p.status === "seated" ? { ...p, seat: reqS, table: reqT }   // moving seats keeps their time running
-                                  : { ...p, status: "seated", seat: reqS, table: reqT, since: Date.now(), waitAt: null });
+                                  : { ...p, status: "seated", seat: reqS, table: reqT, since: clockStart(tables, reqT), waitAt: null });
     box.hidden = false;
     box.innerHTML = `<div class="status" style="margin:0;color:var(--ok)">You're seated at table ${reqT}, seat ${reqS}.</div>`;
     return;

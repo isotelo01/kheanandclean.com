@@ -119,7 +119,7 @@ body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
       <h2>Calls</h2>
       <div class="box" id="calls"></div>
       <h2>Floor plan</h2>
-      <p class="hint">Tap a table to open its details. To move tables, tap Edit table position on floor.
+      <p class="hint">Tap a table's felt to open or close it; tap its number for its details. To move tables, tap Edit table position on floor.
         <a href="./measure.html?building=1" class="btn ghost sm" style="margin-left:6px">Edit building shape</a>
         <button class="btn ghost sm" id="moveMode" style="margin-left:4px">Edit table position on floor</button>
         <button class="btn sm" id="addTbl" style="margin-left:4px">+ Add a table</button>
@@ -223,16 +223,16 @@ function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
   };
   let s = `<rect width="200" height="182" fill="transparent"/>`, label;
   if (tb.shape === "oval") {
-    s += `<ellipse cx="100" cy="62" rx="80" ry="42" fill="${rail}"/><ellipse cx="100" cy="62" rx="71" ry="34" fill="${felt}"/>`;
+    s += `<ellipse cx="100" cy="62" rx="80" ry="42" fill="${rail}"/><ellipse data-felt="1" cx="100" cy="62" rx="71" ry="34" fill="${felt}"/>`;
     tb.seats.forEach((st, k) => { const a = (-90 + 36 * (k + 1)) * Math.PI / 180; s += chair(100 + Math.cos(a) * 94, 62 + Math.sin(a) * 52, 100, 62, st); });
     label = 68;
   } else {
-    s += `<rect x="18" y="10" width="164" height="7" rx="2" fill="${rail}"/><path d="M18 16 A82 82 0 0 0 182 16 Z" fill="${rail}"/><path d="M27 16 A73 73 0 0 0 173 16 Z" fill="${felt}"/>`;
+    s += `<rect x="18" y="10" width="164" height="7" rx="2" fill="${rail}"/><path d="M18 16 A82 82 0 0 0 182 16 Z" fill="${rail}"/><path data-felt="1" d="M27 16 A73 73 0 0 0 173 16 Z" fill="${felt}"/>`;
     tb.seats.forEach((st, k) => { const a = Math.PI * ((k + 1) / (tb.seats.length + 1)); s += chair(100 + Math.cos(a) * 94, 16 + Math.sin(a) * 94, 100, 16, st); });
     label = 52;
   }
   s += `<text x="100" y="${label}" fill="${open ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.55)"}" font-size="26" font-weight="700" text-anchor="middle">${n}</text>`;
-  if (!open) s += `<text x="100" y="${label + 18}" fill="#f87171" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle">CLOSED</text>`;
+  if (!open) s += `<text x="100" y="${label + 18}" fill="#f87171" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle" pointer-events="none">CLOSED</text>`;
   s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${esc(tblLabel(tb))}</text>`
      + `<text x="100" y="162" fill="rgba(255,255,255,.7)" font-size="11" text-anchor="middle">${dealer ? esc(nameOf(dealer)) : "No dealer"} &#183; ${nSeated}/${tb.seats.length} seated${nBreak ? " &#183; " + nBreak + " on break" : ""}</text>`
      + `<a href="./dealer-table.html?t=${n}"><text x="100" y="178" fill="#E3B64A" font-size="11" font-weight="700" text-anchor="middle">Dealer Control &#8250;</text></a>`;
@@ -355,7 +355,7 @@ document.addEventListener("click", e => {
   const d = e.target.closest("[data-done]");
   if (d) { setDoc(CALLREF, { [d.dataset.done]: deleteField() }, { merge: true }).catch(fail); return; }
   const sw = e.target.closest("[data-sw]");
-  if (sw) { const n = sw.dataset.sw; setDoc(TBLREF, { [n]: { open: !(tables[n] && tables[n].open) } }, { merge: true }).catch(fail); return; }
+  if (sw) { toggleOpen(+sw.dataset.sw); return; }
   const rm = e.target.closest("[data-rm]");
   if (rm) {
     const id = rm.dataset.rm;
@@ -366,7 +366,7 @@ document.addEventListener("click", e => {
   const ta = e.target.closest("[data-ta]");
   if (ta && selT) {
     const n = selT, q = { ...(plan[n] || PLAN_DEFAULT[n]) }, a = ta.dataset.ta;
-    if (a === "open") { setDoc(TBLREF, { [n]: { open: !(tables[n] && tables[n].open) } }, { merge: true }).catch(fail); return; }
+    if (a === "open") { toggleOpen(n); return; }
     if (a === "x") { selT = 0; draw(); return; }
     if (a === "edit") { $("tpForm").hidden = !$("tpForm").hidden; return; }
     if (a === "save") { saveTableEdit(n); return; }
@@ -398,6 +398,20 @@ document.addEventListener("click", e => {
     setDoc(GAMESREF, { [gid]: deleteField() }, { merge: true }).catch(fail);
   }
 });
+/* Open or close a table. Hours only count at an open table: closing stops the clock for everyone seated there
+   (their time so far is kept), opening starts it again (not for anyone on break). */
+function toggleOpen(n) {
+  const open = !(tables[n] && tables[n].open), now = Date.now(), upd = {};
+  tables[n] = { ...(tables[n] || {}), open };
+  setDoc(TBLREF, { [n]: { open } }, { merge: true }).catch(fail);
+  for (const [c, p] of Object.entries(state)) {
+    if (!p || p.status !== "seated" || (p.table || 1) !== n || !isPlayer(c)) continue;
+    if (!open && p.since) upd[c] = { ...p, totalMs: (p.totalMs || 0) + now - p.since, sessionMs: (p.sessionMs || 0) + now - p.since, since: null };
+    if (open && !p.since && !p.breakAt) upd[c] = { ...p, since: now };
+  }
+  if (Object.keys(upd).length) { Object.assign(state, upd); setDoc(REF, upd, { merge: true }).catch(fail); }
+  draw();
+}
 /* Add a name to a game's list. */
 function addName(gid) {
   const el = document.querySelector(`[data-gin="${CSS.escape(gid)}"]`), name = el && el.value.trim();
@@ -579,7 +593,7 @@ $("plan").addEventListener("pointerdown", e => {
   const g = e.target.closest(".ptbl"); if (!g || e.target.closest("a")) return;
   e.preventDefault(); $("plan").setPointerCapture(e.pointerId);
   const n = +g.dataset.tbl, p = planPt(e), at = plan[n] || PLAN_DEFAULT[n];
-  planDrag = { n, g, dx: p.x - at.x, dy: p.y - at.y, x0: e.clientX, y0: e.clientY, moved: false, pos: at };
+  planDrag = { n, g, dx: p.x - at.x, dy: p.y - at.y, x0: e.clientX, y0: e.clientY, moved: false, pos: at, felt: !!e.target.closest("[data-felt]") };
 });
 $("plan").addEventListener("pointermove", e => {
   const d = planDrag; if (!d || !moveMode) return;   // locked: a press is just a tap
@@ -593,7 +607,8 @@ $("plan").addEventListener("pointermove", e => {
 const endPlanDrag = e => {
   const d = planDrag; if (!d) return; planDrag = null;
   if (d.moved) { plan[d.n] = d.pos; setDoc(PLANREF, { [d.n]: d.pos }, { merge: true }).catch(fail); }
-  else if (e.type === "pointerup") selT = selT === d.n ? 0 : d.n;   // tap: select it (toolbar), tap again to let go
+  else if (e.type === "pointerup" && d.felt && !moveMode) { toggleOpen(d.n); return; }   // tap the felt: open/close the table
+  else if (e.type === "pointerup") selT = selT === d.n ? 0 : d.n;   // tap the number (or anywhere else on it): its menu; tap again to let go
   draw();
 };
 $("plan").addEventListener("pointerup", endPlanDrag);
