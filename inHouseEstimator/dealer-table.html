@@ -93,7 +93,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, chairForSeat } from "./pt-people.js";   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -143,6 +143,7 @@ const dealerOn = () => Object.keys(DEALERS).find(d => onT(get(d)));
 const fail = () => { $("warn").style.display = "block"; };
 
 function logEvent(c, a) { setDoc(LOGREF, { events: arrayUnion({ c, a, t: Date.now() }) }, { merge: true }).catch(fail); }
+let layout = {};   // table 1 chair spots (playerTracker/layout)
 function save(c, p, logText) {
   state[c] = p; draw(); if (logText) logEvent(c, logText);
   setDoc(REF, { [c]: p }, { merge: true }).catch(fail);
@@ -347,13 +348,24 @@ function openSeat(n) {
   };
 }
 /* Move player c from seat n to seat `to`; if someone's there, the two swap. Time keeps running for both. */
+/* A player logged in by chair (table 1) takes the chair at their new seat as their login; anyone logged in
+   another way (card, phone) keeps that. */
+const chairMove = (p, seat) => p.chair && T === 1 ? { chair: chairForSeat(layout, seat, 7) } : {};
 function moveOrSwap(c, n, to) {
   if (to === n) return;
   const o = whoIn(to);
   if (o) {
-    save(o, { ...get(o), seat: n }, "Swapped with " + nameOf(c) + ": seat " + to + " to seat " + n);
-    save(c, { ...get(c), seat: to }, "Swapped with " + nameOf(o) + ": seat " + n + " to seat " + to);
-  } else save(c, { ...get(c), seat: to }, "Moved from seat " + n + " to seat " + to);
+    const po = get(o), pc = get(c);
+    save(o, { ...po, seat: n, ...chairMove(po, n) }, "Swapped with " + nameOf(c) + ": seat " + to + " to seat " + n + (po.chair && T === 1 ? " (now Chair " + chairForSeat(layout, n, 7) + ")" : ""));
+    save(c, { ...pc, seat: to, ...chairMove(pc, to) }, "Swapped with " + nameOf(o) + ": seat " + n + " to seat " + to + (pc.chair && T === 1 ? " (now Chair " + chairForSeat(layout, to, 7) + ")" : ""));
+  } else {
+    const pc = get(c), ch = chairMove(pc, to);
+    if (ch.chair) {   // someone else logged into that chair (not seated there) is moved off it
+      const holder = Object.keys(state).find(k => k !== c && state[k] && state[k].chair === ch.chair);
+      if (holder) save(holder, { ...state[holder], chair: null }, "Chair " + ch.chair + " given to " + nameOf(c));
+    }
+    save(c, { ...pc, seat: to, ...ch }, "Moved from seat " + n + " to seat " + to + (ch.chair ? " (now Chair " + ch.chair + ")" : ""));
+  }
 }
 /* Drag a player's name on the table to another seat: open seat = move, taken seat = swap.
    A tap on the name (no drag) opens that seat's menu. */
@@ -479,6 +491,7 @@ onAuthStateChanged(getAuth(app), async u => {
   draw();
   onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);
   setInterval(draw, 30000);   // keep seated and break times ticking (and turn red at 30 min)
+  onSnapshot(doc(db, "playerTracker", "layout"), snap => { layout = snap.exists() ? snap.data() : {}; }, () => {});   // where table 1's chairs are
   onSnapshot(REQREF, snap => { requests = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});

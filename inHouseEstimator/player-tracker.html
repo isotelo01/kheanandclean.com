@@ -138,7 +138,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, TEST_PHONES, TEST_INFO, DEALERS, CASINO, casinoDoc, withCasino } from "./pt-people.js";
+import { ROSTER, TEST_PHONES, TEST_INFO, DEALERS, CASINO, casinoDoc, withCasino, chairForSeat } from "./pt-people.js";
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -224,7 +224,12 @@ function askSeat(c) {
 let pickFor = null;
 function seatAt(c, n) {
   const p = get(c);
-  if (p.status === "seated") save(c, { ...p, seat: n, table: 1 });   // moving seats keeps their time running
+  if (p.status === "seated") {   // moving seats keeps their time running; a chair login moves to the chair at the new seat
+    const ch = p.chair ? chairForSeat(layout, n, SEATS) : 0;
+    if (ch) { const h = Object.keys(state).find(k => k !== c && state[k] && state[k].chair === ch); if (h) save(h, { ...state[h], chair: null }); }
+    save(c, { ...p, seat: n, table: 1, ...(ch ? { chair: ch } : {}) });
+    if (ch) logEvent(c, "Moved to seat " + n + ": now Chair " + ch);
+  }
   else act.seat(c, n);
 }
 /* ---- Chairs (table 1). Each chair has its own number (C1-C7) and card. A player logs into a chair

@@ -95,6 +95,23 @@ export function liveLists(games, wait, tables, list) {
   return out.sort((a, b) => b.open - a.open || a.at - b.at);
 }
 
+/* ---- Table 1 chairs (same layout as player-tracker.html: table centre 200,40, radius 170, 7 seats, ~45 units a foot).
+   The chair that goes with a seat: the chair sitting closest to that seat (from playerTracker/layout, where chairs
+   were dragged), or chair n for seat n if no chair is near it. Used when the dealer moves a player who's logged in
+   by chair: their login moves to the chair at their new seat. */
+export function chairForSeat(layout, s, seats = 7) {
+  const cx = 200, cy = 40, r = 170, ang = i => Math.PI * (i / (seats + 1));
+  const pos = i => layout && layout[i] ? [layout[i].x, layout[i].y] : [cx + Math.cos(ang(i)) * (r + 40), cy + Math.sin(ang(i)) * (r + 40)];
+  let best = 0, bd = Infinity;
+  for (let i = 1; i <= seats; i++) {
+    const [x, y] = pos(i);
+    let near = 0, nd = Infinity;
+    for (let k = 1; k <= seats; k++) { const d = Math.hypot(x - (cx + Math.cos(ang(k)) * r), y - (cy + Math.sin(ang(k)) * r)); if (d < nd) { nd = d; near = k; } }
+    if (near === s && nd < bd) { bd = nd; best = i; }
+  }
+  return best || s;
+}
+
 /* 10 test dealers: four-digit number -> name. */
 export const DEALERS = {
   "4821": "Ace in the Hole",  "7350": "Shuffle Off Home", "1946": "Chip Stackhouse", "6083": "River Turner",
