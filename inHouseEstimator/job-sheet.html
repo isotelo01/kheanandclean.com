@@ -2570,8 +2570,9 @@ async function show(){
     const key = box.dataset.sec, kind = box.dataset.kind, panel = box.querySelector(".secpanel"), sumEl = box.querySelector(".secsum");
     const draw = () => {
       const d = secDefs[key] || {};
-      const prods = [...chemBox.querySelectorAll('.chemrow[data-group="general"]')].map(r => ({ id: r.dataset.chem, name: r.dataset.name }));
-      const prodRow = f => { const v = d[f] || {};
+      /* Pre-Spray lists pre-sprays & detergents; Rinse lists the Rinses group from Settings. */
+      const prodsOf = g => [...chemBox.querySelectorAll('.chemrow[data-group="' + g + '"]')].map(r => ({ id: r.dataset.chem, name: r.dataset.name }));
+      const prodRow = f => { const v = d[f] || {}, prods = prodsOf(f === "rinse" ? "rinse" : "general");
         return '<label class="seclab"><b>' + (f === "preSpray" ? "Pre-Spray" : "Rinse") + '</b>' +
           '<select data-f="' + f + '"><option value="">None</option>' +
           prods.map(p => '<option value="' + esc(p.id) + '"' + (v.id === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>').join("") +
@@ -2583,7 +2584,8 @@ async function show(){
           MATS[kind].map(m => '<option' + (d.material === m ? ' selected' : '') + '>' + m + '</option>').join("") + '</select>' +
           (kind === "carpet" ? '<input type="text" data-f="materialOther" placeholder="Which fiber?" value="' + esc(d.materialOther || "") + '"' + (d.material === "Other" ? '' : ' hidden') + '>' : '') + '</label>' +
         prodRow("preSpray") + prodRow("rinse") +
-        (prods.length ? '' : '<div class="meta">No detergents yet. Add them in <a href="./settings.html">Settings</a>.</div>') +
+        (prodsOf("rinse").length ? '' : '<div class="meta">No rinses yet. Add them under Rinses in <a href="./settings.html">Settings</a>.</div>') +
+        (prodsOf("general").length ? '' : '<div class="meta">No detergents yet. Add them in <a href="./settings.html">Settings</a>.</div>') +
         '<div class="secacts"><button type="button" class="new" data-secapply>Apply to all rooms</button><span class="note"></span></div>';
     };
     box.addEventListener("change", e => {
