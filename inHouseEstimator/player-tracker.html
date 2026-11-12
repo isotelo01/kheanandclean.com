@@ -33,6 +33,8 @@ h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase
 svg.table{width:100%;height:auto;display:block}
 #tblBox{cursor:zoom-in}
 #tblBack{display:none}
+#tblBox.full .chair{display:none}   /* full-screen (dealer) view: no chairs */
+.chair{cursor:grab;touch-action:none}
 #tblBox.full{position:fixed;inset:0;z-index:50;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:center;padding:16px;cursor:default}
 #tblBox.full #tblBack{display:block;position:absolute;top:calc(env(safe-area-inset-top) + 16px);left:16px}
 .row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.12);flex-wrap:wrap}
@@ -120,7 +122,11 @@ const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPo
 const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc");
 const LOGREF = doc(db, "playerTracker", "log");        // { events: [{ c, a, t }] } every log in / log out
-const PROFREF = doc(db, "playerTracker", "profiles");  // { card: { name, phone, email, bday, notes } }
+const PROFREF = doc(db, "playerTracker", "profiles");
+const LAYREF = doc(db, "playerTracker", "layout");     // { seatNumber: { x, y } } where each chair was dragged to
+let layout = {};
+try { layout = JSON.parse(localStorage.getItem("playerTracker.layout") || "{}"); } catch (e) {}
+let dragging = null, justDragged = false;  // { card: { name, phone, email, bday, notes } }
 
 /* 10 test players: famous gamblers and Wild West legends, made-up card numbers. */
 const ROSTER = {
@@ -197,7 +203,10 @@ let myCard = params.get("card") || params.get("dealer");
 if (myCard) { try { localStorage.setItem("playerTracker.card", myCard); } catch (e) {} }
 else if (params.has("me")) { try { myCard = localStorage.getItem("playerTracker.card"); } catch (e) {} }
 
+/* A chair always turns to face the middle of the table, wherever it's dragged. */
+const chairXf = (x, y) => `translate(${x} ${y}) rotate(${Math.atan2(y - 40, x - 200) * 180 / Math.PI - 90})`;
 function drawTable() {
+  if (dragging) return;   // don't redraw under a finger mid-drag
   /* Top-down blackjack table: dealer on the straight edge at top, 7 seats around the curve. */
   const cx = 200, cy = 40, r = 170;
   let s = `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
@@ -216,8 +225,9 @@ function drawTable() {
     const x = cx + Math.cos(a) * (r - 30), y = cy + Math.sin(a) * (r - 30);
     const c = seated[i];
     /* Chair outside the rail, facing the table. */
-    const chx = cx + Math.cos(a) * (r + 40), chy = cy + Math.sin(a) * (r + 40), deg = a * 180 / Math.PI - 90;
-    s += `<g transform="translate(${chx} ${chy}) rotate(${deg})">`
+    const L = layout[i];
+    const chx = L ? L.x : cx + Math.cos(a) * (r + 40), chy = L ? L.y : cy + Math.sin(a) * (r + 40);
+    s += `<g class="chair" data-chair="${i}" transform="${chairXf(chx, chy)}">`
        + `<rect x="-15" y="-12" width="30" height="24" rx="6" fill="${c ? "var(--gold)" : "#3a3f4b"}" stroke="rgba(255,255,255,.5)"/>`
        + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${c ? "#b8902f" : "#2a2e37"}" stroke="rgba(255,255,255,.5)"/></g>`;
     s += `<circle cx="${x}" cy="${y}" r="20" fill="${c ? "var(--gold)" : "rgba(0,0,0,.35)"}" stroke="#fff" stroke-width="1.5"/>`
@@ -336,8 +346,41 @@ document.addEventListener("click", e => {
   if (a === "askSeat") { askSeat(c); return; }
   if (act[a]) act[a](c);
 });
+/* Drag chairs around (regular view only). */
+const tblSvg = $("tbl");
+function svgPoint(e) {
+  const pt = tblSvg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  return pt.matrixTransform(tblSvg.getScreenCTM().inverse());
+}
+tblSvg.addEventListener("pointerdown", e => {
+  const g = e.target.closest(".chair");
+  if (!g || $("tblBox").classList.contains("full")) return;
+  e.preventDefault();
+  tblSvg.setPointerCapture(e.pointerId);
+  dragging = { i: g.dataset.chair, g, moved: false };
+});
+tblSvg.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const p = svgPoint(e);
+  dragging.moved = true; dragging.x = Math.round(p.x); dragging.y = Math.round(p.y);
+  dragging.g.setAttribute("transform", chairXf(dragging.x, dragging.y));
+});
+const endDrag = () => {
+  if (!dragging) return;
+  const d = dragging; dragging = null;
+  if (d.moved) {
+    justDragged = true;
+    layout[d.i] = { x: d.x, y: d.y };
+    try { localStorage.setItem("playerTracker.layout", JSON.stringify(layout)); } catch (e) {}
+    setDoc(LAYREF, { [d.i]: layout[d.i] }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+  }
+  drawTable();
+};
+tblSvg.addEventListener("pointerup", endDrag);
+tblSvg.addEventListener("pointercancel", endDrag);
 $("tblBox").onclick = e => {
   const box = $("tblBox");
+  if (justDragged) { justDragged = false; return; }   // a drag isn't a tap to go full screen
   if (e.target.closest("#tblBack")) { box.classList.remove("full"); return; }
   box.classList.add("full");
 };
@@ -358,6 +401,11 @@ function start() {
     render();
   }, () => { $("warn").style.display = "block"; });
   onSnapshot(LOGREF, snap => { events = (snap.exists() && snap.data().events) || []; render(); }, () => {});
+  onSnapshot(LAYREF, snap => {
+    layout = snap.exists() ? snap.data() : {};
+    try { localStorage.setItem("playerTracker.layout", JSON.stringify(layout)); } catch (e) {}
+    render();
+  }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; render(); }, () => {});
   setInterval(render, 30000);   // keep the hours ticking
 }
