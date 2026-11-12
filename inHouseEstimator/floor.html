@@ -85,22 +85,30 @@ body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
 #tbar input,#tbar select{padding:6px 8px;margin:0}
 #eNum{width:70px}#eGame{width:180px}
 .ptbl.dragging{cursor:grabbing;opacity:.85}
+#pgBox{background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+#pgBox .pgh{display:flex;align-items:center}#pgBox .pgh b{flex:1;color:var(--gold);font-size:17px}
+#pgBox .pgh button,#pgBox .x{background:none;border:0;color:rgba(255,255,255,.6);font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+#pgBox .lbl{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin:10px 0 2px}
+.pg{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.pg:last-child{border-bottom:0}.pg span{flex:1}
+.star{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:rgba(255,255,255,.4);padding:0 2px}
+.star.on{color:var(--gold)}
 </style>
 </head>
 <body style="visibility:hidden">
 <div class="wrap">
-  <div class="top"><a class="btn ghost sm" href="./player-tracker.html">&lsaquo; Back</a><h1>Floor</h1></div>
+  <div class="top"><a class="btn ghost sm" href="./player-tracker.html">&lsaquo; Back</a><h1>Floor</h1>
+    <a class="btn" href="./waitlist.html" target="_blank" style="margin-left:auto">Open Waitlist &rsaquo;</a></div>
   <div class="warn" id="warn">Not syncing with the server.</div>
   <div class="cols">
     <aside>
       <h2>Wait list</h2>
-      <a class="btn ghost" href="./waitlist.html" style="width:100%;margin-bottom:8px">Open Waitlist &rsaquo;</a>
-      <button class="btn" id="addGame" style="width:100%">+ Add a game</button>
-      <div class="add" id="addGameBox" hidden style="margin-top:10px">
-        <input id="gName" list="gamePresets" placeholder="Game, e.g. 1/2 No-Limit Hold'em" autocomplete="off" style="flex:1;min-width:0">
-        <button class="btn" id="gCreate">Create</button>
+      <button class="btn" id="addW" style="width:100%">+ Add to wait list</button>
+      <div class="add" id="addWBox" hidden style="margin-top:10px">
+        <input id="wName" placeholder="Name" autocomplete="off" style="flex:1 1 100%">
+        <select id="wGame" aria-label="Game" style="flex:1;min-width:0"></select>
+        <button class="btn" id="wAdd">Add</button>
       </div>
-      <datalist id="gamePresets"><option>No-Limit Hold'em</option><option>Limit Hold'em</option><option>Pot-Limit Omaha</option><option>Omaha Hi-Lo</option></datalist>
       <div id="wait"></div>
     </aside>
     <main>
@@ -110,13 +118,21 @@ body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
       <p class="hint">Tap a table to open its details. To move tables, tap Edit table position on floor.
         <a href="./measure.html?building=1" class="btn ghost sm" style="margin-left:6px">Edit building shape</a>
         <button class="btn ghost sm" id="moveMode" style="margin-left:4px">Edit table position on floor</button>
-        <button class="btn sm" id="addTbl" style="margin-left:4px">+ Add a table</button></p>
+        <button class="btn sm" id="addTbl" style="margin-left:4px">+ Add a table</button>
+        <button class="btn sm" id="addPg" style="margin-left:4px">+ Add a poker game</button></p>
       <div class="add" id="addTblBox" hidden style="background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:10px">
         <input id="tGame" list="tblGames" placeholder="Game, e.g. Blackjack" autocomplete="off" style="flex:1;min-width:160px">
         <datalist id="tblGames"><option>Blackjack</option><option>Baccarat</option><option>Poker</option><option>Three Card Poker</option><option>Ultimate Texas Hold'em</option><option>Pai Gow</option></datalist>
         <select id="tSeats" aria-label="Seats"><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select>
         <select id="tShape" aria-label="Shape"><option value="half">Half-moon</option><option value="oval">Oval</option></select>
         <button class="btn" id="tCreate">Add table</button>
+      </div>
+      <!-- Poker games: star your favorites; tap Start list to open a wait list for that game; write in your own. -->
+      <div id="pgBox" hidden>
+        <div class="pgh"><b>Poker games</b><button id="pgClose" aria-label="Close">&times;</button></div>
+        <div class="lbl">Favorites</div><div id="pgFav"></div>
+        <div class="lbl">All poker games</div><div id="pgAll"></div>
+        <div class="add" style="margin:10px 0 0"><input id="pgNew" placeholder="Write in your own poker game" autocomplete="off" style="flex:1;min-width:0"><button class="btn sm" id="pgAdd">Add</button></div>
       </div>
       <div id="tbar" hidden><div id="tpLive"></div><div id="tpEdit"></div></div>
       <svg id="plan" viewBox="0 0 900 560"></svg>
@@ -145,6 +161,14 @@ const TBLREF = doc(db, "playerTracker", "tables"), CALLREF = doc(db, "playerTrac
 const GAMESREF = doc(db, "playerTracker", "waitgames");   // wait list games the floor built: { id: { name, at } }
 const LISTREF = doc(db, "playerTracker", "tablelist");    // added tables and edits: { n: { game, seats: [..], shape, deleted } }
 const PLANREF = doc(db, "playerTracker", "floorplan");    // where each table sits on the floor plan: { n: { x, y, rot, scale } }
+const PGREF = doc(db, "playerTracker", "pokergames");    // poker games list: { fav: { id: true }, custom: { id: { name, at } } }
+/* Poker games (Hold'em and Omaha for now; no Stud or Razz yet). Starred ones are the favorites. */
+const POKER_GAMES = { nlh: "No-Limit Hold'em", lhe: "Limit Hold'em", plh: "Pot-Limit Hold'em", plo: "Pot-Limit Omaha (PLO)",
+  nlo: "No-Limit Omaha", lo: "Limit Omaha", plo8: "PLO Hi-Lo (PLO8)", o8: "Limit Omaha Hi-Lo (O8)", plo5: "5-Card PLO",
+  plo6: "6-Card PLO", bigo: "Big O (5-Card Omaha Hi-Lo)", dbplo: "Double Board PLO" };
+let pg = { fav: {}, custom: {} };
+const pgName = id => POKER_GAMES[id] || (pg.custom[id] && pg.custom[id].name) || "";
+const pgAll = () => [...Object.keys(POKER_GAMES), ...Object.keys(pg.custom).filter(k => pg.custom[k] && pg.custom[k].name)];
 const BLDREF = doc(db, "playerTracker", "building");      // building outline drawn with the room measurer's sketch tool (feet)
 const FT_PX = 16;   // floor plan units per foot (a table with its chairs is about 12 ft across)
 
@@ -163,7 +187,7 @@ function buildTables() {   // tables 1-5, changed by the floor's edits, plus add
     if (!t) continue;
     if (t.deleted) { delete T[n]; continue; }
     const b = BASE_TABLES[n] || {}, seats = Array.isArray(t.seats) ? t.seats : b.seats;
-    if ((t.game || b.game) && seats) T[n] = { game: t.game || b.game, seats, shape: t.shape || b.shape || "half" };
+    if ((t.game || b.game) && seats) T[n] = { game: t.game || b.game, seats, shape: t.shape || b.shape || "half", variant: t.variant || "" };
   }
   TABLES = T;
 }
@@ -195,7 +219,7 @@ function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
   }
   s += `<text x="100" y="${label}" fill="${open ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.55)"}" font-size="26" font-weight="700" text-anchor="middle">${n}</text>`;
   if (!open) s += `<text x="100" y="${label + 18}" fill="#f87171" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle">CLOSED</text>`;
-  s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${esc(tb.game)}</text>`
+  s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${esc(tb.variant || tb.game)}</text>`
      + `<text x="100" y="162" fill="rgba(255,255,255,.7)" font-size="11" text-anchor="middle">${dealer ? esc(nameOf(dealer)) : "No dealer"} &#183; ${nSeated}/${tb.seats.length} seated${nBreak ? " &#183; " + nBreak + " on break" : ""}</text>`
      + `<a href="./dealer-table.html?t=${n}"><text x="100" y="178" fill="#E3B64A" font-size="11" font-weight="700" text-anchor="middle">Dealer Control &#8250;</text></a>`;
   return `<g class="ptbl${selT === n ? " sel" : ""}" data-tbl="${n}" transform="${tblXf(pos)}">${s}</g>`;
@@ -254,7 +278,12 @@ function draw() {
     const on = Object.entries(state).filter(([c, p]) => p && p.status === "seated" && (p.table || 1) === n);
     const dealer = on.find(([c]) => DEALERS[c]), players = on.filter(([c]) => isPlayer(c)).sort((a, b) => a[1].seat - b[1].seat);
     $("tbar").hidden = false;
-    $("tpLive").innerHTML = `<div class="tph"><h3>Table ${n} &middot; ${esc(tb.game)}</h3><button data-ta="x" aria-label="Close">&times;</button></div>
+    /* Poker table: pick which poker game it's running (favorites, plus whatever it's on now). It stays until changed. */
+    const favIds = pgAll().filter(id => pg.fav[id]), cur = tb.variant || "";
+    const pick = ovalGame(tb.game) ? `<div class="sec"><div class="lbl">Poker game</div><select data-tv="${n}">
+        <option value="">${favIds.length ? "Pick a game" : "Star games in + Add a poker game"}</option>
+        ${[...new Set([...favIds.map(pgName), ...(cur ? [cur] : [])])].map(g => `<option${g === cur ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>` : "";
+    $("tpLive").innerHTML = `<div class="tph"><h3>Table ${n} &middot; ${esc(tb.variant || tb.game)}</h3><button data-ta="x" aria-label="Close">&times;</button></div>${pick}
       <div class="sec btns"><button class="btn ${open ? "" : "ok"}" data-ta="open">${open ? "Close table" : "Open table"}</button>
         <span class="tag" style="align-self:center;${open ? "background:var(--ok);color:#000" : "background:#5a1d1d"}">${open ? "Open" : "Closed"}</span>
         <a class="btn ghost" href="./dealer-table.html?t=${n}">Dealer Control &rsaquo;</a></div>
@@ -284,14 +313,17 @@ function draw() {
   const gl = Object.entries(games).filter(([, g]) => g && g.name).sort((a, b) => a[1].at - b[1].at);
   let html = gl.map(([gid, g]) => {
     const list = names.filter(w => w.game === gid).sort((a, b) => a.at - b.at);
-    return `<div class="gbox"><div class="gh"><b>${esc(g.name)}</b><span class="cnt">${list.length} waiting</span><button data-delgame="${esc(gid)}" title="Remove this list">&times;</button></div>
-      <div class="add" style="margin-bottom:0"><input data-gin="${esc(gid)}" placeholder="Add a name" autocomplete="off"><button class="btn sm" data-gadd="${esc(gid)}">Add</button></div></div>`;
+    return `<div class="gbox"><div class="gh" style="margin:0"><b>${esc(g.name)}</b><span class="cnt">${list.length} waiting</span><button data-delgame="${esc(gid)}" title="Remove this list">&times;</button></div></div>`;
   }).join("");
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
     .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
   const other = names.filter(w => !games[w.game]);
   if (phones.length || other.length) html += `<p class="hint" style="margin:10px 0 0">${[phones.length ? phones.length + " from phones" : "", other.length ? other.length + " in Other" : ""].filter(Boolean).join(" &middot; ")} &mdash; see the Waitlist.</p>`;
-  if (!html) html = `<div class="empty">No games yet. Tap "+ Add a game" to start a list.</div>`;
+  if (!html) html = `<div class="empty">No lists yet. Start one with "+ Add a poker game".</div>`;
+  const wg = $("wGame"), wv = wg.value;   // game picker for + Add to wait list
+  wg.innerHTML = gl.length ? gl.map(([gid, g]) => `<option value="${esc(gid)}">${esc(g.name)}</option>`).join("") : `<option value="">No lists yet</option>`;
+  if (wv && games[wv]) wg.value = wv;
+  if (!$("pgBox").hidden) drawPg();
   const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.gin;   // keep typing focus through a redraw
   const typed = focused ? document.activeElement.value : "";
   $("wait").innerHTML = html;
@@ -356,17 +388,66 @@ function addName(gid) {
   draw();
 }
 document.addEventListener("keydown", e => { const el = e.target.closest && e.target.closest("[data-gin]"); if (el && e.key === "Enter") addName(el.dataset.gin); });
-/* + Add a game: name it (presets or type your own) and a new list appears. */
-$("addGame").onclick = () => { $("addGameBox").hidden = !$("addGameBox").hidden; if (!$("addGameBox").hidden) $("gName").focus(); };
-const createGame = () => {
-  const name = $("gName").value.trim(); if (!name) { $("gName").focus(); return; }
-  const gid = "g" + Date.now();
-  games[gid] = { name, at: Date.now() };
-  setDoc(GAMESREF, { [gid]: games[gid] }, { merge: true }).catch(fail);
-  $("gName").value = ""; $("addGameBox").hidden = true; draw();
+/* + Add to wait list: a name and which game's list. */
+$("addW").onclick = () => { $("addWBox").hidden = !$("addWBox").hidden; if (!$("addWBox").hidden) $("wName").focus(); };
+const addToWait = () => {
+  const name = $("wName").value.trim(), gid = $("wGame").value;
+  if (!name) { $("wName").focus(); return; }
+  if (!gid || !games[gid]) { alert("Start a list first with + Add a poker game."); return; }
+  const id = "w" + Date.now() + Math.random().toString(36).slice(2, 6);
+  wait[id] = { name, game: gid, at: Date.now() };
+  setDoc(WAITREF, { [id]: wait[id] }, { merge: true }).catch(fail);
+  $("wName").value = ""; $("wName").focus(); draw();
 };
-$("gCreate").onclick = createGame;
-$("gName").onkeydown = e => { if (e.key === "Enter") createGame(); };
+$("wAdd").onclick = addToWait;
+$("wName").onkeydown = e => { if (e.key === "Enter") addToWait(); };
+
+/* + Add a poker game: the poker games list. Star = favorite (favorites go on top and are what a poker table
+   can be set to). Start list = a wait list for that game. Write in your own at the bottom. */
+const listFor = name => Object.keys(games).find(gid => games[gid] && games[gid].name === name);
+function drawPg() {
+  const row = id => `<div class="pg"><button class="star${pg.fav[id] ? " on" : ""}" data-star="${esc(id)}" aria-label="Favorite">${pg.fav[id] ? "&#9733;" : "&#9734;"}</button>
+    <span>${esc(pgName(id))}</span>${listFor(pgName(id)) ? `<span class="tag" style="flex:none">List open</span>` : `<button class="btn sm" data-pgstart="${esc(id)}">Start list</button>`}
+    ${pg.custom[id] ? `<button class="x" data-pgdel="${esc(id)}" title="Remove">&times;</button>` : ""}</div>`;
+  const all = pgAll(), favs = all.filter(id => pg.fav[id]);
+  $("pgFav").innerHTML = favs.length ? favs.map(row).join("") : `<div class="hint" style="margin:4px 0">Tap a star to add a favorite.</div>`;
+  $("pgAll").innerHTML = all.map(row).join("");
+}
+$("addPg").onclick = () => { $("pgBox").hidden = !$("pgBox").hidden; if (!$("pgBox").hidden) drawPg(); };
+$("pgClose").onclick = () => { $("pgBox").hidden = true; };
+$("pgBox").addEventListener("click", e => {
+  const st = e.target.closest("[data-star]"), go = e.target.closest("[data-pgstart]"), del = e.target.closest("[data-pgdel]");
+  if (st) {
+    const id = st.dataset.star, on = !pg.fav[id];
+    if (on) pg.fav[id] = true; else delete pg.fav[id];
+    setDoc(PGREF, { fav: { [id]: on ? true : deleteField() } }, { merge: true }).catch(fail);
+  } else if (go) {
+    const name = pgName(go.dataset.pgstart);
+    if (!listFor(name)) { const gid = "g" + Date.now(); games[gid] = { name, at: Date.now() }; setDoc(GAMESREF, { [gid]: games[gid] }, { merge: true }).catch(fail); }
+  } else if (del) {
+    const id = del.dataset.pgdel; delete pg.custom[id]; delete pg.fav[id];
+    setDoc(PGREF, { custom: { [id]: deleteField() }, fav: { [id]: deleteField() } }, { merge: true }).catch(fail);
+  } else return;
+  drawPg(); draw();
+});
+const addPgGame = () => {
+  const name = $("pgNew").value.trim(); if (!name) { $("pgNew").focus(); return; }
+  if (pgAll().some(id => pgName(id).toLowerCase() === name.toLowerCase())) { $("pgNew").value = ""; return; }
+  const id = "c" + Date.now();
+  pg.custom[id] = { name, at: Date.now() };
+  setDoc(PGREF, { custom: { [id]: pg.custom[id] } }, { merge: true }).catch(fail);
+  $("pgNew").value = ""; drawPg();
+};
+$("pgAdd").onclick = addPgGame;
+$("pgNew").onkeydown = e => { if (e.key === "Enter") addPgGame(); };
+/* A poker table's game (from the strip): saved on the table, stays until changed. */
+document.addEventListener("change", e => {
+  const sel = e.target.closest("[data-tv]"); if (!sel) return;
+  const n = +sel.dataset.tv, v = sel.value;
+  list[n] = { ...(list[n] || {}), variant: v }; buildTables();
+  setDoc(LISTREF, { [n]: { variant: v } }, { merge: true }).catch(fail);
+  draw();
+});
 
 /* Edit table: new number (moves its spot, open/closed and everyone logged in there) and/or new game. */
 function saveTableEdit(n) {
@@ -448,6 +529,7 @@ onAuthStateChanged(getAuth(app), u => {
   on(REF, v => state = v); on(TBLREF, v => tables = v); on(CALLREF, v => calls = v); on(WAITREF, v => wait = v);
   on(GAMESREF, v => games = v); on(PLANREF, v => plan = v);
   on(LISTREF, v => { list = v; buildTables(); if (selT && !TABLES[selT]) selT = 0; });
+  on(PGREF, v => { pg = { fav: v.fav || {}, custom: v.custom || {} }; });
   on(BLDREF, v => { try { building = v.sketch ? JSON.parse(v.sketch) : null; } catch (e) { building = null; } });
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
