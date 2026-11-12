@@ -428,17 +428,20 @@ tblSvg.addEventListener("pointerdown", e => {
   if (!g || $("tblBox").classList.contains("full")) return;
   e.preventDefault();
   tblSvg.setPointerCapture(e.pointerId);
-  dragging = { i: g.dataset.chair, g, moved: false };
+  const p0 = svgPoint(e);
+  dragging = { i: g.dataset.chair, g, moved: false, x0: p0.x, y0: p0.y };
 });
 tblSvg.addEventListener("pointermove", e => {
   if (!dragging) return;
   const p = svgPoint(e);
+  if (!dragging.moved && Math.hypot(p.x - dragging.x0, p.y - dragging.y0) < 6) return;   // a little wiggle is still a tap
   dragging.moved = true; dragging.x = Math.round(p.x); dragging.y = Math.round(p.y);
   dragging.g.setAttribute("transform", chairXf(dragging.x, dragging.y));
 });
-const endDrag = () => {
+const endDrag = e => {
   if (!dragging) return;
   const d = dragging; dragging = null;
+  if (!d.moved && e && e.type === "pointerup") { justDragged = true; showSeatQR(+d.i); }   // tapped a chair: that seat's sign-in QR
   if (d.moved) {
     justDragged = true;
     layout[d.i] = { x: d.x, y: d.y };
@@ -477,6 +480,16 @@ function showQR(c) {
   showModal(`<div class="mt">${esc(nameOf(c))}</div><div id="qrBox"></div><p class="note">Card #${c}</p>`);
   if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 260, height: 260, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
   else $("qrBox").textContent = link;
+}
+/* Tap a chair: that seat's sign-in QR. Player scans it, signs in, and the dealer is asked to seat them. */
+function showSeatQR(n) {
+  const link = location.origin + location.pathname + "?join&t=1&s=" + n;
+  showModal(`<div class="mt">Seat ${n}</div><div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div>
+    <p class="note">Table 1, seat ${n}</p><p class="note" style="word-break:break-all">${esc(link)}</p>
+    <button class="btn sm" id="seatLinkCopy">Copy link</button>`);
+  if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 240, height: 240, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+  $("seatLinkCopy").onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
+    .then(() => { $("seatLinkCopy").textContent = "Copied"; }, () => prompt("Copy this link:", link));
 }
 async function openScanner() {
   showModal(`<div class="mt">Scan player</div><video id="scanVid" playsinline muted></video><canvas id="scanCv" hidden></canvas><p class="note" id="scanMsg">Point the camera at the player's QR code.</p>`);
@@ -553,12 +566,23 @@ function signedIn(c) {
 /* Seat sign-in pages: player-tracker.html?join&t=2&s=5 (one per seat). After sign-in it asks the dealer
    to seat them there; the dealer approves on the dealer table page. */
 const reqT = +params.get("t"), reqS = +params.get("s");
-function maybeRequestSeat() {
+async function maybeRequestSeat() {
   if (!reqT || !reqS || !myCard || DEALERS[myCard]) return;
   const c = myCard;
+  const box = $("reqBox");
+  /* Seat already taken by someone else: tell the player, don't bother the dealer. */
+  try {
+    const snap = await getDoc(REF), all = snap.exists() ? snap.data() : {};
+    const taken = Object.entries(all).some(([k, p]) => k !== c && p.status === "seated" && (p.table || 1) === reqT && p.seat === reqS);
+    if (taken) {
+      box.hidden = false;
+      box.innerHTML = `<div class="status" style="margin:0;color:#fca5a5">Someone's already seated there. Please pick another seat.</div>`;
+      return;
+    }
+  } catch (e) {}
   setDoc(REQREF, { [c]: { t: reqT, s: reqS, at: Date.now() } }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
   logEvent(c, "Asked for table " + reqT + " seat " + reqS);
-  const box = $("reqBox"); box.hidden = false;
+  box.hidden = false;
   box.innerHTML = `<div class="status" style="margin:0">Waiting for the dealer to seat you at table ${reqT}, seat ${reqS}&hellip;</div>`;
   let asked = false;
   onSnapshot(REQREF, snap => {
