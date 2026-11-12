@@ -70,6 +70,8 @@ const app = initializeApp({
 const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 const db = getFirestore(app);
+const ROSTREF = doc(db, "playerTracker", "roster");   // players who signed up themselves (names)
+let roster = {};
 const REF = doc(db, "playerTracker", "poc"), LOGREF = doc(db, "playerTracker", "log"), PROFREF = doc(db, "playerTracker", "profiles");
 
 /* Same test roster as player-tracker.html. */
@@ -95,7 +97,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 let state = {}, profiles = {};
 const get = c => state[c] || { status: "out", totalMs: 0 };
-const nameOf = c => (profiles[c] && profiles[c].name) || ROSTER[c] || DEALERS[c] || c;
+const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || DEALERS[c] || c;
+const isPlayer = c => !!(c && (ROSTER[c] || roster[c]));
 const fmtHrs = ms => { const m = Math.floor(ms / 60000); return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
 const liveMs = p => (p.totalMs || 0) + (p.status === "seated" && p.since ? Date.now() - p.since : 0);
 /* Time in the seat this session (stops while on break). */
@@ -104,7 +107,7 @@ const BREAK_LIMIT = 30 * 60000;
 const seatColor = p => !p ? "#000" : p.breakAt ? (Date.now() - p.breakAt > BREAK_LIMIT ? "#ef4444" : "#3b82f6") : "var(--gold)";
 /* Fill for the big seat number: open = dark, pressed into the felt; seated = shiny gold; break = blue/red with a sheen. */
 const numFill = p => !p ? "#04170c" : p.breakAt ? (Date.now() - p.breakAt > BREAK_LIMIT ? "url(#redN)" : "url(#blueN)") : "url(#goldN)";
-const whoIn = n => Object.keys(state).find(c => ROSTER[c] && onT(state[c]) && state[c].seat === n);
+const whoIn = n => Object.keys(state).find(c => isPlayer(c) && onT(state[c]) && state[c].seat === n);
 const dealerOn = () => Object.keys(DEALERS).find(d => onT(get(d)));
 const fail = () => { $("warn").style.display = "block"; };
 
@@ -332,7 +335,7 @@ async function startScan(n) {
       let card = null;
       try { card = new URL(txt).searchParams.get("card"); } catch (e) {}
       if (!card) { const m = String(txt).match(/\d{4,}/); if (m) card = m[0]; }   // a plain card number
-      if (ROSTER[card]) { closeModal(); seatPlayer(card, n); return; }
+      if (isPlayer(card)) { closeModal(); seatPlayer(card, n); return; }
       $("scanMsg").textContent = "Not a player code. Try again.";
     }
     scanRaf = requestAnimationFrame(tick);
@@ -351,6 +354,7 @@ onAuthStateChanged(getAuth(app), u => {
   draw();
   onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);
   setInterval(draw, 30000);   // keep seated and break times ticking (and turn red at 30 min)
+  onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
 });
 </script>

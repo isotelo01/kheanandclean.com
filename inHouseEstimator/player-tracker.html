@@ -91,6 +91,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <h2>Test players</h2>
     <div class="box" id="players"></div>
     <p class="note">Each player's link logs them in/out. Copy a link and text it to a tester.</p>
+    <p><button class="btn sm" id="joinLink">Copy player sign-in link</button></p>
     <p style="margin-top:16px"><button class="btn ghost sm" id="reset">Reset all</button></p>
   </div>
   <div id="prof" hidden>
@@ -114,6 +115,11 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
   </div>
   <div id="player" hidden>
     <div class="box me" id="meBox"></div>
+    <div class="box me" id="qrMe" style="margin-top:12px" hidden><div class="note" style="margin:0 0 8px">Show this to the dealer</div><div id="myQr" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div>
+      <p class="note"><a href="#" id="notMe" style="color:var(--gold)">Not you?</a></p></div>
+  </div>
+  <div id="signin" hidden>
+    <div class="box me" id="siBox"></div>
   </div>
 </div>
 <div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:14px 0 0"><button class="btn ghost" id="mclose">Close</button></p></div></div>
@@ -122,7 +128,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -137,6 +143,9 @@ const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc");
 const LOGREF = doc(db, "playerTracker", "log");        // { events: [{ c, a, t }] } every log in / log out
 const PROFREF = doc(db, "playerTracker", "profiles");
+const ROSTREF = doc(db, "playerTracker", "roster");     // { card: { name } } players who signed up themselves (names only)
+const IDXREF = doc(db, "playerTracker", "phoneIndex");  // { "h_<sha256 of phone>": card, "l4_<last 4>": [cards] } — no phone numbers in it
+let roster = {};
 const LAYREF = doc(db, "playerTracker", "layout");     // { seatNumber: { x, y } } where each chair was dragged to
 let layout = {};
 try { layout = JSON.parse(localStorage.getItem("playerTracker.layout") || "{}"); } catch (e) {}
@@ -163,7 +172,8 @@ const liveMs = p => (p.totalMs || 0) + (p.status === "seated" && p.since ? Date.
 
 let events = [], profiles = {};
 try { events = JSON.parse(localStorage.getItem("playerTracker.log") || "[]"); profiles = JSON.parse(localStorage.getItem("playerTracker.profiles") || "{}"); } catch (e) {}
-const nameOf = c => (profiles[c] && profiles[c].name) || ROSTER[c] || DEALERS[c] || c;
+const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || DEALERS[c] || c;
+const isPlayer = c => !!(c && (ROSTER[c] || roster[c]));
 function logEvent(c, a) {
   const ev = { c, a, t: Date.now() };
   events.push(ev);
@@ -216,7 +226,7 @@ const onTableDealer = () => Object.keys(DEALERS).find(d => get(d).status === "se
 const params = new URLSearchParams(location.search);
 let myCard = params.get("card") || params.get("dealer");
 if (myCard) { try { localStorage.setItem("playerTracker.card", myCard); } catch (e) {} }
-else if (params.has("me")) { try { myCard = localStorage.getItem("playerTracker.card"); } catch (e) {} }
+else if (params.has("me") || params.has("join")) { try { myCard = localStorage.getItem("playerTracker.card"); } catch (e) {} }   // remembered on this phone
 
 /* A chair always turns to face the middle of the table, wherever it's dragged. */
 const chairXf = (x, y) => `translate(${x} ${y}) rotate(${Math.atan2(y - 40, x - 200) * 180 / Math.PI - 90})`;
@@ -302,7 +312,8 @@ function renderFloor() {
     return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
       <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div>`;
   }).join("");
-  $("players").innerHTML = Object.entries(ROSTER).map(([c, nm]) => {
+  const allPlayers = Object.keys(ROSTER).concat(Object.keys(roster).filter(k => !ROSTER[k]));
+  $("players").innerHTML = allPlayers.map(c => {
     const p = get(c), link = base + "?card=" + c;
     const tag = p.status === "seated" ? `<span class="tag seated">T${p.table || 1} &middot; Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
     return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
@@ -327,8 +338,7 @@ function renderDealer() {
 
 function renderPlayer() {
   if (DEALERS[myCard]) return renderDealer();
-  const nm = ROSTER[myCard];
-  if (!nm) { $("meBox").innerHTML = `<div class="who">Card not found</div><p class="note">Ask the floor for your link.</p>`; return; }
+  if (!isPlayer(myCard)) { $("meBox").innerHTML = `<div class="who">Card not found</div><p class="note">Ask the floor for your link.</p>`; return; }
   const p = get(myCard);
   const st = p.status === "seated" ? `You're seated at seat ${p.seat}` : p.status === "wait" ? `You're on the list (#${
     Object.values(state).filter(q => q.status === "wait" && q.waitAt <= p.waitAt).length})` : "You're logged out";
@@ -489,9 +499,13 @@ function handleScan(txt) {
   try { card = new URL(txt).searchParams.get("card"); } catch (e) {}
   if (!card) { const m = String(txt).match(/\d{4,}/); if (m) card = m[0]; }   // a plain card number
   closeModal();
-  if (!ROSTER[card]) { alert("Player not found: " + txt); return; }
+  if (!isPlayer(card)) { alert("Player not found: " + txt); return; }
   askSeat(card);
 }
+$("joinLink").onclick = () => {
+  const l = location.origin + location.pathname + "?join";
+  (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(() => { $("joinLink").textContent = "Copied"; setTimeout(() => $("joinLink").textContent = "Copy player sign-in link", 1500); }, () => prompt("Copy this link:", l));
+};
 $("reset").onclick = () => {
   if (!confirm("Log everyone out and clear all hours?")) return;
   state = {}; try { localStorage.removeItem(LS); } catch (e) {}
@@ -514,11 +528,74 @@ function start() {
     try { localStorage.setItem("playerTracker.layout", JSON.stringify(layout)); } catch (e) {}
     render();
   }, () => {});
-  onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; render(); }, () => {});
+  onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; render(); }, () => {});
+  if (!myCard) onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; render(); }, () => {});   // phones/emails: staff pages only
   setInterval(render, 30000);   // keep the hours ticking
 }
 
-if (myCard) { $("player").hidden = false; start(); }
+/* ---- Player sign-in (link: player-tracker.html?join). Phone number or player's card number, once;
+   the phone remembers them after that (localStorage, kept as long as the browser allows). ---- */
+const digitsOf = v => String(v || "").replace(/\D/g, "");
+async function sha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
+function signedIn(c) {
+  try { localStorage.setItem("playerTracker.card", c); } catch (e) {}
+  myCard = c; $("signin").hidden = true; $("player").hidden = false; start(); showMyQr();
+}
+function siStep(title, note, ph, btn, onGo, type = "tel") {
+  $("siBox").innerHTML = `<div class="who" style="font-size:22px">${title}</div><p class="note">${note}</p>
+    <input id="siIn" type="${type}" ${type === "tel" ? 'inputmode="numeric"' : ""} placeholder="${ph}" style="margin:10px 0">
+    <button class="btn" id="siGo" style="width:100%">${btn}</button><p class="note" id="siMsg" style="color:#fca5a5"></p>`;
+  const go = () => onGo($("siIn").value.trim());
+  $("siGo").onclick = go; $("siIn").onkeydown = e => { if (e.key === "Enter") go(); };
+  $("siIn").focus();
+}
+async function signInStart() {
+  $("signin").hidden = false;
+  let idx = {};
+  try { const [r, x] = await Promise.all([getDoc(ROSTREF), getDoc(IDXREF)]); roster = r.exists() ? r.data() : {}; idx = x.exists() ? x.data() : {}; }
+  catch (e) { $("warn").style.display = "block"; }
+  const full = (msg) => siStep("Your phone number", msg, "Full phone number", "Continue", v => byPhone(digitsOf(v)));
+  const byPhone = async (d) => {
+    if (d.length === 11 && d[0] === "1") d = d.slice(1);
+    if (d.length !== 10) { $("siMsg").textContent = "Enter all 10 digits."; return; }
+    const h = await sha(d), found = idx["h_" + h];
+    if (found) { signedIn(found); return; }
+    siStep("Welcome!", "First time here. What's your name?", "Your name", "Get my code", async name => {
+      if (!name) { $("siMsg").textContent = "Enter your name."; return; }
+      const id = "P" + Date.now().toString(36).toUpperCase();   // new player file
+      try {
+        await Promise.all([
+          setDoc(ROSTREF, { [id]: { name } }, { merge: true }),
+          setDoc(IDXREF, { ["h_" + h]: id, ["l4_" + d.slice(-4)]: arrayUnion(id) }, { merge: true }),
+          setDoc(PROFREF, { [id]: { name, phone: d } }, { merge: true })
+        ]);
+      } catch (e) { $("siMsg").textContent = "Couldn't save. Try again."; return; }
+      roster[id] = { name }; logEvent(id, "Signed up");
+      signedIn(id);
+    }, "text");
+  };
+  siStep("Player sign-in", "Enter your phone number (or just the last 4), or your player's card number.", "Phone or card number", "Continue", v => {
+    const d = digitsOf(v);
+    if (isPlayer(d)) { signedIn(d); return; }                 // player's card number
+    if (d.length === 4) {                                     // last 4 of their phone
+      const list = idx["l4_" + d] || [];
+      if (list.length === 1) { signedIn(list[0]); return; }
+      full(list.length ? "More than one player has those last 4. Enter your full phone number." : "Enter your full phone number.");
+      return;
+    }
+    if (d.length >= 10) { byPhone(d); return; }
+    $("siMsg").textContent = "Enter your phone number, the last 4, or your card number.";
+  });
+}
+function showMyQr() {
+  if (!myCard || DEALERS[myCard] || !window.QRCode) return;
+  $("qrMe").hidden = false; $("myQr").innerHTML = "";
+  new QRCode($("myQr"), { text: location.origin + location.pathname + "?card=" + myCard, width: 200, height: 200, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+}
+$("notMe").onclick = e => { e.preventDefault(); try { localStorage.removeItem("playerTracker.card"); } catch (x) {} location.href = location.pathname + "?join"; };
+
+if (myCard) { $("player").hidden = false; start(); showMyQr(); }
+else if (params.has("join") || params.has("me")) signInStart();
 else {
   /* Floor view: staff only. */
   onAuthStateChanged(getAuth(app), u => {
