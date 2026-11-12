@@ -64,6 +64,17 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 .seats button.taken{background:var(--gold);color:#000}
 .wbtn{width:100%;background:none;border:0;border-bottom:1px solid rgba(255,255,255,.12);color:#fff;font:inherit;cursor:pointer;text-align:left}
 .wbtn b{color:var(--gold)}
+/* Seat menu: big Wager button (word twice the size), bigger Break, big Close bottom-right. */
+.btn.big{font-size:22px;padding:14px 28px}
+.wager{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;background:none;border:2px solid var(--gold);
+  border-radius:14px;padding:14px 18px;color:#fff;cursor:pointer;font:700 30px system-ui,sans-serif}
+.wager b{color:var(--gold);font-size:26px}
+.btn.huge{font-size:24px;padding:16px 30px}
+/* Dragging a player's name to another seat. */
+#ghost{position:fixed;z-index:70;pointer-events:none;transform:translate(-50%,-130%);background:var(--gold);color:#000;
+  font:800 16px system-ui,sans-serif;padding:8px 14px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.5);white-space:nowrap}
+#ghost[hidden]{display:none}
+.drag{cursor:grab;touch-action:none}
 .padv{font:700 40px system-ui,sans-serif;text-align:center;margin:6px 0 10px}
 .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .pad button{height:56px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:#0b1220;color:#fff;font:700 24px system-ui,sans-serif;cursor:pointer}
@@ -74,7 +85,8 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <div class="warn" id="warn">Not syncing with the server.</div>
 <div id="reqs"></div>
 <svg id="tbl" viewBox="-24 0 448 272" preserveAspectRatio="xMidYMid meet"></svg>
-<div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:14px 0 0"><button class="btn ghost" id="mclose">Close</button></p></div></div>
+<div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:16px 0 0;text-align:right"><button class="btn ghost big" id="mclose">Close</button></p></div></div>
+<div id="ghost" hidden></div>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
@@ -215,7 +227,9 @@ function draw() {
       const nm = nameOf(c), q = get(c);
       let ty = y + 18;
       if (q.wager) { s += `<text x="${x}" y="${ty}" fill="var(--gold)" font-size="9" font-weight="700" text-anchor="middle">$${esc(q.wager)}</text>`; ty += 10; }
-      s += `<text x="${x}" y="${ty}" fill="#fff" font-size="8" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`
+      /* The name is a drag handle: drag it to another seat to move/swap (transparent box = bigger target). */
+      s += `<g class="drag" data-drag="${c}" data-from="${i}"><rect x="${x - 34}" y="${ty - 10}" width="68" height="14" fill="transparent"/>`
+         + `<text x="${x}" y="${ty}" fill="#fff" font-size="8" text-anchor="middle" style="text-decoration:underline dotted rgba(255,255,255,.5)">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text></g>`
          + `<text x="${x}" y="${ty + 9}" fill="${q.breakAt ? seatColor(q) : "rgba(255,255,255,.75)"}" font-size="7" text-anchor="middle">${q.breakAt ? "Break " + fmtHrs(Date.now() - q.breakAt) : fmtHrs(seatedMs(q))}</text>`;
     }
   });
@@ -316,19 +330,12 @@ function openSeat(n) {
     return;
   }
   const p = get(c);
-  /* Other seats: open ones move the player there; taken ones swap the two players. */
-  let seatsHtml = "";
-  for (const i of TB.seats) if (i !== n) {
-    const o = whoIn(i);
-    seatsHtml += `<button data-to="${i}" ${o ? `class="taken" title="Swap with ${esc(nameOf(o))}"` : ""}>${i}</button>`;
-  }
+  /* Moving/swapping seats: drag the player's name on the table (see dragName below). */
   showModal(`<div class="mt">Seat ${n}: ${esc(nameOf(c))}</div>
     <div class="ln"><span>Seated for</span><b>${fmtHrs(seatedMs(p))}</b></div>
     ${p.breakAt ? `<div class="ln"><span>On break for</span><b style="color:${seatColor(p)}">${fmtHrs(Date.now() - p.breakAt)}</b></div>` : ""}
-    <button class="ln wbtn" id="wgOpen"><span>Wager</span><b>${p.wager ? "$" + esc(p.wager) : "Tap to enter"}</b></button>
-    <p class="note" style="margin-top:14px">Move or swap (gold = swap with that player):</p>
-    <div class="seats">${seatsHtml}</div>
-    <div class="grid">${p.breakAt ? `<button class="btn ok" id="brkBtn">Back from break</button>` : `<button class="btn" id="brkBtn">Break</button>`}
+    <button class="wager" id="wgOpen"><span>Wager</span><b>${p.wager ? "$" + esc(p.wager) : "Tap"}</b></button>
+    <div class="grid" style="margin-top:14px">${p.breakAt ? `<button class="btn ok huge" id="brkBtn">Back from break</button>` : `<button class="btn huge" id="brkBtn">Break</button>`}
       <button class="btn ghost" id="outBtn">Log out</button></div>`);
   $("brkBtn").onclick = () => {
     const q = get(c);
@@ -343,15 +350,49 @@ function openSeat(n) {
       "Logged out after " + fmtHrs(seatedMs(q)) + " seated");
     closeModal();
   };
-  $("mbody").querySelectorAll("[data-to]").forEach(b => b.onclick = () => {
-    const to = +b.dataset.to, o = whoIn(to);
-    if (o) {   // swap: both keep their time running
-      save(o, { ...get(o), seat: n }, "Swapped with " + nameOf(c) + ": seat " + to + " to seat " + n);
-      save(c, { ...get(c), seat: to }, "Swapped with " + nameOf(o) + ": seat " + n + " to seat " + to);
-    } else save(c, { ...get(c), seat: to }, "Moved from seat " + n + " to seat " + to);   // time keeps running
-    closeModal();
-  });
 }
+/* Move player c from seat n to seat `to`; if someone's there, the two swap. Time keeps running for both. */
+function moveOrSwap(c, n, to) {
+  if (to === n) return;
+  const o = whoIn(to);
+  if (o) {
+    save(o, { ...get(o), seat: n }, "Swapped with " + nameOf(c) + ": seat " + to + " to seat " + n);
+    save(c, { ...get(c), seat: to }, "Swapped with " + nameOf(o) + ": seat " + n + " to seat " + to);
+  } else save(c, { ...get(c), seat: to }, "Moved from seat " + n + " to seat " + to);
+}
+/* Drag a player's name on the table to another seat: open seat = move, taken seat = swap.
+   A tap on the name (no drag) opens that seat's menu. */
+let nameDrag = null;
+$("tbl").addEventListener("pointerdown", e => {
+  const t = e.target.closest("[data-drag]"); if (!t) return;
+  e.preventDefault();
+  nameDrag = { c: t.dataset.drag, from: +t.dataset.from, x0: e.clientX, y0: e.clientY, moved: false, id: e.pointerId };
+});
+const seatAtPoint = (cx, cy) => {   // nearest seat number to a screen point, if close enough
+  const m = $("tbl").getScreenCTM(); if (!m) return 0;
+  const p = new DOMPoint(cx, cy).matrixTransform(m.inverse());
+  let best = 0, bd = 40;
+  TB.seats.forEach((i, k) => { const [x, y] = seatXY(k), d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = i; } });
+  return best;
+};
+addEventListener("pointermove", e => {
+  if (!nameDrag || e.pointerId !== nameDrag.id) return;
+  if (!nameDrag.moved && Math.hypot(e.clientX - nameDrag.x0, e.clientY - nameDrag.y0) < 8) return;
+  nameDrag.moved = true;
+  const to = seatAtPoint(e.clientX, e.clientY), o = to && to !== nameDrag.from ? whoIn(to) : null, g = $("ghost");
+  g.hidden = false; g.style.left = e.clientX + "px"; g.style.top = e.clientY + "px";
+  g.textContent = nameOf(nameDrag.c) + (to && to !== nameDrag.from ? (o ? " ⇄ swap with " + nameOf(o) : " → seat " + to) : "");
+});
+const endNameDrag = e => {
+  if (!nameDrag || e.pointerId !== nameDrag.id) return;
+  const d = nameDrag; nameDrag = null; $("ghost").hidden = true;
+  if (!d.moved) { if (e.type === "pointerup") openSeat(d.from); return; }
+  if (e.type !== "pointerup") return;
+  const to = seatAtPoint(e.clientX, e.clientY);
+  if (to && to !== d.from && get(d.c).status === "seated") moveOrSwap(d.c, d.from, to);
+};
+addEventListener("pointerup", endNameDrag);
+addEventListener("pointercancel", endNameDrag);
 
 /* Number pad for the wager. */
 function openPad(c, n) {
