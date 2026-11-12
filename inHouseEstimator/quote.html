@@ -45,7 +45,7 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 /* Room rows: name, then sq ft and price each lined up in their own column. */
 .rgrid{display:grid;grid-template-columns:minmax(0,1fr) 76px 68px;column-gap:8px;padding-right:84px}   /* spans the row; stops short of Amount */
 .rgrid>span:first-child{white-space:nowrap}
-@media (max-width:560px){.rgrid>span:first-child{white-space:normal;overflow-wrap:anywhere}}
+@media (max-width:560px){.rgrid{width:100%;box-sizing:border-box;padding-right:0;grid-template-columns:minmax(min-content,1fr) auto auto}.rgrid>span:first-child{white-space:normal}}
 .rgrid>span:nth-child(n+2){text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .legal{font-size:13px;color:var(--gold);letter-spacing:.04em;text-transform:uppercase;margin-top:5px}
 .contact{font-size:14px;color:#c9d0de;margin-top:6px}
