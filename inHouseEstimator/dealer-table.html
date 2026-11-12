@@ -49,7 +49,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <body style="visibility:hidden">
 <div class="top"><a class="btn ghost" href="./player-tracker.html">&lsaquo; Back</a><b>Blackjack</b></div>
 <div class="warn" id="warn">Not syncing with the server.</div>
-<svg id="tbl" viewBox="-10 0 420 250" preserveAspectRatio="xMidYMid meet"></svg>
+<svg id="tbl" viewBox="-24 0 448 256" preserveAspectRatio="xMidYMid meet"></svg>
 <div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:14px 0 0"><button class="btn ghost" id="mclose">Close</button></p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script type="module">
@@ -101,11 +101,27 @@ function save(c, p, logText) {
 
 /* ---- the table ---- */
 const cx = 200, cy = 40, r = 170;
-const seatXY = i => { const a = Math.PI * (i / (SEATS + 1)); return [cx + Math.cos(a) * (r - 30), cy + Math.sin(a) * (r - 30)]; };
+const seatXY = i => { const a = Math.PI * (i / (SEATS + 1)); return [cx + Math.cos(a) * (r - 38), cy + Math.sin(a) * (r - 38)]; };
 function draw() {
   const d = dealerOn();
-  let s = `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
-        + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="var(--felt)"/>`
+  /* Padded leather rail: dark edges, a soft highlight along the top of the roll, and a shadow where it meets the felt. */
+  const R = r + 18;
+  let s = `<defs>
+      <radialGradient id="railG" cx="${cx}" cy="${cy}" r="${R}" gradientUnits="userSpaceOnUse">
+        <stop offset="${(r / R).toFixed(3)}" stop-color="#1f1108"/>
+        <stop offset="${((r + 3) / R).toFixed(3)}" stop-color="#4a2a12"/>
+        <stop offset="${((r + 8) / R).toFixed(3)}" stop-color="#8a5a30"/>
+        <stop offset="${((r + 10) / R).toFixed(3)}" stop-color="#b98450"/>
+        <stop offset="${((r + 13) / R).toFixed(3)}" stop-color="#6b3f1d"/>
+        <stop offset="1" stop-color="#1a0e06"/>
+      </radialGradient>
+      <radialGradient id="feltG" cx="${cx}" cy="${cy + 40}" r="${r}" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
+      </radialGradient>
+    </defs>`
+        + `<path d="M${cx - R} ${cy} A ${R} ${R} 0 0 0 ${cx + R} ${cy} Z" fill="url(#railG)"/>`
+        + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="url(#feltG)"/>`
+        + `<path d="M${cx - r + 2} ${cy} A ${r - 2} ${r - 2} 0 0 0 ${cx + r - 2} ${cy}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/>`
         + `<rect x="${cx - 60}" y="${cy - 28}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
         + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`
         + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
@@ -116,12 +132,12 @@ function draw() {
     const [x, y] = seatXY(i), c = whoIn(i);
     s += `<g data-seat="${i}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="24" fill="transparent"/>`
        + `<text x="${x}" y="${y + 7}" fill="${seatColor(c && get(c))}" font-size="22" font-weight="700" text-anchor="middle">${i}</text></g>`;
-    if (c) {   // name right under the number, wager right above it
-      const nm = nameOf(c), w = get(c).wager;
-      const q = get(c);
-      s += `<text x="${x}" y="${y + 19}" fill="#fff" font-size="8" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`
-         + `<text x="${x}" y="${y + 28}" fill="${q.breakAt ? seatColor(q) : "rgba(255,255,255,.75)"}" font-size="7" text-anchor="middle">${q.breakAt ? "Break " + fmtHrs(Date.now() - q.breakAt) : fmtHrs(seatedMs(q))}</text>`;
-      if (w) s += `<text x="${x}" y="${y - 15}" fill="var(--gold)" font-size="9" font-weight="700" text-anchor="middle">$${esc(w)}</text>`;
+    if (c) {   // under the number: wager, then name, then time seated / on break
+      const nm = nameOf(c), q = get(c);
+      let ty = y + 18;
+      if (q.wager) { s += `<text x="${x}" y="${ty}" fill="var(--gold)" font-size="9" font-weight="700" text-anchor="middle">$${esc(q.wager)}</text>`; ty += 10; }
+      s += `<text x="${x}" y="${ty}" fill="#fff" font-size="8" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`
+         + `<text x="${x}" y="${ty + 9}" fill="${q.breakAt ? seatColor(q) : "rgba(255,255,255,.75)"}" font-size="7" text-anchor="middle">${q.breakAt ? "Break " + fmtHrs(Date.now() - q.breakAt) : fmtHrs(seatedMs(q))}</text>`;
     }
   }
   $("tbl").innerHTML = s;
