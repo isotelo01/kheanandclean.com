@@ -115,16 +115,14 @@ body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
   <div class="cols">
     <aside>
       <h2>Wait list</h2>
-      <button class="btn" id="addW" style="width:100%">+ Add to wait list</button>
-      <!-- Name (players pop up as you type), Phoned in (walk-in if not), and the games: tap one or more. -->
-      <div id="addWBox" hidden style="margin-top:10px;display:grid;gap:8px">
+      <!-- Always open: Name (players pop up as you type), Phoned in (walk-in if not), the games (tap one or more), then the button. -->
+      <div id="addWBox" style="margin-top:10px;display:grid;gap:8px">
         <input id="wName" list="wPlayers" placeholder="Name" autocomplete="off">
         <datalist id="wPlayers"></datalist>
         <div><button class="bub" id="wPhone" type="button">Phoned in</button> <span class="hint" id="wHow" style="margin:0">Walk-in</span></div>
         <div class="wlbl">Games</div><div class="bubs" id="wGames"></div>
-        <button class="btn" id="wAdd">Add</button>
+        <button class="btn" id="wAdd">+ Add to wait list</button>
       </div>
-      <div id="wait"></div>
     </aside>
     <main>
       <h2>Calls</h2>
@@ -337,21 +335,12 @@ function draw() {
 
   /* Wait list entry (left column): one box per game the floor built, with a box to add a name and how many are
      waiting. The lists themselves are on waitlist.html. Table games don't get lists. */
-  const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor" }));
   /* Lists build off open poker tables (see liveLists in pt-people.js): every open table's game gets a list. */
   for (const nm of openGameNames(tables, list)) if (!listFor(nm) && !makingList.has(nm)) {
     makingList.add(nm); const gid = "g" + Date.now() + Math.random().toString(36).slice(2, 5);
     games[gid] = { name: nm, at: Date.now() }; setDoc(GAMESREF, { [gid]: games[gid] }, { merge: true }).catch(fail);
   }
-  const live = liveLists(games, wait, tables, list), gl = live.map(L => [L.gid, games[L.gid]]);
-  let html = live.map(L => `<div class="gbox"><div class="gh" style="margin:0"><b>${esc(L.name)}</b>
-      ${L.open ? `<span class="tag" style="background:var(--ok);color:#000">Open</span>` : L.table ? `<span class="tag">Table game</span>` : L.interest ? `<span class="tag">Interest list</span>` : `<span class="tag">No table open</span>`}
-      <span class="cnt">${L.count} waiting</span><button data-delgame="${esc(L.gid)}" title="Remove this list">&times;</button></div></div>`).join("");
-  const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
-    .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
-  const other = names.filter(w => !games[w.game]);
-  if (phones.length || other.length) html += `<p class="hint" style="margin:10px 0 0">${[phones.length ? phones.length + " from phones" : "", other.length ? other.length + " in Other" : ""].filter(Boolean).join(" &middot; ")} &mdash; see the Waitlist.</p>`;
-  if (!html) html = `<div class="empty">No lists yet. Open a poker table with its game picked, or start one in "+ Add a poker game".</div>`;
+  const live = liveLists(games, wait, tables, list);   // the lists themselves show on waitlist.html, not here
   /* + Add to wait list: the showing lists as bubbles (tap one or more), and every player's name for the pop-up. */
   for (const g of [...wSel]) if (!live.some(L => L.gid === g)) wSel.delete(g);
   $("wGames").innerHTML = live.length ? live.map(L => `<button class="bub${wSel.has(L.gid) ? " on" : ""}" data-wg="${esc(L.gid)}" type="button">${esc(L.name)}</button>`).join("")
@@ -362,10 +351,6 @@ function draw() {
   const old = Object.keys(wait).filter(id => expired(wait[id]) && !dropping.has(id));
   if (old.length) { const upd = {}; old.forEach(id => { dropping.add(id); upd[id] = deleteField(); }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
   if (!$("pgBox").hidden) drawPg();
-  const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.gin;   // keep typing focus through a redraw
-  const typed = focused ? document.activeElement.value : "";
-  $("wait").innerHTML = html;
-  if (focused) { const el = document.querySelector(`[data-gin="${CSS.escape(focused)}"]`); if (el) { el.value = typed; el.focus(); } }
 }
 
 document.addEventListener("click", e => {
@@ -441,7 +426,6 @@ function addName(gid) {
 }
 document.addEventListener("keydown", e => { const el = e.target.closest && e.target.closest("[data-gin]"); if (el && e.key === "Enter") addName(el.dataset.gin); });
 /* + Add to wait list: a name and which game's list. */
-$("addW").onclick = () => { $("addWBox").hidden = !$("addWBox").hidden; if (!$("addWBox").hidden) $("wName").focus(); };
 const wSel = new Set(), dropping = new Set();   // games picked for + Add to wait list; phoned-in names being dropped
 let plCount = 0, wCall = false;
 $("wGames").addEventListener("click", e => {
