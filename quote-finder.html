@@ -457,6 +457,8 @@ textarea.t{ min-height:130px; resize:vertical; font:inherit; }
 .est .ln{ display:flex; justify-content:space-between; gap:12px; }
 .est .ln b{ font-variant-numeric:tabular-nums; white-space:nowrap; }
 .est .sub{ font-size:.88rem; color:var(--muted); }
+.est .svc > .ln .rq{ font-size:.85rem; font-weight:500; color:var(--muted); white-space:nowrap; }
+.est .sqtot{ margin-top:10px; padding-top:10px; border-top:1px solid var(--line); color:var(--muted); }
 .est .tot{ display:flex; justify-content:space-between; align-items:baseline; margin-top:10px; padding-top:12px; border-top:2px solid var(--gold); }
 .est .tot b{ font-size:1.9rem; color:var(--gold); font-variant-numeric:tabular-nums; }
 .note{ font-size:.86rem; color:var(--muted); margin:10px 0 0; }
@@ -702,7 +704,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     rpBack = null;
     if(push !== false && cur) hist.push(cur);
     cur = fn; invAll = false;
-    document.body.classList.toggle('hideSum', [sPhotos, sPrice, sDisc].indexOf(fn) < 0);   /* schedule and thank-you pages show the priced quote instead; contact page is just the fields */
+    document.body.classList.toggle('hideSum', [sPhotos, sDisc].indexOf(fn) < 0);   /* the estimate page has one combined statement (sq ft + prices), so no separate sq ft box there */   /* schedule and thank-you pages show the priced quote instead; contact page is just the fields */
     document.body.classList.toggle('first', fn === sName);
     document.body.classList.remove('rp');
     backBtn.hidden = !hist.length; resetBtn.hidden = !hist.length;
@@ -2272,16 +2274,22 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
   }
 
   /* The priced breakdown (shared by the price page and the top of the schedule page). */
+  /* One statement: each service with its square feet and price, every line item and every room listed
+     (rooms start open; the − / + collapses them), then total square feet and the estimated total. */
   function priceHtml(e){
+    var allSq = 0;
     var html = '<div class="est">' + e.rows.map(function(r){
-      return '<div class="svc"><div class="ln"><span><b>' + esc(r.name) + '</b></span><b>' + money(r.cost) + '</b></div>' +
+      var rsq = r.key === 'whole' ? (A.wholeSqft || 0) : r.items.reduce(function(t, i){ return t + (i.sq || 0); }, 0);
+      allSq += rsq;
+      return '<div class="svc"><div class="ln"><span><b>' + esc(r.name) + '</b>' + (rsq ? ' <span class="rq">' + rsq.toLocaleString() + ' sq ft</span>' : '') + '</span><b>' + money(r.cost) + '</b></div>' +
         r.items.map(function(i){
           var rl = i.rooms && i.rooms.length ? i.rooms : null;
-          return '<div class="ln sub">' + (rl ? '<button type="button" class="rmtog" aria-expanded="false" aria-label="Show rooms">+</button>' : '') +
+          return '<div class="ln sub">' + (rl ? '<button type="button" class="rmtog" aria-expanded="true" aria-label="Hide rooms">\u2212</button>' : '') +
             '<span>' + esc(i.label) + '</span><span>' + (i.included ? 'Included' : money(i.cost)) + '</span></div>' +
-            (rl ? '<div class="rmlist" hidden>' + rl.map(function(x){ return '<div class="ln rm"><span>' + esc(x.t) + '</span><span class="rq">' + x.sq.toLocaleString() + ' sq ft</span><span>' + money(x.cost) + '</span></div>'; }).join('') + '</div>' : '');
+            (rl ? '<div class="rmlist">' + rl.map(function(x){ return '<div class="ln rm"><span>' + esc(x.t) + '</span><span class="rq">' + x.sq.toLocaleString() + ' sq ft</span><span>' + money(x.cost) + '</span></div>'; }).join('') + '</div>' : '');
         }).join('') + '</div>';
-    }).join('') + '<div class="tot"><span>Estimated total</span><b>' + money(e.total) + '</b></div></div>';
+    }).join('') + (allSq ? '<div class="ln sqtot"><span>Total square feet</span><b>' + allSq.toLocaleString() + ' sq ft</b></div>' : '') +
+      '<div class="tot"><span>Estimated total</span><b>' + money(e.total) + '</b></div></div>';
     if(e.total > e.sum) html += '<p class="note">Minimum service charge of ' + money(e.min) + ' applied.</p>';
     html += '<p class="note">' + (A.photos.length ? 'We’ll check your photos and confirm the exact price.' : 'Final price is confirmed on site.') + '</p>';
     return html;
