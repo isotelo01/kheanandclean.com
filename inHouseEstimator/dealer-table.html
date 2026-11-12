@@ -85,6 +85,10 @@ const get = c => state[c] || { status: "out", totalMs: 0 };
 const nameOf = c => (profiles[c] && profiles[c].name) || ROSTER[c] || DEALERS[c] || c;
 const fmtHrs = ms => { const m = Math.floor(ms / 60000); return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
 const liveMs = p => (p.totalMs || 0) + (p.status === "seated" && p.since ? Date.now() - p.since : 0);
+/* Time in the seat this session (stops while on break). */
+const seatedMs = p => (p.sessionMs || 0) + (p.since ? Date.now() - p.since : 0);
+const BREAK_LIMIT = 30 * 60000;
+const seatColor = p => !p ? "#000" : p.breakAt ? (Date.now() - p.breakAt > BREAK_LIMIT ? "#ef4444" : "#3b82f6") : "var(--gold)";
 const whoIn = n => Object.keys(state).find(c => ROSTER[c] && state[c].status === "seated" && state[c].seat === n);
 const dealerOn = () => Object.keys(DEALERS).find(d => get(d).status === "seated");
 const fail = () => { $("warn").style.display = "block"; };
@@ -111,10 +115,12 @@ function draw() {
   for (let i = 1; i <= SEATS; i++) {
     const [x, y] = seatXY(i), c = whoIn(i);
     s += `<g data-seat="${i}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="24" fill="transparent"/>`
-       + `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : "#000"}" font-size="22" font-weight="700" text-anchor="middle">${i}</text></g>`;
+       + `<text x="${x}" y="${y + 7}" fill="${seatColor(c && get(c))}" font-size="22" font-weight="700" text-anchor="middle">${i}</text></g>`;
     if (c) {   // name right under the number, wager right above it
       const nm = nameOf(c), w = get(c).wager;
-      s += `<text x="${x}" y="${y + 19}" fill="#fff" font-size="8" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`;
+      const q = get(c);
+      s += `<text x="${x}" y="${y + 19}" fill="#fff" font-size="8" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`
+         + `<text x="${x}" y="${y + 28}" fill="${q.breakAt ? seatColor(q) : "rgba(255,255,255,.75)"}" font-size="7" text-anchor="middle">${q.breakAt ? "Break " + fmtHrs(Date.now() - q.breakAt) : fmtHrs(seatedMs(q))}</text>`;
       if (w) s += `<text x="${x}" y="${y - 15}" fill="var(--gold)" font-size="9" font-weight="700" text-anchor="middle">$${esc(w)}</text>`;
     }
   }
@@ -149,16 +155,24 @@ function openSeat(n) {
     seatsHtml += `<button data-to="${i}" ${o ? `class="taken" title="Swap with ${esc(nameOf(o))}"` : ""}>${i}</button>`;
   }
   showModal(`<div class="mt">Seat ${n}: ${esc(nameOf(c))}</div>
-    <div class="ln"><span>Seated for</span><b>${fmtHrs(p.since ? Date.now() - p.since : 0)}</b></div>
+    <div class="ln"><span>Seated for</span><b>${fmtHrs(seatedMs(p))}</b></div>
+    ${p.breakAt ? `<div class="ln"><span>On break for</span><b style="color:${seatColor(p)}">${fmtHrs(Date.now() - p.breakAt)}</b></div>` : ""}
     <button class="ln wbtn" id="wgOpen"><span>Wager</span><b>${p.wager ? "$" + esc(p.wager) : "Tap to enter"}</b></button>
     <p class="note" style="margin-top:14px">Move or swap (gold = swap with that player):</p>
     <div class="seats">${seatsHtml}</div>
-    <div class="grid"><button class="btn ghost" id="outBtn">Log out</button></div>`);
+    <div class="grid">${p.breakAt ? `<button class="btn ok" id="brkBtn">Back from break</button>` : `<button class="btn" id="brkBtn">Break</button>`}
+      <button class="btn ghost" id="outBtn">Log out</button></div>`);
+  $("brkBtn").onclick = () => {
+    const q = get(c);
+    if (q.breakAt) save(c, { ...q, breakAt: null, since: Date.now() }, "Back from break after " + fmtHrs(Date.now() - q.breakAt) + " (seat " + n + ")");
+    else save(c, { ...q, totalMs: liveMs(q), sessionMs: seatedMs(q), since: null, breakAt: Date.now() }, "On break, seat " + n + " held");   // hours stop
+    closeModal();
+  };
   $("wgOpen").onclick = () => openPad(c, n);
   $("outBtn").onclick = () => {
     const q = get(c);
-    save(c, { status: "out", totalMs: liveMs(q), seat: null, since: null, waitAt: null, wager: null },
-      "Logged out" + (q.since ? " after " + fmtHrs(Date.now() - q.since) : ""));
+    save(c, { status: "out", totalMs: liveMs(q), seat: null, since: null, waitAt: null, wager: null, breakAt: null, sessionMs: 0 },
+      "Logged out after " + fmtHrs(seatedMs(q)) + " seated");
     closeModal();
   };
   $("mbody").querySelectorAll("[data-to]").forEach(b => b.onclick = () => {
@@ -197,7 +211,7 @@ function seatPlayer(c, n) {
   const p = get(c);
   if (whoIn(n) && whoIn(n) !== c) { alert("Seat " + n + " is taken."); return; }
   if (p.status === "seated") save(c, { ...p, seat: n }, "Moved from seat " + p.seat + " to seat " + n);
-  else save(c, { ...p, status: "seated", seat: n, since: Date.now(), waitAt: null }, "Seated at seat " + n + " (scanned)");
+  else save(c, { ...p, status: "seated", seat: n, since: Date.now(), waitAt: null, breakAt: null, sessionMs: 0 }, "Seated at seat " + n + " (scanned)");
 }
 
 async function startScan(n) {
@@ -239,6 +253,7 @@ onAuthStateChanged(getAuth(app), u => {
   document.body.style.visibility = "visible";
   draw();
   onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);
+  setInterval(draw, 30000);   // keep seated and break times ticking (and turn red at 30 min)
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
 });
 </script>
