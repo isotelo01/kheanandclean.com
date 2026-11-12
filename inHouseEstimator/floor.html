@@ -9,7 +9,8 @@
 <title>Floor</title>
 <style>
 /* Floor page (Player Tracker proof of concept): the floor runs every table from here.
-   - Floor plan: every table drawn with its chairs. Drag a table to rearrange the floor; tap it to open/close it.
+   - Floor plan: the building's outline (drawn with the room measurer, measure.html?building=1) with every table
+     and its chairs on it. Drag a table to move it; tap it for a toolbar: open/close, rotate, size, Dealer Control.
    - Calls: drinks/service/chips/floor calls sent from Dealer Control. Done clears them.
    - Wait list (left column): "+ Add a game" builds a list per game (mostly poker); names go under each game.
      Players who joined the list from their phone show up too. Table games don't carry lists.
@@ -65,6 +66,10 @@ input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);bo
 .hint{color:rgba(255,255,255,.6);font-size:13px;margin:-4px 0 8px}
 #plan{width:100%;height:auto;display:block;background:#101a2e;border:1px solid rgba(255,255,255,.12);border-radius:12px;touch-action:none}
 .ptbl{cursor:grab}
+.ptbl.sel > rect:first-child{stroke:#E3B64A;stroke-width:2;stroke-dasharray:6 5}
+#tbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:8px 10px;margin-bottom:8px}
+#tbar b{color:var(--gold);margin-right:4px}
+#tbar .btn{padding:7px 12px;font-size:14px}
 .ptbl.dragging{cursor:grabbing;opacity:.85}
 </style>
 </head>
@@ -87,7 +92,9 @@ input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);bo
       <h2>Calls</h2>
       <div class="box" id="calls"></div>
       <h2>Floor plan</h2>
-      <p class="hint">Drag a table to move it. Tap a table to open or close it.</p>
+      <p class="hint">Drag a table to move it. Tap a table for open/close, rotate and size.
+        <a href="./measure.html?building=1" class="btn ghost sm" style="margin-left:6px">Edit building shape</a></p>
+      <div id="tbar" hidden></div>
       <svg id="plan" viewBox="0 0 900 560"></svg>
     </main>
   </div>
@@ -110,7 +117,9 @@ const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
 const TBLREF = doc(db, "playerTracker", "tables"), CALLREF = doc(db, "playerTracker", "calls"), WAITREF = doc(db, "playerTracker", "waitlist");
 const GAMESREF = doc(db, "playerTracker", "waitgames");   // wait list games the floor built: { id: { name, at } }
-const PLANREF = doc(db, "playerTracker", "floorplan");    // where each table sits on the floor plan: { n: { x, y } }
+const PLANREF = doc(db, "playerTracker", "floorplan");    // where each table sits on the floor plan: { n: { x, y, rot, scale } }
+const BLDREF = doc(db, "playerTracker", "building");      // building outline drawn with the room measurer's sketch tool (feet)
+const FT_PX = 16;   // floor plan units per foot (a table with its chairs is about 12 ft across)
 
 /* Same tables, test roster and dealers as the other Player Tracker pages. */
 const TABLES = {
@@ -123,6 +132,7 @@ const TABLES = {
 /* One table on the floor plan, drawn from the top in a 200 x 182 box: green felt when open, grey when
    closed, a chair at each seat facing the table (gold = seated, blue = on break, red = break over 30 min,
    dark = empty), then its name, dealer and seats under it. Drag to move it; tap to open/close it. */
+const tblXf = p => `translate(${p.x} ${p.y}) translate(100 91) rotate(${p.rot || 0}) scale(${p.scale || 1}) translate(-100 -91)`;
 const PLAN_DEFAULT = { 1: { x: 40, y: 30 }, 2: { x: 350, y: 30 }, 3: { x: 660, y: 30 }, 4: { x: 40, y: 300 }, 5: { x: 350, y: 300 } };
 function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
   const felt = open ? "#0f6b3a" : "#3a3f4b", rail = open ? "#5a3518" : "#2a2e37";
@@ -149,7 +159,7 @@ function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
   s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${n} &#183; ${esc(tb.game)}</text>`
      + `<text x="100" y="162" fill="rgba(255,255,255,.7)" font-size="11" text-anchor="middle">${dealer ? esc(nameOf(dealer)) : "No dealer"} &#183; ${nSeated}/${tb.seats.length} seated${nBreak ? " &#183; " + nBreak + " on break" : ""}</text>`
      + `<a href="./dealer-table.html?t=${n}"><text x="100" y="178" fill="#E3B64A" font-size="11" font-weight="700" text-anchor="middle">Dealer Control &#8250;</text></a>`;
-  return `<g class="ptbl" data-tbl="${n}" transform="translate(${pos.x} ${pos.y})">${s}</g>`;
+  return `<g class="ptbl${selT === n ? " sel" : ""}" data-tbl="${n}" transform="${tblXf(pos)}">${s}</g>`;
 }
 const ROSTER = {
   "100001": "Doyle Brunson",  "100002": "Phil Ivey",       "100003": "Stu Ungar",
@@ -165,6 +175,7 @@ const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); 
 const fail = () => { $("warn").style.display = "block"; };
 let state = {}, roster = {}, profiles = {}, tables = {}, calls = {}, wait = {}, games = {}, plan = {};
 let planDrag = null;   // a table being dragged around the floor plan
+let building = null, selT = 0;   // building outline (from measure.html?building=1); selected table
 const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || DEALERS[c] || c;
 const isPlayer = c => !!(ROSTER[c] || roster[c]);
 
@@ -177,7 +188,19 @@ function draw() {
     : `<div class="empty">No calls.</div>`;
 
   /* Floor plan: every table where the floor put it. Skipped mid-drag so the table doesn't jump. */
-  if (!planDrag) $("plan").innerHTML = Object.entries(TABLES).map(([n, tb]) => {
+  /* The building (drawn with the room measurer's sketch tool, in feet) goes under the tables. The plan grows to fit it. */
+  let bld = "", vbW = 900, vbH = 560;
+  if (building && Array.isArray(building.pts) && building.pts.length >= 3) {
+    const xs = building.pts.map(q => q[0]), ys = building.pts.map(q => q[1]), mx = Math.min(...xs), my = Math.min(...ys);
+    const P = q => ((q[0] - mx) * FT_PX + 20).toFixed(1) + "," + ((q[1] - my) * FT_PX + 20).toFixed(1);
+    bld = `<polygon points="${building.pts.map(P).join(" ")}" fill="rgba(255,255,255,.04)" stroke="rgba(227,182,74,.7)" stroke-width="4" stroke-linejoin="round"/>`
+        + (building.cuts || []).filter(c => c && Array.isArray(c.pts) && c.pts.length >= 3)
+            .map(c => `<polygon points="${c.pts.map(P).join(" ")}" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.35)"/>`).join("");
+    vbW = Math.max(vbW, (Math.max(...xs) - mx) * FT_PX + 40); vbH = Math.max(vbH, (Math.max(...ys) - my) * FT_PX + 40);
+  }
+  for (const n of Object.keys(TABLES)) { const q = plan[n] || PLAN_DEFAULT[n]; vbW = Math.max(vbW, q.x + 230); vbH = Math.max(vbH, q.y + 210); }
+  if (!planDrag) $("plan").setAttribute("viewBox", `0 0 ${Math.round(vbW)} ${Math.round(vbH)}`);
+  if (!planDrag) $("plan").innerHTML = bld + Object.entries(TABLES).map(([n, tb]) => {
     n = +n;
     const on = Object.entries(state).filter(([c, p]) => p && p.status === "seated" && (p.table || 1) === n);
     const dealer = on.find(([c]) => DEALERS[c]);
@@ -187,6 +210,20 @@ function draw() {
     const bySeat = {}; players.forEach(([, p]) => { bySeat[p.seat] = p; });
     return planTable(n, tb, open, bySeat, dealer && dealer[0], players.length, brk, plan[n] || PLAN_DEFAULT[n]);
   }).join("");
+
+  /* Toolbar for the tapped table: open/close, rotate, size, Dealer Control. */
+  if (selT && TABLES[selT]) {
+    const q = plan[selT] || PLAN_DEFAULT[selT], open = !!(tables[selT] && tables[selT].open);
+    $("tbar").hidden = false;
+    $("tbar").innerHTML = `<b>${selT} &middot; ${esc(TABLES[selT].game)}</b>
+      <button class="btn ${open ? "" : "ok"}" data-ta="open">${open ? "Close table" : "Open table"}</button>
+      <button class="btn ghost" data-ta="rl" title="Rotate left">&#10226; Rotate</button><button class="btn ghost" data-ta="rr" title="Rotate right">Rotate &#10227;</button>
+      <button class="btn ghost" data-ta="sm" title="Smaller">&minus; Smaller</button><button class="btn ghost" data-ta="lg" title="Bigger">+ Bigger</button>
+      <span class="hint" style="margin:0">${Math.round(((q.rot || 0) % 360 + 360) % 360)}&deg; &middot; ${Math.round((q.scale || 1) * 100)}%</span>
+      <button class="btn ghost" data-ta="reset">Reset</button>
+      <a class="btn ghost" href="./dealer-table.html?t=${selT}">Dealer Control &rsaquo;</a>
+      <button class="btn ghost" data-ta="x" aria-label="Close toolbar">&times;</button>`;
+  } else $("tbar").hidden = true;
 
   /* Wait list: one box per game the floor built (longest wait on top), plus players who joined from
      their phone, plus any older names whose game list is gone. Table games don't get lists. */
@@ -223,6 +260,19 @@ document.addEventListener("click", e => {
     const id = rm.dataset.rm;
     if (rm.dataset.src === "app") { const p = state[id] || {}; setDoc(REF, { [id]: { ...p, status: "out", waitAt: null } }, { merge: true }).catch(fail); }
     else setDoc(WAITREF, { [id]: deleteField() }, { merge: true }).catch(fail);
+    return;
+  }
+  const ta = e.target.closest("[data-ta]");
+  if (ta && selT) {
+    const n = selT, q = { ...(plan[n] || PLAN_DEFAULT[n]) }, a = ta.dataset.ta;
+    if (a === "open") { setDoc(TBLREF, { [n]: { open: !(tables[n] && tables[n].open) } }, { merge: true }).catch(fail); return; }
+    if (a === "x") { selT = 0; draw(); return; }
+    if (a === "rl") q.rot = ((q.rot || 0) - 15) % 360;
+    if (a === "rr") q.rot = ((q.rot || 0) + 15) % 360;
+    if (a === "sm") q.scale = Math.max(.5, Math.round(((q.scale || 1) - .1) * 10) / 10);
+    if (a === "lg") q.scale = Math.min(1.5, Math.round(((q.scale || 1) + .1) * 10) / 10);
+    if (a === "reset") { q.rot = 0; q.scale = 1; }
+    plan[n] = q; setDoc(PLANREF, { [n]: q }, { merge: true }).catch(fail); draw();
     return;
   }
   const ga = e.target.closest("[data-gadd]");
@@ -272,13 +322,14 @@ $("plan").addEventListener("pointermove", e => {
   if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 6) return;
   d.moved = true; d.g.classList.add("dragging");
   const p = planPt(e);
-  d.pos = { x: Math.round(Math.min(Math.max(p.x - d.dx, -20), 720)), y: Math.round(Math.min(Math.max(p.y - d.dy, -10), 400)) };
-  d.g.setAttribute("transform", `translate(${d.pos.x} ${d.pos.y})`);
+  const vb = $("plan").viewBox.baseVal;
+  d.pos = { ...d.pos, x: Math.round(Math.min(Math.max(p.x - d.dx, -20), vb.width - 180)), y: Math.round(Math.min(Math.max(p.y - d.dy, -10), vb.height - 160)) };
+  d.g.setAttribute("transform", tblXf(d.pos));
 });
 const endPlanDrag = e => {
   const d = planDrag; if (!d) return; planDrag = null;
   if (d.moved) { plan[d.n] = d.pos; setDoc(PLANREF, { [d.n]: d.pos }, { merge: true }).catch(fail); }
-  else if (e.type === "pointerup") { const n = d.n; setDoc(TBLREF, { [n]: { open: !(tables[n] && tables[n].open) } }, { merge: true }).catch(fail); }
+  else if (e.type === "pointerup") selT = selT === d.n ? 0 : d.n;   // tap: select it (toolbar), tap again to let go
   draw();
 };
 $("plan").addEventListener("pointerup", endPlanDrag);
@@ -293,6 +344,7 @@ onAuthStateChanged(getAuth(app), u => {
   const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
   on(REF, v => state = v); on(TBLREF, v => tables = v); on(CALLREF, v => calls = v); on(WAITREF, v => wait = v);
   on(GAMESREF, v => games = v); on(PLANREF, v => plan = v);
+  on(BLDREF, v => { try { building = v.sketch ? JSON.parse(v.sketch) : null; } catch (e) { building = null; } });
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   setInterval(draw, 30000);   // keep the times ticking

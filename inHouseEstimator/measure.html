@@ -172,7 +172,7 @@ input.t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:
     </div>
     <button type="button" class="ghost" id="saveBtn" style="margin-top:10px" hidden>Save sketch to this room</button>
     <p class="msg" id="saveMsg" role="status"></p>
-    <p class="msg">"Use this" puts it in the room's Actual box. Tap Save there to keep it.</p>
+    <p class="msg" id="useNote">"Use this" puts it in the room's Actual box. Tap Save there to keep it.</p>
   </section>
 </div>
 
@@ -181,7 +181,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 /* iPhone Safari keeps dropping the database's live connection; use steadier long-polling there (same as the job sheet). */
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 
@@ -210,9 +210,15 @@ const back = (() => {
   try { const u = new URL(qs.get("back") || "", location.href);
     return u.origin === location.origin && /\/job-room(\.html)?$/.test(u.pathname) ? u : null; } catch (e) { return null; }
 })();
-$("title").textContent = "Measure: " + room;
-$("sub").textContent = est ? "Quoted at " + est.toLocaleString() + " sq ft" : "Take the photos below and I'll work out the floor size.";
+/* ?building=1 (from the Player Tracker Floor page): the same sketch editor, used to draw the shape of the
+   building. No photos; it saves to playerTracker/building and goes back to floor.html. */
+const BUILDING = qs.has("building");
+$("title").textContent = BUILDING ? "Building outline" : "Measure: " + room;
+$("sub").textContent = BUILDING ? "Edit the sketch into the building's shape: drag corners, tap + on a wall to add one, Cutout for a bar or pillar."
+  : est ? "Quoted at " + est.toLocaleString() + " sq ft" : "Take the photos below and I'll work out the floor size.";
+if (BUILDING) $("backTop").innerHTML = "&lsaquo; Back to the Floor";
 const goBack = extra => {
+  if (BUILDING) { location.href = "./floor.html"; return; }
   if (!back) { history.back(); return; }
   const u = new URL(back.href);
   if (extra) u.searchParams.set("measured", String(extra));
@@ -912,7 +918,33 @@ function show(d){
 }
 /* Save sketch: keeps the shape, doors, openings, closets, cutouts, sq ft and floor info with this room on the job,
    plus a picture of the sketch for the room page. Opening Measure for the room again brings it back. */
+/* Building mode: save the outline (feet) for the Floor page. */
+const BLDREF = doc(db, "playerTracker", "building");
+async function saveBuilding(){
+  const m = $("saveMsg");
+  if (!result || !sk) return false;
+  m.classList.remove("bad"); m.textContent = "Saving…";
+  try {
+    const { orig, ...d } = result;
+    await setDoc(BLDREF, { sketch: JSON.stringify({ d, pts: sk.pts, cuts: sk.cuts, doors: sk.doors }), sqft: Math.round(skArea()), at: serverTimestamp() });
+    m.textContent = "Saved."; return true;
+  } catch (ex) { console.error(ex); m.classList.add("bad"); m.textContent = "Couldn't save. Try again."; return false; }
+}
+async function startBuilding(){
+  let s = null;
+  try { const snap = await getDoc(BLDREF); s = snap.exists() ? JSON.parse(snap.data().sketch || "null") : null; } catch (e) {}
+  const d = s && s.d ? s.d : { sqft: 4000, lengthFt: 80, widthFt: 50, shape: "Building", confidence: "high" };
+  show(d);
+  if (s && Array.isArray(s.pts) && s.pts.length >= 3) {
+    sk.pts = s.pts; sk.cuts = Array.isArray(s.cuts) ? s.cuts : []; sk.doors = Array.isArray(s.doors) ? s.doors : []; sk.edited = true;
+    fitView(); drawSketch();
+  }
+  $("rConf").hidden = true; $("rRange").textContent = ""; $("rVs").textContent = ""; $("rFloor").hidden = true;
+  $("againBtn").hidden = true; $("saveBtn").hidden = true;
+  $("useBtn").textContent = "Save and go back"; $("useNote").hidden = true;
+}
 $("saveBtn").onclick = async () => {
+  if (BUILDING) return saveBuilding();
   const m = $("saveMsg"), b = $("saveBtn");
   if (!result || !sk || !handoff) return false;
   let ok = false;
@@ -952,6 +984,7 @@ $("againBtn").onclick = () => { $("result").hidden = true; $("form").hidden = fa
 /* Use this: saves the sketch to the room too (when there is one), then puts the sq ft in the room's Actual box. */
 $("useBtn").onclick = async () => {
   if (!result) return;
+  if (BUILDING) { if (await saveBuilding()) location.href = "./floor.html"; return; }
   if (handoff && sk && !(await $("saveBtn").onclick())) return;   /* save failed: stay so it isn't lost */
   goBack(result.sqft);
 };
@@ -963,6 +996,7 @@ onAuthStateChanged(auth, u => {
   const first = !uid;
   uid = u.uid; $("authwait")?.remove(); refresh();
   /* Came with the room's photos: just load them; measuring only starts when "Measure from photos" is pressed. */
+  if (first && BUILDING) { startBuilding(); return; }
   if (first && !result && restoreSaved()) return;
 });
 </script>
