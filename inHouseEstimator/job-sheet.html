@@ -1144,13 +1144,34 @@ function syncHair(lines, spots){
 }
 /* Invoiced or paid: the price is locked. Anything added goes on at no charge (extra), its real price
    kept in extraCost for "Quote extras only". Package, discounts and the job discount don't change. */
-const priceLocked = () => !!cur && (cur.place === "invoices" || cur.place === "paidInvoices");
+/* Only paid jobs are locked; an unpaid invoice stays editable and its total follows the job sheet. */
+const priceLocked = () => !!cur && cur.place === "paidInvoices";
 const noCharge = it => { it.extraCost = r2(Number(it.cost) || 0); it.cost = 0; it.extra = true; return it; };
-const lockedMsg = () => alert("This job is invoiced or paid, so its price is locked. Use Whole job or Quote extras only to make a new estimate.");
+const lockedMsg = () => alert("This job is paid, so its price is locked. Use Whole job or Quote extras only to make a new estimate.");
 async function saveOnsite(){
   unitPass(cur.lines);   /* each piece's own discount */
   const sub = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0));
-  await setDoc(doc(db, cur.place, id), { onsite: { lines: cur.lines, subtotal: sub, total: r2(sub + cur.adj), discount: r2(Math.max(0, -cur.adj)), jobDisc: cur.disc, from: cur.qsig || "", updatedAt: serverTimestamp() } }, { merge: true });
+  const total = r2(sub + cur.adj), discount = r2(Math.max(0, -cur.adj));
+  const data = { onsite: { lines: cur.lines, subtotal: sub, total, discount, jobDisc: cur.disc, from: cur.qsig || "", updatedAt: serverTimestamp() } };
+  /* Unpaid invoice: the bill follows the job sheet (same fields Invoice writes). Not-billed lines left off;
+     the itemized discount lines are scaled to the new discount so they still add up. */
+  if (cur.place === "invoices") {
+    const inv = (await getDoc(doc(db, "invoices", id))).data() || {};
+    const old = (Array.isArray(inv.discountLines) ? inv.discountLines : []).filter(l => Number(l.amount) > 0);
+    const oldSum = old.reduce((s, l) => s + (Number(l.amount) || 0), 0);
+    let dl = old;
+    if (oldSum > 0 && Math.abs(oldSum - (Number(inv.discount) || 0)) < 0.01) {
+      dl = old.map(l => ({ ...l, amount: r2(Number(l.amount) * discount / oldSum) }));
+      const diff = r2(discount - dl.reduce((s, l) => s + l.amount, 0));
+      if (dl.length) dl[dl.length - 1].amount = r2(dl[dl.length - 1].amount + diff);
+    }
+    Object.assign(data, {
+      lines: JSON.parse(JSON.stringify(cur.lines)).filter(l => !isNotBilled(l))
+        .map(l => ({ ...l, items: (l.items || []).filter(it => !it.removed && !isNotBilled(it)) })),
+      subtotal: sub, total, discount, discountLines: dl
+    });
+  }
+  await setDoc(doc(db, cur.place, id), data, { merge: true });
 }
 /* Job discount table: the discounts from Settings > Discounts (same list the estimator uses).
    Ticking adds its percent into the % box; each percent can be changed for this job. */
@@ -1471,7 +1492,7 @@ view.addEventListener("click", async e => {
   if (!e.target.closest("[data-rpadd]")) return;
   const i = Number(box.dataset.line), l0 = cur.lines[i];
   /* Invoiced or paid: the price is locked, so new rooms go on a no-charge "Warranty / re-clean" list on this line. */
-  const LOCKED = cur.place === "invoices" || cur.place === "paidInvoices";
+  const LOCKED = priceLocked();
   const wj = LOCKED ? l0.items.findIndex(x => x && x.warranty) : -1;
   /* "new": the line has no rooms yet (only rugs / add-ons), so start a rooms item at its package's rate. */
   const fresh = !LOCKED && box.dataset.item === "new";
@@ -1719,7 +1740,7 @@ async function delRoom(row){
   const i = Number(row.dataset.line), j = Number(row.dataset.item), l = cur.lines[i], it = l.items[j];
   const kind = row.dataset.kind || "room";
   /* Invoiced or paid: the price is locked, so Delete just grays the row out as no charge (tap Undo to bring it back). */
-  if (cur.place === "invoices" || cur.place === "paidInvoices") {
+  if (priceLocked()) {
     const key = kind === "room" ? row.dataset.room : kind + ":" + row.dataset.r;
     const g = Array.isArray(it.grayed) ? it.grayed : [];
     it.grayed = g.includes(key) ? g.filter(x => x !== key) : g.concat([key]);
@@ -1930,7 +1951,8 @@ async function show(){
   const qsig = linesSig(q.lines);
   let lines, rebuilt = null;
   if (q.onsite && Array.isArray(q.onsite.lines)) {
-    const stale = q.onsite.from ? q.onsite.from !== qsig : toMs(q.updatedAt) > toMs(q.onsite.updatedAt);
+    /* Unpaid invoice: its bill is written from this sheet, so the sheet is the source (never rebuilt from it). */
+    const stale = place !== "invoices" && (q.onsite.from ? q.onsite.from !== qsig : toMs(q.updatedAt) > toMs(q.onsite.updatedAt));
     if (stale) { rebuilt = reconcile(q.onsite.lines, q.lines, q.spots, !!q.fromJobSheet); lines = rebuilt.lines; if (rebuilt.spots) q.spots = rebuilt.spots; }
     else lines = q.onsite.lines;
   } else lines = onsiteCopy(q.lines);
