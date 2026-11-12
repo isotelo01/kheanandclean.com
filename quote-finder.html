@@ -2706,7 +2706,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       : !phone && !email ? ['ph', 'Please give us a phone number or an email.']
       : phone && !phOk ? ['ph', 'Please give us a 10-digit phone number.']
       : email && !emOk ? ['em', 'Please check your email address.']
-      : phone && !sms ? ['smsQ', 'Please choose Yes or No for texting.'] : null;
+      : phone && !sms ? ['smsQ', 'Please choose Yes or No for texting.']
+      : sms && sms.value === 'No' && !email ? ['em', 'Since we can’t text you, please give us an email so we can send your quote.'] : null;   /* no texts: email is required */
     if(bad){ err.textContent = bad[1]; var t = $(bad[0]); if(t.focus) t.focus(); t.scrollIntoView({ block:'center' }); return; }
     err.textContent = '';
     if(A.noPics && !A.askedComments){ comments(el, $); return; }   // one last box before it sends
