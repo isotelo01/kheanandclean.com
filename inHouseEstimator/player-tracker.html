@@ -267,7 +267,8 @@ function drawTable(pick) {
        + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${c ? "#b8902f" : "#2a2e37"}" stroke="rgba(255,255,255,.5)"/></g>`;
     /* Just the seat number: black when open, gold when someone's seated. */
     if (pick && (!c || c === pick)) s += `<circle data-seat="${i}" cx="${x}" cy="${y}" r="22" fill="rgba(227,182,74,.3)" stroke="var(--gold)" stroke-width="2" style="cursor:pointer"/>`;
-    s += `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : "#000"}" font-size="22" font-weight="700" text-anchor="middle" ${pick && (!c || c === pick) ? `data-seat="${i}" style="cursor:pointer"` : ""}>${i}</text>`;
+    if (!pick) s += `<circle data-num="${i}" cx="${x}" cy="${y}" r="20" fill="transparent" style="cursor:pointer"/>`;   // tap the number: its own QR (dealer approves)
+    s += `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : "#000"}" font-size="22" font-weight="700" text-anchor="middle" ${pick && (!c || c === pick) ? `data-seat="${i}" style="cursor:pointer"` : `data-num="${i}" style="cursor:pointer"`}>${i}</text>`;
     if (c) labels.push({ nm: nameOf(c), chx, chy });
   }
   /* Names go with their chair, just outside it. If a name would sit on another chair or name,
@@ -441,7 +442,7 @@ tblSvg.addEventListener("pointermove", e => {
 const endDrag = e => {
   if (!dragging) return;
   const d = dragging; dragging = null;
-  if (!d.moved && e && e.type === "pointerup") { justDragged = true; showSeatQR(+d.i); }   // tapped a chair: that seat's sign-in QR
+  if (!d.moved && e && e.type === "pointerup") { justDragged = true; showSeatQR(+d.i, "sit"); }   // tapped a chair: its QR seats the player right away
   if (d.moved) {
     justDragged = true;
     layout[d.i] = { x: d.x, y: d.y };
@@ -457,6 +458,8 @@ $("tblBox").onclick = e => {
   if (justDragged) { justDragged = false; return; }   // a drag isn't a tap to go full screen
   if (e.target.closest("#tblBack")) { location.href = "./player-tracker.html"; return; }
   if (e.target.closest("#tblScan")) { openScanner(); return; }
+  const num = e.target.closest("[data-num]");
+  if (num && !box.classList.contains("full")) { showSeatQR(+num.dataset.num, "ask"); return; }
   if (!box.classList.contains("full")) location.href = "./dealer-table.html";   // the table opens on its own page
 };
 /* ---- QR codes: each player's QR is their own link, so the iPhone camera opens it too.
@@ -481,11 +484,13 @@ function showQR(c) {
   if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 260, height: 260, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
   else $("qrBox").textContent = link;
 }
-/* Tap a chair: that seat's sign-in QR. Player scans it, signs in, and the dealer is asked to seat them. */
-function showSeatQR(n) {
-  const link = location.origin + location.pathname + "?join&t=1&s=" + n;
-  showModal(`<div class="mt">Seat ${n}</div><div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div>
-    <p class="note">Table 1, seat ${n}</p><p class="note" style="word-break:break-all">${esc(link)}</p>
+/* Two different QRs per seat, each its own link:
+   chair  ("sit") = player signs in and is seated right away;
+   number ("ask") = player signs in and the dealer approves on Dealer Control. */
+function showSeatQR(n, kind) {
+  const link = location.origin + location.pathname + "?join&t=1&s=" + n + (kind === "sit" ? "&sit" : "");
+  showModal(`<div class="mt">Seat ${n} &middot; ${kind === "sit" ? "Chair" : "Number"}</div><div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div>
+    <p class="note">Table 1, seat ${n} &mdash; ${kind === "sit" ? "seats the player right away" : "dealer approves first"}</p><p class="note" style="word-break:break-all">${esc(link)}</p>
     <button class="btn sm" id="seatLinkCopy">Copy link</button>`);
   if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 240, height: 240, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
   $("seatLinkCopy").onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
@@ -571,15 +576,23 @@ async function maybeRequestSeat() {
   const c = myCard;
   const box = $("reqBox");
   /* Seat already taken by someone else: tell the player, don't bother the dealer. */
-  try {
-    const snap = await getDoc(REF), all = snap.exists() ? snap.data() : {};
-    const taken = Object.entries(all).some(([k, p]) => k !== c && p.status === "seated" && (p.table || 1) === reqT && p.seat === reqS);
-    if (taken) {
-      box.hidden = false;
-      box.innerHTML = `<div class="status" style="margin:0;color:#fca5a5">Someone's already seated there. Please pick another seat.</div>`;
-      return;
-    }
-  } catch (e) {}
+  let all = state;
+  try { const snap = await getDoc(REF); all = snap.exists() ? snap.data() : {}; } catch (e) {}
+  const taken = Object.entries(all).some(([k, p]) => k !== c && p.status === "seated" && (p.table || 1) === reqT && p.seat === reqS);
+  if (taken) {
+    box.hidden = false;
+    box.innerHTML = `<div class="status" style="margin:0;color:#fca5a5">Someone's already seated there. Please pick another seat.</div>`;
+    return;
+  }
+  /* Chair QR: seat them right away, no dealer approval. */
+  if (params.has("sit")) {
+    const p = all[c] || get(c);
+    save(c, p.status === "seated" ? { ...p, seat: reqS, table: reqT }   // moving seats keeps their time running
+                                  : { ...p, status: "seated", seat: reqS, table: reqT, since: Date.now(), waitAt: null });
+    box.hidden = false;
+    box.innerHTML = `<div class="status" style="margin:0;color:var(--ok)">You're seated at table ${reqT}, seat ${reqS}.</div>`;
+    return;
+  }
   setDoc(REQREF, { [c]: { t: reqT, s: reqS, at: Date.now() } }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
   logEvent(c, "Asked for table " + reqT + " seat " + reqS);
   box.hidden = false;
