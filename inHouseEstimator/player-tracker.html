@@ -231,6 +231,57 @@ function seatAt(c, n) {
   if (p.status === "seated") save(c, { ...p, seat: n, table: 1 });   // moving seats keeps their time running
   else act.seat(c, n);
 }
+/* ---- Chairs (table 1). Each chair has its own number (C1-C7) and card. A player logs into a chair
+   (chair QR); the chair's spot decides the seat, like the planned proximity sensors:
+   within 3 ft of a seat = seated there (scoot over = switch seats), pulled out past 3 ft = on break,
+   seat held. A chair never bumps someone already seated. For now, dragging a chair stands in for the sensor.
+   The chair is kept on the player's record (.chair), so it clears when they log out. ---- */
+const TBL = { cx: 200, cy: 40, r: 170 }, FT = 45, PULL_FT = 3;   // table ~7.5 ft across = 340 units, so ~45 units a foot
+const seatAngle = i => Math.PI * (i / (SEATS + 1));
+function chairPos(i) {
+  const L = layout[i], a = seatAngle(i);
+  return L ? [L.x, L.y] : [TBL.cx + Math.cos(a) * (TBL.r + 40), TBL.cy + Math.sin(a) * (TBL.r + 40)];
+}
+function nearSeat(i) {   // nearest seat to chair i (measured to the rail at that seat), and how far in feet
+  const [x, y] = chairPos(i);
+  let best = null;
+  for (let s = 1; s <= SEATS; s++) {
+    const a = seatAngle(s), d = Math.hypot(x - (TBL.cx + Math.cos(a) * TBL.r), y - (TBL.cy + Math.sin(a) * TBL.r)) / FT;
+    if (!best || d < best.ft) best = { seat: s, ft: d };
+  }
+  return best;
+}
+const chairOccupant = n => Object.keys(state).find(c => isPlayer(c) && state[c] && state[c].chair === n);   // logging out drops .chair
+const seatedMs = p => (p.sessionMs || 0) + (p.since ? Date.now() - p.since : 0);
+/* The "sensor": work out where chair n's player should be, and update them. Returns what happened. */
+function applyChair(n) {
+  const c = chairOccupant(n); if (!c) return { r: "empty" };
+  const p = get(c), ns = nearSeat(n);
+  if (ns.ft > PULL_FT) {   // pulled away from the table: break, seat held, hours stop
+    if (p.status === "seated" && !p.breakAt) {
+      save(c, { ...p, totalMs: liveMs(p), sessionMs: seatedMs(p), since: null, breakAt: Date.now() });
+      logEvent(c, "Chair " + n + " pulled out " + ns.ft.toFixed(1) + " ft: on break, seat " + p.seat + " held");
+      return { r: "break", seat: p.seat };
+    }
+    return { r: "out" };
+  }
+  const s = ns.seat;
+  const other = Object.keys(state).find(k => k !== c && state[k].status === "seated" && (state[k].table || 1) === 1 && state[k].seat === s);
+  if (other) {   // never bump a seated player
+    logEvent(c, "Chair " + n + " moved to seat " + s + ", taken by " + nameOf(other) + ": no change");
+    return { r: "taken", seat: s };
+  }
+  if (p.status === "seated" && (p.table || 1) === 1) {
+    if (p.seat === s && !p.breakAt) return { r: "seated", seat: s };
+    save(c, { ...p, seat: s, table: 1, breakAt: null, since: p.breakAt ? Date.now() : p.since });
+    logEvent(c, p.breakAt && p.seat === s ? "Chair " + n + " pushed back in: back from break, seat " + s
+                                          : "Chair " + n + " moved: seat " + p.seat + " to seat " + s);
+    return { r: "seated", seat: s };
+  }
+  save(c, { ...p, status: "seated", seat: s, table: 1, since: Date.now(), waitAt: null, breakAt: null, sessionMs: 0 });
+  logEvent(c, "Chair " + n + ": seated at seat " + s);
+  return { r: "seated", seat: s };
+}
 const onTableDealer = () => Object.keys(DEALERS).find(d => get(d).status === "seated" && (get(d).table || 1) === 1);
 
 const params = new URLSearchParams(location.search);
@@ -260,17 +311,22 @@ function drawTable(pick) {
     const a = Math.PI * (i / (SEATS + 1));
     const x = cx + Math.cos(a) * (r - 30), y = cy + Math.sin(a) * (r - 30);
     const c = seated[i];
-    /* Chair outside the rail, facing the table. */
-    const L = layout[i];
-    const chx = L ? L.x : cx + Math.cos(a) * (r + 40), chy = L ? L.y : cy + Math.sin(a) * (r + 40);
+    /* Chair outside the rail, facing the table. Gold = its player is seated, blue = on break, grey = empty. */
+    const [chx, chy] = chairPos(i);
+    const co = chairOccupant(i), cp = co && get(co);
+    const top = !cp ? "#3a3f4b" : cp.breakAt || cp.status !== "seated" ? "#3b82f6" : "var(--gold)";
+    const back = !cp ? "#2a2e37" : cp.breakAt || cp.status !== "seated" ? "#1d4ed8" : "#b8902f";
     s += `<g class="chair" data-chair="${i}" transform="${chairXf(chx, chy)}">`
-       + `<rect x="-15" y="-12" width="30" height="24" rx="6" fill="${c ? "var(--gold)" : "#3a3f4b"}" stroke="rgba(255,255,255,.5)"/>`
-       + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${c ? "#b8902f" : "#2a2e37"}" stroke="rgba(255,255,255,.5)"/></g>`;
+       + `<rect x="-15" y="-12" width="30" height="24" rx="6" fill="${top}" stroke="rgba(255,255,255,.5)"/>`
+       + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${back}" stroke="rgba(255,255,255,.5)"/>`
+       + `<text y="5" fill="${cp ? "#000" : "rgba(255,255,255,.6)"}" font-size="11" font-weight="700" text-anchor="middle">C${i}</text></g>`;
     /* Just the seat number: black when open, gold when someone's seated. */
     if (pick && (!c || c === pick)) s += `<circle data-seat="${i}" cx="${x}" cy="${y}" r="22" fill="rgba(227,182,74,.3)" stroke="var(--gold)" stroke-width="2" style="cursor:pointer"/>`;
     if (!pick) s += `<circle data-num="${i}" cx="${x}" cy="${y}" r="20" fill="transparent" style="cursor:pointer"/>`;   // tap the number: its own QR (dealer approves)
     s += `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : "#000"}" font-size="22" font-weight="700" text-anchor="middle" ${pick && (!c || c === pick) ? `data-seat="${i}" style="cursor:pointer"` : `data-num="${i}" style="cursor:pointer"`}>${i}</text>`;
-    if (c) labels.push({ nm: nameOf(c), chx, chy });
+    /* Name goes with the chair the player is logged into (or this seat's chair if they have none). */
+    const lab = co || (c && !get(c).chair ? c : null);
+    if (lab) labels.push({ nm: nameOf(lab), chx, chy });
   }
   /* Names go with their chair, just outside it. If a name would sit on another chair or name,
      it slides further out until it's clear. */
@@ -443,12 +499,13 @@ tblSvg.addEventListener("pointermove", e => {
 const endDrag = e => {
   if (!dragging) return;
   const d = dragging; dragging = null;
-  if (!d.moved && e && e.type === "pointerup") { justDragged = true; showSeatQR(+d.i, "sit"); }   // tapped a chair: its QR seats the player right away
+  if (!d.moved && e && e.type === "pointerup") { justDragged = true; showChair(+d.i); }   // tapped a chair: its card
   if (d.moved) {
     justDragged = true;
     layout[d.i] = { x: d.x, y: d.y };
     try { localStorage.setItem("playerTracker.layout", JSON.stringify(layout)); } catch (e) {}
     setDoc(LAYREF, { [d.i]: layout[d.i] }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+    applyChair(+d.i);   // stand-in for the proximity sensor
   }
   drawTable();
 };
@@ -488,6 +545,26 @@ function showQR(c) {
 /* Two different QRs per seat, each its own link:
    chair  ("sit") = player signs in and is seated right away;
    number ("ask") = player signs in and the dealer approves on Dealer Control. */
+/* Chair card: its number, where it is, who's logged in, its QR, and its history. */
+function showChair(n) {
+  const link = location.origin + location.pathname + "?join&t=1&ch=" + n;
+  const ns = nearSeat(n), c = chairOccupant(n), p = c && get(c);
+  const where = ns.ft > PULL_FT ? "Pulled out (" + ns.ft.toFixed(1) + " ft from seat " + ns.seat + ")" : "At seat " + ns.seat + " (" + ns.ft.toFixed(1) + " ft)";
+  const status = !p ? "Empty" : p.status !== "seated" ? "Logged in, not seated" : p.breakAt ? "On break, seat " + p.seat + " held" : "Seated at seat " + p.seat;
+  const hist = events.filter(ev => ev.a && ev.a.indexOf("Chair " + n + " ") === 0 || (ev.a || "").indexOf("Chair " + n + ":") === 0).slice(-8).reverse();
+  showModal(`<div class="mt">Chair ${n} &middot; C${n}</div>
+    <div class="note">Table 1 &middot; ${esc(where)}</div>
+    <div class="note"><b style="color:#fff">${c ? esc(nameOf(c)) : "No one logged in"}</b>${c ? " &middot; " + esc(status) : ""}</div>
+    <div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px;margin-top:6px"></div>
+    <p class="note">Player scans this to log into Chair ${n}. Where the chair sits decides their seat.</p>
+    <p class="note" style="word-break:break-all">${esc(link)}</p>
+    <p><button class="btn sm" id="seatLinkCopy">Copy link</button>${c ? ` <button class="btn ghost sm" id="chairOut">Log ${esc(nameOf(c))} out</button>` : ""}</p>
+    <div class="note" style="margin-top:10px"><b style="color:var(--gold)">History</b>${hist.length ? hist.map(ev => `<div>${new Date(ev.t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} &middot; ${esc(nameOf(ev.c))}: ${esc(ev.a)}</div>`).join("") : "<div>Nothing yet.</div>"}</div>`);
+  if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 200, height: 200, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+  $("seatLinkCopy").onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
+    .then(() => { $("seatLinkCopy").textContent = "Copied"; }, () => prompt("Copy this link:", link));
+  if (c) $("chairOut").onclick = () => { act.out(c); logEvent(c, "Chair " + n + ": logged out"); closeModal(); };
+}
 function showSeatQR(n, kind) {
   const link = location.origin + location.pathname + "?join&t=1&s=" + n + (kind === "sit" ? "&sit" : "");
   showModal(`<div class="mt">Seat ${n} &middot; ${kind === "sit" ? "Chair" : "Number"}</div><div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div>
@@ -573,6 +650,24 @@ function signedIn(c) {
    to seat them there; the dealer approves on the dealer table page. */
 const reqT = +params.get("t"), reqS = +params.get("s");
 async function maybeRequestSeat() {
+  const reqCh = +params.get("ch");
+  if (reqCh && myCard && !DEALERS[myCard]) {   // chair QR: log into the chair; its spot decides the seat
+    const c = myCard, box = $("reqBox"); box.hidden = false;
+    const say = (t, col) => { box.innerHTML = `<div class="status" style="margin:0;color:${col}">${t}</div>`; };
+    try {
+      const [a, l] = await Promise.all([getDoc(REF), getDoc(LAYREF)]);
+      state = a.exists() ? a.data() : {}; layout = l.exists() ? l.data() : {};
+    } catch (e) {}
+    const who = chairOccupant(reqCh);
+    if (who && who !== c) { say("Someone's already in Chair " + reqCh + ". Please pick another seat.", "#fca5a5"); return; }
+    const p = get(c);
+    if (p.chair !== reqCh) { save(c, { ...p, chair: reqCh }); logEvent(c, "Chair " + reqCh + ": logged in"); }
+    const res = applyChair(reqCh);
+    if (res.r === "seated") say("You're seated at table 1, seat " + res.seat + " (Chair " + reqCh + ").", "var(--ok)");
+    else if (res.r === "taken") say("Someone's already seated at seat " + res.seat + ". Please pick another seat.", "#fca5a5");
+    else say("You're logged into Chair " + reqCh + ". Pull it up to the table to sit.", "#fff");
+    return;
+  }
   if (!reqT || !reqS || !myCard || DEALERS[myCard]) return;
   const c = myCard;
   const box = $("reqBox");
