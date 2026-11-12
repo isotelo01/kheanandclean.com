@@ -93,7 +93,15 @@ input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);bo
       <div class="box" id="calls"></div>
       <h2>Floor plan</h2>
       <p class="hint">Drag a table to move it. Tap a table for open/close, rotate and size.
-        <a href="./measure.html?building=1" class="btn ghost sm" style="margin-left:6px">Edit building shape</a></p>
+        <a href="./measure.html?building=1" class="btn ghost sm" style="margin-left:6px">Edit building shape</a>
+        <button class="btn sm" id="addTbl" style="margin-left:4px">+ Add a table</button></p>
+      <div class="add" id="addTblBox" hidden style="background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:10px">
+        <input id="tGame" list="tblGames" placeholder="Game, e.g. Blackjack" autocomplete="off" style="flex:1;min-width:160px">
+        <datalist id="tblGames"><option>Blackjack</option><option>Baccarat</option><option>Poker</option><option>Three Card Poker</option><option>Ultimate Texas Hold'em</option><option>Pai Gow</option></datalist>
+        <select id="tSeats" aria-label="Seats"><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select>
+        <select id="tShape" aria-label="Shape"><option value="half">Half-moon</option><option value="oval">Oval</option></select>
+        <button class="btn" id="tCreate">Add table</button>
+      </div>
       <div id="tbar" hidden></div>
       <svg id="plan" viewBox="0 0 900 560"></svg>
     </main>
@@ -117,23 +125,26 @@ const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
 const TBLREF = doc(db, "playerTracker", "tables"), CALLREF = doc(db, "playerTracker", "calls"), WAITREF = doc(db, "playerTracker", "waitlist");
 const GAMESREF = doc(db, "playerTracker", "waitgames");   // wait list games the floor built: { id: { name, at } }
+const LISTREF = doc(db, "playerTracker", "tablelist");    // tables added with "+ Add a table": { n: { game, seats: [..], shape } }
 const PLANREF = doc(db, "playerTracker", "floorplan");    // where each table sits on the floor plan: { n: { x, y, rot, scale } }
 const BLDREF = doc(db, "playerTracker", "building");      // building outline drawn with the room measurer's sketch tool (feet)
 const FT_PX = 16;   // floor plan units per foot (a table with its chairs is about 12 ft across)
 
 /* Same tables, test roster and dealers as the other Player Tracker pages. */
-const TABLES = {
+const BASE_TABLES = {
   1: { game: "Blackjack", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
   2: { game: "Baccarat", seats: [1, 2, 3, 5, 6, 7, 8], shape: "half" },   // no seat 4
   3: { game: "Poker", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9], shape: "oval" },
   4: { game: "Three Card Poker", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
   5: { game: "Ultimate Texas Hold'em", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" }
 };
+let TABLES = { ...BASE_TABLES }, added = {};   // tables 1-5 plus any the floor added
 /* One table on the floor plan, drawn from the top in a 200 x 182 box: green felt when open, grey when
    closed, a chair at each seat facing the table (gold = seated, blue = on break, red = break over 30 min,
    dark = empty), then its name, dealer and seats under it. Drag to move it; tap to open/close it. */
 const tblXf = p => `translate(${p.x} ${p.y}) translate(100 91) rotate(${p.rot || 0}) scale(${p.scale || 1}) translate(-100 -91)`;
-const PLAN_DEFAULT = { 1: { x: 40, y: 30 }, 2: { x: 350, y: 30 }, 3: { x: 660, y: 30 }, 4: { x: 40, y: 300 }, 5: { x: 350, y: 300 } };
+const PLAN_DEFAULT = new Proxy({ 1: { x: 40, y: 30 }, 2: { x: 350, y: 30 }, 3: { x: 660, y: 30 }, 4: { x: 40, y: 300 }, 5: { x: 350, y: 300 } },
+  { get: (o, n) => o[n] || { x: 40 + ((+n - 1) % 3) * 310, y: 30 + Math.floor((+n - 1) / 3) * 270 } });   // new tables: next spot in the grid
 function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
   const felt = open ? "#0f6b3a" : "#3a3f4b", rail = open ? "#5a3518" : "#2a2e37";
   const chair = (x, y, cx, cy, s) => {   // small chair at (x,y), turned to face the table centre (cx,cy)
@@ -225,6 +236,7 @@ function draw() {
       <span class="hint" style="margin:0">${Math.round(((q.rot || 0) % 360 + 360) % 360)}&deg; &middot; ${Math.round((q.scale || 1) * 100)}%</span>
       <button class="btn ghost" data-ta="reset">Reset</button>
       <a class="btn ghost" href="./dealer-table.html?t=${selT}">Dealer Control &rsaquo;</a>
+      ${added[selT] ? `<button class="btn ghost" data-ta="del" style="color:var(--bad);border-color:var(--bad)">Remove table</button>` : ""}
       <button class="btn ghost" data-ta="x" aria-label="Close toolbar">&times;</button>`;
   } else $("tbar").hidden = true;
 
@@ -270,6 +282,13 @@ document.addEventListener("click", e => {
     const n = selT, q = { ...(plan[n] || PLAN_DEFAULT[n]) }, a = ta.dataset.ta;
     if (a === "open") { setDoc(TBLREF, { [n]: { open: !(tables[n] && tables[n].open) } }, { merge: true }).catch(fail); return; }
     if (a === "x") { selT = 0; draw(); return; }
+    if (a === "del" && added[n]) {
+      if (!confirm("Remove table " + n + " (" + added[n].game + ")?")) return;
+      setDoc(LISTREF, { [n]: deleteField() }, { merge: true }).catch(fail);
+      setDoc(PLANREF, { [n]: deleteField() }, { merge: true }).catch(fail);
+      setDoc(TBLREF, { [n]: deleteField() }, { merge: true }).catch(fail);
+      delete added[n]; delete plan[n]; TABLES = { ...BASE_TABLES, ...added }; selT = 0; draw(); return;
+    }
     if (a === "rl") q.rot = ((q.rot || 0) - 15) % 360;
     if (a === "rr") q.rot = ((q.rot || 0) + 15) % 360;
     if (a === "sm") q.scale = Math.max(.5, Math.round(((q.scale || 1) - .1) * 10) / 10);
@@ -312,6 +331,19 @@ const createGame = () => {
 $("gCreate").onclick = createGame;
 $("gName").onkeydown = e => { if (e.key === "Enter") createGame(); };
 
+/* + Add a table: game, seats, shape. Gets the next number and lands in the next open spot on the plan. */
+const ovalGame = g => /poker|hold.?em|omaha|stud/i.test(g) && !/three card|ultimate|pai gow/i.test(g);
+$("addTbl").onclick = () => { $("addTblBox").hidden = !$("addTblBox").hidden; if (!$("addTblBox").hidden) $("tGame").focus(); };
+$("tGame").oninput = () => { const o = ovalGame($("tGame").value); $("tShape").value = o ? "oval" : "half"; if (o && $("tSeats").value === "7") $("tSeats").value = "9"; };
+$("tCreate").onclick = () => {
+  const game = $("tGame").value.trim(); if (!game) { $("tGame").focus(); return; }
+  const n = Math.max(...Object.keys(TABLES).map(Number)) + 1, count = +$("tSeats").value;
+  const t = { game: game.slice(0, 40), seats: Array.from({ length: count }, (_, i) => i + 1), shape: $("tShape").value };
+  added[n] = t; TABLES = { ...BASE_TABLES, ...added };
+  setDoc(LISTREF, { [n]: t }, { merge: true }).catch(fail);
+  $("tGame").value = ""; $("addTblBox").hidden = true; selT = n; draw();
+};
+
 /* Floor plan: drag a table to move it (saved for everyone); a tap without dragging opens/closes it. */
 const planPt = e => { const m = $("plan").getScreenCTM().inverse(); return new DOMPoint(e.clientX, e.clientY).matrixTransform(m); };
 $("plan").addEventListener("pointerdown", e => {
@@ -347,6 +379,7 @@ onAuthStateChanged(getAuth(app), u => {
   const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
   on(REF, v => state = v); on(TBLREF, v => tables = v); on(CALLREF, v => calls = v); on(WAITREF, v => wait = v);
   on(GAMESREF, v => games = v); on(PLANREF, v => plan = v);
+  on(LISTREF, v => { added = {}; for (const [n, t] of Object.entries(v)) if (t && t.game && Array.isArray(t.seats)) added[n] = t; TABLES = { ...BASE_TABLES, ...added }; });
   on(BLDREF, v => { try { building = v.sketch ? JSON.parse(v.sketch) : null; } catch (e) { building = null; } });
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});

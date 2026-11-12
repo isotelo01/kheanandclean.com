@@ -92,7 +92,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -119,15 +119,16 @@ const ROSTER = {
 };
 const DEALERS = { "D001": "Ace in the Hole", "D002": "Shuffle Off Home" };
 /* 5 tables. Each player/dealer record carries .table (missing = table 1). */
-const TABLES = {
+const BASE_TABLES = {
   1: { game: "Blackjack", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
   2: { game: "Baccarat", seats: [1, 2, 3, 5, 6, 7, 8], shape: "half" },   // no seat 4, like real baccarat tables
   3: { game: "Poker", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9], shape: "oval" },
   4: { game: "Three Card Poker", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
   5: { game: "Ultimate Texas Hold'em", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" }
 };
-const T = TABLES[+new URLSearchParams(location.search).get("t")] ? +new URLSearchParams(location.search).get("t") : 1;
-const TB = TABLES[T];
+let TABLES = { ...BASE_TABLES };   // plus tables added on the Floor page (playerTracker/tablelist), loaded at start
+const pickT = () => TABLES[+new URLSearchParams(location.search).get("t")] ? +new URLSearchParams(location.search).get("t") : 1;
+let T = pickT(), TB = TABLES[T];
 const onT = p => p && p.status === "seated" && (p.table || 1) === T;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -458,9 +459,14 @@ async function startScan(n) {
 }
 
 /* ---- start (staff only) ---- */
-onAuthStateChanged(getAuth(app), u => {
+onAuthStateChanged(getAuth(app), async u => {
   if (!u) { location.replace("./login.html?next=" + encodeURIComponent("dealer-table.html" + location.search)); return; }
   if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  try {   // tables added on the Floor page
+    const s = await getDoc(doc(db, "playerTracker", "tablelist"));
+    for (const [n, t] of Object.entries(s.exists() ? s.data() : {})) if (t && t.game && Array.isArray(t.seats)) TABLES[n] = t;
+  } catch (e) {}
+  T = pickT(); TB = TABLES[T];
   document.body.style.visibility = "visible";
   $("ttl").textContent = "Table " + T + ": " + TB.game;
   document.title = "Table " + T + " · " + TB.game;
