@@ -462,7 +462,7 @@ onAuthStateChanged(getAuth(app), async u => {
       if (!t) continue;
       if (t.deleted) { delete TABLES[n]; continue; }
       const b = BASE_TABLES[n] || {}, seats = Array.isArray(t.seats) ? t.seats : b.seats;
-      if ((t.game || b.game) && seats) TABLES[n] = { game: t.game || b.game, seats, shape: t.shape || b.shape || "half", variant: t.variant || "" };
+      if ((t.game || b.game) && seats) TABLES[n] = { game: t.game || b.game, seats, shape: t.shape || b.shape || "half", variant: t.variant || "", stakes: t.stakes || "" };
     }
   } catch (e) {}
   T = pickT(); TB = TABLES[T];
@@ -472,8 +472,9 @@ onAuthStateChanged(getAuth(app), async u => {
       <p>No tables yet at this casino.</p><p><a href="./floor.html" style="color:#E3B64A;font-weight:700">Add one on the Floor page &rsaquo;</a></p></div>`;
     return;
   }
-  $("ttl").textContent = "Table " + T + ": " + (TB.variant || TB.game);   // a poker table shows which poker game it's running
-  document.title = "Table " + T + " · " + (TB.variant || TB.game);
+  const lbl = TB.variant ? (TB.stakes ? TB.stakes + " " : "") + TB.variant : TB.game;   // a poker table shows its stakes and game
+  $("ttl").textContent = "Table " + T + ": " + lbl;
+  document.title = "Table " + T + " · " + lbl;
   $("tabs").innerHTML = Object.keys(TABLES).map(n => `<a href="?t=${n}" class="${+n === T ? "on" : ""}" title="${esc(TABLES[n].game)}">${n}</a>`).join("");
   draw();
   onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);

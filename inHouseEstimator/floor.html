@@ -176,6 +176,8 @@ const STAKES_NL = ["1/2", "1/3", "2/3", "2/5", "5/10"], STAKES_LIMIT = ["1/3", "
 let pg = { fav: {}, custom: {}, stakes: {}, hide: {} };   // stakes: { gameId: ["1/2/5/10", ...] } your own blinds; hide: built-in stakes removed
 let stakeFor = "";   // game whose "+" (add your own blinds) box is open
 const pgName = id => POKER_GAMES[id] || (pg.custom[id] && pg.custom[id].name) || "";
+/* What a table is called: a poker table with a game picked shows stakes + game, e.g. "1/2 No-Limit Hold'em". */
+const tblLabel = tb => tb.variant ? (tb.stakes ? tb.stakes + " " : "") + tb.variant : tb.game;
 const isLimit = id => LIMIT_IDS.includes(id) || (!POKER_GAMES[id] && /\blimit\b/i.test(pgName(id)) && !/(no|pot)[- ]limit/i.test(pgName(id)));
 const stakesFor = id => [...(isLimit(id) ? STAKES_LIMIT : STAKES_NL).filter(x => !(pg.hide[id] || []).includes(x)), ...(pg.stakes[id] || [])];
 const ownStake = (id, st) => (pg.stakes[id] || []).includes(st);
@@ -198,7 +200,7 @@ function buildTables() {   // tables 1-5, changed by the floor's edits, plus add
     if (!t) continue;
     if (t.deleted) { delete T[n]; continue; }
     const b = BASE_TABLES[n] || {}, seats = Array.isArray(t.seats) ? t.seats : b.seats;
-    if ((t.game || b.game) && seats) T[n] = { game: t.game || b.game, seats, shape: t.shape || b.shape || "half", variant: t.variant || "" };
+    if ((t.game || b.game) && seats) T[n] = { game: t.game || b.game, seats, shape: t.shape || b.shape || "half", variant: t.variant || "", stakes: t.stakes || "" };
   }
   TABLES = T;
 }
@@ -230,7 +232,7 @@ function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
   }
   s += `<text x="100" y="${label}" fill="${open ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.55)"}" font-size="26" font-weight="700" text-anchor="middle">${n}</text>`;
   if (!open) s += `<text x="100" y="${label + 18}" fill="#f87171" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle">CLOSED</text>`;
-  s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${esc(tb.variant || tb.game)}</text>`
+  s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${esc(tblLabel(tb))}</text>`
      + `<text x="100" y="162" fill="rgba(255,255,255,.7)" font-size="11" text-anchor="middle">${dealer ? esc(nameOf(dealer)) : "No dealer"} &#183; ${nSeated}/${tb.seats.length} seated${nBreak ? " &#183; " + nBreak + " on break" : ""}</text>`
      + `<a href="./dealer-table.html?t=${n}"><text x="100" y="178" fill="#E3B64A" font-size="11" font-weight="700" text-anchor="middle">Dealer Control &#8250;</text></a>`;
   return `<g class="ptbl${selT === n ? " sel" : ""}" data-tbl="${n}" transform="${tblXf(pos)}">${s}</g>`;
@@ -291,10 +293,13 @@ function draw() {
     $("tbar").hidden = false;
     /* Poker table: pick which poker game it's running (favorites, plus whatever it's on now). It stays until changed. */
     const favIds = pgAll().filter(id => pg.fav[id]), cur = tb.variant || "";
-    const pick = ovalGame(tb.game) ? `<div class="sec"><div class="lbl">Poker game</div><select data-tv="${n}">
+    const curId = pgAll().find(id => pgName(id) === cur);   // then the stakes, under the game: that game's bubbles
+    const pick = ovalGame(tb.game) ? `<div style="display:grid;gap:4px"><div class="lbl">Pick a game</div><select data-tv="${n}">
         <option value="">${favIds.length ? "Pick a game" : "Star games in + Add a poker game"}</option>
-        ${[...new Set([...favIds.map(pgName), ...(cur ? [cur] : [])])].map(g => `<option${g === cur ? " selected" : ""}>${esc(g)}</option>`).join("")}</select></div>` : "";
-    $("tpLive").innerHTML = `<div class="tph"><h3>Table ${n} &middot; ${esc(tb.variant || tb.game)}</h3><button data-ta="x" aria-label="Close">&times;</button></div>${pick}
+        ${[...new Set([...favIds.map(pgName), ...(cur ? [cur] : [])])].map(g => `<option${g === cur ? " selected" : ""}>${esc(g)}</option>`).join("")}</select>
+        ${cur ? `<div class="lbl">Pick the stakes</div><div class="bubs">${[...new Set([...(curId ? stakesFor(curId) : STAKES_NL), ...(tb.stakes ? [tb.stakes] : [])])]
+          .map(st => `<button class="bub${st === tb.stakes ? " on" : ""}" data-tstk="${n}" data-st="${st}">${st}</button>`).join("")}</div>` : ""}</div>` : "";
+    $("tpLive").innerHTML = `<div class="tph"><h3>Table ${n} &middot; ${esc(tblLabel(tb))}</h3><button data-ta="x" aria-label="Close">&times;</button></div>${pick}
       <div class="sec btns"><button class="btn ${open ? "" : "ok"}" data-ta="open">${open ? "Close table" : "Open table"}</button>
         <span class="tag" style="align-self:center;${open ? "background:var(--ok);color:#000" : "background:#5a1d1d"}">${open ? "Open" : "Closed"}</span>
         <a class="btn ghost" href="./dealer-table.html?t=${n}">Dealer Control &rsaquo;</a></div>
@@ -502,8 +507,18 @@ $("pgNew").onkeydown = e => { if (e.key === "Enter") addPgGame(); };
 document.addEventListener("change", e => {
   const sel = e.target.closest("[data-tv]"); if (!sel) return;
   const n = +sel.dataset.tv, v = sel.value;
-  list[n] = { ...(list[n] || {}), variant: v }; buildTables();
-  setDoc(LISTREF, { [n]: { variant: v } }, { merge: true }).catch(fail);
+  const id = pgAll().find(k => pgName(k) === v), old = (TABLES[n] || {}).stakes || "";
+  const stakes = v && id && stakesFor(id).includes(old) ? old : "";   // keep the stakes if the new game has them
+  list[n] = { ...(list[n] || {}), variant: v, stakes }; buildTables();
+  setDoc(LISTREF, { [n]: { variant: v, stakes } }, { merge: true }).catch(fail);
+  draw();
+});
+/* A poker table's stakes: tap a bubble under its game (tap again to clear). */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-tstk]"); if (!b) return;
+  const n = +b.dataset.tstk, stakes = (TABLES[n] || {}).stakes === b.dataset.st ? "" : b.dataset.st;
+  list[n] = { ...(list[n] || {}), stakes }; buildTables();
+  setDoc(LISTREF, { [n]: { stakes } }, { merge: true }).catch(fail);
   draw();
 });
 
