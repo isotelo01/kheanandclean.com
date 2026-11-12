@@ -80,7 +80,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
       <a class="back" href="./personal.html">&lsaquo; Personal</a>
       <button onclick="location.reload()" aria-label="Refresh" title="Refresh" style="background:none;border:0;padding:4px;cursor:pointer;line-height:0"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#E3B64A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
     </div>
-    <div class="box" id="tblBox"><button class="btn ghost sm" id="tblBack">&lsaquo; Back</button><button class="btn sm" id="tblScan">Scan player</button><svg class="table" id="tbl" viewBox="-20 0 440 285"></svg></div>
+    <div class="box" id="tblBox"><button class="btn ghost sm" id="tblBack">&lsaquo; Back</button><button class="btn sm" id="tblScan">Scan player</button><svg class="table" id="tbl" viewBox="-60 0 520 300"></svg></div>
     <h2>Waitlist</h2>
     <div class="box" id="waitList"></div>
     <h2>Dealers</h2>
@@ -227,7 +227,9 @@ function drawTable() {
         + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
         + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
         + `<path d="M${cx - 110} ${cy + 70} A 125 125 0 0 0 ${cx + 110} ${cy + 70}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>`
-        + `<text x="${cx}" y="${cy + 105}" fill="rgba(255,255,255,.55)" font-size="10" text-anchor="middle">BLACKJACK PAYS 3 TO 2</text>`;
+        + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
+        + `<text x="${cx}" y="${cy + 96}" fill="rgba(255,255,255,.75)" font-size="12" font-weight="700" letter-spacing="3" text-anchor="middle">BLACKJACK</text>`;
+  const labels = [];   // player names, placed by their chairs after the seats are drawn
   const seated = {};
   for (const [c, p] of Object.entries(state)) if (p.status === "seated") seated[p.seat] = c;
   for (let i = 1; i <= SEATS; i++) {
@@ -243,10 +245,39 @@ function drawTable() {
        + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${c ? "#b8902f" : "#2a2e37"}" stroke="rgba(255,255,255,.5)"/></g>`;
     s += `<circle cx="${x}" cy="${y}" r="20" fill="${c ? "var(--gold)" : "rgba(0,0,0,.35)"}" stroke="#fff" stroke-width="1.5"/>`
        + `<text x="${x}" y="${y + 5}" fill="${c ? "#000" : "#fff"}" font-size="14" font-weight="700" text-anchor="middle">${i}</text>`;
-    if (c) {
-      const nm = nameOf(c);
-      s += `<text x="${x}" y="${y + 34}" fill="#fff" font-size="9" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`;
+    if (c) labels.push({ nm: nameOf(c), chx, chy });
+  }
+  /* Names go with their chair, just outside it. If a name would sit on another chair or name,
+     it slides further out until it's clear. */
+  const chairs = [];
+  for (let i = 1; i <= SEATS; i++) {
+    const a = Math.PI * (i / (SEATS + 1)), L = layout[i];
+    chairs.push(L ? [L.x, L.y] : [cx + Math.cos(a) * (r + 40), cy + Math.sin(a) * (r + 40)]);
+  }
+  const placed = [];
+  const hit = (b, o) => b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1;
+  for (const lb of labels) {
+    const nm = lb.nm.length > 18 ? lb.nm.slice(0, 17) + "…" : lb.nm;
+    const w = nm.length * 5.6 + 6, h = 13;
+    /* Try spots around the chair (outward first, then below, then angled), nearest first;
+       take the first that stays on screen and clear of chairs and other names. */
+    const out = Math.atan2(lb.chy - cy, lb.chx - cx);
+    let box = null, first = null;
+    for (let d = 28; d <= 76 && !box; d += 8) {
+      for (const ang of [out, Math.PI / 2, out + 0.6, out - 0.6, -Math.PI / 2]) {
+        const lx = lb.chx + Math.cos(ang) * d, ly = lb.chy + Math.sin(ang) * d;
+        const b = { x1: lx - w / 2, x2: lx + w / 2, y1: ly - h / 2, y2: ly + h / 2, lx, ly };
+        if (b.x1 < -58 || b.x2 > 458 || b.y1 < 0 || b.y2 > 298) continue;
+        first = first || b;
+        const clash = placed.some(o => hit(b, o)) ||
+          chairs.some(([qx, qy]) => hit(b, { x1: qx - 19, x2: qx + 19, y1: qy - 19, y2: qy + 19 }));
+        if (!clash) { box = b; break; }
+      }
     }
+    box = box || first || { x1: lb.chx - w / 2, x2: lb.chx + w / 2, y1: lb.chy + 22, y2: lb.chy + 22 + h, lx: lb.chx, ly: lb.chy + 22 + h / 2 };
+    placed.push(box);
+    s += `<rect x="${box.x1}" y="${box.y1}" width="${w}" height="${h}" rx="4" fill="rgba(0,0,0,.6)"/>`
+       + `<text x="${box.lx}" y="${box.ly + 4}" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">${esc(nm)}</text>`;
   }
   $("tbl").innerHTML = s;
 }
