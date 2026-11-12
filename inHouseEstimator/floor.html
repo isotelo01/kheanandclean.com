@@ -270,6 +270,7 @@ function draw() {
         <div class="sec" id="tpForm" hidden>
           <div class="lbl">Table number</div><input id="eNum" type="number" inputmode="numeric" min="1" max="99" value="${n}">
           <div class="lbl">Game</div><input id="eGame" list="tblGames" value="${esc(tb.game)}" autocomplete="off">
+          <div class="lbl">Seats</div><select id="eSeats" style="width:100%;margin-bottom:8px">${[5, 6, 7, 8, 9, 10].map(k => `<option${k === tb.seats.length ? " selected" : ""}>${k}</option>`).join("")}</select>
           <div class="btns"><button class="btn" data-ta="save">Save</button>
             <button class="btn ghost" data-ta="del" style="color:var(--bad);border-color:var(--bad)">Delete table</button></div>
           <p class="hint" id="eMsg" style="margin-top:8px"></p></div>`;
@@ -372,7 +373,10 @@ function saveTableEdit(n) {
   if (!(m >= 1 && m <= 99)) { say("Pick a number from 1 to 99."); return; }
   if (!game) { say("Type the game."); return; }
   if (m !== n && TABLES[m]) { say("Table " + m + " is already used."); return; }
-  const t = { ...TABLES[n], game, deleted: false }, w = {};
+  const count = +$("eSeats").value, seats = count === TABLES[n].seats.length ? TABLES[n].seats : Array.from({ length: count }, (_, i) => i + 1);
+  const lost = Object.entries(state).filter(([c, p]) => p && p.status === "seated" && (p.table || 1) === n && p.seat && !seats.includes(p.seat));
+  if (lost.length) { say("Seat " + lost.map(([, p]) => p.seat).join(", ") + " is taken. Move " + (lost.length > 1 ? "them" : "that player") + " first."); return; }
+  const t = { ...TABLES[n], game, seats, deleted: false }, w = {};
   if (m === n) w[n] = t;
   else {
     w[m] = t; w[n] = BASE_TABLES[n] ? { deleted: true } : deleteField();
