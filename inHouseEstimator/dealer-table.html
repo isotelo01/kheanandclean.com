@@ -23,6 +23,11 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidd
 .tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
 .tabs a{min-width:34px;height:34px;padding:0 8px;border-radius:999px;border:1px solid var(--gold);color:var(--gold);text-decoration:none;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:15px}
 .tabs a.on{background:var(--gold);color:#000}
+#reqs{padding:0 14px}
+.req{display:flex;align-items:center;gap:8px;background:#0b3d22;border:1px solid var(--ok);border-radius:10px;padding:8px 10px;margin-top:6px;flex-wrap:wrap}
+.req b{flex:1;min-width:150px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.pending{animation:pulse 1.2s infinite}
 .btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px "Archivo",sans-serif;cursor:pointer;text-decoration:none;text-align:center}
 .btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
 .btn.ok{background:var(--ok)}
@@ -52,13 +57,15 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <body style="visibility:hidden">
 <div class="top"><a class="btn ghost" href="./player-tracker.html">&lsaquo; Back</a><b id="ttl">Table</b><div class="tabs" id="tabs"></div></div>
 <div class="warn" id="warn">Not syncing with the server.</div>
+<div id="reqs"></div>
 <svg id="tbl" viewBox="-24 0 448 272" preserveAspectRatio="xMidYMid meet"></svg>
 <div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:14px 0 0"><button class="btn ghost" id="mclose">Close</button></p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -70,6 +77,8 @@ const app = initializeApp({
 const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
 const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
 const db = getFirestore(app);
+const REQREF = doc(db, "playerTracker", "requests");  // seat requests from the seat sign-in pages: { card: { t, s, at } }
+let requests = {};
 const ROSTREF = doc(db, "playerTracker", "roster");   // players who signed up themselves (names)
 let roster = {};
 const REF = doc(db, "playerTracker", "poc"), LOGREF = doc(db, "playerTracker", "log"), PROFREF = doc(db, "playerTracker", "profiles");
@@ -180,7 +189,9 @@ function draw() {
         + tableBody(d);
   TB.seats.forEach((i, k) => {
     const [x, y] = seatXY(k), c = whoIn(i);
+    const wants = !c && Object.keys(requests).some(q => requests[q].t === T && requests[q].s === i);
     s += `<g data-seat="${i}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="24" fill="transparent"/>`
+       + (wants ? `<circle class="pending" cx="${x}" cy="${y}" r="17" fill="none" stroke="var(--ok)" stroke-width="2.5"/>` : "")
        + (c ? `<text x="${x}" y="${y + 8}" fill="${numFill(get(c))}" stroke="rgba(0,0,0,.45)" stroke-width=".7" paint-order="stroke" filter="url(#numSh)" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`
             : `<text x="${x}" y="${y + 8.8}" fill="rgba(255,255,255,.16)" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`   // light edge underneath = pressed in
             + `<text x="${x}" y="${y + 8}" fill="#04170c" fill-opacity=".85" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`)
@@ -194,7 +205,22 @@ function draw() {
     }
   });
   $("tbl").innerHTML = s;
+  /* Seat requests for this table: dealer approves or denies. */
+  $("reqs").innerHTML = Object.entries(requests).filter(([, q]) => q.t === T).sort((a, b) => a[1].at - b[1].at).map(([c, q]) =>
+    `<div class="req"><b>${esc(nameOf(c))} wants seat ${q.s}</b><button class="btn ok" data-ok="${c}">Approve</button><button class="btn ghost" data-no="${c}">Deny</button></div>`).join("");
 }
+$("reqs").addEventListener("click", e => {
+  const ok = e.target.closest("[data-ok]"), no = e.target.closest("[data-no]");
+  const c = (ok || no) && (ok ? ok.dataset.ok : no.dataset.no); if (!c || !requests[c]) return;
+  const q = requests[c];
+  if (ok) {
+    const o = whoIn(q.s);
+    if (o && o !== c) { alert("Seat " + q.s + " is taken by " + nameOf(o) + "."); return; }
+    seatPlayer(c, q.s, "approved");
+  } else logEvent(c, "Seat request denied (table " + T + " seat " + q.s + ")");
+  delete requests[c]; draw();
+  setDoc(REQREF, { [c]: deleteField() }, { merge: true }).catch(fail);
+});
 const RAIL = [[17, "#1a0e06"], [14, "#3e2410"], [11, "#6b3f1d"], [7, "#8f5e33"], [4, "#b07a46"], [1.5, "#d09a62"]];
 function tableBody(d) {
   const name = TB.game.toUpperCase(), long = name.length > 12;
@@ -238,7 +264,14 @@ function openSeat(n) {
   const c = whoIn(n);
   if (!c) {   // empty seat: camera comes on to scan the player's QR into this seat
     showModal(`<div class="mt">Seat ${n}</div><video id="scanVid" autoplay playsinline muted></video><canvas id="scanCv" hidden></canvas>
-      <p class="note" id="scanMsg">Scan the player's QR code.</p>`);
+      <p class="note" id="scanMsg">Scan the player's QR code.</p>
+      <button class="btn ghost" id="seatQr">This seat's sign-in QR</button><div id="seatQrBox" style="margin-top:10px;text-align:center"></div>`);
+    $("seatQr").onclick = () => {   // the code that goes on this chair: player scans it, signs in, dealer approves
+      const url = location.origin + location.pathname.replace(/dealer-table(\.html)?$/, "player-tracker.html") + "?join&t=" + T + "&s=" + n;
+      const b = $("seatQrBox"); b.innerHTML = `<div id="sq" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div><p class="note">Table ${T}, seat ${n}</p>`;
+      if (window.QRCode) new QRCode($("sq"), { text: url, width: 200, height: 200, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+      else $("sq").textContent = url;
+    };
     startScan(n);
     return;
   }
@@ -302,11 +335,11 @@ function openPad(c, n) {
   };
 }
 
-function seatPlayer(c, n) {
+function seatPlayer(c, n, how = "scanned") {
   const p = get(c);
   if (whoIn(n) && whoIn(n) !== c) { alert("Seat " + n + " is taken."); return; }
   if (p.status === "seated") save(c, { ...p, seat: n, table: T }, "Moved from table " + (p.table || 1) + " seat " + p.seat + " to table " + T + " seat " + n);
-  else save(c, { ...p, status: "seated", seat: n, table: T, since: Date.now(), waitAt: null, breakAt: null, sessionMs: 0 }, "Seated at table " + T + " (" + TB.game + ") seat " + n + " (scanned)");
+  else save(c, { ...p, status: "seated", seat: n, table: T, since: Date.now(), waitAt: null, breakAt: null, sessionMs: 0 }, "Seated at table " + T + " (" + TB.game + ") seat " + n + " (" + how + ")");
 }
 
 async function startScan(n) {
@@ -354,6 +387,7 @@ onAuthStateChanged(getAuth(app), u => {
   draw();
   onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);
   setInterval(draw, 30000);   // keep seated and break times ticking (and turn red at 30 min)
+  onSnapshot(REQREF, snap => { requests = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
 });

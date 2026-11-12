@@ -115,6 +115,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <div class="box" id="pfLog"></div>
   </div>
   <div id="player" hidden>
+    <div class="box me" id="reqBox" style="margin-bottom:12px;border-color:var(--ok)" hidden></div>
     <div class="box me" id="meBox"></div>
     <div class="box me" id="qrMe" style="margin-top:12px" hidden><div class="note" style="margin:0 0 8px">Show this to the dealer</div><div id="myQr" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div>
       <p class="note"><a href="#" id="notMe" style="color:var(--gold)">Not you?</a></p></div>
@@ -129,7 +130,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -145,7 +146,8 @@ const REF = doc(db, "playerTracker", "poc");
 const LOGREF = doc(db, "playerTracker", "log");        // { events: [{ c, a, t }] } every log in / log out
 const PROFREF = doc(db, "playerTracker", "profiles");
 const ROSTREF = doc(db, "playerTracker", "roster");     // { card: { name } } players who signed up themselves (names only)
-const IDXREF = doc(db, "playerTracker", "phoneIndex");  // { "h_<sha256 of phone>": card, "l4_<last 4>": [cards] } — no phone numbers in it
+const IDXREF = doc(db, "playerTracker", "phoneIndex");
+const REQREF = doc(db, "playerTracker", "requests");    // { card: { t, s, at } } seat requests waiting for the dealer  // { "h_<sha256 of phone>": card, "l4_<last 4>": [cards] } — no phone numbers in it
 let roster = {};
 const LAYREF = doc(db, "playerTracker", "layout");     // { seatNumber: { x, y } } where each chair was dragged to
 let layout = {};
@@ -546,7 +548,30 @@ const digitsOf = v => String(v || "").replace(/\D/g, "");
 async function sha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
 function signedIn(c) {
   try { localStorage.setItem("playerTracker.card", c); } catch (e) {}
-  myCard = c; $("signin").hidden = true; $("player").hidden = false; start(); showMyQr();
+  myCard = c; $("signin").hidden = true; $("player").hidden = false; start(); showMyQr(); maybeRequestSeat();
+}
+/* Seat sign-in pages: player-tracker.html?join&t=2&s=5 (one per seat). After sign-in it asks the dealer
+   to seat them there; the dealer approves on the dealer table page. */
+const reqT = +params.get("t"), reqS = +params.get("s");
+function maybeRequestSeat() {
+  if (!reqT || !reqS || !myCard || DEALERS[myCard]) return;
+  const c = myCard;
+  setDoc(REQREF, { [c]: { t: reqT, s: reqS, at: Date.now() } }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+  logEvent(c, "Asked for table " + reqT + " seat " + reqS);
+  const box = $("reqBox"); box.hidden = false;
+  box.innerHTML = `<div class="status" style="margin:0">Waiting for the dealer to seat you at table ${reqT}, seat ${reqS}&hellip;</div>`;
+  let asked = false;
+  onSnapshot(REQREF, snap => {
+    const r = (snap.exists() ? snap.data() : {})[c];
+    if (r) { asked = true; return; }
+    if (!asked) return;   // our request hasn't landed yet
+    setTimeout(() => {   // give the seat a moment to arrive before deciding
+    const p = get(c);
+    box.innerHTML = p.status === "seated" && (p.table || 1) === reqT && p.seat === reqS
+      ? `<div class="status" style="margin:0;color:var(--ok)">You're seated at table ${reqT}, seat ${reqS}.</div>`
+      : `<div class="status" style="margin:0;color:#fca5a5">The dealer didn't approve that seat. Ask the dealer for help.</div>`;
+    }, 1500);
+  }, () => {});
 }
 function siStep(title, note, ph, btn, onGo, type = "tel") {
   $("siBox").innerHTML = `<div class="who" style="font-size:22px">${title}</div><p class="note">${note}</p>
@@ -605,7 +630,7 @@ function showMyQr() {
 }
 $("notMe").onclick = e => { e.preventDefault(); try { localStorage.removeItem("playerTracker.card"); } catch (x) {} location.href = location.pathname + "?join"; };
 
-if (myCard) { $("player").hidden = false; start(); showMyQr(); }
+if (myCard) { $("player").hidden = false; start(); showMyQr(); maybeRequestSeat(); }
 else if (params.has("join") || params.has("me")) signInStart();
 else {
   /* Floor view: staff only. */
