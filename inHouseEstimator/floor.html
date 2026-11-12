@@ -65,7 +65,9 @@ input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);bo
 [hidden]{display:none!important}
 .hint{color:rgba(255,255,255,.6);font-size:13px;margin:-4px 0 8px}
 #plan{width:100%;height:auto;display:block;background:#101a2e;border:1px solid rgba(255,255,255,.12);border-radius:12px;touch-action:none}
-.ptbl{cursor:grab}
+.ptbl{cursor:pointer}
+body.moving .ptbl{cursor:grab}
+body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
 .ptbl.sel > rect:first-child{stroke:#E3B64A;stroke-width:2;stroke-dasharray:6 5}
 /* Table strip: tap a table and its details show as one line across the top of the floor plan (wraps if needed). */
 #tbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:8px 12px;margin-bottom:8px}
@@ -105,8 +107,9 @@ input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);bo
       <h2>Calls</h2>
       <div class="box" id="calls"></div>
       <h2>Floor plan</h2>
-      <p class="hint">Drag a table to move it. Tap a table to open its details.
+      <p class="hint">Tap a table to open its details. To move tables, tap Edit table position on floor.
         <a href="./measure.html?building=1" class="btn ghost sm" style="margin-left:6px">Edit building shape</a>
+        <button class="btn ghost sm" id="moveMode" style="margin-left:4px">Edit table position on floor</button>
         <button class="btn sm" id="addTbl" style="margin-left:4px">+ Add a table</button></p>
       <div class="add" id="addTblBox" hidden style="background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:10px">
         <input id="tGame" list="tblGames" placeholder="Game, e.g. Blackjack" autocomplete="off" style="flex:1;min-width:160px">
@@ -209,6 +212,7 @@ const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); 
 const fail = () => { $("warn").style.display = "block"; };
 let state = {}, roster = {}, profiles = {}, tables = {}, calls = {}, wait = {}, games = {}, plan = {};
 let planDrag = null;   // a table being dragged around the floor plan
+let moveMode = false;  // tables only move (drag, rotate, size) after "Edit table position on floor"
 let building = null, selT = 0;   // building outline (from measure.html?building=1); selected table
 const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || DEALERS[c] || c;
 const isPlayer = c => !!(ROSTER[c] || roster[c]);
@@ -263,9 +267,9 @@ function draw() {
       <div class="sec"><div class="lbl">Seated (${players.length}/${tb.seats.length})</div>
         ${players.length ? players.map(([c, p]) => `<div class="row"><div class="nm"><a href="./player-tracker.html?profile=${encodeURIComponent(c)}"><b>${esc(nameOf(c))}</b></a>
           <span>Seat ${p.seat} &middot; ${p.breakAt ? "on break " + ago(p.breakAt) : "seated " + ago(p.since || Date.now())}</span></div></div>`).join("") : `<div class="empty">Nobody seated.</div>`}</div>
-      <div class="sec"><div class="lbl">On the floor plan &middot; ${Math.round(((q.rot || 0) % 360 + 360) % 360)}&deg; &middot; ${Math.round((q.scale || 1) * 100)}%</div>
+      ${moveMode ? "" : "<!--"}<div class="sec"><div class="lbl">On the floor plan &middot; ${Math.round(((q.rot || 0) % 360 + 360) % 360)}&deg; &middot; ${Math.round((q.scale || 1) * 100)}%</div>
         <div class="btns"><button class="btn ghost" data-ta="rl">&#10226; Rotate</button><button class="btn ghost" data-ta="rr">Rotate &#10227;</button>
-        <button class="btn ghost" data-ta="sm">&minus; Smaller</button><button class="btn ghost" data-ta="lg">+ Bigger</button><button class="btn ghost" data-ta="reset">Reset</button></div></div>`;
+        <button class="btn ghost" data-ta="sm">&minus; Smaller</button><button class="btn ghost" data-ta="lg">+ Bigger</button><button class="btn ghost" data-ta="reset">Reset</button></div></div>${moveMode ? "" : "-->"}`;
     if (panelFor !== n) {
       panelFor = n;
       $("tpEdit").innerHTML = `<div class="sec"><button class="btn ghost" data-ta="edit">&#9998; Edit table</button></div>
@@ -393,6 +397,13 @@ function saveTableEdit(n) {
   list[m] = t; if (m !== n) list[n] = BASE_TABLES[n] ? { deleted: true } : null;
   buildTables(); selT = m; panelFor = 0; draw();
 }
+/* Edit table position on floor: unlocks dragging, rotate and size; tap again (Done moving tables) to lock. */
+$("moveMode").onclick = () => {
+  moveMode = !moveMode; document.body.classList.toggle("moving", moveMode);
+  $("moveMode").textContent = moveMode ? "Done moving tables" : "Edit table position on floor";
+  $("moveMode").classList.toggle("ghost", !moveMode);
+  draw();
+};
 /* + Add a table: game, seats, shape. Gets the next number and lands in the next open spot on the plan. */
 const ovalGame = g => /poker|hold.?em|omaha|stud/i.test(g) && !/three card|ultimate|pai gow/i.test(g);
 $("addTbl").onclick = () => { $("addTblBox").hidden = !$("addTblBox").hidden; if (!$("addTblBox").hidden) $("tGame").focus(); };
@@ -415,7 +426,7 @@ $("plan").addEventListener("pointerdown", e => {
   planDrag = { n, g, dx: p.x - at.x, dy: p.y - at.y, x0: e.clientX, y0: e.clientY, moved: false, pos: at };
 });
 $("plan").addEventListener("pointermove", e => {
-  const d = planDrag; if (!d) return;
+  const d = planDrag; if (!d || !moveMode) return;   // locked: a press is just a tap
   if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 6) return;
   d.moved = true; d.g.classList.add("dragging");
   const p = planPt(e);
