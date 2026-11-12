@@ -1212,7 +1212,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     }
     var key = r && (r.guess === 'master' ? 'beds' : r.guess), k = r && floorKey((r.floor || {}).type);
     if(!key || !k || !(ONE[key] || NAMES[key])){ choose(); return; }
-    h(el, 'Is this your ' + esc((ONE[key] || NAMES[key]).toLowerCase()) + ', with ' + esc(SVC[k].word) + '?', r.sqft ? 'About ' + (r.L && r.W ? Math.round(r.L) + ' ft × ' + Math.round(r.W) + ' ft, ' : '') + r.sqft.toLocaleString() + ' sq ft.' : '');
+    h(el, 'Is this your ' + esc(r.guess === 'master' ? 'Master Bedroom' : (ONE[key] || NAMES[key]).toLowerCase()) + ', with ' + esc(SVC[k].word) + '?', r.sqft ? 'About ' + (r.L && r.W ? Math.round(r.L) + ' ft × ' + Math.round(r.W) + ' ft, ' : '') + r.sqft.toLocaleString() + ' sq ft.' : '');
     el.insertAdjacentHTML('beforeend', pic); showPic();
     flBox(key);
     goBtn(el, 'Yes', function(){ assignPf(id, k, key); after(); });
