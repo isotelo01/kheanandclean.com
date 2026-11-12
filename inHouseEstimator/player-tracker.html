@@ -83,7 +83,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
       <a class="back" href="./personal.html">&lsaquo; Personal</a>
       <button onclick="location.reload()" aria-label="Refresh" title="Refresh" style="background:none;border:0;padding:4px;cursor:pointer;line-height:0"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#E3B64A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
     </div>
-    <div class="box" id="tblBox"><button class="btn ghost sm" id="tblBack">&lsaquo; Back</button><button class="btn sm" id="tblScan">Scan player</button><svg class="table" id="tbl" viewBox="-60 0 520 300"></svg></div>
+    <div class="box" id="tblBox"><button class="btn ghost sm" id="tblBack">&lsaquo; Back</button><button class="btn sm" id="tblScan">Scan player</button><svg class="table" id="tbl" viewBox="-130 -10 660 380"></svg></div>
     <h2>Waitlist</h2>
     <div class="box" id="waitList"></div>
     <h2>Dealers</h2>
@@ -94,7 +94,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <p><button class="btn sm" id="joinLink">Copy player sign-in link</button></p>
     <p style="margin-top:16px"><button class="btn ghost sm" id="reset">Reset all</button></p>
     <p style="margin-top:20px"><a class="btn" href="./player-tracker.html?join" target="_blank">Open player sign-in page</a></p>
-    <p style="margin-top:12px"><a class="btn" href="./floor.html">Floor</a></p>
+    <p style="margin-top:12px"><a class="btn" href="./floor.html">Floor</a> <a class="btn ghost" href="./player-tracker-hardware.html">Hardware</a></p>
   </div>
   <div id="prof" hidden>
     <div class="top">
@@ -214,8 +214,8 @@ const act = {
   seat(c, n) { const p = get(c); const s = n || openSeat(); if (!s) { alert("Table is full."); return; }
              save(c, { ...p, status: "seated", seat: s, table: 1, since: Date.now(), waitAt: null }); },
   out(c)   { const p = get(c); save(c, { status: "out", totalMs: liveMs(p), seat: null, since: null, waitAt: null }); },
-  deal(c)  { for (const d of Object.keys(DEALERS)) if (d !== c && get(d).status === "seated") act.out(d);
-             const p = get(c); save(c, { ...p, status: "seated", seat: 0, since: Date.now() }); }
+  deal(c)  { for (const d of Object.keys(DEALERS)) if (d !== c && get(d).status === "seated" && (get(d).table || 1) === 1) act.out(d);
+             const p = get(c); save(c, { ...p, status: "seated", seat: 0, table: 1, since: Date.now() }); }
 };
 /* Seat button on a profile: asks which seat. */
 function askSeat(c) {
@@ -253,6 +253,19 @@ function nearSeat(i) {   // nearest seat to chair i (measured to the rail at tha
 }
 const chairOccupant = n => Object.keys(state).find(c => isPlayer(c) && state[c] && state[c].chair === n);   // logging out drops .chair
 const seatedMs = p => (p.sessionMs || 0) + (p.since ? Date.now() - p.since : 0);
+/* Simulated lap sensor at seat s (thermal, under the rail, aimed down): warm when a logged-in player's chair
+   is at that seat within 3 ft and they're sitting (not "standing" on the chair card). Also the nearest
+   chair's distance, for the reading on the table. */
+function lapReading(s) {
+  let ft = null, warm = false;
+  for (let i = 1; i <= SEATS; i++) {
+    const ns = nearSeat(i); if (ns.seat !== s) continue;
+    if (ft == null || ns.ft < ft) ft = ns.ft;
+    const c = chairOccupant(i);
+    if (c && ns.ft <= PULL_FT && !get(c).standing) warm = true;
+  }
+  return { ft, warm };
+}
 /* The "sensor": work out where chair n's player should be, and update them. Returns what happened. */
 function applyChair(n) {
   const c = chairOccupant(n); if (!c) return { r: "empty" };
@@ -264,6 +277,14 @@ function applyChair(n) {
       return { r: "break", seat: p.seat };
     }
     return { r: "out" };
+  }
+  if (p.standing) {   // lap sensor sees nobody: stood up = break, seat held
+    if (p.status === "seated" && !p.breakAt) {
+      save(c, { ...p, totalMs: liveMs(p), sessionMs: seatedMs(p), since: null, breakAt: Date.now() });
+      logEvent(c, "Chair " + n + ": stood up, on break, seat " + p.seat + " held");
+      return { r: "break", seat: p.seat };
+    }
+    return { r: "standing" };
   }
   const s = ns.seat;
   const other = Object.keys(state).find(k => k !== c && state[k].status === "seated" && (state[k].table || 1) === 1 && state[k].seat === s);
@@ -297,12 +318,27 @@ function drawTable(pick) {
   const cx = 200, cy = 40, r = 170;
   let s = `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
         + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="var(--felt)"/>`
-        + `<rect x="${cx - 60}" y="${cy - 28}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
-        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(onTableDealer() ? nameOf(onTableDealer()) : "NO DEALER")}</text>`
+        + `<g data-dealer="1" style="cursor:pointer"><rect x="${cx - 60}" y="${cy - 28}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
+        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(onTableDealer() ? nameOf(onTableDealer()) : "NO DEALER")}</text></g>`
         + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
         + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
         + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
         + `<text x="${cx}" y="${cy + 96}" fill="rgba(255,255,255,.75)" font-size="12" font-weight="700" letter-spacing="3" text-anchor="middle">BLACKJACK</text>`;
+  if (!pick) {
+    /* Simulated sensors: dashed 3-ft line (chairs past it = pulled out), and a lap sensor under the rail
+       at each seat: orange = warm lap seen, green outline = a chair is there, dim = nothing. Shows the
+       nearest chair's distance in feet. */
+    const Z = r + PULL_FT * FT;
+    s += `<path d="M${cx - Z} ${cy} A ${Z} ${Z} 0 0 0 ${cx + Z} ${cy}" fill="none" stroke="rgba(74,222,128,.45)" stroke-width="1.5" stroke-dasharray="6 6"/>`
+       + `<text x="${cx}" y="${cy + Z - 6}" fill="rgba(74,222,128,.75)" font-size="10" text-anchor="middle">3 ft line</text>`;
+    for (let i = 1; i <= SEATS; i++) {
+      const a = seatAngle(i), lx = cx + Math.cos(a) * (r - 9), ly = cy + Math.sin(a) * (r - 9), rd = lapReading(i);
+      const col = rd.warm ? "#f97316" : rd.ft != null && rd.ft <= PULL_FT ? "rgba(74,222,128,.25)" : "rgba(0,0,0,.25)";
+      s += `<g transform="translate(${lx.toFixed(1)} ${ly.toFixed(1)}) rotate(${(a * 180 / Math.PI - 90).toFixed(1)})">`
+         + `<rect x="-17" y="-6" width="34" height="12" rx="3" fill="${col}" stroke="${rd.warm ? "#fdba74" : "rgba(255,255,255,.35)"}"/>`
+         + `<text y="3.5" fill="#fff" font-size="7" text-anchor="middle">${rd.ft == null ? "-" : rd.ft.toFixed(1) + " ft"}</text></g>`;
+    }
+  }
   const labels = [];   // player names, placed by their chairs after the seats are drawn
   const seated = {};
   for (const [c, p] of Object.entries(state)) if (p.status === "seated" && (p.table || 1) === 1) seated[p.seat] = c;
@@ -489,23 +525,61 @@ tblSvg.addEventListener("pointerdown", e => {
   const p0 = svgPoint(e);
   dragging = { i: g.dataset.chair, g, moved: false, x0: p0.x, y0: p0.y };
 });
+/* Chairs are solid: the table never moves, chairs can't sit inside the table or on top of each other,
+   and a dragged chair shoves the others out of its way. */
+const CHAIR_GAP = 38, TABLE_KEEP = TBL.r + 14 + 22;   // chair-to-chair spacing; how close a chair can get to the table centre
+function offTable([x, y]) {
+  const dx = x - TBL.cx, dy = y - TBL.cy, d = Math.hypot(dx, dy) || 1;
+  if (y >= TBL.cy - 22) { if (d < TABLE_KEEP) return [TBL.cx + dx / d * TABLE_KEEP, TBL.cy + dy / d * TABLE_KEEP]; }
+  else if (Math.abs(dx) < TABLE_KEEP && y > TBL.cy - 52) return [x, TBL.cy - 52];   // behind the dealer's edge
+  return [x, y];
+}
+function pushChairs(di, x, y) {   // where every chair ends up when chair di is dragged to (x, y)
+  const pos = {};
+  for (let i = 1; i <= SEATS; i++) pos[i] = i === di ? offTable([x, y]) : chairPos(i);
+  for (let pass = 0; pass < 6; pass++) {
+    for (let a = 1; a <= SEATS; a++) for (let b = a + 1; b <= SEATS; b++) {
+      const [ax, ay] = pos[a], [bx, by] = pos[b], dx = bx - ax, dy = by - ay, d = Math.hypot(dx, dy) || .01;
+      if (d >= CHAIR_GAP) continue;
+      const over = CHAIR_GAP - d, ux = dx / d, uy = dy / d;
+      if (a === di) pos[b] = [bx + ux * over, by + uy * over];          // the dragged chair wins
+      else if (b === di) pos[a] = [ax - ux * over, ay - uy * over];
+      else { pos[a] = [ax - ux * over / 2, ay - uy * over / 2]; pos[b] = [bx + ux * over / 2, by + uy * over / 2]; }
+    }
+    for (let i = 1; i <= SEATS; i++) {   // stay on the drawing
+      const [x0, y0] = offTable(pos[i]);
+      pos[i] = [Math.min(Math.max(x0, -112), 512), Math.min(Math.max(y0, 6), 354)];
+    }
+  }
+  for (let i = 1; i <= SEATS; i++) pos[i] = [Math.round(pos[i][0]), Math.round(pos[i][1])];
+  return pos;
+}
 tblSvg.addEventListener("pointermove", e => {
   if (!dragging) return;
   const p = svgPoint(e);
   if (!dragging.moved && Math.hypot(p.x - dragging.x0, p.y - dragging.y0) < 6) return;   // a little wiggle is still a tap
-  dragging.moved = true; dragging.x = Math.round(p.x); dragging.y = Math.round(p.y);
-  dragging.g.setAttribute("transform", chairXf(dragging.x, dragging.y));
+  dragging.moved = true;
+  const pos = pushChairs(+dragging.i, p.x, p.y);
+  dragging.pos = pos; [dragging.x, dragging.y] = pos[dragging.i];
+  for (let i = 1; i <= SEATS; i++) {
+    const g = tblSvg.querySelector(`.chair[data-chair="${i}"]`);
+    if (g) g.setAttribute("transform", chairXf(pos[i][0], pos[i][1]));
+  }
 });
 const endDrag = e => {
   if (!dragging) return;
   const d = dragging; dragging = null;
-  if (!d.moved && e && e.type === "pointerup") { justDragged = true; showChair(+d.i); }   // tapped a chair: its card
+  if (d.moved || (e && e.type === "pointerup")) { justDragged = true; setTimeout(() => { justDragged = false; }, 400); }   // eat the click that follows, then forget
+  if (!d.moved && e && e.type === "pointerup") showChair(+d.i);   // tapped a chair: its card
   if (d.moved) {
-    justDragged = true;
-    layout[d.i] = { x: d.x, y: d.y };
+    const moved = {};   // the dragged chair plus any it shoved
+    for (let i = 1; i <= SEATS; i++) {
+      const [ox, oy] = chairPos(i), [nx, ny] = d.pos[i];
+      if (ox !== nx || oy !== ny) { layout[i] = { x: nx, y: ny }; moved[i] = layout[i]; }
+    }
     try { localStorage.setItem("playerTracker.layout", JSON.stringify(layout)); } catch (e) {}
-    setDoc(LAYREF, { [d.i]: layout[d.i] }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
-    applyChair(+d.i);   // stand-in for the proximity sensor
+    setDoc(LAYREF, moved, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+    for (const i of Object.keys(moved)) applyChair(+i);   // stand-in for the proximity sensors
   }
   drawTable();
 };
@@ -516,6 +590,7 @@ $("tblBox").onclick = e => {
   if (justDragged) { justDragged = false; return; }   // a drag isn't a tap to go full screen
   if (e.target.closest("#tblBack")) { location.href = "./player-tracker.html"; return; }
   if (e.target.closest("#tblScan")) { openScanner(); return; }
+  if (e.target.closest("[data-dealer]") && !box.classList.contains("full")) { showDealerPick(); return; }
   const num = e.target.closest("[data-num]");
   if (num && !box.classList.contains("full")) { showSeatQR(+num.dataset.num, "ask"); return; }
   if (!box.classList.contains("full")) location.href = "./dealer-table.html";   // the table opens on its own page
@@ -545,6 +620,18 @@ function showQR(c) {
 /* Two different QRs per seat, each its own link:
    chair  ("sit") = player signs in and is seated right away;
    number ("ask") = player signs in and the dealer approves on Dealer Control. */
+/* Tap the dealer box on the table: seat a dealer (the one already dealing gets pushed off), or log one out. */
+function showDealerPick() {
+  const on = onTableDealer();
+  showModal(`<div class="mt">Dealer &middot; Table 1</div>
+    ${Object.entries(DEALERS).map(([d, nm]) => { const p = get(d), here = d === on, away = p.status === "seated" && !here;
+      return `<div class="row"><div class="nm">${esc(nameOf(d))}<span>${here ? "Dealing this table" : away ? "On table " + (p.table || 1) : "Off the table"}</span></div>
+        ${here ? `<button class="btn sm ghost" data-dl="out" data-d="${d}">Log out</button>` : `<button class="btn sm ok" data-dl="seat" data-d="${d}">Seat here</button>`}</div>`; }).join("")}`);
+  $("mbody").querySelectorAll("[data-dl]").forEach(b => b.onclick = () => {
+    if (b.dataset.dl === "seat") act.deal(b.dataset.d); else act.out(b.dataset.d);
+    closeModal();
+  });
+}
 /* Chair card: its number, where it is, who's logged in, its QR, and its history. */
 function showChair(n) {
   const link = location.origin + location.pathname + "?join&t=1&ch=" + n;
@@ -558,12 +645,19 @@ function showChair(n) {
     <div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px;margin-top:6px"></div>
     <p class="note">Player scans this to log into Chair ${n}. Where the chair sits decides their seat.</p>
     <p class="note" style="word-break:break-all">${esc(link)}</p>
+    ${c ? `<p><button class="btn ${p.standing ? "ok" : ""}" id="chairLap">${p.standing ? "Sit down" : "Stand up"}</button> <span class="note">Plays the lap sensor: ${p.standing ? "nobody in the seat" : "sitting"}</span></p>` : ""}
     <p><button class="btn sm" id="seatLinkCopy">Copy link</button>${c ? ` <button class="btn ghost sm" id="chairOut">Log ${esc(nameOf(c))} out</button>` : ""}</p>
     <div class="note" style="margin-top:10px"><b style="color:var(--gold)">History</b>${hist.length ? hist.map(ev => `<div>${new Date(ev.t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} &middot; ${esc(nameOf(ev.c))}: ${esc(ev.a)}</div>`).join("") : "<div>Nothing yet.</div>"}</div>`);
   if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 200, height: 200, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
   $("seatLinkCopy").onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
     .then(() => { $("seatLinkCopy").textContent = "Copied"; }, () => prompt("Copy this link:", link));
   if (c) $("chairOut").onclick = () => { act.out(c); logEvent(c, "Chair " + n + ": logged out"); closeModal(); };
+  if (c) $("chairLap").onclick = () => {
+    const q = get(c), up = !q.standing;
+    save(c, { ...q, standing: up });
+    if (!up) logEvent(c, "Chair " + n + ": sat down");
+    applyChair(n); showChair(n);
+  };
 }
 function showSeatQR(n, kind) {
   const link = location.origin + location.pathname + "?join&t=1&s=" + n + (kind === "sit" ? "&sit" : "");
@@ -661,7 +755,7 @@ async function maybeRequestSeat() {
     const who = chairOccupant(reqCh);
     if (who && who !== c) { say("Someone's already in Chair " + reqCh + ". Please pick another seat.", "#fca5a5"); return; }
     const p = get(c);
-    if (p.chair !== reqCh) { save(c, { ...p, chair: reqCh }); logEvent(c, "Chair " + reqCh + ": logged in"); }
+    if (p.chair !== reqCh || p.standing) { save(c, { ...p, chair: reqCh, standing: false }); if (p.chair !== reqCh) logEvent(c, "Chair " + reqCh + ": logged in"); }
     const res = applyChair(reqCh);
     if (res.r === "seated") say("You're seated at table 1, seat " + res.seat + " (Chair " + reqCh + ").", "var(--ok)");
     else if (res.r === "taken") say("Someone's already seated at seat " + res.seat + ". Please pick another seat.", "#fca5a5");

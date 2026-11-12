@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Player Tracker Hardware</title>
+<style>
+/* Player Tracker: write-up on how the smart chairs will work, plus the hardware list for one table.
+   Plain page, no login data. Linked from player-tracker.html (Hardware button). */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--navy);color:#fff;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 48px}
+.wrap{max-width:820px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+h1{margin:0;font-size:26px;color:var(--gold)}
+h2{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:28px 0 10px}
+.btn{display:inline-block;background:none;color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:6px 12px;font:700 14px system-ui,sans-serif;text-decoration:none}
+.box{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:14px 16px}
+.box p{margin:0 0 10px}.box p:last-child{margin:0}
+.rule{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.rule:last-child{border-bottom:0}
+.rule > b{color:var(--gold);min-width:28px;font-size:20px;line-height:1.2}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.1);vertical-align:top}
+th{color:var(--gold);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+td.n{text-align:right;white-space:nowrap}
+.muted{color:rgba(255,255,255,.65);font-size:14px}
+.pick{display:inline-block;background:var(--ok);color:#000;font-weight:700;font-size:12px;border-radius:999px;padding:1px 8px;margin-left:6px}
+a{color:var(--gold)}
+ul{margin:6px 0 0;padding-left:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="./player-tracker.html">&lsaquo; Back</a><h1>Hardware</h1></div>
+  <p class="muted">How the smart chairs will work, and what to buy for one table. A plan, not built yet.</p>
+
+  <h2>How the chairs work</h2>
+  <div class="box">
+    <p>Every chair has its own number (C1, C2&hellip;) and its own QR code. A player scans the chair's QR once to log into that chair. From then on, the table works out where they are by itself. The dealer doesn't have to do anything.</p>
+    <p><b>A player only counts as seated when all three are true:</b></p>
+    <div class="rule"><b>1</b><div>They're <b>logged into the chair</b> (scanned its QR).</div></div>
+    <div class="rule"><b>2</b><div>The chair is <b>within 3 feet</b> of a seat. A small radio tag in the chair tells the table exactly where the chair is.</div></div>
+    <div class="rule"><b>3</b><div>The <b>lap sensor</b> under the rail at that seat sees someone sitting there.</div></div>
+    <p style="margin-top:10px">Someone standing behind a player, or a coat left on a chair, can't trip all three, so it won't mess things up.</p>
+  </div>
+
+  <h2>What happens</h2>
+  <div class="box">
+    <div class="rule"><b>&#8594;</b><div><b>Pull up to a seat:</b> seated there, hours start.</div></div>
+    <div class="rule"><b>&#8644;</b><div><b>Scoot over to another seat:</b> switched to that seat, hours keep running.</div></div>
+    <div class="rule"><b>&#8592;</b><div><b>Pull the chair out past 3 feet, or stand up:</b> on break, seat held, hours stop. Push back in and sit down: back from break.</div></div>
+    <div class="rule"><b>&#10005;</b><div><b>Seat already taken:</b> nothing changes. A chair never bumps a seated player.</div></div>
+    <div class="rule"><b>&#9679;</b><div><b>Log out</b> (from the phone, the dealer, or the chair card) clears the chair.</div></div>
+  </div>
+
+  <h2>Lap sensor: thermal vs. pressure</h2>
+  <div class="box">
+    <p><b>Thermal, mounted under the rail and aimed down into the lap</b> <span class="pick">The plan</span></p>
+    <ul>
+      <li>Lives in the table and runs on the table's power, so the chairs only carry the radio tag.</li>
+      <li>Aimed down, it only sees a lap tucked up to the table. Someone standing behind or leaning over isn't in its view.</li>
+      <li>A bag or coat on the chair isn't warm, so it doesn't count as a player.</li>
+      <li>Catch: a seat stays warm for a minute or two after someone gets up, so a break may start a little late. The chair's distance usually catches it first.</li>
+    </ul>
+    <p style="margin-top:12px"><b>Pressure plate in the seat cushion</b> (not the plan)</p>
+    <ul>
+      <li>Would mean opening up every chair cushion to install it, and needs power or a battery in every chair.</li>
+      <li>A bag or coat on the seat looks like a player.</li>
+    </ul>
+  </div>
+
+  <h2>Hardware for one table (7 seats)</h2>
+  <div class="box" style="padding:6px 10px">
+    <table>
+      <tr><th>Part</th><th>Where</th><th class="n">Qty</th></tr>
+      <tr><td><b>UWB tag</b> &mdash; Qorvo DWM3001CDK board, set up as a tag. Works like an AirTag: ultra-wideband finds its spot to within a few inches (plain Bluetooth can be off by feet).</td><td>Recessed under each chair seat, with a coin/small battery</td><td class="n">7</td></tr>
+      <tr><td><b>UWB anchor</b> &mdash; same Qorvo DWM3001CDK board, set up as an anchor. Three or four of them let the table work out where every chair is at once.</td><td>Under the rail, spread around the table</td><td class="n">4</td></tr>
+      <tr><td><b>Thermal lap sensor</b> &mdash; small infrared heat sensor, e.g. Panasonic Grid-EYE AMG8833 (8&times;8 heat grid, sees a person up to about 7&nbsp;m).</td><td>Under the rail at each seat, aimed down at the lap</td><td class="n">7</td></tr>
+      <tr><td><b>Table hub</b> &mdash; Raspberry Pi 5 (4&nbsp;GB). Reads the anchors and the lap sensors and sends the chair positions to Firebase; Dealer Control and the Floor update live like they do now.</td><td>Under the table</td><td class="n">1</td></tr>
+      <tr><td><b>Odds and ends</b> &mdash; USB hub and cables, power supply, wiring for the lap sensors, chair batteries, small cases.</td><td>Table and chairs</td><td class="n">&mdash;</td></tr>
+    </table>
+  </div>
+  <p class="muted">Prices I checked: the Qorvo DWM3001CDK board is about &pound;22 each at DigiKey UK (roughly $30), so the 11 boards run around $330. The Raspberry Pi 5 4&nbsp;GB is $130 at Adafruit. I didn't find a current US price for the AMG8833, so that line still needs a quote. Prices change; check before ordering.</p>
+
+  <h2>Keep in mind</h2>
+  <div class="box">
+    <ul style="margin:0">
+      <li><b>Metal blocks the radio.</b> Wood, plastic, foam and fabric are fine. If a chair has a metal frame or seat pan, the tag can't sit inside or behind it.</li>
+      <li><b>Tags can be recessed:</b> route a pocket under the seat or under the rail and drop them in.</li>
+      <li><b>Chair batteries</b> need a swap schedule.</li>
+      <li><b>Programming:</b> the Qorvo boards come with firmware that already works out positions; each board just gets set as a tag or an anchor. The only new code is the small bridge on the Raspberry Pi that sends positions to Firebase.</li>
+      <li><b>Test it now:</b> the Player Tracker table already acts this out. Drag chairs around, and use Sit / Stand on a chair's card to play the lap sensor.</li>
+    </ul>
+  </div>
+
+  <h2>Sources</h2>
+  <div class="box">
+    <ul style="margin:0">
+      <li><a href="https://www.digikey.com/en/products/detail/qorvo/DWM3001CDK/24367348" target="_blank" rel="noopener">Qorvo DWM3001CDK on DigiKey</a></li>
+      <li><a href="https://adafruit.com/product/5812" target="_blank" rel="noopener">Raspberry Pi 5, 4 GB, on Adafruit</a></li>
+      <li><a href="https://chicagodist.com/collections/all/products/adafruit-amg8833-ir-thermal-camera-breakout" target="_blank" rel="noopener">Adafruit AMG8833 thermal sensor (specs)</a></li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>
