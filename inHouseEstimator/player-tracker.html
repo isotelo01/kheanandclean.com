@@ -184,7 +184,7 @@ function save(card, p) {
   setDoc(REF, { [card]: p }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
 }
 function openSeat() {
-  const taken = Object.values(state).filter(p => p.status === "seated").map(p => p.seat);
+  const taken = Object.values(state).filter(p => p.status === "seated" && (p.table || 1) === 1).map(p => p.seat);   // this page's table = table 1
   for (let s = 1; s <= SEATS; s++) if (!taken.includes(s)) return s;
   return 0;
 }
@@ -192,7 +192,7 @@ function openSeat() {
 const act = {
   wait(c)  { const p = get(c); save(c, { ...p, status: "wait", waitAt: Date.now() }); },
   seat(c, n) { const p = get(c); const s = n || openSeat(); if (!s) { alert("Table is full."); return; }
-             save(c, { ...p, status: "seated", seat: s, since: Date.now(), waitAt: null }); },
+             save(c, { ...p, status: "seated", seat: s, table: 1, since: Date.now(), waitAt: null }); },
   out(c)   { const p = get(c); save(c, { status: "out", totalMs: liveMs(p), seat: null, since: null, waitAt: null }); },
   deal(c)  { for (const d of Object.keys(DEALERS)) if (d !== c && get(d).status === "seated") act.out(d);
              const p = get(c); save(c, { ...p, status: "seated", seat: 0, since: Date.now() }); }
@@ -200,7 +200,7 @@ const act = {
 /* Seat button on a profile: asks which seat. */
 function askSeat(c) {
   /* Opens the table; tap an open (glowing) seat number to put them there. */
-  const anyOpen = (() => { for (let i = 1; i <= SEATS; i++) if (!Object.entries(state).some(([k, p]) => p.status === "seated" && p.seat === i && k !== c)) return true; return false; })();
+  const anyOpen = (() => { for (let i = 1; i <= SEATS; i++) if (!Object.entries(state).some(([k, p]) => p.status === "seated" && (p.table || 1) === 1 && p.seat === i && k !== c)) return true; return false; })();
   if (!anyOpen) { alert("Table is full."); return; }
   pickFor = c;
   showModal(`<div class="mt">Seat ${esc(nameOf(c))}</div><svg class="table" id="pickSvg" viewBox="-60 0 520 300">${drawTable(c)}</svg><p class="note">Tap an open seat.</p>`);
@@ -208,10 +208,10 @@ function askSeat(c) {
 let pickFor = null;
 function seatAt(c, n) {
   const p = get(c);
-  if (p.status === "seated") save(c, { ...p, seat: n });   // moving seats keeps their time running
+  if (p.status === "seated") save(c, { ...p, seat: n, table: 1 });   // moving seats keeps their time running
   else act.seat(c, n);
 }
-const onTableDealer = () => Object.keys(DEALERS).find(d => get(d).status === "seated");
+const onTableDealer = () => Object.keys(DEALERS).find(d => get(d).status === "seated" && (get(d).table || 1) === 1);
 
 const params = new URLSearchParams(location.search);
 let myCard = params.get("card") || params.get("dealer");
@@ -234,7 +234,7 @@ function drawTable(pick) {
         + `<text x="${cx}" y="${cy + 96}" fill="rgba(255,255,255,.75)" font-size="12" font-weight="700" letter-spacing="3" text-anchor="middle">BLACKJACK</text>`;
   const labels = [];   // player names, placed by their chairs after the seats are drawn
   const seated = {};
-  for (const [c, p] of Object.entries(state)) if (p.status === "seated") seated[p.seat] = c;
+  for (const [c, p] of Object.entries(state)) if (p.status === "seated" && (p.table || 1) === 1) seated[p.seat] = c;
   for (let i = 1; i <= SEATS; i++) {
     /* Seat 1 is first base (dealer's left = player's right side of the picture). */
     const a = Math.PI * (i / (SEATS + 1));
@@ -304,7 +304,7 @@ function renderFloor() {
   }).join("");
   $("players").innerHTML = Object.entries(ROSTER).map(([c, nm]) => {
     const p = get(c), link = base + "?card=" + c;
-    const tag = p.status === "seated" ? `<span class="tag seated">Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
+    const tag = p.status === "seated" ? `<span class="tag seated">T${p.table || 1} &middot; Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
     return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
       <div class="acts">
       <button class="btn sm ok" data-a="askSeat" data-c="${c}">${p.status === "seated" ? "Change seat" : "Seat"}</button>
@@ -355,7 +355,7 @@ function renderProfile() {
     $("pf_bday").value = pr.bday || ""; $("pf_notes").value = pr.notes || "";
     pfFilled = true;
   }
-  const st = p.status === "seated" ? (isD ? "On the table" : "Seated at seat " + p.seat) : p.status === "wait" ? "On the list" : "Logged out";
+  const st = p.status === "seated" ? (isD ? "On the table" : "Table " + (p.table || 1) + ", seat " + p.seat) : p.status === "wait" ? "On the list" : "Logged out";
   const btns = isD
     ? `<button class="btn sm ok" data-a="deal" data-c="${c}" ${p.status === "seated" ? "disabled" : ""}>Log in to table</button>
        <button class="btn sm ghost" data-a="out" data-c="${c}" ${p.status === "seated" ? "" : "disabled"}>Log out</button>`

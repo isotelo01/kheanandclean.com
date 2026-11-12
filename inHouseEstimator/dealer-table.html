@@ -19,7 +19,10 @@
 html,body{margin:0;height:100%;background:var(--navy);color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
 body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
 .top{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 14px 6px}
-.top b{color:var(--gold);font-size:18px}
+.top b{color:var(--gold);font-size:18px;white-space:nowrap}
+.tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.tabs a{min-width:34px;height:34px;padding:0 8px;border-radius:999px;border:1px solid var(--gold);color:var(--gold);text-decoration:none;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:15px}
+.tabs a.on{background:var(--gold);color:#000}
 .btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px "Archivo",sans-serif;cursor:pointer;text-decoration:none;text-align:center}
 .btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
 .btn.ok{background:var(--ok)}
@@ -47,7 +50,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 </style>
 </head>
 <body style="visibility:hidden">
-<div class="top"><a class="btn ghost" href="./player-tracker.html">&lsaquo; Back</a><b>Blackjack</b></div>
+<div class="top"><a class="btn ghost" href="./player-tracker.html">&lsaquo; Back</a><b id="ttl">Table</b><div class="tabs" id="tabs"></div></div>
 <div class="warn" id="warn">Not syncing with the server.</div>
 <svg id="tbl" viewBox="-24 0 448 272" preserveAspectRatio="xMidYMid meet"></svg>
 <div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:14px 0 0"><button class="btn ghost" id="mclose">Close</button></p></div></div>
@@ -77,7 +80,17 @@ const ROSTER = {
   "100010": "Wyatt Earp"
 };
 const DEALERS = { "D001": "Ace in the Hole", "D002": "Shuffle Off Home" };
-const SEATS = 7;
+/* 5 tables. Each player/dealer record carries .table (missing = table 1). */
+const TABLES = {
+  1: { game: "Blackjack", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
+  2: { game: "Baccarat", seats: [1, 2, 3, 5, 6, 7, 8], shape: "half" },   // no seat 4, like real baccarat tables
+  3: { game: "Poker", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9], shape: "oval" },
+  4: { game: "Three Card Poker", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
+  5: { game: "Ultimate Texas Hold'em", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" }
+};
+const T = TABLES[+new URLSearchParams(location.search).get("t")] ? +new URLSearchParams(location.search).get("t") : 1;
+const TB = TABLES[T];
+const onT = p => p && p.status === "seated" && (p.table || 1) === T;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 let state = {}, profiles = {};
@@ -91,8 +104,8 @@ const BREAK_LIMIT = 30 * 60000;
 const seatColor = p => !p ? "#000" : p.breakAt ? (Date.now() - p.breakAt > BREAK_LIMIT ? "#ef4444" : "#3b82f6") : "var(--gold)";
 /* Fill for the big seat number: open = dark, pressed into the felt; seated = shiny gold; break = blue/red with a sheen. */
 const numFill = p => !p ? "#04170c" : p.breakAt ? (Date.now() - p.breakAt > BREAK_LIMIT ? "url(#redN)" : "url(#blueN)") : "url(#goldN)";
-const whoIn = n => Object.keys(state).find(c => ROSTER[c] && state[c].status === "seated" && state[c].seat === n);
-const dealerOn = () => Object.keys(DEALERS).find(d => get(d).status === "seated");
+const whoIn = n => Object.keys(state).find(c => ROSTER[c] && onT(state[c]) && state[c].seat === n);
+const dealerOn = () => Object.keys(DEALERS).find(d => onT(get(d)));
 const fail = () => { $("warn").style.display = "block"; };
 
 function logEvent(c, a) { setDoc(LOGREF, { events: arrayUnion({ c, a, t: Date.now() }) }, { merge: true }).catch(fail); }
@@ -118,7 +131,16 @@ function chipTray(x0, y0) {
   return t;
 }
 const cx = 200, cy = 56, r = 170;
-const seatXY = i => { const a = Math.PI * (i / (SEATS + 1)); return [cx + Math.cos(a) * (r - 38), cy + Math.sin(a) * (r - 38)]; };
+/* Poker oval: felt 320x176 centered at (200,140); 10 spots around it, dealer at the top, seat 1 to the dealer's left. */
+const OX = 200, OY = 140, OW = 160, OH = 88;
+const seatXY = k => {   // k = 0-based position in TB.seats
+  if (TB.shape === "oval") {
+    const a = -Math.PI / 2 + (k + 1) * 2 * Math.PI / (TB.seats.length + 1);
+    return [OX + Math.cos(a) * (OW - 34), OY + Math.sin(a) * (OH - 38)];
+  }
+  const a = Math.PI * ((k + 1) / (TB.seats.length + 1));
+  return [cx + Math.cos(a) * (r - 38), cy + Math.sin(a) * (r - 38)];
+};
 function draw() {
   const d = dealerOn();
   /* Padded leather rail: dark edges, a soft highlight along the top of the roll, and a shadow where it meets the felt. */
@@ -145,26 +167,16 @@ function draw() {
         <feColorMatrix in="n" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .22 0" result="a"/>
         <feComposite in="a" in2="SourceGraphic" operator="in"/>
       </filter>
+      <radialGradient id="feltO" cx="${OX}" cy="${OY}" r="${OW}" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
+      </radialGradient>
       <radialGradient id="feltG" cx="${cx}" cy="${cy + 40}" r="${r}" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
       </radialGradient>
     </defs>`
-        + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="url(#feltG)"/>`
-        + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="#000" filter="url(#feltTex)"/>`   // felt texture
-        + `<path d="M${cx - r + 2} ${cy} A ${r - 2} ${r - 2} 0 0 0 ${cx + r - 2} ${cy}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/>`
-        /* One-piece padded rail all the way around (back edge + curve). Stacked strokes, dark outside to a
-           light center line, make it look round. */
-        + (() => {
-            const m = r + 8, d = `M${cx - m} ${cy - 6} L${cx + m} ${cy - 6} L${cx + m} ${cy} A ${m} ${m} 0 0 1 ${cx - m} ${cy} Z`;
-            return [[17, "#1a0e06"], [14, "#3e2410"], [11, "#6b3f1d"], [7, "#8f5e33"], [4, "#b07a46"], [1.5, "#d09a62"]]
-              .map(([w, col]) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"/>`).join("");
-          })()
-        + `<rect x="${cx - 60}" y="${cy - 48}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
-        + `<text x="${cx}" y="${cy - 31}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`
-        + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
-        + `<text x="${cx}" y="${cy + 96}" fill="rgba(255,255,255,.75)" font-size="12" font-weight="700" letter-spacing="3" text-anchor="middle">BLACKJACK</text>`;
-  for (let i = 1; i <= SEATS; i++) {
-    const [x, y] = seatXY(i), c = whoIn(i);
+        + tableBody(d);
+  TB.seats.forEach((i, k) => {
+    const [x, y] = seatXY(k), c = whoIn(i);
     s += `<g data-seat="${i}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="24" fill="transparent"/>`
        + (c ? `<text x="${x}" y="${y + 8}" fill="${numFill(get(c))}" stroke="rgba(0,0,0,.45)" stroke-width=".7" paint-order="stroke" filter="url(#numSh)" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`
             : `<text x="${x}" y="${y + 8.8}" fill="rgba(255,255,255,.16)" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`   // light edge underneath = pressed in
@@ -177,8 +189,34 @@ function draw() {
       s += `<text x="${x}" y="${ty}" fill="#fff" font-size="8" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`
          + `<text x="${x}" y="${ty + 9}" fill="${q.breakAt ? seatColor(q) : "rgba(255,255,255,.75)"}" font-size="7" text-anchor="middle">${q.breakAt ? "Break " + fmtHrs(Date.now() - q.breakAt) : fmtHrs(seatedMs(q))}</text>`;
     }
-  }
+  });
   $("tbl").innerHTML = s;
+}
+const RAIL = [[17, "#1a0e06"], [14, "#3e2410"], [11, "#6b3f1d"], [7, "#8f5e33"], [4, "#b07a46"], [1.5, "#d09a62"]];
+function tableBody(d) {
+  const name = TB.game.toUpperCase(), long = name.length > 12;
+  const label = (y) => `<text x="200" y="${y}" fill="rgba(255,255,255,.75)" font-size="${long ? 9 : 12}" font-weight="700" letter-spacing="${long ? 1.5 : 3}" text-anchor="middle">${esc(name)}</text>`;
+  const dealerBox = (y) => `<rect x="140" y="${y}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
+    + `<text x="200" y="${y + 17}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`;
+  if (TB.shape === "oval") {   // poker: oval felt, one-piece rail all the way around
+    const fx = OX - OW, fy = OY - OH, fw = OW * 2, fh = OH * 2, rx = OH;
+    return `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" fill="url(#feltO)"/>`
+      + `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" fill="#000" filter="url(#feltTex)"/>`
+      + `<rect x="${fx + 2}" y="${fy + 2}" width="${fw - 4}" height="${fh - 4}" rx="${rx - 2}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/>`
+      + RAIL.map(([w, col]) => `<rect x="${fx - 8}" y="${fy - 8}" width="${fw + 16}" height="${fh + 16}" rx="${rx + 8}" fill="none" stroke="${col}" stroke-width="${w}"/>`).join("")
+      + dealerBox(fy - 40)
+      + `<image href="../images/edh-casino-logo.png" x="170" y="${OY - 34}" width="60" height="47" opacity=".9"/>`
+      + label(OY + 28);
+  }
+  const m = r + 8, rp = `M${cx - m} ${cy - 6} L${cx + m} ${cy - 6} L${cx + m} ${cy} A ${m} ${m} 0 0 1 ${cx - m} ${cy} Z`;
+  return `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="url(#feltG)"/>`
+    + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="#000" filter="url(#feltTex)"/>`
+    + `<path d="M${cx - r + 2} ${cy} A ${r - 2} ${r - 2} 0 0 0 ${cx + r - 2} ${cy}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/>`
+    /* One-piece padded rail all the way around (back edge + curve): stacked strokes, dark outside to a light center line. */
+    + RAIL.map(([w, col]) => `<path d="${rp}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"/>`).join("")
+    + dealerBox(cy - 48)
+    + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
+    + label(cy + 96);
 }
 $("tbl").addEventListener("click", e => { const g = e.target.closest("[data-seat]"); if (g) openSeat(+g.dataset.seat); });
 
@@ -204,7 +242,7 @@ function openSeat(n) {
   const p = get(c);
   /* Other seats: open ones move the player there; taken ones swap the two players. */
   let seatsHtml = "";
-  for (let i = 1; i <= SEATS; i++) if (i !== n) {
+  for (const i of TB.seats) if (i !== n) {
     const o = whoIn(i);
     seatsHtml += `<button data-to="${i}" ${o ? `class="taken" title="Swap with ${esc(nameOf(o))}"` : ""}>${i}</button>`;
   }
@@ -264,8 +302,8 @@ function openPad(c, n) {
 function seatPlayer(c, n) {
   const p = get(c);
   if (whoIn(n) && whoIn(n) !== c) { alert("Seat " + n + " is taken."); return; }
-  if (p.status === "seated") save(c, { ...p, seat: n }, "Moved from seat " + p.seat + " to seat " + n);
-  else save(c, { ...p, status: "seated", seat: n, since: Date.now(), waitAt: null, breakAt: null, sessionMs: 0 }, "Seated at seat " + n + " (scanned)");
+  if (p.status === "seated") save(c, { ...p, seat: n, table: T }, "Moved from table " + (p.table || 1) + " seat " + p.seat + " to table " + T + " seat " + n);
+  else save(c, { ...p, status: "seated", seat: n, table: T, since: Date.now(), waitAt: null, breakAt: null, sessionMs: 0 }, "Seated at table " + T + " (" + TB.game + ") seat " + n + " (scanned)");
 }
 
 async function startScan(n) {
@@ -302,9 +340,12 @@ async function startScan(n) {
 
 /* ---- start (staff only) ---- */
 onAuthStateChanged(getAuth(app), u => {
-  if (!u) { location.replace("./login.html?next=dealer-table.html"); return; }
+  if (!u) { location.replace("./login.html?next=" + encodeURIComponent("dealer-table.html" + location.search)); return; }
   if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
   document.body.style.visibility = "visible";
+  $("ttl").textContent = "Table " + T + ": " + TB.game;
+  document.title = "Table " + T + " · " + TB.game;
+  $("tabs").innerHTML = Object.keys(TABLES).map(n => `<a href="?t=${n}" class="${+n === T ? "on" : ""}" title="${esc(TABLES[n].game)}">${n}</a>`).join("");
   draw();
   onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);
   setInterval(draw, 30000);   // keep seated and break times ticking (and turn red at 30 min)
