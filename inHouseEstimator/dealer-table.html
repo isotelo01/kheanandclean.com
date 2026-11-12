@@ -23,12 +23,27 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidd
 .tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
 .tabs a{min-width:34px;height:34px;padding:0 8px;border-radius:999px;border:1px solid var(--gold);color:var(--gold);text-decoration:none;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:15px}
 .tabs a.on{background:var(--gold);color:#000}
-#reqs{padding:0 14px}
+/* Seat requests: comic-book speech bubble popping out of the seat number. */
+#reqs{position:fixed;inset:0;pointer-events:none;z-index:40}
+.bub{position:absolute;transform:translate(-50%,calc(-100% - 20px));pointer-events:auto}
+.bub .bi{background:#fff;color:#000;border:3px solid #000;border-radius:18px;padding:8px 12px 10px;box-shadow:4px 4px 0 #000;
+  text-align:center;width:170px;transform:rotate(-3deg);transform-origin:50% 100%;position:relative}
+.bub.new .bi{animation:pop .45s cubic-bezier(.2,1.7,.4,1) both}
+@keyframes pop{0%{transform:scale(0) rotate(-12deg)}100%{transform:scale(1) rotate(-3deg)}}
+.bub .bi:before,.bub .bi:after{content:"";position:absolute;left:50%;transform:translateX(-50%);border-style:solid;border-color:transparent}
+.bub .bi:before{bottom:-21px;border-width:20px 11px 0;border-top-color:#000}
+.bub .bi:after{bottom:-14px;border-width:14px 7px 0;border-top-color:#fff}
+.bub .bt{font:800 15px/1.2 system-ui,sans-serif;margin-bottom:8px}
+.bub .bt span{display:block;font-size:20px;letter-spacing:.02em}
+.bub .bb{display:flex;gap:6px;justify-content:center}
+.bub .btn{padding:7px 14px;font-size:14px}
+.bub .btn.ghost{color:#000;border:2px solid #000}
 .req{display:flex;align-items:center;gap:8px;background:#0b3d22;border:1px solid var(--ok);border-radius:10px;padding:8px 10px;margin-top:6px;flex-wrap:wrap}
 .req b{flex:1;min-width:150px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .pending{animation:pulse 1.2s infinite}
 .btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px "Archivo",sans-serif;cursor:pointer;text-decoration:none;text-align:center}
+.top .btn{white-space:nowrap;padding:8px 12px}
 .btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
 .btn.ok{background:var(--ok)}
 .btn[disabled]{opacity:.35}
@@ -205,10 +220,23 @@ function draw() {
     }
   });
   $("tbl").innerHTML = s;
-  /* Seat requests for this table: dealer approves or denies. */
-  $("reqs").innerHTML = Object.entries(requests).filter(([, q]) => q.t === T).sort((a, b) => a[1].at - b[1].at).map(([c, q]) =>
-    `<div class="req"><b>${esc(nameOf(c))} wants seat ${q.s}</b><button class="btn ok" data-ok="${c}">Approve</button><button class="btn ghost" data-no="${c}">Deny</button></div>`).join("");
+  /* Seat requests for this table: a speech bubble pops out of that seat number; dealer taps Seat or No.
+     One bubble per seat (the earliest request). It only pops in the first time it shows. */
+  const ctm = $("tbl").getScreenCTM(), bySeatReq = {};
+  Object.entries(requests).filter(([, q]) => q.t === T).sort((a, b) => a[1].at - b[1].at)
+    .forEach(([c, q]) => { if (!bySeatReq[q.s]) bySeatReq[q.s] = c; });
+  $("reqs").innerHTML = ctm ? Object.entries(bySeatReq).map(([sn, c]) => {
+    const k = TB.seats.indexOf(+sn); if (k < 0) return "";
+    const [x, y] = seatXY(k), p = new DOMPoint(x, y - 12).matrixTransform(ctm);
+    const left = Math.min(Math.max(p.x, 92), innerWidth - 92), key = c + "@" + requests[c].at, fresh = !shownReqs.has(key);
+    shownReqs.add(key);
+    return `<div class="bub${fresh ? " new" : ""}" style="left:${left}px;top:${p.y}px"><div class="bi">
+      <div class="bt"><span>${esc(nameOf(c))}</span>wants this seat!</div>
+      <div class="bb"><button class="btn ok" data-ok="${c}">Seat</button><button class="btn ghost" data-no="${c}">No</button></div></div></div>`;
+  }).join("") : "";
 }
+const shownReqs = new Set();
+addEventListener("resize", () => draw());
 $("reqs").addEventListener("click", e => {
   const ok = e.target.closest("[data-ok]"), no = e.target.closest("[data-no]");
   const c = (ok || no) && (ok ? ok.dataset.ok : no.dataset.no); if (!c || !requests[c]) return;
