@@ -1022,7 +1022,9 @@ function show(d){
 /* Save sketch: keeps the shape, doors, openings, closets, cutouts, sq ft and floor info with this room on the job,
    plus a picture of the sketch for the room page. Opening Measure for the room again brings it back. */
 /* Building mode: save the outline (feet) for the Floor page. */
-const BLDREF = doc(db, "playerTracker", "building");
+/* Which casino (same rule as pt-people.js): ?casino= in the link, else the last one used on this device. EDH keeps "building". */
+const BLDCASINO = (() => { let c = new URLSearchParams(location.search).get("casino"); try { c = c || localStorage.getItem("playerTracker.casino"); } catch (e) {} return c === "capitol" ? c : "edh"; })();
+const BLDREF = doc(db, "playerTracker", BLDCASINO === "edh" ? "building" : BLDCASINO + "_building");
 async function saveBuilding(){
   const m = $("saveMsg");
   if (!result || !sk) return false;

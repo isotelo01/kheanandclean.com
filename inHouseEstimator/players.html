@@ -58,8 +58,9 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, TEST_PHONES } from "./pt-people.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, getDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, TEST_PHONES, CASINO, casinoDoc, withCasino } from "./pt-people.js";
+const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",

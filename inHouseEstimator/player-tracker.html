@@ -137,8 +137,9 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, TEST_PHONES, TEST_INFO, DEALERS } from "./pt-people.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, TEST_PHONES, TEST_INFO, DEALERS, CASINO, casinoDoc, withCasino } from "./pt-people.js";
+const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -405,7 +406,7 @@ function renderFloor() {
     : `<div class="note" style="margin:0">Nobody on the list.</div>`;
   const base = location.origin + location.pathname;
   $("dealers").innerHTML = Object.entries(DEALERS).map(([c, nm]) => {
-    const p = get(c), link = base + "?dealer=" + c;
+    const p = get(c), link = withCasino(base + "?dealer=" + c);
     const tag = p.status === "seated" ? `<span class="tag seated">On table</span>` : `<span class="tag out">Off</span>`;
     return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
       <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div>`;
@@ -598,7 +599,7 @@ $("mbody").addEventListener("click", e => {
   pickFor = null; closeModal(); seatAt(c, n);
 });
 function showQR(c) {
-  const link = location.origin + location.pathname + "?card=" + c;
+  const link = withCasino(location.origin + location.pathname + "?card=" + c);
   showModal(`<div class="mt">${esc(nameOf(c))}</div><div id="qrBox"></div><p class="note">Card #${c}</p>`);
   if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 260, height: 260, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
   else $("qrBox").textContent = link;
@@ -620,7 +621,7 @@ function showDealerPick() {
 }
 /* Chair card: its number, where it is, who's logged in, its QR, and its history. */
 function showChair(n) {
-  const link = location.origin + location.pathname + "?join&t=1&ch=" + n;
+  const link = withCasino(location.origin + location.pathname + "?join&t=1&ch=" + n);
   const ns = nearSeat(n), c = chairOccupant(n), p = c && get(c);
   const where = ns.ft > PULL_FT ? "Pulled out (" + ns.ft.toFixed(1) + " ft from seat " + ns.seat + ")" : "At seat " + ns.seat + " (" + ns.ft.toFixed(1) + " ft)";
   const status = !p ? "Empty" : p.status !== "seated" ? "Logged in, not seated" : p.breakAt ? "On break, seat " + p.seat + " held" : "Seated at seat " + p.seat;
@@ -646,7 +647,7 @@ function showChair(n) {
   };
 }
 function showSeatQR(n, kind) {
-  const link = location.origin + location.pathname + "?join&t=1&s=" + n + (kind === "sit" ? "&sit" : "");
+  const link = withCasino(location.origin + location.pathname + "?join&t=1&s=" + n + (kind === "sit" ? "&sit" : ""));
   showModal(`<div class="mt">Seat ${n} &middot; ${kind === "sit" ? "Chair" : "Number"}</div><div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div>
     <p class="note">Table 1, seat ${n} &mdash; ${kind === "sit" ? "seats the player right away" : "dealer approves first"}</p><p class="note" style="word-break:break-all">${esc(link)}</p>
     <button class="btn sm" id="seatLinkCopy">Copy link</button>`);
@@ -688,7 +689,7 @@ function handleScan(txt) {
   askSeat(card);
 }
 $("joinLink").onclick = () => {
-  const l = location.origin + location.pathname + "?join";
+  const l = withCasino(location.origin + location.pathname + "?join");
   (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(() => { $("joinLink").textContent = "Copied"; setTimeout(() => $("joinLink").textContent = "Copy player sign-in link", 1500); }, () => prompt("Copy this link:", l));
 };
 $("reset").onclick = () => {
@@ -865,9 +866,9 @@ async function signInStart() {
 function showMyQr() {
   if (!myCard || DEALERS[myCard] || !window.QRCode) return;
   $("qrMe").hidden = false; $("myQr").innerHTML = "";
-  new QRCode($("myQr"), { text: location.origin + location.pathname + "?card=" + myCard, width: 200, height: 200, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+  new QRCode($("myQr"), { text: withCasino(location.origin + location.pathname + "?card=" + myCard), width: 200, height: 200, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
 }
-$("notMe").onclick = e => { e.preventDefault(); try { localStorage.removeItem("playerTracker.card"); } catch (x) {} location.href = location.pathname + "?join"; };
+$("notMe").onclick = e => { e.preventDefault(); try { localStorage.removeItem("playerTracker.card"); } catch (x) {} location.href = withCasino(location.pathname + "?join"); };
 
 if (myCard) { $("player").hidden = false; start(); showMyQr(); maybeRequestSeat(); }
 else if (params.has("join") || params.has("me")) signInStart();

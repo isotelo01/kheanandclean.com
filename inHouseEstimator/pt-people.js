@@ -42,6 +42,39 @@ for (let i = 1; i <= 200; i++) {
   };
 }
 
+/* ---- Casinos. Each casino has its own tables, seats, wait list, calls, floor plan, building and log.
+   Players (roster, profiles, phone sign-in) are shared, so one player works at every casino.
+   EDH keeps the original documents (playerTracker/poc ...); Capitol's get a prefix (playerTracker/capitol_poc ...).
+   Which casino: ?casino= in the link (the Personal page sub menu sets it), else the last one used on this device. */
+export const CASINOS = { edh: "EDH Casino", capitol: "Capitol Casino" };
+const qsCasino = new URLSearchParams(location.search).get("casino");
+let pick = CASINOS[qsCasino] ? qsCasino : null;
+try { if (pick) localStorage.setItem("playerTracker.casino", pick); else pick = localStorage.getItem("playerTracker.casino"); } catch (e) {}
+export const CASINO = CASINOS[pick] ? pick : "edh", CASINO_NAME = CASINOS[CASINO];
+const SHARED = ["roster", "profiles", "phoneIndex"];
+/* Use in place of Firestore's doc(): only playerTracker documents change. */
+export const casinoDoc = fsDoc => (db, col, name, ...rest) =>
+  fsDoc(db, col, col === "playerTracker" && CASINO !== "edh" && name && !SHARED.includes(name) ? CASINO + "_" + name : name, ...rest);
+/* Links that go to a player's phone (QR codes, copied links) carry the casino. */
+export const withCasino = u => u + (u.includes("?") ? "&" : "?") + "casino=" + CASINO;
+/* Links between Player Tracker pages carry it too, so two tabs on two casinos don't mix up. */
+const PT_PAGES = /(player-tracker|players|dealers|dealer-table|floor|waitlist|measure|player-tracker-hardware)\.html/;
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest("a[href]"); if (!a) return;
+  const h = a.getAttribute("href");
+  if (!h || /casino=/.test(h) || /^(https?:|mailto:|tel:|#)/.test(h)) return;
+  if (PT_PAGES.test(h) || /^\?/.test(h)) a.setAttribute("href", withCasino(h));
+}, true);
+const markHeads = () => {
+  document.title += " · " + CASINO_NAME;
+  document.querySelectorAll(".top h1:not([id])").forEach(h => {
+    const s = document.createElement("div"); s.textContent = CASINO_NAME;
+    s.style.cssText = "font:600 13px system-ui,sans-serif;color:rgba(255,255,255,.7);letter-spacing:.04em";
+    h.appendChild(s);
+  });
+};
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", markHeads); else markHeads();
+
 /* 10 test dealers: four-digit number -> name. */
 export const DEALERS = {
   "4821": "Ace in the Hole",  "7350": "Shuffle Off Home", "1946": "Chip Stackhouse", "6083": "River Turner",

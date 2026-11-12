@@ -92,8 +92,9 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, DEALERS } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino } from "./pt-people.js";   // 200 test players, 10 test dealers
+const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -315,7 +316,7 @@ function openSeat(n) {
       <p class="note" id="scanMsg">Scan the player's QR code.</p>
       <button class="btn ghost" id="seatQr">This seat's sign-in QR</button><div id="seatQrBox" style="margin-top:10px;text-align:center"></div>`);
     $("seatQr").onclick = () => {   // the code that goes on this chair: player scans it, signs in, dealer approves
-      const url = location.origin + location.pathname.replace(/dealer-table(\.html)?$/, "player-tracker.html") + "?join&t=" + T + "&s=" + n;
+      const url = location.origin + location.pathname.replace(/dealer-table(\.html)?$/, "player-tracker.html") + "?join&t=" + T + "&s=" + n + "&casino=" + CASINO;
       const b = $("seatQrBox"); b.innerHTML = `<div id="sq" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div><p class="note">Table ${T}, seat ${n}</p>`;
       if (window.QRCode) new QRCode($("sq"), { text: url, width: 200, height: 200, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
       else $("sq").textContent = url;
