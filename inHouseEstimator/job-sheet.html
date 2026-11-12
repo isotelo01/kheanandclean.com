@@ -2321,6 +2321,9 @@ async function show(){
       /* Save sits at the very bottom, on the left of the Summarize line. */
       '<div class="sumrow"><div class="actions" id="saveRow" style="margin:0 auto 0 0"><button type="button" class="new" id="saveBtn">Save</button><span class="note" id="note"></span></div>' +
         '<button type="button" class="new" id="sumBtn"></button></div>' +
+      /* Staff only: pull an accepted job or unpaid invoice back into Dashboard > Estimates (same id, same link). */
+      (!PUBLIC && (place === "acceptedQuotes" || place === "invoices")
+        ? '<div class="actions" style="margin-top:14px"><button type="button" class="new" id="toEstBtn">Back to Estimates</button></div>' : '') +
       /* Invoiced or paid: price locked. Whole job = the estimator's Copy job; Quote extras only = a new
          on-site estimate with just what was added at no charge, priced, to discount and send. */
       ((place === "invoices" || place === "paidInvoices") && !PUBLIC
@@ -2744,6 +2747,31 @@ async function show(){
       return;
     } catch (e) { console.error(e); revBox.innerHTML = '<span class="note err">Could not send: ' + esc(e.message) + '</span>'; revBox.classList.add("on"); }
     finally { revBtn.disabled = false; revBtn.textContent = "Resend estimate"; }
+  });
+
+  /* Back to Estimates: copy into "quotes" as a sent estimate (approval cleared, Dashboard hide cleared),
+     then remove it from where it was. Copy first, delete second, so nothing is lost. */
+  const toEstBtn = document.getElementById("toEstBtn");
+  if (toEstBtn) toEstBtn.addEventListener("click", async () => {
+    if (!confirm("Move this job back to Estimates? The approval is cleared and the customer will need to approve it again.")) return;
+    toEstBtn.disabled = true; toEstBtn.textContent = "Moving…";
+    try {
+      const s = await within(getDoc(doc(db, place, id)));
+      if (!s.exists()) throw new Error("It's no longer there. Refresh the page.");
+      const d = s.data(), est = { ...d };
+      ["id", "dashHidden", "dashHiddenAt", "invoicedAt", "quoteId", "quoteNumber", "trashedFrom", "trashedAt"].forEach(k => delete est[k]);
+      Object.assign(est, {
+        type: "quote", status: "sent",
+        number: place === "invoices" ? (d.quoteNumber || d.baseNumber || d.number || "") : (d.number || ""),
+        acceptedName: "", acceptedAt: null, termsAccepted: false
+      });
+      await within(setDoc(doc(db, "quotes", id), est));
+      await within(deleteDoc(doc(db, place, id)));
+      location.href = "./dashboard.html";
+    } catch (e) {
+      console.error(e); toEstBtn.disabled = false; toEstBtn.textContent = "Back to Estimates";
+      revBox.innerHTML = '<span class="note err">Could not move: ' + esc(e.message) + '</span>'; revBox.classList.add("on");
+    }
   });
 
   /* Whole job: same as the Dashboard's Copy job (estimator prefilled, same customer, new estimate). */
