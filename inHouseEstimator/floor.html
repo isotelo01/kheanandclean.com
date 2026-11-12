@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Floor</title>
+<style>
+/* Floor page (Player Tracker proof of concept): the floor runs every table from here.
+   - Tables: open/closed, dealer, seats filled, players on break. Tap a table to open its Dealer Control.
+   - Calls: drinks/service/chips/floor calls sent from Dealer Control. Done clears them.
+   - Wait list: floor types names in; players who joined the list from their phone show up too.
+   Firestore: playerTracker/tables { n: { open } }, playerTracker/calls { id: { t, kind, at } },
+   playerTracker/waitlist { id: { name, game, at } }, plus playerTracker/poc (same as the other pages). */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--navy);color:#fff;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 40px}
+.wrap{max-width:900px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px}
+h1{margin:0;font-size:26px;color:var(--gold)}
+h2{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:24px 0 10px}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px system-ui,sans-serif;cursor:pointer;text-decoration:none;text-align:center}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.sm{padding:6px 12px;font-size:14px}
+.btn.ok{background:var(--ok)}
+.warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
+.tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.tcard{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px;cursor:pointer}
+.tcard.open{border-color:var(--ok)}
+.tcard .nm{font-weight:700;font-size:17px}
+.tcard .nm span{color:var(--gold)}
+.tcard .st{font-size:14px;color:rgba(255,255,255,.75);margin:4px 0 10px}
+.sw{border-radius:999px;padding:6px 14px;font:700 14px system-ui,sans-serif;cursor:pointer;border:1px solid var(--bad);background:none;color:var(--bad)}
+.sw.on{border-color:var(--ok);background:var(--ok);color:#000}
+.box{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:4px 12px}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.row:last-child{border-bottom:0}
+.row .nm{flex:1;min-width:0}
+.row .nm span{display:block;font-size:13px;color:rgba(255,255,255,.65)}
+.empty{color:rgba(255,255,255,.6);font-size:14px;padding:12px 0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.call{border-left:4px solid var(--gold);padding-left:10px}
+.call.old .nm b{animation:pulse 1.2s infinite;color:var(--bad)}
+.add{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:10px;font:inherit}
+#wName{flex:1;min-width:160px}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.12);margin-left:6px}
+</style>
+</head>
+<body style="visibility:hidden">
+<div class="wrap">
+  <div class="top"><a class="btn ghost sm" href="./player-tracker.html">&lsaquo; Back</a><h1>Floor</h1></div>
+  <div class="warn" id="warn">Not syncing with the server.</div>
+  <h2>Calls</h2>
+  <div class="box" id="calls"></div>
+  <h2>Tables</h2>
+  <div class="tables" id="tables"></div>
+  <h2>Wait list</h2>
+  <div class="add">
+    <input id="wName" placeholder="Player name" autocomplete="off">
+    <select id="wGame"></select>
+    <button class="btn" id="wAdd">Add</button>
+  </div>
+  <div class="box" id="wait"></div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+const db = getFirestore(app);
+const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
+const TBLREF = doc(db, "playerTracker", "tables"), CALLREF = doc(db, "playerTracker", "calls"), WAITREF = doc(db, "playerTracker", "waitlist");
+
+/* Same tables, test roster and dealers as the other Player Tracker pages. */
+const TABLES = {
+  1: { game: "Blackjack", seats: 7 }, 2: { game: "Baccarat", seats: 7 }, 3: { game: "Poker", seats: 9 },
+  4: { game: "Three Card Poker", seats: 7 }, 5: { game: "Ultimate Texas Hold'em", seats: 7 }
+};
+const ROSTER = {
+  "100001": "Doyle Brunson",  "100002": "Phil Ivey",       "100003": "Stu Ungar",
+  "100004": "Johnny Moss",    "100005": "Amarillo Slim",   "100006": "Puggy Pearson",
+  "100007": "Wild Bill Hickok","100008": "Doc Holliday",   "100009": "Poker Alice",
+  "100010": "Wyatt Earp"
+};
+const DEALERS = { "D001": "Ace in the Hole", "D002": "Shuffle Off Home" };
+const CALLS = { drinks: "Drinks", service: "Service", chips: "Chips", floor: "Floor" };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m" : Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
+const fail = () => { $("warn").style.display = "block"; };
+let state = {}, roster = {}, profiles = {}, tables = {}, calls = {}, wait = {};
+const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || DEALERS[c] || c;
+const isPlayer = c => !!(ROSTER[c] || roster[c]);
+
+function draw() {
+  /* Calls, oldest first (waiting longest on top). Over 5 minutes = pulsing red. */
+  const cl = Object.entries(calls).filter(([, v]) => v && v.at).sort((a, b) => a[1].at - b[1].at);
+  $("calls").innerHTML = cl.length ? cl.map(([id, v]) => `<div class="row call ${Date.now() - v.at > 5 * 60000 ? "old" : ""}">
+      <div class="nm"><b>${esc(CALLS[v.kind] || v.kind)}</b> &middot; Table ${v.t}<span>${esc((TABLES[v.t] || {}).game || "")} &middot; ${ago(v.at)}</span></div>
+      <button class="btn ok sm" data-done="${esc(id)}">Done</button></div>`).join("")
+    : `<div class="empty">No calls.</div>`;
+
+  /* Tables. */
+  $("tables").innerHTML = Object.entries(TABLES).map(([n, tb]) => {
+    n = +n;
+    const on = Object.entries(state).filter(([c, p]) => p && p.status === "seated" && (p.table || 1) === n);
+    const dealer = on.find(([c]) => DEALERS[c]);
+    const players = on.filter(([c]) => isPlayer(c));
+    const brk = players.filter(([, p]) => p.breakAt).length;
+    const open = !!(tables[n] && tables[n].open);
+    return `<div class="tcard ${open ? "open" : ""}" data-t="${n}">
+      <div class="nm"><span>${n}</span> &middot; ${esc(tb.game)}</div>
+      <div class="st">${dealer ? "Dealer: " + esc(nameOf(dealer[0])) : "No dealer"}<br>${players.length}/${tb.seats} seated${brk ? " &middot; " + brk + " on break" : ""}</div>
+      <button class="sw ${open ? "on" : ""}" data-sw="${n}">${open ? "Open" : "Closed"}</button></div>`;
+  }).join("");
+
+  /* Wait list: names the floor typed in + players who joined from their phone. Longest wait on top. */
+  const list = [
+    ...Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game, at: v.at, src: "floor" })),
+    ...Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait").map(([c, p]) => ({ id: c, name: nameOf(c), game: "", at: p.waitAt || Date.now(), src: "app" }))
+  ].sort((a, b) => a.at - b.at);
+  $("wait").innerHTML = list.length ? list.map((w, i) => `<div class="row">
+      <div class="nm"><b>${i + 1}. ${esc(w.name)}</b>${w.src === "app" ? `<span class="tag">phone</span>` : ""}<span>${w.game ? esc(w.game) + " &middot; " : ""}waiting ${ago(w.at)}</span></div>
+      <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`).join("")
+    : `<div class="empty">Nobody waiting.</div>`;
+}
+
+document.addEventListener("click", e => {
+  const d = e.target.closest("[data-done]");
+  if (d) { setDoc(CALLREF, { [d.dataset.done]: deleteField() }, { merge: true }).catch(fail); return; }
+  const sw = e.target.closest("[data-sw]");
+  if (sw) { const n = sw.dataset.sw; setDoc(TBLREF, { [n]: { open: !(tables[n] && tables[n].open) } }, { merge: true }).catch(fail); return; }
+  const rm = e.target.closest("[data-rm]");
+  if (rm) {
+    const id = rm.dataset.rm;
+    if (rm.dataset.src === "app") { const p = state[id] || {}; setDoc(REF, { [id]: { ...p, status: "out", waitAt: null } }, { merge: true }).catch(fail); }
+    else setDoc(WAITREF, { [id]: deleteField() }, { merge: true }).catch(fail);
+    return;
+  }
+  const tc = e.target.closest("[data-t]");
+  if (tc) location.href = "./dealer-table.html?t=" + tc.dataset.t;
+});
+$("wGame").innerHTML = `<option value="">Any game</option>` + Object.values(TABLES).map(t => `<option>${esc(t.game)}</option>`).join("");
+const addWait = () => {
+  const name = $("wName").value.trim();
+  if (!name) { $("wName").focus(); return; }
+  const id = "w" + Date.now() + Math.random().toString(36).slice(2, 6);
+  setDoc(WAITREF, { [id]: { name, game: $("wGame").value, at: Date.now() } }, { merge: true }).catch(fail);
+  $("wName").value = ""; $("wName").focus();
+};
+$("wAdd").onclick = addWait;
+$("wName").onkeydown = e => { if (e.key === "Enter") addWait(); };
+
+/* ---- start (staff only) ---- */
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=floor.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  document.body.style.visibility = "visible";
+  draw();
+  const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
+  on(REF, v => state = v); on(TBLREF, v => tables = v); on(CALLREF, v => calls = v); on(WAITREF, v => wait = v);
+  onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  setInterval(draw, 30000);   // keep the times ticking
+});
+</script>
+</body>
+</html>
