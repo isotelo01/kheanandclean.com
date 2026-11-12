@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Players</title>
+<style>
+/* Players (Player Tracker proof of concept): every player, searchable, each linking to their profile
+   (player-tracker.html?profile=card), plus + New player. Test players come from pt-people.js; players who
+   signed up on their phone or were created by staff come from playerTracker/roster. Staff only. */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--navy);color:#fff;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 40px}
+.wrap{max-width:900px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{margin:0;font-size:26px;color:var(--gold)}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px system-ui,sans-serif;cursor:pointer;text-decoration:none;text-align:center}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.ok{background:var(--ok)}
+.btn.sm{padding:6px 12px;font-size:14px}
+.warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
+.box{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;margin-top:12px}
+input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:12px;font:inherit;width:100%}
+.bar{display:flex;gap:10px;align-items:center;margin-top:14px}
+.bar input{flex:1}
+.cnt{font-size:14px;color:rgba(255,255,255,.7);white-space:nowrap}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.row:last-child{border-bottom:0}
+.row .nm{flex:1;min-width:0}
+.row .nm a{color:#fff;font-weight:700;text-decoration:underline;text-decoration-color:rgba(227,182,74,.6)}
+.row .nm span{display:block;font-size:13px;color:rgba(255,255,255,.65)}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;white-space:nowrap}
+.tag.wait{background:var(--gold);color:#000}
+.tag.seated{background:var(--ok);color:#000}
+.tag.out{background:rgba(255,255,255,.15)}
+.note{color:rgba(255,255,255,.7);font-size:14px}
+.note a{color:var(--gold)}
+</style>
+</head>
+<body style="visibility:hidden">
+<div class="wrap">
+  <div class="top"><a class="btn ghost sm" href="./player-tracker.html">&lsaquo; Player Tracker</a><h1>Players</h1>
+    <button class="btn sm" id="newPlayer" style="margin-left:auto">+ New player</button></div>
+  <div class="warn" id="warn">Not syncing with the server.</div>
+  <div class="box" id="newBox" hidden>
+    <input id="npName" placeholder="Name" autocomplete="off" style="margin-bottom:8px">
+    <input id="npPhone" type="tel" inputmode="numeric" placeholder="Phone (optional, 10 digits)" autocomplete="off" style="margin-bottom:8px">
+    <input id="npEmail" type="email" placeholder="Email (optional)" autocomplete="off" style="margin-bottom:8px">
+    <button class="btn sm ok" id="npSave">Create player</button> <span class="note" id="npMsg"></span>
+  </div>
+  <div class="bar"><input id="q" type="search" placeholder="Search name, card # or phone" autocomplete="off"><span class="cnt" id="cnt"></span></div>
+  <div class="box" id="list"></div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, TEST_PHONES } from "./pt-people.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+const db = getFirestore(app);
+const REF = doc(db, "playerTracker", "poc"), LOGREF = doc(db, "playerTracker", "log"), PROFREF = doc(db, "playerTracker", "profiles");
+const ROSTREF = doc(db, "playerTracker", "roster"), IDXREF = doc(db, "playerTracker", "phoneIndex");
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fail = () => { $("warn").style.display = "block"; };
+const fmtPhone = d => d ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : "";
+const fmtHrs = ms => { const m = Math.floor(ms / 60000); return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
+const liveMs = p => (p.totalMs || 0) + (p.status === "seated" && p.since ? Date.now() - p.since : 0);
+const digitsOf = v => String(v || "").replace(/\D/g, "");
+async function sha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
+let state = {}, roster = {}, profiles = {};
+const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
+const phoneOf = c => digitsOf((profiles[c] && profiles[c].phone) || TEST_PHONES[c] || "");
+
+function draw() {
+  const all = Object.keys(ROSTER).concat(Object.keys(roster).filter(k => !ROSTER[k]));
+  const q = $("q").value.trim().toLowerCase(), qd = digitsOf(q);
+  const hits = all.filter(c => !q || nameOf(c).toLowerCase().includes(q) || (qd && (c.includes(qd) || phoneOf(c).includes(qd))))
+    .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+  $("cnt").textContent = (q ? hits.length + " of " : "") + all.length + " players";
+  $("list").innerHTML = hits.length ? hits.map(c => {
+    const p = state[c] || { status: "out", totalMs: 0 }, ph = phoneOf(c);
+    const tag = p.status === "seated" ? `<span class="tag seated">T${p.table || 1} &middot; Seat ${p.seat}${p.breakAt ? " &middot; break" : ""}</span>`
+      : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
+    return `<div class="row"><div class="nm"><a href="./player-tracker.html?profile=${encodeURIComponent(c)}">${esc(nameOf(c))}</a>
+      <span>#${esc(c)}${ph ? " &middot; " + fmtPhone(ph) : ""} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}</div>`;
+  }).join("") : `<div class="note">No players match.</div>`;
+}
+$("q").oninput = draw;
+
+/* + New player: same player file the Player Tracker's button makes (name in the roster; phone and email in
+   the private profile; hashed phone in the phone index so they can sign in with it). */
+$("newPlayer").onclick = () => { $("newBox").hidden = !$("newBox").hidden; if (!$("newBox").hidden) $("npName").focus(); };
+$("npSave").onclick = async () => {
+  const say = t => { $("npMsg").textContent = t; };
+  const name = $("npName").value.trim().slice(0, 60), email = $("npEmail").value.trim().slice(0, 120);
+  let d = digitsOf($("npPhone").value); if (d.length === 11 && d[0] === "1") d = d.slice(1);
+  if (!name) { say("Enter a name."); $("npName").focus(); return; }
+  if (d && d.length !== 10) { say("Phone needs all 10 digits (or leave it blank)."); return; }
+  if (d && Object.values(TEST_PHONES).includes(d)) { say("That phone number belongs to a test player."); return; }
+  const id = "P" + Date.now().toString(36).toUpperCase();
+  const prof = { name }; if (d) prof.phone = d; if (email) prof.email = email;
+  try {
+    let h = "";
+    if (d) {   // check the phone first, before anything is saved
+      const idx = await getDoc(IDXREF); h = await sha(d);
+      if (idx.exists() && idx.data()["h_" + h]) { say("That phone number already belongs to " + nameOf(idx.data()["h_" + h]) + "."); return; }
+    }
+    const w = [setDoc(ROSTREF, { [id]: { name } }, { merge: true }), setDoc(PROFREF, { [id]: prof }, { merge: true }),
+               setDoc(LOGREF, { events: arrayUnion({ c: id, a: "Player created by staff", t: Date.now() }) }, { merge: true })];
+    if (d) w.push(setDoc(IDXREF, { ["h_" + h]: id, ["l4_" + d.slice(-4)]: arrayUnion(id) }, { merge: true }));
+    await Promise.all(w);
+  } catch (e) { say("Couldn't save. Try again."); return; }
+  roster[id] = { name }; profiles[id] = { ...(profiles[id] || {}), ...prof };
+  $("npName").value = $("npPhone").value = $("npEmail").value = "";
+  $("npMsg").innerHTML = `Created <a href="./player-tracker.html?profile=${id}">${esc(name)}</a>.`;
+  draw();
+};
+
+/* ---- start (staff only) ---- */
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=players.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  document.body.style.visibility = "visible";
+  draw();
+  onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);
+  onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  setInterval(draw, 60000);   // keep the hours ticking
+});
+</script>
+</body>
+</html>

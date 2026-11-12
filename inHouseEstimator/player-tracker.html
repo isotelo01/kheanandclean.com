@@ -96,12 +96,11 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
       <input id="npEmail" type="email" placeholder="Email (optional)" autocomplete="off" style="width:100%;margin-bottom:8px">
       <button class="btn sm ok" id="npSave">Create player</button> <span class="note" id="npMsg"></span>
     </div>
-    <div class="box" id="players"></div>
-    <p class="note">Each player's link logs them in/out. Copy a link and text it to a tester.</p>
+    <p><a class="btn ghost sm" href="./players.html">All players &rsaquo;</a></p>
     <p><button class="btn sm" id="joinLink">Copy player sign-in link</button></p>
     <p style="margin-top:16px"><button class="btn ghost sm" id="reset">Reset all</button></p>
     <p style="margin-top:20px"><a class="btn" href="./player-tracker.html?join" target="_blank">Open player sign-in page</a></p>
-    <p style="margin-top:12px"><a class="btn" href="./floor.html">Floor</a> <a class="btn" href="./waitlist.html">Waitlist</a> <a class="btn ghost" href="./player-tracker-hardware.html">Hardware</a></p>
+    <p style="margin-top:12px"><a class="btn" href="./floor.html">Floor</a> <a class="btn" href="./waitlist.html">Waitlist</a> <a class="btn" href="./players.html">Players</a> <a class="btn" href="./dealers.html">Dealers</a> <a class="btn ghost" href="./player-tracker-hardware.html">Hardware</a></p>
   </div>
   <div id="prof" hidden>
     <div class="top">
@@ -139,6 +138,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, TEST_PHONES, TEST_INFO, DEALERS } from "./pt-people.js";
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -162,21 +162,9 @@ let layout = {};
 try { layout = JSON.parse(localStorage.getItem("playerTracker.layout") || "{}"); } catch (e) {}
 let dragging = null, justDragged = false;  // { card: { name, phone, email, bday, notes } }
 
-/* 10 test players: famous gamblers and Wild West legends, made-up card numbers. */
-const ROSTER = {
-  "100001": "Doyle Brunson",  "100002": "Phil Ivey",       "100003": "Stu Ungar",
-  "100004": "Johnny Moss",    "100005": "Amarillo Slim",   "100006": "Puggy Pearson",
-  "100007": "Wild Bill Hickok","100008": "Doc Holliday",   "100009": "Poker Alice",
-  "100010": "Wyatt Earp"
-};
-/* Fake 555 numbers for the test players. 100002 and 100009 share the last 4 (0142) to test the "full number" step. */
-const TEST_PHONES = {
-  "100001": "9165550101", "100002": "9165550142", "100003": "9165550103", "100004": "9165550104", "100005": "9165550105",
-  "100006": "9165550106", "100007": "9165550107", "100008": "9165550108", "100009": "2095550142", "100010": "9165550110"
-};
+/* 200 test players (full profiles) and 10 test dealers (four-digit numbers): pt-people.js, shared by every
+   Player Tracker page. One dealer on a table at a time; a new dealer logging in pushes the other off. */
 const fmtPhone = d => d ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : "";
-/* 2 test dealers. One dealer on the table at a time; a new dealer logging in pushes the other off. */
-const DEALERS = { "D001": "Ace in the Hole", "D002": "Shuffle Off Home" };
 const SEATS = 7;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -422,17 +410,7 @@ function renderFloor() {
     return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
       <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div>`;
   }).join("");
-  const allPlayers = Object.keys(ROSTER).concat(Object.keys(roster).filter(k => !ROSTER[k]));
-  $("players").innerHTML = allPlayers.map(c => {
-    const p = get(c), link = base + "?card=" + c, ph = (profiles[c] && profiles[c].phone) || TEST_PHONES[c];
-    const tag = p.status === "seated" ? `<span class="tag seated">T${p.table || 1} &middot; Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
-    return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c}${ph ? " &middot; " + fmtPhone(ph) : ""} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
-      <div class="acts">
-      <button class="btn sm ok" data-a="askSeat" data-c="${c}">${p.status === "seated" ? "Change seat" : "Seat"}</button>
-      <button class="btn sm" data-a="wait" data-c="${c}" ${p.status === "out" ? "" : "disabled"}>Add to waitlist</button>
-      <button class="btn sm ghost" data-a="out" data-c="${c}" ${p.status === "out" ? "disabled" : ""}>Log out</button>
-      <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div></div>`;
-  }).join("");
+  /* The full player list is on players.html. */
 }
 
 function renderDealer() {
@@ -471,8 +449,9 @@ function renderProfile() {
   if (!pfFilled) {   // fill the form once so live updates don't wipe what's being typed
     $("pf_name").value = pr.name || ROSTER[c] || DEALERS[c] || "";
     $("pf_id").value = c; $("pfIdLbl").firstChild.textContent = isD ? "Dealer #" : "Card #";
-    $("pf_phone").value = pr.phone || (TEST_PHONES[c] ? fmtPhone(TEST_PHONES[c]) : ""); $("pf_email").value = pr.email || "";
-    $("pf_bday").value = pr.bday || ""; $("pf_notes").value = pr.notes || "";
+    const ti = TEST_INFO[c] || {};   // test players' made-up profile, until someone saves real details
+    $("pf_phone").value = pr.phone || (TEST_PHONES[c] ? fmtPhone(TEST_PHONES[c]) : ""); $("pf_email").value = pr.email || ti.email || "";
+    $("pf_bday").value = pr.bday || ti.bday || ""; $("pf_notes").value = pr.notes || ti.notes || "";
     pfFilled = true;
   }
   const st = p.status === "seated" ? (isD ? "On the table" : "Table " + (p.table || 1) + ", seat " + p.seat) : p.status === "wait" ? "On the list" : "Logged out";
@@ -837,7 +816,8 @@ $("npSave").onclick = async () => {
     await Promise.all(w);
   } catch (e) { say("Couldn't save. Try again."); return; }
   roster[id] = { name }; profiles[id] = { ...(profiles[id] || {}), ...prof }; logEvent(id, "Player created by staff");
-  $("npName").value = $("npPhone").value = $("npEmail").value = ""; $("newBox").hidden = true; say("");
+  $("npName").value = $("npPhone").value = $("npEmail").value = "";
+  $("npMsg").innerHTML = `Created <a href="?profile=${id}" style="color:var(--gold)">${esc(name)}</a>.`;
   render();
 };
 async function signInStart() {

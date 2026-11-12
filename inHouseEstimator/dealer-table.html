@@ -93,6 +93,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, getDoc, onSnapshot, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, DEALERS } from "./pt-people.js";   // 200 test players, 10 test dealers
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -110,14 +111,6 @@ const ROSTREF = doc(db, "playerTracker", "roster");   // players who signed up t
 let roster = {};
 const REF = doc(db, "playerTracker", "poc"), LOGREF = doc(db, "playerTracker", "log"), PROFREF = doc(db, "playerTracker", "profiles");
 
-/* Same test roster as player-tracker.html. */
-const ROSTER = {
-  "100001": "Doyle Brunson",  "100002": "Phil Ivey",       "100003": "Stu Ungar",
-  "100004": "Johnny Moss",    "100005": "Amarillo Slim",   "100006": "Puggy Pearson",
-  "100007": "Wild Bill Hickok","100008": "Doc Holliday",   "100009": "Poker Alice",
-  "100010": "Wyatt Earp"
-};
-const DEALERS = { "D001": "Ace in the Hole", "D002": "Shuffle Off Home" };
 /* 5 tables. Each player/dealer record carries .table (missing = table 1). */
 const BASE_TABLES = {
   1: { game: "Blackjack", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },

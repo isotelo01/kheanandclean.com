@@ -45,6 +45,7 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, DEALERS } from "./pt-people.js";   // 200 test players, 10 test dealers
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -58,13 +59,6 @@ const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPo
 const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
 const WAITREF = doc(db, "playerTracker", "waitlist"), GAMESREF = doc(db, "playerTracker", "waitgames");
-/* Same test roster as the other Player Tracker pages. */
-const ROSTER = {
-  "100001": "Doyle Brunson",  "100002": "Phil Ivey",       "100003": "Stu Ungar",
-  "100004": "Johnny Moss",    "100005": "Amarillo Slim",   "100006": "Puggy Pearson",
-  "100007": "Wild Bill Hickok","100008": "Doc Holliday",   "100009": "Poker Alice",
-  "100010": "Wyatt Earp"
-};
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m" : Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
