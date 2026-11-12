@@ -127,7 +127,7 @@ const BASE_TABLES = {
   5: { game: "Ultimate Texas Hold'em", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" }
 };
 let TABLES = { ...BASE_TABLES };   // plus tables added on the Floor page (playerTracker/tablelist), loaded at start
-const pickT = () => TABLES[+new URLSearchParams(location.search).get("t")] ? +new URLSearchParams(location.search).get("t") : 1;
+const pickT = () => TABLES[+new URLSearchParams(location.search).get("t")] ? +new URLSearchParams(location.search).get("t") : +Object.keys(TABLES)[0] || 1;
 let T = pickT(), TB = TABLES[T];
 const onT = p => p && p.status === "seated" && (p.table || 1) === T;
 const $ = id => document.getElementById(id);
@@ -464,7 +464,12 @@ onAuthStateChanged(getAuth(app), async u => {
   if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
   try {   // tables added on the Floor page
     const s = await getDoc(doc(db, "playerTracker", "tablelist"));
-    for (const [n, t] of Object.entries(s.exists() ? s.data() : {})) if (t && t.game && Array.isArray(t.seats)) TABLES[n] = t;
+    for (const [n, t] of Object.entries(s.exists() ? s.data() : {})) {   // same rules as the Floor page
+      if (!t) continue;
+      if (t.deleted) { delete TABLES[n]; continue; }
+      const b = BASE_TABLES[n] || {}, seats = Array.isArray(t.seats) ? t.seats : b.seats;
+      if ((t.game || b.game) && seats) TABLES[n] = { game: t.game || b.game, seats, shape: t.shape || b.shape || "half" };
+    }
   } catch (e) {}
   T = pickT(); TB = TABLES[T];
   document.body.style.visibility = "visible";
