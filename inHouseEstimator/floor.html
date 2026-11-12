@@ -9,11 +9,13 @@
 <title>Floor</title>
 <style>
 /* Floor page (Player Tracker proof of concept): the floor runs every table from here.
-   - Tables: open/closed, dealer, seats filled, players on break. Tap a table to open its Dealer Control.
+   - Floor plan: every table drawn with its chairs. Drag a table to rearrange the floor; tap it to open/close it.
    - Calls: drinks/service/chips/floor calls sent from Dealer Control. Done clears them.
-   - Wait list: floor types names in; players who joined the list from their phone show up too.
+   - Wait list (left column): "+ Add a game" builds a list per game (mostly poker); names go under each game.
+     Players who joined the list from their phone show up too. Table games don't carry lists.
    Firestore: playerTracker/tables { n: { open } }, playerTracker/calls { id: { t, kind, at } },
-   playerTracker/waitlist { id: { name, game, at } }, plus playerTracker/poc (same as the other pages). */
+   playerTracker/waitlist { id: { name, game (= waitgames id), at } }, playerTracker/waitgames { id: { name, at } },
+   playerTracker/floorplan { n: { x, y } }, plus playerTracker/poc (same as the other pages). */
 :root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--bad:#f87171}
 *{box-sizing:border-box}
 body{margin:0;background:var(--navy);color:#fff;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 40px}
@@ -49,23 +51,46 @@ h2{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:.12e
 input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:10px;font:inherit}
 #wName{flex:1;min-width:160px}
 .tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.12);margin-left:6px}
+/* Wait list column on the left, floor plan on the right (stacked on a phone). */
+.wrap{max-width:1400px}
+.cols{display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.gbox{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;margin-top:12px}
+.gh{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.gh b{flex:1;color:var(--gold);font-size:17px}
+.gh .cnt{font-size:13px;color:rgba(255,255,255,.7)}
+.gh button{background:none;border:0;color:rgba(255,255,255,.55);font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+.gbox .add input{flex:1;min-width:0;padding:8px 10px}
+[hidden]{display:none!important}
+.hint{color:rgba(255,255,255,.6);font-size:13px;margin:-4px 0 8px}
+#plan{width:100%;height:auto;display:block;background:#101a2e;border:1px solid rgba(255,255,255,.12);border-radius:12px;touch-action:none}
+.ptbl{cursor:grab}
+.ptbl.dragging{cursor:grabbing;opacity:.85}
 </style>
 </head>
 <body style="visibility:hidden">
 <div class="wrap">
   <div class="top"><a class="btn ghost sm" href="./player-tracker.html">&lsaquo; Back</a><h1>Floor</h1></div>
   <div class="warn" id="warn">Not syncing with the server.</div>
-  <h2>Calls</h2>
-  <div class="box" id="calls"></div>
-  <h2>Tables</h2>
-  <div class="tables" id="tables"></div>
-  <h2>Wait list</h2>
-  <div class="add">
-    <input id="wName" placeholder="Player name" autocomplete="off">
-    <select id="wGame"></select>
-    <button class="btn" id="wAdd">Add</button>
+  <div class="cols">
+    <aside>
+      <h2>Wait list</h2>
+      <button class="btn" id="addGame" style="width:100%">+ Add a game</button>
+      <div class="add" id="addGameBox" hidden style="margin-top:10px">
+        <input id="gName" list="gamePresets" placeholder="Game, e.g. 1/2 No-Limit Hold'em" autocomplete="off" style="flex:1;min-width:0">
+        <button class="btn" id="gCreate">Create</button>
+      </div>
+      <datalist id="gamePresets"><option>No-Limit Hold'em</option><option>Limit Hold'em</option><option>Pot-Limit Omaha</option><option>Omaha Hi-Lo</option></datalist>
+      <div id="wait"></div>
+    </aside>
+    <main>
+      <h2>Calls</h2>
+      <div class="box" id="calls"></div>
+      <h2>Floor plan</h2>
+      <p class="hint">Drag a table to move it. Tap a table to open or close it.</p>
+      <svg id="plan" viewBox="0 0 900 560"></svg>
+    </main>
   </div>
-  <div class="box" id="wait"></div>
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -84,6 +109,8 @@ const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPo
 const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
 const TBLREF = doc(db, "playerTracker", "tables"), CALLREF = doc(db, "playerTracker", "calls"), WAITREF = doc(db, "playerTracker", "waitlist");
+const GAMESREF = doc(db, "playerTracker", "waitgames");   // wait list games the floor built: { id: { name, at } }
+const PLANREF = doc(db, "playerTracker", "floorplan");    // where each table sits on the floor plan: { n: { x, y } }
 
 /* Same tables, test roster and dealers as the other Player Tracker pages. */
 const TABLES = {
@@ -93,28 +120,36 @@ const TABLES = {
   4: { game: "Three Card Poker", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
   5: { game: "Ultimate Texas Hold'em", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" }
 };
-/* Top-down silhouette of a table: green felt when open, grey when closed; one dot per seat
-   (gold = seated, blue = on break, red = break over 30 min). Tap the table to open/close it. */
-function tableSvg(n, tb, open, bySeat) {
+/* One table on the floor plan, drawn from the top in a 200 x 182 box: green felt when open, grey when
+   closed, a chair at each seat facing the table (gold = seated, blue = on break, red = break over 30 min,
+   dark = empty), then its name, dealer and seats under it. Drag to move it; tap to open/close it. */
+const PLAN_DEFAULT = { 1: { x: 40, y: 30 }, 2: { x: 350, y: 30 }, 3: { x: 660, y: 30 }, 4: { x: 40, y: 300 }, 5: { x: 350, y: 300 } };
+function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
   const felt = open ? "#0f6b3a" : "#3a3f4b", rail = open ? "#5a3518" : "#2a2e37";
-  const dot = (x, y, s) => {
+  const chair = (x, y, cx, cy, s) => {   // small chair at (x,y), turned to face the table centre (cx,cy)
     const p = bySeat[s];
     const f = !p ? "#0b1220" : p.breakAt ? (Date.now() - p.breakAt > 30 * 60000 ? "#ef4444" : "#3b82f6") : "#E3B64A";
-    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="${f}" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>`;
+    const rot = Math.atan2(y - cy, x - cx) * 180 / Math.PI - 90;
+    return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(1)})">`
+      + `<rect x="-8" y="-6" width="16" height="12" rx="3" fill="${f}" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>`
+      + `<rect x="-9" y="6" width="18" height="4" rx="2" fill="${f}" stroke="rgba(255,255,255,.55)" stroke-width="1"/></g>`;
   };
-  let s = "", label;
+  let s = `<rect width="200" height="182" fill="transparent"/>`, label;
   if (tb.shape === "oval") {
-    s += `<ellipse cx="100" cy="60" rx="80" ry="42" fill="${rail}"/><ellipse cx="100" cy="60" rx="71" ry="34" fill="${felt}"/>`;
-    tb.seats.forEach((st, k) => { const a = (-90 + 36 * (k + 1)) * Math.PI / 180; s += dot(100 + Math.cos(a) * 92, 60 + Math.sin(a) * 48, st); });
-    label = 66;
+    s += `<ellipse cx="100" cy="62" rx="80" ry="42" fill="${rail}"/><ellipse cx="100" cy="62" rx="71" ry="34" fill="${felt}"/>`;
+    tb.seats.forEach((st, k) => { const a = (-90 + 36 * (k + 1)) * Math.PI / 180; s += chair(100 + Math.cos(a) * 94, 62 + Math.sin(a) * 52, 100, 62, st); });
+    label = 68;
   } else {
-    s += `<path d="M18 16 A82 82 0 0 0 182 16 Z" fill="${rail}"/><path d="M27 16 A73 73 0 0 0 173 16 Z" fill="${felt}"/>`;
-    tb.seats.forEach((st, k) => { const a = Math.PI * ((k + 1) / (tb.seats.length + 1)); s += dot(100 + Math.cos(a) * 92, 16 + Math.sin(a) * 92, st); });
+    s += `<rect x="18" y="10" width="164" height="7" rx="2" fill="${rail}"/><path d="M18 16 A82 82 0 0 0 182 16 Z" fill="${rail}"/><path d="M27 16 A73 73 0 0 0 173 16 Z" fill="${felt}"/>`;
+    tb.seats.forEach((st, k) => { const a = Math.PI * ((k + 1) / (tb.seats.length + 1)); s += chair(100 + Math.cos(a) * 94, 16 + Math.sin(a) * 94, 100, 16, st); });
     label = 52;
   }
   s += `<text x="100" y="${label}" fill="${open ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.55)"}" font-size="26" font-weight="700" text-anchor="middle">${n}</text>`;
-  if (!open) s += `<text x="100" y="${label + 20}" fill="#f87171" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">CLOSED</text>`;
-  return `<svg viewBox="0 0 200 116" class="tsvg" data-sw="${n}" role="button" aria-label="Table ${n}: ${open ? "open" : "closed"}, tap to ${open ? "close" : "open"}">${s}</svg>`;
+  if (!open) s += `<text x="100" y="${label + 18}" fill="#f87171" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle">CLOSED</text>`;
+  s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${n} &#183; ${esc(tb.game)}</text>`
+     + `<text x="100" y="162" fill="rgba(255,255,255,.7)" font-size="11" text-anchor="middle">${dealer ? esc(nameOf(dealer)) : "No dealer"} &#183; ${nSeated}/${tb.seats.length} seated${nBreak ? " &#183; " + nBreak + " on break" : ""}</text>`
+     + `<a href="./dealer-table.html?t=${n}"><text x="100" y="178" fill="#E3B64A" font-size="11" font-weight="700" text-anchor="middle">Dealer Control &#8250;</text></a>`;
+  return `<g class="ptbl" data-tbl="${n}" transform="translate(${pos.x} ${pos.y})">${s}</g>`;
 }
 const ROSTER = {
   "100001": "Doyle Brunson",  "100002": "Phil Ivey",       "100003": "Stu Ungar",
@@ -128,7 +163,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m" : Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
 const fail = () => { $("warn").style.display = "block"; };
-let state = {}, roster = {}, profiles = {}, tables = {}, calls = {}, wait = {};
+let state = {}, roster = {}, profiles = {}, tables = {}, calls = {}, wait = {}, games = {}, plan = {};
+let planDrag = null;   // a table being dragged around the floor plan
 const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || DEALERS[c] || c;
 const isPlayer = c => !!(ROSTER[c] || roster[c]);
 
@@ -140,8 +176,8 @@ function draw() {
       <button class="btn ok sm" data-done="${esc(id)}">Done</button></div>`).join("")
     : `<div class="empty">No calls.</div>`;
 
-  /* Tables. */
-  $("tables").innerHTML = Object.entries(TABLES).map(([n, tb]) => {
+  /* Floor plan: every table where the floor put it. Skipped mid-drag so the table doesn't jump. */
+  if (!planDrag) $("plan").innerHTML = Object.entries(TABLES).map(([n, tb]) => {
     n = +n;
     const on = Object.entries(state).filter(([c, p]) => p && p.status === "seated" && (p.table || 1) === n);
     const dealer = on.find(([c]) => DEALERS[c]);
@@ -149,22 +185,32 @@ function draw() {
     const brk = players.filter(([, p]) => p.breakAt).length;
     const open = !!(tables[n] && tables[n].open);
     const bySeat = {}; players.forEach(([, p]) => { bySeat[p.seat] = p; });
-    return `<div class="tcard ${open ? "open" : ""}">
-      ${tableSvg(n, tb, open, bySeat)}
-      <div class="nm"><span>${n}</span> &middot; ${esc(tb.game)}</div>
-      <div class="st">${dealer ? "Dealer: " + esc(nameOf(dealer[0])) : "No dealer"}<br>${players.length}/${tb.seats.length} seated${brk ? " &middot; " + brk + " on break" : ""}</div>
-      <a class="dc" href="./dealer-table.html?t=${n}">Dealer Control &rsaquo;</a></div>`;
+    return planTable(n, tb, open, bySeat, dealer && dealer[0], players.length, brk, plan[n] || PLAN_DEFAULT[n]);
   }).join("");
 
-  /* Wait list: names the floor typed in + players who joined from their phone. Longest wait on top. */
-  const list = [
-    ...Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game, at: v.at, src: "floor" })),
-    ...Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait").map(([c, p]) => ({ id: c, name: nameOf(c), game: "", at: p.waitAt || Date.now(), src: "app" }))
-  ].sort((a, b) => a.at - b.at);
-  $("wait").innerHTML = list.length ? list.map((w, i) => `<div class="row">
-      <div class="nm"><b>${i + 1}. ${esc(w.name)}</b>${w.src === "app" ? `<span class="tag">phone</span>` : ""}<span>${w.game ? esc(w.game) + " &middot; " : ""}waiting ${ago(w.at)}</span></div>
-      <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`).join("")
-    : `<div class="empty">Nobody waiting.</div>`;
+  /* Wait list: one box per game the floor built (longest wait on top), plus players who joined from
+     their phone, plus any older names whose game list is gone. Table games don't get lists. */
+  const row = (w, i) => `<div class="row">
+      <div class="nm"><b>${i + 1}. ${esc(w.name)}</b><span>waiting ${ago(w.at)}</span></div>
+      <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
+  const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor" }));
+  const gl = Object.entries(games).filter(([, g]) => g && g.name).sort((a, b) => a[1].at - b[1].at);
+  let html = gl.map(([gid, g]) => {
+    const list = names.filter(w => w.game === gid).sort((a, b) => a.at - b.at);
+    return `<div class="gbox"><div class="gh"><b>${esc(g.name)}</b><span class="cnt">${list.length} waiting</span><button data-delgame="${esc(gid)}" title="Remove this list">&times;</button></div>
+      <div class="add"><input data-gin="${esc(gid)}" placeholder="Add a name" autocomplete="off"><button class="btn sm" data-gadd="${esc(gid)}">Add</button></div>
+      ${list.length ? list.map(row).join("") : `<div class="empty">Nobody waiting.</div>`}</div>`;
+  }).join("");
+  const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
+    .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
+  if (phones.length) html += `<div class="gbox"><div class="gh"><b>From phones</b><span class="cnt">${phones.length} waiting</span></div>${phones.map(row).join("")}</div>`;
+  const other = names.filter(w => !games[w.game]).sort((a, b) => a.at - b.at);
+  if (other.length) html += `<div class="gbox"><div class="gh"><b>Other</b><span class="cnt">${other.length} waiting</span></div>${other.map(row).join("")}</div>`;
+  if (!html) html = `<div class="empty">No games yet. Tap "+ Add a game" to start a list.</div>`;
+  const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.gin;   // keep typing focus through a redraw
+  const typed = focused ? document.activeElement.value : "";
+  $("wait").innerHTML = html;
+  if (focused) { const el = document.querySelector(`[data-gin="${CSS.escape(focused)}"]`); if (el) { el.value = typed; el.focus(); } }
 }
 
 document.addEventListener("click", e => {
@@ -179,19 +225,64 @@ document.addEventListener("click", e => {
     else setDoc(WAITREF, { [id]: deleteField() }, { merge: true }).catch(fail);
     return;
   }
-  const tc = e.target.closest("[data-t]");
-  if (tc) location.href = "./dealer-table.html?t=" + tc.dataset.t;
+  const ga = e.target.closest("[data-gadd]");
+  if (ga) { addName(ga.dataset.gadd); return; }
+  const dg = e.target.closest("[data-delgame]");
+  if (dg) {
+    const gid = dg.dataset.delgame, inIt = Object.entries(wait).filter(([, v]) => v && v.game === gid);
+    if (inIt.length && !confirm("Remove the " + games[gid].name + " list and the " + inIt.length + " name(s) on it?")) return;
+    const upd = {}; inIt.forEach(([id]) => { upd[id] = deleteField(); });
+    if (inIt.length) setDoc(WAITREF, upd, { merge: true }).catch(fail);
+    setDoc(GAMESREF, { [gid]: deleteField() }, { merge: true }).catch(fail);
+  }
 });
-$("wGame").innerHTML = `<option value="">Any game</option>` + Object.values(TABLES).map(t => `<option>${esc(t.game)}</option>`).join("");
-const addWait = () => {
-  const name = $("wName").value.trim();
-  if (!name) { $("wName").focus(); return; }
+/* Add a name to a game's list. */
+function addName(gid) {
+  const el = document.querySelector(`[data-gin="${CSS.escape(gid)}"]`), name = el && el.value.trim();
+  if (!name) { if (el) el.focus(); return; }
   const id = "w" + Date.now() + Math.random().toString(36).slice(2, 6);
-  setDoc(WAITREF, { [id]: { name, game: $("wGame").value, at: Date.now() } }, { merge: true }).catch(fail);
-  $("wName").value = ""; $("wName").focus();
+  wait[id] = { name, game: gid, at: Date.now() };   // show it right away
+  el.value = "";
+  setDoc(WAITREF, { [id]: wait[id] }, { merge: true }).catch(fail);
+  draw();
+}
+document.addEventListener("keydown", e => { const el = e.target.closest && e.target.closest("[data-gin]"); if (el && e.key === "Enter") addName(el.dataset.gin); });
+/* + Add a game: name it (presets or type your own) and a new list appears. */
+$("addGame").onclick = () => { $("addGameBox").hidden = !$("addGameBox").hidden; if (!$("addGameBox").hidden) $("gName").focus(); };
+const createGame = () => {
+  const name = $("gName").value.trim(); if (!name) { $("gName").focus(); return; }
+  const gid = "g" + Date.now();
+  games[gid] = { name, at: Date.now() };
+  setDoc(GAMESREF, { [gid]: games[gid] }, { merge: true }).catch(fail);
+  $("gName").value = ""; $("addGameBox").hidden = true; draw();
 };
-$("wAdd").onclick = addWait;
-$("wName").onkeydown = e => { if (e.key === "Enter") addWait(); };
+$("gCreate").onclick = createGame;
+$("gName").onkeydown = e => { if (e.key === "Enter") createGame(); };
+
+/* Floor plan: drag a table to move it (saved for everyone); a tap without dragging opens/closes it. */
+const planPt = e => { const m = $("plan").getScreenCTM().inverse(); return new DOMPoint(e.clientX, e.clientY).matrixTransform(m); };
+$("plan").addEventListener("pointerdown", e => {
+  const g = e.target.closest(".ptbl"); if (!g || e.target.closest("a")) return;
+  e.preventDefault(); $("plan").setPointerCapture(e.pointerId);
+  const n = +g.dataset.tbl, p = planPt(e), at = plan[n] || PLAN_DEFAULT[n];
+  planDrag = { n, g, dx: p.x - at.x, dy: p.y - at.y, x0: e.clientX, y0: e.clientY, moved: false, pos: at };
+});
+$("plan").addEventListener("pointermove", e => {
+  const d = planDrag; if (!d) return;
+  if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 6) return;
+  d.moved = true; d.g.classList.add("dragging");
+  const p = planPt(e);
+  d.pos = { x: Math.round(Math.min(Math.max(p.x - d.dx, -20), 720)), y: Math.round(Math.min(Math.max(p.y - d.dy, -10), 400)) };
+  d.g.setAttribute("transform", `translate(${d.pos.x} ${d.pos.y})`);
+});
+const endPlanDrag = e => {
+  const d = planDrag; if (!d) return; planDrag = null;
+  if (d.moved) { plan[d.n] = d.pos; setDoc(PLANREF, { [d.n]: d.pos }, { merge: true }).catch(fail); }
+  else if (e.type === "pointerup") { const n = d.n; setDoc(TBLREF, { [n]: { open: !(tables[n] && tables[n].open) } }, { merge: true }).catch(fail); }
+  draw();
+};
+$("plan").addEventListener("pointerup", endPlanDrag);
+$("plan").addEventListener("pointercancel", endPlanDrag);
 
 /* ---- start (staff only) ---- */
 onAuthStateChanged(getAuth(app), u => {
@@ -201,6 +292,7 @@ onAuthStateChanged(getAuth(app), u => {
   draw();
   const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
   on(REF, v => state = v); on(TBLREF, v => tables = v); on(CALLREF, v => calls = v); on(WAITREF, v => wait = v);
+  on(GAMESREF, v => games = v); on(PLANREF, v => plan = v);
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   setInterval(draw, 30000);   // keep the times ticking
