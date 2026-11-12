@@ -88,13 +88,20 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <div class="box" id="waitList"></div>
     <h2>Dealers</h2>
     <div class="box" id="dealers"></div>
-    <h2>Test players</h2>
+    <h2>Players</h2>
+    <p><button class="btn sm" id="newPlayer">+ New player</button></p>
+    <div class="box" id="newBox" hidden style="margin-bottom:12px">
+      <input id="npName" placeholder="Name" autocomplete="off" style="width:100%;margin-bottom:8px">
+      <input id="npPhone" type="tel" inputmode="numeric" placeholder="Phone (optional, 10 digits)" autocomplete="off" style="width:100%;margin-bottom:8px">
+      <input id="npEmail" type="email" placeholder="Email (optional)" autocomplete="off" style="width:100%;margin-bottom:8px">
+      <button class="btn sm ok" id="npSave">Create player</button> <span class="note" id="npMsg"></span>
+    </div>
     <div class="box" id="players"></div>
     <p class="note">Each player's link logs them in/out. Copy a link and text it to a tester.</p>
     <p><button class="btn sm" id="joinLink">Copy player sign-in link</button></p>
     <p style="margin-top:16px"><button class="btn ghost sm" id="reset">Reset all</button></p>
     <p style="margin-top:20px"><a class="btn" href="./player-tracker.html?join" target="_blank">Open player sign-in page</a></p>
-    <p style="margin-top:12px"><a class="btn" href="./floor.html">Floor</a> <a class="btn ghost" href="./player-tracker-hardware.html">Hardware</a></p>
+    <p style="margin-top:12px"><a class="btn" href="./floor.html">Floor</a> <a class="btn" href="./waitlist.html">Waitlist</a> <a class="btn ghost" href="./player-tracker-hardware.html">Hardware</a></p>
   </div>
   <div id="prof" hidden>
     <div class="top">
@@ -808,6 +815,30 @@ function siStep(title, note, ph, btn, onGo, type = "tel") {
   $("siGo").onclick = go; $("siIn").onkeydown = e => { if (e.key === "Enter") go(); };
   $("siIn").focus();
 }
+/* + New player (staff): same player file a phone sign-up makes (name; phone goes in the private profile and the
+   hashed phone index so they can sign in with it later; email in the profile). */
+$("newPlayer").onclick = () => { $("newBox").hidden = !$("newBox").hidden; if (!$("newBox").hidden) $("npName").focus(); };
+$("npSave").onclick = async () => {
+  const say = t => { $("npMsg").textContent = t; };
+  const name = $("npName").value.trim().slice(0, 60), email = $("npEmail").value.trim().slice(0, 120);
+  let d = digitsOf($("npPhone").value); if (d.length === 11 && d[0] === "1") d = d.slice(1);
+  if (!name) { say("Enter a name."); $("npName").focus(); return; }
+  if (d && d.length !== 10) { say("Phone needs all 10 digits (or leave it blank)."); return; }
+  const id = "P" + Date.now().toString(36).toUpperCase();
+  const prof = { name }; if (d) prof.phone = d; if (email) prof.email = email;
+  try {
+    const w = [setDoc(ROSTREF, { [id]: { name } }, { merge: true }), setDoc(PROFREF, { [id]: prof }, { merge: true })];
+    if (d) {
+      const idx = await getDoc(IDXREF), h = await sha(d);
+      if (idx.exists() && idx.data()["h_" + h]) { say("That phone number already belongs to " + nameOf(idx.data()["h_" + h]) + "."); return; }
+      w.push(setDoc(IDXREF, { ["h_" + h]: id, ["l4_" + d.slice(-4)]: arrayUnion(id) }, { merge: true }));
+    }
+    await Promise.all(w);
+  } catch (e) { say("Couldn't save. Try again."); return; }
+  roster[id] = { name }; profiles[id] = { ...(profiles[id] || {}), ...prof }; logEvent(id, "Player created by staff");
+  $("npName").value = $("npPhone").value = $("npEmail").value = ""; $("newBox").hidden = true; say("");
+  render();
+};
 async function signInStart() {
   $("signin").hidden = false;
   let idx = {};

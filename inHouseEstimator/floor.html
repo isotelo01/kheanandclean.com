@@ -90,6 +90,7 @@ input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);bo
   <div class="cols">
     <aside>
       <h2>Wait list</h2>
+      <a class="btn ghost" href="./waitlist.html" style="width:100%;margin-bottom:8px">Open Waitlist &rsaquo;</a>
       <button class="btn" id="addGame" style="width:100%">+ Add a game</button>
       <div class="add" id="addGameBox" hidden style="margin-top:10px">
         <input id="gName" list="gamePresets" placeholder="Game, e.g. 1/2 No-Limit Hold'em" autocomplete="off" style="flex:1;min-width:0">
@@ -275,24 +276,19 @@ function draw() {
     }
   } else { $("tbar").hidden = true; panelFor = 0; }
 
-  /* Wait list: one box per game the floor built (longest wait on top), plus players who joined from
-     their phone, plus any older names whose game list is gone. Table games don't get lists. */
-  const row = (w, i) => `<div class="row">
-      <div class="nm"><b>${i + 1}. ${esc(w.name)}</b><span>waiting ${ago(w.at)}</span></div>
-      <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
+  /* Wait list entry (left column): one box per game the floor built, with a box to add a name and how many are
+     waiting. The lists themselves are on waitlist.html. Table games don't get lists. */
   const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor" }));
   const gl = Object.entries(games).filter(([, g]) => g && g.name).sort((a, b) => a[1].at - b[1].at);
   let html = gl.map(([gid, g]) => {
     const list = names.filter(w => w.game === gid).sort((a, b) => a.at - b.at);
     return `<div class="gbox"><div class="gh"><b>${esc(g.name)}</b><span class="cnt">${list.length} waiting</span><button data-delgame="${esc(gid)}" title="Remove this list">&times;</button></div>
-      <div class="add"><input data-gin="${esc(gid)}" placeholder="Add a name" autocomplete="off"><button class="btn sm" data-gadd="${esc(gid)}">Add</button></div>
-      ${list.length ? list.map(row).join("") : `<div class="empty">Nobody waiting.</div>`}</div>`;
+      <div class="add" style="margin-bottom:0"><input data-gin="${esc(gid)}" placeholder="Add a name" autocomplete="off"><button class="btn sm" data-gadd="${esc(gid)}">Add</button></div></div>`;
   }).join("");
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
     .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
-  if (phones.length) html += `<div class="gbox"><div class="gh"><b>From phones</b><span class="cnt">${phones.length} waiting</span></div>${phones.map(row).join("")}</div>`;
-  const other = names.filter(w => !games[w.game]).sort((a, b) => a.at - b.at);
-  if (other.length) html += `<div class="gbox"><div class="gh"><b>Other</b><span class="cnt">${other.length} waiting</span></div>${other.map(row).join("")}</div>`;
+  const other = names.filter(w => !games[w.game]);
+  if (phones.length || other.length) html += `<p class="hint" style="margin:10px 0 0">${[phones.length ? phones.length + " from phones" : "", other.length ? other.length + " in Other" : ""].filter(Boolean).join(" &middot; ")} &mdash; see the Waitlist.</p>`;
   if (!html) html = `<div class="empty">No games yet. Tap "+ Add a game" to start a list.</div>`;
   const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.gin;   // keep typing focus through a redraw
   const typed = focused ? document.activeElement.value : "";

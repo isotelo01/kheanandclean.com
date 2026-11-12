@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Waitlist</title>
+<style>
+/* Waitlist (Player Tracker proof of concept): every game's list, longest wait on top, plus players who joined
+   from their phone and any names whose game list is gone. Names are added on the Floor page (left column).
+   Same data as floor.html: playerTracker/waitgames { id: { name, at } }, playerTracker/waitlist { id: { name, game, at } },
+   and playerTracker/poc (phone players with status "wait"). Staff only. */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--navy);color:#fff;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 40px}
+.wrap{max-width:1100px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{margin:0;font-size:26px;color:var(--gold)}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px system-ui,sans-serif;cursor:pointer;text-decoration:none;text-align:center}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.sm{padding:6px 12px;font-size:14px}
+.warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
+.lists{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:16px;align-items:start}
+.gbox{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px}
+.gh{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.gh b{flex:1;color:var(--gold);font-size:18px}
+.gh .cnt{font-size:13px;color:rgba(255,255,255,.7)}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.row:last-child{border-bottom:0}
+.row .nm{flex:1;min-width:0}
+.row .nm span{display:block;font-size:13px;color:rgba(255,255,255,.65)}
+.empty{color:rgba(255,255,255,.6);font-size:14px;padding:10px 0}
+</style>
+</head>
+<body style="visibility:hidden">
+<div class="wrap">
+  <div class="top"><a class="btn ghost sm" href="./player-tracker.html">&lsaquo; Player Tracker</a><h1>Waitlist</h1>
+    <a class="btn sm" href="./floor.html" style="margin-left:auto">Add names on the Floor &rsaquo;</a></div>
+  <div class="warn" id="warn">Not syncing with the server.</div>
+  <div class="lists" id="lists"></div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+const db = getFirestore(app);
+const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
+const WAITREF = doc(db, "playerTracker", "waitlist"), GAMESREF = doc(db, "playerTracker", "waitgames");
+/* Same test roster as the other Player Tracker pages. */
+const ROSTER = {
+  "100001": "Doyle Brunson",  "100002": "Phil Ivey",       "100003": "Stu Ungar",
+  "100004": "Johnny Moss",    "100005": "Amarillo Slim",   "100006": "Puggy Pearson",
+  "100007": "Wild Bill Hickok","100008": "Doc Holliday",   "100009": "Poker Alice",
+  "100010": "Wyatt Earp"
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m" : Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
+const fail = () => { $("warn").style.display = "block"; };
+let state = {}, roster = {}, profiles = {}, wait = {}, games = {};
+const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
+const isPlayer = c => !!(ROSTER[c] || roster[c]);
+
+function draw() {
+  const row = (w, i) => `<div class="row">
+      <div class="nm"><b>${i + 1}. ${w.src === "app" ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.id)}" style="color:#fff">${esc(w.name)}</a>` : esc(w.name)}</b><span>waiting ${ago(w.at)}</span></div>
+      <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
+  const box = (title, list) => `<div class="gbox"><div class="gh"><b>${esc(title)}</b><span class="cnt">${list.length} waiting</span></div>
+      ${list.length ? list.map(row).join("") : `<div class="empty">Nobody waiting.</div>`}</div>`;
+  const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor" }));
+  let html = Object.entries(games).filter(([, g]) => g && g.name).sort((a, b) => a[1].at - b[1].at)
+    .map(([gid, g]) => box(g.name, names.filter(w => w.game === gid).sort((a, b) => a.at - b.at))).join("");
+  const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
+    .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
+  if (phones.length) html += box("From phones", phones);
+  const other = names.filter(w => !games[w.game]).sort((a, b) => a.at - b.at);
+  if (other.length) html += box("Other", other);
+  $("lists").innerHTML = html || `<div class="empty">No games yet. Start a list with "+ Add a game" on the Floor page.</div>`;
+}
+document.addEventListener("click", e => {
+  const rm = e.target.closest("[data-rm]"); if (!rm) return;
+  const id = rm.dataset.rm;
+  if (rm.dataset.src === "app") { const p = state[id] || {}; setDoc(REF, { [id]: { ...p, status: "out", waitAt: null } }, { merge: true }).catch(fail); }
+  else setDoc(WAITREF, { [id]: deleteField() }, { merge: true }).catch(fail);
+});
+
+/* ---- start (staff only) ---- */
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=waitlist.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  document.body.style.visibility = "visible";
+  draw();
+  const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
+  on(REF, v => state = v); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v);
+  onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  setInterval(draw, 30000);   // keep the wait times ticking
+});
+</script>
+</body>
+</html>
