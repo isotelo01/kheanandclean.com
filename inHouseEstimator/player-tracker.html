@@ -33,7 +33,8 @@ h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase
 svg.table{width:100%;height:auto;display:block}
 #tblBox{cursor:zoom-in}
 #tblBack{display:none}
-#tblBox.full .chair{display:none}   /* full-screen (dealer) view: no chairs */
+#tblBox.full .chair{display:none}
+body.tablemode #floor > :not(#tblBox){display:none}   /* table page: only the table */   /* full-screen (dealer) view: no chairs */
 .chair{cursor:grab;touch-action:none}
 #tblBox.full{position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;z-index:50;margin:0;border:0;border-radius:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 16px 16px;cursor:default;overflow:hidden}
 #tblBox.full svg.table{width:100%;height:100%;flex:1;min-height:0}   /* fit the whole table on any screen */
@@ -229,7 +230,6 @@ function drawTable(pick) {
         + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(onTableDealer() ? nameOf(onTableDealer()) : "NO DEALER")}</text>`
         + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
         + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
-        + `<path d="M${cx - 110} ${cy + 70} A 125 125 0 0 0 ${cx + 110} ${cy + 70}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>`
         + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
         + `<text x="${cx}" y="${cy + 96}" fill="rgba(255,255,255,.75)" font-size="12" font-weight="700" letter-spacing="3" text-anchor="middle">BLACKJACK</text>`;
   const labels = [];   // player names, placed by their chairs after the seats are drawn
@@ -433,9 +433,9 @@ tblSvg.addEventListener("pointercancel", endDrag);
 $("tblBox").onclick = e => {
   const box = $("tblBox");
   if (justDragged) { justDragged = false; return; }   // a drag isn't a tap to go full screen
-  if (e.target.closest("#tblBack")) { box.classList.remove("full"); return; }
+  if (e.target.closest("#tblBack")) { location.href = "./player-tracker.html"; return; }
   if (e.target.closest("#tblScan")) { openScanner(); return; }
-  box.classList.add("full");
+  if (!box.classList.contains("full")) location.href = "./player-tracker.html?table=1";   // the table opens on its own page
 };
 /* ---- QR codes: each player's QR is their own link, so the iPhone camera opens it too.
    The dealer's Scan player button (full-screen view) reads it and seats them. ---- */
@@ -524,6 +524,7 @@ else {
   onAuthStateChanged(getAuth(app), u => {
     if (!u) { location.replace("./login.html?next=player-tracker.html"); return; }
     if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+    if (params.has("table")) { document.body.classList.add("tablemode"); $("tblBox").classList.add("full"); }
     $(profId ? "prof" : "floor").hidden = false; start();
   });
 }
