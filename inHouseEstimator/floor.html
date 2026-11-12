@@ -149,7 +149,7 @@ const BLDREF = doc(db, "playerTracker", "building");      // building outline dr
 const FT_PX = 16;   // floor plan units per foot (a table with its chairs is about 12 ft across)
 
 /* Same tables, test roster and dealers as the other Player Tracker pages. */
-const BASE_TABLES = {
+const BASE_TABLES = CASINO !== "edh" ? {} : {   // starter tables are EDH's; another casino starts blank
   1: { game: "Blackjack", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
   2: { game: "Baccarat", seats: [1, 2, 3, 5, 6, 7, 8], shape: "half" },   // no seat 4
   3: { game: "Poker", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9], shape: "oval" },

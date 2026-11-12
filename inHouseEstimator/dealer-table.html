@@ -113,7 +113,7 @@ let roster = {};
 const REF = doc(db, "playerTracker", "poc"), LOGREF = doc(db, "playerTracker", "log"), PROFREF = doc(db, "playerTracker", "profiles");
 
 /* 5 tables. Each player/dealer record carries .table (missing = table 1). */
-const BASE_TABLES = {
+const BASE_TABLES = CASINO !== "edh" ? {} : {   // starter tables are EDH's; another casino starts blank
   1: { game: "Blackjack", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
   2: { game: "Baccarat", seats: [1, 2, 3, 5, 6, 7, 8], shape: "half" },   // no seat 4, like real baccarat tables
   3: { game: "Poker", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9], shape: "oval" },
@@ -467,6 +467,11 @@ onAuthStateChanged(getAuth(app), async u => {
   } catch (e) {}
   T = pickT(); TB = TABLES[T];
   document.body.style.visibility = "visible";
+  if (!TB) {   // no tables at this casino yet
+    document.body.innerHTML = `<div style="max-width:520px;margin:60px auto;padding:0 16px;text-align:center;font:18px/1.5 system-ui,sans-serif;color:#fff">
+      <p>No tables yet at this casino.</p><p><a href="./floor.html" style="color:#E3B64A;font-weight:700">Add one on the Floor page &rsaquo;</a></p></div>`;
+    return;
+  }
   $("ttl").textContent = "Table " + T + ": " + TB.game;
   document.title = "Table " + T + " · " + TB.game;
   $("tabs").innerHTML = Object.keys(TABLES).map(n => `<a href="?t=${n}" class="${+n === T ? "on" : ""}" title="${esc(TABLES[n].game)}">${n}</a>`).join("");

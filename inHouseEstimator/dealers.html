@@ -82,7 +82,7 @@ const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc"), LOGREF = doc(db, "playerTracker", "log"), PROFREF = doc(db, "playerTracker", "profiles");
 const LISTREF = doc(db, "playerTracker", "tablelist"), TBLREF = doc(db, "playerTracker", "tables");
 /* Same 5 tables as the Floor page, changed by its edits (tablelist). */
-const BASE_TABLES = {
+const BASE_TABLES = CASINO !== "edh" ? {} : {   // starter tables are EDH's; another casino starts blank
   1: { game: "Blackjack" }, 2: { game: "Baccarat" }, 3: { game: "Poker" },
   4: { game: "Three Card Poker" }, 5: { game: "Ultimate Texas Hold'em" }
 };
