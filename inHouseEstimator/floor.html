@@ -93,6 +93,8 @@ body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
 .pg:last-child{border-bottom:0}.pg span{flex:1}
 .star{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:rgba(255,255,255,.4);padding:0 2px}
 .star.on{color:var(--gold)}
+.wlbl{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em}
+#wPhone.on{background:#38bdf8;border-color:#38bdf8;color:#000}
 .pg{flex-wrap:wrap}.pg span{min-width:160px}
 .bubs{display:flex;flex-wrap:wrap;gap:6px}
 .bub{border:1px solid var(--gold);background:none;color:var(--gold);border-radius:999px;padding:4px 11px;font:700 13px system-ui,sans-serif;cursor:pointer}
@@ -102,15 +104,24 @@ body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
 <body style="visibility:hidden">
 <div class="wrap">
   <div class="top"><a class="btn ghost sm" href="./player-tracker.html">&lsaquo; Back</a><h1>Floor</h1>
-    <a class="btn" href="./waitlist.html" target="_blank" style="margin-left:auto">Open Waitlist &rsaquo;</a></div>
+    <button class="btn ghost" id="addTG" style="margin-left:auto">Add table game to wait list</button>
+    <a class="btn" href="./waitlist.html" target="_blank">Open Waitlist &rsaquo;</a></div>
+  <!-- A wait list for a table game (poker lists build off the open tables; table games are added here). -->
+  <div class="add" id="tgBox" hidden style="justify-content:flex-end;margin-top:8px">
+    <input id="tgName" list="tgGames" placeholder="Table game, e.g. Blackjack" autocomplete="off" style="min-width:220px">
+    <datalist id="tgGames"><option>Blackjack</option><option>Baccarat</option><option>Three Card Poker</option><option>Ultimate Texas Hold'em</option><option>Pai Gow</option></datalist>
+    <button class="btn" id="tgAdd">Add list</button></div>
   <div class="warn" id="warn">Not syncing with the server.</div>
   <div class="cols">
     <aside>
       <h2>Wait list</h2>
       <button class="btn" id="addW" style="width:100%">+ Add to wait list</button>
-      <div class="add" id="addWBox" hidden style="margin-top:10px">
-        <input id="wName" placeholder="Name" autocomplete="off" style="flex:1 1 100%">
-        <select id="wGame" aria-label="Game" style="flex:1;min-width:0"></select>
+      <!-- Name (players pop up as you type), Phoned in (walk-in if not), and the games: tap one or more. -->
+      <div id="addWBox" hidden style="margin-top:10px;display:grid;gap:8px">
+        <input id="wName" list="wPlayers" placeholder="Name" autocomplete="off">
+        <datalist id="wPlayers"></datalist>
+        <div><button class="bub" id="wPhone" type="button">Phoned in</button> <span class="hint" id="wHow" style="margin:0">Walk-in</span></div>
+        <div class="wlbl">Games</div><div class="bubs" id="wGames"></div>
         <button class="btn" id="wAdd">Add</button>
       </div>
       <div id="wait"></div>
@@ -147,7 +158,7 @@ body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, openGameNames, liveLists } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, openGameNames, liveLists, expired } from "./pt-people.js";   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -334,16 +345,22 @@ function draw() {
   }
   const live = liveLists(games, wait, tables, list), gl = live.map(L => [L.gid, games[L.gid]]);
   let html = live.map(L => `<div class="gbox"><div class="gh" style="margin:0"><b>${esc(L.name)}</b>
-      ${L.open ? `<span class="tag" style="background:var(--ok);color:#000">Open</span>` : L.interest ? `<span class="tag">Interest list</span>` : `<span class="tag">No table open</span>`}
+      ${L.open ? `<span class="tag" style="background:var(--ok);color:#000">Open</span>` : L.table ? `<span class="tag">Table game</span>` : L.interest ? `<span class="tag">Interest list</span>` : `<span class="tag">No table open</span>`}
       <span class="cnt">${L.count} waiting</span><button data-delgame="${esc(L.gid)}" title="Remove this list">&times;</button></div></div>`).join("");
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
     .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
   const other = names.filter(w => !games[w.game]);
   if (phones.length || other.length) html += `<p class="hint" style="margin:10px 0 0">${[phones.length ? phones.length + " from phones" : "", other.length ? other.length + " in Other" : ""].filter(Boolean).join(" &middot; ")} &mdash; see the Waitlist.</p>`;
   if (!html) html = `<div class="empty">No lists yet. Open a poker table with its game picked, or start one in "+ Add a poker game".</div>`;
-  const wg = $("wGame"), wv = wg.value;   // game picker for + Add to wait list
-  wg.innerHTML = gl.length ? gl.map(([gid, g]) => `<option value="${esc(gid)}">${esc(g.name)}</option>`).join("") : `<option value="">No lists yet</option>`;
-  if (wv && games[wv]) wg.value = wv;
+  /* + Add to wait list: the showing lists as bubbles (tap one or more), and every player's name for the pop-up. */
+  for (const g of [...wSel]) if (!live.some(L => L.gid === g)) wSel.delete(g);
+  $("wGames").innerHTML = live.length ? live.map(L => `<button class="bub${wSel.has(L.gid) ? " on" : ""}" data-wg="${esc(L.gid)}" type="button">${esc(L.name)}</button>`).join("")
+    : `<span class="hint" style="margin:0">No lists yet.</span>`;
+  const pl = [...new Set([...Object.keys(ROSTER), ...Object.keys(roster)].map(nameOf))].sort();
+  if (pl.length !== plCount) { plCount = pl.length; $("wPlayers").innerHTML = pl.map(n => `<option value="${esc(n)}">`).join(""); }
+  /* Phoned-in names fall off after an hour. */
+  const old = Object.keys(wait).filter(id => expired(wait[id]) && !dropping.has(id));
+  if (old.length) { const upd = {}; old.forEach(id => { dropping.add(id); upd[id] = deleteField(); }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
   if (!$("pgBox").hidden) drawPg();
   const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.gin;   // keep typing focus through a redraw
   const typed = focused ? document.activeElement.value : "";
@@ -425,15 +442,41 @@ function addName(gid) {
 document.addEventListener("keydown", e => { const el = e.target.closest && e.target.closest("[data-gin]"); if (el && e.key === "Enter") addName(el.dataset.gin); });
 /* + Add to wait list: a name and which game's list. */
 $("addW").onclick = () => { $("addWBox").hidden = !$("addWBox").hidden; if (!$("addWBox").hidden) $("wName").focus(); };
+const wSel = new Set(), dropping = new Set();   // games picked for + Add to wait list; phoned-in names being dropped
+let plCount = 0, wCall = false;
+$("wGames").addEventListener("click", e => {
+  const b = e.target.closest("[data-wg]"); if (!b) return;
+  const g = b.dataset.wg; if (wSel.has(g)) wSel.delete(g); else wSel.add(g);
+  b.classList.toggle("on", wSel.has(g));
+});
+$("wPhone").onclick = () => { wCall = !wCall; $("wPhone").classList.toggle("on", wCall); $("wHow").textContent = wCall ? "Phoned in: drops off in 1 hour" : "Walk-in"; };
 const addToWait = () => {
-  const name = $("wName").value.trim(), gid = $("wGame").value;
+  const name = $("wName").value.trim(), picked = [...wSel].filter(g => games[g]);
   if (!name) { $("wName").focus(); return; }
-  if (!gid || !games[gid]) { alert("Start a list first with + Add a poker game."); return; }
-  const id = "w" + Date.now() + Math.random().toString(36).slice(2, 6);
-  wait[id] = { name, game: gid, at: Date.now() };
-  setDoc(WAITREF, { [id]: wait[id] }, { merge: true }).catch(fail);
-  $("wName").value = ""; $("wName").focus(); draw();
+  if (!picked.length) { alert("Tap at least one game."); return; }
+  const card = [...Object.keys(ROSTER), ...Object.keys(roster)].find(c => nameOf(c).toLowerCase() === name.toLowerCase());
+  const upd = {}, now = Date.now();
+  picked.forEach((gid, k) => {
+    const id = "w" + now + k + Math.random().toString(36).slice(2, 6), v = { name, game: gid, at: now };
+    if (wCall) v.call = true;      // phoned in (walk-in is the default)
+    if (card) v.card = card;       // a known player
+    upd[id] = wait[id] = v;
+  });
+  setDoc(WAITREF, upd, { merge: true }).catch(fail);
+  $("wName").value = ""; $("wName").focus();
+  if (wCall) $("wPhone").onclick();   // back to walk-in for the next one
+  draw();
 };
+/* Add table game to wait list (top right): a list for a table game, e.g. Blackjack. Stays until removed. */
+$("addTG").onclick = () => { $("tgBox").hidden = !$("tgBox").hidden; if (!$("tgBox").hidden) $("tgName").focus(); };
+const addTG = () => {
+  const name = $("tgName").value.trim(); if (!name) { $("tgName").focus(); return; }
+  if (!listFor(name)) { const gid = "g" + Date.now(); games[gid] = { name, at: Date.now(), manual: true, table: true }; setDoc(GAMESREF, { [gid]: games[gid] }, { merge: true }).catch(fail); }
+  else { const g = listFor(name); games[g] = { ...games[g], manual: true }; setDoc(GAMESREF, { [g]: games[g] }, { merge: true }).catch(fail); }
+  $("tgName").value = ""; $("tgBox").hidden = true; draw();
+};
+$("tgAdd").onclick = addTG;
+$("tgName").onkeydown = e => { if (e.key === "Enter") addTG(); };
 $("wAdd").onclick = addToWait;
 $("wName").onkeydown = e => { if (e.key === "Enter") addToWait(); };
 

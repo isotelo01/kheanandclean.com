@@ -80,6 +80,9 @@ if (document.readyState === "loading") document.addEventListener("DOMContentLoad
    - when no open table runs that game, a list that still has names stays as an interest list;
    - an empty list with no open table hides. Lists started by hand (Start list bubbles) always show.
    tables = playerTracker/tables { n: { open } }, list = playerTracker/tablelist { n: { variant, stakes, deleted } }. */
+/* Phoned-in names fall off the wait list an hour after they're added. */
+export const CALL_MS = 60 * 60000;
+export const expired = v => !!(v && v.call && Date.now() - (v.at || 0) > CALL_MS);
 export const openGameNames = (tables, list) => new Set(Object.entries(list || {})
   .filter(([n, t]) => t && t.variant && !t.deleted && tables && tables[n] && tables[n].open)
   .map(([, t]) => (t.stakes ? t.stakes + " " : "") + t.variant));
@@ -87,10 +90,10 @@ export function liveLists(games, wait, tables, list) {
   const open = openGameNames(tables, list), out = [];
   for (const [gid, g] of Object.entries(games || {})) {
     if (!g || !g.name) continue;
-    const count = Object.values(wait || {}).filter(v => v && v.name && v.game === gid).length;
+    const count = Object.values(wait || {}).filter(v => v && v.name && v.game === gid && !expired(v)).length;
     const isOpen = open.has(g.name);
     if (!isOpen && !count && !g.manual) continue;   // hidden
-    out.push({ gid, name: g.name, at: g.at || 0, count, open: isOpen, interest: !isOpen && count > 0 });
+    out.push({ gid, name: g.name, at: g.at || 0, count, open: isOpen, interest: !isOpen && count > 0, table: !!g.table });
   }
   return out.sort((a, b) => b.open - a.open || a.at - b.at);
 }

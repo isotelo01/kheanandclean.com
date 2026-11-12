@@ -27,6 +27,8 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .gh{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .gh b{flex:1;color:var(--gold);font-size:18px}
 .tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.12)}
+.row.call{background:rgba(56,189,248,.12);border-left:4px solid #38bdf8;padding-left:8px}
+.row.call .nm b{color:#7dd3fc}
 .tag.on{background:var(--ok);color:#000}
 .gh .cnt{font-size:13px;color:rgba(255,255,255,.7)}
 .row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
@@ -47,7 +49,7 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists, expired, CALL_MS } from "./pt-people.js";   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -72,15 +74,19 @@ const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c]
 const isPlayer = c => !!(ROSTER[c] || roster[c]);
 
 function draw() {
-  const row = (w, i) => `<div class="row">
-      <div class="nm"><b>${i + 1}. ${w.src === "app" ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.id)}" style="color:#fff">${esc(w.name)}</a>` : esc(w.name)}</b><span>waiting ${ago(w.at)}</span></div>
+  /* Phoned-in names are blue, with how long until they drop off (an hour after they called). */
+  const row = (w, i) => `<div class="row${w.call ? " call" : ""}">
+      <div class="nm"><b>${i + 1}. ${w.src === "app" || w.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.card || w.id)}" style="color:inherit">${esc(w.name)}</a>` : esc(w.name)}</b><span>${w.call
+        ? "Phoned in " + (ago(w.at) === "just now" ? "just now" : ago(w.at) + " ago") + " &middot; drops off in " + Math.max(1, Math.ceil((w.at + CALL_MS - Date.now()) / 60000)) + "m" : "waiting " + ago(w.at)}</span></div>
       <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
   const box = (title, list, tag) => `<div class="gbox"><div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span></div>
       ${list.length ? list.map(row).join("") : `<div class="empty">Nobody waiting.</div>`}</div>`;
-  const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor" }));
+  const gone = Object.keys(wait).filter(id => expired(wait[id]));   // phoned-in, past an hour: drop them
+  if (gone.length) { const upd = {}; gone.forEach(id => { upd[id] = deleteField(); delete wait[id]; }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
+  const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor", call: !!v.call, card: v.card || "" }));
   /* Live: open poker tables' games first, then interest lists (game not running, people still on it). */
   let html = liveLists(games, wait, tables, tlist).map(L => box(L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.at - b.at),
-    L.open ? `<span class="tag on">Open</span>` : L.interest ? `<span class="tag">Interest list</span>` : `<span class="tag">No table open</span>`)).join("");
+    L.open ? `<span class="tag on">Open</span>` : L.table ? `<span class="tag">Table game</span>` : L.interest ? `<span class="tag">Interest list</span>` : `<span class="tag">No table open</span>`)).join("");
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
     .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
   if (phones.length) html += box("From phones", phones);
