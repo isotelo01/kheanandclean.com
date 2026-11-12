@@ -2487,7 +2487,7 @@ async function show(){
   let chainJP = Promise.resolve();
   document.getElementById("pcap-" + k).closest("label").addEventListener("click", e => {
     if (!window.burstCam) return;
-    if (window.burstCam({ onShot: f => { chainJP = chainJP.then(() => uploadJP([f])); } })) e.preventDefault();
+    if (window.burstCam({ maxEdge: 2400, onShot: f => { chainJP = chainJP.then(() => uploadJP([f])); } })) e.preventDefault();
   });
   async function uploadJP(list){
     if (!list.length) return;
@@ -3013,7 +3013,7 @@ document.getElementById("backBtn").addEventListener("click", async e => {
   location.href = b.href;
 });
 </script>
-<script src="./burst-cam.js?v=20261106a" defer></script>
+<script src="./burst-cam.js?v=20261112a" defer></script>
 <script src="./tabbar.js" defer></script>
 </body>
 </html>

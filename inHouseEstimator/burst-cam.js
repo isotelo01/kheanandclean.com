@@ -284,12 +284,17 @@
       var vw = video.videoWidth, vh = video.videoHeight, turn = 0;
       var upright = !(screen.orientation && screen.orientation.type) || /portrait/.test(screen.orientation.type);
       if (upright && vh > vw) turn = held;
+      /* opts.maxEdge: pages that shrink photos anyway take a smaller frame (much less memory on a busy page). */
+      var m = opts.maxEdge > 0 ? Math.min(1, opts.maxEdge / Math.max(vw, vh)) : 1, dw = Math.round(vw * m), dh = Math.round(vh * m);
       var c = document.createElement('canvas'), g = c.getContext('2d');
-      if (turn) { c.width = vh; c.height = vw; g.translate(vh / 2, vw / 2); g.rotate(turn * Math.PI / 2); g.drawImage(video, -vw / 2, -vh / 2); }
-      else { c.width = vw; c.height = vh; g.drawImage(video, 0, 0); }
+      if (turn) { c.width = dh; c.height = dw; g.translate(dh / 2, dw / 2); g.rotate(turn * Math.PI / 2); g.drawImage(video, -dw / 2, -dh / 2, dw, dh); }
+      else { c.width = dw; c.height = dh; g.drawImage(video, 0, 0, dw, dh); }
+      /* A shot that never comes back (phone short on memory) mustn't freeze the shutter: give up after 8 seconds. */
+      var settled = false, wd = setTimeout(function(){ if (settled) return; settled = true; busy = false; c.width = c.height = 0; say('That photo didn’t save. Try again.'); }, 8000);
       var fl = box.querySelector('.bflash'); fl.classList.add('on'); setTimeout(function(){ fl.classList.remove('on'); }, 60);
       c.toBlob(function(b){
-        busy = false;
+        if (settled) return; settled = true; clearTimeout(wd);
+        busy = false; c.width = c.height = 0;
         if (!b) { say('That photo didn’t save. Try again.'); return; }
         var f = new File([b], 'photo-' + Date.now() + '.jpg', { type: 'image/jpeg' });
         var redone = 0;
