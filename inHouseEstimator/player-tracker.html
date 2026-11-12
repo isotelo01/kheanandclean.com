@@ -37,6 +37,14 @@ svg.table{width:100%;height:auto;display:block}
 .chair{cursor:grab;touch-action:none}
 #tblBox.full{position:fixed;inset:0;z-index:50;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:center;padding:16px;cursor:default}
 #tblBox.full #tblBack{display:block;position:absolute;top:calc(env(safe-area-inset-top) + 16px);left:16px}
+#tblScan{display:none}
+#tblBox.full #tblScan{display:block;position:absolute;top:calc(env(safe-area-inset-top) + 16px);right:16px}
+#modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px}
+#modal[hidden]{display:none}
+.mbox{background:var(--navy);border:1px solid var(--gold);border-radius:12px;padding:16px;text-align:center;width:100%;max-width:440px}
+.mbox .mt{font-weight:700;font-size:20px;color:var(--gold);margin-bottom:10px}
+.mbox video{width:100%;border-radius:8px;background:#000}
+#qrBox{display:inline-block;background:#fff;padding:12px;border-radius:8px}
 .row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.12);flex-wrap:wrap}
 .row:last-child{border-bottom:0}
 .row .nm{flex:1;min-width:150px}
@@ -72,7 +80,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
       <a class="back" href="./personal.html">&lsaquo; Personal</a>
       <button onclick="location.reload()" aria-label="Refresh" title="Refresh" style="background:none;border:0;padding:4px;cursor:pointer;line-height:0"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#E3B64A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
     </div>
-    <div class="box" id="tblBox"><button class="btn ghost sm" id="tblBack">&lsaquo; Back</button><svg class="table" id="tbl" viewBox="-20 0 440 285"></svg></div>
+    <div class="box" id="tblBox"><button class="btn ghost sm" id="tblBack">&lsaquo; Back</button><button class="btn sm" id="tblScan">Scan player</button><svg class="table" id="tbl" viewBox="-20 0 440 285"></svg></div>
     <h2>Waitlist</h2>
     <div class="box" id="waitList"></div>
     <h2>Dealers</h2>
@@ -105,6 +113,9 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <div class="box me" id="meBox"></div>
   </div>
 </div>
+<div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:14px 0 0"><button class="btn ghost" id="mclose">Close</button></p></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
@@ -309,7 +320,8 @@ function renderProfile() {
   const btns = isD
     ? `<button class="btn sm ok" data-a="deal" data-c="${c}" ${p.status === "seated" ? "disabled" : ""}>Log in to table</button>
        <button class="btn sm ghost" data-a="out" data-c="${c}" ${p.status === "seated" ? "" : "disabled"}>Log out</button>`
-    : `<button class="btn sm ok" data-a="askSeat" data-c="${c}">${p.status === "seated" ? "Change seat" : "Seat"}</button>
+    : `<button class="btn sm ghost" data-a="qr" data-c="${c}">QR code</button>
+       <button class="btn sm ok" data-a="askSeat" data-c="${c}">${p.status === "seated" ? "Change seat" : "Seat"}</button>
        ${p.status === "seated" ? `<button class="btn sm ghost" data-a="out" data-c="${c}">Remove from seat</button>` : ""}
        ${p.status === "out" ? `<button class="btn sm" data-a="wait" data-c="${c}">Add to waitlist</button>` : ""}
        ${p.status === "wait" ? `<button class="btn sm ghost" data-a="out" data-c="${c}">Remove from list</button>` : ""}`;
@@ -344,6 +356,7 @@ document.addEventListener("click", e => {
     return;
   }
   if (a === "askSeat") { askSeat(c); return; }
+  if (a === "qr") { showQR(c); return; }
   if (act[a]) act[a](c);
 });
 /* Drag chairs around (regular view only). */
@@ -382,8 +395,58 @@ $("tblBox").onclick = e => {
   const box = $("tblBox");
   if (justDragged) { justDragged = false; return; }   // a drag isn't a tap to go full screen
   if (e.target.closest("#tblBack")) { box.classList.remove("full"); return; }
+  if (e.target.closest("#tblScan")) { openScanner(); return; }
   box.classList.add("full");
 };
+/* ---- QR codes: each player's QR is their own link, so the iPhone camera opens it too.
+   The dealer's Scan player button (full-screen view) reads it and seats them. ---- */
+let scanStream = null, scanRaf = 0;
+function showModal(html) { $("mbody").innerHTML = html; $("modal").hidden = false; }
+function closeModal() {
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  cancelAnimationFrame(scanRaf);
+  $("modal").hidden = true; $("mbody").innerHTML = "";
+}
+$("mclose").onclick = closeModal;
+function showQR(c) {
+  const link = location.origin + location.pathname + "?card=" + c;
+  showModal(`<div class="mt">${esc(nameOf(c))}</div><div id="qrBox"></div><p class="note">Card #${c}</p>`);
+  if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 260, height: 260, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+  else $("qrBox").textContent = link;
+}
+async function openScanner() {
+  showModal(`<div class="mt">Scan player</div><video id="scanVid" playsinline muted></video><canvas id="scanCv" hidden></canvas><p class="note" id="scanMsg">Point the camera at the player's QR code.</p>`);
+  try { scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }); }
+  catch (e) { $("scanMsg").textContent = "Couldn't open the camera."; return; }
+  const v = $("scanVid"); v.srcObject = scanStream; await v.play().catch(() => {});
+  const det = "BarcodeDetector" in window ? new BarcodeDetector({ formats: ["qr_code"] }) : null;
+  const cv = $("scanCv"), ctx = cv.getContext("2d", { willReadFrequently: true });
+  const tick = async () => {
+    if (!scanStream) return;
+    let txt = null;
+    if (v.readyState >= 2 && v.videoWidth) {
+      if (det) { try { const r = await det.detect(v); if (r[0]) txt = r[0].rawValue; } catch (e) {} }
+      else if (window.jsQR) {
+        const k = Math.min(1, 640 / v.videoWidth);
+        cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+        ctx.drawImage(v, 0, 0, cv.width, cv.height);
+        const r = jsQR(ctx.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height);
+        if (r) txt = r.data;
+      }
+    }
+    if (txt) { handleScan(txt); return; }
+    scanRaf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+function handleScan(txt) {
+  let card = null;
+  try { card = new URL(txt).searchParams.get("card"); } catch (e) {}
+  if (!card) { const m = String(txt).match(/\d{4,}/); if (m) card = m[0]; }   // a plain card number
+  closeModal();
+  if (!ROSTER[card]) { alert("Player not found: " + txt); return; }
+  askSeat(card);
+}
 $("reset").onclick = () => {
   if (!confirm("Log everyone out and clear all hours?")) return;
   state = {}; try { localStorage.removeItem(LS); } catch (e) {}
