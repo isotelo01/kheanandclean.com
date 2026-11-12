@@ -2645,12 +2645,14 @@ async function show(){
   /* No status box on the job sheet: where the updated quote stands shows on the Dashboard and the contact page. */
   /* Ignore variance: keep the original quote price. Saved as the job sheet total that was ignored,
      so a later change on the job sheet brings the variance back. */
+  /* A save that never hears back (weak signal) shouldn't leave the button stuck on Saving… */
+  const within = (p, ms = 20000) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error("No response from the server. Check your signal and try again.")), ms))]);
   const ignVarBtn = document.getElementById("ignVarBtn");
   if (ignVarBtn) ignVarBtn.addEventListener("click", async () => {
     const t = r2(cur.lines.reduce((a, l) => a + (Number(l.cost) || 0), 0) + cur.adj);
     ignVarBtn.disabled = true; ignVarBtn.textContent = "Saving…";
     try {
-      await setDoc(doc(db, place, id), { varianceIgnored: t }, { merge: true });
+      await within(setDoc(doc(db, place, id), { varianceIgnored: t }, { merge: true }));
       q.varianceIgnored = t;
       const vb = view.querySelector(".varbox"); if (vb) vb.remove();
     } catch (e) { console.error(e); ignVarBtn.disabled = false; ignVarBtn.textContent = "Ignore variance";
@@ -2724,19 +2726,19 @@ async function show(){
         date: new Date().toISOString().slice(0, 10), createdAt: inPlace ? (q.createdAt || serverTimestamp()) : serverTimestamp()
       });
       if (!orig) delete rev.originalQuote;   /* on-site estimate: nothing approved before it */
-      await setDoc(doc(db, "quotes", rid), rev);
+      await within(setDoc(doc(db, "quotes", rid), rev));
       /* Back to waiting on approval: the lead comes out of Trash into Leads as "Quoted, not hired",
          pointing at the updated quote. leadTrashed off, so approving it again trashes the lead again. */
       if (q.leadId && !inPlace) {
         try {
-          if ((await getDoc(doc(db, "leads", q.leadId))).exists()) {
+          if ((await within(getDoc(doc(db, "leads", q.leadId)))).exists()) {
             await setDoc(doc(db, "leads", q.leadId), { trashed: false, trashedAt: null, status: "quoted", quoteId: rid, updatedAt: serverTimestamp() }, { merge: true });
             await setDoc(doc(db, "quotes", rid), { leadTrashed: false }, { merge: true });
           }
         } catch (e) { console.error("Lead back to Quoted " + q.leadId, e); }
       }
       /* Saved first; only then does the old record come off Accepted (it now lives inside the update). */
-      if (!inPlace) await deleteDoc(doc(db, place, id));
+      if (!inPlace) await within(deleteDoc(doc(db, place, id)));
       /* Straight to the Dashboard: preview, Text or Email it from Estimates. */
       location.href = "./dashboard.html";
       return;
