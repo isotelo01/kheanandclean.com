@@ -1199,9 +1199,18 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
     };
     var pickFloor = function(key){
       h(el, 'What floor is in the ' + esc((ONE[key] || NAMES[key]).toLowerCase()) + '?'); el.insertAdjacentHTML('beforeend', pic); showPic();
+      /* Their own size: starts on our photo estimate; whatever they type is used for this room. */
+      var cur0 = (A.photoSqft && A.photoSqft[id] && A.photoSqft[id].sqft) || '';
+      el.insertAdjacentHTML('beforeend', '<label for="cfSq" class="lead" style="display:block;margin:10px 0 6px">Square feet (estimated)</label>' +
+        '<input id="cfSq" type="number" inputmode="numeric" min="1" max="9999" value="' + cur0 + '" placeholder="e.g. 150" ' +
+        'style="width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:#000;color:#fff;font:inherit;font-size:18px;margin-bottom:12px">');
+      var takeSq = function(){
+        var v = Math.round(+((el.querySelector('#cfSq') || {}).value || 0));
+        if(v > 0 && v !== cur0){ A.photoSqft = A.photoSqft || {}; A.photoSqft[id] = Object.assign({}, A.photoSqft[id] || {}, { sqft:v, low:v, high:v, L:null, W:null, parts:[], manual:true }); save(); }
+      };
       var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
       ['carpet','tile','lvp','stone'].forEach(function(k){ var b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = SVC[k].name;
-        b.onclick = function(){ assignPf(id, k, key); after(); }; box.appendChild(b); });
+        b.onclick = function(){ takeSq(); assignPf(id, k, key); after(); }; box.appendChild(b); });
       flBox(key);
     };
     if(!r && !mErr[id]){
