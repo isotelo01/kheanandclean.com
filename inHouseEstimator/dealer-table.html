@@ -234,7 +234,7 @@ function openSeat(n) {
   closeModal(); menuSeat = n;
   const c = whoIn(n);
   if (!c) {   // empty seat: camera comes on to scan the player's QR into this seat
-    showModal(`<div class="mt">Seat ${n}</div><video id="scanVid" playsinline muted></video><canvas id="scanCv" hidden></canvas>
+    showModal(`<div class="mt">Seat ${n}</div><video id="scanVid" autoplay playsinline muted></video><canvas id="scanCv" hidden></canvas>
       <p class="note" id="scanMsg">Scan the player's QR code.</p>`);
     startScan(n);
     return;
@@ -310,7 +310,9 @@ async function startScan(n) {
   try { scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }); }
   catch (e) { $("scanMsg").textContent = "Couldn't open the camera."; return; }
   if (menuSeat !== n) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; return; }
-  const v = $("scanVid"); v.srcObject = scanStream; await v.play().catch(() => {});
+  const v = $("scanVid"); v.muted = true; v.srcObject = scanStream; await v.play().catch(() => {});
+  /* If no picture shows up in a few seconds, say so instead of sitting on a black box. */
+  setTimeout(() => { if (scanStream && menuSeat === n && !v.videoWidth && $("scanMsg")) $("scanMsg").textContent = "The camera isn't sending a picture. Check that no other app is using it, then close and tap the seat again."; }, 4000);
   const det = "BarcodeDetector" in window ? new BarcodeDetector({ formats: ["qr_code"] }) : null;
   const cv = $("scanCv"), ctx = cv.getContext("2d", { willReadFrequently: true });
   const tick = async () => {
