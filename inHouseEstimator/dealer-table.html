@@ -128,11 +128,16 @@ function draw() {
         <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
       </radialGradient>
     </defs>`
-        + `<path d="M${cx - R} ${cy} A ${R} ${R} 0 0 0 ${cx + R} ${cy} Z" fill="url(#railG)"/>`
         + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="url(#feltG)"/>`
         + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="#000" filter="url(#feltTex)"/>`   // felt texture
-        + `<rect x="${cx - R}" y="${cy - 12}" width="${2 * R}" height="14" rx="5" fill="url(#backRailG)"/>`   // back rail on the dealer side
         + `<path d="M${cx - r + 2} ${cy} A ${r - 2} ${r - 2} 0 0 0 ${cx + r - 2} ${cy}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/>`
+        /* One-piece padded rail all the way around (back edge + curve). Stacked strokes, dark outside to a
+           light center line, make it look round. */
+        + (() => {
+            const m = r + 8, d = `M${cx - m} ${cy - 6} L${cx + m} ${cy - 6} L${cx + m} ${cy} A ${m} ${m} 0 0 1 ${cx - m} ${cy} Z`;
+            return [[17, "#1a0e06"], [14, "#3e2410"], [11, "#6b3f1d"], [7, "#8f5e33"], [4, "#b07a46"], [1.5, "#d09a62"]]
+              .map(([w, col]) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"/>`).join("");
+          })()
         + `<rect x="${cx - 60}" y="${cy - 48}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
         + `<text x="${cx}" y="${cy - 31}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`
         + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
