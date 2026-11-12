@@ -243,8 +243,8 @@ function drawTable() {
     s += `<g class="chair" data-chair="${i}" transform="${chairXf(chx, chy)}">`
        + `<rect x="-15" y="-12" width="30" height="24" rx="6" fill="${c ? "var(--gold)" : "#3a3f4b"}" stroke="rgba(255,255,255,.5)"/>`
        + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${c ? "#b8902f" : "#2a2e37"}" stroke="rgba(255,255,255,.5)"/></g>`;
-    s += `<circle cx="${x}" cy="${y}" r="20" fill="${c ? "var(--gold)" : "rgba(0,0,0,.35)"}" stroke="#fff" stroke-width="1.5"/>`
-       + `<text x="${x}" y="${y + 5}" fill="${c ? "#000" : "#fff"}" font-size="14" font-weight="700" text-anchor="middle">${i}</text>`;
+    /* Just the seat number: black when open, gold when someone's seated. */
+    s += `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : "#000"}" font-size="22" font-weight="700" text-anchor="middle">${i}</text>`;
     if (c) labels.push({ nm: nameOf(c), chx, chy });
   }
   /* Names go with their chair, just outside it. If a name would sit on another chair or name,
