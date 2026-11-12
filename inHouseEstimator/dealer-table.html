@@ -49,7 +49,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <body style="visibility:hidden">
 <div class="top"><a class="btn ghost" href="./player-tracker.html">&lsaquo; Back</a><b>Blackjack</b></div>
 <div class="warn" id="warn">Not syncing with the server.</div>
-<svg id="tbl" viewBox="-24 0 448 256" preserveAspectRatio="xMidYMid meet"></svg>
+<svg id="tbl" viewBox="-24 0 448 272" preserveAspectRatio="xMidYMid meet"></svg>
 <div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:14px 0 0"><button class="btn ghost" id="mclose">Close</button></p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script type="module">
@@ -100,7 +100,7 @@ function save(c, p, logText) {
 }
 
 /* ---- the table ---- */
-const cx = 200, cy = 40, r = 170;
+const cx = 200, cy = 56, r = 170;
 const seatXY = i => { const a = Math.PI * (i / (SEATS + 1)); return [cx + Math.cos(a) * (r - 38), cy + Math.sin(a) * (r - 38)]; };
 function draw() {
   const d = dealerOn();
@@ -115,15 +115,26 @@ function draw() {
         <stop offset="${((r + 13) / R).toFixed(3)}" stop-color="#6b3f1d"/>
         <stop offset="1" stop-color="#1a0e06"/>
       </radialGradient>
+      <linearGradient id="backRailG" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1a0e06"/><stop offset=".35" stop-color="#8a5a30"/><stop offset=".5" stop-color="#b98450"/>
+        <stop offset=".75" stop-color="#5a3518"/><stop offset="1" stop-color="#1f1108"/>
+      </linearGradient>
+      <filter id="feltTex" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" stitchTiles="stitch" result="n"/>
+        <feColorMatrix in="n" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .22 0" result="a"/>
+        <feComposite in="a" in2="SourceGraphic" operator="in"/>
+      </filter>
       <radialGradient id="feltG" cx="${cx}" cy="${cy + 40}" r="${r}" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
       </radialGradient>
     </defs>`
         + `<path d="M${cx - R} ${cy} A ${R} ${R} 0 0 0 ${cx + R} ${cy} Z" fill="url(#railG)"/>`
         + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="url(#feltG)"/>`
+        + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="#000" filter="url(#feltTex)"/>`   // felt texture
+        + `<rect x="${cx - R}" y="${cy - 12}" width="${2 * R}" height="14" rx="5" fill="url(#backRailG)"/>`   // back rail on the dealer side
         + `<path d="M${cx - r + 2} ${cy} A ${r - 2} ${r - 2} 0 0 0 ${cx + r - 2} ${cy}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/>`
-        + `<rect x="${cx - 60}" y="${cy - 28}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
-        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`
+        + `<rect x="${cx - 60}" y="${cy - 48}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
+        + `<text x="${cx}" y="${cy - 31}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`
         + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
         + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
         + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
