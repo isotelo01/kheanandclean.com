@@ -48,6 +48,7 @@ svg.table{width:100%;height:auto;display:block}
 .row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.12);flex-wrap:wrap}
 .row:last-child{border-bottom:0}
 .row .nm{flex:1;min-width:150px}
+.row .acts{display:flex;gap:8px;flex-wrap:wrap;width:100%}
 .row .nm b{display:block}
 .row .nm span{font-size:13px;color:rgba(255,255,255,.65)}
 .tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px}
@@ -196,13 +197,14 @@ const act = {
 };
 /* Seat button on a profile: asks which seat. */
 function askSeat(c) {
-  const taken = Object.entries(state).filter(([k, p]) => p.status === "seated" && k !== c).map(([, p]) => p.seat);
-  const open = []; for (let i = 1; i <= SEATS; i++) if (!taken.includes(i)) open.push(i);
-  if (!open.length) { alert("Table is full."); return; }
-  const v = prompt("What seat number? Open: " + open.join(", "));
-  if (v === null) return;
-  const n = parseInt(v, 10);
-  if (!open.includes(n)) { alert("Seat " + v + " isn't open."); return; }
+  /* Opens the table; tap an open (glowing) seat number to put them there. */
+  const anyOpen = (() => { for (let i = 1; i <= SEATS; i++) if (!Object.entries(state).some(([k, p]) => p.status === "seated" && p.seat === i && k !== c)) return true; return false; })();
+  if (!anyOpen) { alert("Table is full."); return; }
+  pickFor = c;
+  showModal(`<div class="mt">Seat ${esc(nameOf(c))}</div><svg class="table" id="pickSvg" viewBox="-60 0 520 300">${drawTable(c)}</svg><p class="note">Tap an open seat.</p>`);
+}
+let pickFor = null;
+function seatAt(c, n) {
   const p = get(c);
   if (p.status === "seated") save(c, { ...p, seat: n });   // moving seats keeps their time running
   else act.seat(c, n);
@@ -216,8 +218,8 @@ else if (params.has("me")) { try { myCard = localStorage.getItem("playerTracker.
 
 /* A chair always turns to face the middle of the table, wherever it's dragged. */
 const chairXf = (x, y) => `translate(${x} ${y}) rotate(${Math.atan2(y - 40, x - 200) * 180 / Math.PI - 90})`;
-function drawTable() {
-  if (dragging) return;   // don't redraw under a finger mid-drag
+function drawTable(pick) {
+  if (dragging && !pick) return;   // don't redraw under a finger mid-drag
   /* Top-down blackjack table: dealer on the straight edge at top, 7 seats around the curve. */
   const cx = 200, cy = 40, r = 170;
   let s = `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
@@ -244,7 +246,8 @@ function drawTable() {
        + `<rect x="-15" y="-12" width="30" height="24" rx="6" fill="${c ? "var(--gold)" : "#3a3f4b"}" stroke="rgba(255,255,255,.5)"/>`
        + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${c ? "#b8902f" : "#2a2e37"}" stroke="rgba(255,255,255,.5)"/></g>`;
     /* Just the seat number: black when open, gold when someone's seated. */
-    s += `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : "#000"}" font-size="22" font-weight="700" text-anchor="middle">${i}</text>`;
+    if (pick && (!c || c === pick)) s += `<circle data-seat="${i}" cx="${x}" cy="${y}" r="22" fill="rgba(227,182,74,.3)" stroke="var(--gold)" stroke-width="2" style="cursor:pointer"/>`;
+    s += `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : "#000"}" font-size="22" font-weight="700" text-anchor="middle" ${pick && (!c || c === pick) ? `data-seat="${i}" style="cursor:pointer"` : ""}>${i}</text>`;
     if (c) labels.push({ nm: nameOf(c), chx, chy });
   }
   /* Names go with their chair, just outside it. If a name would sit on another chair or name,
@@ -279,6 +282,7 @@ function drawTable() {
     s += `<rect x="${box.x1}" y="${box.y1}" width="${w}" height="${h}" rx="4" fill="rgba(0,0,0,.6)"/>`
        + `<text x="${box.lx}" y="${box.ly + 4}" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">${esc(nm)}</text>`;
   }
+  if (pick) return s;
   $("tbl").innerHTML = s;
 }
 
@@ -301,8 +305,11 @@ function renderFloor() {
     const p = get(c), link = base + "?card=" + c;
     const tag = p.status === "seated" ? `<span class="tag seated">Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
     return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
+      <div class="acts">
+      <button class="btn sm ok" data-a="askSeat" data-c="${c}">${p.status === "seated" ? "Change seat" : "Seat"}</button>
       <button class="btn sm" data-a="wait" data-c="${c}" ${p.status === "out" ? "" : "disabled"}>Add to waitlist</button>
-      <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div>`;
+      <button class="btn sm ghost" data-a="out" data-c="${c}" ${p.status === "out" ? "disabled" : ""}>Log out</button>
+      <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div></div>`;
   }).join("");
 }
 
@@ -436,9 +443,15 @@ function showModal(html) { $("mbody").innerHTML = html; $("modal").hidden = fals
 function closeModal() {
   if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
   cancelAnimationFrame(scanRaf);
-  $("modal").hidden = true; $("mbody").innerHTML = "";
+  $("modal").hidden = true; $("mbody").innerHTML = ""; pickFor = null;
 }
 $("mclose").onclick = closeModal;
+$("mbody").addEventListener("click", e => {
+  const t = e.target.closest("[data-seat]");
+  if (!t || !pickFor) return;
+  const c = pickFor, n = +t.dataset.seat;
+  pickFor = null; closeModal(); seatAt(c, n);
+});
 function showQR(c) {
   const link = location.origin + location.pathname + "?card=" + c;
   showModal(`<div class="mt">${esc(nameOf(c))}</div><div id="qrBox"></div><p class="note">Card #${c}</p>`);
