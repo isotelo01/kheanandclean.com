@@ -522,7 +522,7 @@ function initSketch(d){
       let q = [snap(p[0]), snap(p[1])];
       if (Math.abs(q[1] - o[1]) <= Math.abs(q[0] - o[0]) * 0.14) q[1] = o[1];
       else if (Math.abs(q[0] - o[0]) <= Math.abs(q[1] - o[1]) * 0.14) q[0] = o[0];
-      w[skDrag.end] = q;
+      w[skDrag.end] = wallSnap(skDrag.i, skDrag.end, q);   /* lands on a nearby corner, wall end or wall */
     }
     else if (skDrag.type === "wall") {
       const w = sk.walls[skDrag.i], dx = snap(p[0] - skDrag.last[0]), dy = snap(p[1] - skDrag.last[1]);
@@ -586,12 +586,16 @@ function initSketch(d){
       return [a[0] + (b[0] - a[0]) * o.t, a[1] + (b[1] - a[1]) * o.t]; });
     const pts = thin(sk.pts), cuts = sk.cuts.map(c => ({ ...c, pts: thin(c.pts) }));
     const removed = sk.pts.length - pts.length + sk.cuts.reduce((s, c, i) => s + c.pts.length - cuts[i].pts.length, 0);
-    if (!removed) { $("skHelp").textContent = "No extra corners on a straight wall."; return; }
     skSnap();
-    sk.pts = pts; sk.cuts = cuts;
-    sk.doors.forEach((o, i) => { const w = nearestWall(at[i]); o.w = w.i; o.t = w.t; });
+    if (removed) {
+      sk.pts = pts; sk.cuts = cuts;
+      sk.doors.forEach((o, i) => { const w = nearestWall(at[i]); o.w = w.i; o.t = w.t; });
+    }
+    const fixed = (sk.walls || []).length ? cleanWalls() : 0;   /* the walls drawn inside, too */
+    if (!removed && !fixed) { sk.hist.pop(); skUndoBtn(); $("skHelp").textContent = "Nothing to clean up."; return; }
     sk.sel = null; sk.edited = true;
-    $("skHelp").textContent = "Merged " + removed + (removed === 1 ? " corner" : " corners") + ". Undo puts them back.";
+    $("skHelp").textContent = [removed ? "Merged " + removed + (removed === 1 ? " corner" : " corners") : "",
+      fixed ? "Lined up the inside walls" : ""].filter(Boolean).join(" · ") + ". Undo puts it back.";
     drawSketch();
   };
   $("skEdit").onclick = () => setEditing(true);
@@ -623,6 +627,65 @@ function initSketch(d){
   $("skReset").onclick = () => { const o = sk.orig; o.orig = o; Object.assign(result, { sqft: o.sqft }); initSketch(o); showSqft(o.sqft, false);
     $("rDims").textContent = o.lengthFt && o.widthFt ? "About " + o.lengthFt + " × " + o.widthFt + " ft" + (o.shape ? " · " + o.shape : "") : (o.shape || ""); setEditing(true); };
   drawSketch();
+}
+/* Inside walls: where a wall end should land. Right on an outline corner or another wall's end when it's within half
+   a foot; otherwise on the nearest wall (outline or inside) within 1.5 ft, keeping its own direction so it meets square
+   (clean T); otherwise on a corner or wall end within 1.5 ft. */
+const WALL_SNAP = 1.5;
+const r2 = v => Math.round(v * 100) / 100;
+function wallSnap(i, end, q){
+  const w = sk.walls[i], o = end === "a" ? w.b : w.a, d = (u, v) => Math.hypot(u[0] - v[0], u[1] - v[1]);
+  let best = null, bd = 0.5;
+  const ends = sk.pts.concat(...sk.walls.filter((_, j) => j !== i).map(x => [x.a, x.b]));
+  ends.forEach(e => { const k = d(e, q); if (k < bd) { bd = k; best = [e[0], e[1]]; } });
+  if (best) return best;
+  bd = WALL_SNAP;
+  const segs = sk.pts.map((a, j) => [a, sk.pts[(j + 1) % sk.pts.length]]).concat(sk.walls.filter((_, j) => j !== i).map(x => [x.a, x.b]));
+  segs.forEach(([s1, s2]) => {
+    const rx = q[0] - o[0], ry = q[1] - o[1], sx = s2[0] - s1[0], sy = s2[1] - s1[1], den = rx * sy - ry * sx;
+    let X = null;
+    if (Math.abs(den) > 1e-9 && Math.hypot(rx, ry) > 0.25) {   /* along the wall's own line to where it meets that wall */
+      const u = ((s1[0] - o[0]) * ry - (s1[1] - o[1]) * rx) / den;
+      if (u >= -0.001 && u <= 1.001) X = [s1[0] + sx * u, s1[1] + sy * u];
+    } else {   /* too short to have a direction: straight onto the wall */
+      const L2 = sx * sx + sy * sy || 1, u = Math.max(0, Math.min(1, ((q[0] - s1[0]) * sx + (q[1] - s1[1]) * sy) / L2));
+      X = [s1[0] + sx * u, s1[1] + sy * u];
+    }
+    if (X) { const k = d(X, q); if (k < bd) { bd = k; best = [r2(X[0]), r2(X[1])]; } }
+  });
+  if (best) return best;
+  bd = WALL_SNAP;
+  ends.forEach(e => { const k = d(e, q); if (k < bd) { bd = k; best = [e[0], e[1]]; } });
+  return best || q;
+}
+/* Merge walls, for the walls drawn inside: straighten nearly level/plumb ones, join two in a line that touch or
+   almost touch, snap loose ends onto walls and corners, drop scraps. Returns how many fixes it made. */
+function cleanWalls(){
+  let n = 0;
+  sk.walls = sk.walls.filter(w => Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) >= 0.5 || (n++, false));
+  sk.walls.forEach(w => {
+    const dx = w.b[0] - w.a[0], dy = w.b[1] - w.a[1];
+    if (dy && Math.abs(dy) <= Math.abs(dx) * 0.14) { const y = snap((w.a[1] + w.b[1]) / 2); w.a = [w.a[0], y]; w.b = [w.b[0], y]; n++; }
+    else if (dx && Math.abs(dx) <= Math.abs(dy) * 0.14) { const x = snap((w.a[0] + w.b[0]) / 2); w.a = [x, w.a[1]]; w.b = [x, w.b[1]]; n++; }
+  });
+  const join = (k, o) => {   /* k = 0: vertical walls (same x), 1: level walls (same y) */
+    for (let i = 0; i < sk.walls.length; i++) for (let j = i + 1; j < sk.walls.length; j++) {
+      const A = sk.walls[i], B = sk.walls[j];
+      if (A.a[k] !== A.b[k] || B.a[k] !== B.b[k] || Math.abs(A.a[k] - B.a[k]) > 0.75) continue;
+      const a0 = Math.min(A.a[o], A.b[o]), a1 = Math.max(A.a[o], A.b[o]), b0 = Math.min(B.a[o], B.b[o]), b1 = Math.max(B.a[o], B.b[o]);
+      if (b0 > a1 + 1 || a0 > b1 + 1) continue;
+      const lenA = a1 - a0, lenB = b1 - b0, c = lenA >= lenB ? A.a[k] : B.a[k], lo = Math.min(a0, b0), hi = Math.max(a1, b1);
+      const P = v => k === 0 ? [c, v] : [v, c];
+      sk.walls[i] = { a: P(lo), b: P(hi) }; sk.walls.splice(j, 1); n++; return true;
+    }
+    return false;
+  };
+  while (join(0, 1) || join(1, 0)) {}
+  sk.walls.forEach((w, i) => ["a", "b"].forEach(e => {
+    const q = wallSnap(i, e, w[e]);
+    if (Math.hypot(q[0] - w[e][0], q[1] - w[e][1]) > 0.01) { w[e] = q; n++; }
+  }));
+  return n;
 }
 /* Undo: a copy of the sketch before each change (up to 40). */
 function skSnap(){ if (!sk) return; sk.hist.push(JSON.stringify({ pts: sk.pts, cuts: sk.cuts, doors: sk.doors, walls: sk.walls }));
