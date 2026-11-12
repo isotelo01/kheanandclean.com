@@ -827,12 +827,13 @@ $("npSave").onclick = async () => {
   const id = "P" + Date.now().toString(36).toUpperCase();
   const prof = { name }; if (d) prof.phone = d; if (email) prof.email = email;
   try {
-    const w = [setDoc(ROSTREF, { [id]: { name } }, { merge: true }), setDoc(PROFREF, { [id]: prof }, { merge: true })];
-    if (d) {
-      const idx = await getDoc(IDXREF), h = await sha(d);
+    let h = "";
+    if (d) {   // check the phone first, before anything is saved
+      const idx = await getDoc(IDXREF); h = await sha(d);
       if (idx.exists() && idx.data()["h_" + h]) { say("That phone number already belongs to " + nameOf(idx.data()["h_" + h]) + "."); return; }
-      w.push(setDoc(IDXREF, { ["h_" + h]: id, ["l4_" + d.slice(-4)]: arrayUnion(id) }, { merge: true }));
     }
+    const w = [setDoc(ROSTREF, { [id]: { name } }, { merge: true }), setDoc(PROFREF, { [id]: prof }, { merge: true })];
+    if (d) w.push(setDoc(IDXREF, { ["h_" + h]: id, ["l4_" + d.slice(-4)]: arrayUnion(id) }, { merge: true }));
     await Promise.all(w);
   } catch (e) { say("Couldn't save. Try again."); return; }
   roster[id] = { name }; profiles[id] = { ...(profiles[id] || {}), ...prof }; logEvent(id, "Player created by staff");
