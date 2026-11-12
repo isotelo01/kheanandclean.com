@@ -227,6 +227,7 @@ function renderFloor() {
     const p = get(c), link = base + "?card=" + c;
     const tag = p.status === "seated" ? `<span class="tag seated">Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
     return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
+      <button class="btn sm" data-a="wait" data-c="${c}" ${p.status === "out" ? "" : "disabled"}>Add to waitlist</button>
       <button class="btn sm ghost" data-a="copy" data-c="${c}" data-l="${esc(link)}">Copy link</button></div>`;
   }).join("");
 }
