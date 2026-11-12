@@ -67,19 +67,21 @@ input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);bo
 #plan{width:100%;height:auto;display:block;background:#101a2e;border:1px solid rgba(255,255,255,.12);border-radius:12px;touch-action:none}
 .ptbl{cursor:grab}
 .ptbl.sel > rect:first-child{stroke:#E3B64A;stroke-width:2;stroke-dasharray:6 5}
-/* Table pop-up: a third of the page on the right (bottom sheet on a phone). */
-#tbar{position:fixed;top:0;right:0;bottom:0;width:max(340px,33vw);z-index:40;background:#0b1220;border-left:1px solid var(--gold);
-  box-shadow:-12px 0 30px rgba(0,0,0,.45);padding:calc(env(safe-area-inset-top) + 14px) 16px 24px;overflow:auto}
-@media (max-width:760px){#tbar{top:auto;left:0;width:auto;max-height:60vh;border-left:0;border-top:1px solid var(--gold);border-radius:16px 16px 0 0}}
-#tbar .tph{display:flex;align-items:center;gap:8px}
-#tbar .tph h3{margin:0;flex:1;color:var(--gold);font-size:22px}
-#tbar .tph button{background:none;border:0;color:#fff;font-size:28px;line-height:1;cursor:pointer}
-#tbar .sec{margin-top:14px}
-#tbar .lbl{font-size:12px;color:var(--gold);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+/* Table strip: tap a table and its details show as one line across the top of the floor plan (wraps if needed). */
+#tbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:8px 12px;margin-bottom:8px}
+#tpLive,#tpEdit,#tbar .sec,#tpForm{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0}
+#tbar .tph{display:flex;align-items:center;gap:6px;order:-1}
+#tbar .tph h3{margin:0;color:var(--gold);font-size:17px;white-space:nowrap}
+#tbar .tph button{background:none;border:0;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+#tbar .lbl{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin:0}
 #tbar .btns{display:flex;flex-wrap:wrap;gap:6px}
-#tbar .btn{padding:7px 12px;font-size:14px}
+#tbar .btn{padding:6px 11px;font-size:13px}
 #tbar .sec a:not(.btn){color:#fff}
-#tbar input{width:100%;margin-bottom:8px}
+#tbar .row{display:inline-flex;padding:0;border:0;gap:4px}
+#tbar .row .nm span{display:inline;margin-left:4px;font-size:12px}
+#tbar .empty{padding:0;font-size:13px}
+#tbar input,#tbar select{padding:6px 8px;margin:0}
+#eNum{width:70px}#eGame{width:180px}
 .ptbl.dragging{cursor:grabbing;opacity:.85}
 </style>
 </head>
@@ -270,7 +272,7 @@ function draw() {
         <div class="sec" id="tpForm" hidden>
           <div class="lbl">Table number</div><input id="eNum" type="number" inputmode="numeric" min="1" max="99" value="${n}">
           <div class="lbl">Game</div><input id="eGame" list="tblGames" value="${esc(tb.game)}" autocomplete="off">
-          <div class="lbl">Seats</div><select id="eSeats" style="width:100%;margin-bottom:8px">${[5, 6, 7, 8, 9, 10].map(k => `<option${k === tb.seats.length ? " selected" : ""}>${k}</option>`).join("")}</select>
+          <div class="lbl">Seats</div><select id="eSeats">${[5, 6, 7, 8, 9, 10].map(k => `<option${k === tb.seats.length ? " selected" : ""}>${k}</option>`).join("")}</select>
           <div class="btns"><button class="btn" data-ta="save">Save</button>
             <button class="btn ghost" data-ta="del" style="color:var(--bad);border-color:var(--bad)">Delete table</button></div>
           <p class="hint" id="eMsg" style="margin-top:8px"></p></div>`;
