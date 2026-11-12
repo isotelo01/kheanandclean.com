@@ -89,6 +89,8 @@ const liveMs = p => (p.totalMs || 0) + (p.status === "seated" && p.since ? Date.
 const seatedMs = p => (p.sessionMs || 0) + (p.since ? Date.now() - p.since : 0);
 const BREAK_LIMIT = 30 * 60000;
 const seatColor = p => !p ? "#000" : p.breakAt ? (Date.now() - p.breakAt > BREAK_LIMIT ? "#ef4444" : "#3b82f6") : "var(--gold)";
+/* Fill for the big seat number: open = dark, pressed into the felt; seated = shiny gold; break = blue/red with a sheen. */
+const numFill = p => !p ? "#04170c" : p.breakAt ? (Date.now() - p.breakAt > BREAK_LIMIT ? "url(#redN)" : "url(#blueN)") : "url(#goldN)";
 const whoIn = n => Object.keys(state).find(c => ROSTER[c] && state[c].status === "seated" && state[c].seat === n);
 const dealerOn = () => Object.keys(DEALERS).find(d => get(d).status === "seated");
 const fail = () => { $("warn").style.display = "block"; };
@@ -100,6 +102,21 @@ function save(c, p, logText) {
 }
 
 /* ---- the table ---- */
+/* Chip tray seen from above: a black tray with tubes of chips standing on edge (stripes = chip edges). */
+function chipTray(x0, y0) {
+  const cols = ["#f4f4f4", "#f4f4f4", "#d62828", "#d62828", "#1f9d55", "#1f9d55", "#1b1b1b", "#7b3fbf", "#f08c00"];
+  const tw = 10, gap = 2, n = cols.length, w = n * tw + (n + 1) * gap, h = 24, x = x0 - w / 2;
+  let t = `<rect x="${x - 1}" y="${y0 + 1}" width="${w + 2}" height="${h + 2}" rx="3" fill="rgba(0,0,0,.35)"/>`
+        + `<rect x="${x}" y="${y0}" width="${w}" height="${h}" rx="3" fill="#111" stroke="#444" stroke-width=".8"/>`;
+  cols.forEach((c, k) => {
+    const tx = x + gap + k * (tw + gap);
+    t += `<rect x="${tx}" y="${y0 + 2}" width="${tw}" height="${h - 4}" rx="2" fill="${c}"/>`;
+    for (let yy = y0 + 4; yy < y0 + h - 2; yy += 2.2)   // chip edges
+      t += `<line x1="${tx}" x2="${tx + tw}" y1="${yy}" y2="${yy}" stroke="rgba(0,0,0,.28)" stroke-width=".5"/>`;
+    t += `<rect x="${tx}" y="${y0 + 2}" width="${tw * 0.35}" height="${h - 4}" rx="2" fill="rgba(255,255,255,.18)"/>`;   // shine
+  });
+  return t;
+}
 const cx = 200, cy = 56, r = 170;
 const seatXY = i => { const a = Math.PI * (i / (SEATS + 1)); return [cx + Math.cos(a) * (r - 38), cy + Math.sin(a) * (r - 38)]; };
 function draw() {
@@ -119,6 +136,10 @@ function draw() {
         <stop offset="0" stop-color="#1a0e06"/><stop offset=".35" stop-color="#8a5a30"/><stop offset=".5" stop-color="#b98450"/>
         <stop offset=".75" stop-color="#5a3518"/><stop offset="1" stop-color="#1f1108"/>
       </linearGradient>
+      <linearGradient id="goldN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3b8"/><stop offset=".45" stop-color="#E3B64A"/><stop offset="1" stop-color="#8a6416"/></linearGradient>
+      <linearGradient id="blueN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bcd7ff"/><stop offset=".45" stop-color="#3b82f6"/><stop offset="1" stop-color="#1d3f91"/></linearGradient>
+      <linearGradient id="redN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc2c2"/><stop offset=".45" stop-color="#ef4444"/><stop offset="1" stop-color="#8f1d1d"/></linearGradient>
+      <filter id="numSh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1.4" stdDeviation=".9" flood-color="#000" flood-opacity=".65"/></filter>
       <filter id="feltTex" x="0" y="0" width="100%" height="100%">
         <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" stitchTiles="stitch" result="n"/>
         <feColorMatrix in="n" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .22 0" result="a"/>
@@ -140,14 +161,16 @@ function draw() {
           })()
         + `<rect x="${cx - 60}" y="${cy - 48}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
         + `<text x="${cx}" y="${cy - 31}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`
-        + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
-        + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
+        + chipTray(cx, cy + 3)
         + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
         + `<text x="${cx}" y="${cy + 96}" fill="rgba(255,255,255,.75)" font-size="12" font-weight="700" letter-spacing="3" text-anchor="middle">BLACKJACK</text>`;
   for (let i = 1; i <= SEATS; i++) {
     const [x, y] = seatXY(i), c = whoIn(i);
     s += `<g data-seat="${i}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="24" fill="transparent"/>`
-       + `<text x="${x}" y="${y + 7}" fill="${seatColor(c && get(c))}" font-size="22" font-weight="700" text-anchor="middle">${i}</text></g>`;
+       + (c ? `<text x="${x}" y="${y + 8}" fill="${numFill(get(c))}" stroke="rgba(0,0,0,.45)" stroke-width=".7" paint-order="stroke" filter="url(#numSh)" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`
+            : `<text x="${x}" y="${y + 8.8}" fill="rgba(255,255,255,.16)" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`   // light edge underneath = pressed in
+            + `<text x="${x}" y="${y + 8}" fill="#04170c" fill-opacity=".85" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`)
+       + `</g>`;
     if (c) {   // under the number: wager, then name, then time seated / on break
       const nm = nameOf(c), q = get(c);
       let ty = y + 18;
