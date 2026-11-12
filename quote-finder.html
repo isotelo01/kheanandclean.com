@@ -1206,7 +1206,7 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
         'style="width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:#000;color:#fff;font:inherit;font-size:18px;margin-bottom:12px">');
       var takeSq = function(){
         var v = Math.round(+((el.querySelector('#cfSq') || {}).value || 0));
-        if(v > 0 && v !== cur0){ A.photoSqft = A.photoSqft || {}; A.photoSqft[id] = Object.assign({}, A.photoSqft[id] || {}, { sqft:v, low:v, high:v, L:null, W:null, parts:[], manual:true }); save(); }
+        if(v > 0 && v !== cur0){ A.photoSqft = A.photoSqft || {}; A.photoSqft[id] = Object.assign({}, A.photoSqft[id] || {}, { sqft:v, low:v, high:v, L:null, W:null, parts:[], manual:true, botSqft: cur0 || 0 }); save(); }
       };
       var box = document.createElement('div'); box.className = 'opts'; el.appendChild(box);
       ['carpet','tile','lvp','stone'].forEach(function(k){ var b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = SVC[k].name;
@@ -2513,7 +2513,8 @@ input.t:focus, textarea.t:focus{ outline:none; border-color:var(--gold); }
       return Object.assign({}, i, { rooms: i.rooms.map(function(x){
         var o = { name:x.t, qty:1, sqft:x.sq, cost:Math.round((x.cost || 0) * 100) / 100 };
         if(x.id){ o.src = x.id; var rp = upOf(function(r){ return r === x.id; }); if(rp.length) o.photos = rp;
-          var ms = (A.photoSqft || {})[x.id]; if(ms && ms.sk && ms.sk.outline) o.sketch = ms.sk; }   /* outline, doors, dog ears, fireplaces: ready for the job sheet's measuring page */
+          var ms = (A.photoSqft || {})[x.id]; if(ms && ms.sk && ms.sk.outline) o.sketch = ms.sk;
+          if(ms && ms.manual){ o.custSqft = true; o.botSqft = ms.botSqft || 0; } }   /* customer typed this size (flagged on the Estimate Sheet) */   /* outline, doors, dog ears, fireplaces: ready for the job sheet's measuring page */
         return o; }) });
     });
   }
