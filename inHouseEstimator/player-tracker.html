@@ -31,6 +31,10 @@ h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase
 .note{color:rgba(255,255,255,.7);font-size:14px;margin:8px 0 0}
 .warn{background:#5a1d1d;border:1px solid #f87171;border-radius:10px;padding:10px;font-size:14px;margin-bottom:12px;display:none}
 svg.table{width:100%;height:auto;display:block}
+#tblBox{cursor:zoom-in}
+#tblBack{display:none}
+#tblBox.full{position:fixed;inset:0;z-index:50;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:center;padding:16px;cursor:default}
+#tblBox.full #tblBack{display:block;position:absolute;top:calc(env(safe-area-inset-top) + 16px);left:16px}
 .row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.12);flex-wrap:wrap}
 .row:last-child{border-bottom:0}
 .row .nm{flex:1;min-width:150px}
@@ -66,7 +70,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
       <a class="back" href="./personal.html">&lsaquo; Personal</a>
       <button class="btn ghost sm" onclick="location.reload()" aria-label="Refresh">&#8635; Refresh</button>
     </div>
-    <div class="box"><svg class="table" id="tbl" viewBox="0 0 400 250"></svg></div>
+    <div class="box" id="tblBox"><button class="btn ghost sm" id="tblBack">&lsaquo; Back</button><svg class="table" id="tbl" viewBox="-20 0 440 285"></svg></div>
     <h2>Waitlist</h2>
     <div class="box" id="waitList"></div>
     <h2>Dealers</h2>
@@ -167,12 +171,25 @@ function openSeat() {
 /* Actions shared by floor and player views. */
 const act = {
   wait(c)  { const p = get(c); save(c, { ...p, status: "wait", waitAt: Date.now() }); },
-  seat(c)  { const p = get(c); const s = openSeat(); if (!s) { alert("Table is full."); return; }
+  seat(c, n) { const p = get(c); const s = n || openSeat(); if (!s) { alert("Table is full."); return; }
              save(c, { ...p, status: "seated", seat: s, since: Date.now(), waitAt: null }); },
   out(c)   { const p = get(c); save(c, { status: "out", totalMs: liveMs(p), seat: null, since: null, waitAt: null }); },
   deal(c)  { for (const d of Object.keys(DEALERS)) if (d !== c && get(d).status === "seated") act.out(d);
              const p = get(c); save(c, { ...p, status: "seated", seat: 0, since: Date.now() }); }
 };
+/* Seat button on a profile: asks which seat. */
+function askSeat(c) {
+  const taken = Object.entries(state).filter(([k, p]) => p.status === "seated" && k !== c).map(([, p]) => p.seat);
+  const open = []; for (let i = 1; i <= SEATS; i++) if (!taken.includes(i)) open.push(i);
+  if (!open.length) { alert("Table is full."); return; }
+  const v = prompt("What seat number? Open: " + open.join(", "));
+  if (v === null) return;
+  const n = parseInt(v, 10);
+  if (!open.includes(n)) { alert("Seat " + v + " isn't open."); return; }
+  const p = get(c);
+  if (p.status === "seated") save(c, { ...p, seat: n });   // moving seats keeps their time running
+  else act.seat(c, n);
+}
 const onTableDealer = () => Object.keys(DEALERS).find(d => get(d).status === "seated");
 
 const params = new URLSearchParams(location.search);
@@ -198,6 +215,11 @@ function drawTable() {
     const a = Math.PI * (i / (SEATS + 1));
     const x = cx + Math.cos(a) * (r - 30), y = cy + Math.sin(a) * (r - 30);
     const c = seated[i];
+    /* Chair outside the rail, facing the table. */
+    const chx = cx + Math.cos(a) * (r + 40), chy = cy + Math.sin(a) * (r + 40), deg = a * 180 / Math.PI - 90;
+    s += `<g transform="translate(${chx} ${chy}) rotate(${deg})">`
+       + `<rect x="-15" y="-12" width="30" height="24" rx="6" fill="${c ? "var(--gold)" : "#3a3f4b"}" stroke="rgba(255,255,255,.5)"/>`
+       + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${c ? "#b8902f" : "#2a2e37"}" stroke="rgba(255,255,255,.5)"/></g>`;
     s += `<circle cx="${x}" cy="${y}" r="20" fill="${c ? "var(--gold)" : "rgba(0,0,0,.35)"}" stroke="#fff" stroke-width="1.5"/>`
        + `<text x="${x}" y="${y + 5}" fill="${c ? "#000" : "#fff"}" font-size="14" font-weight="700" text-anchor="middle">${i}</text>`;
     if (c) {
@@ -274,7 +296,15 @@ function renderProfile() {
     pfFilled = true;
   }
   const st = p.status === "seated" ? (isD ? "On the table" : "Seated at seat " + p.seat) : p.status === "wait" ? "On the list" : "Logged out";
-  $("pfNow").innerHTML = `<div class="lg"><span>Status</span><b>${st}</b></div><div class="lg"><span>Hours today</span><b>${fmtHrs(liveMs(p))}</b></div>`;
+  const btns = isD
+    ? `<button class="btn sm ok" data-a="deal" data-c="${c}" ${p.status === "seated" ? "disabled" : ""}>Log in to table</button>
+       <button class="btn sm ghost" data-a="out" data-c="${c}" ${p.status === "seated" ? "" : "disabled"}>Log out</button>`
+    : `<button class="btn sm ok" data-a="askSeat" data-c="${c}">${p.status === "seated" ? "Change seat" : "Seat"}</button>
+       ${p.status === "seated" ? `<button class="btn sm ghost" data-a="out" data-c="${c}">Remove from seat</button>` : ""}
+       ${p.status === "out" ? `<button class="btn sm" data-a="wait" data-c="${c}">Add to waitlist</button>` : ""}
+       ${p.status === "wait" ? `<button class="btn sm ghost" data-a="out" data-c="${c}">Remove from list</button>` : ""}`;
+  $("pfNow").innerHTML = `<div class="lg"><span>Status</span><b>${st}</b></div><div class="lg"><span>Hours today</span><b>${fmtHrs(liveMs(p))}</b></div>
+    <div class="row" style="border:0;padding-bottom:0">${btns}</div>`;
   const mine = events.filter(e => e.c === c).sort((a, b) => b.t - a.t);
   $("pfLog").innerHTML = mine.length ? mine.map(e => `<div class="lg"><span>${fmtWhen(e.t)}</span>${esc(e.a)}</div>`).join("")
     : `<div class="note" style="margin:0">No log ins yet.</div>`;
@@ -303,8 +333,14 @@ document.addEventListener("click", e => {
       () => prompt("Copy this link:", l));
     return;
   }
+  if (a === "askSeat") { askSeat(c); return; }
   if (act[a]) act[a](c);
 });
+$("tblBox").onclick = e => {
+  const box = $("tblBox");
+  if (e.target.closest("#tblBack")) { box.classList.remove("full"); return; }
+  box.classList.add("full");
+};
 $("reset").onclick = () => {
   if (!confirm("Log everyone out and clear all hours?")) return;
   state = {}; try { localStorage.removeItem(LS); } catch (e) {}
