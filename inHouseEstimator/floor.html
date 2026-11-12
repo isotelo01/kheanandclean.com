@@ -173,11 +173,11 @@ const POKER_GAMES = { nlh: "No-Limit Hold'em", lhe: "Limit Hold'em", plh: "Pot-L
 /* Stakes bubbles: limit games get limit stakes, no-limit and pot-limit games get blinds. */
 const LIMIT_IDS = ["lhe", "lo", "o8"];
 const STAKES_NL = ["1/2", "1/3", "2/3", "2/5", "5/10"], STAKES_LIMIT = ["1/3", "4/8", "6/12", "12/24"];
-let pg = { fav: {}, custom: {}, stakes: {} };   // stakes: { gameId: ["1/2/5/10", ...] } your own blind structures
+let pg = { fav: {}, custom: {}, stakes: {}, hide: {} };   // stakes: { gameId: ["1/2/5/10", ...] } your own blinds; hide: built-in stakes removed
 let stakeFor = "";   // game whose "+" (add your own blinds) box is open
 const pgName = id => POKER_GAMES[id] || (pg.custom[id] && pg.custom[id].name) || "";
 const isLimit = id => LIMIT_IDS.includes(id) || (!POKER_GAMES[id] && /\blimit\b/i.test(pgName(id)) && !/(no|pot)[- ]limit/i.test(pgName(id)));
-const stakesFor = id => [...(isLimit(id) ? STAKES_LIMIT : STAKES_NL), ...(pg.stakes[id] || [])];
+const stakesFor = id => [...(isLimit(id) ? STAKES_LIMIT : STAKES_NL).filter(x => !(pg.hide[id] || []).includes(x)), ...(pg.stakes[id] || [])];
 const ownStake = (id, st) => (pg.stakes[id] || []).includes(st);
 const pgAll = () => [...Object.keys(POKER_GAMES), ...Object.keys(pg.custom).filter(k => pg.custom[k] && pg.custom[k].name)];
 const BLDREF = doc(db, "playerTracker", "building");      // building outline drawn with the room measurer's sketch tool (feet)
@@ -420,7 +420,7 @@ const listFor = name => Object.keys(games).find(gid => games[gid] && games[gid].
 function drawPg() {
   const row = id => `<div class="pg"><button class="star${pg.fav[id] ? " on" : ""}" data-star="${esc(id)}" aria-label="Favorite">${pg.fav[id] ? "&#9733;" : "&#9734;"}</button>
     <span>${esc(pgName(id))}</span><div class="bubs">${stakesFor(id).map(st => `<button class="bub${listFor(st + " " + pgName(id)) ? " on" : ""}" data-pgstart="${esc(id)}" data-stake="${st}"
-      title="${listFor(st + " " + pgName(id)) ? "List open" : "Start a " + st + " list"}">${st}${ownStake(id, st) ? ` <b data-stkdel="${esc(id)}" data-st="${st}" title="Remove" style="opacity:.6">&times;</b>` : ""}</button>`).join("")}
+      title="${listFor(st + " " + pgName(id)) ? "List open" : "Start a " + st + " list"} (right-click to delete)">${st}${ownStake(id, st) ? ` <b data-stkdel="${esc(id)}" data-st="${st}" title="Remove" style="opacity:.6">&times;</b>` : ""}</button>`).join("")}
       ${stakeFor === id ? `<span style="display:inline-flex;gap:6px;min-width:0;flex:none"><input id="stkIn" placeholder="e.g. 1/2/5/10" inputmode="decimal" style="width:120px;padding:4px 8px">
         <button class="btn sm" data-stkadd="${esc(id)}">Add</button></span>` : `<button class="bub" data-stkopen="${esc(id)}" title="Add your own blinds (up to 4)">+</button>`}</div>
     ${pg.custom[id] ? `<button class="x" data-pgdel="${esc(id)}" title="Remove">&times;</button>` : ""}</div>`;
@@ -436,7 +436,10 @@ function addStake(id) {
   const raw = ($("stkIn") ? $("stkIn").value : "").trim(), nums = raw.split(/[\/\s,-]+/).filter(Boolean);
   if (nums.length < 2 || nums.length > 4 || nums.some(x => !/^\d+(\.\d+)?$/.test(x))) { alert("Type 2 to 4 blinds, like 1/2 or 1/2/5/10."); return; }
   const st = nums.join("/");
-  if (!stakesFor(id).includes(st)) {
+  if ((pg.hide[id] || []).includes(st)) {   // a built-in one that was removed: bring it back
+    pg.hide[id] = pg.hide[id].filter(x => x !== st);
+    setDoc(PGREF, { hide: { [id]: pg.hide[id] } }, { merge: true }).catch(fail);
+  } else if (!stakesFor(id).includes(st)) {
     pg.stakes[id] = [...(pg.stakes[id] || []), st];
     setDoc(PGREF, { stakes: { [id]: pg.stakes[id] } }, { merge: true }).catch(fail);
   }
@@ -467,6 +470,24 @@ $("pgBox").addEventListener("click", e => {
   } else return;
   drawPg(); draw();
 });
+/* Right-click (or press and hold on a phone) a stakes bubble to delete it, built-in or your own. "+" adds it back. */
+function delStake(id, st) {
+  if (ownStake(id, st)) { pg.stakes[id] = pg.stakes[id].filter(x => x !== st); setDoc(PGREF, { stakes: { [id]: pg.stakes[id] } }, { merge: true }).catch(fail); }
+  else { pg.hide[id] = [...(pg.hide[id] || []), st]; setDoc(PGREF, { hide: { [id]: pg.hide[id] } }, { merge: true }).catch(fail); }
+  drawPg();
+}
+$("pgBox").addEventListener("contextmenu", e => {
+  const b = e.target.closest("[data-pgstart][data-stake]"); if (!b) return;
+  e.preventDefault(); delStake(b.dataset.pgstart, b.dataset.stake);
+});
+let holdT = 0, held = false;
+$("pgBox").addEventListener("touchstart", e => {
+  const b = e.target.closest("[data-pgstart][data-stake]"); if (!b) return;
+  held = false; clearTimeout(holdT);
+  holdT = setTimeout(() => { held = true; if (navigator.vibrate) navigator.vibrate(30); delStake(b.dataset.pgstart, b.dataset.stake); }, 650);
+}, { passive: true });
+["touchend", "touchmove", "touchcancel"].forEach(t => $("pgBox").addEventListener(t, () => clearTimeout(holdT), { passive: true }));
+$("pgBox").addEventListener("click", e => { if (held) { held = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);   // a hold isn't a tap
 const addPgGame = () => {
   const name = $("pgNew").value.trim(); if (!name) { $("pgNew").focus(); return; }
   if (pgAll().some(id => pgName(id).toLowerCase() === name.toLowerCase())) { $("pgNew").value = ""; return; }
@@ -566,7 +587,7 @@ onAuthStateChanged(getAuth(app), u => {
   on(REF, v => state = v); on(TBLREF, v => tables = v); on(CALLREF, v => calls = v); on(WAITREF, v => wait = v);
   on(GAMESREF, v => games = v); on(PLANREF, v => plan = v);
   on(LISTREF, v => { list = v; buildTables(); if (selT && !TABLES[selT]) selT = 0; });
-  on(PGREF, v => { pg = { fav: v.fav || {}, custom: v.custom || {}, stakes: v.stakes || {} }; });
+  on(PGREF, v => { pg = { fav: v.fav || {}, custom: v.custom || {}, stakes: v.stakes || {}, hide: v.hide || {} }; });
   on(BLDREF, v => { try { building = v.sketch ? JSON.parse(v.sketch) : null; } catch (e) { building = null; } });
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
