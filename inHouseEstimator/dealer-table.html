@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Dealer Table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Dealer Table (Player Tracker proof of concept): the table on its own page.
+   Tap a seat number for its menu: empty seat = camera scans the player's QR into that seat;
+   seated player = who it is, time seated, wager, move seat, log out. Everything goes in their profile log.
+   Same data as player-tracker.html (Firestore playerTracker/poc, /log, /profiles). */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--felt:#0f6b3a;--rail:#5a3518}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--navy);color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
+body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
+.top{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 14px 6px}
+.top b{color:var(--gold);font-size:18px}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px "Archivo",sans-serif;cursor:pointer;text-decoration:none;text-align:center}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.ok{background:var(--ok)}
+.btn[disabled]{opacity:.35}
+.warn{background:#5a1d1d;border:1px solid #f87171;font-size:14px;padding:6px 12px;display:none}
+#tbl{flex:1;min-height:0;width:100%;display:block}
+#modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px}
+#modal[hidden]{display:none}
+.mbox{background:var(--navy);border:1px solid var(--gold);border-radius:12px;padding:16px;width:100%;max-width:440px;max-height:100%;overflow:auto}
+.mt{font-weight:700;font-size:20px;color:var(--gold);margin-bottom:8px}
+.mbox video{width:100%;border-radius:8px;background:#000}
+.note{color:rgba(255,255,255,.7);font-size:14px;margin:8px 0}
+.ln{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.12)}
+.ln span{color:rgba(255,255,255,.65)}
+.grid{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:10px;font:inherit;width:120px}
+.seats{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.seats button{width:44px;height:44px;border-radius:50%;border:1px solid var(--gold);background:none;color:var(--gold);font:700 18px "Archivo";cursor:pointer}
+</style>
+</head>
+<body style="visibility:hidden">
+<div class="top"><a class="btn ghost" href="./player-tracker.html">&lsaquo; Back</a><b>Blackjack</b></div>
+<div class="warn" id="warn">Not syncing with the server.</div>
+<svg id="tbl" viewBox="-10 0 420 250" preserveAspectRatio="xMidYMid meet"></svg>
+<div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:14px 0 0"><button class="btn ghost" id="mclose">Close</button></p></div></div>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+const db = getFirestore(app);
+const REF = doc(db, "playerTracker", "poc"), LOGREF = doc(db, "playerTracker", "log"), PROFREF = doc(db, "playerTracker", "profiles");
+
+/* Same test roster as player-tracker.html. */
+const ROSTER = {
+  "100001": "Doyle Brunson",  "100002": "Phil Ivey",       "100003": "Stu Ungar",
+  "100004": "Johnny Moss",    "100005": "Amarillo Slim",   "100006": "Puggy Pearson",
+  "100007": "Wild Bill Hickok","100008": "Doc Holliday",   "100009": "Poker Alice",
+  "100010": "Wyatt Earp"
+};
+const DEALERS = { "D001": "Ace in the Hole", "D002": "Shuffle Off Home" };
+const SEATS = 7;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+let state = {}, profiles = {};
+const get = c => state[c] || { status: "out", totalMs: 0 };
+const nameOf = c => (profiles[c] && profiles[c].name) || ROSTER[c] || DEALERS[c] || c;
+const fmtHrs = ms => { const m = Math.floor(ms / 60000); return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
+const liveMs = p => (p.totalMs || 0) + (p.status === "seated" && p.since ? Date.now() - p.since : 0);
+const whoIn = n => Object.keys(state).find(c => ROSTER[c] && state[c].status === "seated" && state[c].seat === n);
+const dealerOn = () => Object.keys(DEALERS).find(d => get(d).status === "seated");
+const fail = () => { $("warn").style.display = "block"; };
+
+function logEvent(c, a) { setDoc(LOGREF, { events: arrayUnion({ c, a, t: Date.now() }) }, { merge: true }).catch(fail); }
+function save(c, p, logText) {
+  state[c] = p; draw(); if (logText) logEvent(c, logText);
+  setDoc(REF, { [c]: p }, { merge: true }).catch(fail);
+}
+
+/* ---- the table ---- */
+const cx = 200, cy = 40, r = 170;
+const seatXY = i => { const a = Math.PI * (i / (SEATS + 1)); return [cx + Math.cos(a) * (r - 30), cy + Math.sin(a) * (r - 30)]; };
+function draw() {
+  const d = dealerOn();
+  let s = `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
+        + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="var(--felt)"/>`
+        + `<rect x="${cx - 60}" y="${cy - 28}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
+        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`
+        + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
+        + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
+        + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
+        + `<text x="${cx}" y="${cy + 96}" fill="rgba(255,255,255,.75)" font-size="12" font-weight="700" letter-spacing="3" text-anchor="middle">BLACKJACK</text>`;
+  for (let i = 1; i <= SEATS; i++) {
+    const [x, y] = seatXY(i), c = whoIn(i);
+    s += `<g data-seat="${i}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="24" fill="transparent"/>`
+       + `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : "#000"}" font-size="22" font-weight="700" text-anchor="middle">${i}</text></g>`;
+    if (c) {   // name right under the number, wager right above it
+      const nm = nameOf(c), w = get(c).wager;
+      s += `<text x="${x}" y="${y + 19}" fill="#fff" font-size="8" text-anchor="middle">${esc(nm.length > 16 ? nm.slice(0, 15) + "…" : nm)}</text>`;
+      if (w) s += `<text x="${x}" y="${y - 15}" fill="var(--gold)" font-size="9" font-weight="700" text-anchor="middle">$${esc(w)}</text>`;
+    }
+  }
+  $("tbl").innerHTML = s;
+}
+$("tbl").addEventListener("click", e => { const g = e.target.closest("[data-seat]"); if (g) openSeat(+g.dataset.seat); });
+
+/* ---- seat menu ---- */
+let scanStream = null, scanRaf = 0, menuSeat = 0;
+function showModal(html) { $("mbody").innerHTML = html; $("modal").hidden = false; }
+function closeModal() {
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  cancelAnimationFrame(scanRaf); menuSeat = 0;
+  $("modal").hidden = true; $("mbody").innerHTML = "";
+}
+$("mclose").onclick = closeModal;
+
+function openSeat(n) {
+  closeModal(); menuSeat = n;
+  const c = whoIn(n);
+  if (!c) {   // empty seat: camera comes on to scan the player's QR into this seat
+    showModal(`<div class="mt">Seat ${n}</div><video id="scanVid" playsinline muted></video><canvas id="scanCv" hidden></canvas>
+      <p class="note" id="scanMsg">Scan the player's QR code.</p>`);
+    startScan(n);
+    return;
+  }
+  const p = get(c);
+  const open = []; for (let i = 1; i <= SEATS; i++) if (!whoIn(i)) open.push(i);
+  showModal(`<div class="mt">Seat ${n}: ${esc(nameOf(c))}</div>
+    <div class="ln"><span>Card #</span><b>${c}</b></div>
+    <div class="ln"><span>Seated for</span><b>${fmtHrs(p.since ? Date.now() - p.since : 0)}</b></div>
+    <div class="ln"><span>Hours today</span><b>${fmtHrs(liveMs(p))}</b></div>
+    <div class="ln"><span>Wager</span><b>${p.wager ? "$" + esc(p.wager) : "&mdash;"}</b></div>
+    <div class="grid"><input id="wg" type="number" inputmode="decimal" min="0" placeholder="Wager $"><button class="btn" id="wgSave">Save wager</button></div>
+    <p class="note" style="margin-top:14px">Move to seat:</p>
+    <div class="seats">${open.length ? open.map(i => `<button data-move="${i}">${i}</button>`).join("") : `<span class="note">No open seats</span>`}</div>
+    <div class="grid"><button class="btn ghost" id="outBtn">Log out</button>
+      <a class="btn ghost" href="./player-tracker.html?profile=${c}">Profile</a></div>`);
+  $("wgSave").onclick = () => {
+    const v = $("wg").value.trim(); if (!v) return;
+    save(c, { ...get(c), wager: v }, "Wager $" + v + " (seat " + n + ")");
+    openSeat(n);
+  };
+  $("outBtn").onclick = () => {
+    const q = get(c);
+    save(c, { status: "out", totalMs: liveMs(q), seat: null, since: null, waitAt: null, wager: null },
+      "Logged out" + (q.since ? " after " + fmtHrs(Date.now() - q.since) : ""));
+    closeModal();
+  };
+  $("mbody").querySelectorAll("[data-move]").forEach(b => b.onclick = () => {
+    const to = +b.dataset.move;
+    save(c, { ...get(c), seat: to }, "Moved from seat " + n + " to seat " + to);   // time keeps running
+    closeModal();
+  });
+}
+
+function seatPlayer(c, n) {
+  const p = get(c);
+  if (whoIn(n) && whoIn(n) !== c) { alert("Seat " + n + " is taken."); return; }
+  if (p.status === "seated") save(c, { ...p, seat: n }, "Moved from seat " + p.seat + " to seat " + n);
+  else save(c, { ...p, status: "seated", seat: n, since: Date.now(), waitAt: null }, "Seated at seat " + n + " (scanned)");
+}
+
+async function startScan(n) {
+  try { scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }); }
+  catch (e) { $("scanMsg").textContent = "Couldn't open the camera."; return; }
+  if (menuSeat !== n) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; return; }
+  const v = $("scanVid"); v.srcObject = scanStream; await v.play().catch(() => {});
+  const det = "BarcodeDetector" in window ? new BarcodeDetector({ formats: ["qr_code"] }) : null;
+  const cv = $("scanCv"), ctx = cv.getContext("2d", { willReadFrequently: true });
+  const tick = async () => {
+    if (!scanStream) return;
+    let txt = null;
+    if (v.readyState >= 2 && v.videoWidth) {
+      if (det) { try { const res = await det.detect(v); if (res[0]) txt = res[0].rawValue; } catch (e) {} }
+      else if (window.jsQR) {
+        const k = Math.min(1, 640 / v.videoWidth);
+        cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+        ctx.drawImage(v, 0, 0, cv.width, cv.height);
+        const res = jsQR(ctx.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height);
+        if (res) txt = res.data;
+      }
+    }
+    if (txt) {
+      let card = null;
+      try { card = new URL(txt).searchParams.get("card"); } catch (e) {}
+      if (!card) { const m = String(txt).match(/\d{4,}/); if (m) card = m[0]; }   // a plain card number
+      if (ROSTER[card]) { closeModal(); seatPlayer(card, n); return; }
+      $("scanMsg").textContent = "Not a player code. Try again.";
+    }
+    scanRaf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+/* ---- start (staff only) ---- */
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=dealer-table.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  document.body.style.visibility = "visible";
+  draw();
+  onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);
+  onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+});
+</script>
+</body>
+</html>
