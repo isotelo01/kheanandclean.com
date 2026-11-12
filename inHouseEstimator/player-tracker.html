@@ -93,6 +93,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <p class="note">Each player's link logs them in/out. Copy a link and text it to a tester.</p>
     <p><button class="btn sm" id="joinLink">Copy player sign-in link</button></p>
     <p style="margin-top:16px"><button class="btn ghost sm" id="reset">Reset all</button></p>
+    <p style="margin-top:20px"><a class="btn" href="./player-tracker.html?join" target="_blank">Open player sign-in page</a></p>
   </div>
   <div id="prof" hidden>
     <div class="top">
@@ -158,6 +159,12 @@ const ROSTER = {
   "100007": "Wild Bill Hickok","100008": "Doc Holliday",   "100009": "Poker Alice",
   "100010": "Wyatt Earp"
 };
+/* Fake 555 numbers for the test players. 100002 and 100009 share the last 4 (0142) to test the "full number" step. */
+const TEST_PHONES = {
+  "100001": "9165550101", "100002": "9165550142", "100003": "9165550103", "100004": "9165550104", "100005": "9165550105",
+  "100006": "9165550106", "100007": "9165550107", "100008": "9165550108", "100009": "2095550142", "100010": "9165550110"
+};
+const fmtPhone = d => d ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : "";
 /* 2 test dealers. One dealer on the table at a time; a new dealer logging in pushes the other off. */
 const DEALERS = { "D001": "Ace in the Hole", "D002": "Shuffle Off Home" };
 const SEATS = 7;
@@ -314,9 +321,9 @@ function renderFloor() {
   }).join("");
   const allPlayers = Object.keys(ROSTER).concat(Object.keys(roster).filter(k => !ROSTER[k]));
   $("players").innerHTML = allPlayers.map(c => {
-    const p = get(c), link = base + "?card=" + c;
+    const p = get(c), link = base + "?card=" + c, ph = (profiles[c] && profiles[c].phone) || TEST_PHONES[c];
     const tag = p.status === "seated" ? `<span class="tag seated">T${p.table || 1} &middot; Seat ${p.seat}</span>` : p.status === "wait" ? `<span class="tag wait">Waiting</span>` : `<span class="tag out">Out</span>`;
-    return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
+    return `<div class="row"><div class="nm"><b><a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c}${ph ? " &middot; " + fmtPhone(ph) : ""} &middot; ${fmtHrs(liveMs(p))} today</span></div>${tag}
       <div class="acts">
       <button class="btn sm ok" data-a="askSeat" data-c="${c}">${p.status === "seated" ? "Change seat" : "Seat"}</button>
       <button class="btn sm" data-a="wait" data-c="${c}" ${p.status === "out" ? "" : "disabled"}>Add to waitlist</button>
@@ -361,7 +368,7 @@ function renderProfile() {
   if (!pfFilled) {   // fill the form once so live updates don't wipe what's being typed
     $("pf_name").value = pr.name || ROSTER[c] || DEALERS[c] || "";
     $("pf_id").value = c; $("pfIdLbl").firstChild.textContent = isD ? "Dealer #" : "Card #";
-    $("pf_phone").value = pr.phone || ""; $("pf_email").value = pr.email || "";
+    $("pf_phone").value = pr.phone || (TEST_PHONES[c] ? fmtPhone(TEST_PHONES[c]) : ""); $("pf_email").value = pr.email || "";
     $("pf_bday").value = pr.bday || ""; $("pf_notes").value = pr.notes || "";
     pfFilled = true;
   }
@@ -554,6 +561,10 @@ async function signInStart() {
   let idx = {};
   try { const [r, x] = await Promise.all([getDoc(ROSTREF), getDoc(IDXREF)]); roster = r.exists() ? r.data() : {}; idx = x.exists() ? x.data() : {}; }
   catch (e) { $("warn").style.display = "block"; }
+  for (const [c, ph] of Object.entries(TEST_PHONES)) {   // test players' fake numbers work too
+    idx["h_" + await sha(ph)] = c;
+    (idx["l4_" + ph.slice(-4)] = idx["l4_" + ph.slice(-4)] || []).push(c);
+  }
   const full = (msg) => siStep("Your phone number", msg, "Full phone number", "Continue", v => byPhone(digitsOf(v)));
   const byPhone = async (d) => {
     if (d.length === 11 && d[0] === "1") d = d.slice(1);
