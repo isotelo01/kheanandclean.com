@@ -188,7 +188,7 @@ function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
   }
   s += `<text x="100" y="${label}" fill="${open ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.55)"}" font-size="26" font-weight="700" text-anchor="middle">${n}</text>`;
   if (!open) s += `<text x="100" y="${label + 18}" fill="#f87171" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle">CLOSED</text>`;
-  s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${n} &#183; ${esc(tb.game)}</text>`
+  s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${esc(tb.game)}</text>`
      + `<text x="100" y="162" fill="rgba(255,255,255,.7)" font-size="11" text-anchor="middle">${dealer ? esc(nameOf(dealer)) : "No dealer"} &#183; ${nSeated}/${tb.seats.length} seated${nBreak ? " &#183; " + nBreak + " on break" : ""}</text>`
      + `<a href="./dealer-table.html?t=${n}"><text x="100" y="178" fill="#E3B64A" font-size="11" font-weight="700" text-anchor="middle">Dealer Control &#8250;</text></a>`;
   return `<g class="ptbl${selT === n ? " sel" : ""}" data-tbl="${n}" transform="${tblXf(pos)}">${s}</g>`;
