@@ -26,8 +26,10 @@ h2{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:.12e
 .btn.sm{padding:6px 12px;font-size:14px}
 .btn.ok{background:var(--ok)}
 .warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
-.tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
-.tcard{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px;cursor:pointer}
+.tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tcard{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px}
+.tsvg{display:block;width:100%;height:auto;cursor:pointer;margin-bottom:8px}
+.dc{color:var(--gold);font-weight:700;font-size:14px;text-decoration:none}
 .tcard.open{border-color:var(--ok)}
 .tcard .nm{font-weight:700;font-size:17px}
 .tcard .nm span{color:var(--gold)}
@@ -85,9 +87,35 @@ const TBLREF = doc(db, "playerTracker", "tables"), CALLREF = doc(db, "playerTrac
 
 /* Same tables, test roster and dealers as the other Player Tracker pages. */
 const TABLES = {
-  1: { game: "Blackjack", seats: 7 }, 2: { game: "Baccarat", seats: 7 }, 3: { game: "Poker", seats: 9 },
-  4: { game: "Three Card Poker", seats: 7 }, 5: { game: "Ultimate Texas Hold'em", seats: 7 }
+  1: { game: "Blackjack", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
+  2: { game: "Baccarat", seats: [1, 2, 3, 5, 6, 7, 8], shape: "half" },   // no seat 4
+  3: { game: "Poker", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9], shape: "oval" },
+  4: { game: "Three Card Poker", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
+  5: { game: "Ultimate Texas Hold'em", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" }
 };
+/* Top-down silhouette of a table: green felt when open, grey when closed; one dot per seat
+   (gold = seated, blue = on break, red = break over 30 min). Tap the table to open/close it. */
+function tableSvg(n, tb, open, bySeat) {
+  const felt = open ? "#0f6b3a" : "#3a3f4b", rail = open ? "#5a3518" : "#2a2e37";
+  const dot = (x, y, s) => {
+    const p = bySeat[s];
+    const f = !p ? "#0b1220" : p.breakAt ? (Date.now() - p.breakAt > 30 * 60000 ? "#ef4444" : "#3b82f6") : "#E3B64A";
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="${f}" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>`;
+  };
+  let s = "", label;
+  if (tb.shape === "oval") {
+    s += `<ellipse cx="100" cy="60" rx="80" ry="42" fill="${rail}"/><ellipse cx="100" cy="60" rx="71" ry="34" fill="${felt}"/>`;
+    tb.seats.forEach((st, k) => { const a = (-90 + 36 * (k + 1)) * Math.PI / 180; s += dot(100 + Math.cos(a) * 92, 60 + Math.sin(a) * 48, st); });
+    label = 66;
+  } else {
+    s += `<path d="M18 16 A82 82 0 0 0 182 16 Z" fill="${rail}"/><path d="M27 16 A73 73 0 0 0 173 16 Z" fill="${felt}"/>`;
+    tb.seats.forEach((st, k) => { const a = Math.PI * ((k + 1) / (tb.seats.length + 1)); s += dot(100 + Math.cos(a) * 92, 16 + Math.sin(a) * 92, st); });
+    label = 52;
+  }
+  s += `<text x="100" y="${label}" fill="${open ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.55)"}" font-size="26" font-weight="700" text-anchor="middle">${n}</text>`;
+  if (!open) s += `<text x="100" y="${label + 20}" fill="#f87171" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">CLOSED</text>`;
+  return `<svg viewBox="0 0 200 116" class="tsvg" data-sw="${n}" role="button" aria-label="Table ${n}: ${open ? "open" : "closed"}, tap to ${open ? "close" : "open"}">${s}</svg>`;
+}
 const ROSTER = {
   "100001": "Doyle Brunson",  "100002": "Phil Ivey",       "100003": "Stu Ungar",
   "100004": "Johnny Moss",    "100005": "Amarillo Slim",   "100006": "Puggy Pearson",
@@ -120,10 +148,12 @@ function draw() {
     const players = on.filter(([c]) => isPlayer(c));
     const brk = players.filter(([, p]) => p.breakAt).length;
     const open = !!(tables[n] && tables[n].open);
-    return `<div class="tcard ${open ? "open" : ""}" data-t="${n}">
+    const bySeat = {}; players.forEach(([, p]) => { bySeat[p.seat] = p; });
+    return `<div class="tcard ${open ? "open" : ""}">
+      ${tableSvg(n, tb, open, bySeat)}
       <div class="nm"><span>${n}</span> &middot; ${esc(tb.game)}</div>
-      <div class="st">${dealer ? "Dealer: " + esc(nameOf(dealer[0])) : "No dealer"}<br>${players.length}/${tb.seats} seated${brk ? " &middot; " + brk + " on break" : ""}</div>
-      <button class="sw ${open ? "on" : ""}" data-sw="${n}">${open ? "Open" : "Closed"}</button></div>`;
+      <div class="st">${dealer ? "Dealer: " + esc(nameOf(dealer[0])) : "No dealer"}<br>${players.length}/${tb.seats.length} seated${brk ? " &middot; " + brk + " on break" : ""}</div>
+      <a class="dc" href="./dealer-table.html?t=${n}">Dealer Control &rsaquo;</a></div>`;
   }).join("");
 
   /* Wait list: names the floor typed in + players who joined from their phone. Longest wait on top. */
