@@ -23,7 +23,7 @@ body{margin:0;background:#eef0f4;color:var(--ink);font:16px/1.55 "Archivo",syste
 #authwait{position:fixed;inset:0;background:#eef0f4;z-index:9}
 .wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
-.summ .top .home,.summ .top #title{display:none}   /* report: no K&C logo, no "Summary" title */
+.summ .top .home,.summ .top #title,.presumm .top .home,.presumm .top #title{display:none}   /* report: no K&C logo, no "Summary" title; presumm hides them before load so the old header never flashes */
 .home{display:flex;flex:none;border-radius:6px}
 .home img{display:block;width:34px;height:34px;border-radius:6px}
 h1{font:700 30px "Archivo",system-ui,sans-serif;margin:0;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
@@ -506,6 +506,11 @@ body:not(.summ) .srow.gone{opacity:0}
 </head>
 <body>
 <div id="authwait"></div>
+<script>/* Opening as the Summary (customer link, or summarized in this tab): hide the logo and title from the first frame. */
+(function(){var q=new URLSearchParams(location.search),pub=q.get("view")==="customer",id=q.get("id"),s="";
+try{id=id||(pub?"":sessionStorage.getItem("kcJobSheetId")||"");s=sessionStorage.getItem("kcSumm_"+id)||"";}catch(e){}
+if(pub)document.documentElement.classList.add("pub");
+if(pub||s==="1")document.documentElement.classList.add("presumm");})();</script>
 <div class="wrap">
   <div class="top">
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
@@ -1274,6 +1279,7 @@ let summ = PUBLIC || ss.get(summKey) === "1";   /* the customer only ever sees t
 const sumOpen = new Set((ss.get(summKey + "_open") || "").split(",").filter(Boolean));   /* services opened in the summary */
 function applyMode(){
   document.body.classList.toggle("summ", summ);
+  document.documentElement.classList.remove("presumm");
   titleEl.textContent = summ ? "Summary" : sheetName();
   const b = document.getElementById("sumBtn"); if (b) b.textContent = summ ? "Edit" : "Summarize";
 }
