@@ -577,6 +577,39 @@ const shrink = file => new Promise((res, rej) => {
   img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("That file isn't a photo")); };
   img.src = url;
 });
+/* Header (title) photo only: a small copy goes to the blurSpots function, which finds house numbers and
+   license plates; those spots get pixelated on the full photo before it's saved. Throws if the check fails,
+   so an unblurred header photo never gets saved. */
+let blurSpotsFn = null;
+const blurHeader = async blob => {
+  const bmp = await createImageBitmap(blob);
+  const sm = 1280 / Math.max(bmp.width, bmp.height), s = Math.min(1, sm);
+  const c1 = document.createElement("canvas"); c1.width = Math.round(bmp.width * s); c1.height = Math.round(bmp.height * s);
+  c1.getContext("2d").drawImage(bmp, 0, 0, c1.width, c1.height);
+  if (!blurSpotsFn) {
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js");
+    blurSpotsFn = httpsCallable(getFunctions(app, "us-central1"), "blurSpots", { timeout: 70000 });
+  }
+  const r = await blurSpotsFn({ image: c1.toDataURL("image/jpeg", 0.85) });
+  const spots = (r.data && r.data.spots) || [];
+  if (!spots.length) return { blob, n: 0 };
+  const W = bmp.width, H = bmp.height, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d"); g.drawImage(bmp, 0, 0);
+  spots.forEach(p => {
+    /* Pad each box so edges of the digits/plate are covered too. */
+    const px = p.w * W * 0.3 + 6, py = p.h * H * 0.3 + 6;
+    const x = Math.max(0, Math.floor(p.x * W - px)), y = Math.max(0, Math.floor(p.y * H - py));
+    const w = Math.min(W - x, Math.ceil(p.w * W + 2 * px)), h = Math.min(H - y, Math.ceil(p.h * H + 2 * py));
+    if (w < 2 || h < 2) return;
+    /* Pixelate: shrink the spot to a few blocks, then stretch it back without smoothing. */
+    const bw = Math.max(2, Math.round(w / 14)), bh = Math.max(2, Math.round(h / 14));
+    const t = document.createElement("canvas"); t.width = bw; t.height = bh;
+    t.getContext("2d").drawImage(c, x, y, w, h, 0, 0, bw, bh);
+    g.imageSmoothingEnabled = false; g.drawImage(t, 0, 0, bw, bh, x, y, w, h); g.imageSmoothingEnabled = true;
+  });
+  const out = await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("Could not blur that photo")), "image/jpeg", 0.85));
+  return { blob: out, n: spots.length };
+};
 /* A photo box: heading with Take photo (opens the camera) and Add photos (the library, several at once), then the grid. */
 /* icons: small camera / gallery icon buttons with no words (used on the Header photo). */
 const photoBox = (k, title, icons, sm) => '<div class="pbwrap empty" id="pbw-' + k + '">' +   /* "empty" until photos load */
@@ -2553,7 +2586,12 @@ async function show(){
     for (let n = 0; n < list.length; n++) {
       jpNote.textContent = "Uploading photo " + (n + 1) + " of " + list.length + "…";
       try {
-        const blob = await shrink(list[n]);
+        let blob = await shrink(list[n]);
+        if (k === "head") {   /* header photo only: blur house numbers and plates first */
+          jpNote.textContent = "Blurring house numbers and plates…";
+          try { blob = (await blurHeader(blob)).blob; }
+          catch (be) { throw new Error("couldn’t blur it, so it wasn’t saved. Try again. (" + (be.message || be) + ")"); }
+        }
         /* Same folder as the room photos (that's what the storage rules allow). */
         const path = "quick-quote-photos/job_" + id + "_" + folder + "/" + Date.now() + "_" + n + ".jpg";
         await uploadBytes(ref(storage, path), blob, { contentType: "image/jpeg" });
