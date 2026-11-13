@@ -1,6 +1,6 @@
 /* K&C Estimator service worker — offline-first.
    Bump CACHE when you upload new files, or phones keep the old copy. */
-var CACHE = 'kc-estimator-v216';
+var CACHE = 'kc-estimator-v217';
 /* Saved by "Download offline job sheet" (offline.js). Never cleared on update. */
 var OFFLINE = 'kc-offline-pages';
 var ASSETS = ['./','./index.html','./app.css','./pricing.js','./pricing-live.js','./partner-pricing.js','./app.js','./manifest.webmanifest',
@@ -24,6 +24,14 @@ self.addEventListener('fetch', function(e){
        copy "Download offline job sheet" saved. The Hub falls back to the Job Sheet, which
        lists the downloaded jobs. */
     var p = url.pathname.replace(/\.html$/, '');
+    /* Floor and Waitlist: always the newest copy from the server (the browser would otherwise
+       reuse an old copy for up to 10 minutes after a push). */
+    if(url.origin === self.location.origin && /\/(floor|waitlist)$/.test(p)){
+      e.respondWith(fetch(url.href, { cache: 'no-cache', credentials: 'same-origin' }).then(function(r){
+        return r.redirected ? new Response(r.body, { status: r.status, statusText: r.statusText, headers: r.headers }) : r;
+      }));
+      return;
+    }
     if(url.origin !== self.location.origin || !/\/(job-sheet|job-room|hub)$/.test(p)) return;
     e.respondWith(fetch(e.request).catch(function(){
       return caches.open(OFFLINE).then(function(c){
