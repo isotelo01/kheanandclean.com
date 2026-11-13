@@ -1306,7 +1306,7 @@ view.addEventListener("click", e => {
   e.preventDefault();
   try { gList = JSON.parse(c.dataset.gal); } catch { return; }
   if (!gList.length) return;
-  gAt = 0; gv.querySelector(".gname").textContent = (c.querySelector("b") || {}).textContent ? c.querySelector("b").textContent.replace(/\s*›\s*$/, "") : "";
+  gAt = 0; gv.querySelector(".gname").textContent = c.querySelector("b") ? String((c.querySelector("b").firstChild || {}).textContent || "").replace(/\s*›.*$/, "").trim() : "";   /* room name only, no sq ft / floor badge */
   gv.hidden = false; gShow();
 });
 gv.addEventListener("click", e => {
