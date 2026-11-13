@@ -127,3 +127,14 @@ export const DEALERS = {
   "3517": "Flop Martinez",    "8264": "Dee Ling",         "5172": "Cutter Deck",     "2690": "Penny Ante",
   "9438": "Hank Pair",        "1305": "Lucky Seven"
 };
+
+/* Phone boxes (+ New player, a player's profile): format as you type, e.g. (310) 261-4809. Saving still takes
+   just the digits. A leading 1 is dropped. */
+export const fmtPhoneTyping = v => {
+  let d = String(v || "").replace(/\D/g, ""); if (d.length === 11 && d[0] === "1") d = d.slice(1); d = d.slice(0, 10);
+  return d.length < 4 ? d : d.length < 7 ? "(" + d.slice(0, 3) + ") " + d.slice(3) : "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6);
+};
+document.addEventListener("input", e => {
+  const el = e.target; if (!el || !/^(npPhone|pf_phone)$/.test(el.id)) return;
+  const f = fmtPhoneTyping(el.value); if (f !== el.value) el.value = f;
+});
