@@ -578,6 +578,7 @@ function readBlock(c){
         : "") +
       phonesOf(c).map(p => '<div class="prow"><a class="clink plink" href="tel:' + esc(telOf(p)) + '" data-tel="' + esc(telOf(p)) + '">' + esc(p) + '</a></div>').join("") +
       emailsOf(c).map(e => '<div class="prow"><a class="clink" href="./email.html#new/' + encodeURIComponent(e) + '">' + esc(e) + '</a></div>').join("") +   /* opens a new email in the app's Mail */
+      (c.website ? '<div class="prow"><a class="clink" href="' + esc(webUrl(c.website)) + '" target="_blank" rel="noopener">' + esc(String(c.website).replace(/^https?:\/\//i, "").replace(/\/$/, "")) + '</a></div>' : "") +   /* their web page, opens in a new tab */
       (phonesOf(c).length ? '<button type="button" class="ghost madd" id="tmplBtn">Pre-made texts</button>' +
         /* Text a promotion: Promotions page with this customer filled in as Send to. */
         '<a class="ghost madd" href="./promotions.html?to=' + encodeURIComponent(digits(phonesOf(c)[0]).slice(-10)) + '&name=' + encodeURIComponent(c.name || c.business || "") + '">Text a promotion</a>' +
@@ -596,6 +597,8 @@ function readBlock(c){
 }
 
 /* Address -> Google Maps (opens the Maps app on a phone). Phone -> dialable digits. */
+/* Website: add https:// if they typed just the domain. */
+const webUrl = w => { w = String(w || "").trim(); return /^https?:\/\//i.test(w) ? w : "https://" + w; };
 const mapUrl = a => "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addrLine(a));
 const telOf = p => { const d = digits(p); return d.length === 10 ? "+1" + d : d; };
 /* Pre-made texts. {name} becomes the customer's first name. */
@@ -659,6 +662,7 @@ async function showProfile(id){
           (emailsOf(c).length ? emailsOf(c) : [""]).map(v => multiRow("email", v)).join("") + '</div>' +
           '<button type="button" class="ghost madd" data-add="email">Add email</button></div>' +
       '</div>' +
+      '<label>Website<input id="cWeb" type="url" inputmode="url" autocomplete="off" placeholder="example.com" value="' + esc(c.website) + '"></label>' +
       '<h2>Addresses</h2>' +
       '<div id="addrs">' + addrs.map(addrBlock).join("") + '</div>' +
       '<button type="button" class="ghost" id="addAddr">Add address</button>' +
@@ -1020,7 +1024,7 @@ async function showProfile(id){
         try { acctNo = await nextAcctNo(); }
         catch (e) { console.error("account number:", e); }
       }
-      const data = { type, business, name, phone, email, notes: $("cNotes").value.trim(), addresses,
+      const data = { type, business, name, phone, email, notes: $("cNotes").value.trim(), addresses, website: $("cWeb").value.trim(),
         ...(acctNo ? { acctNo } : {}),
         phones, emails, phoneKeys, emailKeys, phoneKey: phoneKey(phone), emailKey: emailKey(email), updatedAt: serverTimestamp() };
       if ((name || business) && (phone || email)) data.contact = true;   /* name + number or email = Contact */
