@@ -1224,7 +1224,10 @@ function render(d){
     /* The button stays dead until the box is ticked and a name is typed. */
     const box = document.getElementById("acceptTerms"), nameEl = document.getElementById("acceptName"), go = document.getElementById("acceptBtn");
     const sync = () => { go.disabled = !(box.checked && nameEl.value.trim()); };
-    box.addEventListener("change", sync); nameEl.addEventListener("input", sync);
+    box.addEventListener("change", sync);
+    /* Phones that fill the name from saved suggestions don't always fire "input", so listen wider and poll. */
+    ["input", "change", "keyup", "blur"].forEach(ev => nameEl.addEventListener(ev, sync));
+    setInterval(sync, 700);
 
     /* Terms of Service: the big button opens the terms in a popup (no new tab, so phones stay on the quote).
        Ticking "I have read the Terms of Service" at the bottom of the popup closes it and swaps the button
@@ -1235,7 +1238,9 @@ function render(d){
     const setAgreed = on => { box.checked = on; tDone.hidden = !on; tBtn.hidden = on; sync(); };
     tBtn.addEventListener("click", () => {
       if (!tFrame.src) tFrame.src = "./terms.html";
-      tAgree.checked = false; dlg.showModal();
+      tAgree.checked = false;
+      if (typeof dlg.showModal === "function") dlg.showModal();
+      else { window.open("./terms.html", "_blank"); setAgreed(true); }   /* older iPhones (no popup support): open terms in a tab, unlock the box */
     });
     tAgree.addEventListener("change", () => { if (tAgree.checked) { setAgreed(true); dlg.close(); } });
     /* The big "I read this" button at the end of the terms does the same as the box. */
