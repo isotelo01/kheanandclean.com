@@ -108,7 +108,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
       <a class="back" href="./player-tracker.html">&lsaquo; Tracker</a>
     </div>
     <div class="box">
-      <div class="pf"><label>Name<input id="pf_name"></label>
+      <div class="pf"><label>Preferred name<input id="pf_name"></label>
       <label id="pfIdLbl">Card #<input id="pf_id" disabled></label>
       <label>Phone<input id="pf_phone" type="tel"></label>
       <label>Email<input id="pf_email" type="email"></label>
@@ -449,15 +449,15 @@ function renderPlayer() {
 
 const profId = params.get("profile");
 const fmtWhen = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-let pfFilled = false;
+let pfFilled = false, profLoaded = false;   // fill the form only once the saved profiles have come in
 function renderProfile() {
   const c = profId, pr = profiles[c] || {}, p = get(c), isD = !!DEALERS[c];
   $("pfName").textContent = nameOf(c);
-  if (!pfFilled) {   // fill the form once so live updates don't wipe what's being typed
-    $("pf_name").value = pr.name || ROSTER[c] || DEALERS[c] || "";
+  if (!pfFilled && (profLoaded || profiles[c])) {   // fill the form once so live updates don't wipe what's being typed
+    $("pf_name").value = pr.name || (roster[c] && roster[c].name) || ROSTER[c] || DEALERS[c] || "";
     $("pf_id").value = c; $("pfIdLbl").firstChild.textContent = isD ? "Dealer #" : "Card #";
     const ti = TEST_INFO[c] || {};   // test players' made-up profile, until someone saves real details
-    $("pf_phone").value = pr.phone || (TEST_PHONES[c] ? fmtPhone(TEST_PHONES[c]) : ""); $("pf_email").value = pr.email || ti.email || "";
+    $("pf_phone").value = (pr.phone ? (/^\d{10}$/.test(pr.phone) ? fmtPhone(pr.phone) : pr.phone) : "") || (TEST_PHONES[c] ? fmtPhone(TEST_PHONES[c]) : ""); $("pf_email").value = pr.email || ti.email || "";
     $("pf_bday").value = pr.bday || ti.bday || ""; $("pf_notes").value = pr.notes || ti.notes || "";
     pfFilled = true;
   }
@@ -722,7 +722,7 @@ function start() {
   }, () => {});
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; render(); }, () => {});
   if (!myCard) onSnapshot(doc(db, "playerTracker", "tables"), snap => { tables = snap.exists() ? snap.data() : {}; }, () => {});   // hours only at an open table
-  if (!myCard) onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; render(); }, () => {});   // phones/emails: staff pages only
+  if (!myCard) onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; profLoaded = true; render(); }, () => { profLoaded = true; render(); });   // phones/emails: staff pages only
   setInterval(render, 30000);   // keep the hours ticking
 }
 
