@@ -37,13 +37,27 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .row .nm{flex:1;min-width:0}
 .row .nm span{display:block;font-size:13px;color:rgba(255,255,255,.65)}
 .empty{color:rgba(255,255,255,.6);font-size:14px;padding:10px 0}
+input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:10px;font:inherit}
+.hint{color:rgba(255,255,255,.6);font-size:13px}
+.wlbl{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em}
+.bubs{display:flex;flex-wrap:wrap;gap:6px}
+.bub{border:1px solid var(--gold);background:none;color:var(--gold);border-radius:999px;padding:4px 11px;font:700 13px system-ui,sans-serif;cursor:pointer}
+.bub.on{background:var(--ok);border-color:var(--ok);color:#000}
 </style>
 </head>
 <body style="visibility:hidden">
 <div class="wrap">
   <div class="top"><a class="btn ghost sm" href="./player-tracker.html">&lsaquo; Player Tracker</a><h1>Waitlist</h1>
-    <a class="btn sm" href="./floor.html" style="margin-left:auto">Add names on the Floor &rsaquo;</a></div>
+    <a class="btn sm" href="./floor.html" style="margin-left:auto">Floor &rsaquo;</a></div>
   <div class="warn" id="warn">Not syncing with the server.</div>
+  <!-- Add a name: Name (players pop up as you type), Phoned in (walk-in if not), the games (tap one or more), then the button. -->
+  <div id="addWBox" style="margin-top:14px;display:grid;gap:8px;max-width:420px">
+    <input id="wName" list="wPlayers" placeholder="Name" autocomplete="off">
+    <datalist id="wPlayers"></datalist>
+    <div><button class="bub" id="wPhone" type="button">Phoned in</button> <span class="hint" id="wHow">Walk-in</span></div>
+    <div class="wlbl">Games</div><div class="bubs" id="wGames"></div>
+    <button class="btn" id="wAdd">+ Add to wait list</button>
+  </div>
   <div class="lists" id="lists"></div>
 </div>
 <script type="module">
@@ -93,8 +107,43 @@ function draw() {
   if (phones.length) html += box("From phones", phones);
   const other = names.filter(w => !games[w.game]).sort((a, b) => a.at - b.at);
   if (other.length) html += box("Other", other);
+  /* + Add to wait list: every list as a bubble (tap one or more), and every player's name for the pop-up. */
+  const all = liveLists(games, wait, tables, tlist);
+  for (const g of [...wSel]) if (!all.some(L => L.gid === g)) wSel.delete(g);
+  $("wGames").innerHTML = all.length ? all.map(L => `<button class="bub${wSel.has(L.gid) ? " on" : ""}" data-wg="${esc(L.gid)}" type="button">${esc(L.name)}</button>`).join("")
+    : `<span class="hint">No games yet. Open a poker table on the Floor page.</span>`;
+  const pl = [...new Set([...Object.keys(ROSTER), ...Object.keys(roster)].map(nameOf))].sort();
+  if (pl.length !== plCount) { plCount = pl.length; $("wPlayers").innerHTML = pl.map(n => `<option value="${esc(n)}">`).join(""); }
   $("lists").innerHTML = html || `<div class="empty">No lists yet. Open a poker table with its game picked on the Floor page.</div>`;
 }
+/* + Add to wait list: a name and which game's list. */
+const wSel = new Set();   // games picked for + Add to wait list
+let plCount = 0, wCall = false;
+$("wGames").addEventListener("click", e => {
+  const b = e.target.closest("[data-wg]"); if (!b) return;
+  const g = b.dataset.wg; if (wSel.has(g)) wSel.delete(g); else wSel.add(g);
+  b.classList.toggle("on", wSel.has(g));
+});
+$("wPhone").onclick = () => { wCall = !wCall; $("wPhone").classList.toggle("on", wCall); $("wHow").textContent = wCall ? "Phoned in: drops off in 1 hour" : "Walk-in"; };
+const addToWait = () => {
+  const name = $("wName").value.trim(), picked = [...wSel].filter(g => games[g]);
+  if (!name) { $("wName").focus(); return; }
+  if (!picked.length) { alert("Tap at least one game."); return; }
+  const card = [...Object.keys(ROSTER), ...Object.keys(roster)].find(c => nameOf(c).toLowerCase() === name.toLowerCase());
+  const upd = {}, now = Date.now();
+  picked.forEach((gid, k) => {
+    const id = "w" + now + k + Math.random().toString(36).slice(2, 6), v = { name, game: gid, at: now };
+    if (wCall) v.call = true;      // phoned in (walk-in is the default)
+    if (card) v.card = card;       // a known player
+    upd[id] = wait[id] = v;
+  });
+  setDoc(WAITREF, upd, { merge: true }).catch(fail);
+  $("wName").value = ""; $("wName").focus();
+  if (wCall) $("wPhone").onclick();   // back to walk-in for the next one
+  draw();
+};
+$("wAdd").onclick = addToWait;
+$("wName").onkeydown = e => { if (e.key === "Enter") addToWait(); };
 document.addEventListener("click", e => {
   const rm = e.target.closest("[data-rm]"); if (!rm) return;
   const id = rm.dataset.rm;
