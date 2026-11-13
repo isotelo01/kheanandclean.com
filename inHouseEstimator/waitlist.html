@@ -29,6 +29,11 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .tbls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .tb{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.75)}
 .tb.seat{background:rgba(74,222,128,.15);color:var(--ok)}
+/* Favorite games under the Games button: live (a table open running it) = green, not live = clear. */
+.favs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.fav{border:1px solid rgba(255,255,255,.35);background:none;color:#fff;border-radius:999px;padding:5px 12px;font:700 13px system-ui,sans-serif;cursor:pointer}
+.fav.live{background:var(--ok);border-color:var(--ok);color:#000}
+#pgBox{margin-top:10px}
 .lists>.gbox{flex:1 0 240px}
 .gbox{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px}
 .gh{display:flex;align-items:center;gap:8px;margin-bottom:4px}
@@ -54,7 +59,10 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <body style="visibility:hidden">
 <div class="wrap">
   <div class="top"><a class="btn ghost sm" href="./player-tracker.html">&lsaquo; Player Tracker</a><h1>Waitlist</h1>
+    <button class="btn ghost sm" id="gamesBtn">Games</button>
     <a class="btn sm" href="./floor.html" style="margin-left:auto">Floor &rsaquo;</a></div>
+  <div id="pgBox" hidden></div>   <!-- the Games menu (pg-menu.js, same as the Floor page) -->
+  <div class="favs" id="favs"></div>
   <div class="warn" id="warn">Not syncing with the server.</div>
   <!-- Add a name: Name (players pop up as you type), Phoned in (walk-in if not), the games (tap one or more), then the button. -->
   <div class="cols">
@@ -73,6 +81,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists, expired, CALL_MS } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { pg, setPg, pgName, pgAll, TABLE_GAMES, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -88,6 +97,7 @@ const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
 const WAITREF = doc(db, "playerTracker", "waitlist"), GAMESREF = doc(db, "playerTracker", "waitgames");
 const TBLREF = doc(db, "playerTracker", "tables"), LISTREF = doc(db, "playerTracker", "tablelist");   // which tables are open, and their games
+const PGREF = doc(db, "playerTracker", "pokergames");   // poker games: favorites, your own games and stakes
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m" : Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
@@ -95,6 +105,7 @@ const fail = () => { $("warn").style.display = "block"; };
 let state = {}, roster = {}, profiles = {}, wait = {}, games = {}, tables = {}, tlist = {};
 /* Seats at each table: same starter tables as the Floor page, plus tables added or edited there (tablelist). */
 const BASE_SEATS = CASINO !== "edh" ? {} : { 1: 7, 2: 7, 3: 9, 4: 7, 5: 7 };
+const BASE_GAME = CASINO !== "edh" ? {} : { 1: "Blackjack", 2: "Baccarat", 3: "Poker", 4: "Three Card Poker", 5: "Ultimate Texas Hold'em" };
 /* Open poker tables running a game, with how many seats are open at each: [{ n, open }]. */
 const tablesFor = name => Object.entries(tlist || {})
   .filter(([n, t]) => t && t.variant && !t.deleted && tables[n] && tables[n].open && (t.stakes ? t.stakes + " " : "") + t.variant === name)
@@ -133,8 +144,21 @@ function draw() {
     : `<span class="hint">No games yet. Open a poker table on the Floor page.</span>`;
   const pl = [...new Set([...Object.keys(ROSTER), ...Object.keys(roster)].map(nameOf))].sort();
   if (pl.length !== plCount) { plCount = pl.length; $("wPlayers").innerHTML = pl.map(n => `<option value="${esc(n)}">`).join(""); }
+  /* Favorites strip: poker favorites show the stakes running now; table games are live when a table running them is open. */
+  const openT = Object.keys({ ...BASE_GAME, ...tlist }).filter(n => tables[n] && tables[n].open && !(tlist[n] && tlist[n].deleted)).map(n => tlist[n] || {});
+  const favChip = (name, liveStakes, live) => `<button class="fav${live ? " live" : ""}" data-favopen>${esc(name)}${liveStakes.length ? " &middot; " + liveStakes.map(esc).join(", ") : ""}</button>`;
+  $("favs").innerHTML = [
+    ...pgAll().filter(id => pg.fav[id]).map(id => { const st = [...new Set(openT.filter(t => t.variant === pgName(id)).map(t => t.stakes).filter(Boolean))]; return favChip(pgName(id), st, openT.some(t => t.variant === pgName(id))); }),
+    ...Object.entries(TABLE_GAMES).filter(([id]) => pg.fav[id]).map(([, nm]) => favChip(nm, [], Object.keys({ ...BASE_GAME, ...tlist }).some(n => tables[n] && tables[n].open && !(tlist[n] && tlist[n].deleted) && ((tlist[n] && tlist[n].game) || BASE_GAME[n]) === nm)))
+  ].join("");
+  pgMenu.draw();
   $("lists").innerHTML = html || `<div class="empty">No lists yet. Open a poker table with its game picked on the Floor page.</div>`;
 }
+/* Games button: the Games menu (star favorites, start lists for poker and table games). Tap a favorite to open it too. */
+const listFor = name => Object.keys(games).find(gid => games[gid] && games[gid].name === name);
+const pgMenu = mountPgMenu($("pgBox"), { PGREF, GAMESREF, games: () => games, listFor, fail, after: () => draw() });
+$("gamesBtn").onclick = pgMenu.toggle;
+document.addEventListener("click", e => { if (e.target.closest("[data-favopen]") && $("pgBox").hidden) pgMenu.toggle(); });
 /* + Add to wait list: a name and which game's list. */
 const wSel = new Set();   // games picked for + Add to wait list
 let plCount = 0, wCall = false;
@@ -177,7 +201,7 @@ onAuthStateChanged(getAuth(app), u => {
   document.body.style.visibility = "visible";
   draw();
   const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
-  on(REF, v => state = v); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v); on(TBLREF, v => tables = v); on(LISTREF, v => tlist = v);
+  on(REF, v => state = v); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v); on(TBLREF, v => tables = v); on(LISTREF, v => tlist = v); on(PGREF, setPg);
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   setInterval(draw, 30000);   // keep the wait times ticking
