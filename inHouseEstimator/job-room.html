@@ -140,17 +140,16 @@ textarea{display:block;width:100%;min-height:110px;resize:vertical;font:16px "Ar
 .spot .fiberOther::placeholder,.spot textarea::placeholder{color:#aab2c3;opacity:1}
 @media print{ .pbtns,.pcam,.px{display:none} }
 @media print{ body{background:#fff} .top>div{display:none!important} .panel{box-shadow:none;padding:0} }
+#title:empty{display:none}   /* blank until the page writes it */
 </style>
 <link rel="stylesheet" href="./theme-dark.css">
-<style>.ttlwait #title{visibility:hidden}</style>
-<script>/* Opened by link (a profile, Trash, New): hide the title until the real one is written, so the old title never flashes. */if(true)document.documentElement.classList.add("ttlwait");</script>
 </head>
 <body>
 <div id="authwait"></div>
 <div class="wrap">
   <div class="top">
     <a class="home" href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
-    <h1 id="title">Rooms</h1><script>/* Shows the title once the page writes the real one (ttlwait is set in the head). */(function(){var d=document.documentElement,t=document.getElementById("title");if(!d.classList.contains("ttlwait"))return;var done=function(){d.classList.remove("ttlwait");};new MutationObserver(function(m,o){o.disconnect();done();}).observe(t,{childList:true,characterData:true,subtree:true});setTimeout(done,8000);})();</script>
+    <h1 id="title"></h1><!-- the page writes the title once it loads -->
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto">
       <button type="button" class="ghost" id="refreshBtn">Refresh</button>
       <a class="ghost" id="backBtn" href="./job-sheet.html">Back to Job Sheet</a>
