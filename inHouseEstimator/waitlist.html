@@ -99,7 +99,7 @@ const BASE_SEATS = CASINO !== "edh" ? {} : { 1: 7, 2: 7, 3: 9, 4: 7, 5: 7 };
 const tablesFor = name => Object.entries(tlist || {})
   .filter(([n, t]) => t && t.variant && !t.deleted && tables[n] && tables[n].open && (t.stakes ? t.stakes + " " : "") + t.variant === name)
   .map(([n, t]) => { const seats = Array.isArray(t.seats) ? t.seats.length : BASE_SEATS[n] || 0;
-    const sat = Object.values(state).filter(p => p && p.status === "seated" && String(p.table || 1) === String(n)).length;
+    const sat = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "seated" && String(p.table || 1) === String(n)).length;   // players only, not the dealer
     return { n, open: Math.max(0, seats - sat) }; })
   .sort((a, b) => a.n - b.n);
 const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
