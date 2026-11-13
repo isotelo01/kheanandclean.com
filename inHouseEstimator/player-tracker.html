@@ -36,6 +36,7 @@ svg.table{width:100%;height:auto;display:block}
 #tblBox.full .chair{display:none}
 body.tablemode #floor > :not(#tblBox){display:none}   /* table page: only the table */   /* full-screen (dealer) view: no chairs */
 .chair{cursor:grab;touch-action:none}
+#pickSvg .chair{cursor:pointer}   /* Seat picker: tap a chair to seat them there */
 #tblBox.full{position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;z-index:50;margin:0;border:0;border-radius:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 16px 16px;cursor:default;overflow:hidden}
 #tblBox.full svg.table{width:100%;height:100%;flex:1;min-height:0}   /* fit the whole table on any screen */
 #tblBox.full #tblBack{display:block;position:absolute;top:calc(env(safe-area-inset-top) + 16px);left:16px}
@@ -599,9 +600,12 @@ function closeModal() {
 }
 $("mclose").onclick = closeModal;
 $("mbody").addEventListener("click", e => {
-  const t = e.target.closest("[data-seat]");
-  if (!t || !pickFor) return;
-  const c = pickFor, n = +t.dataset.seat;
+  if (!pickFor) return;
+  /* A seat number, or a chair: a chair seats them at the seat it's closest to (if that seat's open). */
+  const t = e.target.closest("[data-seat]"), ch = !t && e.target.closest("#pickSvg [data-chair]");
+  if (!t && !ch) return;
+  const c = pickFor, n = t ? +t.dataset.seat : nearSeat(+ch.dataset.chair).seat;
+  if (ch && Object.entries(state).some(([k, p]) => k !== c && p && p.status === "seated" && (p.table || 1) === 1 && p.seat === n)) { alert("Seat " + n + " is taken."); return; }
   pickFor = null; closeModal(); seatAt(c, n);
 });
 function showQR(c) {
