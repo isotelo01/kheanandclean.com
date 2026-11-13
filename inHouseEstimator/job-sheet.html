@@ -307,6 +307,13 @@ body.summ .fpwrap.hero3d .fptap.drag .fpsvg{transition:none}
 body.summ .fpwrap.hero3d .fph{font-size:18px}
 .backq{display:inline-block;margin:10px 0;text-decoration:none;color:#fff;border:1px solid rgba(227,182,74,.6);border-radius:999px;padding:9px 18px;font:600 15px "Archivo",system-ui,sans-serif}
 .backq:hover{background:rgba(227,182,74,.12)}
+.summ .backq{margin:0 0 18px;padding:7px 16px;font-size:14px;color:#e3b64a}
+/* Summary: address and phone read as plain text, not links. */
+.summ .prow a{pointer-events:none;color:#cfd6e3!important;font-weight:500!important;text-decoration:none!important;-webkit-text-fill-color:#cfd6e3}
+.summ .prow{font-size:16px;line-height:1.5}
+.summ .head{margin-bottom:6px}
+.summ .head + .prow{margin-top:2px}
+.summ .meta{display:inline-block;margin-top:12px!important;padding:5px 12px;border:1px solid rgba(227,182,74,.3);border-radius:999px;color:#cfd6e3;font-size:13px}
 /* "Add floor plan": the color-coded plan under Services performed (shows in the Summary too). */
 .fpwrap{margin:18px 0 6px}
 .fph{margin:0 0 8px;font-size:15px;color:var(--gold);display:flex;justify-content:space-between;align-items:baseline}
@@ -485,6 +492,9 @@ body:not(.summ) .srow.gone{opacity:0}
   /* No box around each service either, and the room list isn't indented: rooms use the full width. */
   .svc{border:0;border-radius:0;padding:4px 0}
   .flatsub{margin-left:0;padding-left:0}
+  /* Summary on phones: a little side room so nothing touches the screen edge; header photo stays edge to edge. */
+  .summ .panel{padding:4px 14px}
+  .summ .hero:has(#pbw-head:not(.empty)){margin:-4px -22px 22px;border-radius:0}
 }
 </style>
 </head>
@@ -2193,8 +2203,8 @@ async function show(){
        More ▾ (the dropdown) sits under the rows; the price stays up in the header. */
     /* Estimates: one bigger photo per room, no Before / After labels, no After box (nothing's been done yet). */
     const est = cur && cur.place === "quotes";
-    const rowHtml = (r, rest) => '<a class="sprow' + (est ? ' est' : '') + (rest ? ' srest' : '') + '" href="' + esc(r.href) + '"' + (r.gal.length ? ' data-gal="' + esc(JSON.stringify(r.gal)) + '"' : '') + '><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span>' + (est && r.sqft ? '<span class="sqft">' + Math.round(r.sqft).toLocaleString() + ' sq ft total</span>' : '')
-      + (est && r.cust != null ? '<span class="sqft custsq">&#9888; Customer changed size' + (r.cust ? ' (photo estimate ' + Math.round(r.cust).toLocaleString() + ' sq ft)' : '') + '</span>' : '') + (est ? '<span class="fbadge"><i style="background:' + r.fl[1] + '"></i>' + esc(r.fl[2]) + '</span>' : '') + '</b>' + (est ? slot(r.b || r.a, "") + (r.sk ? '<img class="spsk" alt="Room outline"' + (r.rot ? ' style="transform:rotate(' + r.rot + 'deg)"' : '') + ' src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.sk) + '">' : '') : slot(r.b, "Before") + slot(r.a, "After")) +
+    const rowHtml = (r, rest) => '<a class="sprow est' + (rest ? ' srest' : '') + '" href="' + esc(r.href) + '"' + (r.gal.length ? ' data-gal="' + esc(JSON.stringify(r.gal)) + '"' : '') + '><b>' + esc(r.name || "Room") + ' <span class="sgo">›</span>' + (r.sqft ? '<span class="sqft">' + Math.round(r.sqft).toLocaleString() + ' sq ft total</span>' : '')
+      + (est && r.cust != null ? '<span class="sqft custsq">&#9888; Customer changed size' + (r.cust ? ' (photo estimate ' + Math.round(r.cust).toLocaleString() + ' sq ft)' : '') + '</span>' : '') + '<span class="fbadge"><i style="background:' + r.fl[1] + '"></i>' + esc(r.fl[2]) + '</span>' + '</b>' + (slot(est ? (r.b || r.a) : (r.a || r.b), "") + (r.sk ? '<img class="spsk" alt="Room outline"' + (r.rot ? ' style="transform:rotate(' + r.rot + 'deg)"' : '') + ' src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.sk) + '">' : '')) +
       (r.gal.length > 2 ? '<span class="sgmore">More photos (' + r.gal.length + ')</span>' : '') + '</a>';
     const prevBox = (prev.length || roomsAll.length) ? '<div class="sthumbs sprev">' + prev.map(r => rowHtml(r, false)).join("") +
       roomsAll.map(r => rowHtml(r, true)).join("") +
@@ -2299,8 +2309,7 @@ async function show(){
 
   /* Back to the estimate / invoice page (quote.html), at the top and bottom of the sheet. */
   const backBtn = '<a class="backq" href="./quote.html?id=' + encodeURIComponent(id) + '">&lsaquo; Return to ' + (place === "quotes" ? "estimate" : "invoice") + '</a>';
-  view.innerHTML = backBtn +
-    '<div class="panel">' +
+  view.innerHTML = '<div class="panel">' +
       /* Header photo and headline: shown on the customer's job report as a banner at the very top.
          The headline saves with the Save button under Crew notes. */
       '<div class="hero">' + photoBox("head", "Header photo", true) +
@@ -2309,6 +2318,8 @@ async function show(){
         /* Starts as "Here’s your estimate." on estimates, "Thank you, <first name>" on job sheets, until a headline is saved. */
         '<input type="text" id="headline" placeholder="Headline" value="' + esc(js.headline || defHeadline(c, place)) + '"></div></div>' +
 
+      /* Return button: under the header photo, above the customer's name. */
+      backBtn +
       /* Report: the customer's name takes the place of the "Customer" heading. */
       '<div class="head"><h2 style="margin:0;border:0"><span class="staffword">Customer</span><span class="sumword">' + esc(name) + '</span></h2>' +
         (q.acctNo ? '<span class="acctno">KC-' + esc(q.acctNo) + '</span>' : '') + '</div>' +
