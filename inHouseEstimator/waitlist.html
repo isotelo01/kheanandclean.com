@@ -22,7 +22,13 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
 .btn.sm{padding:6px 12px;font-size:14px}
 .warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
-.lists{display:flex;gap:12px;margin-top:16px;align-items:flex-start;overflow-x:auto;padding-bottom:6px}
+/* Add-a-name form in its own column on the left, the game lists next to it (stacked on a phone). */
+.cols{display:grid;grid-template-columns:300px 1fr;gap:16px;margin-top:14px;align-items:start}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.lists{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding-bottom:6px;min-width:0}
+.tbls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.tb{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.75)}
+.tb.seat{background:rgba(74,222,128,.15);color:var(--ok)}
 .lists>.gbox{flex:1 0 240px}
 .gbox{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px}
 .gh{display:flex;align-items:center;gap:8px;margin-bottom:4px}
@@ -51,7 +57,8 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <a class="btn sm" href="./floor.html" style="margin-left:auto">Floor &rsaquo;</a></div>
   <div class="warn" id="warn">Not syncing with the server.</div>
   <!-- Add a name: Name (players pop up as you type), Phoned in (walk-in if not), the games (tap one or more), then the button. -->
-  <div id="addWBox" style="margin-top:14px;display:grid;gap:8px;max-width:420px">
+  <div class="cols">
+  <div id="addWBox" style="display:grid;gap:8px">
     <input id="wName" list="wPlayers" placeholder="Name" autocomplete="off">
     <datalist id="wPlayers"></datalist>
     <div><button class="bub" id="wPhone" type="button">Phoned in</button> <span class="hint" id="wHow">Walk-in</span></div>
@@ -59,6 +66,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <button class="btn" id="wAdd">+ Add to wait list</button>
   </div>
   <div class="lists" id="lists"></div>
+  </div>
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -85,6 +93,15 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">
 const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m" : Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
 const fail = () => { $("warn").style.display = "block"; };
 let state = {}, roster = {}, profiles = {}, wait = {}, games = {}, tables = {}, tlist = {};
+/* Seats at each table: same starter tables as the Floor page, plus tables added or edited there (tablelist). */
+const BASE_SEATS = CASINO !== "edh" ? {} : { 1: 7, 2: 7, 3: 9, 4: 7, 5: 7 };
+/* Open poker tables running a game, with how many seats are open at each: [{ n, open }]. */
+const tablesFor = name => Object.entries(tlist || {})
+  .filter(([n, t]) => t && t.variant && !t.deleted && tables[n] && tables[n].open && (t.stakes ? t.stakes + " " : "") + t.variant === name)
+  .map(([n, t]) => { const seats = Array.isArray(t.seats) ? t.seats.length : BASE_SEATS[n] || 0;
+    const sat = Object.values(state).filter(p => p && p.status === "seated" && String(p.table || 1) === String(n)).length;
+    return { n, open: Math.max(0, seats - sat) }; })
+  .sort((a, b) => a.n - b.n);
 const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
 const isPlayer = c => !!(ROSTER[c] || roster[c]);
 
@@ -94,7 +111,9 @@ function draw() {
       <div class="nm"><b>${i + 1}. ${w.src === "app" || w.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.card || w.id)}" style="color:inherit">${esc(w.name)}</a>` : esc(w.name)}</b><span>${w.call
         ? "Phoned in " + (ago(w.at) === "just now" ? "just now" : ago(w.at) + " ago") + " &middot; drops off in " + Math.max(1, Math.ceil((w.at + CALL_MS - Date.now()) / 60000)) + "m" : "waiting " + ago(w.at)}</span></div>
       <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
-  const box = (title, list, tag) => `<div class="gbox"><div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span></div>
+  /* Under each game: its table numbers, and how many seats are open at each. */
+  const tblLine = name => { const T = tablesFor(name); return T.length ? `<div class="tbls">${T.map(t => `<span class="tb${t.open ? " seat" : ""}">Table ${esc(t.n)} &middot; ${t.open ? t.open + (t.open > 1 ? " seats" : " seat") + " open" : "Full"}</span>`).join("")}</div>` : ""; };
+  const box = (title, list, tag) => `<div class="gbox"><div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span></div>${tag ? tblLine(title) : ""}
       ${list.length ? list.map(row).join("") : `<div class="empty">Nobody waiting.</div>`}</div>`;
   const gone = Object.keys(wait).filter(id => expired(wait[id]));   // phoned-in, past an hour: drop them
   if (gone.length) { const upd = {}; gone.forEach(id => { upd[id] = deleteField(); delete wait[id]; }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
