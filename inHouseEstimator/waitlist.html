@@ -121,7 +121,6 @@ a.bub{text-decoration:none;display:inline-block}
   </div>
   <!-- Dealers: who's dealing now (and at which table), and the dealer rotation (next up on top). -->
   <div class="wdg" data-w="dealers" style="display:flex;flex-direction:column;gap:8px">
-    <div class="wlbl">Active dealers</div><div id="dActive"></div>
     <div class="wlbl">Rotation</div><div id="dRot"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap"><select id="dPick" style="flex:1;min-width:0"></select><button class="btn sm" id="dAdd">Add</button><button class="btn ghost sm" id="dNext" title="Top dealer goes to the bottom">Rotate</button></div>
   </div>
@@ -366,7 +365,6 @@ function drawDealers() {
   const brk = d => state[d] && state[d].status === "break" ? state[d].breakAt || Date.now() : 0;
   const bBtn = d => `<button class="mini brk${brk(d) ? " on" : ""}" data-dbrk="${esc(d)}" title="${brk(d) ? "End break" : "Break"}">B</button>`;
   const where = d => dTable(d) ? "Table " + dTable(d) : brk(d) ? `<span class="onbrk">Break ${ago(brk(d))}</span>` : "Off";
-  $("dActive").innerHTML = act.length ? act.map(d => `<div class="drow"><b>${esc(dName(d))}</b><span>Table ${dTable(d)}</span>${bBtn(d)}</div>`).join("") : `<div class="empty">No dealers on a table.</div>`;
   $("dRot").innerHTML = rot.length ? rot.map((d, i) => `<div class="drow"><b>${i + 1}. ${esc(dName(d))}</b><span>${where(d)}</span>
       ${bBtn(d)}<button class="mini" data-dseat="${esc(d)}" title="Put on a table">Seat</button>${i ? `<button class="mini" data-dup="${i}" title="Move up">&uarr;</button>` : ""}<button class="mini" data-drm="${i}" title="Take off the rotation">&times;</button></div>`).join("")
     : `<div class="empty">Add dealers below to build the rotation.</div>`;
