@@ -251,7 +251,13 @@ $("wAdd").onclick = addToWait;
 $("wName").onkeydown = e => { if (e.key === "Enter") addToWait(); };
 document.addEventListener("click", e => {
   const ar = e.target.closest("[data-arr]");   // phoned-in player showed up: no more drop-off timer
-  if (ar) { const id = ar.dataset.arr; if (wait[id]) { delete wait[id].call; draw(); } setDoc(WAITREF, { [id]: { call: deleteField() } }, { merge: true }).catch(fail); return; }
+  if (ar) {   // the same player on every list they phoned in for (same card, or same name if not a saved player)
+    const w0 = wait[ar.dataset.arr] || {}, key = v => v.card ? "c:" + v.card : "n:" + String(v.name || "").trim().toLowerCase();
+    const ids = Object.keys(wait).filter(k => wait[k] && wait[k].call && key(wait[k]) === key(w0));
+    if (!ids.includes(ar.dataset.arr)) ids.push(ar.dataset.arr);
+    const upd = {}; ids.forEach(k => { if (wait[k]) delete wait[k].call; upd[k] = { call: deleteField() }; });
+    draw(); setDoc(WAITREF, upd, { merge: true }).catch(fail); return;
+  }
   const rm = e.target.closest("[data-rm]"); if (!rm) return;
   const id = rm.dataset.rm;
   if (rm.dataset.src === "app") { const p = state[id] || {}; setDoc(REF, { [id]: { ...p, status: "out", waitAt: null } }, { merge: true }).catch(fail); }
