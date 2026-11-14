@@ -49,6 +49,11 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidd
 .btn[disabled]{opacity:.35}
 .warn{background:#5a1d1d;border:1px solid #f87171;font-size:14px;padding:6px 12px;display:none}
 #tbl{flex:1;min-height:0;width:100%;display:block}
+/* Landscape only: in portrait, cover the page and ask to turn the phone sideways. */
+#turn{display:none;position:fixed;inset:0;z-index:90;background:var(--navy);color:var(--gold);font:700 22px "Archivo",sans-serif;
+  flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
+#turn svg{width:72px;height:72px}
+@media (orientation:portrait){#turn{display:flex}}
 #modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px}
 #modal[hidden]{display:none}
 .mbox{background:var(--navy);border:1px solid var(--gold);border-radius:12px;padding:16px;width:100%;max-width:440px;max-height:100%;overflow:auto}
@@ -87,6 +92,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <svg id="tbl" viewBox="-24 0 448 272" preserveAspectRatio="xMidYMid meet"></svg>
 <div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:16px 0 0;text-align:right"><button class="btn ghost big" id="mclose">Close</button></p></div></div>
 <div id="ghost" hidden></div>
+<div id="turn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 3h4M9 1v4"/></svg>Turn your phone sideways</div>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
@@ -169,13 +175,15 @@ function chipTray(x0, y0) {
 const cx = 200, cy = 56, r = 170;
 /* Poker oval: felt 320x176 centered at (200,140); 10 spots around it, dealer at the top, seat 1 to the dealer's left. */
 const OX = 200, OY = 140, OW = 160, OH = 88;
+/* The whole table is turned 180° so the dealer sits at the bottom of the screen (seat 1 still on the dealer's left). */
+const FY = 136, flip = (x, y) => [400 - x, 2 * FY - y];
 const seatXY = k => {   // k = 0-based position in TB.seats
   if (TB.shape === "oval") {
     const a = -Math.PI / 2 + (k + 1) * 2 * Math.PI / (TB.seats.length + 1);
-    return [OX + Math.cos(a) * (OW - 34), OY + Math.sin(a) * (OH - 38)];
+    return flip(OX + Math.cos(a) * (OW - 34), OY + Math.sin(a) * (OH - 38));
   }
   const a = Math.PI * ((k + 1) / (TB.seats.length + 1));
-  return [cx + Math.cos(a) * (r - 38), cy + Math.sin(a) * (r - 38)];
+  return flip(cx + Math.cos(a) * (r - 38), cy + Math.sin(a) * (r - 38));
 };
 function draw() {
   const d = dealerOn();
@@ -210,7 +218,7 @@ function draw() {
         <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
       </radialGradient>
     </defs>`
-        + tableBody(d);
+        + `<g transform="rotate(180 200 ${FY})">` + tableBody(d) + `</g>` + tableDeco(d);
   TB.seats.forEach((i, k) => {
     const [x, y] = seatXY(k), c = whoIn(i);
     const wants = !c && Object.keys(requests).some(q => requests[q].t === T && requests[q].s === i);
@@ -271,20 +279,30 @@ function tableBody(d) {
     return `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" fill="url(#feltO)"/>`
       + `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" fill="#000" filter="url(#feltTex)"/>`
       + `<rect x="${fx + 2}" y="${fy + 2}" width="${fw - 4}" height="${fh - 4}" rx="${rx - 2}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/>`
-      + RAIL.map(([w, col]) => `<rect x="${fx - 8}" y="${fy - 8}" width="${fw + 16}" height="${fh + 16}" rx="${rx + 8}" fill="none" stroke="${col}" stroke-width="${w}"/>`).join("")
-      + dealerBox(fy - 40)
-      + `<image href="../images/edh-casino-logo.png" x="170" y="${OY - 34}" width="60" height="47" opacity=".9"/>`
-      + label(OY + 28);
+      + RAIL.map(([w, col]) => `<rect x="${fx - 8}" y="${fy - 8}" width="${fw + 16}" height="${fh + 16}" rx="${rx + 8}" fill="none" stroke="${col}" stroke-width="${w}"/>`).join("");
   }
   const m = r + 8, rp = `M${cx - m} ${cy - 6} L${cx + m} ${cy - 6} L${cx + m} ${cy} A ${m} ${m} 0 0 1 ${cx - m} ${cy} Z`;
   return `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="url(#feltG)"/>`
     + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="#000" filter="url(#feltTex)"/>`
     + `<path d="M${cx - r + 2} ${cy} A ${r - 2} ${r - 2} 0 0 0 ${cx + r - 2} ${cy}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/>`
     /* One-piece padded rail all the way around (back edge + curve): stacked strokes, dark outside to a light center line. */
-    + RAIL.map(([w, col]) => `<path d="${rp}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"/>`).join("")
-    + dealerBox(cy - 48)
-    + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
-    + label(cy + 96);
+    + RAIL.map(([w, col]) => `<path d="${rp}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"/>`).join("");
+}
+/* Dealer name box, logo and game name, drawn upright on the turned table (dealer box at the bottom). */
+function tableDeco(d) {
+  const name = TB.game.toUpperCase(), long = name.length > 12;
+  const label = (y) => `<text x="200" y="${y}" fill="rgba(255,255,255,.75)" font-size="${long ? 9 : 12}" font-weight="700" letter-spacing="${long ? 1.5 : 3}" text-anchor="middle">${esc(name)}</text>`;
+  const dealerBox = (y) => `<rect x="140" y="${y}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
+    + `<text x="200" y="${y + 17}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`;
+  if (TB.shape === "oval") {
+    const fy = OY - OH;
+    return dealerBox(2 * FY - (fy - 16))
+      + `<image href="../images/edh-casino-logo.png" x="170" y="${2 * FY - OY - 6}" width="60" height="47" opacity=".9"/>`
+      + label(2 * FY - OY + 56);
+  }
+  return dealerBox(2 * FY - (cy - 24))
+    + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${2 * FY - cy - 84}" width="60" height="47" opacity=".9"/>`
+    + label(2 * FY - cy - 20);
 }
 $("tbl").addEventListener("click", e => { const g = e.target.closest("[data-seat]"); if (g) openSeat(+g.dataset.seat); });
 
@@ -480,6 +498,7 @@ onAuthStateChanged(getAuth(app), async u => {
   } catch (e) {}
   T = pickT(); TB = TABLES[T];
   document.body.style.visibility = "visible";
+  try { screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {}); } catch (e) {}
   if (!TB) {   // no tables at this casino yet
     document.body.innerHTML = `<div style="max-width:520px;margin:60px auto;padding:0 16px;text-align:center;font:18px/1.5 system-ui,sans-serif;color:#fff">
       <p>No tables yet at this casino.</p><p><a href="./floor.html" style="color:#E3B64A;font-weight:700">Add one on the Floor page &rsaquo;</a></p></div>`;
