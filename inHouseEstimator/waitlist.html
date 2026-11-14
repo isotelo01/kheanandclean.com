@@ -298,9 +298,9 @@ function removeGame(gid) {
 }
 /* History: removed names, with the list they were on, so they can be put back (wait-history.html). */
 const HISTREF = doc(db, "playerTracker", "waitHistory");
-function toHistory(id, v, src) {
+function toHistory(id, v, src, seated) {
   const listName = src === "app" ? "From phones" : ((games[v.game] || {}).name || "Other");
-  setDoc(HISTREF, { [id]: { ...v, src, listName, removedAt: Date.now() } }, { merge: true }).catch(fail);
+  setDoc(HISTREF, { [id]: { ...v, src, listName, removedAt: Date.now(), ...(seated ? { seated } : {}) } }, { merge: true }).catch(fail);
 }
 /* Duplicate check: if that name is already on a wait list, say so and ask for a last initial. "Same person" adds
    them anyway (e.g. the same player going on another game's list). Typing a different name clears it. */
@@ -445,6 +445,7 @@ $("smBody").addEventListener("click", e => {
     state[c] = { ...p, status: "seated", seat: +s, table: +n, since: clockStart(tables, +n), waitAt: null, breakAt: null };
     setDoc(REF, { [c]: state[c] }, { merge: true }).catch(fail);
     logEvent(c, "Seated at table " + n + " seat " + s + " (from the wait list)");
+    toHistory(seatFor.wid, w, "floor", "Table " + n + ", seat " + s);   // seated names go to History too
     delete wait[seatFor.wid]; setDoc(WAITREF, { [seatFor.wid]: deleteField() }, { merge: true }).catch(fail);
     closeSeat(); draw(); return;
   }

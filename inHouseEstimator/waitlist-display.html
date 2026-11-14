@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Waitlist Display</title>
+<style>
+/* Waitlist Display (Player Tracker): the wait lists for customers to see, on a TV. Read only, widescreen, no buttons
+   but Back. Same data and order as the Waitlist page: live games first (green), interest games after, grouped by game,
+   lowest stakes first; From phones first. Names show as first name + last initial. Staff login (the TV stays signed in). */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--navy);color:#fff;font:18px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:14px 20px 20px;display:flex;flex-direction:column;overflow:hidden}
+.top{display:flex;align-items:center;gap:14px}
+.top h1{margin:0;font-size:30px;color:var(--gold);flex:1;text-align:center}
+.back{display:inline-block;color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:6px 14px;font:700 15px system-ui,sans-serif;text-decoration:none;background:none;cursor:pointer}
+.clock{font-size:20px;color:rgba(255,255,255,.75);min-width:110px;text-align:right}
+.warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:8px;font-size:14px;margin-top:10px;display:none}
+/* Five lists across; more keep going (slow auto scroll, so a TV shows them all). */
+.board{flex:1;min-height:0;display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 64px) / 5);gap:16px;margin-top:14px;overflow:hidden}
+.col{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px 16px;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.col.live{border-color:rgba(74,222,128,.55)}
+.gh{display:flex;align-items:center;gap:8px}
+.gh b{flex:1;color:var(--gold);font-size:24px;line-height:1.2}
+.tag{font-size:14px;font-weight:800;border-radius:999px;padding:3px 10px;background:rgba(255,255,255,.12);white-space:nowrap}
+.tag.on{background:var(--ok);color:#000}
+.tbls{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.tb{font-size:14px;font-weight:700;border-radius:999px;padding:3px 10px;background:rgba(74,222,128,.15);color:var(--ok)}
+.tb.full{background:rgba(255,255,255,.08);color:rgba(255,255,255,.6)}
+.cnt{font-size:15px;color:rgba(255,255,255,.65);margin:4px 0 6px}
+ol{list-style:none;margin:0;padding:0;overflow:hidden}
+li{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:24px;font-weight:600}
+li:last-child{border-bottom:0}
+li .n{color:var(--gold);min-width:1.6em}
+li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+li .ph{font-size:13px;color:#7dd3fc;font-weight:700}
+.empty{color:rgba(255,255,255,.55);font-size:18px;padding:10px 0}
+</style>
+</head>
+<body style="visibility:hidden">
+  <div class="top"><button class="back" id="back">&lsaquo; Back</button><h1>Wait List</h1><div class="clock" id="clock"></div></div>
+  <div class="warn" id="warn">Not syncing with the server.</div>
+  <div class="board" id="board"></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, CASINO, casinoDoc, withCasino, liveLists, expired } from "./pt-people.js";
+import { setPg, pgName, pgAll, TABLE_GAMES } from "./pg-menu.js";
+const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+const db = getFirestore(app);
+const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
+const WAITREF = doc(db, "playerTracker", "waitlist"), GAMESREF = doc(db, "playerTracker", "waitgames");
+const TBLREF = doc(db, "playerTracker", "tables"), LISTREF = doc(db, "playerTracker", "tablelist"), PGREF = doc(db, "playerTracker", "pokergames");
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fail = () => { $("warn").style.display = "block"; };
+let state = {}, roster = {}, profiles = {}, wait = {}, games = {}, tables = {}, tlist = {};
+const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
+const isPlayer = c => !!(ROSTER[c] || roster[c]);
+/* On a public screen: first name and last initial ("Angela S."). */
+const shortName = n => { const p = String(n).trim().split(/\s+/); return p.length > 1 ? p[0] + " " + p[p.length - 1][0].toUpperCase() + "." : p[0]; };
+
+/* Back: close this window if it was opened from the hub, otherwise go back (or to the hub). */
+$("back").onclick = () => { if (window.opener) { window.close(); return; } if (history.length > 1) history.back(); else location.href = withCasino("./player-tracker-hub.html"); };
+const tick = () => { $("clock").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); };
+tick(); setInterval(tick, 15000);
+
+/* Open seats at a game's open tables (same counting as the Waitlist page: players only). */
+const BASE_SEATS = CASINO !== "edh" ? {} : { 1: 7, 2: 7, 3: 9, 4: 7, 5: 7 };
+const tablesFor = name => Object.entries(tlist || {})
+  .filter(([n, t]) => t && t.variant && !t.deleted && tables[n] && tables[n].open && (t.stakes ? t.stakes + " " : "") + t.variant === name)
+  .map(([n, t]) => { const seats = Array.isArray(t.seats) ? t.seats.length : BASE_SEATS[n] || 0;
+    const sat = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "seated" && String(p.table || 1) === String(n)).length;
+    return { n, open: Math.max(0, seats - sat) }; }).sort((a, b) => a.n - b.n);
+/* Same order as the Waitlist page. */
+const gameKey = name => {
+  const m = String(name).match(/^(\d+(?:\.\d+)?(?:\/\d+(?:\.\d+)?)+)\s+(.*)$/), v = m ? m[2] : String(name);
+  let gi = pgAll().findIndex(id => pgName(id) === v);
+  if (gi < 0) { const t = Object.values(TABLE_GAMES).indexOf(v); gi = 1000 + (t < 0 ? 99 : t); }
+  return { gi, v, st: m ? m[1].split("/").map(Number) : [] };
+};
+const byGame = (a, b) => {
+  if (!!b.open !== !!a.open) return b.open ? 1 : -1;
+  const x = gameKey(a.name), y = gameKey(b.name);
+  if (x.gi !== y.gi) return x.gi - y.gi;
+  if (x.v !== y.v) return x.v.localeCompare(y.v);
+  for (let i = 0; i < Math.max(x.st.length, y.st.length); i++) if ((x.st[i] || 0) !== (y.st[i] || 0)) return (x.st[i] || 0) - (y.st[i] || 0);
+  return (a.at || 0) - (b.at || 0);
+};
+
+function draw() {
+  const col = (title, list, cls, tag, tbls) => `<div class="col ${cls}"><div class="gh"><b>${esc(title)}</b>${tag || ""}</div>${tbls || ""}
+      <div class="cnt">${list.length} waiting</div>
+      ${list.length ? `<ol>${list.map((w, i) => `<li><span class="n">${i + 1}.</span><span class="nm">${esc(shortName(w.name))}</span>${w.call ? `<span class="ph">CALLED IN</span>` : ""}</li>`).join("")}</ol>` : `<div class="empty">Nobody waiting.</div>`}</div>`;
+  const names = Object.entries(wait).filter(([, v]) => v && v.name && !expired(v)).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, call: !!v.call }));
+  let html = "";
+  const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait").map(([c, p]) => ({ name: nameOf(c), at: p.waitAt || 0 })).sort((a, b) => a.at - b.at);
+  if (phones.length) html += col("From phones", phones, "", "");
+  html += liveLists(games, wait, tables, tlist).filter(L => L.open || L.count).sort(byGame).map(L => {
+    const T = L.open ? tablesFor(L.name) : [];
+    return col(L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.at - b.at), L.open ? "live" : "",
+      L.open ? `<span class="tag on">Open</span>` : `<span class="tag">Interest</span>`,
+      T.length ? `<div class="tbls">${T.map(t => `<span class="tb${t.open ? "" : " full"}">Table ${esc(t.n)} &middot; ${t.open ? t.open + " open" : "Full"}</span>`).join("")}</div>` : "");
+  }).join("");
+  $("board").innerHTML = html || `<div class="empty" style="font-size:24px">No wait lists right now.</div>`;
+}
+
+/* More than five lists: slide across slowly, pause at each end, so a TV shows them all. */
+let dir = 1;
+setInterval(() => {
+  const b = $("board"), max = b.scrollWidth - b.clientWidth; if (max <= 0) return;
+  if ((dir > 0 && b.scrollLeft >= max - 1) || (dir < 0 && b.scrollLeft <= 0)) { dir = -dir; return; }
+  b.scrollLeft += dir * 2;
+}, 40);
+
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=waitlist-display.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  document.body.style.visibility = "visible";
+  draw();
+  const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
+  on(REF, v => state = v); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v); on(TBLREF, v => tables = v); on(LISTREF, v => tlist = v); on(PGREF, setPg);
+  onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  setInterval(draw, 60000);
+});
+</script>
+</body>
+</html>

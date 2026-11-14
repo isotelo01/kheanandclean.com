@@ -65,7 +65,7 @@ let hist = {}, games = {}, state = {};
 function draw() {
   const H = Object.entries(hist).filter(([, v]) => v && v.removedAt).sort((a, b) => b[1].removedAt - a[1].removedAt).slice(0, 300);
   $("list").innerHTML = H.length ? H.map(([id, v]) => `<div class="row"><div class="nm"><b>${v.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(v.card)}" style="color:inherit">${esc(v.name)}</a>` : esc(v.name)}</b>
-      <span>${esc(v.listName || "Other")}${v.call ? " &middot; phoned in" : ""} &middot; removed ${ago(v.removedAt)}</span></div>
+      <span>${esc(v.listName || "Other")}${v.call ? " &middot; phoned in" : ""} &middot; ${v.seated ? "seated at " + esc(v.seated) : "removed"} ${ago(v.removedAt)}</span></div>
       <button class="btn sm" data-restore="${esc(id)}">Restore</button><button class="x" data-del="${esc(id)}" title="Delete from history">&times;</button></div>`).join("")
     : `<div class="empty">Nobody has been removed from a list yet.</div>`;
 }
