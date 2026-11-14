@@ -273,6 +273,14 @@ function draw() {
     const bySeat = {}; players.forEach(([, p]) => { bySeat[p.seat] = p; });
     return planTable(n, tb, open, bySeat, dealer && dealer[0], players.length, brk, plan[n] || PLAN_DEFAULT[n]);
   }).join("") + "</g>";
+  /* Waitlist (embed): zoom to just the tables and inside walls, so the plan fills its spot instead of sitting small in empty floor. */
+  if (PLAN_ROT && !planDrag) {
+    const g = $("plan").firstElementChild; let bb = null; try { bb = g.getBBox(); } catch (e) {}
+    if (bb && bb.width > 0 && bb.height > 0) {
+      const H = Math.round(vbH), pad = 14;   // the plan is turned: a point (x, y) lands at (H - y, x)
+      $("plan").setAttribute("viewBox", `${H - (bb.y + bb.height) - pad} ${bb.x - pad} ${bb.height + 2 * pad} ${bb.width + 2 * pad}`);
+    }
+  }
 
   /* Table pop-up (tap a table): open/closed, dealer, seated players (tap for their profile), rotate/size,
      Dealer Control, and Edit (number, game, delete). The live part redraws; the edit form is built once per table. */
