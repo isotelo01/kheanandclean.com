@@ -27,7 +27,9 @@ h1{margin:0;font-size:26px;color:var(--gold)}
    Saved on this device. On a phone the boxes stack. */
 .board{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:40px;grid-auto-flow:row dense;gap:12px;margin-top:14px}
 .wdg{position:relative;background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;overflow:auto;min-width:0}
-.wdg>.gh{cursor:grab;user-select:none;touch-action:none}
+.wdg{cursor:grab}.wdg>.gh{user-select:none;touch-action:none}   /* touch: drag by the title bar (the rest scrolls) */
+body.dragging{user-select:none}
+.wdg button,.wdg a,.wdg input{cursor:pointer}.wdg input{cursor:text}
 .wdg.drag{opacity:.55;outline:2px dashed var(--gold)}
 body.dragging iframe{pointer-events:none}
 .wx{background:none;border:0;color:rgba(255,255,255,.5);font-size:20px;line-height:1;cursor:pointer;padding:0 2px}
@@ -223,19 +225,26 @@ $("board").addEventListener("click", e => {
   if (!lay.hidden.includes(hd.dataset.hide)) lay.hidden.push(hd.dataset.hide);
   laySave(); layoutApply();
 });
-/* Drag a box by its title bar: as it passes over another box, it takes that box's place and the rest shift. */
+/* Pick a box up anywhere (not on a button, link or box to type in) and drag it: once it moves a few pixels it's
+   picked up, and as it passes over another box it takes that box's place and the rest shift. Corner = resize. */
 let mv = null;
 $("board").addEventListener("pointerdown", e => {
-  const grip = e.target.closest(".grip"), gh = !grip && e.target.closest(".wdg > .gh");
-  if (!grip && !gh) return;
-  if (gh && e.target.closest("button, a, input")) return;
-  const el = e.target.closest(".wdg"), id = el.dataset.w, r = el.getBoundingClientRect();
-  const cs = getComputedStyle($("board")), cols = 12, gap = 12, colW = ($("board").clientWidth - gap * (cols - 1)) / cols;
-  mv = { el, id, grip: !!grip, x: e.clientX, y: e.clientY, w: r.width, h: r.height, colW, rowH: 40 + gap, gap };
-  e.target.setPointerCapture(e.pointerId); el.classList.add("drag"); document.body.classList.add("dragging"); e.preventDefault();
+  if (e.button > 0 || window.matchMedia("(max-width:760px)").matches) return;   // phone: boxes just stack
+  const grip = e.target.closest(".grip"), el = e.target.closest(".wdg");
+  if (!el || (!grip && e.target.closest("button, a, input, select, textarea, label"))) return;
+  const r = el.getBoundingClientRect(), gap = 12, colW = ($("board").clientWidth - gap * 11) / 12;
+  mv = { el, id: el.dataset.w, grip: !!grip, x: e.clientX, y: e.clientY, w: r.width, h: r.height, colW, rowH: 40 + gap, gap, on: false, pid: e.pointerId, tgt: e.target };
+  if (grip) e.preventDefault();
 });
 addEventListener("pointermove", e => {
   if (!mv) return;
+  if (!mv.on) {   // picked up after it moves 6px, so taps and text clicks still work
+    if (Math.hypot(e.clientX - mv.x, e.clientY - mv.y) < 6) return;
+    mv.on = true; mv.el.classList.add("drag"); document.body.classList.add("dragging");
+    try { mv.tgt.setPointerCapture(mv.pid); } catch (x) {}
+    const sel = getSelection && getSelection(); if (sel) sel.removeAllRanges();
+  }
+  e.preventDefault();
   if (mv.grip) {   // resize in grid steps
     const w = Math.round((mv.w + e.clientX - mv.x + mv.gap) / (mv.colW + mv.gap)), h = Math.round((mv.h + e.clientY - mv.y + mv.gap) / mv.rowH);
     const z = lay.size[mv.id] || LDEF[mv.id] || LIST_DEF;
@@ -251,7 +260,7 @@ addEventListener("pointermove", e => {
   o.splice(after ? i + 1 : i, 0, mv.id);
   if (o.join() !== lay.order.join()) { lay.order = o; layoutApply(); }
 });
-const mvEnd = () => { if (!mv) return; mv.el.classList.remove("drag"); document.body.classList.remove("dragging"); mv = null; laySave(); };
+const mvEnd = () => { if (!mv) return; const was = mv.on; mv.el.classList.remove("drag"); document.body.classList.remove("dragging"); mv = null; if (was) laySave(); };
 addEventListener("pointerup", mvEnd); addEventListener("pointercancel", mvEnd);
 /* Games button: the Games menu (star favorites, start lists for poker and table games). Tap a favorite to open it too. */
 const listFor = name => Object.keys(games).find(gid => games[gid] && games[gid].name === name);
