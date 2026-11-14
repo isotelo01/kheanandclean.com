@@ -38,6 +38,8 @@ select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-r
 @media (max-width:760px){html:not(.turned) .hdr{grid-template-columns:1fr}html:not(.turned) .hdr .wdg[data-w="floor"]{height:420px}}
 /* Lists: one row, five across the page; more than five keep going to the right with a scroll bar. */
 .board{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 48px) / 5);grid-template-rows:minmax(360px,auto);gap:12px;margin-top:14px;overflow-x:auto;padding-bottom:8px}
+/* Scroll bar on top of the lists: flip the row upside down (bar goes to the top), then flip each list back. */
+.board{transform:rotateX(180deg)}.board>.wdg{transform:rotateX(180deg)}
 .board::-webkit-scrollbar{height:12px}.board::-webkit-scrollbar-thumb{background:rgba(227,182,74,.5);border-radius:6px}.board::-webkit-scrollbar-track{background:rgba(255,255,255,.06);border-radius:6px}
 .wdg{position:relative;background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;overflow:auto;min-width:0}
 .wdg button,.wdg a,.wdg input{cursor:pointer}.wdg input{cursor:text}
@@ -45,7 +47,7 @@ select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-r
 .wdg[data-w="floor"] iframe{flex:1;width:100%;border:0;border-radius:8px;background:transparent;min-height:0;overflow:hidden}
 .wdg[data-w="floor"]{overflow:hidden;background:none;border:0;padding:0}   /* no frame: just the tables floating */
 .fopen{position:absolute;top:0;right:0;z-index:2}   /* Open in the top-right corner, over the plan's spot (the plan stays centered) */
-@media (max-width:760px){html:not(.turned) .board{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:auto;overflow-x:visible}html:not(.turned) .wdg{grid-column:1/-1!important;grid-row:auto!important}
+@media (max-width:760px){html:not(.turned) .board,html:not(.turned) .board>.wdg{transform:none}html:not(.turned) .board{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:auto;overflow-x:visible}html:not(.turned) .wdg{grid-column:1/-1!important;grid-row:auto!important}
   html:not(.turned) .wdg[data-w="floor"]{height:420px}}
 .tbls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .tb{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.75)}
