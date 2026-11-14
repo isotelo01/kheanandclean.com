@@ -100,6 +100,12 @@ a.bub{text-decoration:none;display:inline-block}
     <datalist id="wPlayers"></datalist>
     <div class="bubs"><button class="bub" id="wPhone" type="button">Phoned in</button><a class="bub" id="wHist" href="./wait-history.html">History</a> <span class="hint" id="wHow"></span></div>
     <div class="wlbl">Games</div><div class="wgrid" id="wGames"></div>
+    <!-- Duplicate: that name is already on a wait list. Add a last initial (or say it's the same person). -->
+    <div id="dupBox" hidden style="border:1px solid var(--bad);border-radius:10px;padding:8px 10px;display:grid;gap:6px">
+      <div><b style="color:var(--bad)">Duplicate</b> <span class="hint" id="dupMsg"></span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><input id="dupInit" maxlength="3" placeholder="Last initial" style="width:110px" autocomplete="off">
+        <button class="btn sm" id="dupAdd" type="button">Add with initial</button><button class="btn ghost sm" id="dupSame" type="button">Same person</button></div>
+    </div>
     <button class="btn" id="wAdd">+ Add to wait list</button>
   </div></div>
   </div>
@@ -286,10 +292,27 @@ function toHistory(id, v, src) {
   const listName = src === "app" ? "From phones" : ((games[v.game] || {}).name || "Other");
   setDoc(HISTREF, { [id]: { ...v, src, listName, removedAt: Date.now() } }, { merge: true }).catch(fail);
 }
-const addToWait = () => {
+/* Duplicate check: if that name is already on a wait list, say so and ask for a last initial. "Same person" adds
+   them anyway (e.g. the same player going on another game's list). Typing a different name clears it. */
+const onListNamed = n => Object.values(wait).filter(v => v && v.name && v.name.trim().toLowerCase() === n.trim().toLowerCase());
+const hideDup = () => { $("dupBox").hidden = true; $("dupInit").value = ""; };
+$("wName").addEventListener("input", hideDup);
+$("dupAdd").onclick = () => {
+  const ini = $("dupInit").value.trim().replace(/\.+$/, ""); if (!ini) { $("dupInit").focus(); return; }
+  $("wName").value = $("wName").value.trim() + " " + ini.toUpperCase() + "."; hideDup(); addToWait();
+};
+$("dupSame").onclick = () => { hideDup(); addToWait(true); };
+$("dupInit").onkeydown = e => { if (e.key === "Enter") $("dupAdd").onclick(); };
+const addToWait = (same) => {
   const name = $("wName").value.trim(), picked = [...wSel].filter(g => games[g]);
   if (!name) { $("wName").focus(); return; }
   if (!picked.length) { alert("Tap at least one game."); return; }
+  const dups = same ? [] : onListNamed(name);
+  if (dups.length) {
+    const where = [...new Set(dups.map(v => (games[v.game] || {}).name || "a list"))].join(", ");
+    $("dupMsg").textContent = name + " is already on " + where + ". Add a last initial.";
+    $("dupBox").hidden = false; $("dupInit").focus(); return;
+  }
   const card = [...Object.keys(ROSTER), ...Object.keys(roster)].find(c => nameOf(c).toLowerCase() === name.toLowerCase());
   const upd = {}, now = Date.now();
   picked.forEach((gid, k) => {
@@ -301,10 +324,10 @@ const addToWait = () => {
   setDoc(WAITREF, upd, { merge: true }).catch(fail);
   $("wName").value = ""; $("wName").focus();
   if (wCall) setHow(false);   // back to walk-in for the next one
-  wSel.clear();               // games start over for the next name
+  wSel.clear(); hideDup();    // games start over for the next name
   draw();
 };
-$("wAdd").onclick = addToWait;
+$("wAdd").onclick = () => addToWait();
 $("wName").onkeydown = e => { if (e.key === "Enter") addToWait(); };
 document.addEventListener("click", e => {
   const ar = e.target.closest("[data-arr]");   // phoned-in player showed up: no more drop-off timer
