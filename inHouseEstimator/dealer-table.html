@@ -235,7 +235,7 @@ function draw() {
         <rect x="-50" y="-50" width="500" height="400" fill="#fff"/><rect x="${OX - GAP_W - 2}" y="-50" width="${GAP_W * 2 + 4}" height="${OY - OH + 56}" fill="#000"/>
       </mask>
       <!-- Felt and leather grain cut from images/eldorado-hills-emerald-poker-table.png (edh-felt.jpg, edh-leather.jpg). -->
-      <pattern id="feltImg" patternUnits="userSpaceOnUse" width="200" height="60"><image href="../images/edh-felt.jpg" width="200" height="60" preserveAspectRatio="none"/></pattern>
+      <pattern id="feltImg" patternUnits="userSpaceOnUse" width="200" height="52.5"><image href="../images/edh-felt.jpg?v=2" width="200" height="52.5" preserveAspectRatio="none"/></pattern>
       <pattern id="leatherImg" patternUnits="userSpaceOnUse" width="250" height="11.25"><image href="../images/edh-leather.jpg" width="250" height="11.25" preserveAspectRatio="none"/></pattern>
       <radialGradient id="feltG" cx="${cx}" cy="${cy + 40}" r="${r}" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
@@ -335,7 +335,7 @@ function tableBody(d) {
       + `<line x1="${gl - 8}" y1="${ty}" x2="${gr + 8}" y2="${ty}" stroke="#050505" stroke-width="4"/>`
       + `<line x1="${gl - 8}" y1="${ty + 1.6}" x2="${gr + 8}" y2="${ty + 1.6}" stroke="#d4a843" stroke-width="1"/>`
       + RAIL_BLACK.map(([w, col]) => `<path d="${rail}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`).join("")
-      + `<path d="${rail}" fill="none" stroke="url(#leatherImg)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" opacity=".75" style="mix-blend-mode:overlay"/>`   // leather grain
+      + `<path d="${rail}" fill="none" stroke="url(#leatherImg)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" opacity=".45" style="mix-blend-mode:overlay"/>`   // leather grain
       + `<rect x="${fx - 5}" y="${fy - 5}" width="${fw + 10}" height="${fh + 10}" rx="${rx + 5}" fill="none" stroke="url(#railLight)" stroke-width="3" mask="url(#dlrGap)"/>`;   // rail catching the light
   }
   const m = r + 8, rp = `M${cx - m} ${cy - 6} L${cx + m} ${cy - 6} L${cx + m} ${cy} A ${m} ${m} 0 0 1 ${cx - m} ${cy} Z`;
