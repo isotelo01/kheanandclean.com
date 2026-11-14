@@ -80,6 +80,9 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 .wgrid .bub{display:flex;align-items:center;gap:6px;text-align:left;width:100%}.wgrid .bub span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wgrid .bub i{font-style:normal;opacity:.6;font-size:15px;line-height:1;padding:0 2px}.wgrid .bub i:hover{opacity:1}
 a.bub{text-decoration:none;display:inline-block}
+/* Live games (a table open running it) on top in green; a game you've tapped turns blue. */
+.wgrid .bub.live{background:var(--ok);border-color:var(--ok);color:#000}
+.wgrid .bub.on{background:#38bdf8;border-color:#38bdf8;color:#000}
 .bub{border:1px solid var(--gold);background:none;color:var(--gold);border-radius:999px;padding:4px 11px;font:700 13px system-ui,sans-serif;cursor:pointer}
 .bub.on{background:var(--ok);border-color:var(--ok);color:#000}
 </style>
@@ -188,7 +191,7 @@ function draw() {
   /* + Add to wait list: every list as a bubble (tap one or more), and every player's name for the pop-up. */
   const all = liveLists(games, wait, tables, tlist);
   for (const g of [...wSel]) if (!all.some(L => L.gid === g)) wSel.delete(g);
-  $("wGames").innerHTML = all.length ? all.map(L => `<button class="bub${wSel.has(L.gid) ? " on" : ""}" data-wg="${esc(L.gid)}" type="button"><span>${esc(L.name)}</span><i data-wgx="${esc(L.gid)}" title="Remove this game">&times;</i></button>`).join("")
+  $("wGames").innerHTML = all.length ? [...all].sort((a, b) => b.open - a.open).map(L => `<button class="bub${L.open ? " live" : ""}${wSel.has(L.gid) ? " on" : ""}" data-wg="${esc(L.gid)}" type="button"><span>${esc(L.name)}</span><i data-wgx="${esc(L.gid)}" title="Remove this game">&times;</i></button>`).join("")
     : `<span class="hint">No games yet. Open a poker table on the Floor page.</span>`;
   const pl = [...new Set([...Object.keys(ROSTER), ...Object.keys(roster)].map(nameOf))].sort();
   if (pl.length !== plCount) { plCount = pl.length; $("wPlayers").innerHTML = pl.map(n => `<option value="${esc(n)}">`).join(""); }
