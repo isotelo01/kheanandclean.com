@@ -25,6 +25,8 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidd
 #gear{position:fixed;top:calc(env(safe-area-inset-top) + 8px);right:10px;z-index:30;width:44px;height:44px;border-radius:50%;border:1px solid var(--gold);
   background:none;color:var(--gold);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 #gear svg{width:24px;height:24px}
+/* Table number, top right next to the gear. */
+#tnum{position:fixed;top:calc(env(safe-area-inset-top) + 8px);right:64px;z-index:30;height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--gold);background:rgba(11,18,32,.85);color:var(--gold);font:800 22px/42px system-ui,sans-serif;letter-spacing:.04em}
 .mbox .tabs{margin:0;justify-content:flex-start}
 .mbox .tabs a{min-width:48px;height:48px;font-size:18px}
 .tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
@@ -92,6 +94,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <body style="visibility:hidden">
 <div class="top"><a class="btn ghost" href="./player-tracker-hub.html">&lsaquo; Back</a><b id="ttl">Table</b><button class="btn ghost" id="callBtn">Call</button><div class="tabs" id="tabs"></div></div>
 <button id="gear" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+<div id="tnum"></div>
 <div class="warn" id="warn">Not syncing with the server.</div>
 <div id="reqs"></div>
 <svg id="tbl" viewBox="-24 0 448 272" preserveAspectRatio="xMidYMid meet"></svg>
@@ -574,6 +577,7 @@ onAuthStateChanged(getAuth(app), async u => {
   }
   const lbl = TB.variant ? (TB.stakes ? TB.stakes + " " : "") + TB.variant : TB.game;   // a poker table shows its stakes and game
   $("ttl").textContent = "Table " + T + ": " + lbl;
+  $("tnum").textContent = "Table " + T;
   document.title = "Table " + T + " · " + lbl;
   $("tabs").innerHTML = Object.keys(TABLES).map(n => `<a href="?t=${n}" class="${+n === T ? "on" : ""}" title="${esc(TABLES[n].game)}">${n}</a>`).join("");
   draw();
