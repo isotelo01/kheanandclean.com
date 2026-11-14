@@ -148,7 +148,9 @@ import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setD
 import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, openGameNames, liveLists, expired } from "./pt-people.js";
 import { pg, setPg, pgName, pgAll, stakesFor, STAKES_NL, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
-if (new URLSearchParams(location.search).has("embed")) {   // inside the Waitlist page: the plan sits in the top-right corner of its box
+/* Inside the Waitlist page (?embed) the whole plan is turned a quarter turn clockwise to fill its wide spot. */
+const PLAN_ROT = new URLSearchParams(location.search).has("embed") ? 90 : 0;
+if (PLAN_ROT) {   // inside the Waitlist page: the plan sits in the top-right corner of its box
   document.documentElement.classList.add("embed"); document.getElementById("plan").setAttribute("preserveAspectRatio", "xMaxYMin meet");
 }
 const app = initializeApp({
@@ -219,11 +221,13 @@ function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
     tb.seats.forEach((st, k) => { const a = Math.PI * ((k + 1) / (tb.seats.length + 1)); s += chair(100 + Math.cos(a) * 94, 16 + Math.sin(a) * 94, 100, 16, st); });
     label = 52;
   }
-  s += `<text x="100" y="${label}" fill="${open ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.55)"}" font-size="26" font-weight="700" text-anchor="middle">${n}</text>`;
+  /* Words stay upright: undo the table's turn (and the whole plan's turn) around each block of text. */
+  const up = -((pos.rot || 0) + PLAN_ROT), upAt = (x, y) => `transform="rotate(${up} ${x} ${y})"`;
+  s += `<g ${upAt(100, label - 4)}><text x="100" y="${label}" fill="${open ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.55)"}" font-size="26" font-weight="700" text-anchor="middle">${n}</text>`;
   if (!open) s += `<text x="100" y="${label + 18}" fill="#f87171" font-size="12" font-weight="700" letter-spacing="2" text-anchor="middle" pointer-events="none">CLOSED</text>`;
-  s += `<text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${esc(tblLabel(tb))}</text>`
+  s += `</g><g ${upAt(100, 162)}><text x="100" y="146" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${esc(tblLabel(tb))}</text>`
      + `<text x="100" y="162" fill="rgba(255,255,255,.7)" font-size="11" text-anchor="middle">${dealer ? esc(nameOf(dealer)) : "No dealer"} &#183; ${nSeated}/${tb.seats.length} seated${nBreak ? " &#183; " + nBreak + " on break" : ""}</text>`
-     + `<a href="./dealer-table.html?t=${n}"><text x="100" y="178" fill="#E3B64A" font-size="11" font-weight="700" text-anchor="middle">Dealer Control &#8250;</text></a>`;
+     + `<a href="./dealer-table.html?t=${n}"><text x="100" y="178" fill="#E3B64A" font-size="11" font-weight="700" text-anchor="middle">Dealer Control &#8250;</text></a></g>`;
   return `<g class="ptbl${selT === n ? " sel" : ""}" data-tbl="${n}" transform="${tblXf(pos)}">${s}</g>`;
 }
 const CALLS = { drinks: "Drinks", service: "Service", chips: "Chips", floor: "Floor" };
@@ -258,8 +262,8 @@ function draw() {
     vbW = Math.max(vbW, (Math.max(...xs) - mx) * FT_PX + 40); vbH = Math.max(vbH, (Math.max(...ys) - my) * FT_PX + 40);
   }
   for (const n of Object.keys(TABLES)) { const q = plan[n] || PLAN_DEFAULT[n]; vbW = Math.max(vbW, q.x + 230); vbH = Math.max(vbH, q.y + 210); }
-  if (!planDrag) $("plan").setAttribute("viewBox", `0 0 ${Math.round(vbW)} ${Math.round(vbH)}`);
-  if (!planDrag) $("plan").innerHTML = bld + Object.entries(TABLES).map(([n, tb]) => {
+  if (!planDrag) $("plan").setAttribute("viewBox", PLAN_ROT ? `0 0 ${Math.round(vbH)} ${Math.round(vbW)}` : `0 0 ${Math.round(vbW)} ${Math.round(vbH)}`);
+  if (!planDrag) $("plan").innerHTML = (PLAN_ROT ? `<g transform="translate(${Math.round(vbH)} 0) rotate(90)">` : "<g>") + bld + Object.entries(TABLES).map(([n, tb]) => {
     n = +n;
     const on = Object.entries(state).filter(([c, p]) => p && p.status === "seated" && (p.table || 1) === n);
     const dealer = on.find(([c]) => DEALERS[c]);
@@ -268,7 +272,7 @@ function draw() {
     const open = !!(tables[n] && tables[n].open);
     const bySeat = {}; players.forEach(([, p]) => { bySeat[p.seat] = p; });
     return planTable(n, tb, open, bySeat, dealer && dealer[0], players.length, brk, plan[n] || PLAN_DEFAULT[n]);
-  }).join("");
+  }).join("") + "</g>";
 
   /* Table pop-up (tap a table): open/closed, dealer, seated players (tap for their profile), rotate/size,
      Dealer Control, and Edit (number, game, delete). The live part redraws; the edit form is built once per table. */
