@@ -43,6 +43,7 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .tb{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.75)}
 .tb.seat{background:rgba(74,222,128,.15);color:var(--ok)}
 /* Favorite games under the Games button: live (a table open running it) = green, not live = clear. */
+[hidden]{display:none!important}
 .favs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .fav{border:1px solid rgba(255,255,255,.35);background:none;color:#fff;border-radius:999px;padding:5px 12px;font:700 13px system-ui,sans-serif;cursor:pointer}
 .fav.live{background:var(--ok);border-color:var(--ok);color:#000}
@@ -72,13 +73,12 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <div class="wrap">
   <!-- Header area: title, favorites and the add-a-name form on the left; the floor plan in the top-right corner of the page. -->
   <div class="hdr"><div class="hl">
-  <div class="top"><a class="btn ghost sm" href="./player-tracker-hub.html">&lsaquo; Player Tracker</a><h1>Waitlist</h1>
-    <button class="btn ghost sm" id="gamesBtn">Games</button>
+  <div class="top"><button class="btn ghost sm" id="gamesBtn">Games</button>
   </div>
-  <div class="favs" id="favs"></div>
+  <div class="favs" id="favs" hidden></div>   <!-- favorites row: hidden for a clean page -->
   <div class="warn" id="warn">Not syncing with the server.</div>
   <!-- Add a name: Name (players pop up as you type), Phoned in (walk-in if not), the games (tap one or more), then the button. -->
-  <div class="wdg" data-w="form"><div class="gh"><b>Add a name</b></div>
+  <div class="wdg" data-w="form">
   <div id="addWBox" style="display:grid;gap:8px">
     <input id="wName" list="wPlayers" placeholder="Name" autocomplete="off">
     <datalist id="wPlayers"></datalist>
