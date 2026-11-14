@@ -54,6 +54,14 @@ select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-r
 .tb.seat{background:rgba(74,222,128,.15);color:var(--ok)}
 /* Favorite games under the Games button: live (a table open running it) = green, not live = clear. */
 [hidden]{display:none!important}
+#seatModal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+#seatModal .sm-in{background:#0b1220;border:1px solid var(--gold);border-radius:14px;padding:14px 16px;max-width:560px;width:100%;max-height:90vh;overflow:auto}
+#seatModal .sm-h{display:flex;align-items:center;margin-bottom:8px}#seatModal .sm-h b{flex:1;color:var(--gold);font-size:18px}
+#seatModal .x{background:none;border:0;color:rgba(255,255,255,.7);font-size:26px;line-height:1;cursor:pointer}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;margin:6px 0 14px}
+.sgrid button{border:1px solid var(--ok);background:rgba(74,222,128,.12);color:#fff;border-radius:10px;padding:10px 4px;font:700 16px system-ui,sans-serif;cursor:pointer}
+.sgrid button:disabled{border-color:rgba(255,255,255,.15);background:none;color:rgba(255,255,255,.35);cursor:default;font-size:12px}
+.sgrid button span{display:block;font-size:11px;font-weight:600}
 .favs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .fav{border:1px solid rgba(255,255,255,.35);background:none;color:#fff;border-radius:999px;padding:5px 12px;font:700 13px system-ui,sans-serif;cursor:pointer}
 .fav.live{background:var(--ok);border-color:var(--ok);color:#000}
@@ -129,8 +137,8 @@ a.bub{text-decoration:none;display:inline-block}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists, openGameNames, expired, CALL_MS } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField, arrayUnion } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists, openGameNames, expired, CALL_MS, clockStart } from "./pt-people.js";   // 200 test players, 10 test dealers
 import { pg, setPg, pgName, pgAll, stakesFor, TABLE_GAMES, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 function fitTurn() {   // upright screen: turn the page sideways so it's always landscape
@@ -194,7 +202,7 @@ function draw() {
   const row = (w, i) => `<div class="row${w.call ? " call" : ""}">
       <div class="nm"><b>${i + 1}. ${w.src === "app" || w.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.card || w.id)}" style="color:inherit">${esc(w.name)}</a>` : esc(w.name)}</b><span>${w.call
         ? "Phoned in " + (ago(w.at) === "just now" ? "just now" : ago(w.at) + " ago") + " &middot; drops off in " + Math.max(1, Math.ceil((w.at + CALL_MS - Date.now()) / 60000)) + "m" : "waiting " + ago(w.at)}</span></div>
-      ${w.call ? `<button class="btn sm" data-arr="${esc(w.id)}" title="They're here">Arrived</button>` : ""}<button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
+      ${w.call ? `<button class="btn sm" data-arr="${esc(w.id)}" title="They're here">Arrived</button>` : ""}${w.src === "floor" && games[w.game] && seatTables(games[w.game].name).length ? `<button class="btn sm" data-seat="${esc(w.id)}" title="Pick a seat">Seat</button>` : ""}<button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
   /* Under each game: its table numbers, and how many seats are open at each. */
   const tblLine = name => { const T = tablesFor(name); return T.length ? `<div class="tbls">${T.map(t => `<span class="tb${t.open ? " seat" : ""}">Table ${esc(t.n)} &middot; ${t.open ? t.open + (t.open > 1 ? " seats" : " seat") + " open" : "Full"}</span>`).join("")}</div>` : ""; };
   const box = (id, title, list, tag) => ({ id, html: `<div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span></div>${tag ? tblLine(title) : ""}
@@ -354,7 +362,7 @@ function drawDealers() {
   const act = Object.keys(DEALERS).filter(dTable).sort((a, b) => dTable(a) - dTable(b));
   $("dActive").innerHTML = act.length ? act.map(d => `<div class="drow"><b>${esc(dName(d))}</b><span>Table ${dTable(d)}</span></div>`).join("") : `<div class="empty">No dealers on a table.</div>`;
   $("dRot").innerHTML = rot.length ? rot.map((d, i) => `<div class="drow"><b>${i + 1}. ${esc(dName(d))}</b><span>${dTable(d) ? "Table " + dTable(d) : "Off"}</span>
-      ${i ? `<button class="mini" data-dup="${i}" title="Move up">&uarr;</button>` : ""}<button class="mini" data-drm="${i}" title="Take off the rotation">&times;</button></div>`).join("")
+      <button class="mini" data-dseat="${esc(d)}" title="Put on a table">Seat</button>${i ? `<button class="mini" data-dup="${i}" title="Move up">&uarr;</button>` : ""}<button class="mini" data-drm="${i}" title="Take off the rotation">&times;</button></div>`).join("")
     : `<div class="empty">Add dealers below to build the rotation.</div>`;
   const pick = Object.keys(DEALERS).filter(d => !rot.includes(d)).sort((a, b) => dName(a).localeCompare(dName(b)));
   const cur = $("dPick").value;
@@ -387,6 +395,66 @@ function drawPromos() {
     : `<div class="empty">No promotions given today.</div>`;
 }
 
+/* ---- Seat: a player from a wait list (their game's open tables, tap a seat) or a dealer from the rotation (tap a table).
+   Seating writes to playerTracker/poc like the Player Tracker does; the player comes off that list. ---- */
+const LOGREF = doc(db, "playerTracker", "log");
+const logEvent = (c, a) => setDoc(LOGREF, { events: arrayUnion({ c, a, t: Date.now() }) }, { merge: true }).catch(() => {});
+const BASE_SEATLIST = CASINO !== "edh" ? {} : { 1: [1, 2, 3, 4, 5, 6, 7], 2: [1, 2, 3, 5, 6, 7, 8], 3: [1, 2, 3, 4, 5, 6, 7, 8, 9], 4: [1, 2, 3, 4, 5, 6, 7], 5: [1, 2, 3, 4, 5, 6, 7] };
+const tblName = n => { const t = tlist[n] || {}; return t.variant ? (t.stakes ? t.stakes + " " : "") + t.variant : t.game || BASE_GAME[n] || ""; };
+const allTables = () => Object.keys({ ...BASE_GAME, ...tlist }).filter(n => !(tlist[n] && tlist[n].deleted) && tblName(n)).sort((a, b) => a - b);
+const seatTables = name => allTables().filter(n => tables[n] && tables[n].open && tblName(n) === name);
+const seatsOf = n => Array.isArray((tlist[n] || {}).seats) ? tlist[n].seats : BASE_SEATLIST[n] || [];
+const whoAt = (n, s) => Object.keys(state).find(c => isPlayer(c) && state[c] && state[c].status === "seated" && String(state[c].table || 1) === String(n) && state[c].seat === s);
+const closeSeat = () => { $("seatModal").hidden = true; seatFor = null; };
+let seatFor = null;   // { kind: "player", wid } or { kind: "dealer", d }
+$("smClose").onclick = closeSeat;
+$("seatModal").addEventListener("click", e => { if (e.target === $("seatModal")) closeSeat(); });
+function openSeatPlayer(wid) {
+  const w = wait[wid]; if (!w || !games[w.game]) return;
+  const name = games[w.game].name, T = seatTables(name);
+  seatFor = { kind: "player", wid };
+  $("smTitle").textContent = "Seat " + w.name + " · " + name;
+  $("smBody").innerHTML = T.length ? T.map(n => `<div class="wlbl">Table ${esc(n)}</div><div class="sgrid">${seatsOf(n).map(s => {
+      const c = whoAt(n, s); return c ? `<button disabled>${s}<span>${esc(nameOf(c).split(" ")[0])}</span></button>` : `<button data-pick="${esc(n)}|${s}">${s}</button>`; }).join("")}</div>`).join("")
+    : `<div class="empty">No open table is running ${esc(name)}.</div>`;
+  $("seatModal").hidden = false;
+}
+function openSeatDealer(d) {
+  seatFor = { kind: "dealer", d };
+  const T = allTables().filter(n => tables[n] && tables[n].open);
+  $("smTitle").textContent = "Seat " + dName(d) + " (dealer)";
+  $("smBody").innerHTML = T.length ? `<div class="sgrid">${T.map(n => { const cur = Object.keys(DEALERS).find(x => dTable(x) === +n);
+      return `<button data-dpick="${esc(n)}">T${esc(n)}<span>${esc(tblName(n))}${cur ? " · " + esc(dName(cur)) : ""}</span></button>`; }).join("")}</div>`
+    : `<div class="empty">No tables are open.</div>`;
+  $("seatModal").hidden = false;
+}
+$("smBody").addEventListener("click", e => {
+  const pk = e.target.closest("[data-pick]"), dp = e.target.closest("[data-dpick]");
+  if (pk && seatFor && seatFor.kind === "player") {
+    const [n, s] = pk.dataset.pick.split("|"), w = wait[seatFor.wid]; if (!w) { closeSeat(); return; }
+    if (whoAt(n, +s)) { alert("Seat " + s + " is taken."); return; }
+    let c = w.card || [...Object.keys(ROSTER), ...Object.keys(roster)].find(k => nameOf(k).toLowerCase() === w.name.toLowerCase());
+    if (!c) { c = "P" + Date.now().toString(36).toUpperCase(); roster[c] = { name: w.name }; setDoc(ROSTREF, { [c]: { name: w.name } }, { merge: true }).catch(fail); }   // not a saved player yet: make a player file
+    const p = state[c] || {};
+    state[c] = { ...p, status: "seated", seat: +s, table: +n, since: clockStart(tables, +n), waitAt: null, breakAt: null };
+    setDoc(REF, { [c]: state[c] }, { merge: true }).catch(fail);
+    logEvent(c, "Seated at table " + n + " seat " + s + " (from the wait list)");
+    delete wait[seatFor.wid]; setDoc(WAITREF, { [seatFor.wid]: deleteField() }, { merge: true }).catch(fail);
+    closeSeat(); draw(); return;
+  }
+  if (dp && seatFor && seatFor.kind === "dealer") {
+    const n = +dp.dataset.dpick, d = seatFor.d, upd = {};
+    for (const x of Object.keys(DEALERS)) if (x !== d && dTable(x) === n) { state[x] = { ...state[x], status: "out", since: null }; upd[x] = state[x]; logEvent(x, "Off table " + n + " (dealer change)"); }
+    state[d] = { ...(state[d] || {}), status: "seated", seat: 0, table: n, since: Date.now() }; upd[d] = state[d];
+    setDoc(REF, upd, { merge: true }).catch(fail); logEvent(d, "Dealing table " + n);
+    closeSeat(); draw();
+  }
+});
+document.addEventListener("click", e => {
+  const sb = e.target.closest("[data-seat]"); if (sb) { openSeatPlayer(sb.dataset.seat); return; }
+  const ds = e.target.closest("[data-dseat]"); if (ds) openSeatDealer(ds.dataset.dseat);
+});
+
 /* ---- start (staff only) ---- */
 onAuthStateChanged(getAuth(app), u => {
   if (!u) { location.replace("./login.html?next=waitlist.html"); return; }
@@ -401,5 +469,7 @@ onAuthStateChanged(getAuth(app), u => {
   setInterval(draw, 30000);   // keep the wait times ticking
 });
 </script>
+<!-- Seat picker (players from a wait list, dealers from the rotation) -->
+<div id="seatModal" hidden><div class="sm-in"><div class="sm-h"><b id="smTitle"></b><button class="x" id="smClose" aria-label="Close">&times;</button></div><div id="smBody"></div></div></div>
 </body>
 </html>

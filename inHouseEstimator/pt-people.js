@@ -125,7 +125,11 @@ export function chairForSeat(layout, s, seats = 7) {
 export const DEALERS = {
   "4821": "Ace in the Hole",  "7350": "Shuffle Off Home", "1946": "Chip Stackhouse", "6083": "River Turner",
   "3517": "Flop Martinez",    "8264": "Dee Ling",         "5172": "Cutter Deck",     "2690": "Penny Ante",
-  "9438": "Hank Pair",        "1305": "Lucky Seven"
+  "9438": "Hank Pair",        "1305": "Lucky Seven",
+  /* ten more test dealers */
+  "2047": "Rake Robinson",    "3189": "Nita Nuts",        "4562": "Max Bet",         "5803": "Ivy Stacks",
+  "6731": "Bo Button",        "7294": "Sal Shuffle",      "8016": "Rita River",      "8670": "Ken Kicker",
+  "9152": "Molly Muck",       "1478": "Tex Turner"
 };
 
 /* Phone boxes (+ New player, a player's profile): format as you type, e.g. (310) 261-4809. Saving still takes
