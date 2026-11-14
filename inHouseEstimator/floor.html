@@ -63,7 +63,8 @@ html.embed,html.embed body{height:100%;overflow:hidden}
 html.embed .wrap,html.embed .cols,html.embed main{height:100%}
 html.embed .cols{display:block}
 html.embed main{display:flex;flex-direction:column;min-height:0}
-html.embed #plan{flex:1;min-height:0;height:auto;width:100%}
+html.embed #plan{flex:1;min-height:0;height:auto;width:100%;background:none;border:0;border-radius:0}
+html.embed .extwall{display:none}   /* just the tables floating and the inside walls */
 .cols{display:grid;grid-template-columns:1fr;gap:24px;align-items:start}
 @media (max-width:760px){.cols{grid-template-columns:1fr}}
 .gbox{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;margin-top:12px}
@@ -242,7 +243,7 @@ function draw() {
   if (building && Array.isArray(building.pts) && building.pts.length >= 3) {
     const xs = building.pts.map(q => q[0]), ys = building.pts.map(q => q[1]), mx = Math.min(...xs), my = Math.min(...ys);
     const P = q => ((q[0] - mx) * FT_PX + 20).toFixed(1) + "," + ((q[1] - my) * FT_PX + 20).toFixed(1);
-    bld = `<polygon points="${building.pts.map(P).join(" ")}" fill="rgba(255,255,255,.04)" stroke="rgba(227,182,74,.7)" stroke-width="4" stroke-linejoin="round"/>`
+    bld = `<polygon class="extwall" points="${building.pts.map(P).join(" ")}" fill="rgba(255,255,255,.04)" stroke="rgba(227,182,74,.7)" stroke-width="4" stroke-linejoin="round"/>`
         + (building.cuts || []).filter(c => c && Array.isArray(c.pts) && c.pts.length >= 3)
             .map(c => `<polygon points="${c.pts.map(P).join(" ")}" fill="rgba(255,255,255,.12)" stroke="rgba(255,255,255,.35)"/>`).join("")
         + (building.walls || []).filter(w => w && w.a && w.b)   // inside walls drawn in the building editor
