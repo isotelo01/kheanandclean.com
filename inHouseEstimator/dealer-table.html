@@ -580,8 +580,8 @@ onAuthStateChanged(getAuth(app), async u => {
   $("tnum").textContent = "Table " + T;
   document.title = "Table " + T + " · " + lbl;
   $("tabs").innerHTML = Object.keys(TABLES).map(n => `<a href="?t=${n}" class="${+n === T ? "on" : ""}" title="${esc(TABLES[n].game)}">${n}</a>`).join("");
-  draw();
-  onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);
+  /* First draw waits for who's seated, so the seats don't fill in after the table shows. */
+  onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, () => { fail(); draw(); });
   setInterval(draw, 30000);   // keep seated and break times ticking (and turn red at 30 min)
   onSnapshot(doc(db, "playerTracker", "tables"), snap => { tables = snap.exists() ? snap.data() : {}; }, () => {});
   onSnapshot(doc(db, "playerTracker", "layout"), snap => { layout = snap.exists() ? snap.data() : {}; }, () => {});   // where table 1's chairs are

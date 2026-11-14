@@ -238,7 +238,11 @@ let building = null, selT = 0;   // building outline (from measure.html?building
 const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || DEALERS[c] || c;
 const isPlayer = c => !!(ROSTER[c] || roster[c]);
 
+/* Nothing is drawn until the saved floor (tables, positions, open/closed, walls, games, seats) has loaded once,
+   so the plan shows up in its real layout instead of the built-in starter tables jumping into place. */
+const loaded = new Set(), NEED = 9;
 function draw() {
+  if (loaded.size < NEED) return;
   /* Floor plan: every table where the floor put it. Skipped mid-drag so the table doesn't jump. */
   /* The building (drawn with the room measurer's sketch tool, in feet) goes under the tables. The plan grows to fit it. */
   let bld = "", vbW = 900, vbH = 560;
@@ -505,7 +509,8 @@ onAuthStateChanged(getAuth(app), u => {
   if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
   document.body.style.visibility = "visible";
   draw();
-  const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
+  const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); loaded.add(ref.path); draw(); },
+    () => { loaded.add(ref.path); fail(); draw(); });   // a doc that can't load doesn't hold the page up
   on(REF, v => state = v); on(TBLREF, v => tables = v); on(CALLREF, v => calls = v); on(WAITREF, v => wait = v);
   on(GAMESREF, v => games = v); on(PLANREF, v => plan = v);
   on(LISTREF, v => { list = v; buildTables(); if (selT && !TABLES[selT]) selT = 0; });
