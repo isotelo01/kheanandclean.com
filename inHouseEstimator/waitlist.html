@@ -26,7 +26,7 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
 /* Top: left column (title, favorites, add-a-name form) and the floor plan in the page's top-right corner.
    Underneath, the board: the game lists on a 12-column grid. On a phone everything stacks. */
-.hdr{display:grid;grid-template-columns:minmax(280px,3fr) minmax(240px,3fr) 6fr;gap:12px;align-items:stretch}   /* add-a-name | dealers | floor plan */
+.hdr{display:grid;grid-template-columns:minmax(260px,3fr) minmax(230px,3fr) minmax(230px,3fr) minmax(460px,4fr);gap:12px;align-items:stretch}   /* add-a-name | dealers | promotions | floor plan */
 .drow{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1)}.drow:last-child{border-bottom:0}
 .drow b{flex:1;min-width:0;font-weight:600}.drow span{font-size:13px;color:rgba(255,255,255,.65)}
 .drow .mini{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:2px 8px;cursor:pointer;font:600 13px system-ui,sans-serif}
@@ -98,6 +98,11 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <div class="wlbl">Active dealers</div><div id="dActive"></div>
     <div class="wlbl">Rotation</div><div id="dRot"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap"><select id="dPick" style="flex:1;min-width:0"></select><button class="btn sm" id="dAdd">Add</button><button class="btn ghost sm" id="dNext" title="Top dealer goes to the bottom">Rotate</button></div>
+  </div>
+  <!-- Promotions: players given a promotion today (from the Promotions page), newest first. -->
+  <div class="wdg" data-w="promos" style="display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;align-items:center"><div class="wlbl" style="flex:1">Promotions today</div><a class="btn ghost sm" href="./promotions.html" target="_blank">Promotions &rsaquo;</a></div>
+    <div id="prList"></div>
   </div>
   <div class="wdg" data-w="floor"><div class="fopen"><a class="btn ghost sm" href="./floor.html" target="_blank">Open &rsaquo;</a></div><iframe id="floorFrame" title="Floor plan"></iframe></div>
   </div>
@@ -193,7 +198,7 @@ function draw() {
     }),
     ...Object.entries(TABLE_GAMES).filter(([id]) => pg.fav[id]).map(([, nm]) => favChip(nm, [], Object.keys({ ...BASE_GAME, ...tlist }).some(n => tables[n] && tables[n].open && !(tlist[n] && tlist[n].deleted) && ((tlist[n] && tlist[n].game) || BASE_GAME[n]) === nm)))
   ].join("");
-  pgMenu.draw(); drawDealers();
+  pgMenu.draw(); drawDealers(); drawPromos();
   /* The game lists on the board: update the ones there, add new ones, take away ones that are gone. */
   const board = $("board"), keep = new Set(["form", "floor", ...items.map(it => it.id)]);
   if (!items.length) items.push({ id: "none", html: `<div class="gh"><b>Lists</b></div><div class="empty">No lists yet. Open a poker table with its game picked on the Floor page.</div>` }), keep.add("none");
@@ -289,6 +294,24 @@ $("dRot").addEventListener("click", e => {
   saveRot(); drawDealers();
 });
 
+/* ---- Promotions tile: who got what today (playerTracker/promoGiven). ---- */
+const GIVEREF = doc(db, "playerTracker", "promoGiven");
+let given = {};
+const money = n => "$" + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 : 0);
+function drawPromos() {
+  const day = new Date(); day.setHours(0, 0, 0, 0);
+  const by = {};   // player -> { name, card, items: [..], last }
+  Object.values(given).filter(v => v && v.at >= day.getTime()).forEach(v => {
+    const k = v.card || "n:" + String(v.name || "").toLowerCase();
+    (by[k] = by[k] || { name: v.card ? nameOf(v.card) : v.name, card: v.card, items: [], last: 0 }).items.push(v);
+    by[k].last = Math.max(by[k].last, v.at);
+  });
+  const P = Object.values(by).sort((a, b) => b.last - a.last);
+  $("prList").innerHTML = P.length ? P.map(p => `<div class="drow" style="align-items:flex-start"><b>${p.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(p.card)}" style="color:inherit">${esc(p.name)}</a>` : esc(p.name)}</b>
+      <span style="text-align:right">${p.items.sort((a, b) => a.at - b.at).map(v => esc(v.promoName) + (v.amount ? " " + money(+v.amount) : "")).join("<br>")}</span></div>`).join("")
+    : `<div class="empty">No promotions given today.</div>`;
+}
+
 /* ---- start (staff only) ---- */
 onAuthStateChanged(getAuth(app), u => {
   if (!u) { location.replace("./login.html?next=waitlist.html"); return; }
@@ -297,7 +320,7 @@ onAuthStateChanged(getAuth(app), u => {
   $("floorFrame").src = withCasino("./floor.html?embed=1");   // the floor plan, live, inside its box
   draw();
   const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
-  on(REF, v => state = v); on(ROTREF, v => rot = Array.isArray(v.order) ? v.order.filter(d => DEALERS[d]) : []); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v); on(TBLREF, v => tables = v); on(LISTREF, v => tlist = v); on(PGREF, setPg);
+  on(REF, v => state = v); on(ROTREF, v => rot = Array.isArray(v.order) ? v.order.filter(d => DEALERS[d]) : []); on(GIVEREF, v => given = v); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v); on(TBLREF, v => tables = v); on(LISTREF, v => tlist = v); on(PGREF, setPg);
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   setInterval(draw, 30000);   // keep the wait times ticking
