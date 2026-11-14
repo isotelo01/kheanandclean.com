@@ -52,6 +52,10 @@ li .ph{font-size:13px;color:#7dd3fc;font-weight:700}
   <div class="warn" id="warn">Not syncing with the server.</div>
   <div class="board" id="board"></div>
 <script type="module">
+/* Big-screen layout (1600 x 900): a smaller screen shrinks the whole page, same proportions. */
+const fitBig = () => { const z = Math.min(1, innerWidth / 1600, innerHeight / 900), b = document.body.style;
+  b.zoom = z; b.width = innerWidth / z + "px"; b.height = innerHeight / z + "px"; };
+fitBig(); addEventListener("resize", fitBig);
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";

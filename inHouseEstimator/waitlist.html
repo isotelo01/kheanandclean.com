@@ -39,7 +39,6 @@ select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-r
 .hl .favs{margin-top:0}
 .hl .wdg{flex:1}
 .hdr .wdg[data-w="floor"]{height:560px}
-@media (max-width:760px){html:not(.turned) .hdr{grid-template-columns:1fr}html:not(.turned) .hdr .wdg[data-w="floor"]{height:420px}}
 /* Lists: one row, five across the page; more than five keep going to the right with a scroll bar. */
 .board{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 48px) / 5);grid-template-rows:minmax(360px,auto);gap:12px;margin-top:14px;overflow-x:auto;padding-bottom:8px}
 /* Scroll bar on top of the lists: flip the row upside down (bar goes to the top), then flip each list back. */
@@ -51,8 +50,6 @@ select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-r
 .wdg[data-w="floor"] iframe{flex:1;width:100%;border:0;border-radius:8px;background:transparent;min-height:0;overflow:hidden}
 .wdg[data-w="floor"]{overflow:hidden;background:none;border:0;padding:0}   /* no frame: just the tables floating */
 .fopen{position:absolute;top:0;right:0;z-index:2}   /* Open in the top-right corner, over the plan's spot (the plan stays centered) */
-@media (max-width:760px){html:not(.turned) .board,html:not(.turned) .board>.wdg{transform:none}html:not(.turned) .board{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:auto;overflow-x:visible}html:not(.turned) .wdg{grid-column:1/-1!important;grid-row:auto!important}
-  html:not(.turned) .wdg[data-w="floor"]{height:420px}}
 .tbls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .tb{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.75)}
 .tb.seat{background:rgba(74,222,128,.15);color:var(--ok)}
@@ -144,11 +141,13 @@ import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setD
 import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists, openGameNames, expired, CALL_MS, clockStart } from "./pt-people.js";   // 200 test players, 10 test dealers
 import { pg, setPg, pgName, pgAll, stakesFor, TABLE_GAMES, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
+const BASE_W = 1600;   // big-screen layout width: a smaller screen shrinks the whole page, same proportions
 function fitTurn() {   // upright screen: turn the page sideways so it's always landscape
-  const t = innerHeight > innerWidth;
+  const t = innerHeight > innerWidth, W = t ? innerHeight : innerWidth, H = t ? innerWidth : innerHeight, z = Math.min(1, W / BASE_W);
   document.documentElement.classList.toggle("turned", t);
-  document.body.style.width = t ? innerHeight + "px" : "";
-  document.body.style.height = t ? innerWidth + "px" : "";
+  document.body.style.zoom = z;
+  document.body.style.width = t ? W / z + "px" : "";
+  document.body.style.height = t ? H / z + "px" : "";
 }
 fitTurn(); addEventListener("resize", fitTurn);
 const app = initializeApp({

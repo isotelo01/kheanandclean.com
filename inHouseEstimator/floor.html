@@ -66,7 +66,7 @@ html.embed main{display:flex;flex-direction:column;min-height:0}
 html.embed #plan{flex:1;min-height:0;height:auto;width:100%;background:none;border:0;border-radius:0}
 html.embed .extwall{display:none}   /* just the tables floating and the inside walls */
 .cols{display:grid;grid-template-columns:1fr;gap:24px;align-items:start}
-@media (max-width:760px){.cols{grid-template-columns:1fr}}
+@media (max-width:760px){html.embed .cols{grid-template-columns:1fr}}
 .gbox{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;margin-top:12px}
 .gh{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .gh b{flex:1;color:var(--gold);font-size:17px}
@@ -158,11 +158,14 @@ import { pg, setPg, pgName, pgAll, stakesFor, STAKES_NL, mountPgMenu } from "./p
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 /* Inside the Waitlist page (?embed). PLAN_ROT turns the whole plan (0 = as drawn; 90 = a quarter turn clockwise). */
 const EMBED = new URLSearchParams(location.search).has("embed"), PLAN_ROT = 0;
+const BASE_W = 1600;   // big-screen layout width: a smaller screen shrinks the whole page, same proportions
 function fitTurn() {   // upright screen: turn the Floor page sideways so it's always landscape (not inside the Waitlist)
-  const t = !EMBED && innerHeight > innerWidth;
+  if (EMBED) return;
+  const t = innerHeight > innerWidth, W = t ? innerHeight : innerWidth, H = t ? innerWidth : innerHeight, z = Math.min(1, W / BASE_W);
   document.documentElement.classList.toggle("turned", t);
-  document.body.style.width = t ? innerHeight + "px" : "";
-  document.body.style.height = t ? innerWidth + "px" : "";
+  document.body.style.zoom = z;
+  document.body.style.width = t ? W / z + "px" : "";
+  document.body.style.height = H / z + "px";   // fills the screen at any size
 }
 fitTurn(); addEventListener("resize", fitTurn);
 if (EMBED) {   // inside the Waitlist page: the plan sits in the top-right corner of its box
