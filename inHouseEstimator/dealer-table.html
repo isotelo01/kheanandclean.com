@@ -90,7 +90,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 </style>
 </head>
 <body style="visibility:hidden">
-<div class="top"><a class="btn ghost" href="./player-tracker.html">&lsaquo; Back</a><b id="ttl">Table</b><button class="btn ghost" id="callBtn">Call</button><div class="tabs" id="tabs"></div></div>
+<div class="top"><a class="btn ghost" href="./player-tracker-hub.html">&lsaquo; Back</a><b id="ttl">Table</b><button class="btn ghost" id="callBtn">Call</button><div class="tabs" id="tabs"></div></div>
 <button id="gear" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
 <div class="warn" id="warn">Not syncing with the server.</div>
 <div id="reqs"></div>
@@ -342,7 +342,7 @@ const CALLREF = doc(db, "playerTracker", "calls");
 $("gear").onclick = () => showModal(`<div class="mt">Settings</div>
   <div class="note">${esc($("ttl").textContent)}</div>
   <div class="note" style="margin-top:14px">Change table</div><div class="tabs">${$("tabs").innerHTML}</div>
-  <p style="margin:18px 0 0"><a class="btn ghost big" href="./player-tracker.html">&lsaquo; Back</a></p>`);
+  <p style="margin:18px 0 0"><a class="btn ghost big" href="./player-tracker-hub.html">&lsaquo; Back</a></p>`);
 $("callBtn").onclick = () => {
   showModal(`<div class="mt">Call &middot; Table ${T}</div><div class="grid">
     ${[["drinks", "Drinks"], ["service", "Service"], ["chips", "Chips"], ["floor", "Floor"]].map(([k, l]) => `<button class="btn" data-call="${k}">${l}</button>`).join("")}</div>

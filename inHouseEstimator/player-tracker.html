@@ -102,12 +102,15 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
   <div class="warn" id="warn">Not syncing with the server. Changes are saved on this phone only.</div>
   <div id="floor" hidden>
     <div class="top">
-      <h1>Player Tracker</h1>
-      <a class="back" href="./personal.html">&lsaquo; Personal</a>
+      <h1>Testing</h1>
+      <a class="back" href="./player-tracker-hub.html">&lsaquo; Player Tracker</a>
       <button onclick="location.reload()" aria-label="Refresh" title="Refresh" style="background:none;border:0;padding:4px;cursor:pointer;line-height:0"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#E3B64A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
       <button id="ttGear" aria-label="Settings" title="Settings" style="background:none;border:0;padding:4px;cursor:pointer;line-height:0"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#E3B64A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
     </div>
     <div class="box" id="tblBox"><button class="btn ghost sm" id="tblBack">&lsaquo; Back</button><button class="btn sm" id="tblScan">Scan player</button><svg class="table" id="tbl" viewBox="-130 -10 660 380"></svg></div>
+    <h2>Guest time</h2>
+    <div class="box" id="guestList"></div>
+    <datalist id="guestNames"></datalist>
     <h2>Waitlist</h2>
     <div class="box" id="waitList"></div>
     <h2>Dealers</h2>
@@ -178,6 +181,11 @@ const db = getFirestore(app);
 const REF = doc(db, "playerTracker", "poc");
 const LOGREF = doc(db, "playerTracker", "log");        // { events: [{ c, a, t }] } every log in / log out
 const PROFREF = doc(db, "playerTracker", "profiles");
+/* Guests: someone sits in a chair at a seat without logging in. The lap sensor sees them, so their time
+   is kept as "Guest" from start to end. The floor checks the cameras and gives those hours to the right player.
+   { id: { t, s, chair, start, end, to } }  (end null = still sitting; to = card the hours went to) */
+const GUESTREF = doc(db, "playerTracker", "guests");
+let guests = {};
 const ROSTREF = doc(db, "playerTracker", "roster");     // { card: { name } } players who signed up themselves (names only)
 const IDXREF = doc(db, "playerTracker", "phoneIndex");
 const REQREF = doc(db, "playerTracker", "requests");    // { card: { t, s, at } } seat requests waiting for the dealer  // { "h_<sha256 of phone>": card, "l4_<last 4>": [cards] } — no phone numbers in it
@@ -330,6 +338,20 @@ const seatedMs = p => (p.sessionMs || 0) + (p.since ? Date.now() - p.since : 0);
 /* Simulated lap sensor at seat s (thermal, under the rail, aimed down): warm when a logged-in player's chair
    is at that seat within 3 ft and they're sitting (not "standing" on the chair card). Also the nearest
    chair's distance, for the reading on the table. */
+const openGuests = () => Object.entries(guests).filter(([, g]) => g && !g.end);
+const guestAtSeat = s => (openGuests().find(([, g]) => g.t === TT && g.s === s) || [])[0];
+const guestInChair = n => (openGuests().find(([, g]) => g.chair === cid(n)) || [])[0];
+function saveGuest(id, g) { guests[id] = g; if (!myCard && !profId) renderGuests(); setDoc(GUESTREF, { [id]: g }, { merge: true }).catch(() => { $("warn").style.display = "block"; }); }
+function endGuest(id) { if (guests[id] && !guests[id].end) saveGuest(id, { ...guests[id], end: Date.now() }); }
+function seatTaken(s) { return Object.values(state).some(p => p && p.status === "seated" && (p.table || 1) === TT && p.seat === s) || !!guestAtSeat(s); }
+/* The sensor for a guest chair: still at its seat = time keeps going; pulled out = time ends;
+   scooted to another open seat = that seat's time starts. */
+function applyGuest(n) {
+  const id = guestInChair(n); if (!id) return;
+  const g = guests[id], ns = nearSeat(n);
+  if (ns.ft > PULL_FT) { endGuest(id); return; }
+  if (ns.seat !== g.s) { endGuest(id); if (!seatTaken(ns.seat)) saveGuest("g" + Date.now(), { t: TT, s: ns.seat, chair: cid(n), start: Date.now(), end: null, to: null }); }
+}
 function lapReading(s) {
   let ft = null, warm = false;
   for (const i of SEATL) {
@@ -337,6 +359,7 @@ function lapReading(s) {
     if (ft == null || ns.ft < ft) ft = ns.ft;
     const c = chairOccupant(i);
     if (c && ns.ft <= PULL_FT && !get(c).standing) warm = true;
+    if (!c && guestInChair(i) && ns.ft <= PULL_FT) warm = true;   // a guest is sitting
   }
   return { ft, warm };
 }
@@ -362,8 +385,8 @@ function applyChair(n) {
   }
   const s = ns.seat;
   const other = Object.keys(state).find(k => k !== c && state[k].status === "seated" && (state[k].table || 1) === TT && state[k].seat === s);
-  if (other) {   // never bump a seated player
-    logEvent(c, "Chair " + n + " moved to seat " + s + ", taken by " + nameOf(other) + ": no change");
+  if (other || guestAtSeat(s)) {   // never bump a seated player (or a guest sitting there)
+    logEvent(c, "Chair " + n + " moved to seat " + s + ", taken by " + (other ? nameOf(other) : "a guest") + ": no change");
     return { r: "taken", seat: s };
   }
   if (p.status === "seated" && (p.table || 1) === TT) {
@@ -427,9 +450,9 @@ function drawTable(pick) {
     const c = seated[i];
     /* Chair outside the rail, facing the table. Gold = its player is seated, blue = on break, grey = empty. */
     const [chx, chy] = chairPos(i);
-    const co = chairOccupant(i), cp = co && get(co);
-    const top = !cp ? "#3a3f4b" : cp.breakAt || cp.status !== "seated" ? "#3b82f6" : "var(--gold)";
-    const back = !cp ? "#2a2e37" : cp.breakAt || cp.status !== "seated" ? "#1d4ed8" : "#b8902f";
+    const co = chairOccupant(i), cp = co && get(co), gu = !cp && guestInChair(i);   /* purple = a guest (not logged in) */
+    const top = gu ? "#a855f7" : !cp ? "#3a3f4b" : cp.breakAt || cp.status !== "seated" ? "#3b82f6" : "var(--gold)";
+    const back = gu ? "#7e22ce" : !cp ? "#2a2e37" : cp.breakAt || cp.status !== "seated" ? "#1d4ed8" : "#b8902f";
     s += `<g class="chair" data-chair="${i}" transform="${chairXf(chx, chy)}">`
        + `<rect x="-15" y="-12" width="30" height="24" rx="6" fill="${top}" stroke="rgba(255,255,255,.5)"/>`
        + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${back}" stroke="rgba(255,255,255,.5)"/>`
@@ -437,10 +460,11 @@ function drawTable(pick) {
     /* Just the seat number: black when open, gold when someone's seated. */
     if (pick && (!c || c === pick)) s += `<circle data-seat="${i}" cx="${x}" cy="${y}" r="22" fill="rgba(227,182,74,.3)" stroke="var(--gold)" stroke-width="2" style="cursor:pointer"/>`;
     if (!pick) s += `<circle data-num="${i}" cx="${x}" cy="${y}" r="20" fill="transparent" style="cursor:pointer"/>`;   // tap the number: its own QR (dealer approves)
-    s += `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : "#000"}" font-size="22" font-weight="700" text-anchor="middle" ${pick && (!c || c === pick) ? `data-seat="${i}" style="cursor:pointer"` : `data-num="${i}" style="cursor:pointer"`}>${i}</text>`;
+    s += `<text x="${x}" y="${y + 7}" fill="${c ? "var(--gold)" : guestAtSeat(i) ? "#d8b4fe" : "#000"}" font-size="22" font-weight="700" text-anchor="middle" ${pick && (!c || c === pick) ? `data-seat="${i}" style="cursor:pointer"` : `data-num="${i}" style="cursor:pointer"`}>${i}</text>`;
     /* Name goes with the chair the player is logged into (or this seat's chair if they have none). */
     const lab = co || (c && !get(c).chair ? c : null);
     if (lab) labels.push({ nm: nameOf(lab), chx, chy });
+    else if (gu) { const g = guests[gu]; labels.push({ nm: "Guest " + (g.end ? "" : fmtHrs(Date.now() - g.start)), chx, chy }); }
   }
   /* Names go with their chair, just outside it. If a name would sit on another chair or name,
      it slides further out until it's clear. */
@@ -475,8 +499,33 @@ function drawTable(pick) {
   $("tbl").innerHTML = s;
 }
 
+/* Guest time: newest first. Finished ones can be given to a player once the floor checks the cameras. */
+const clock = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+function renderGuests() {
+  const all = Object.entries(guests).filter(([, g]) => g).sort((a, b) => b[1].start - a[1].start).slice(0, 25);
+  $("guestNames").innerHTML = [...new Set([...Object.keys(ROSTER), ...Object.keys(roster)])].map(c => `<option value="${esc(nameOf(c))} #${c}">`).join("");
+  $("guestList").innerHTML = all.length ? all.map(([id, g]) => {
+    const ms = (g.end || Date.now()) - g.start;
+    const when = "Table " + g.t + ", seat " + g.s + " &middot; " + clock(g.start) + " to " + (g.end ? clock(g.end) : "now") + " (" + fmtHrs(ms) + ")";
+    const right = !g.end ? `<span class="tag seated">Sitting</span>`
+      : g.to ? `<span class="note" style="margin:0">Given to <a href="?profile=${esc(g.to)}">${esc(nameOf(g.to))}</a></span>`
+      : `<input list="guestNames" data-gi="${id}" placeholder="Player name" autocomplete="off" style="width:160px"> <button class="btn sm ok" data-give="${id}">Give hours</button>`;
+    return `<div class="row"><div class="nm"><b>Guest</b><span>${when}</span></div>${right}</div>`;
+  }).join("") : `<div class="note" style="margin:0">No guest time yet.</div>`;
+}
+$("guestList").addEventListener("click", e => {
+  const b = e.target.closest("[data-give]"); if (!b) return;
+  const id = b.dataset.give, g = guests[id], v = ($("guestList").querySelector(`[data-gi="${id}"]`) || {}).value || "";
+  const m = v.match(/#(\w+)\s*$/), c = m ? m[1] : Object.keys({ ...ROSTER, ...roster }).find(k => nameOf(k).toLowerCase() === v.trim().toLowerCase());
+  if (!g || !g.end || !c || !isPlayer(c)) { alert("Pick a player from the list."); return; }
+  const ms = g.end - g.start, p = get(c);
+  save(c, { ...p, totalMs: (p.totalMs || 0) + ms });
+  logEvent(c, "Guest hours added: table " + g.t + " seat " + g.s + ", " + clock(g.start) + " to " + clock(g.end) + " (" + fmtHrs(ms) + ")");
+  saveGuest(id, { ...g, to: c }); render();
+});
 function renderFloor() {
   drawTable();
+  renderGuests();
   const waiting = Object.entries(state).filter(([, p]) => p.status === "wait").sort((a, b) => a[1].waitAt - b[1].waitAt);
   $("waitList").innerHTML = waiting.length ? waiting.map(([c], i) =>
     `<div class="row"><div class="nm"><b>${i + 1}. <a href="?profile=${c}">${esc(nameOf(c))}</a></b><span>#${c}</span></div>
@@ -651,7 +700,7 @@ const endDrag = e => {
     }
     try { localStorage.setItem(layKey(), JSON.stringify(layout)); } catch (e) {}
     setDoc(layRef(), moved, { merge: true }).catch(() => { $("warn").style.display = "block"; });
-    for (const i of Object.keys(moved)) applyChair(+i);   // stand-in for the proximity sensors
+    for (const i of Object.keys(moved)) { applyChair(+i); applyGuest(+i); }   // stand-in for the proximity sensors
   }
   drawTable();
 };
@@ -720,12 +769,24 @@ function showChair(n) {
     <div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px;margin-top:6px"></div>
     <p class="note">Player scans this to log into Chair ${n}. Where the chair sits decides their seat.</p>
     <p class="note" style="word-break:break-all">${esc(link)}</p>
+    ${!c ? `<p><button class="btn ${guestInChair(n) ? "ok" : ""}" id="chairGuest">${guestInChair(n) ? "Guest stands up" : "Someone sits (not logged in)"}</button> <span class="note">Plays the lap sensor with no one logged in: their time is kept as Guest</span></p>` : ""}
     ${c ? `<p><button class="btn ${p.standing ? "ok" : ""}" id="chairLap">${p.standing ? "Sit down" : "Stand up"}</button> <span class="note">Plays the lap sensor: ${p.standing ? "nobody in the seat" : "sitting"}</span></p>` : ""}
     <p><button class="btn sm" id="seatLinkCopy">Copy link</button>${c ? ` <button class="btn ghost sm" id="chairOut">Log ${esc(nameOf(c))} out</button>` : ""}</p>
     <div class="note" style="margin-top:10px"><b style="color:var(--gold)">History</b>${hist.length ? hist.map(ev => `<div>${new Date(ev.t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} &middot; ${esc(nameOf(ev.c))}: ${esc(ev.a)}</div>`).join("") : "<div>Nothing yet.</div>"}</div>`);
   if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 200, height: 200, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
   $("seatLinkCopy").onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
     .then(() => { $("seatLinkCopy").textContent = "Copied"; }, () => prompt("Copy this link:", link));
+  if (!c) $("chairGuest").onclick = () => {
+    const id = guestInChair(n);
+    if (id) endGuest(id);
+    else {
+      const ns = nearSeat(n);
+      if (ns.ft > PULL_FT) { alert("Chair " + n + " is pulled out. Push it up to a seat first."); return; }
+      if (seatTaken(ns.seat)) { alert("Seat " + ns.seat + " is taken."); return; }
+      saveGuest("g" + Date.now(), { t: TT, s: ns.seat, chair: cid(n), start: Date.now(), end: null, to: null });
+    }
+    render(); showChair(n);
+  };
   if (c) $("chairOut").onclick = () => { act.out(c); logEvent(c, "Chair " + n + ": logged out"); closeModal(); };
   if (c) $("chairLap").onclick = () => {
     const q = get(c), up = !q.standing;
@@ -819,6 +880,7 @@ function start() {
   onSnapshot(LOGREF, snap => { events = (snap.exists() && snap.data().events) || []; render(); }, () => {});
   watchLayout();
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; render(); }, () => {});
+  if (!myCard) onSnapshot(GUESTREF, snap => { guests = snap.exists() ? snap.data() : {}; render(); }, () => {});
   if (!myCard) onSnapshot(doc(db, "playerTracker", "tables"), snap => { tables = snap.exists() ? snap.data() : {}; }, () => {});   // hours only at an open table
   if (!myCard) onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; profLoaded = true; render(); }, () => { profLoaded = true; render(); });   // phones/emails: staff pages only
   setInterval(render, 30000);   // keep the hours ticking
