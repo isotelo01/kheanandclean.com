@@ -58,6 +58,12 @@ input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);bo
 html.embed body{padding:0;background:transparent}
 html.embed .wrap{max-width:none}
 html.embed .top,html.embed #tgBox,html.embed main>h2,html.embed main>p.hint{display:none}
+/* Embedded: the whole floor plan always fits the box, no scrolling (it shrinks to fit; the Waitlist box has a minimum size). */
+html.embed,html.embed body{height:100%;overflow:hidden}
+html.embed .wrap,html.embed .cols,html.embed main{height:100%}
+html.embed .cols{display:block}
+html.embed main{display:flex;flex-direction:column;min-height:0}
+html.embed #plan{flex:1;min-height:0;height:auto;width:100%}
 .cols{display:grid;grid-template-columns:1fr;gap:24px;align-items:start}
 @media (max-width:760px){.cols{grid-template-columns:1fr}}
 .gbox{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;margin-top:12px}
