@@ -29,6 +29,8 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .hdr{display:grid;grid-template-columns:minmax(260px,3fr) minmax(230px,3fr) minmax(230px,3fr) minmax(460px,4fr);gap:12px;align-items:stretch}   /* add-a-name | dealers | promotions | floor plan */
 .drow{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1)}.drow:last-child{border-bottom:0}
 .drow b{flex:1;min-width:0;font-weight:600}.drow span{font-size:13px;color:rgba(255,255,255,.65)}
+.drow .mini.brk{border-color:#3b82f6;color:#93c5fd}.drow .mini.brk.on{background:#3b82f6;color:#000}
+.drow .onbrk{color:#93c5fd}
 .drow .mini{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:2px 8px;cursor:pointer;font:600 13px system-ui,sans-serif}
 select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:8px;font:inherit}
 .hl{display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -360,9 +362,13 @@ const dTable = d => { const p = state[d]; return p && p.status === "seated" ? (p
 const saveRot = () => setDoc(ROTREF, { order: rot }, { merge: true }).catch(fail);
 function drawDealers() {
   const act = Object.keys(DEALERS).filter(dTable).sort((a, b) => dTable(a) - dTable(b));
-  $("dActive").innerHTML = act.length ? act.map(d => `<div class="drow"><b>${esc(dName(d))}</b><span>Table ${dTable(d)}</span></div>`).join("") : `<div class="empty">No dealers on a table.</div>`;
-  $("dRot").innerHTML = rot.length ? rot.map((d, i) => `<div class="drow"><b>${i + 1}. ${esc(dName(d))}</b><span>${dTable(d) ? "Table " + dTable(d) : "Off"}</span>
-      <button class="mini" data-dseat="${esc(d)}" title="Put on a table">Seat</button>${i ? `<button class="mini" data-dup="${i}" title="Move up">&uarr;</button>` : ""}<button class="mini" data-drm="${i}" title="Take off the rotation">&times;</button></div>`).join("")
+  /* B = break: off the table, on break (blue, with how long). Tap B again to end the break. */
+  const brk = d => state[d] && state[d].status === "break" ? state[d].breakAt || Date.now() : 0;
+  const bBtn = d => `<button class="mini brk${brk(d) ? " on" : ""}" data-dbrk="${esc(d)}" title="${brk(d) ? "End break" : "Break"}">B</button>`;
+  const where = d => dTable(d) ? "Table " + dTable(d) : brk(d) ? `<span class="onbrk">Break ${ago(brk(d))}</span>` : "Off";
+  $("dActive").innerHTML = act.length ? act.map(d => `<div class="drow"><b>${esc(dName(d))}</b><span>Table ${dTable(d)}</span>${bBtn(d)}</div>`).join("") : `<div class="empty">No dealers on a table.</div>`;
+  $("dRot").innerHTML = rot.length ? rot.map((d, i) => `<div class="drow"><b>${i + 1}. ${esc(dName(d))}</b><span>${where(d)}</span>
+      ${bBtn(d)}<button class="mini" data-dseat="${esc(d)}" title="Put on a table">Seat</button>${i ? `<button class="mini" data-dup="${i}" title="Move up">&uarr;</button>` : ""}<button class="mini" data-drm="${i}" title="Take off the rotation">&times;</button></div>`).join("")
     : `<div class="empty">Add dealers below to build the rotation.</div>`;
   const pick = Object.keys(DEALERS).filter(d => !rot.includes(d)).sort((a, b) => dName(a).localeCompare(dName(b)));
   const cur = $("dPick").value;
@@ -452,7 +458,14 @@ $("smBody").addEventListener("click", e => {
 });
 document.addEventListener("click", e => {
   const sb = e.target.closest("[data-seat]"); if (sb) { openSeatPlayer(sb.dataset.seat); return; }
-  const ds = e.target.closest("[data-dseat]"); if (ds) openSeatDealer(ds.dataset.dseat);
+  const ds = e.target.closest("[data-dseat]"); if (ds) { openSeatDealer(ds.dataset.dseat); return; }
+  const db = e.target.closest("[data-dbrk]");   // dealer break on / off
+  if (db) {
+    const d = db.dataset.dbrk, p = state[d] || {};
+    if (p.status === "break") { state[d] = { ...p, status: "out", breakAt: null }; logEvent(d, "Break over"); }
+    else { const t = dTable(d); state[d] = { ...p, status: "break", breakAt: Date.now(), since: null }; logEvent(d, "On break" + (t ? " (off table " + t + ")" : "")); }
+    setDoc(REF, { [d]: state[d] }, { merge: true }).catch(fail); draw();
+  }
 });
 
 /* ---- start (staff only) ---- */
