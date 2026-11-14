@@ -75,6 +75,11 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 .hint{color:rgba(255,255,255,.6);font-size:13px}
 .wlbl{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em}
 .bubs{display:flex;flex-wrap:wrap;gap:6px}
+/* Game buttons in the add-a-name box: an even grid, two across, each with an x to remove it. */
+.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.wgrid .bub{display:flex;align-items:center;gap:6px;text-align:left;width:100%}.wgrid .bub span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wgrid .bub i{font-style:normal;opacity:.6;font-size:15px;line-height:1;padding:0 2px}.wgrid .bub i:hover{opacity:1}
+a.bub{text-decoration:none;display:inline-block}
 .bub{border:1px solid var(--gold);background:none;color:var(--gold);border-radius:999px;padding:4px 11px;font:700 13px system-ui,sans-serif;cursor:pointer}
 .bub.on{background:var(--ok);border-color:var(--ok);color:#000}
 </style>
@@ -90,8 +95,8 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
   <div id="addWBox" style="display:grid;gap:8px">
     <input id="wName" list="wPlayers" placeholder="Name" autocomplete="off">
     <datalist id="wPlayers"></datalist>
-    <div class="bubs"><button class="bub" id="wPhone" type="button">Phoned in</button><button class="bub on" id="wArr" type="button">Arrived</button> <span class="hint" id="wHow"></span></div>
-    <div class="wlbl">Games</div><div class="bubs" id="wGames"></div>
+    <div class="bubs"><button class="bub" id="wPhone" type="button">Phoned in</button><a class="bub" id="wHist" href="./wait-history.html">History</a> <span class="hint" id="wHow"></span></div>
+    <div class="wlbl">Games</div><div class="wgrid" id="wGames"></div>
     <button class="btn" id="wAdd">+ Add to wait list</button>
   </div></div>
   </div>
@@ -183,7 +188,7 @@ function draw() {
   /* + Add to wait list: every list as a bubble (tap one or more), and every player's name for the pop-up. */
   const all = liveLists(games, wait, tables, tlist);
   for (const g of [...wSel]) if (!all.some(L => L.gid === g)) wSel.delete(g);
-  $("wGames").innerHTML = all.length ? all.map(L => `<button class="bub${wSel.has(L.gid) ? " on" : ""}" data-wg="${esc(L.gid)}" type="button">${esc(L.name)}</button>`).join("")
+  $("wGames").innerHTML = all.length ? all.map(L => `<button class="bub${wSel.has(L.gid) ? " on" : ""}" data-wg="${esc(L.gid)}" type="button"><span>${esc(L.name)}</span><i data-wgx="${esc(L.gid)}" title="Remove this game">&times;</i></button>`).join("")
     : `<span class="hint">No games yet. Open a poker table on the Floor page.</span>`;
   const pl = [...new Set([...Object.keys(ROSTER), ...Object.keys(roster)].map(nameOf))].sort();
   if (pl.length !== plCount) { plCount = pl.length; $("wPlayers").innerHTML = pl.map(n => `<option value="${esc(n)}">`).join(""); }
@@ -230,13 +235,37 @@ document.addEventListener("click", e => { if (e.target.closest("[data-favopen]")
 const wSel = new Set();   // games picked for + Add to wait list
 let plCount = 0, wCall = false;
 $("wGames").addEventListener("click", e => {
+  const x = e.target.closest("[data-wgx]");
+  if (x) { e.stopPropagation(); removeGame(x.dataset.wgx); return; }
   const b = e.target.closest("[data-wg]"); if (!b) return;
   const g = b.dataset.wg; if (wSel.has(g)) wSel.delete(g); else wSel.add(g);
   b.classList.toggle("on", wSel.has(g));
 });
 /* Phoned in or Arrived (here now; the default). Phoned-in names drop off after an hour unless they arrive. */
-const setHow = c => { wCall = c; $("wPhone").classList.toggle("on", c); $("wArr").classList.toggle("on", !c); $("wHow").textContent = c ? "drops off in 1 hour" : ""; };
-$("wPhone").onclick = () => setHow(true); $("wArr").onclick = () => setHow(false);
+const setHow = c => { wCall = c; $("wPhone").classList.toggle("on", c); $("wHow").textContent = c ? "drops off in 1 hour" : ""; };
+$("wPhone").onclick = () => setHow(!wCall);   // tap to turn Phoned in on or off
+/* x on a game button: close that list and take the game off your favorites. Not while a table runs it; asks first if
+   people are on it (they go to History, so they can be put back). */
+function removeGame(gid) {
+  const g = games[gid]; if (!g) return;
+  const name = g.name;
+  if (openGameNames(tables, tlist).has(name)) { alert("A table is open running " + name + ". Close the table first."); return; }
+  const ids = Object.keys(wait).filter(k => wait[k] && wait[k].game === gid);
+  if (ids.length && !confirm(ids.length + (ids.length > 1 ? " people are" : " person is") + " on the " + name + " list. Remove the game and take them off? (They go to History.)")) return;
+  if (ids.length) { const upd = {}; ids.forEach(k => { toHistory(k, wait[k], "floor"); upd[k] = deleteField(); delete wait[k]; }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
+  delete games[gid]; wSel.delete(gid); setDoc(GAMESREF, { [gid]: deleteField() }, { merge: true }).catch(fail);
+  /* Off the favorites: the poker game (name without its stakes) or the table game. */
+  const variant = name.replace(/^\d+(\.\d+)?(\/\d+(\.\d+)?)+\s+/, "");
+  const fid = pgAll().find(id => pgName(id) === variant) || Object.keys(TABLE_GAMES).find(id => TABLE_GAMES[id] === name);
+  if (fid && pg.fav[fid]) { delete pg.fav[fid]; setDoc(PGREF, { fav: { [fid]: deleteField() } }, { merge: true }).catch(fail); }
+  draw();
+}
+/* History: removed names, with the list they were on, so they can be put back (wait-history.html). */
+const HISTREF = doc(db, "playerTracker", "waitHistory");
+function toHistory(id, v, src) {
+  const listName = src === "app" ? "From phones" : ((games[v.game] || {}).name || "Other");
+  setDoc(HISTREF, { [id]: { ...v, src, listName, removedAt: Date.now() } }, { merge: true }).catch(fail);
+}
 const addToWait = () => {
   const name = $("wName").value.trim(), picked = [...wSel].filter(g => games[g]);
   if (!name) { $("wName").focus(); return; }
@@ -251,7 +280,8 @@ const addToWait = () => {
   });
   setDoc(WAITREF, upd, { merge: true }).catch(fail);
   $("wName").value = ""; $("wName").focus();
-  if (wCall) setHow(false);   // back to Arrived for the next one
+  if (wCall) setHow(false);   // back to walk-in for the next one
+  wSel.clear();               // games start over for the next name
   draw();
 };
 $("wAdd").onclick = addToWait;
@@ -267,8 +297,8 @@ document.addEventListener("click", e => {
   }
   const rm = e.target.closest("[data-rm]"); if (!rm) return;
   const id = rm.dataset.rm;
-  if (rm.dataset.src === "app") { const p = state[id] || {}; setDoc(REF, { [id]: { ...p, status: "out", waitAt: null } }, { merge: true }).catch(fail); }
-  else setDoc(WAITREF, { [id]: deleteField() }, { merge: true }).catch(fail);
+  if (rm.dataset.src === "app") { const p = state[id] || {}; toHistory(id, { name: nameOf(id), card: id, at: p.waitAt || Date.now() }, "app"); setDoc(REF, { [id]: { ...p, status: "out", waitAt: null } }, { merge: true }).catch(fail); }
+  else { if (wait[id]) toHistory(id, wait[id], "floor"); setDoc(WAITREF, { [id]: deleteField() }, { merge: true }).catch(fail); }
 });
 
 /* ---- Dealers box: active dealers (logged in at a table) and the rotation list (playerTracker/rotation { order: [ids] }). ---- */

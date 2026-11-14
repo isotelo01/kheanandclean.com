@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Wait list history</title>
+<style>
+/* Wait list history (Player Tracker): names taken off a wait list, which list they were on and how long ago.
+   Restore puts a name back in the same spot (it keeps the time it joined, so it lands back in order).
+   Data: playerTracker/waitHistory { id: { name, game, at, call?, card?, src: "floor"|"app", listName, removedAt } }.
+   Staff only. */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--navy);color:#fff;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 40px}
+.wrap{max-width:900px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{margin:0;font-size:26px;color:var(--gold)}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px system-ui,sans-serif;cursor:pointer;text-decoration:none;text-align:center}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.sm{padding:6px 12px;font-size:14px}
+.warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
+.box{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:6px 14px;margin-top:14px}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.row:last-child{border-bottom:0}
+.row .nm{flex:1;min-width:0}
+.row .nm span{display:block;font-size:13px;color:rgba(255,255,255,.65)}
+.x{background:none;border:0;color:rgba(255,255,255,.5);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}
+.empty{color:rgba(255,255,255,.6);font-size:14px;padding:12px 0}
+</style>
+</head>
+<body style="visibility:hidden">
+<div class="wrap">
+  <div class="top"><a class="btn ghost sm" href="./waitlist.html">&lsaquo; Waitlist</a><h1>History</h1></div>
+  <div class="warn" id="warn">Not syncing with the server.</div>
+  <div class="box" id="list"></div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { casinoDoc } from "./pt-people.js";
+const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+const db = getFirestore(app);
+const HISTREF = doc(db, "playerTracker", "waitHistory"), WAITREF = doc(db, "playerTracker", "waitlist");
+const GAMESREF = doc(db, "playerTracker", "waitgames"), REF = doc(db, "playerTracker", "poc");
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m ago" : Math.floor(m / 1440) + "d ago"; };
+const fail = () => { $("warn").style.display = "block"; };
+let hist = {}, games = {}, state = {};
+
+function draw() {
+  const H = Object.entries(hist).filter(([, v]) => v && v.removedAt).sort((a, b) => b[1].removedAt - a[1].removedAt).slice(0, 300);
+  $("list").innerHTML = H.length ? H.map(([id, v]) => `<div class="row"><div class="nm"><b>${v.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(v.card)}" style="color:inherit">${esc(v.name)}</a>` : esc(v.name)}</b>
+      <span>${esc(v.listName || "Other")}${v.call ? " &middot; phoned in" : ""} &middot; removed ${ago(v.removedAt)}</span></div>
+      <button class="btn sm" data-restore="${esc(id)}">Restore</button><button class="x" data-del="${esc(id)}" title="Delete from history">&times;</button></div>`).join("")
+    : `<div class="empty">Nobody has been removed from a list yet.</div>`;
+}
+document.addEventListener("click", e => {
+  const r = e.target.closest("[data-restore]"), d = e.target.closest("[data-del]");
+  if (r) {
+    const id = r.dataset.restore, v = hist[id]; if (!v) return;
+    if (v.src === "app") {   // a player who joined from their phone: back on the list with the time they joined
+      const p = state[id] || {}; setDoc(REF, { [id]: { ...p, status: "wait", waitAt: v.at || Date.now() } }, { merge: true }).catch(fail);
+    } else {
+      if (v.game && !games[v.game]) setDoc(GAMESREF, { [v.game]: { name: v.listName, at: Date.now(), manual: true } }, { merge: true }).catch(fail);   // the list was closed: open it again
+      const back = { name: v.name, game: v.game || "", at: v.at || Date.now() };   // same join time = same spot in line
+      if (v.card) back.card = v.card;
+      if (v.call && Date.now() - (v.at || 0) < 60 * 60000) back.call = true;   // phoned in and still inside the hour (past it, they come back as here)
+      setDoc(WAITREF, { [id]: back }, { merge: true }).catch(fail);
+    }
+    delete hist[id]; setDoc(HISTREF, { [id]: deleteField() }, { merge: true }).catch(fail); draw(); return;
+  }
+  if (d) { delete hist[d.dataset.del]; setDoc(HISTREF, { [d.dataset.del]: deleteField() }, { merge: true }).catch(fail); draw(); }
+});
+
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=wait-history.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  document.body.style.visibility = "visible";
+  draw();
+  const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
+  on(HISTREF, v => hist = v); on(GAMESREF, v => games = v); on(REF, v => state = v);
+  setInterval(draw, 30000);
+});
+</script>
+</body>
+</html>
