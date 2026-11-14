@@ -167,6 +167,22 @@ const tablesFor = name => Object.entries(tlist || {})
 const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
 const isPlayer = c => !!(ROSTER[c] || roster[c]);
 
+/* List order: live games first, interest games after. Inside each, grouped by the exact game in the Games menu order
+   (No-Limit Hold'em together, Limit Hold'em, Pot-Limit Omaha, ...), then table games, then lowest stakes first. */
+const gameKey = name => {
+  const m = String(name).match(/^(\d+(?:\.\d+)?(?:\/\d+(?:\.\d+)?)+)\s+(.*)$/), v = m ? m[2] : String(name);
+  let gi = pgAll().findIndex(id => pgName(id) === v);
+  if (gi < 0) { const t = Object.values(TABLE_GAMES).indexOf(v); gi = 1000 + (t < 0 ? 99 : t); }
+  return { gi, v, st: m ? m[1].split("/").map(Number) : [] };
+};
+const byGame = (a, b) => {
+  if (!!b.open !== !!a.open) return b.open ? 1 : -1;
+  const x = gameKey(a.name), y = gameKey(b.name);
+  if (x.gi !== y.gi) return x.gi - y.gi;
+  if (x.v !== y.v) return x.v.localeCompare(y.v);
+  for (let i = 0; i < Math.max(x.st.length, y.st.length); i++) if ((x.st[i] || 0) !== (y.st[i] || 0)) return (x.st[i] || 0) - (y.st[i] || 0);
+  return (a.at || 0) - (b.at || 0);
+};
 function draw() {
   /* Phoned-in names are blue, with how long until they drop off (an hour after they called). */
   const row = (w, i) => `<div class="row${w.call ? " call" : ""}">
@@ -181,17 +197,17 @@ function draw() {
   if (gone.length) { const upd = {}; gone.forEach(id => { upd[id] = deleteField(); delete wait[id]; }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
   const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor", call: !!v.call, card: v.card || "" }));
   /* Live: open poker tables' games first, then interest lists (game not running, people still on it). */
-  const items = liveLists(games, wait, tables, tlist).filter(L => L.open || L.count).map(L => box(L.gid, L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.at - b.at),
+  const items = liveLists(games, wait, tables, tlist).filter(L => L.open || L.count).sort(byGame).map(L => box(L.gid, L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.at - b.at),
     L.open ? `<span class="tag on">Open</span>` : `<span class="tag">Interest</span>`));
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
     .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
-  if (phones.length) items.push(box("phones", "From phones", phones));
+  if (phones.length) items.unshift(box("phones", "From phones", phones));   // phones first, then the game lists
   const other = names.filter(w => !games[w.game]).sort((a, b) => a.at - b.at);
   if (other.length) items.push(box("other", "Other", other));
   /* + Add to wait list: every list as a bubble (tap one or more), and every player's name for the pop-up. */
   const all = liveLists(games, wait, tables, tlist);
   for (const g of [...wSel]) if (!all.some(L => L.gid === g)) wSel.delete(g);
-  $("wGames").innerHTML = all.length ? [...all].sort((a, b) => b.open - a.open).map(L => `<button class="bub${L.open ? " live" : ""}${wSel.has(L.gid) ? " on" : ""}" data-wg="${esc(L.gid)}" type="button"><span>${esc(L.name)}</span><i data-wgx="${esc(L.gid)}" title="Remove this game">&times;</i></button>`).join("")
+  $("wGames").innerHTML = all.length ? [...all].sort(byGame).map(L => `<button class="bub${L.open ? " live" : ""}${wSel.has(L.gid) ? " on" : ""}" data-wg="${esc(L.gid)}" type="button"><span>${esc(L.name)}</span><i data-wgx="${esc(L.gid)}" title="Remove this game">&times;</i></button>`).join("")
     : `<span class="hint">No games yet. Open a poker table on the Floor page.</span>`;
   const pl = [...new Set([...Object.keys(ROSTER), ...Object.keys(roster)].map(nameOf))].sort();
   if (pl.length !== plCount) { plCount = pl.length; $("wPlayers").innerHTML = pl.map(n => `<option value="${esc(n)}">`).join(""); }
@@ -218,6 +234,7 @@ function draw() {
     if (el.dataset.h !== it.html) { el.dataset.h = it.html; el.innerHTML = it.html; }
   });
   board.querySelectorAll(".wdg").forEach(el => { if (!keep.has(el.dataset.w)) el.remove(); });
+  items.forEach((it, i) => { const el = board.querySelector(`.wdg[data-w="${CSS.escape(it.id)}"]`); if (el && board.children[i] !== el) board.insertBefore(el, board.children[i] || null); });   // keep the order (a game going live moves up)
   layoutApply();
 }
 
