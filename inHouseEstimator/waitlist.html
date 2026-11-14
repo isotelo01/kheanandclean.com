@@ -83,6 +83,7 @@ select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-r
 @keyframes pgFlash{0%,100%{color:var(--ok)}50%{color:#fff}}
 .row.paged .nm>b,.row.paged .nm>b a{animation:pgFlash 1s steps(1) infinite}
 .btn.sm.pgd{background:var(--ok);border-color:var(--ok);color:#000}
+.row{gap:6px}.row .btn.sm{padding:4px 9px;font-size:13px;flex:none}.row .nm span{white-space:nowrap;overflow:hidden}   /* room for the name next to the buttons */
 .row .nm span{display:block;font-size:13px;color:rgba(255,255,255,.65)}
 .empty{color:rgba(255,255,255,.6);font-size:14px;padding:10px 0}
 input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:10px;font:inherit}
@@ -219,7 +220,7 @@ function draw() {
   const row = (w, i) => `<div class="row${w.call ? " call" : ""}${paged(w) ? " paged" : ""}"${w.src === "floor" ? ` data-id="${esc(w.id)}"` : ""}>
       ${w.src === "floor" ? `<span class="grip" title="Drag to move">&#10303;</span>` : ""}<div class="nm"><b>${i + 1}. ${w.src === "app" || w.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.card || w.id)}" style="color:inherit">${fn(w.name)}</a>` : fn(w.name)}</b><span>${w.call
         ? "Phoned in " + (ago(w.at) === "just now" ? "just now" : ago(w.at) + " ago") + " &middot; drops off in " + Math.max(1, Math.ceil((w.at + CALL_MS - Date.now()) / 60000)) + "m" : "waiting " + ago(w.at)}</span></div>
-      ${w.call ? `<button class="btn sm" data-arr="${esc(w.id)}" title="They're here">Arrived</button>` : ""}${w.src === "floor" && games[w.game] && seatTables(games[w.game].name).length ? `<button class="btn sm" data-seat="${esc(w.id)}" title="Pick a seat">Seat</button>` : ""}<button class="btn ghost sm${paged(w) ? " pgd" : ""}" data-page="${esc(w.id)}" data-src="${w.src}" title="${paged(w) ? "Stop paging" : "Page: their name flashes green on the lists and the TV"}">Page</button><button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
+      ${w.call ? `<button class="btn sm" data-arr="${esc(w.id)}" title="They're here">Arrived</button>` : ""}${w.src === "floor" && games[w.game] && seatTables(games[w.game].name).length ? `<button class="btn sm" data-seat="${esc(w.id)}" title="Pick a seat">Seat</button>` : ""}<button class="btn ghost sm${paged(w) ? " pgd" : ""}" data-page="${esc(w.id)}" data-src="${w.src}" title="${paged(w) ? "Stop paging" : "Page: their name flashes green on the lists and the TV"}">Page</button><button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}" title="Remove">&times;</button></div>`;
   /* Under each game: its table numbers, and how many seats are open at each. */
   const tblLine = name => { const T = tablesFor(name); return T.length ? `<div class="tbls">${T.map(t => `<span class="tb${t.open ? " seat" : ""}">Table ${esc(t.n)} &middot; ${t.open ? t.open + (t.open > 1 ? " seats" : " seat") + " open" : "Full"}</span>`).join("")}</div>` : ""; };
   const box = (id, title, list, tag) => ({ id, html: `<div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span></div>${tag ? tblLine(title) : ""}
