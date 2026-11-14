@@ -179,12 +179,15 @@ function chipTray(x0, y0) {
 const cx = 200, cy = 56, r = 170;
 /* Poker oval: felt 320x176 centered at (200,140); 10 spots around it, dealer at the top, seat 1 to the dealer's left. */
 const OX = 200, OY = 140, OW = 160, OH = 88;
+/* Dealer cutout (center and size, table coordinates before the turn) and the overhead light (also before the turn:
+   y 196 here is near the top of the screen). */
+const CUT_Y = OY - OH - 8, CUT_RX = 66, CUT_RY = 30, LX = 200, LY = 196;
 /* The whole table is turned 180° so the dealer sits at the bottom of the screen (seat 1 still on the dealer's left). */
 const FY = 136, flip = (x, y) => [400 - x, 2 * FY - y];
 const seatXY = k => {   // k = 0-based position in TB.seats
   if (TB.shape === "oval") {
     const a = -Math.PI / 2 + (k + 1) * 2 * Math.PI / (TB.seats.length + 1);
-    return flip(OX + Math.cos(a) * (OW - 34), OY + Math.sin(a) * (OH - 38));
+    return flip(OX + Math.cos(a) * (OW - 20), OY + Math.sin(a) * (OH - 22));   // close to the rail: room in the middle for the stakes
   }
   const a = Math.PI * ((k + 1) / (TB.seats.length + 1));
   return flip(cx + Math.cos(a) * (r - 38), cy + Math.sin(a) * (r - 38));
@@ -218,6 +221,19 @@ function draw() {
       <radialGradient id="feltO" cx="${OX}" cy="${OY}" r="${OW}" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
       </radialGradient>
+      <!-- One overhead light, worked out once: it hangs over the far end of the table (top of the screen), so the felt
+           is brightest under it, the rail catches light on the side facing it, and shadows fall toward the dealer. -->
+      <radialGradient id="lightPool" cx="${LX}" cy="${LY}" r="190" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#fff" stop-opacity=".14"/><stop offset=".55" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".22"/>
+      </radialGradient>
+      <radialGradient id="railLight" cx="${LX}" cy="${LY}" r="230" gradientUnits="userSpaceOnUse">
+        <stop offset=".3" stop-color="#ffe2b8" stop-opacity=".55"/><stop offset=".75" stop-color="#ffe2b8" stop-opacity=".12"/><stop offset="1" stop-color="#ffe2b8" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="tblSh" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+      <!-- Dealer cutout: a notch in the rail and felt where the dealer stands. -->
+      <mask id="dlrCut" maskUnits="userSpaceOnUse" x="-50" y="-50" width="500" height="400">
+        <rect x="-50" y="-50" width="500" height="400" fill="#fff"/><ellipse cx="${OX}" cy="${CUT_Y}" rx="${CUT_RX}" ry="${CUT_RY}" fill="#000"/>
+      </mask>
       <radialGradient id="feltG" cx="${cx}" cy="${cy + 40}" r="${r}" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
       </radialGradient>
@@ -298,10 +314,21 @@ function tableBody(d) {
     + `<text x="200" y="${y + 17}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`;
   if (TB.shape === "oval") {   // poker: oval felt, one-piece rail all the way around
     const fx = OX - OW, fy = OY - OH, fw = OW * 2, fh = OH * 2, rx = OH;
-    return `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" fill="url(#feltO)"/>`
+    const cut = `M${OX - CUT_RX} ${CUT_Y} A ${CUT_RX} ${CUT_RY} 0 0 0 ${OX + CUT_RX} ${CUT_Y}`;   // the cutout's edge (felt side)
+    return `<g mask="url(#dlrCut)">`
+      /* Shadow on the floor, thrown away from the light (toward the dealer). */
+      + `<rect x="${fx - 14}" y="${fy - 22}" width="${fw + 28}" height="${fh + 28}" rx="${rx + 14}" fill="#000" opacity=".55" filter="url(#tblSh)"/>`
+      + `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" fill="url(#feltO)"/>`
       + `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" fill="#000" filter="url(#feltTex)"/>`
+      + `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" fill="url(#lightPool)"/>`
       + `<rect x="${fx + 2}" y="${fy + 2}" width="${fw - 4}" height="${fh - 4}" rx="${rx - 2}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/>`
-      + RAIL.map(([w, col]) => `<rect x="${fx - 8}" y="${fy - 8}" width="${fw + 16}" height="${fh + 16}" rx="${rx + 8}" fill="none" stroke="${col}" stroke-width="${w}"/>`).join("");
+      + RAIL.map(([w, col]) => `<rect x="${fx - 8}" y="${fy - 8}" width="${fw + 16}" height="${fh + 16}" rx="${rx + 8}" fill="none" stroke="${col}" stroke-width="${w}"/>`).join("")
+      + `<rect x="${fx - 5}" y="${fy - 5}" width="${fw + 10}" height="${fh + 10}" rx="${rx + 5}" fill="none" stroke="url(#railLight)" stroke-width="3"/>`   // rail catching the light
+      + `</g>`
+      /* The rail wraps around the cutout too, with the felt's shadow under it. */
+      + `<path d="${cut}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="12" transform="translate(0 4)"/>`
+      + RAIL.map(([w, col]) => `<path d="${cut}" fill="none" stroke="${col}" stroke-width="${w}"/>`).join("")
+      + `<path d="${cut}" fill="none" stroke="url(#railLight)" stroke-width="3" transform="translate(0 -3)"/>`;
   }
   const m = r + 8, rp = `M${cx - m} ${cy - 6} L${cx + m} ${cy - 6} L${cx + m} ${cy} A ${m} ${m} 0 0 1 ${cx - m} ${cy} Z`;
   return `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="url(#feltG)"/>`
@@ -317,10 +344,15 @@ function tableDeco(d) {
   const dealerBox = (y) => `<rect x="140" y="${y}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
     + `<text x="200" y="${y + 17}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`;
   if (TB.shape === "oval") {
-    const fy = OY - OH;
-    return dealerBox(2 * FY - (fy - 16))
-      + `<image href="../images/edh-casino-logo.png" x="170" y="${2 * FY - OY - 6}" width="60" height="47" opacity=".9"/>`
-      + label(2 * FY - OY + 56);
+    /* Poker: the game and its stakes posted on the felt, e.g. NO-LIMIT HOLD'EM, then $1/$2 under it. */
+    const gm = (TB.variant || TB.game).toUpperCase(), lg = gm.length > 14;
+    const stakes = TB.stakes ? TB.stakes.split("/").map(x => "$" + x).join("/") : "";
+    const dlr = `<rect x="150" y="${2 * FY - CUT_Y - 14}" width="100" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`   // in the cutout
+      + `<text x="200" y="${2 * FY - CUT_Y + 3}" fill="var(--gold)" font-size="${d && nameOf(d).length > 14 ? 9 : 11}" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`;
+    return dlr
+      + `<image href="../images/edh-casino-logo.png" x="172" y="${2 * FY - OY - 40}" width="56" height="44" opacity=".9"/>`
+      + `<text x="200" y="${2 * FY - OY + 20}" fill="rgba(255,255,255,.8)" font-size="${lg ? 10 : 12}" font-weight="700" letter-spacing="${lg ? 1.5 : 3}" text-anchor="middle">${esc(gm)}</text>`
+      + (stakes ? `<text x="200" y="${2 * FY - OY + 46}" fill="var(--gold)" font-size="24" font-weight="800" text-anchor="middle" filter="url(#numSh)">${esc(stakes)}</text>` : "");
   }
   return dealerBox(2 * FY - (cy - 24))
     + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${2 * FY - cy - 84}" width="60" height="47" opacity=".9"/>`
