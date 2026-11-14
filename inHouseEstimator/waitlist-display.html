@@ -126,7 +126,7 @@ function draw() {
   drawRot();
   const col = (title, list, cls, tag, tbls) => `<div class="col ${cls}"><div class="gh"><b>${esc(title)}</b>${tag || ""}</div>${tbls || ""}
       <div class="cnt">${list.length} waiting</div>
-      ${list.length ? `<ol>${list.map((w, i) => `<li${w.page && Date.now() - w.page < 5 * 60000 ? ` class="paged"` : ""}><span class="n">${i + 1}.</span><span class="nm">${esc(shortName(w.name))}</span>${w.call ? `<span class="ph">CALLED IN</span>` : ""}</li>`).join("")}</ol>` : `<div class="empty">Nobody waiting.</div>`}</div>`;
+      ${list.length ? `<ol>${list.map((w, i) => `<li${w.page ? ` class="paged"` : ""}><span class="n">${i + 1}.</span><span class="nm">${esc(shortName(w.name))}</span>${w.call ? `<span class="ph">CALLED IN</span>` : ""}</li>`).join("")}</ol>` : `<div class="empty">Nobody waiting.</div>`}</div>`;
   const names = Object.entries(wait).filter(([, v]) => v && v.name && !expired(v)).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, k: v.ord ?? v.at, call: !!v.call, page: v.page || 0 }));
   let html = "";
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait").map(([c, p]) => ({ name: nameOf(c), at: p.waitAt || 0, page: p.page || 0 })).sort((a, b) => a.at - b.at);

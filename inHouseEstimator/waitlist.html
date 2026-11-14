@@ -212,8 +212,8 @@ function fitNames() {
   document.querySelectorAll(".fn").forEach(f => { const b = f.closest("b"); f.textContent = f.dataset.full; if (b && b.scrollWidth > b.clientWidth + 1) f.textContent = shortNm(f.dataset.full); });
 }
 addEventListener("resize", () => fitNames());
-/* Page: the player's name flashes green on the lists and the Waitlist Display for 5 minutes (tap Page again to stop). */
-const PAGE_MS = 5 * 60000, paged = w => !!w.page && Date.now() - w.page < PAGE_MS;
+/* Page: the player's name flashes green on the lists and the Waitlist Display until you tap Page again or seat them. */
+const paged = w => !!w.page;
 function draw() {
   if (dragging) return;   // not while a row is being dragged (it redraws after the drop)
   /* Phoned-in names are blue, with how long until they drop off (an hour after they called). */
@@ -372,7 +372,7 @@ document.addEventListener("click", e => {
   }
   const rm = e.target.closest("[data-rm]"); if (!rm) return;
   const id = rm.dataset.rm;
-  if (rm.dataset.src === "app") { const p = state[id] || {}; toHistory(id, { name: nameOf(id), card: id, at: p.waitAt || Date.now() }, "app"); setDoc(REF, { [id]: { ...p, status: "out", waitAt: null } }, { merge: true }).catch(fail); }
+  if (rm.dataset.src === "app") { const p = state[id] || {}; toHistory(id, { name: nameOf(id), card: id, at: p.waitAt || Date.now() }, "app"); setDoc(REF, { [id]: { ...p, status: "out", waitAt: null, page: null } }, { merge: true }).catch(fail); }
   else { if (wait[id]) toHistory(id, wait[id], "floor"); setDoc(WAITREF, { [id]: deleteField() }, { merge: true }).catch(fail); }
 });
 
@@ -497,7 +497,7 @@ $("smBody").addEventListener("click", e => {
     let c = w.card || [...Object.keys(ROSTER), ...Object.keys(roster)].find(k => nameOf(k).toLowerCase() === w.name.toLowerCase());
     if (!c) { c = "P" + Date.now().toString(36).toUpperCase(); roster[c] = { name: w.name }; setDoc(ROSTREF, { [c]: { name: w.name } }, { merge: true }).catch(fail); }   // not a saved player yet: make a player file
     const p = state[c] || {};
-    state[c] = { ...p, status: "seated", seat: +s, table: +n, since: clockStart(tables, +n), waitAt: null, breakAt: null };
+    state[c] = { ...p, status: "seated", seat: +s, table: +n, since: clockStart(tables, +n), waitAt: null, breakAt: null, page: null };
     setDoc(REF, { [c]: state[c] }, { merge: true }).catch(fail);
     logEvent(c, "Seated at table " + n + " seat " + s + " (from the wait list)");
     toHistory(seatFor.wid, w, "floor", "Table " + n + ", seat " + s);   // seated names go to History too
