@@ -127,7 +127,7 @@ a.bub{text-decoration:none;display:inline-block}
   <!-- Dealers: who's dealing now (and at which table), and the dealer rotation (next up on top). -->
   <div class="wdg" data-w="dealers" style="display:flex;flex-direction:column;gap:8px">
     <div class="wlbl">Rotation <span id="dCount" style="font-weight:400"></span></div><div id="dRot"></div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap"><select id="dPick" style="flex:1;min-width:0"></select><button class="btn sm" id="dAdd">Add</button><button class="btn ghost sm" id="dNext" title="Top dealer goes to the bottom">Rotate</button></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><select id="dPick" style="flex:1;min-width:0"></select><button class="btn sm" id="dAdd">Add</button><button class="btn ghost sm" id="dNext" title="Each dealer moves to the next table or break; the last one comes back to the top spot">Rotate</button></div>
   </div>
   <!-- Promotions: players given a promotion today (from the Promotions page), newest first. -->
   <div class="wdg" data-w="promos" style="display:flex;flex-direction:column;gap:6px">
@@ -398,7 +398,21 @@ function drawDealers() {
   $("dPick").innerHTML = pick.length ? pick.map(d => `<option value="${esc(d)}"${d === cur ? " selected" : ""}>${esc(dName(d))}</option>`).join("") : `<option value="">Everyone's on it</option>`;
 }
 $("dAdd").onclick = () => { const d = $("dPick").value; if (!d || rot.includes(d)) return; rot.push(d); saveRot(); drawDealers(); };
-$("dNext").onclick = () => { if (rot.length < 2) return; rot.push(rot.shift()); saveRot(); drawDealers(); };
+/* Rotate: the spots (1 - 2 - 3 - B ...) stay in order; each working dealer moves down to the next spot, and the last one
+   (on break) comes back to the top spot. Dealers marked Off don't move. */
+$("dNext").onclick = () => {
+  const spot = d => { const p = state[d] || {}; return p.status === "seated" ? "T" + (p.table || 1) : p.status === "break" ? "B" : ""; };
+  const idx = rot.map((d, i) => spot(d) ? i : -1).filter(i => i >= 0); if (idx.length < 2) return;
+  const spots = idx.map(i => spot(rot[i])), ds = idx.map(i => rot[i]); ds.unshift(ds.pop());
+  const now = Date.now(), upd = {};
+  idx.forEach((i, k) => {
+    const d = ds[k], sp = spots[k], p = state[d] || {}; rot[i] = d;
+    if (sp === spot(d)) return;
+    state[d] = sp === "B" ? { ...p, status: "break", breakAt: now, since: null } : { ...p, status: "seated", seat: 0, table: +sp.slice(1), since: now, breakAt: null };
+    upd[d] = state[d]; logEvent(d, sp === "B" ? "On break (rotation)" : "Dealing table " + sp.slice(1) + " (rotation)");
+  });
+  saveRot(); if (Object.keys(upd).length) setDoc(REF, upd, { merge: true }).catch(fail); draw();
+};
 $("dRot").addEventListener("click", e => {
   const rm = e.target.closest("[data-drm]"); if (!rm) return;
   rot.splice(+rm.dataset.drm, 1);
