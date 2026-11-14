@@ -76,6 +76,14 @@ html.embed .extwall{display:none}   /* just the tables floating and the inside w
 [hidden]{display:none!important}
 .hint{color:rgba(255,255,255,.6);font-size:13px;margin:-4px 0 8px}
 #plan{width:100%;height:auto;display:block;background:#101a2e;border:1px solid rgba(255,255,255,.12);border-radius:12px;touch-action:none}
+/* Floor page (not the Waitlist box): the page fills the screen and the floor plan shrinks to fit what's left, no scrolling. */
+html:not(.embed) body{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:12px;box-sizing:border-box}
+html:not(.embed) .wrap{flex:1;min-height:0;width:100%;display:flex;flex-direction:column}
+html:not(.embed) .cols{flex:1;min-height:0;display:flex;flex-direction:column}
+html:not(.embed) main{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto}
+html:not(.embed) #plan{flex:1;min-height:160px;height:auto}
+/* Always landscape: when the screen is upright, the whole page is turned sideways. */
+html.turned body{position:fixed;top:0;left:0;transform-origin:0 0;transform:rotate(90deg) translateY(-100%)}
 .ptbl{cursor:pointer}
 body.moving .ptbl{cursor:grab}
 body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
@@ -150,6 +158,13 @@ import { pg, setPg, pgName, pgAll, stakesFor, STAKES_NL, mountPgMenu } from "./p
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 /* Inside the Waitlist page (?embed). PLAN_ROT turns the whole plan (0 = as drawn; 90 = a quarter turn clockwise). */
 const EMBED = new URLSearchParams(location.search).has("embed"), PLAN_ROT = 0;
+function fitTurn() {   // upright screen: turn the Floor page sideways so it's always landscape (not inside the Waitlist)
+  const t = !EMBED && innerHeight > innerWidth;
+  document.documentElement.classList.toggle("turned", t);
+  document.body.style.width = t ? innerHeight + "px" : "";
+  document.body.style.height = t ? innerWidth + "px" : "";
+}
+fitTurn(); addEventListener("resize", fitTurn);
 if (EMBED) {   // inside the Waitlist page: the plan sits in the top-right corner of its box
   document.documentElement.classList.add("embed"); document.getElementById("plan").setAttribute("preserveAspectRatio", "xMidYMid meet");   // centered in its spot
 }
