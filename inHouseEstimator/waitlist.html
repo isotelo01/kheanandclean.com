@@ -78,6 +78,11 @@ select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-r
 .row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
 .row:last-child{border-bottom:0}
 .row .nm{flex:1;min-width:0}
+.row .nm>b,.drow>b{display:block;white-space:nowrap;overflow:hidden}.fn{font-style:normal}   /* names stay on one line (too long: first name + last initial) */
+[data-id] .nm>b,.drow>b{touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}   /* grab the name to drag */
+@keyframes pgFlash{0%,100%{color:var(--ok)}50%{color:#fff}}
+.row.paged .nm>b,.row.paged .nm>b a{animation:pgFlash 1s steps(1) infinite}
+.btn.sm.pgd{background:var(--ok);border-color:var(--ok);color:#000}
 .row .nm span{display:block;font-size:13px;color:rgba(255,255,255,.65)}
 .empty{color:rgba(255,255,255,.6);font-size:14px;padding:10px 0}
 input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:10px;font:inherit}
@@ -199,25 +204,34 @@ const byGame = (a, b) => {
   for (let i = 0; i < Math.max(x.st.length, y.st.length); i++) if ((x.st[i] || 0) !== (y.st[i] || 0)) return (x.st[i] || 0) - (y.st[i] || 0);
   return (a.at || 0) - (b.at || 0);
 };
+/* Names: one line each. A name too long for its line becomes first name + last initial ("Angela S."). */
+const fn = n => `<i class="fn" data-full="${esc(n)}">${esc(n)}</i>`;
+const shortNm = n => { const p = String(n).trim().split(/\s+/); return p.length > 1 ? p[0] + " " + p[p.length - 1][0].toUpperCase() + "." : n; };
+function fitNames() {
+  document.querySelectorAll(".fn").forEach(f => { const b = f.closest("b"); f.textContent = f.dataset.full; if (b && b.scrollWidth > b.clientWidth + 1) f.textContent = shortNm(f.dataset.full); });
+}
+addEventListener("resize", () => fitNames());
+/* Page: the player's name flashes green on the lists and the Waitlist Display for 5 minutes (tap Page again to stop). */
+const PAGE_MS = 5 * 60000, paged = w => !!w.page && Date.now() - w.page < PAGE_MS;
 function draw() {
   if (dragging) return;   // not while a row is being dragged (it redraws after the drop)
   /* Phoned-in names are blue, with how long until they drop off (an hour after they called). */
-  const row = (w, i) => `<div class="row${w.call ? " call" : ""}"${w.src === "floor" ? ` data-id="${esc(w.id)}"` : ""}>
-      ${w.src === "floor" ? `<span class="grip" title="Drag to move">&#10303;</span>` : ""}<div class="nm"><b>${i + 1}. ${w.src === "app" || w.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.card || w.id)}" style="color:inherit">${esc(w.name)}</a>` : esc(w.name)}</b><span>${w.call
+  const row = (w, i) => `<div class="row${w.call ? " call" : ""}${paged(w) ? " paged" : ""}"${w.src === "floor" ? ` data-id="${esc(w.id)}"` : ""}>
+      ${w.src === "floor" ? `<span class="grip" title="Drag to move">&#10303;</span>` : ""}<div class="nm"><b>${i + 1}. ${w.src === "app" || w.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.card || w.id)}" style="color:inherit">${fn(w.name)}</a>` : fn(w.name)}</b><span>${w.call
         ? "Phoned in " + (ago(w.at) === "just now" ? "just now" : ago(w.at) + " ago") + " &middot; drops off in " + Math.max(1, Math.ceil((w.at + CALL_MS - Date.now()) / 60000)) + "m" : "waiting " + ago(w.at)}</span></div>
-      ${w.call ? `<button class="btn sm" data-arr="${esc(w.id)}" title="They're here">Arrived</button>` : ""}${w.src === "floor" && games[w.game] && seatTables(games[w.game].name).length ? `<button class="btn sm" data-seat="${esc(w.id)}" title="Pick a seat">Seat</button>` : ""}<button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
+      ${w.call ? `<button class="btn sm" data-arr="${esc(w.id)}" title="They're here">Arrived</button>` : ""}${w.src === "floor" && games[w.game] && seatTables(games[w.game].name).length ? `<button class="btn sm" data-seat="${esc(w.id)}" title="Pick a seat">Seat</button>` : ""}<button class="btn ghost sm${paged(w) ? " pgd" : ""}" data-page="${esc(w.id)}" data-src="${w.src}" title="${paged(w) ? "Stop paging" : "Page: their name flashes green on the lists and the TV"}">Page</button><button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
   /* Under each game: its table numbers, and how many seats are open at each. */
   const tblLine = name => { const T = tablesFor(name); return T.length ? `<div class="tbls">${T.map(t => `<span class="tb${t.open ? " seat" : ""}">Table ${esc(t.n)} &middot; ${t.open ? t.open + (t.open > 1 ? " seats" : " seat") + " open" : "Full"}</span>`).join("")}</div>` : ""; };
   const box = (id, title, list, tag) => ({ id, html: `<div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span></div>${tag ? tblLine(title) : ""}
       ${list.length ? list.map(row).join("") : `<div class="empty">Nobody waiting.</div>`}` });
   const gone = Object.keys(wait).filter(id => expired(wait[id]));   // phoned-in, past an hour: drop them
   if (gone.length) { const upd = {}; gone.forEach(id => { upd[id] = deleteField(); delete wait[id]; }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
-  const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, k: v.ord ?? v.at, src: "floor", call: !!v.call, card: v.card || "" }));   // k: spot in line (ord once dragged, else join time)
+  const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, k: v.ord ?? v.at, src: "floor", call: !!v.call, card: v.card || "", page: v.page || 0 }));   // k: spot in line (ord once dragged, else join time)
   /* Live: open poker tables' games first, then interest lists (game not running, people still on it). */
   const items = liveLists(games, wait, tables, tlist).filter(L => L.open || L.count).sort(byGame).map(L => box(L.gid, L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.k - b.k),
     L.open ? `<span class="tag on">Open</span>` : `<span class="tag">Interest</span>`));
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
-    .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
+    .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app", page: p.page || 0 })).sort((a, b) => a.at - b.at);
   if (phones.length) items.unshift(box("phones", "From phones", phones));   // phones first, then the game lists
   const other = names.filter(w => !games[w.game]).sort((a, b) => a.k - b.k);
   if (other.length) items.push(box("other", "Other", other));
@@ -252,7 +266,7 @@ function draw() {
   });
   board.querySelectorAll(".wdg").forEach(el => { if (!keep.has(el.dataset.w)) el.remove(); });
   items.forEach((it, i) => { const el = board.querySelector(`.wdg[data-w="${CSS.escape(it.id)}"]`); if (el && board.children[i] !== el) board.insertBefore(el, board.children[i] || null); });   // keep the order (a game going live moves up)
-  layoutApply();
+  layoutApply(); fitNames();
 }
 
 /* ---- Board layout (fixed): form and floor plan across the top, game lists 3 columns wide underneath. ---- */
@@ -349,6 +363,12 @@ document.addEventListener("click", e => {
     const upd = {}; ids.forEach(k => { if (wait[k]) delete wait[k].call; upd[k] = { call: deleteField() }; });
     draw(); setDoc(WAITREF, upd, { merge: true }).catch(fail); return;
   }
+  const pb = e.target.closest("[data-page]");
+  if (pb) {
+    const id = pb.dataset.page, app = pb.dataset.src === "app", cur = (app ? state[id] : wait[id]) || {};
+    const val = paged(cur) ? deleteField() : Date.now();
+    setDoc(app ? REF : WAITREF, { [id]: { page: val } }, { merge: true }).catch(fail); return;
+  }
   const rm = e.target.closest("[data-rm]"); if (!rm) return;
   const id = rm.dataset.rm;
   if (rm.dataset.src === "app") { const p = state[id] || {}; toHistory(id, { name: nameOf(id), card: id, at: p.waitAt || Date.now() }, "app"); setDoc(REF, { [id]: { ...p, status: "out", waitAt: null } }, { merge: true }).catch(fail); }
@@ -368,9 +388,10 @@ function drawDealers() {
   const bBtn = d => `<button class="mini brk${brk(d) ? " on" : ""}" data-dbrk="${esc(d)}" title="${brk(d) ? "End break" : "Break"}">B</button>`;
   const where = d => dTable(d) ? "Table " + dTable(d) : brk(d) ? `<span class="onbrk">Break ${ago(brk(d))}</span>` : "Off";
   $("dCount").textContent = rot.length ? "· " + rot.length + (rot.length > 1 ? " dealers" : " dealer") : "";
-  $("dRot").innerHTML = rot.length ? rot.map((d, i) => `<div class="drow" data-id="${esc(d)}"><span class="grip" title="Drag to move">&#10303;</span><b>${esc(dName(d))}</b><span>${where(d)}</span>
+  $("dRot").innerHTML = rot.length ? rot.map((d, i) => `<div class="drow" data-id="${esc(d)}"><span class="grip" title="Drag to move">&#10303;</span><b>${fn(dName(d))}</b><span>${where(d)}</span>
       ${bBtn(d)}<button class="mini" data-dseat="${esc(d)}" title="Put on a table">Seat</button><button class="mini" data-drm="${i}" title="Take off the rotation">&times;</button></div>`).join("")
     : `<div class="empty">Add dealers below to build the rotation.</div>`;
+  fitNames();
   const pick = Object.keys(DEALERS).filter(d => !rot.includes(d)).sort((a, b) => dName(a).localeCompare(dName(b)));
   const cur = $("dPick").value;
   $("dPick").innerHTML = pick.length ? pick.map(d => `<option value="${esc(d)}"${d === cur ? " selected" : ""}>${esc(dName(d))}</option>`).join("") : `<option value="">Everyone's on it</option>`;
@@ -383,15 +404,16 @@ $("dRot").addEventListener("click", e => {
   saveRot(); drawDealers();
 });
 
-/* ---- Drag to reorder: press the grip on a row and slide it up or down its list. done(ids) gets the new order. ---- */
+/* ---- Drag to reorder: press a name (or its grip) and slide it up or down its list. done(ids) gets the new order. ---- */
 var dragging = false;   // var: draw() can run before this line
 function dragSort(box, done) {
   box.addEventListener("pointerdown", e => {
-    const g = e.target.closest(".grip"); if (!g) return;
-    const row = g.closest("[data-id]"), list = row && row.parentElement; if (!row) return;
-    e.preventDefault(); dragging = true; row.classList.add("drag");
+    const g = e.target.closest(".grip, .nm>b, .drow>b"); if (!g) return;
+    const row = g.closest("[data-id]"), list = row && row.parentElement; if (!row || !box.contains(row)) return;
+    const x0 = e.clientX, y0 = e.clientY; let live = false;   // a tap (no slide) still opens a name's profile link
     const rows = () => [...list.children].filter(r => r.dataset.id);
     const move = ev => {
+      if (!live) { if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 6) return; live = dragging = true; row.classList.add("drag"); }
       ev.preventDefault();
       const t = document.elementFromPoint(ev.clientX, ev.clientY), over = t && t.closest("[data-id]");   // works on the turned page too
       if (!over || over === row || over.parentElement !== list) return;
@@ -399,6 +421,9 @@ function dragSort(box, done) {
     };
     const up = () => {
       removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", up);
+      if (!live) return;
+      const eat = ev => { ev.preventDefault(); ev.stopPropagation(); };   // the drop isn't a tap on the name's link
+      addEventListener("click", eat, true); setTimeout(() => removeEventListener("click", eat, true), 0);
       row.classList.remove("drag"); dragging = false; done(rows().map(r => r.dataset.id)); draw();
     };
     addEventListener("pointermove", move, { passive: false }); addEventListener("pointerup", up); addEventListener("pointercancel", up);

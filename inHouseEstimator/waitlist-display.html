@@ -43,6 +43,8 @@ li{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px so
 li:last-child{border-bottom:0}
 li .n{color:var(--gold);min-width:1.6em}
 li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes pgFlash{0%,100%{color:#4ade80}50%{color:#fff}}
+li.paged .nm,li.paged .n{animation:pgFlash 1s steps(1) infinite}   /* paged from the Waitlist: name flashes green */
 li .ph{font-size:13px;color:#7dd3fc;font-weight:700}
 .empty{color:rgba(255,255,255,.55);font-size:18px;padding:10px 0}
 </style>
@@ -124,10 +126,10 @@ function draw() {
   drawRot();
   const col = (title, list, cls, tag, tbls) => `<div class="col ${cls}"><div class="gh"><b>${esc(title)}</b>${tag || ""}</div>${tbls || ""}
       <div class="cnt">${list.length} waiting</div>
-      ${list.length ? `<ol>${list.map((w, i) => `<li><span class="n">${i + 1}.</span><span class="nm">${esc(shortName(w.name))}</span>${w.call ? `<span class="ph">CALLED IN</span>` : ""}</li>`).join("")}</ol>` : `<div class="empty">Nobody waiting.</div>`}</div>`;
-  const names = Object.entries(wait).filter(([, v]) => v && v.name && !expired(v)).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, k: v.ord ?? v.at, call: !!v.call }));
+      ${list.length ? `<ol>${list.map((w, i) => `<li${w.page && Date.now() - w.page < 5 * 60000 ? ` class="paged"` : ""}><span class="n">${i + 1}.</span><span class="nm">${esc(shortName(w.name))}</span>${w.call ? `<span class="ph">CALLED IN</span>` : ""}</li>`).join("")}</ol>` : `<div class="empty">Nobody waiting.</div>`}</div>`;
+  const names = Object.entries(wait).filter(([, v]) => v && v.name && !expired(v)).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, k: v.ord ?? v.at, call: !!v.call, page: v.page || 0 }));
   let html = "";
-  const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait").map(([c, p]) => ({ name: nameOf(c), at: p.waitAt || 0 })).sort((a, b) => a.at - b.at);
+  const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait").map(([c, p]) => ({ name: nameOf(c), at: p.waitAt || 0, page: p.page || 0 })).sort((a, b) => a.at - b.at);
   if (phones.length) html += col("From phones", phones, "", "");
   html += liveLists(games, wait, tables, tlist).filter(L => L.open || L.count).sort(byGame).map(L => {
     const T = L.open ? tablesFor(L.name) : [];
