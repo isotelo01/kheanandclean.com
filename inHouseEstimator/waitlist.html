@@ -97,7 +97,7 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists, expired, CALL_MS } from "./pt-people.js";   // 200 test players, 10 test dealers
+import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists, openGameNames, expired, CALL_MS } from "./pt-people.js";   // 200 test players, 10 test dealers
 import { pg, setPg, pgName, pgAll, stakesFor, TABLE_GAMES, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
@@ -197,7 +197,8 @@ function layoutApply() {
 }
 /* Games button: the Games menu (star favorites, start lists for poker and table games). Tap a favorite to open it too. */
 const listFor = name => Object.keys(games).find(gid => games[gid] && games[gid].name === name);
-const pgMenu = mountPgMenu($("pgBox"), { PGREF, GAMESREF, games: () => games, listFor, fail, after: () => draw() });
+const pgMenu = mountPgMenu($("pgBox"), { PGREF, GAMESREF, games: () => games, listFor, fail, after: () => draw(),
+  WAITREF, wait: () => wait, running: nm => openGameNames(tables, tlist).has(nm) });
 $("gamesBtn").onclick = pgMenu.toggle;
 document.addEventListener("click", e => { if (e.target.closest("[data-favopen]") && $("pgBox").hidden) pgMenu.toggle(); });
 /* + Add to wait list: a name and which game's list. */

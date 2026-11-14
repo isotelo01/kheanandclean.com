@@ -36,7 +36,7 @@ const CSS = `.pgMenu{background:#0b1220;border:1px solid var(--gold);border-radi
 
 /* Put the menu in box (an empty, hidden element). opts: { PGREF, GAMESREF, games: () => games, listFor, fail, after }.
    Returns { draw, toggle }. */
-export function mountPgMenu(box, { PGREF, GAMESREF, games, listFor, fail, after }) {
+export function mountPgMenu(box, { PGREF, GAMESREF, games, listFor, fail, after, WAITREF, wait, running }) {
   if (!document.getElementById("pgMenuCss")) { const s = document.createElement("style"); s.id = "pgMenuCss"; s.textContent = CSS; document.head.appendChild(s); }
   box.classList.add("pgMenu");
   box.innerHTML = `<div class="pgh"><b>Games</b><button data-pgclose aria-label="Close">&times;</button></div>
@@ -52,12 +52,23 @@ export function mountPgMenu(box, { PGREF, GAMESREF, games, listFor, fail, after 
     if (!had) { const gid = "g" + Date.now(); G[gid] = { name, at: Date.now(), manual: true, ...(table ? { table: true } : {}) }; setDoc(GAMESREF, { [gid]: G[gid] }, { merge: true }).catch(fail); }
     else if (!G[had].manual) { G[had].manual = true; setDoc(GAMESREF, { [had]: { ...G[had] } }, { merge: true }).catch(fail); }
   };
+  /* Tap a green (open) list again to close it: it turns clear. Not while a table is open running that game;
+     if people are on the list, ask first (closing takes them off). */
+  const toggleList = (name, table) => {
+    const G = games(), had = listFor(name);
+    if (!had) { startList(name, table); return; }
+    if (running && running(name)) { alert("A table is open running " + name + ". Close the table first."); return; }
+    const W = wait ? wait() : {}, ids = Object.keys(W).filter(k => W[k] && W[k].game === had);
+    if (ids.length && !confirm(ids.length + (ids.length > 1 ? " people are" : " person is") + " on the " + name + " list. Close the list and take them off?")) return;
+    delete G[had]; setDoc(GAMESREF, { [had]: deleteField() }, { merge: true }).catch(fail);
+    if (ids.length && WAITREF) { const upd = {}; ids.forEach(k => { upd[k] = deleteField(); delete W[k]; }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
+  };
   function draw() {
     if (box.hidden) return;
     const star = id => `<button class="star${pg.fav[id] ? " on" : ""}" data-star="${esc(id)}" aria-label="Favorite">${pg.fav[id] ? "&#9733;" : "&#9734;"}</button>`;
     const row = id => `<div class="pg">${star(id)}
       <span>${esc(pgName(id))}</span><div class="bubs">${stakesFor(id).map(st => `<button class="bub${listFor(st + " " + pgName(id)) ? " on" : ""}" data-pgstart="${esc(id)}" data-stake="${st}"
-        title="${listFor(st + " " + pgName(id)) ? "List open" : "Start a " + st + " list"} (right-click to delete)">${st}${ownStake(id, st) ? ` <b data-stkdel="${esc(id)}" data-st="${st}" title="Remove" style="opacity:.6">&times;</b>` : ""}</button>`).join("")}
+        title="${listFor(st + " " + pgName(id)) ? "List open (tap to close)" : "Start a " + st + " list"} (right-click to delete)">${st}${ownStake(id, st) ? ` <b data-stkdel="${esc(id)}" data-st="${st}" title="Remove" style="opacity:.6">&times;</b>` : ""}</button>`).join("")}
         ${stakeFor === id ? `<span style="display:inline-flex;gap:6px;min-width:0;flex:none"><input data-stkin placeholder="e.g. 1/2/5/10" inputmode="decimal" style="width:120px;padding:4px 8px">
           <button class="btn sm" data-stkadd="${esc(id)}">Add</button></span>` : `<button class="bub" data-stkopen="${esc(id)}" title="Add your own blinds (up to 4)">+</button>`}</div>
       ${pg.custom[id] ? `<button class="x" data-pgdel="${esc(id)}" title="Remove">&times;</button>` : ""}</div>`;
@@ -104,8 +115,8 @@ export function mountPgMenu(box, { PGREF, GAMESREF, games, listFor, fail, after 
       const id = st.dataset.star, on = !pg.fav[id];
       if (on) pg.fav[id] = true; else delete pg.fav[id];
       setDoc(PGREF, { fav: { [id]: on ? true : deleteField() } }, { merge: true }).catch(fail);
-    } else if (go) startList(go.dataset.stake + " " + pgName(go.dataset.pgstart));   // e.g. "1/2 No-Limit Hold'em"
-    else if (tg) startList(TABLE_GAMES[tg.dataset.tgstart], true);
+    } else if (go) toggleList(go.dataset.stake + " " + pgName(go.dataset.pgstart));   // e.g. "1/2 No-Limit Hold'em"
+    else if (tg) toggleList(TABLE_GAMES[tg.dataset.tgstart], true);
     else if (del) {
       const id = del.dataset.pgdel; delete pg.custom[id]; delete pg.fav[id];
       setDoc(PGREF, { custom: { [id]: deleteField() }, fav: { [id]: deleteField() } }, { merge: true }).catch(fail);

@@ -406,7 +406,8 @@ $("tgName").onkeydown = e => { if (e.key === "Enter") addTG(); };
 
 /* + Add a poker game: opens the Games menu (pg-menu.js, same menu as the Waitlist page). */
 const listFor = name => Object.keys(games).find(gid => games[gid] && games[gid].name === name);
-const pgMenu = mountPgMenu($("pgBox"), { PGREF, GAMESREF, games: () => games, listFor, fail, after: () => draw() });
+const pgMenu = mountPgMenu($("pgBox"), { PGREF, GAMESREF, games: () => games, listFor, fail, after: () => draw(),
+  WAITREF, wait: () => wait, running: nm => openGameNames(tables, list).has(nm) });
 $("addPg").onclick = pgMenu.toggle;
 /* A poker table's game (from the strip): saved on the table, stays until changed. */
 document.addEventListener("change", e => {
