@@ -49,11 +49,8 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidd
 .btn[disabled]{opacity:.35}
 .warn{background:#5a1d1d;border:1px solid #f87171;font-size:14px;padding:6px 12px;display:none}
 #tbl{flex:1;min-height:0;width:100%;display:block}
-/* Landscape only: in portrait, cover the page and ask to turn the phone sideways. */
-#turn{display:none;position:fixed;inset:0;z-index:90;background:var(--navy);color:var(--gold);font:700 22px "Archivo",sans-serif;
-  flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
-#turn svg{width:72px;height:72px}
-@media (orientation:portrait){#turn{display:flex}}
+/* Always landscape: when the phone is upright, the whole page is turned sideways (iPhone won't let a page lock rotation). */
+html.turned body{position:fixed;top:0;left:0;transform-origin:0 0;transform:rotate(90deg) translateY(-100%)}
 #modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px}
 #modal[hidden]{display:none}
 .mbox{background:var(--navy);border:1px solid var(--gold);border-radius:12px;padding:16px;width:100%;max-width:440px;max-height:100%;overflow:auto}
@@ -92,7 +89,6 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <svg id="tbl" viewBox="-24 0 448 272" preserveAspectRatio="xMidYMid meet"></svg>
 <div id="modal" hidden><div class="mbox"><div id="mbody"></div><p style="margin:16px 0 0;text-align:right"><button class="btn ghost big" id="mclose">Close</button></p></div></div>
 <div id="ghost" hidden></div>
-<div id="turn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 3h4M9 1v4"/></svg>Turn your phone sideways</div>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
@@ -241,13 +237,13 @@ function draw() {
   $("tbl").innerHTML = s;
   /* Seat requests for this table: a speech bubble pops out of that seat number; dealer taps Seat or No.
      One bubble per seat (the earliest request). It only pops in the first time it shows. */
-  const ctm = $("tbl").getScreenCTM(), bySeatReq = {};
+  const ctm = $("tbl").getBoundingClientRect().width > 0, bySeatReq = {};
   Object.entries(requests).filter(([, q]) => q.t === T).sort((a, b) => a[1].at - b[1].at)
     .forEach(([c, q]) => { if (!bySeatReq[q.s]) bySeatReq[q.s] = c; });
   $("reqs").innerHTML = ctm ? Object.entries(bySeatReq).map(([sn, c]) => {
     const k = TB.seats.indexOf(+sn); if (k < 0) return "";
-    const [x, y] = seatXY(k), p = new DOMPoint(x, y - 12).matrixTransform(ctm);
-    const left = Math.min(Math.max(p.x, 92), innerWidth - 92), key = c + "@" + requests[c].at, fresh = !shownReqs.has(key);
+    const [x, y] = seatXY(k), [px, py] = svgToPage(x, y - 12), p = { x: px, y: py };
+    const left = Math.min(Math.max(p.x, 92), pageW() - 92), key = c + "@" + requests[c].at, fresh = !shownReqs.has(key);
     shownReqs.add(key);
     return `<div class="bub${fresh ? " new" : ""}" style="left:${left}px;top:${p.y}px"><div class="bi">
       <div class="bt"><span>${esc(nameOf(c))}</span>wants this seat!</div>
@@ -255,7 +251,25 @@ function draw() {
   }).join("") : "";
 }
 const shownReqs = new Set();
-addEventListener("resize", () => draw());
+/* Sideways page: screen point <-> page point, and SVG table point <-> page point (works turned or not). */
+const turned = () => document.documentElement.classList.contains("turned");
+function fitTurn() {
+  const t = innerHeight > innerWidth;
+  document.documentElement.classList.toggle("turned", t);
+  document.body.style.width = t ? innerHeight + "px" : "";
+  document.body.style.height = t ? innerWidth + "px" : "";
+}
+fitTurn();
+const toPage = (sx, sy) => turned() ? [sy, innerWidth - sx] : [sx, sy];
+const pageW = () => turned() ? innerHeight : innerWidth;
+function svgBox() {   // the table SVG's box and scale, in page points
+  const r = $("tbl").getBoundingClientRect();
+  const [x0, y0, w, h] = turned() ? [r.top, innerWidth - r.right, r.height, r.width] : [r.left, r.top, r.width, r.height];
+  const k = Math.min(w / 448, h / 272);
+  return { k, ox: x0 + (w - 448 * k) / 2 + 24 * k, oy: y0 + (h - 272 * k) / 2 };
+}
+const svgToPage = (x, y) => { const b = svgBox(); return [b.ox + x * b.k, b.oy + y * b.k]; };
+addEventListener("resize", () => { fitTurn(); draw(); });
 $("reqs").addEventListener("click", e => {
   const ok = e.target.closest("[data-ok]"), no = e.target.closest("[data-no]");
   const c = (ok || no) && (ok ? ok.dataset.ok : no.dataset.no); if (!c || !requests[c]) return;
@@ -395,8 +409,8 @@ $("tbl").addEventListener("pointerdown", e => {
   nameDrag = { c: t.dataset.drag, from: +t.dataset.from, x0: e.clientX, y0: e.clientY, moved: false, id: e.pointerId };
 });
 const seatAtPoint = (cx, cy) => {   // nearest seat number to a screen point, if close enough
-  const m = $("tbl").getScreenCTM(); if (!m) return 0;
-  const p = new DOMPoint(cx, cy).matrixTransform(m.inverse());
+  const b = svgBox(); if (!b.k) return 0;
+  const [lx, ly] = toPage(cx, cy), p = { x: (lx - b.ox) / b.k, y: (ly - b.oy) / b.k };
   let best = 0, bd = 40;
   TB.seats.forEach((i, k) => { const [x, y] = seatXY(k), d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = i; } });
   return best;
@@ -406,7 +420,8 @@ addEventListener("pointermove", e => {
   if (!nameDrag.moved && Math.hypot(e.clientX - nameDrag.x0, e.clientY - nameDrag.y0) < 8) return;
   nameDrag.moved = true;
   const to = seatAtPoint(e.clientX, e.clientY), o = to && to !== nameDrag.from ? whoIn(to) : null, g = $("ghost");
-  g.hidden = false; g.style.left = e.clientX + "px"; g.style.top = e.clientY + "px";
+  const [gx, gy] = toPage(e.clientX, e.clientY);
+  g.hidden = false; g.style.left = gx + "px"; g.style.top = gy + "px";
   g.textContent = nameOf(nameDrag.c) + (to && to !== nameDrag.from ? (o ? " ⇄ swap with " + nameOf(o) : " → seat " + to) : "");
 });
 const endNameDrag = e => {
