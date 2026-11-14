@@ -26,7 +26,11 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
 /* Top: left column (title, favorites, add-a-name form) and the floor plan in the page's top-right corner.
    Underneath, the board: the game lists on a 12-column grid. On a phone everything stacks. */
-.hdr{display:grid;grid-template-columns:minmax(300px,3fr) 9fr;gap:12px;align-items:stretch}
+.hdr{display:grid;grid-template-columns:minmax(280px,3fr) minmax(240px,3fr) 6fr;gap:12px;align-items:stretch}   /* add-a-name | dealers | floor plan */
+.drow{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1)}.drow:last-child{border-bottom:0}
+.drow b{flex:1;min-width:0;font-weight:600}.drow span{font-size:13px;color:rgba(255,255,255,.65)}
+.drow .mini{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:2px 8px;cursor:pointer;font:600 13px system-ui,sans-serif}
+select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:8px;font:inherit}
 .hl{display:flex;flex-direction:column;gap:10px;min-width:0}
 .hl .favs{margin-top:0}
 .hl .wdg{flex:1}
@@ -75,8 +79,6 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <div class="wrap">
   <!-- Header area: title, favorites and the add-a-name form on the left; the floor plan in the top-right corner of the page. -->
   <div class="hdr"><div class="hl">
-  <div class="top"><button class="btn ghost sm" id="gamesBtn">Games</button>
-  </div>
   <div class="favs" id="favs" hidden></div>   <!-- favorites row: hidden for a clean page -->
   <div class="warn" id="warn">Not syncing with the server.</div>
   <!-- Add a name: Name (players pop up as you type), Phoned in (walk-in if not), the games (tap one or more), then the button. -->
@@ -84,10 +86,16 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
   <div id="addWBox" style="display:grid;gap:8px">
     <input id="wName" list="wPlayers" placeholder="Name" autocomplete="off">
     <datalist id="wPlayers"></datalist>
-    <div><button class="bub" id="wPhone" type="button">Phoned in</button> <span class="hint" id="wHow">Walk-in</span></div>
+    <div class="bubs"><button class="bub" id="wPhone" type="button">Phoned in</button><button class="bub on" id="wArr" type="button">Arrived</button> <span class="hint" id="wHow"></span></div>
     <div class="wlbl">Games</div><div class="bubs" id="wGames"></div>
     <button class="btn" id="wAdd">+ Add to wait list</button>
   </div></div>
+  </div>
+  <!-- Dealers: who's dealing now (and at which table), and the dealer rotation (next up on top). -->
+  <div class="wdg" data-w="dealers" style="display:flex;flex-direction:column;gap:8px">
+    <div class="wlbl">Active dealers</div><div id="dActive"></div>
+    <div class="wlbl">Rotation</div><div id="dRot"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><select id="dPick" style="flex:1;min-width:0"></select><button class="btn sm" id="dAdd">Add</button><button class="btn ghost sm" id="dNext" title="Top dealer goes to the bottom">Rotate</button></div>
   </div>
   <div class="wdg" data-w="floor"><div class="fopen"><a class="btn ghost sm" href="./floor.html" target="_blank">Open &rsaquo;</a></div><iframe id="floorFrame" title="Floor plan"></iframe></div>
   </div>
@@ -147,7 +155,7 @@ function draw() {
   const row = (w, i) => `<div class="row${w.call ? " call" : ""}">
       <div class="nm"><b>${i + 1}. ${w.src === "app" || w.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.card || w.id)}" style="color:inherit">${esc(w.name)}</a>` : esc(w.name)}</b><span>${w.call
         ? "Phoned in " + (ago(w.at) === "just now" ? "just now" : ago(w.at) + " ago") + " &middot; drops off in " + Math.max(1, Math.ceil((w.at + CALL_MS - Date.now()) / 60000)) + "m" : "waiting " + ago(w.at)}</span></div>
-      <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
+      ${w.call ? `<button class="btn sm" data-arr="${esc(w.id)}" title="They're here">Arrived</button>` : ""}<button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
   /* Under each game: its table numbers, and how many seats are open at each. */
   const tblLine = name => { const T = tablesFor(name); return T.length ? `<div class="tbls">${T.map(t => `<span class="tb${t.open ? " seat" : ""}">Table ${esc(t.n)} &middot; ${t.open ? t.open + (t.open > 1 ? " seats" : " seat") + " open" : "Full"}</span>`).join("")}</div>` : ""; };
   const box = (id, title, list, tag) => ({ id, html: `<div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span></div>${tag ? tblLine(title) : ""}
@@ -183,7 +191,7 @@ function draw() {
     }),
     ...Object.entries(TABLE_GAMES).filter(([id]) => pg.fav[id]).map(([, nm]) => favChip(nm, [], Object.keys({ ...BASE_GAME, ...tlist }).some(n => tables[n] && tables[n].open && !(tlist[n] && tlist[n].deleted) && ((tlist[n] && tlist[n].game) || BASE_GAME[n]) === nm)))
   ].join("");
-  pgMenu.draw();
+  pgMenu.draw(); drawDealers();
   /* The game lists on the board: update the ones there, add new ones, take away ones that are gone. */
   const board = $("board"), keep = new Set(["form", "floor", ...items.map(it => it.id)]);
   if (!items.length) items.push({ id: "none", html: `<div class="gh"><b>Lists</b></div><div class="empty">No lists yet. Open a poker table with its game picked on the Floor page.</div>` }), keep.add("none");
@@ -208,7 +216,6 @@ function layoutApply() {
 const listFor = name => Object.keys(games).find(gid => games[gid] && games[gid].name === name);
 const pgMenu = mountPgMenu($("pgBox"), { PGREF, GAMESREF, games: () => games, listFor, fail, after: () => draw(),
   WAITREF, wait: () => wait, running: nm => openGameNames(tables, tlist).has(nm) });
-$("gamesBtn").onclick = pgMenu.toggle;
 document.addEventListener("click", e => { if (e.target.closest("[data-favopen]") && $("pgBox").hidden) pgMenu.toggle(); });
 /* + Add to wait list: a name and which game's list. */
 const wSel = new Set();   // games picked for + Add to wait list
@@ -218,7 +225,9 @@ $("wGames").addEventListener("click", e => {
   const g = b.dataset.wg; if (wSel.has(g)) wSel.delete(g); else wSel.add(g);
   b.classList.toggle("on", wSel.has(g));
 });
-$("wPhone").onclick = () => { wCall = !wCall; $("wPhone").classList.toggle("on", wCall); $("wHow").textContent = wCall ? "Phoned in: drops off in 1 hour" : "Walk-in"; };
+/* Phoned in or Arrived (here now; the default). Phoned-in names drop off after an hour unless they arrive. */
+const setHow = c => { wCall = c; $("wPhone").classList.toggle("on", c); $("wArr").classList.toggle("on", !c); $("wHow").textContent = c ? "drops off in 1 hour" : ""; };
+$("wPhone").onclick = () => setHow(true); $("wArr").onclick = () => setHow(false);
 const addToWait = () => {
   const name = $("wName").value.trim(), picked = [...wSel].filter(g => games[g]);
   if (!name) { $("wName").focus(); return; }
@@ -233,16 +242,43 @@ const addToWait = () => {
   });
   setDoc(WAITREF, upd, { merge: true }).catch(fail);
   $("wName").value = ""; $("wName").focus();
-  if (wCall) $("wPhone").onclick();   // back to walk-in for the next one
+  if (wCall) setHow(false);   // back to Arrived for the next one
   draw();
 };
 $("wAdd").onclick = addToWait;
 $("wName").onkeydown = e => { if (e.key === "Enter") addToWait(); };
 document.addEventListener("click", e => {
+  const ar = e.target.closest("[data-arr]");   // phoned-in player showed up: no more drop-off timer
+  if (ar) { const id = ar.dataset.arr; if (wait[id]) { delete wait[id].call; draw(); } setDoc(WAITREF, { [id]: { call: deleteField() } }, { merge: true }).catch(fail); return; }
   const rm = e.target.closest("[data-rm]"); if (!rm) return;
   const id = rm.dataset.rm;
   if (rm.dataset.src === "app") { const p = state[id] || {}; setDoc(REF, { [id]: { ...p, status: "out", waitAt: null } }, { merge: true }).catch(fail); }
   else setDoc(WAITREF, { [id]: deleteField() }, { merge: true }).catch(fail);
+});
+
+/* ---- Dealers box: active dealers (logged in at a table) and the rotation list (playerTracker/rotation { order: [ids] }). ---- */
+const ROTREF = doc(db, "playerTracker", "rotation");
+let rot = [];
+const dName = d => DEALERS[d] || nameOf(d);
+const dTable = d => { const p = state[d]; return p && p.status === "seated" ? (p.table || 1) : 0; };
+const saveRot = () => setDoc(ROTREF, { order: rot }, { merge: true }).catch(fail);
+function drawDealers() {
+  const act = Object.keys(DEALERS).filter(dTable).sort((a, b) => dTable(a) - dTable(b));
+  $("dActive").innerHTML = act.length ? act.map(d => `<div class="drow"><b>${esc(dName(d))}</b><span>Table ${dTable(d)}</span></div>`).join("") : `<div class="empty">No dealers on a table.</div>`;
+  $("dRot").innerHTML = rot.length ? rot.map((d, i) => `<div class="drow"><b>${i + 1}. ${esc(dName(d))}</b><span>${dTable(d) ? "Table " + dTable(d) : "Off"}</span>
+      ${i ? `<button class="mini" data-dup="${i}" title="Move up">&uarr;</button>` : ""}<button class="mini" data-drm="${i}" title="Take off the rotation">&times;</button></div>`).join("")
+    : `<div class="empty">Add dealers below to build the rotation.</div>`;
+  const pick = Object.keys(DEALERS).filter(d => !rot.includes(d)).sort((a, b) => dName(a).localeCompare(dName(b)));
+  const cur = $("dPick").value;
+  $("dPick").innerHTML = pick.length ? pick.map(d => `<option value="${esc(d)}"${d === cur ? " selected" : ""}>${esc(dName(d))}</option>`).join("") : `<option value="">Everyone's on it</option>`;
+}
+$("dAdd").onclick = () => { const d = $("dPick").value; if (!d || rot.includes(d)) return; rot.push(d); saveRot(); drawDealers(); };
+$("dNext").onclick = () => { if (rot.length < 2) return; rot.push(rot.shift()); saveRot(); drawDealers(); };
+$("dRot").addEventListener("click", e => {
+  const up = e.target.closest("[data-dup]"), rm = e.target.closest("[data-drm]");
+  if (up) { const i = +up.dataset.dup; [rot[i - 1], rot[i]] = [rot[i], rot[i - 1]]; }
+  else if (rm) rot.splice(+rm.dataset.drm, 1); else return;
+  saveRot(); drawDealers();
 });
 
 /* ---- start (staff only) ---- */
@@ -253,7 +289,7 @@ onAuthStateChanged(getAuth(app), u => {
   $("floorFrame").src = withCasino("./floor.html?embed=1");   // the floor plan, live, inside its box
   draw();
   const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
-  on(REF, v => state = v); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v); on(TBLREF, v => tables = v); on(LISTREF, v => tlist = v); on(PGREF, setPg);
+  on(REF, v => state = v); on(ROTREF, v => rot = Array.isArray(v.order) ? v.order.filter(d => DEALERS[d]) : []); on(WAITREF, v => wait = v); on(GAMESREF, v => games = v); on(TBLREF, v => tables = v); on(LISTREF, v => tlist = v); on(PGREF, setPg);
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   setInterval(draw, 30000);   // keep the wait times ticking
