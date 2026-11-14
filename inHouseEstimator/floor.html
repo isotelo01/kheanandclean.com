@@ -74,11 +74,16 @@ body.moving .ptbl{cursor:grab}
 body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
 .ptbl.sel > rect:first-child{stroke:#E3B64A;stroke-width:2;stroke-dasharray:6 5}
 /* Table strip: tap a table and its details show as one line across the top of the floor plan (wraps if needed). */
-#tbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:8px 12px;margin-bottom:8px}
-#tpLive,#tpEdit,#tbar .sec,#tpForm{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0}
-#tbar .tph{display:flex;align-items:center;gap:6px;order:-1}
-#tbar .tph h3{margin:0;color:var(--gold);font-size:17px;white-space:nowrap}
-#tbar .tph button{background:none;border:0;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+/* Table panel: title and Open/Closed on top, close x in the top-right corner, then the buttons, then dealer and seats. */
+#tbar{position:relative;display:grid;gap:10px;background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:12px 48px 12px 14px;margin-bottom:8px}
+#tpLive{display:grid;gap:10px}
+#tpEdit:empty{display:none}
+#tbar .sec,#tpForm{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0}
+#tbar .tph{display:flex;align-items:center;gap:10px}
+#tbar .tph h3{margin:0;color:var(--gold);font-size:18px}
+#tbar .tph .x{position:absolute;top:6px;right:8px;background:none;border:0;color:rgba(255,255,255,.7);font-size:26px;line-height:1;cursor:pointer;padding:2px 6px}
+#tbar .tph .x:hover{color:#fff}
+#tbar .info{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:14px}
 #tbar .lbl{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin:0}
 #tbar .btns{display:flex;flex-wrap:wrap;gap:6px}
 #tbar .btn{padding:6px 11px;font-size:13px}
@@ -267,21 +272,23 @@ function draw() {
         ${[...new Set([...favIds.map(pgName), ...(cur ? [cur] : [])])].map(g => `<option${g === cur ? " selected" : ""}>${esc(g)}</option>`).join("")}</select>
         ${cur ? `<div class="lbl">Pick the stakes</div><div class="bubs">${[...new Set([...(curId ? stakesFor(curId) : STAKES_NL), ...(tb.stakes ? [tb.stakes] : [])])]
           .map(st => `<button class="bub${st === tb.stakes ? " on" : ""}" data-tstk="${n}" data-st="${st}">${st}</button>`).join("")}</div>` : ""}</div>` : "";
-    $("tpLive").innerHTML = `<div class="tph"><h3>Table ${n} &middot; ${esc(tblLabel(tb))}</h3><button data-ta="x" aria-label="Close">&times;</button></div>${pick}
+    $("tpLive").innerHTML = `<div class="tph"><h3>Table ${n} &middot; ${esc(tblLabel(tb))}</h3>
+        <span class="tag" style="${open ? "background:var(--ok);color:#000" : "background:#5a1d1d"}">${open ? "Open" : "Closed"}</span>
+        <button class="x" data-ta="x" aria-label="Close" title="Close">&times;</button></div>
       <div class="sec btns"><button class="btn ${open ? "" : "ok"}" data-ta="open">${open ? "Close table" : "Open table"}</button>
-        <span class="tag" style="align-self:center;${open ? "background:var(--ok);color:#000" : "background:#5a1d1d"}">${open ? "Open" : "Closed"}</span>
-        <a class="btn ghost" href="./dealer-table.html?t=${n}">Dealer Control &rsaquo;</a></div>
-      <div class="sec"><div class="lbl">Dealer</div>${dealer ? `<a href="./player-tracker.html?profile=${encodeURIComponent(dealer[0])}">${esc(nameOf(dealer[0]))}</a>` : `<span class="hint">No dealer</span>`}</div>
-      <div class="sec"><div class="lbl">Seated (${players.length}/${tb.seats.length})</div>
-        ${players.length ? players.map(([c, p]) => `<div class="row"><div class="nm"><a href="./player-tracker.html?profile=${encodeURIComponent(c)}"><b>${esc(nameOf(c))}</b></a>
-          <span>Seat ${p.seat} &middot; ${p.breakAt ? "on break " + ago(p.breakAt) : "seated " + ago(p.since || Date.now())}</span></div></div>`).join("") : `<div class="empty">Nobody seated.</div>`}</div>
+        <a class="btn ghost" href="./dealer-table.html?t=${n}">Dealer Control &rsaquo;</a>
+        <button class="btn ghost" data-ta="edit">&#9998; Edit table</button></div>
+      <div class="info"><span><span class="lbl">Dealer</span> ${dealer ? `<a href="./player-tracker.html?profile=${encodeURIComponent(dealer[0])}">${esc(nameOf(dealer[0]))}</a>` : `<span class="hint">None</span>`}</span>
+        <span><span class="lbl">Seated</span> ${players.length}/${tb.seats.length}</span></div>
+      ${players.length ? `<div class="sec">${players.map(([c, p]) => `<div class="row"><div class="nm"><a href="./player-tracker.html?profile=${encodeURIComponent(c)}"><b>${esc(nameOf(c))}</b></a>
+          <span>Seat ${p.seat} &middot; ${p.breakAt ? "on break " + ago(p.breakAt) : "seated " + ago(p.since || Date.now())}</span></div></div>`).join("")}</div>` : ""}
+      ${pick}
       ${moveMode ? "" : "<!--"}<div class="sec"><div class="lbl">On the floor plan &middot; ${Math.round(((q.rot || 0) % 360 + 360) % 360)}&deg; &middot; ${Math.round((q.scale || 1) * 100)}%</div>
         <div class="btns"><button class="btn ghost" data-ta="rl">&#10226; Rotate</button><button class="btn ghost" data-ta="rr">Rotate &#10227;</button>
         <button class="btn ghost" data-ta="sm">&minus; Smaller</button><button class="btn ghost" data-ta="lg">+ Bigger</button><button class="btn ghost" data-ta="reset">Reset</button></div></div>${moveMode ? "" : "-->"}`;
     if (panelFor !== n) {
       panelFor = n;
-      $("tpEdit").innerHTML = `<div class="sec"><button class="btn ghost" data-ta="edit">&#9998; Edit table</button></div>
-        <div class="sec" id="tpForm" hidden>
+      $("tpEdit").innerHTML = `<div class="sec" id="tpForm" hidden>
           <div class="lbl">Table number</div><input id="eNum" type="number" inputmode="numeric" min="1" max="99" value="${n}">
           <div class="lbl">Game</div><input id="eGame" list="tblGames" value="${esc(tb.game)}" autocomplete="off">
           <div class="lbl">Seats</div><select id="eSeats">${[5, 6, 7, 8, 9, 10].map(k => `<option${k === tb.seats.length ? " selected" : ""}>${k}</option>`).join("")}</select>
