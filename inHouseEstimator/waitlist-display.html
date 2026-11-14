@@ -121,13 +121,13 @@ function draw() {
   const col = (title, list, cls, tag, tbls) => `<div class="col ${cls}"><div class="gh"><b>${esc(title)}</b>${tag || ""}</div>${tbls || ""}
       <div class="cnt">${list.length} waiting</div>
       ${list.length ? `<ol>${list.map((w, i) => `<li><span class="n">${i + 1}.</span><span class="nm">${esc(shortName(w.name))}</span>${w.call ? `<span class="ph">CALLED IN</span>` : ""}</li>`).join("")}</ol>` : `<div class="empty">Nobody waiting.</div>`}</div>`;
-  const names = Object.entries(wait).filter(([, v]) => v && v.name && !expired(v)).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, call: !!v.call }));
+  const names = Object.entries(wait).filter(([, v]) => v && v.name && !expired(v)).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, k: v.ord ?? v.at, call: !!v.call }));
   let html = "";
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait").map(([c, p]) => ({ name: nameOf(c), at: p.waitAt || 0 })).sort((a, b) => a.at - b.at);
   if (phones.length) html += col("From phones", phones, "", "");
   html += liveLists(games, wait, tables, tlist).filter(L => L.open || L.count).sort(byGame).map(L => {
     const T = L.open ? tablesFor(L.name) : [];
-    return col(L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.at - b.at), L.open ? "live" : "",
+    return col(L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.k - b.k), L.open ? "live" : "",
       L.open ? `<span class="tag on">Open</span>` : `<span class="tag">Interest</span>`,
       T.length ? `<div class="tbls">${T.map(t => `<span class="tb${t.open ? "" : " full"}">Table ${esc(t.n)} &middot; ${t.open ? t.open + " open" : "Full"}</span>`).join("")}</div>` : "");
   }).join("");

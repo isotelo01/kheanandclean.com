@@ -31,6 +31,8 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .drow b{flex:1;min-width:0;font-weight:600}.drow span{font-size:13px;color:rgba(255,255,255,.65)}
 .drow .mini.brk{border-color:#3b82f6;color:#93c5fd}.drow .mini.brk.on{background:#3b82f6;color:#000}
 .drow .onbrk{color:#93c5fd}
+.grip,.drow .grip{cursor:grab;touch-action:none;user-select:none;color:rgba(255,255,255,.45);font-size:18px;line-height:1;padding:4px 2px}
+.drag{opacity:.6;background:rgba(227,182,74,.15)}
 .drow .mini{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:2px 8px;cursor:pointer;font:600 13px system-ui,sans-serif}
 select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:8px;font:inherit}
 .hl{display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -121,7 +123,7 @@ a.bub{text-decoration:none;display:inline-block}
   </div>
   <!-- Dealers: who's dealing now (and at which table), and the dealer rotation (next up on top). -->
   <div class="wdg" data-w="dealers" style="display:flex;flex-direction:column;gap:8px">
-    <div class="wlbl">Rotation</div><div id="dRot"></div>
+    <div class="wlbl">Rotation <span id="dCount" style="font-weight:400"></span></div><div id="dRot"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap"><select id="dPick" style="flex:1;min-width:0"></select><button class="btn sm" id="dAdd">Add</button><button class="btn ghost sm" id="dNext" title="Top dealer goes to the bottom">Rotate</button></div>
   </div>
   <!-- Promotions: players given a promotion today (from the Promotions page), newest first. -->
@@ -199,9 +201,10 @@ const byGame = (a, b) => {
   return (a.at || 0) - (b.at || 0);
 };
 function draw() {
+  if (dragging) return;   // not while a row is being dragged (it redraws after the drop)
   /* Phoned-in names are blue, with how long until they drop off (an hour after they called). */
-  const row = (w, i) => `<div class="row${w.call ? " call" : ""}">
-      <div class="nm"><b>${i + 1}. ${w.src === "app" || w.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.card || w.id)}" style="color:inherit">${esc(w.name)}</a>` : esc(w.name)}</b><span>${w.call
+  const row = (w, i) => `<div class="row${w.call ? " call" : ""}"${w.src === "floor" ? ` data-id="${esc(w.id)}"` : ""}>
+      ${w.src === "floor" ? `<span class="grip" title="Drag to move">&#10303;</span>` : ""}<div class="nm"><b>${i + 1}. ${w.src === "app" || w.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(w.card || w.id)}" style="color:inherit">${esc(w.name)}</a>` : esc(w.name)}</b><span>${w.call
         ? "Phoned in " + (ago(w.at) === "just now" ? "just now" : ago(w.at) + " ago") + " &middot; drops off in " + Math.max(1, Math.ceil((w.at + CALL_MS - Date.now()) / 60000)) + "m" : "waiting " + ago(w.at)}</span></div>
       ${w.call ? `<button class="btn sm" data-arr="${esc(w.id)}" title="They're here">Arrived</button>` : ""}${w.src === "floor" && games[w.game] && seatTables(games[w.game].name).length ? `<button class="btn sm" data-seat="${esc(w.id)}" title="Pick a seat">Seat</button>` : ""}<button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
   /* Under each game: its table numbers, and how many seats are open at each. */
@@ -210,14 +213,14 @@ function draw() {
       ${list.length ? list.map(row).join("") : `<div class="empty">Nobody waiting.</div>`}` });
   const gone = Object.keys(wait).filter(id => expired(wait[id]));   // phoned-in, past an hour: drop them
   if (gone.length) { const upd = {}; gone.forEach(id => { upd[id] = deleteField(); delete wait[id]; }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
-  const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, src: "floor", call: !!v.call, card: v.card || "" }));
+  const names = Object.entries(wait).filter(([, v]) => v && v.name).map(([id, v]) => ({ id, name: v.name, game: v.game || "", at: v.at, k: v.ord ?? v.at, src: "floor", call: !!v.call, card: v.card || "" }));   // k: spot in line (ord once dragged, else join time)
   /* Live: open poker tables' games first, then interest lists (game not running, people still on it). */
-  const items = liveLists(games, wait, tables, tlist).filter(L => L.open || L.count).sort(byGame).map(L => box(L.gid, L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.at - b.at),
+  const items = liveLists(games, wait, tables, tlist).filter(L => L.open || L.count).sort(byGame).map(L => box(L.gid, L.name, names.filter(w => w.game === L.gid).sort((a, b) => a.k - b.k),
     L.open ? `<span class="tag on">Open</span>` : `<span class="tag">Interest</span>`));
   const phones = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && p.status === "wait")
     .map(([c, p]) => ({ id: c, name: nameOf(c), at: p.waitAt || Date.now(), src: "app" })).sort((a, b) => a.at - b.at);
   if (phones.length) items.unshift(box("phones", "From phones", phones));   // phones first, then the game lists
-  const other = names.filter(w => !games[w.game]).sort((a, b) => a.at - b.at);
+  const other = names.filter(w => !games[w.game]).sort((a, b) => a.k - b.k);
   if (other.length) items.push(box("other", "Other", other));
   /* + Add to wait list: every list as a bubble (tap one or more), and every player's name for the pop-up. */
   const all = liveLists(games, wait, tables, tlist);
@@ -365,8 +368,9 @@ function drawDealers() {
   const brk = d => state[d] && state[d].status === "break" ? state[d].breakAt || Date.now() : 0;
   const bBtn = d => `<button class="mini brk${brk(d) ? " on" : ""}" data-dbrk="${esc(d)}" title="${brk(d) ? "End break" : "Break"}">B</button>`;
   const where = d => dTable(d) ? "Table " + dTable(d) : brk(d) ? `<span class="onbrk">Break ${ago(brk(d))}</span>` : "Off";
-  $("dRot").innerHTML = rot.length ? rot.map((d, i) => `<div class="drow"><b>${i + 1}. ${esc(dName(d))}</b><span>${where(d)}</span>
-      ${bBtn(d)}<button class="mini" data-dseat="${esc(d)}" title="Put on a table">Seat</button>${i ? `<button class="mini" data-dup="${i}" title="Move up">&uarr;</button>` : ""}<button class="mini" data-drm="${i}" title="Take off the rotation">&times;</button></div>`).join("")
+  $("dCount").textContent = rot.length ? "· " + rot.length + (rot.length > 1 ? " dealers" : " dealer") : "";
+  $("dRot").innerHTML = rot.length ? rot.map((d, i) => `<div class="drow" data-id="${esc(d)}"><span class="grip" title="Drag to move">&#10303;</span><b>${esc(dName(d))}</b><span>${where(d)}</span>
+      ${bBtn(d)}<button class="mini" data-dseat="${esc(d)}" title="Put on a table">Seat</button><button class="mini" data-drm="${i}" title="Take off the rotation">&times;</button></div>`).join("")
     : `<div class="empty">Add dealers below to build the rotation.</div>`;
   const pick = Object.keys(DEALERS).filter(d => !rot.includes(d)).sort((a, b) => dName(a).localeCompare(dName(b)));
   const cur = $("dPick").value;
@@ -375,10 +379,38 @@ function drawDealers() {
 $("dAdd").onclick = () => { const d = $("dPick").value; if (!d || rot.includes(d)) return; rot.push(d); saveRot(); drawDealers(); };
 $("dNext").onclick = () => { if (rot.length < 2) return; rot.push(rot.shift()); saveRot(); drawDealers(); };
 $("dRot").addEventListener("click", e => {
-  const up = e.target.closest("[data-dup]"), rm = e.target.closest("[data-drm]");
-  if (up) { const i = +up.dataset.dup; [rot[i - 1], rot[i]] = [rot[i], rot[i - 1]]; }
-  else if (rm) rot.splice(+rm.dataset.drm, 1); else return;
+  const rm = e.target.closest("[data-drm]"); if (!rm) return;
+  rot.splice(+rm.dataset.drm, 1);
   saveRot(); drawDealers();
+});
+
+/* ---- Drag to reorder: press the grip on a row and slide it up or down its list. done(ids) gets the new order. ---- */
+var dragging = false;   // var: draw() can run before this line
+function dragSort(box, done) {
+  box.addEventListener("pointerdown", e => {
+    const g = e.target.closest(".grip"); if (!g) return;
+    const row = g.closest("[data-id]"), list = row && row.parentElement; if (!row) return;
+    e.preventDefault(); dragging = true; row.classList.add("drag");
+    const rows = () => [...list.children].filter(r => r.dataset.id);
+    const move = ev => {
+      ev.preventDefault();
+      const t = document.elementFromPoint(ev.clientX, ev.clientY), over = t && t.closest("[data-id]");   // works on the turned page too
+      if (!over || over === row || over.parentElement !== list) return;
+      const R = rows(); list.insertBefore(row, R.indexOf(over) > R.indexOf(row) ? over.nextSibling : over);
+    };
+    const up = () => {
+      removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", up);
+      row.classList.remove("drag"); dragging = false; done(rows().map(r => r.dataset.id)); draw();
+    };
+    addEventListener("pointermove", move, { passive: false }); addEventListener("pointerup", up); addEventListener("pointercancel", up);
+  });
+}
+dragSort($("dRot"), ids => { if (ids.join() !== rot.join()) { rot = ids; saveRot(); } });
+/* Wait list: the new order keeps the same set of line spots (ord), so someone added later still goes to the bottom. */
+dragSort($("board"), ids => {
+  const k = id => wait[id] ? (wait[id].ord ?? wait[id].at) : 0, spots = ids.map(k).sort((a, b) => a - b), upd = {};
+  ids.forEach((id, i) => { if (i && spots[i] <= spots[i - 1]) spots[i] = spots[i - 1] + 1; if (wait[id] && k(id) !== spots[i]) { wait[id].ord = spots[i]; upd[id] = { ord: spots[i] }; } });
+  if (Object.keys(upd).length) setDoc(WAITREF, upd, { merge: true }).catch(fail);
 });
 
 /* ---- Promotions tile: who got what today (playerTracker/promoGiven). ---- */
