@@ -317,10 +317,10 @@ function tableBody(d) {
     /* Padded rail as one path (centerline 8 outside the felt) that stops at the dealer's spot; each end curves in
        toward the felt and rounds off, blending into the thin dealer rail. */
     const y0 = fy - 8, R8 = rx + 8, xl = fx - 8 + R8, xr = fx + fw + 8 - R8, gl = OX - GAP_W, gr = OX + GAP_W;
-    const rail = `M${gr + 3} ${y0 + 7} Q${gr + 3} ${y0} ${gr + 16} ${y0} L${xr} ${y0} A${R8} ${R8} 0 0 1 ${xr} ${y0 + 2 * R8}`
-      + ` L${xl} ${y0 + 2 * R8} A${R8} ${R8} 0 0 1 ${xl} ${y0} L${gl - 16} ${y0} Q${gl - 3} ${y0} ${gl - 3} ${y0 + 7}`;
+    const rail = `M${gr + 4} ${y0 + 9} Q${gr + 4} ${y0} ${gr + 24} ${y0} L${xr} ${y0} A${R8} ${R8} 0 0 1 ${xr} ${y0 + 2 * R8}`
+      + ` L${xl} ${y0 + 2 * R8} A${R8} ${R8} 0 0 1 ${xl} ${y0} L${gl - 24} ${y0} Q${gl - 4} ${y0} ${gl - 4} ${y0 + 9}`;
     const ty = fy - 15;   // thin dealer rail (outer edge of the table)
-    const felt = f => `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" ${f}/><rect x="${gl - 6}" y="${ty}" width="${GAP_W * 2 + 12}" height="22" ${f}/>`;
+    const felt = f => `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" ${f}/><rect x="${gl - 6}" y="${ty}" width="${GAP_W * 2 + 12}" height="${fy - ty + 0.5}" ${f}/>`;   // felt out to the dealer rail (no overlap, so no seam)
     return `<rect x="${fx - 14}" y="${fy - 22}" width="${fw + 28}" height="${fh + 28}" rx="${rx + 14}" fill="#000" opacity=".55" filter="url(#tblSh)"/>`   // floor shadow, away from the light
       + felt(`fill="url(#feltO)"`) + felt(`fill="#000" filter="url(#feltTex)"`) + felt(`fill="url(#lightPool)"`)
       + `<rect x="${fx + 2}" y="${fy + 2}" width="${fw - 4}" height="${fh - 4}" rx="${rx - 2}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4" mask="url(#dlrGap)"/>`
