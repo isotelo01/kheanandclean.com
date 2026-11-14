@@ -148,9 +148,9 @@ import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setD
 import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, openGameNames, liveLists, expired } from "./pt-people.js";
 import { pg, setPg, pgName, pgAll, stakesFor, STAKES_NL, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
-/* Inside the Waitlist page (?embed) the whole plan is turned a quarter turn clockwise to fill its wide spot. */
-const PLAN_ROT = new URLSearchParams(location.search).has("embed") ? 90 : 0;
-if (PLAN_ROT) {   // inside the Waitlist page: the plan sits in the top-right corner of its box
+/* Inside the Waitlist page (?embed). PLAN_ROT turns the whole plan (0 = as drawn; 90 = a quarter turn clockwise). */
+const EMBED = new URLSearchParams(location.search).has("embed"), PLAN_ROT = 0;
+if (EMBED) {   // inside the Waitlist page: the plan sits in the top-right corner of its box
   document.documentElement.classList.add("embed"); document.getElementById("plan").setAttribute("preserveAspectRatio", "xMaxYMin meet");
 }
 const app = initializeApp({
@@ -274,11 +274,13 @@ function draw() {
     return planTable(n, tb, open, bySeat, dealer && dealer[0], players.length, brk, plan[n] || PLAN_DEFAULT[n]);
   }).join("") + "</g>";
   /* Waitlist (embed): zoom to just the tables and inside walls, so the plan fills its spot instead of sitting small in empty floor. */
-  if (PLAN_ROT && !planDrag) {
+  if (EMBED && !planDrag) {
     const g = $("plan").firstElementChild; let bb = null; try { bb = g.getBBox(); } catch (e) {}
     if (bb && bb.width > 0 && bb.height > 0) {
-      const H = Math.round(vbH), pad = 14;   // the plan is turned: a point (x, y) lands at (H - y, x)
-      $("plan").setAttribute("viewBox", `${H - (bb.y + bb.height) - pad} ${bb.x - pad} ${bb.height + 2 * pad} ${bb.width + 2 * pad}`);
+      const H = Math.round(vbH), pad = 14;
+      $("plan").setAttribute("viewBox", PLAN_ROT   // turned: a point (x, y) lands at (H - y, x)
+        ? `${H - (bb.y + bb.height) - pad} ${bb.x - pad} ${bb.height + 2 * pad} ${bb.width + 2 * pad}`
+        : `${bb.x - pad} ${bb.y - pad} ${bb.width + 2 * pad} ${bb.height + 2 * pad}`);
     }
   }
 
