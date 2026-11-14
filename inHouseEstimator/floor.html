@@ -105,8 +105,6 @@ body.moving #plan{outline:2px dashed var(--gold);outline-offset:-2px}
   <div class="warn" id="warn">Not syncing with the server.</div>
   <div class="cols">
     <main>
-      <h2>Calls</h2>
-      <div class="box" id="calls"></div>
       <h2>Floor plan</h2>
       <p class="hint">Tap a table's felt to open or close it; tap its number for its details. To move tables, tap Edit table position on floor.
         <a href="./measure.html?building=1" class="btn ghost sm" style="margin-left:6px">Edit building shape</a>
@@ -222,13 +220,6 @@ const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c]
 const isPlayer = c => !!(ROSTER[c] || roster[c]);
 
 function draw() {
-  /* Calls, oldest first (waiting longest on top). Over 5 minutes = pulsing red. */
-  const cl = Object.entries(calls).filter(([, v]) => v && v.at).sort((a, b) => a[1].at - b[1].at);
-  $("calls").innerHTML = cl.length ? cl.map(([id, v]) => `<div class="row call ${Date.now() - v.at > 5 * 60000 ? "old" : ""}">
-      <div class="nm"><b>${esc(CALLS[v.kind] || v.kind)}</b> &middot; Table ${v.t}<span>${esc((TABLES[v.t] || {}).game || "")} &middot; ${ago(v.at)}</span></div>
-      <button class="btn ok sm" data-done="${esc(id)}">Done</button></div>`).join("")
-    : `<div class="empty">No calls.</div>`;
-
   /* Floor plan: every table where the floor put it. Skipped mid-drag so the table doesn't jump. */
   /* The building (drawn with the room measurer's sketch tool, in feet) goes under the tables. The plan grows to fit it. */
   let bld = "", vbW = 900, vbH = 560;
