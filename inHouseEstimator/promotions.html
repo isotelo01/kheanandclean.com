@@ -3,133 +3,94 @@
 <head>
 <meta charset="utf-8">
 <link rel="icon" href="../favicon.ico" sizes="48x48">
-<link rel="icon" type="image/png" sizes="192x192" href="../images/favicon-lotus-192.png">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0d1b2a">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
 <meta name="robots" content="noindex, nofollow">
-<link rel="manifest" href="manifest.webmanifest">
-<title>Promotions &middot; Khean &amp; Clean</title>
-<link rel="apple-touch-icon" href="../images/icon-180.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<title>Promotions</title>
 <style>
-/* Same look as hub.html. Links to share in promotions; tap Copy to paste into an ad, text or post. */
-:root{--navy:#172239;--gold:#E3B64A;--ink:#1c2230;--muted:#5f6675;--line:#dde1e8;--bg:#eef0f4}
+/* Promotions (Player Tracker): set up promotions (free play, food comp, hourly money, anything else) and give them
+   to players. Hourly money counts a player's hours today on the games you pick for it.
+   Data: playerTracker/promos { id: { name, type, amount, games: [..], at } },
+         playerTracker/promoGiven { id: { card, name, promo, promoName, amount, note, at } }. Staff only. */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--bad:#f87171}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Archivo",system-ui,sans-serif}
-#authwait{position:fixed;inset:0;background:var(--bg);z-index:9}
-.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
-.back{color:var(--muted);font-size:14px;text-decoration:none}
-h1{font:700 30px/1.2 "Archivo",system-ui,sans-serif;margin:8px 0 18px;border-bottom:3px solid var(--gold);display:inline-block;padding-bottom:3px}
-.list{display:grid;gap:12px}
-.done{display:block;width:100%;margin:18px 0 90px;padding:14px;font-size:17px}
-.plink{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--navy);color:#fff;border:1px solid var(--gold);border-left:4px solid var(--gold);border-radius:10px;padding:14px 18px;box-shadow:0 1px 6px rgba(23,34,57,.08)}
-.pinfo{flex:1;min-width:200px}
-.pname{font:700 20px/1.2 "Archivo",system-ui,sans-serif}
-.purl{color:var(--muted);font-size:14px;overflow-wrap:anywhere}
-.btn{background:var(--navy);color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:8px 16px;font:700 14px "Archivo",sans-serif;text-decoration:none;cursor:pointer}
-.btn.alt{background:var(--gold);color:var(--navy);border-color:var(--gold)}
-:where(a,button):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-/* Send to: pick a contact or type a number; each link's Text sends it from the business line. */
-.sendto{background:var(--navy);color:#fff;border:1px solid var(--gold);border-radius:10px;padding:14px 18px;margin-bottom:14px}
-.sendto label{display:block;font-weight:700;margin-bottom:6px}
-.sendto .row{display:flex;gap:8px;flex-wrap:wrap}
-.sendto input{flex:1 1 100%;min-width:0;font:16px "Archivo",sans-serif;padding:9px 11px;border-radius:6px;border:1px solid var(--line);background:#000;color:#fff}
-.sendto .who{margin-top:6px;font-size:14px;color:var(--gold);min-height:1.2em}
-/* From: Business line (sends here, lands on Texts) or Personal line (opens your phone's Messages). */
-.sendto .from{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:14px}
-.sendto .from button{background:var(--navy);color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:6px 14px;font:700 14px "Archivo",sans-serif;cursor:pointer}
-.sendto .from button.on{background:var(--gold);color:var(--navy)}
-/* QR: full screen, white, big enough to scan from a phone held out. */
-.qrview{position:fixed;inset:0;z-index:50;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;text-align:center}
-.qrview[hidden]{display:none}
-.qrview .qn{font:700 24px "Archivo",sans-serif}
-.qrview #qrBox{padding:14px;border:6px solid #E3B64A;border-radius:22px;background:#fff;line-height:0}
-.qrview #qrBox img,.qrview #qrBox canvas{width:min(80vw,80vh,420px)!important;height:auto!important}
-.qrview button{font:700 16px "Archivo",sans-serif;padding:10px 24px;border-radius:999px;border:0;background:#172239;color:#fff;cursor:pointer}
-/* Message box: shows the whole text before it sends. */
-.msgview{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
-.msgview[hidden]{display:none}
-.msgview .card{width:min(560px,100%);background:var(--navy);color:#fff;border:1px solid var(--gold);border-radius:12px;padding:16px}
-.msgview .mt{font-weight:700;margin-bottom:8px}
-.msgview textarea{width:100%;min-height:200px;font:16px/1.45 "Archivo",sans-serif;padding:10px;border-radius:8px;border:1px solid var(--line);background:#000;color:#fff;resize:vertical}
-.msgview .mb{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+body{margin:0;background:var(--navy);color:#fff;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 40px}
+.wrap{max-width:1400px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{margin:0;font-size:26px;color:var(--gold)}
+h2{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:0 0 10px}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px system-ui,sans-serif;cursor:pointer;text-decoration:none;text-align:center}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.sm{padding:6px 12px;font-size:14px}
+.btn.ok{background:var(--ok)}
+.warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;margin-top:14px;align-items:start}
+.box{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 14px}
+input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:9px 10px;font:inherit;min-width:0}
+.f{display:grid;gap:8px}
+.f .r{display:flex;gap:8px;flex-wrap:wrap}
+.f .r>*{flex:1}
+.lbl{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em}
+.hint{color:rgba(255,255,255,.6);font-size:13px}
+.row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.row:last-child{border-bottom:0}
+.row .nm{flex:1;min-width:0}
+.row .nm span{display:block;font-size:13px;color:rgba(255,255,255,.65)}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.12);white-space:nowrap}
+.tag.freeplay{background:rgba(74,222,128,.18);color:var(--ok)}
+.tag.food{background:rgba(251,146,60,.2);color:#fdba74}
+.tag.hourly{background:rgba(56,189,248,.18);color:#7dd3fc}
+.x{background:none;border:0;color:rgba(255,255,255,.5);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}
+.chk{display:flex;flex-wrap:wrap;gap:6px}
+.chk label{display:flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:3px 10px;font-size:13px;cursor:pointer}
+.chk input{accent-color:var(--gold)}
+.empty{color:rgba(255,255,255,.6);font-size:14px;padding:8px 0}
+.amt{font-weight:800;color:var(--gold);white-space:nowrap}
+[hidden]{display:none!important}
 </style>
-<link rel="stylesheet" href="./theme-dark.css">
 </head>
-<body>
-<div id="authwait"></div>
+<body style="visibility:hidden">
 <div class="wrap">
-  <a class="back" href="./hub.html">&lsaquo; Hub</a><br>
-  <h1>Promotions</h1>
-  <div class="sendto">
-    <label for="sendTo">Send to</label>
-    <div class="row"><input id="sendTo" list="contactList" placeholder="Pick a contact or type a phone number" autocomplete="off"><button type="button" class="btn alt" id="saveTo">Save</button></div>
-    <datalist id="contactList"></datalist>
-    <div class="from" role="group" aria-label="Text from"><span>From</span><button type="button" data-from="business" class="on">Business line</button><button type="button" data-from="personal">Personal line</button></div>
-    <div class="who" id="sendWho"></div>
+  <div class="top"><a class="btn ghost sm" href="./player-tracker-hub.html">&lsaquo; Player Tracker</a><h1>Promotions</h1></div>
+  <div class="warn" id="warn">Not syncing with the server.</div>
+  <div class="grid">
+    <!-- Give a promotion to a player -->
+    <div class="box f">
+      <h2>Give a promotion</h2>
+      <input id="gName" list="gPlayers" placeholder="Player name" autocomplete="off"><datalist id="gPlayers"></datalist>
+      <select id="gPromo"></select>
+      <div class="r"><input id="gAmt" inputmode="decimal" placeholder="Amount $ (optional)"><input id="gNote" placeholder="Note (optional)"></div>
+      <button class="btn" id="gGive">Give</button>
+      <div class="hint" id="gMsg"></div>
+    </div>
+    <!-- Promotions: the list, and + New -->
+    <div class="box">
+      <h2>Promotions</h2>
+      <div id="pList"></div>
+      <div class="f" style="margin-top:10px;border-top:1px solid rgba(255,255,255,.12);padding-top:10px">
+        <div class="lbl">New promotion</div>
+        <input id="nName" placeholder="Name, e.g. $50 Free Play">
+        <div class="r"><select id="nType"><option value="freeplay">Free play</option><option value="food">Food comp</option><option value="hourly">Hourly money</option><option value="other">Other</option></select>
+          <input id="nAmt" inputmode="decimal" placeholder="Amount $"></div>
+        <div id="nGamesBox" hidden><div class="lbl" style="margin-bottom:4px">Counts on these games</div><div class="chk" id="nGames"></div></div>
+        <div class="hint" id="nHint"></div>
+        <button class="btn" id="nAdd">+ Add promotion</button>
+        <div class="r" style="gap:6px"><button class="btn ghost sm" data-quick="fp">$50 Free Play</button><button class="btn ghost sm" data-quick="food">Food comp</button><button class="btn ghost sm" data-quick="hr">$1 an hour (poker)</button></div>
+      </div>
+    </div>
+    <!-- Hourly money: earned today -->
+    <div class="box"><h2>Hourly money today</h2><div id="hList"></div></div>
+    <!-- Recently given -->
+    <div class="box"><h2>Given</h2><div id="givenList"></div></div>
   </div>
-  <div class="list" id="list"></div>
-  <button type="button" class="btn alt done" id="doneBtn">Done</button>
 </div>
-<div class="qrview" id="qrView" hidden><div class="qn" id="qrName"></div><div id="qrBox"></div><div class="purl" id="qrUrl"></div><button type="button" id="qrClose">Close</button></div>
-<div class="msgview" id="msgView" hidden><div class="card"><div class="mt" id="msgTitle"></div><textarea id="msgBody"></textarea><div class="mb"><button type="button" class="btn" id="msgCancel">Cancel</button><button type="button" class="btn alt" id="msgOk">Send</button></div></div></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script>
-/* Add more promo links here: [name, url]. Leads and customer profiles send people here with ?to=&name=. */
-const LINKS = [
-  ["Instant Quote", "https://kheanandclean.com/quote-finder"],
-  ["Quick Quote", "https://kheanandclean.com/quick-quote"],
-  ["Contact", "https://kheanandclean.com/contact"],
-  ["B2B Login", "https://kheanandclean.com/inHouseEstimator/b2b-login"]
-];
-const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-document.getElementById("list").innerHTML = LINKS.map(([n, u], i) =>
-  '<div class="plink"><div class="pinfo"><div class="pname">' + esc(n) + '</div><div class="purl">' + esc(u) + '</div></div>' +
-  '<a class="btn" href="' + esc(u) + '" target="_blank" rel="noopener">Open</a>' +
-  '<button type="button" class="btn alt" data-url="' + esc(u) + '">Copy</button>' +
-  '<button type="button" class="btn" data-qr="' + i + '">QR</button>' +
-  '<button type="button" class="btn alt" data-text="' + i + '">Text</button></div>').join("");
-/* QR: opens full screen; they scan it with their camera. */
-document.getElementById("list").addEventListener("click", e => {
-  const b = e.target.closest("button[data-qr]"); if (!b) return;
-  const [n, u] = LINKS[+b.dataset.qr], box = document.getElementById("qrBox");
-  box.innerHTML = "";
-  /* Branded: navy dots, K&C logo in the middle (high error correction so it still scans), gold frame. Same link as before. */
-  try {
-    new QRCode(box, { text: u, width: 420, height: 420, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
-    const cv = box.querySelector("canvas"), logo = new Image();
-    if (cv) logo.onload = () => {
-      const g = cv.getContext("2d"), W = cv.width, lw = W * 0.24, lh = lw * logo.height / logo.width, pad = W * 0.025;
-      const x = (W - lw) / 2, y = (W - lh) / 2;
-      g.fillStyle = "#fff"; g.strokeStyle = "#E3B64A"; g.lineWidth = W * 0.008;
-      g.beginPath(); if (g.roundRect) g.roundRect(x - pad, y - pad, lw + pad * 2, lh + pad * 2, W * 0.03); else g.rect(x - pad, y - pad, lw + pad * 2, lh + pad * 2); g.fill(); g.stroke();
-      g.drawImage(logo, x, y, lw, lh);
-      const im = box.querySelector("img"); if (im) { im.src = cv.toDataURL("image/png"); im.style.display = "block"; cv.style.display = "none"; }
-    };
-    logo.src = "../images/logo.png";
-  }
-  catch (err) { box.textContent = "Couldn't make the QR code."; }
-  document.getElementById("qrName").textContent = n;
-  document.getElementById("qrUrl").textContent = u;
-  document.getElementById("qrView").hidden = false;
-});
-document.getElementById("qrClose").addEventListener("click", () => { document.getElementById("qrView").hidden = true; });
-document.getElementById("list").addEventListener("click", async e => {
-  const b = e.target.closest("button[data-url]"); if (!b) return;
-  try { await navigator.clipboard.writeText(b.dataset.url); b.textContent = "Copied"; }
-  catch (err) { prompt("Copy this link:", b.dataset.url); }
-  setTimeout(() => { b.textContent = "Copy"; }, 1500);
-});
-</script>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { myName } from "./my-name.js";   /* "this is Tyda" when Tyda is signed in */
-import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, CASINO, casinoDoc } from "./pt-people.js";
+import { TABLE_GAMES } from "./pg-menu.js";
+const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
@@ -138,124 +99,126 @@ const app = initializeApp({
   messagingSenderId: "581692353222",
   appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
 });
-const auth = getAuth(app);
-const smsSend = httpsCallable(getFunctions(app, "us-central1"), "smsSend");
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+const db = getFirestore(app);
+const REF = doc(db, "playerTracker", "poc"), ROSTREF = doc(db, "playerTracker", "roster"), PROFREF = doc(db, "playerTracker", "profiles");
+const LISTREF = doc(db, "playerTracker", "tablelist");
+const PROMREF = doc(db, "playerTracker", "promos"), GIVEREF = doc(db, "playerTracker", "promoGiven");
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const money = n => "$" + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 : 0);
+const fail = () => { $("warn").style.display = "block"; };
+let state = {}, roster = {}, profiles = {}, tlist = {}, promos = {}, given = {};
+const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
+const isPlayer = c => !!(ROSTER[c] || roster[c]);
+const TYPE = { freeplay: "Free play", food: "Food comp", hourly: "Hourly", other: "Other" };
 
-/* Send to: contacts (customers + leads with a phone) in the picker; or type any number.
-   ?to=<number>&name=<name> fills it in (Text a promotion on a lead or customer profile). */
-const digits = s => String(s || "").replace(/\D/g, "").slice(-10);
-const fmt = d => d.length === 10 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : d;
-const firstOf = n => String(n || "").trim().split(/\s+/)[0] || "";
-const phoneOf = r => { const p = [].concat(r.phone || [], r.phones || []).map(x => typeof x === "string" ? x : (x && (x.number || x.phone)) || "").filter(x => digits(x).length === 10)[0]; return digits(p); };
-let contacts = [], target = { to: "", name: "" }, picked = null;   /* picked: last contact chosen, for Save */
-const sendTo = document.getElementById("sendTo"), sendWho = document.getElementById("sendWho");
-let fromLine = "business";   /* Text from: "business" or "personal" (buttons under Send to) */
-const pick = () => {
-  const v = sendTo.value.trim(), c = contacts.find(x => x.label === v);
-  if (c) picked = c;
-  const keep = !c && picked && v.startsWith(picked.name);   /* fixing a picked contact's number keeps their name */
-  target = c ? { to: c.to, name: c.name } : { to: digits(v), name: keep ? picked.name : (target.to === digits(v) ? target.name : "") };
-  sendWho.textContent = target.to.length === 10 ? "Texts go to " + (target.name ? target.name + " · " : "") + fmt(target.to) + " from the " + fromLine + " line" : "";
+/* Games a table can run: Poker (any poker table) and each table game. The table's game decides whose hours count. */
+const BASE_GAME = CASINO !== "edh" ? {} : { 1: "Blackjack", 2: "Baccarat", 3: "Poker", 4: "Three Card Poker", 5: "Ultimate Texas Hold'em" };
+const tableGame = n => { const t = tlist[n] || {}; if (t.deleted) return ""; if (t.variant) return "Poker"; return t.game || BASE_GAME[n] || ""; };
+const gameChoices = () => [...new Set(["Poker", ...Object.values(TABLE_GAMES), ...Object.keys({ ...BASE_GAME, ...tlist }).map(tableGame).filter(Boolean)])];
+/* Hours today (same clock as the Player Tracker: banked time plus the running session). */
+const liveMs = p => (p.totalMs || 0) + (p.status === "seated" && p.since ? Date.now() - p.since : 0);
+const fmtHrs = ms => { const m = Math.floor(ms / 60000); return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
+
+function draw() {
+  /* Promotions list */
+  const P = Object.entries(promos).filter(([, v]) => v && v.name).sort((a, b) => (a[1].at || 0) - (b[1].at || 0));
+  $("pList").innerHTML = P.length ? P.map(([id, v]) => `<div class="row"><div class="nm"><b>${esc(v.name)}</b>
+      <span>${v.type === "hourly" ? money(+v.amount || 0) + " an hour" + (v.games && v.games.length ? " &middot; " + v.games.map(esc).join(", ") : " &middot; pick games") : v.amount ? money(+v.amount) : ""}</span></div>
+      <span class="tag ${esc(v.type)}">${TYPE[v.type] || "Other"}</span><button class="x" data-pdel="${esc(id)}" title="Delete">&times;</button></div>`).join("")
+    : `<div class="empty">No promotions yet. Add one below.</div>`;
+  /* Give: promotion picker */
+  const cur = $("gPromo").value;
+  $("gPromo").innerHTML = `<option value="">Pick a promotion</option>` + P.map(([id, v]) => `<option value="${esc(id)}"${id === cur ? " selected" : ""}>${esc(v.name)}</option>`).join("");
+  const pl = [...new Set(Object.keys({ ...ROSTER, ...roster }).map(nameOf))].sort();
+  if ($("gPlayers").childElementCount !== pl.length) $("gPlayers").innerHTML = pl.map(n => `<option value="${esc(n)}">`).join("");
+  /* New: games checkboxes (keep what's ticked) */
+  const ticked = new Set([...$("nGames").querySelectorAll("input:checked")].map(i => i.value));
+  const gc = gameChoices();
+  if ($("nGames").dataset.k !== gc.join("|")) { $("nGames").dataset.k = gc.join("|"); $("nGames").innerHTML = gc.map(g => `<label><input type="checkbox" value="${esc(g)}"${ticked.has(g) ? " checked" : ""}>${esc(g)}</label>`).join(""); }
+  /* Hourly money today: each hourly promotion, players with hours today at a table running one of its games. */
+  const H = P.filter(([, v]) => v.type === "hourly");
+  $("hList").innerHTML = H.length ? H.map(([id, v]) => {
+    const games = new Set(v.games || []), rate = +v.amount || 0;
+    const rows = Object.entries(state).filter(([c, p]) => isPlayer(c) && p && liveMs(p) > 0 && games.has(tableGame(p.table || 1)))
+      .map(([c, p]) => ({ c, ms: liveMs(p), g: tableGame(p.table || 1), t: p.table || 1 })).sort((a, b) => b.ms - a.ms);
+    return `<div class="lbl" style="margin-top:6px">${esc(v.name)}</div>` + (rows.length ? rows.map(r => {
+      const amt = Math.floor(r.ms / 3600000 * rate * 100) / 100;
+      return `<div class="row"><div class="nm"><b>${esc(nameOf(r.c))}</b><span>Table ${r.t} &middot; ${esc(r.g)} &middot; ${fmtHrs(r.ms)}</span></div>
+        <span class="amt">${money(amt)}</span><button class="btn sm ok" data-hgive="${esc(r.c)}" data-p="${esc(id)}" data-amt="${amt}" ${amt > 0 ? "" : "disabled"}>Give</button></div>`;
+    }).join("") : `<div class="empty">Nobody has hours today on ${esc([...games].join(", ") || "its games")}.</div>`);
+  }).join("") : `<div class="empty">No hourly promotions yet.</div>`;
+  /* Given, newest first */
+  const G = Object.entries(given).filter(([, v]) => v && v.at).sort((a, b) => b[1].at - a[1].at).slice(0, 40);
+  $("givenList").innerHTML = G.length ? G.map(([id, v]) => `<div class="row"><div class="nm"><b>${v.card ? `<a href="./player-tracker.html?profile=${encodeURIComponent(v.card)}" style="color:inherit">${esc(v.name)}</a>` : esc(v.name)}</b>
+      <span>${esc(v.promoName)}${v.note ? " &middot; " + esc(v.note) : ""} &middot; ${new Date(v.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span></div>
+      ${v.amount ? `<span class="amt">${money(+v.amount)}</span>` : ""}<button class="x" data-gdel="${esc(id)}" title="Undo">&times;</button></div>`).join("")
+    : `<div class="empty">Nothing given yet.</div>`;
+}
+
+/* New promotion */
+const showGames = () => { const h = $("nType").value === "hourly"; $("nGamesBox").hidden = !h; $("nAmt").placeholder = h ? "$ per hour" : "Amount $"; };
+$("nType").onchange = showGames;
+const addPromo = (name, type, amount, games) => {
+  const id = "p" + Date.now(); promos[id] = { name, type, amount: amount || 0, games: games || [], at: Date.now() };
+  setDoc(PROMREF, { [id]: promos[id] }, { merge: true }).catch(fail); draw();
 };
-sendTo.addEventListener("input", pick);
-const qs = new URLSearchParams(location.search);
-if (qs.get("to")) { target = { to: digits(qs.get("to")), name: qs.get("name") || "" }; sendTo.value = (target.name ? target.name + " · " : "") + fmt(target.to); pick(); }
-async function loadContacts() {
-  const db = getFirestore(app), seen = new Set(), out = [];
-  for (const col of ["customers", "leads"]) {
-    try {
-      (await getDocs(collection(db, col))).forEach(s => { const r = s.data(); if (r.trashed) return;
-        const to = phoneOf(r), name = r.name || r.business || ""; if (to.length !== 10 || !name || seen.has(to)) return;
-        seen.add(to); out.push({ to, name, label: name + " · " + fmt(to), col, id: s.id, r }); });
-    } catch (e) { console.warn("contacts " + col, e); }
-  }
-  contacts = out.sort((a, b) => a.name.localeCompare(b.name));
-  document.getElementById("contactList").innerHTML = contacts.map(c => '<option value="' + c.label.replace(/"/g, "&quot;") + '">').join("");
-  if (target.to && !target.name) { const c = contacts.find(x => x.to === target.to); if (c) { target.name = c.name; pick(); } }
-  if (!picked && target.to) picked = contacts.find(x => x.to === target.to) || null;
-}
-/* Save: fix a contact's number here and save it to their customer / lead record. */
-/* Returns true when saved. */
-async function saveNumber() {
-  pick();
-  const b = document.getElementById("saveTo");
-  if (!picked) { alert("Pick a contact from the list first, then fix the number."); return; }
-  if (target.to.length !== 10) { alert("Type a 10-digit phone number."); return; }
-  if (target.to === picked.to) { alert("Number is the same, nothing to save."); return; }
-  if (!confirm("Change " + picked.name + "'s number from " + fmt(picked.to) + " to " + fmt(target.to) + "?")) return;
-  const r = picked.r, oldTo = picked.to, newF = fmt(target.to);
-  const phones = (Array.isArray(r.phones) && r.phones.length ? r.phones : [r.phone || ""])
-    .map(x => typeof x === "string" ? x : (x && (x.number || x.phone)) || "")
-    .map(x => digits(x) === oldTo ? newF : x).filter(Boolean);
-  if (!phones.some(x => digits(x) === target.to)) phones.unshift(newF);
-  const main = digits(r.phone) === oldTo || !r.phone ? newF : r.phone;
-  const upd = { phone: main, phones, phoneKey: digits(main).length === 10 ? digits(main) : "",
-    phoneKeys: phones.map(digits).filter(x => x.length === 10) };
-  b.disabled = true; b.textContent = "Saving…";
-  try {
-    await updateDoc(doc(getFirestore(app), picked.col, picked.id), upd);
-    Object.assign(r, upd); picked.to = target.to; picked.label = picked.name + " · " + newF;
-    document.getElementById("contactList").innerHTML = contacts.map(c => '<option value="' + c.label.replace(/"/g, "&quot;") + '">').join("");
-    sendTo.value = picked.label; pick(); b.textContent = "Saved ✓";
-    setTimeout(() => { b.disabled = false; b.textContent = "Save"; }, 2000);
-    return true;
-  } catch (err) { alert("Didn't save. " + (err.message || "")); b.textContent = "Save"; b.disabled = false; return false; }
-}
-document.getElementById("saveTo").addEventListener("click", saveNumber);
-/* Done: saves a changed number first, then goes back to the contact you came from (Hub if opened from the Hub). */
-document.getElementById("doneBtn").addEventListener("click", async () => {
-  pick();
-  if (picked && target.to.length === 10 && target.to !== picked.to && !(await saveNumber())) return;
-  if (qs.get("to") && document.referrer.startsWith(location.origin)) history.back();
-  else location.href = "./hub.html";
+$("nAdd").onclick = () => {
+  const name = $("nName").value.trim(), type = $("nType").value, amount = parseFloat($("nAmt").value.replace(/[$,]/g, "")) || 0;
+  const games = [...$("nGames").querySelectorAll("input:checked")].map(i => i.value);
+  if (!name) { $("nName").focus(); return; }
+  if (type === "hourly" && (!amount || !games.length)) { $("nHint").textContent = "Hourly money needs an amount per hour and at least one game."; return; }
+  $("nHint").textContent = ""; addPromo(name, type, amount, type === "hourly" ? games : []);
+  $("nName").value = $("nAmt").value = ""; $("nGames").querySelectorAll("input").forEach(i => i.checked = false);
+};
+document.addEventListener("click", e => {
+  const q = e.target.closest("[data-quick]");
+  if (q) { const k = q.dataset.quick;
+    if (k === "fp") addPromo("$50 Free Play", "freeplay", 50);
+    if (k === "food") addPromo("Food comp", "food", 0);
+    if (k === "hr") addPromo("$1 an hour", "hourly", 1, ["Poker"]);
+    return; }
+  const pd = e.target.closest("[data-pdel]");
+  if (pd) { const v = promos[pd.dataset.pdel]; if (!confirm("Delete the promotion \"" + (v && v.name) + "\"? Ones already given stay in the Given list.")) return;
+    delete promos[pd.dataset.pdel]; setDoc(PROMREF, { [pd.dataset.pdel]: deleteField() }, { merge: true }).catch(fail); draw(); return; }
+  const gd = e.target.closest("[data-gdel]");
+  if (gd) { const v = given[gd.dataset.gdel]; if (!confirm("Undo " + (v && v.promoName) + " for " + (v && v.name) + "?")) return;
+    delete given[gd.dataset.gdel]; setDoc(GIVEREF, { [gd.dataset.gdel]: deleteField() }, { merge: true }).catch(fail); draw(); return; }
+  const hg = e.target.closest("[data-hgive]");
+  if (hg) { give(hg.dataset.hgive, nameOf(hg.dataset.hgive), hg.dataset.p, +hg.dataset.amt, "Hourly"); return; }
 });
-/* Message box: big text area so the whole message shows. Resolves with the text, or null on Cancel. */
-function askText(title, value) {
-  const v = document.getElementById("msgView"), t = document.getElementById("msgBody");
-  document.getElementById("msgTitle").textContent = title; t.value = value; v.hidden = false; t.focus();
-  return new Promise(res => {
-    const done = out => { v.hidden = true; ok.onclick = no.onclick = null; res(out); };
-    const ok = document.getElementById("msgOk"), no = document.getElementById("msgCancel");
-    ok.onclick = () => done(t.value); no.onclick = () => done(null);
-  });
+/* Give */
+function give(card, name, pid, amount, note) {
+  const v = promos[pid]; if (!v) return;
+  const id = "g" + Date.now() + Math.random().toString(36).slice(2, 5);
+  given[id] = { card: card || "", name, promo: pid, promoName: v.name, amount: amount || 0, note: note || "", at: Date.now() };
+  setDoc(GIVEREF, { [id]: given[id] }, { merge: true }).catch(fail); draw();
 }
-/* From: business (default) or personal. Personal opens your phone's Messages with the text filled in. */
-document.querySelector(".sendto .from").addEventListener("click", e => {
-  const b = e.target.closest("button[data-from]"); if (!b) return;
-  fromLine = b.dataset.from;
-  document.querySelectorAll(".sendto .from button").forEach(x => x.classList.toggle("on", x === b));
-  pick();
-});
-/* Text: shows the message, then sends it from the business line (it lands on the Texts page too),
-   or from the personal line by opening Messages on your phone. */
-document.getElementById("list").addEventListener("click", async e => {
-  const b = e.target.closest("button[data-text]"); if (!b) return;
-  pick();
-  if (target.to.length !== 10) { alert("Pick a contact or type a 10-digit phone number at the top first."); sendTo.focus(); return; }
-  const [n, u0] = LINKS[+b.dataset.text], first = firstOf(target.name);
-  /* Instant Quote to a contact: their name and number ride along so the quote opens already filled in. */
-  const u = n === "Instant Quote" ? u0 + "?" + (target.name ? "n=" + encodeURIComponent(target.name) + "&" : "") + "p=" + target.to : u0;
-  const body = await askText("Text to " + fmt(target.to) + " (edit if you like):",
-    "Hi" + (first ? " " + first : "") + ", this is " + myName() + " with Khean & Clean. Here's our " + n + ": " + u);
-  if (!body || !body.trim()) return;
-  if (fromLine === "personal") {   /* iPhone/Mac use &body=, Android ?body= */
-    location.href = "sms:+1" + target.to + (/iPhone|iPad|Macintosh/.test(navigator.userAgent) ? "&" : "?") + "body=" + encodeURIComponent(body.trim());
-    return;
-  }
-  b.disabled = true; b.textContent = "Sending…";
-  try { await smsSend({ to: target.to, body: body.trim() }); b.textContent = "Sent ✓"; }
-  catch (err) { alert("Text didn't send. " + (err.message || "")); b.textContent = "Text"; }
-  setTimeout(() => { b.disabled = false; b.textContent = "Text"; }, 2500);
-});
-/* Page lock, same as hub.html. */
-onAuthStateChanged(auth, user => {
-  if (!user) { location.replace("./login.html?next=promotions.html"); return; }
-  if (!["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"].includes(user.uid)) {
-    location.replace("./partner.html"); return; }
-  document.getElementById("authwait")?.remove();
-  loadContacts();
+$("gPromo").onchange = () => { const v = promos[$("gPromo").value]; $("gAmt").value = v && v.type !== "hourly" && v.amount ? v.amount : ""; };
+$("gGive").onclick = () => {
+  const name = $("gName").value.trim(), pid = $("gPromo").value;
+  if (!name) { $("gName").focus(); return; }
+  if (!pid) { $("gMsg").textContent = "Pick a promotion."; return; }
+  const card = Object.keys({ ...ROSTER, ...roster }).find(c => nameOf(c).toLowerCase() === name.toLowerCase()) || "";
+  give(card, card ? nameOf(card) : name, pid, parseFloat($("gAmt").value.replace(/[$,]/g, "")) || 0, $("gNote").value.trim());
+  $("gMsg").textContent = "Gave " + promos[pid].name + " to " + (card ? nameOf(card) : name) + (card ? "." : " (not a saved player).");
+  $("gName").value = $("gNote").value = $("gAmt").value = ""; $("gPromo").value = "";
+};
+
+/* ---- start (staff only) ---- */
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=promotions.html"); return; }
+  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  document.body.style.visibility = "visible";
+  draw(); showGames();
+  const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
+  on(REF, v => state = v); on(LISTREF, v => tlist = v); on(PROMREF, v => promos = v); on(GIVEREF, v => given = v);
+  onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  setInterval(draw, 60000);   // keep hourly money ticking
 });
 </script>
-<script src="./tabbar.js" defer></script>
 </body>
 </html>
