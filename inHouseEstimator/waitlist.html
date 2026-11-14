@@ -81,7 +81,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, liveLists, expired, CALL_MS } from "./pt-people.js";   // 200 test players, 10 test dealers
-import { pg, setPg, pgName, pgAll, TABLE_GAMES, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)
+import { pg, setPg, pgName, pgAll, stakesFor, TABLE_GAMES, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
@@ -148,7 +148,13 @@ function draw() {
   const openT = Object.keys({ ...BASE_GAME, ...tlist }).filter(n => tables[n] && tables[n].open && !(tlist[n] && tlist[n].deleted)).map(n => tlist[n] || {});
   const favChip = (name, liveStakes, live) => `<button class="fav${live ? " live" : ""}" data-favopen>${esc(name)}${liveStakes.length ? " &middot; " + liveStakes.map(esc).join(", ") : ""}</button>`;
   $("favs").innerHTML = [
-    ...pgAll().filter(id => pg.fav[id]).map(id => { const st = [...new Set(openT.filter(t => t.variant === pgName(id)).map(t => t.stakes).filter(Boolean))]; return favChip(pgName(id), st, openT.some(t => t.variant === pgName(id))); }),
+    /* Each stake is its own bubble ("1/2 No-Limit Hold'em", "2/3 No-Limit Hold'em"): stakes with a list or running at an open table.
+       Green when a table is running it. A favorite with none of those shows as just the game name. */
+    ...pgAll().filter(id => pg.fav[id]).flatMap(id => {
+      const nm = pgName(id), run = openT.filter(t => t.variant === nm).map(t => t.stakes).filter(Boolean);
+      const st = [...new Set([...stakesFor(id).filter(s => listFor(s + " " + nm)), ...run])];
+      return st.length ? st.map(s => favChip(s + " " + nm, [], run.includes(s))) : [favChip(nm, [], openT.some(t => t.variant === nm))];
+    }),
     ...Object.entries(TABLE_GAMES).filter(([id]) => pg.fav[id]).map(([, nm]) => favChip(nm, [], Object.keys({ ...BASE_GAME, ...tlist }).some(n => tables[n] && tables[n].open && !(tlist[n] && tlist[n].deleted) && ((tlist[n] && tlist[n].game) || BASE_GAME[n]) === nm)))
   ].join("");
   pgMenu.draw();
