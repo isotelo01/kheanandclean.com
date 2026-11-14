@@ -22,26 +22,17 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
 .btn.sm{padding:6px 12px;font-size:14px}
 .warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
-/* The board: every box (add-a-name form, floor plan, each game list) sits on a 12-column grid. Drag a box by its
-   title bar and the others move out of the way; drag the corner to resize; x hides it (Layout brings it back).
-   Saved on this device. On a phone the boxes stack. */
+/* The board: a 12-column grid, fixed layout. Top row: add-a-name form, then the floor plan. Game lists underneath.
+   On a phone the boxes stack. */
 .board{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:40px;grid-auto-flow:row dense;gap:12px;margin-top:14px}
 .wdg{position:relative;background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;overflow:auto;min-width:0}
-.wdg{cursor:grab}.wdg>.gh{user-select:none;touch-action:none}   /* touch: drag by the title bar (the rest scrolls) */
-body.dragging{user-select:none}
 .wdg button,.wdg a,.wdg input{cursor:pointer}.wdg input{cursor:text}
-.wdg.drag{opacity:.55;outline:2px dashed var(--gold)}
-body.dragging iframe{pointer-events:none}
-.wx{background:none;border:0;color:rgba(255,255,255,.5);font-size:20px;line-height:1;cursor:pointer;padding:0 2px}
-.grip{position:absolute;right:2px;bottom:2px;width:16px;height:16px;cursor:nwse-resize;touch-action:none;
-  background:linear-gradient(135deg,transparent 50%,rgba(227,182,74,.6) 50%,rgba(227,182,74,.6) 60%,transparent 60%,transparent 70%,rgba(227,182,74,.6) 70%,rgba(227,182,74,.6) 80%,transparent 80%)}
 .wdg[data-w="floor"]{display:flex;flex-direction:column;padding-bottom:6px}
 .wdg[data-w="floor"] iframe{flex:1;width:100%;border:0;border-radius:8px;background:transparent;min-height:0;overflow:hidden}
 .wdg[data-w="floor"]{overflow:hidden;background:none;border:0;padding:0}   /* no frame: just the tables floating */
 .fopen{display:flex;justify-content:flex-end;margin-bottom:4px}   /* Open, right above the floor plan's top-right corner */
-#layoutBox{background:#0b1220;border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin-top:10px}
 @media (max-width:760px){.board{grid-template-columns:1fr;grid-auto-rows:auto}.wdg{grid-column:1/-1!important;grid-row:auto!important}
-  .wdg[data-w="floor"]{height:420px}.grip{display:none}}
+  .wdg[data-w="floor"]{height:420px}}
 .tbls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .tb{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.75)}
 .tb.seat{background:rgba(74,222,128,.15);color:var(--ok)}
@@ -75,23 +66,21 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 <div class="wrap">
   <div class="top"><a class="btn ghost sm" href="./player-tracker-hub.html">&lsaquo; Player Tracker</a><h1>Waitlist</h1>
     <button class="btn ghost sm" id="gamesBtn">Games</button>
-    <button class="btn ghost sm" id="layoutBtn">Layout</button>
   </div>
-  <div id="layoutBox" hidden></div>   <!-- hidden boxes to show again, and Reset layout -->
   <div id="pgBox" hidden></div>   <!-- the Games menu (pg-menu.js, same as the Floor page) -->
   <div class="favs" id="favs"></div>
   <div class="warn" id="warn">Not syncing with the server.</div>
   <!-- Add a name: Name (players pop up as you type), Phoned in (walk-in if not), the games (tap one or more), then the button. -->
   <div class="board" id="board">
-  <div class="wdg" data-w="form"><div class="gh"><b>Add a name</b><button class="wx" data-hide="form" title="Hide">&times;</button></div>
+  <div class="wdg" data-w="form"><div class="gh"><b>Add a name</b></div>
   <div id="addWBox" style="display:grid;gap:8px">
     <input id="wName" list="wPlayers" placeholder="Name" autocomplete="off">
     <datalist id="wPlayers"></datalist>
     <div><button class="bub" id="wPhone" type="button">Phoned in</button> <span class="hint" id="wHow">Walk-in</span></div>
     <div class="wlbl">Games</div><div class="bubs" id="wGames"></div>
     <button class="btn" id="wAdd">+ Add to wait list</button>
-  </div><div class="grip"></div></div>
-  <div class="wdg" data-w="floor"><div class="fopen"><a class="btn ghost sm" href="./floor.html" target="_blank">Open &rsaquo;</a></div><iframe id="floorFrame" title="Floor plan"></iframe><div class="grip"></div></div>
+  </div></div>
+  <div class="wdg" data-w="floor"><div class="fopen"><a class="btn ghost sm" href="./floor.html" target="_blank">Open &rsaquo;</a></div><iframe id="floorFrame" title="Floor plan"></iframe></div>
   </div>
 </div>
 <script type="module">
@@ -142,7 +131,7 @@ function draw() {
       <button class="btn ghost sm" data-rm="${esc(w.id)}" data-src="${w.src}">Remove</button></div>`;
   /* Under each game: its table numbers, and how many seats are open at each. */
   const tblLine = name => { const T = tablesFor(name); return T.length ? `<div class="tbls">${T.map(t => `<span class="tb${t.open ? " seat" : ""}">Table ${esc(t.n)} &middot; ${t.open ? t.open + (t.open > 1 ? " seats" : " seat") + " open" : "Full"}</span>`).join("")}</div>` : ""; };
-  const box = (id, title, list, tag) => ({ id, html: `<div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span><button class="wx" data-hide="${esc(id)}" title="Hide">&times;</button></div>${tag ? tblLine(title) : ""}
+  const box = (id, title, list, tag) => ({ id, html: `<div class="gh"><b>${esc(title)}</b>${tag || ""}<span class="cnt">${list.length} waiting</span></div>${tag ? tblLine(title) : ""}
       ${list.length ? list.map(row).join("") : `<div class="empty">Nobody waiting.</div>`}` });
   const gone = Object.keys(wait).filter(id => expired(wait[id]));   // phoned-in, past an hour: drop them
   if (gone.length) { const upd = {}; gone.forEach(id => { upd[id] = deleteField(); delete wait[id]; }); setDoc(WAITREF, upd, { merge: true }).catch(fail); }
@@ -182,89 +171,20 @@ function draw() {
   items.forEach(it => {
     let el = board.querySelector(`.wdg[data-w="${CSS.escape(it.id)}"]`);
     if (!el) { el = document.createElement("div"); el.className = "wdg"; el.dataset.w = it.id; board.appendChild(el); }
-    if (el.dataset.h !== it.html) { el.dataset.h = it.html; el.innerHTML = it.html + `<div class="grip"></div>`; }
+    if (el.dataset.h !== it.html) { el.dataset.h = it.html; el.innerHTML = it.html; }
   });
   board.querySelectorAll(".wdg").forEach(el => { if (!keep.has(el.dataset.w)) el.remove(); });
   layoutApply();
 }
 
-/* ---- Board layout: order, size (columns x rows) and hidden boxes, saved on this device for this casino. ---- */
-const LKEY = "waitlist.layout2." + CASINO;   // 2: new starting layout
-const LDEF = { form: { w: 3, h: 11 }, floor: { w: 9, h: 11 } }, LIST_DEF = { w: 3, h: 8 };   // top row: add-a-name, then the floor plan; lists under
-const LMIN = { floor: { w: 4, h: 8 } }, MIN_DEF = { w: 2, h: 3 };   // smallest a box can go (the floor plan stops shrinking here)
-let lay = { order: [], size: {}, hidden: [] };
-try { lay = { ...lay, ...JSON.parse(localStorage.getItem(LKEY) || "{}") }; } catch (e) {}
-const laySave = () => { try { localStorage.setItem(LKEY, JSON.stringify(lay)); } catch (e) {} };
+/* ---- Board layout (fixed): form and floor plan across the top, game lists 3 columns wide underneath. ---- */
+const LDEF = { form: { w: 3, h: 11 }, floor: { w: 9, h: 11 } }, LIST_DEF = { w: 3, h: 8 };
 function layoutApply() {
-  const els = [...$("board").querySelectorAll(".wdg")];
-  for (const el of els) if (!lay.order.includes(el.dataset.w)) lay.order.push(el.dataset.w);   // new boxes go at the end
-  els.forEach(el => {
-    const id = el.dataset.w, z = lay.size[id] || LDEF[id] || LIST_DEF;
-    const mn = LMIN[id] || MIN_DEF, w = Math.max(mn.w, Math.min(12, z.w)), h = Math.max(mn.h, z.h);
-    el.style.order = lay.order.indexOf(id);
-    el.style.gridColumn = "span " + w; el.style.gridRow = "span " + h;
-    el.hidden = lay.hidden.includes(id);
+  $("board").querySelectorAll(".wdg").forEach(el => {
+    const z = LDEF[el.dataset.w] || LIST_DEF;
+    el.style.gridColumn = "span " + z.w; el.style.gridRow = "span " + z.h;
   });
-  const hid = lay.hidden.filter(id => els.some(el => el.dataset.w === id));
-  $("layoutBtn").textContent = hid.length ? "Layout (" + hid.length + " hidden)" : "Layout";
-  if (!$("layoutBox").hidden) drawLayoutBox();
 }
-const boxName = id => { const el = $("board").querySelector(`.wdg[data-w="${CSS.escape(id)}"] .gh b`); return el ? el.textContent : id; };
-function drawLayoutBox() {
-  const hid = lay.hidden.filter(id => $("board").querySelector(`.wdg[data-w="${CSS.escape(id)}"]`));
-  $("layoutBox").innerHTML = `<div class="hint" style="margin-bottom:6px">Drag a box by its title to move it (the others move out of the way). Drag its corner to resize. &times; hides it.</div>
-    <div class="bubs">${hid.map(id => `<button class="bub" data-show="${esc(id)}">Show ${esc(boxName(id))}</button>`).join("") || `<span class="hint">Nothing hidden.</span>`}
-    <button class="bub" data-reset>Reset layout</button></div>`;
-}
-$("layoutBtn").onclick = () => { $("layoutBox").hidden = !$("layoutBox").hidden; drawLayoutBox(); };
-$("layoutBox").addEventListener("click", e => {
-  const sh = e.target.closest("[data-show]");
-  if (sh) { lay.hidden = lay.hidden.filter(x => x !== sh.dataset.show); laySave(); layoutApply(); return; }
-  if (e.target.closest("[data-reset]")) { lay = { order: [], size: {}, hidden: [] }; laySave(); layoutApply(); }
-});
-$("board").addEventListener("click", e => {
-  const hd = e.target.closest("[data-hide]"); if (!hd) return;
-  if (!lay.hidden.includes(hd.dataset.hide)) lay.hidden.push(hd.dataset.hide);
-  laySave(); layoutApply();
-});
-/* Pick a box up anywhere (not on a button, link or box to type in) and drag it: once it moves a few pixels it's
-   picked up, and as it passes over another box it takes that box's place and the rest shift. Corner = resize. */
-let mv = null;
-$("board").addEventListener("pointerdown", e => {
-  if (e.button > 0 || window.matchMedia("(max-width:760px)").matches) return;   // phone: boxes just stack
-  const grip = e.target.closest(".grip"), el = e.target.closest(".wdg");
-  if (!el || (!grip && e.target.closest("button, a, input, select, textarea, label"))) return;
-  const r = el.getBoundingClientRect(), gap = 12, colW = ($("board").clientWidth - gap * 11) / 12;
-  mv = { el, id: el.dataset.w, grip: !!grip, x: e.clientX, y: e.clientY, w: r.width, h: r.height, colW, rowH: 40 + gap, gap, on: false, pid: e.pointerId, tgt: e.target };
-  if (grip) e.preventDefault();
-});
-addEventListener("pointermove", e => {
-  if (!mv) return;
-  if (!mv.on) {   // picked up after it moves 6px, so taps and text clicks still work
-    if (Math.hypot(e.clientX - mv.x, e.clientY - mv.y) < 6) return;
-    mv.on = true; mv.el.classList.add("drag"); document.body.classList.add("dragging");
-    try { mv.tgt.setPointerCapture(mv.pid); } catch (x) {}
-    const sel = getSelection && getSelection(); if (sel) sel.removeAllRanges();
-  }
-  e.preventDefault();
-  if (mv.grip) {   // resize in grid steps
-    const w = Math.round((mv.w + e.clientX - mv.x + mv.gap) / (mv.colW + mv.gap)), h = Math.round((mv.h + e.clientY - mv.y + mv.gap) / mv.rowH);
-    const z = lay.size[mv.id] || LDEF[mv.id] || LIST_DEF;
-    const mn = LMIN[mv.id] || MIN_DEF;
-    if (w !== z.w || h !== z.h) { lay.size[mv.id] = { w: Math.max(mn.w, Math.min(12, w)), h: Math.max(mn.h, h) }; layoutApply(); }
-    return;
-  }
-  mv.el.style.visibility = "hidden";
-  const under = document.elementFromPoint(e.clientX, e.clientY); mv.el.style.visibility = "";
-  const t = under && under.closest(".wdg");
-  if (!t || t === mv.el) return;
-  const o = lay.order.filter(x => x !== mv.id), i = o.indexOf(t.dataset.w);
-  const after = lay.order.indexOf(mv.id) < lay.order.indexOf(t.dataset.w);
-  o.splice(after ? i + 1 : i, 0, mv.id);
-  if (o.join() !== lay.order.join()) { lay.order = o; layoutApply(); }
-});
-const mvEnd = () => { if (!mv) return; const was = mv.on; mv.el.classList.remove("drag"); document.body.classList.remove("dragging"); mv = null; if (was) laySave(); };
-addEventListener("pointerup", mvEnd); addEventListener("pointercancel", mvEnd);
 /* Games button: the Games menu (star favorites, start lists for poker and table games). Tap a favorite to open it too. */
 const listFor = name => Object.keys(games).find(gid => games[gid] && games[gid].name === name);
 const pgMenu = mountPgMenu($("pgBox"), { PGREF, GAMESREF, games: () => games, listFor, fail, after: () => draw() });
