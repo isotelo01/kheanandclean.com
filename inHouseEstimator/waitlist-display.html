@@ -117,15 +117,18 @@ function draw() {
       L.open ? `<span class="tag on">Open</span>` : `<span class="tag">Interest</span>`,
       T.length ? `<div class="tbls">${T.map(t => `<span class="tb${t.open ? "" : " full"}">Table ${esc(t.n)} &middot; ${t.open ? t.open + " open" : "Full"}</span>`).join("")}</div>` : "");
   }).join("");
-  $("board").innerHTML = html || `<div class="empty" style="font-size:24px">No wait lists right now.</div>`;
+  /* More than five lists: a second copy follows the first, so the row can keep sliding right and loop around. */
+  const n = (html.match(/class="col /g) || []).length, b = $("board"), keep = b.scrollLeft;
+  b.innerHTML = html ? (n > 5 ? html + html.replace(/class="col /g, 'class="col dup ') : html) : `<div class="empty" style="font-size:24px">No wait lists right now.</div>`;
+  b.scrollLeft = keep;
 }
 
-/* More than five lists: slide across slowly, pause at each end, so a TV shows them all. */
-let dir = 1;
+/* More than five lists: slide to the right only, slowly, looping around (the copy makes the loop seamless). */
 setInterval(() => {
-  const b = $("board"), max = b.scrollWidth - b.clientWidth; if (max <= 0) return;
-  if ((dir > 0 && b.scrollLeft >= max - 1) || (dir < 0 && b.scrollLeft <= 0)) { dir = -dir; return; }
-  b.scrollLeft += dir * 2;
+  const b = $("board"), d = b.querySelector(".col.dup"); if (!d) { b.scrollLeft = 0; return; }
+  b.scrollLeft += 1;
+  const loop = d.offsetLeft - b.firstElementChild.offsetLeft;   // where the copy starts
+  if (b.scrollLeft >= loop) b.scrollLeft -= loop;
 }, 40);
 
 onAuthStateChanged(getAuth(app), u => {
