@@ -314,7 +314,9 @@ function tableBody(d) {
     + `<text x="200" y="${y + 17}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(d ? nameOf(d) : "NO DEALER")}</text>`;
   if (TB.shape === "oval") {   // poker: oval felt, one-piece rail all the way around
     const fx = OX - OW, fy = OY - OH, fw = OW * 2, fh = OH * 2, rx = OH;
-    const cut = `M${OX - CUT_RX} ${CUT_Y} A ${CUT_RX} ${CUT_RY} 0 0 0 ${OX + CUT_RX} ${CUT_Y}`;   // the cutout's edge (felt side)
+    /* The cutout's edge: the whole ellipse, trimmed to the table's outline so it joins the rail cleanly. */
+    const cut = `M${OX - CUT_RX} ${CUT_Y} a ${CUT_RX} ${CUT_RY} 0 1 0 ${CUT_RX * 2} 0 a ${CUT_RX} ${CUT_RY} 0 1 0 ${-CUT_RX * 2} 0`;
+    const clip = `<clipPath id="tblClip"><rect x="${fx - 16.5}" y="${fy - 16.5}" width="${fw + 33}" height="${fh + 33}" rx="${rx + 16.5}"/></clipPath>`;
     return `<g mask="url(#dlrCut)">`
       /* Shadow on the floor, thrown away from the light (toward the dealer). */
       + `<rect x="${fx - 14}" y="${fy - 22}" width="${fw + 28}" height="${fh + 28}" rx="${rx + 14}" fill="#000" opacity=".55" filter="url(#tblSh)"/>`
@@ -326,9 +328,9 @@ function tableBody(d) {
       + `<rect x="${fx - 5}" y="${fy - 5}" width="${fw + 10}" height="${fh + 10}" rx="${rx + 5}" fill="none" stroke="url(#railLight)" stroke-width="3"/>`   // rail catching the light
       + `</g>`
       /* The rail wraps around the cutout too, with the felt's shadow under it. */
-      + `<path d="${cut}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="12" transform="translate(0 4)"/>`
+      + clip + `<g clip-path="url(#tblClip)">` + `<path d="${cut}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="12" transform="translate(0 4)"/>`
       + RAIL.map(([w, col]) => `<path d="${cut}" fill="none" stroke="${col}" stroke-width="${w}"/>`).join("")
-      + `<path d="${cut}" fill="none" stroke="url(#railLight)" stroke-width="3" transform="translate(0 -3)"/>`;
+      + `<path d="${cut}" fill="none" stroke="url(#railLight)" stroke-width="3" transform="translate(0 -3)"/>` + `</g>`;
   }
   const m = r + 8, rp = `M${cx - m} ${cy - 6} L${cx + m} ${cy - 6} L${cx + m} ${cy} A ${m} ${m} 0 0 1 ${cx - m} ${cy} Z`;
   return `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="url(#feltG)"/>`
