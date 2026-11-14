@@ -32,6 +32,11 @@ h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase
 .warn{background:#5a1d1d;border:1px solid #f87171;border-radius:10px;padding:10px;font-size:14px;margin-bottom:12px;display:none}
 svg.table{width:100%;height:auto;display:block}
 #tblBox{cursor:zoom-in}
+/* Testing page on a wide screen: table fills the screen */
+@media (min-width:900px){
+  .wrap:has(#floor:not([hidden])){max-width:none}
+  #tblBox:not(.full) svg.table{height:calc(100vh - 190px);height:calc(100dvh - 190px);width:100%}
+}
 #tblBack{display:none}
 #tblBox.full .chair{display:none}
 body.tablemode #floor > :not(#tblBox){display:none}   /* table page: only the table */   /* full-screen (dealer) view: no chairs */
@@ -113,8 +118,6 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
     <datalist id="guestNames"></datalist>
     <div class="box" id="waitList"></div>
     <div class="box" id="dealers"></div>
-    </div>
-    <h2>Players</h2>
     <p><button class="btn sm" id="newPlayer">+ New player</button></p>
     <div class="box" id="newBox" hidden style="margin-bottom:12px">
       <input id="npName" placeholder="Name" autocomplete="off" style="width:100%;margin-bottom:8px">
@@ -125,7 +128,7 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
     <p><a class="btn ghost sm" href="./players.html">All players &rsaquo;</a></p>
     <p><button class="btn sm" id="joinLink">Copy player sign-in link</button></p>
     <p style="margin-top:16px"><button class="btn ghost sm" id="reset">Reset all</button></p>
-    <p style="margin-top:20px"><a class="btn" href="./player-tracker.html?join" target="_blank">Open player sign-in page</a></p>
+    </div>
     <p style="margin-top:12px"><a class="btn" href="./floor.html">Floor</a> <a class="btn" href="./waitlist.html">Waitlist</a> <a class="btn" href="./players.html">Players</a> <a class="btn" href="./dealers.html">Dealers</a> <a class="btn ghost" href="./player-tracker-hardware.html">Hardware</a></p>
   </div>
   <div id="prof" hidden>
