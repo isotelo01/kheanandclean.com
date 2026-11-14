@@ -22,8 +22,14 @@ h1{margin:0;font-size:26px;color:var(--gold)}
 .btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
 .btn.sm{padding:6px 12px;font-size:14px}
 .warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
-/* The board: a 12-column grid, fixed layout. Top row: add-a-name form, then the floor plan. Game lists underneath.
-   On a phone the boxes stack. */
+/* Top: left column (title, favorites, add-a-name form) and the floor plan in the page's top-right corner.
+   Underneath, the board: the game lists on a 12-column grid. On a phone everything stacks. */
+.hdr{display:grid;grid-template-columns:minmax(300px,3fr) 9fr;gap:12px;align-items:stretch}
+.hl{display:flex;flex-direction:column;gap:10px;min-width:0}
+.hl .favs{margin-top:0}
+.hl .wdg{flex:1}
+.hdr .wdg[data-w="floor"]{height:560px}
+@media (max-width:760px){.hdr{grid-template-columns:1fr}.hdr .wdg[data-w="floor"]{height:420px}}
 .board{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:40px;grid-auto-flow:row dense;gap:12px;margin-top:14px}
 .wdg{position:relative;background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;overflow:auto;min-width:0}
 .wdg button,.wdg a,.wdg input{cursor:pointer}.wdg input{cursor:text}
@@ -64,14 +70,14 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
 </head>
 <body style="visibility:hidden">
 <div class="wrap">
+  <!-- Header area: title, favorites and the add-a-name form on the left; the floor plan in the top-right corner of the page. -->
+  <div class="hdr"><div class="hl">
   <div class="top"><a class="btn ghost sm" href="./player-tracker-hub.html">&lsaquo; Player Tracker</a><h1>Waitlist</h1>
     <button class="btn ghost sm" id="gamesBtn">Games</button>
   </div>
-  <div id="pgBox" hidden></div>   <!-- the Games menu (pg-menu.js, same as the Floor page) -->
   <div class="favs" id="favs"></div>
   <div class="warn" id="warn">Not syncing with the server.</div>
   <!-- Add a name: Name (players pop up as you type), Phoned in (walk-in if not), the games (tap one or more), then the button. -->
-  <div class="board" id="board">
   <div class="wdg" data-w="form"><div class="gh"><b>Add a name</b></div>
   <div id="addWBox" style="display:grid;gap:8px">
     <input id="wName" list="wPlayers" placeholder="Name" autocomplete="off">
@@ -80,8 +86,12 @@ input{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-ra
     <div class="wlbl">Games</div><div class="bubs" id="wGames"></div>
     <button class="btn" id="wAdd">+ Add to wait list</button>
   </div></div>
+  </div>
   <div class="wdg" data-w="floor"><div class="fopen"><a class="btn ghost sm" href="./floor.html" target="_blank">Open &rsaquo;</a></div><iframe id="floorFrame" title="Floor plan"></iframe></div>
   </div>
+  <div id="pgBox" hidden></div>   <!-- the Games menu (pg-menu.js, same as the Floor page) -->
+  <!-- The game lists, underneath. -->
+  <div class="board" id="board"></div>
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -178,7 +188,7 @@ function draw() {
 }
 
 /* ---- Board layout (fixed): form and floor plan across the top, game lists 3 columns wide underneath. ---- */
-const LDEF = { form: { w: 3, h: 11 }, floor: { w: 9, h: 11 } }, LIST_DEF = { w: 3, h: 8 };
+const LDEF = {}, LIST_DEF = { w: 3, h: 8 };   // the form and floor plan sit in the header area
 function layoutApply() {
   $("board").querySelectorAll(".wdg").forEach(el => {
     const z = LDEF[el.dataset.w] || LIST_DEF;
