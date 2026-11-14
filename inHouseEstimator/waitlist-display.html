@@ -58,6 +58,9 @@ li .ph{font-size:13px;color:#7dd3fc;font-weight:700}
 const fitBig = () => { const z = Math.min(1, innerWidth / 1600, innerHeight / 900), b = document.body.style;
   b.zoom = z; b.width = innerWidth / z + "px"; b.height = innerHeight / z + "px"; };
 fitBig(); addEventListener("resize", fitBig);
+/* The TV stays open for hours: every 2 minutes check for a newer copy of this page, and reload when there is one. */
+const pageNow = () => fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" }).then(r => r.ok ? r.text() : null).catch(() => null);
+pageNow().then(first => { if (first) setInterval(() => pageNow().then(t => { if (t && t !== first) location.reload(); }), 120000); });
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
