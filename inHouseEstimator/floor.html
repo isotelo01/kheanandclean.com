@@ -54,6 +54,10 @@ input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);bo
 .tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;background:rgba(255,255,255,.12);margin-left:6px}
 /* Wait list column on the left, floor plan on the right (stacked on a phone). */
 .wrap{max-width:1400px}
+/* ?embed: just the floor plan (shown inside the Waitlist page's Floor plan box). */
+html.embed body{padding:0;background:transparent}
+html.embed .wrap{max-width:none}
+html.embed .top,html.embed #tgBox,html.embed main>h2,html.embed main>p.hint{display:none}
 .cols{display:grid;grid-template-columns:1fr;gap:24px;align-items:start}
 @media (max-width:760px){.cols{grid-template-columns:1fr}}
 .gbox{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;margin-top:12px}
@@ -132,6 +136,7 @@ import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setD
 import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, openGameNames, liveLists, expired } from "./pt-people.js";
 import { pg, setPg, pgName, pgAll, stakesFor, STAKES_NL, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
+if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");   // inside the Waitlist page
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
