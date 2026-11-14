@@ -234,6 +234,9 @@ function draw() {
       <mask id="dlrGap" maskUnits="userSpaceOnUse" x="-50" y="-50" width="500" height="400">
         <rect x="-50" y="-50" width="500" height="400" fill="#fff"/><rect x="${OX - GAP_W - 2}" y="-50" width="${GAP_W * 2 + 4}" height="${OY - OH + 56}" fill="#000"/>
       </mask>
+      <!-- Felt and leather grain cut from images/eldorado-hills-emerald-poker-table.png (edh-felt.jpg, edh-leather.jpg). -->
+      <pattern id="feltImg" patternUnits="userSpaceOnUse" width="200" height="60"><image href="../images/edh-felt.jpg" width="200" height="60" preserveAspectRatio="none"/></pattern>
+      <pattern id="leatherImg" patternUnits="userSpaceOnUse" width="250" height="11.25"><image href="../images/edh-leather.jpg" width="250" height="11.25" preserveAspectRatio="none"/></pattern>
       <radialGradient id="feltG" cx="${cx}" cy="${cy + 40}" r="${r}" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/>
       </radialGradient>
@@ -307,6 +310,8 @@ $("reqs").addEventListener("click", e => {
   setDoc(REQREF, { [c]: deleteField() }, { merge: true }).catch(fail);
 });
 const RAIL = [[17, "#1a0e06"], [14, "#3e2410"], [11, "#6b3f1d"], [7, "#8f5e33"], [4, "#b07a46"], [1.5, "#d09a62"]];
+/* Poker table: black leather rail (from the El Dorado Hills emerald table picture): dark edges to a silver-grey shine on top. */
+const RAIL_BLACK = [[17, "#030303"], [14, "#121212"], [11, "#262626"], [7, "#3d3d3d"], [4, "#5e5e5e"], [1.5, "#8c8c8c"]];
 function tableBody(d) {
   const name = TB.game.toUpperCase(), long = name.length > 12;
   const label = (y) => `<text x="200" y="${y}" fill="rgba(255,255,255,.75)" font-size="${long ? 9 : 12}" font-weight="700" letter-spacing="${long ? 1.5 : 3}" text-anchor="middle">${esc(name)}</text>`;
@@ -322,12 +327,15 @@ function tableBody(d) {
     const ty = fy - 15;   // thin dealer rail (outer edge of the table)
     const felt = f => `<rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" rx="${rx}" ${f}/><rect x="${gl - 6}" y="${ty}" width="${GAP_W * 2 + 12}" height="${fy - ty + 0.5}" ${f}/>`;   // felt out to the dealer rail (no overlap, so no seam)
     return `<rect x="${fx - 14}" y="${fy - 22}" width="${fw + 28}" height="${fh + 28}" rx="${rx + 14}" fill="#000" opacity=".55" filter="url(#tblSh)"/>`   // floor shadow, away from the light
-      + felt(`fill="url(#feltO)"`) + felt(`fill="#000" filter="url(#feltTex)"`) + felt(`fill="url(#lightPool)"`)
+      + felt(`fill="url(#feltO)"`) + felt(`fill="url(#feltImg)"`) + felt(`fill="url(#lightPool)"`)   // the picture's felt, lit by the overhead light
       + `<rect x="${fx + 2}" y="${fy + 2}" width="${fw - 4}" height="${fh - 4}" rx="${rx - 2}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4" mask="url(#dlrGap)"/>`
-      /* Thin dealer rail: dark wood edge with a light line on top. */
-      + `<line x1="${gl - 8}" y1="${ty}" x2="${gr + 8}" y2="${ty}" stroke="#2a170a" stroke-width="4"/>`
-      + `<line x1="${gl - 8}" y1="${ty + 1.5}" x2="${gr + 8}" y2="${ty + 1.5}" stroke="#b07a46" stroke-width="1" stroke-opacity=".8"/>`
-      + RAIL.map(([w, col]) => `<path d="${rail}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`).join("")
+      /* Gold trim line where the felt meets the rail (like the picture). */
+      + `<rect x="${fx - 0.6}" y="${fy - 0.6}" width="${fw + 1.2}" height="${fh + 1.2}" rx="${rx + 0.6}" fill="none" stroke="#d4a843" stroke-width="1.2" mask="url(#dlrGap)"/>`
+      /* Thin dealer rail: black edge with a gold line on top. */
+      + `<line x1="${gl - 8}" y1="${ty}" x2="${gr + 8}" y2="${ty}" stroke="#050505" stroke-width="4"/>`
+      + `<line x1="${gl - 8}" y1="${ty + 1.6}" x2="${gr + 8}" y2="${ty + 1.6}" stroke="#d4a843" stroke-width="1"/>`
+      + RAIL_BLACK.map(([w, col]) => `<path d="${rail}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`).join("")
+      + `<path d="${rail}" fill="none" stroke="url(#leatherImg)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" opacity=".75" style="mix-blend-mode:overlay"/>`   // leather grain
       + `<rect x="${fx - 5}" y="${fy - 5}" width="${fw + 10}" height="${fh + 10}" rx="${rx + 5}" fill="none" stroke="url(#railLight)" stroke-width="3" mask="url(#dlrGap)"/>`;   // rail catching the light
   }
   const m = r + 8, rp = `M${cx - m} ${cy - 6} L${cx + m} ${cy - 6} L${cx + m} ${cy} A ${m} ${m} 0 0 1 ${cx - m} ${cy} Z`;
