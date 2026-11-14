@@ -105,6 +105,7 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
       <h1>Player Tracker</h1>
       <a class="back" href="./personal.html">&lsaquo; Personal</a>
       <button onclick="location.reload()" aria-label="Refresh" title="Refresh" style="background:none;border:0;padding:4px;cursor:pointer;line-height:0"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#E3B64A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+      <button id="ttGear" aria-label="Settings" title="Settings" style="background:none;border:0;padding:4px;cursor:pointer;line-height:0"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#E3B64A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
     </div>
     <div class="box" id="tblBox"><button class="btn ghost sm" id="tblBack">&lsaquo; Back</button><button class="btn sm" id="tblScan">Scan player</button><svg class="table" id="tbl" viewBox="-130 -10 660 380"></svg></div>
     <h2>Waitlist</h2>
@@ -182,15 +183,46 @@ const IDXREF = doc(db, "playerTracker", "phoneIndex");
 const REQREF = doc(db, "playerTracker", "requests");    // { card: { t, s, at } } seat requests waiting for the dealer  // { "h_<sha256 of phone>": card, "l4_<last 4>": [cards] } — no phone numbers in it
 let roster = {};
 let tables = null;   // playerTracker/tables (open/closed); null = not known here (player phones), clock just starts
-const LAYREF = doc(db, "playerTracker", "layout");     // { seatNumber: { x, y } } where each chair was dragged to
+/* Where each chair was dragged to, { seatNumber: { x, y } }, one doc per table (table 1 keeps "layout"). */
+const layRef = () => doc(db, "playerTracker", TT === 1 ? "layout" : "layout_t" + TT);
+const layKey = () => "playerTracker.layout" + (TT === 1 ? "" : "_t" + TT);
 let layout = {};
-try { layout = JSON.parse(localStorage.getItem("playerTracker.layout") || "{}"); } catch (e) {}
 let dragging = null, justDragged = false;  // { card: { name, phone, email, bday, notes } }
 
 /* 200 test players (full profiles) and 10 test dealers (four-digit numbers): pt-people.js, shared by every
    Player Tracker page. One dealer on a table at a time; a new dealer logging in pushes the other off. */
 const fmtPhone = d => d ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : "";
-const SEATS = 7;
+/* The test table: the gear (top right) picks which table is drawn here. Same tables as Dealer Control and the Floor. */
+const BJ = { game: "Blackjack", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" };
+const BASE_TABLES = CASINO !== "edh" ? {} : {   // starter tables are EDH's
+  1: BJ,
+  2: { game: "Baccarat", seats: [1, 2, 3, 5, 6, 7, 8], shape: "half" },   // no seat 4
+  3: { game: "Poker", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9], shape: "oval" },
+  4: { game: "Three Card Poker", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" },
+  5: { game: "Ultimate Texas Hold'em", seats: [1, 2, 3, 4, 5, 6, 7], shape: "half" }
+};
+let TABLES = { ...BASE_TABLES };
+let TT = 1, TD = BJ, SEATL = BJ.seats, SEATS = 7;   // table number, its setup, its seat numbers, how many
+const cid = n => TT === 1 ? n : TT * 100 + n;      // chair id on a player's record: table 1 = 1-7, table 3 = 301-309 ...
+let laySub = null;
+function setTable(n) {
+  if (!Object.keys(TABLES).length) TABLES = { 1: BJ };
+  TT = TABLES[n] ? +n : +Object.keys(TABLES)[0]; TD = TABLES[TT]; SEATL = TD.seats; SEATS = SEATL.length;
+  try { layout = JSON.parse(localStorage.getItem(layKey()) || "{}"); } catch (e) { layout = {}; }
+  if (laySub) { laySub(); laySub = null; }
+}
+async function loadTables() {   // tables added or changed on the Floor page
+  try {
+    const s = await getDoc(doc(db, "playerTracker", "tablelist"));
+    for (const [n, t] of Object.entries(s.exists() ? s.data() : {})) {
+      if (!t) continue;
+      if (t.deleted) { delete TABLES[n]; continue; }
+      const b = BASE_TABLES[n] || {}, seats = Array.isArray(t.seats) ? t.seats : b.seats;
+      if ((t.game || b.game) && seats) TABLES[n] = { game: t.game || b.game, seats, shape: t.shape || b.shape || "half" };
+    }
+  } catch (e) {}
+}
+setTable(1);
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const LS = "playerTracker.poc";
@@ -224,35 +256,35 @@ function save(card, p) {
   setDoc(REF, { [card]: p }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
 }
 function openSeat() {
-  const taken = Object.values(state).filter(p => p.status === "seated" && (p.table || 1) === 1).map(p => p.seat);   // this page's table = table 1
-  for (let s = 1; s <= SEATS; s++) if (!taken.includes(s)) return s;
+  const taken = Object.values(state).filter(p => p.status === "seated" && (p.table || 1) === TT).map(p => p.seat);   // the table on this page
+  for (const s of SEATL) if (!taken.includes(s)) return s;
   return 0;
 }
 /* Actions shared by floor and player views. */
 const act = {
   wait(c)  { const p = get(c); save(c, { ...p, status: "wait", waitAt: Date.now() }); },
   seat(c, n) { const p = get(c); const s = n || openSeat(); if (!s) { alert("Table is full."); return; }
-             save(c, { ...p, status: "seated", seat: s, table: 1, since: clockStart(tables, 1), waitAt: null }); },
+             save(c, { ...p, status: "seated", seat: s, table: TT, since: clockStart(tables, TT), waitAt: null }); },
   out(c)   { const p = get(c); save(c, { status: "out", totalMs: liveMs(p), seat: null, since: null, waitAt: null }); },
-  deal(c)  { for (const d of Object.keys(DEALERS)) if (d !== c && get(d).status === "seated" && (get(d).table || 1) === 1) act.out(d);
-             const p = get(c); save(c, { ...p, status: "seated", seat: 0, table: 1, since: Date.now() }); }
+  deal(c)  { for (const d of Object.keys(DEALERS)) if (d !== c && get(d).status === "seated" && (get(d).table || 1) === TT) act.out(d);
+             const p = get(c); save(c, { ...p, status: "seated", seat: 0, table: TT, since: Date.now() }); }
 };
 /* Seat button on a profile: asks which seat. */
 function askSeat(c) {
   /* Opens the table; tap an open (glowing) seat number to put them there. */
-  const anyOpen = (() => { for (let i = 1; i <= SEATS; i++) if (!Object.entries(state).some(([k, p]) => p.status === "seated" && (p.table || 1) === 1 && p.seat === i && k !== c)) return true; return false; })();
+  const anyOpen = (() => { for (const i of SEATL) if (!Object.entries(state).some(([k, p]) => p.status === "seated" && (p.table || 1) === TT && p.seat === i && k !== c)) return true; return false; })();
   if (!anyOpen) { alert("Table is full."); return; }
   pickFor = c;
-  showModal(`<div class="mt">Seat ${esc(nameOf(c))}</div><svg class="table" id="pickSvg" viewBox="-60 0 520 300">${drawTable(c)}</svg><p class="note">Tap an open seat.</p>`);
+  showModal(`<div class="mt">Seat ${esc(nameOf(c))}</div><svg class="table" id="pickSvg" viewBox="${isOval() ? "-110 -5 620 320" : "-60 0 520 300"}">${drawTable(c)}</svg><p class="note">Tap an open seat.</p>`);
 }
 let pickFor = null;
 function seatAt(c, n) {
   const p = get(c);
   if (p.status === "seated") {   // moving seats keeps their time running; a chair login moves to the chair at the new seat
-    const ch = p.chair ? chairForSeat(layout, n, SEATS) : 0;
+    const ch = p.chair ? chairAt(n) : 0;
     if (ch) { const h = Object.keys(state).find(k => k !== c && state[k] && state[k].chair === ch); if (h) save(h, { ...state[h], chair: null }); }
-    save(c, { ...p, seat: n, table: 1, ...(ch ? { chair: ch } : {}) });
-    if (ch) logEvent(c, "Moved to seat " + n + ": now Chair " + ch);
+    save(c, { ...p, seat: n, table: TT, ...(ch ? { chair: ch } : {}) });
+    if (ch) logEvent(c, "Moved to seat " + n + ": now Chair " + (ch % 100));
   }
   else act.seat(c, n);
 }
@@ -262,28 +294,45 @@ function seatAt(c, n) {
    seat held. A chair never bumps someone already seated. For now, dragging a chair stands in for the sensor.
    The chair is kept on the player's record (.chair), so it clears when they log out. ---- */
 const TBL = { cx: 200, cy: 40, r: 170 }, FT = 45, PULL_FT = 3;   // table ~7.5 ft across = 340 units, so ~45 units a foot
-const seatAngle = i => Math.PI * (i / (SEATS + 1));
+/* Poker is an oval (~9 ft by ~4 ft), dealer in the middle of the top side; the rest are half-moons. */
+const OV = { cx: 200, cy: 150, a: 200, b: 95 };
+const isOval = () => TD.shape === "oval";
+const CTR = () => isOval() ? [OV.cx, OV.cy] : [TBL.cx, TBL.cy];
+const seatAngle = i => {   // seat 1 is to the dealer's left (right side of the picture)
+  const k = SEATL.indexOf(i);
+  return isOval() ? -Math.PI / 2 + (k + 1) * 2 * Math.PI / (SEATS + 1) : Math.PI * ((k + 1) / (SEATS + 1));
+};
+function railAt(i, off) {   // a point at seat i, off units outside the felt edge (negative = on the felt)
+  const a = seatAngle(i);
+  return isOval() ? [OV.cx + Math.cos(a) * (OV.a + off), OV.cy + Math.sin(a) * (OV.b + off)]
+                  : [TBL.cx + Math.cos(a) * (TBL.r + off), TBL.cy + Math.sin(a) * (TBL.r + off)];
+}
 function chairPos(i) {
-  const L = layout[i], a = seatAngle(i);
-  return L ? [L.x, L.y] : [TBL.cx + Math.cos(a) * (TBL.r + 40), TBL.cy + Math.sin(a) * (TBL.r + 40)];
+  const L = layout[i];
+  return L ? [L.x, L.y] : railAt(i, 40);
 }
 function nearSeat(i) {   // nearest seat to chair i (measured to the rail at that seat), and how far in feet
   const [x, y] = chairPos(i);
   let best = null;
-  for (let s = 1; s <= SEATS; s++) {
-    const a = seatAngle(s), d = Math.hypot(x - (TBL.cx + Math.cos(a) * TBL.r), y - (TBL.cy + Math.sin(a) * TBL.r)) / FT;
+  for (const s of SEATL) {
+    const [rx, ry] = railAt(s, 0), d = Math.hypot(x - rx, y - ry) / FT;
     if (!best || d < best.ft) best = { seat: s, ft: d };
   }
   return best;
 }
-const chairOccupant = n => Object.keys(state).find(c => isPlayer(c) && state[c] && state[c].chair === n);   // logging out drops .chair
+const chairOccupant = n => Object.keys(state).find(c => isPlayer(c) && state[c] && state[c].chair === cid(n));   // logging out drops .chair
+function chairAt(s) {   // the chair sitting closest to seat s (its id), or seat s's own chair
+  let best = 0, bd = Infinity;
+  for (const i of SEATL) { const ns = nearSeat(i); if (ns.seat === s && ns.ft < bd) { bd = ns.ft; best = i; } }
+  return cid(best || s);
+}
 const seatedMs = p => (p.sessionMs || 0) + (p.since ? Date.now() - p.since : 0);
 /* Simulated lap sensor at seat s (thermal, under the rail, aimed down): warm when a logged-in player's chair
    is at that seat within 3 ft and they're sitting (not "standing" on the chair card). Also the nearest
    chair's distance, for the reading on the table. */
 function lapReading(s) {
   let ft = null, warm = false;
-  for (let i = 1; i <= SEATS; i++) {
+  for (const i of SEATL) {
     const ns = nearSeat(i); if (ns.seat !== s) continue;
     if (ft == null || ns.ft < ft) ft = ns.ft;
     const c = chairOccupant(i);
@@ -312,23 +361,23 @@ function applyChair(n) {
     return { r: "standing" };
   }
   const s = ns.seat;
-  const other = Object.keys(state).find(k => k !== c && state[k].status === "seated" && (state[k].table || 1) === 1 && state[k].seat === s);
+  const other = Object.keys(state).find(k => k !== c && state[k].status === "seated" && (state[k].table || 1) === TT && state[k].seat === s);
   if (other) {   // never bump a seated player
     logEvent(c, "Chair " + n + " moved to seat " + s + ", taken by " + nameOf(other) + ": no change");
     return { r: "taken", seat: s };
   }
-  if (p.status === "seated" && (p.table || 1) === 1) {
+  if (p.status === "seated" && (p.table || 1) === TT) {
     if (p.seat === s && !p.breakAt) return { r: "seated", seat: s };
-    save(c, { ...p, seat: s, table: 1, breakAt: null, since: p.breakAt ? clockStart(tables, 1) : p.since });
+    save(c, { ...p, seat: s, table: TT, breakAt: null, since: p.breakAt ? clockStart(tables, TT) : p.since });
     logEvent(c, p.breakAt && p.seat === s ? "Chair " + n + " pushed back in: back from break, seat " + s
                                           : "Chair " + n + " moved: seat " + p.seat + " to seat " + s);
     return { r: "seated", seat: s };
   }
-  save(c, { ...p, status: "seated", seat: s, table: 1, since: clockStart(tables, 1), waitAt: null, breakAt: null, sessionMs: 0 });
+  save(c, { ...p, status: "seated", seat: s, table: TT, since: clockStart(tables, TT), waitAt: null, breakAt: null, sessionMs: 0 });
   logEvent(c, "Chair " + n + ": seated at seat " + s);
   return { r: "seated", seat: s };
 }
-const onTableDealer = () => Object.keys(DEALERS).find(d => get(d).status === "seated" && (get(d).table || 1) === 1);
+const onTableDealer = () => Object.keys(DEALERS).find(d => get(d).status === "seated" && (get(d).table || 1) === TT);
 
 const params = new URLSearchParams(location.search);
 let myCard = params.get("card") || params.get("dealer");
@@ -336,28 +385,33 @@ if (myCard) { try { localStorage.setItem("playerTracker.card", myCard); } catch 
 else if (params.has("me") || params.has("join")) { try { myCard = localStorage.getItem("playerTracker.card"); } catch (e) {} }   // remembered on this phone
 
 /* A chair always turns to face the middle of the table, wherever it's dragged. */
-const chairXf = (x, y) => `translate(${x} ${y}) rotate(${Math.atan2(y - 40, x - 200) * 180 / Math.PI - 90})`;
+const chairXf = (x, y) => { const [ox, oy] = CTR(); return `translate(${x} ${y}) rotate(${Math.atan2(y - oy, x - ox) * 180 / Math.PI - 90})`; };
 function drawTable(pick) {
   if (dragging && !pick) return;   // don't redraw under a finger mid-drag
-  /* Top-down blackjack table: dealer on the straight edge at top, 7 seats around the curve. */
-  const cx = 200, cy = 40, r = 170;
-  let s = `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
-        + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="var(--felt)"/>`
-        + `<g data-dealer="1" style="cursor:pointer"><rect x="${cx - 60}" y="${cy - 28}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
-        + `<text x="${cx}" y="${cy - 11}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(onTableDealer() ? nameOf(onTableDealer()) : "NO DEALER")}</text></g>`
-        + `<rect x="${cx - 30}" y="${cy + 6}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
-        + `<text x="${cx}" y="${cy + 21}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
-        + `<image href="../images/edh-casino-logo.png" x="${cx - 30}" y="${cy + 32}" width="60" height="47" opacity=".9"/>`
-        + `<text x="${cx}" y="${cy + 96}" fill="rgba(255,255,255,.75)" font-size="12" font-weight="700" letter-spacing="3" text-anchor="middle">BLACKJACK</text>`;
+  /* Top-down table: dealer at the top, seats around the curve (half-moon) or all the way round (poker oval). */
+  const cx = 200, cy = 40, r = 170, ov = isOval(), [mx, my] = CTR();
+  if (!pick) $("tbl").setAttribute("viewBox", ov ? "-150 -95 700 490" : "-130 -10 660 380");
+  const game = TD.game.toUpperCase(), gsz = game.length > 12 ? 9 : 12;
+  const dy = ov ? OV.cy - OV.b - 40 : cy - 28, ty = ov ? OV.cy - OV.b + 10 : cy + 6, gy = ov ? OV.cy - 26 : cy + 32;
+  let s = (ov ? `<ellipse cx="${mx}" cy="${my}" rx="${OV.a + 14}" ry="${OV.b + 14}" fill="var(--rail)"/><ellipse cx="${mx}" cy="${my}" rx="${OV.a}" ry="${OV.b}" fill="var(--felt)"/>`
+              : `<path d="M${cx - r - 14} ${cy} A ${r + 14} ${r + 14} 0 0 0 ${cx + r + 14} ${cy} Z" fill="var(--rail)"/>`
+              + `<path d="M${cx - r} ${cy} A ${r} ${r} 0 0 0 ${cx + r} ${cy} Z" fill="var(--felt)"/>`)
+        + `<g data-dealer="1" style="cursor:pointer"><rect x="${mx - 60}" y="${dy}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
+        + `<text x="${mx}" y="${dy + 17}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(onTableDealer() ? nameOf(onTableDealer()) : "NO DEALER")}</text></g>`
+        + `<rect x="${mx - 30}" y="${ty}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
+        + `<text x="${mx}" y="${ty + 15}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
+        + `<image href="../images/edh-casino-logo.png" x="${mx - 30}" y="${gy}" width="60" height="47" opacity=".9"/>`
+        + `<text x="${mx}" y="${gy + 64}" fill="rgba(255,255,255,.75)" font-size="${gsz}" font-weight="700" letter-spacing="3" text-anchor="middle">${esc(game)}</text>`;
   if (!pick) {
     /* Simulated sensors: dashed 3-ft line (chairs past it = pulled out), and a lap sensor under the rail
        at each seat: orange = warm lap seen, green outline = a chair is there, dim = nothing. Shows the
        nearest chair's distance in feet. */
-    const Z = r + PULL_FT * FT;
-    s += `<path d="M${cx - Z} ${cy} A ${Z} ${Z} 0 0 0 ${cx + Z} ${cy}" fill="none" stroke="rgba(74,222,128,.45)" stroke-width="1.5" stroke-dasharray="6 6"/>`
-       + `<text x="${cx}" y="${cy + Z - 6}" fill="rgba(74,222,128,.75)" font-size="10" text-anchor="middle">3 ft line</text>`;
-    for (let i = 1; i <= SEATS; i++) {
-      const a = seatAngle(i), lx = cx + Math.cos(a) * (r - 9), ly = cy + Math.sin(a) * (r - 9), rd = lapReading(i);
+    const Z = r + PULL_FT * FT, Zo = PULL_FT * FT;
+    s += (ov ? `<ellipse cx="${mx}" cy="${my}" rx="${OV.a + Zo}" ry="${OV.b + Zo}" fill="none" stroke="rgba(74,222,128,.45)" stroke-width="1.5" stroke-dasharray="6 6"/>`
+             : `<path d="M${cx - Z} ${cy} A ${Z} ${Z} 0 0 0 ${cx + Z} ${cy}" fill="none" stroke="rgba(74,222,128,.45)" stroke-width="1.5" stroke-dasharray="6 6"/>`)
+       + `<text x="${mx}" y="${ov ? my + OV.b + Zo - 6 : cy + Z - 6}" fill="rgba(74,222,128,.75)" font-size="10" text-anchor="middle">3 ft line</text>`;
+    for (const i of SEATL) {
+      const [lx, ly] = railAt(i, -9), a = Math.atan2(ly - my, lx - mx), rd = lapReading(i);
       const col = rd.warm ? "#f97316" : rd.ft != null && rd.ft <= PULL_FT ? "rgba(74,222,128,.25)" : "rgba(0,0,0,.25)";
       s += `<g transform="translate(${lx.toFixed(1)} ${ly.toFixed(1)}) rotate(${(a * 180 / Math.PI - 90).toFixed(1)})">`
          + `<rect x="-17" y="-6" width="34" height="12" rx="3" fill="${col}" stroke="${rd.warm ? "#fdba74" : "rgba(255,255,255,.35)"}"/>`
@@ -366,11 +420,10 @@ function drawTable(pick) {
   }
   const labels = [];   // player names, placed by their chairs after the seats are drawn
   const seated = {};
-  for (const [c, p] of Object.entries(state)) if (p.status === "seated" && (p.table || 1) === 1) seated[p.seat] = c;
-  for (let i = 1; i <= SEATS; i++) {
+  for (const [c, p] of Object.entries(state)) if (p.status === "seated" && (p.table || 1) === TT) seated[p.seat] = c;
+  for (const i of SEATL) {
     /* Seat 1 is first base (dealer's left = player's right side of the picture). */
-    const a = Math.PI * (i / (SEATS + 1));
-    const x = cx + Math.cos(a) * (r - 30), y = cy + Math.sin(a) * (r - 30);
+    const [x, y] = railAt(i, -30);
     const c = seated[i];
     /* Chair outside the rail, facing the table. Gold = its player is seated, blue = on break, grey = empty. */
     const [chx, chy] = chairPos(i);
@@ -392,10 +445,7 @@ function drawTable(pick) {
   /* Names go with their chair, just outside it. If a name would sit on another chair or name,
      it slides further out until it's clear. */
   const chairs = [];
-  for (let i = 1; i <= SEATS; i++) {
-    const a = Math.PI * (i / (SEATS + 1)), L = layout[i];
-    chairs.push(L ? [L.x, L.y] : [cx + Math.cos(a) * (r + 40), cy + Math.sin(a) * (r + 40)]);
-  }
+  for (const i of SEATL) chairs.push(chairPos(i));
   const placed = [];
   const hit = (b, o) => b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1;
   for (const lb of labels) {
@@ -403,13 +453,13 @@ function drawTable(pick) {
     const w = nm.length * 5.6 + 6, h = 13;
     /* Try spots around the chair (outward first, then below, then angled), nearest first;
        take the first that stays on screen and clear of chairs and other names. */
-    const out = Math.atan2(lb.chy - cy, lb.chx - cx);
+    const out = Math.atan2(lb.chy - my, lb.chx - mx);
     let box = null, first = null;
     for (let d = 28; d <= 76 && !box; d += 8) {
       for (const ang of [out, Math.PI / 2, out + 0.6, out - 0.6, -Math.PI / 2]) {
         const lx = lb.chx + Math.cos(ang) * d, ly = lb.chy + Math.sin(ang) * d;
         const b = { x1: lx - w / 2, x2: lx + w / 2, y1: ly - h / 2, y2: ly + h / 2, lx, ly };
-        if (b.x1 < -58 || b.x2 > 458 || b.y1 < 0 || b.y2 > 298) continue;
+        if (ov ? (b.x1 < -108 || b.x2 > 508 || b.y1 < -3 || b.y2 > 313) : (b.x1 < -58 || b.x2 > 458 || b.y1 < 0 || b.y2 > 298)) continue;
         first = first || b;
         const clash = placed.some(o => hit(b, o)) ||
           chairs.some(([qx, qy]) => hit(b, { x1: qx - 19, x2: qx + 19, y1: qy - 19, y2: qy + 19 }));
@@ -545,6 +595,10 @@ tblSvg.addEventListener("pointerdown", e => {
    and a dragged chair shoves the others out of its way. */
 const CHAIR_GAP = 38, TABLE_KEEP = TBL.r + 14 + 22;   // chair-to-chair spacing; how close a chair can get to the table centre
 function offTable([x, y]) {
+  if (isOval()) {   // keep chairs outside the oval rail
+    const dx = x - OV.cx, dy = y - OV.cy, q = Math.hypot(dx / (OV.a + 36), dy / (OV.b + 36)) || 1;
+    return q < 1 ? [OV.cx + dx / q, OV.cy + dy / q] : [x, y];
+  }
   const dx = x - TBL.cx, dy = y - TBL.cy, d = Math.hypot(dx, dy) || 1;
   if (y >= TBL.cy - 22) { if (d < TABLE_KEEP) return [TBL.cx + dx / d * TABLE_KEEP, TBL.cy + dy / d * TABLE_KEEP]; }
   else if (Math.abs(dx) < TABLE_KEEP && y > TBL.cy - 52) return [x, TBL.cy - 52];   // behind the dealer's edge
@@ -552,9 +606,10 @@ function offTable([x, y]) {
 }
 function pushChairs(di, x, y) {   // where every chair ends up when chair di is dragged to (x, y)
   const pos = {};
-  for (let i = 1; i <= SEATS; i++) pos[i] = i === di ? offTable([x, y]) : chairPos(i);
+  for (const i of SEATL) pos[i] = i === di ? offTable([x, y]) : chairPos(i);
   for (let pass = 0; pass < 6; pass++) {
-    for (let a = 1; a <= SEATS; a++) for (let b = a + 1; b <= SEATS; b++) {
+    for (let ka = 0; ka < SEATS; ka++) for (let kb = ka + 1; kb < SEATS; kb++) {
+      const a = SEATL[ka], b = SEATL[kb];
       const [ax, ay] = pos[a], [bx, by] = pos[b], dx = bx - ax, dy = by - ay, d = Math.hypot(dx, dy) || .01;
       if (d >= CHAIR_GAP) continue;
       const over = CHAIR_GAP - d, ux = dx / d, uy = dy / d;
@@ -562,12 +617,13 @@ function pushChairs(di, x, y) {   // where every chair ends up when chair di is 
       else if (b === di) pos[a] = [ax - ux * over, ay - uy * over];
       else { pos[a] = [ax - ux * over / 2, ay - uy * over / 2]; pos[b] = [bx + ux * over / 2, by + uy * over / 2]; }
     }
-    for (let i = 1; i <= SEATS; i++) {   // stay on the drawing
+    for (const i of SEATL) {   // stay on the drawing
       const [x0, y0] = offTable(pos[i]);
-      pos[i] = [Math.min(Math.max(x0, -112), 512), Math.min(Math.max(y0, 6), 354)];
+      pos[i] = isOval() ? [Math.min(Math.max(x0, -132), 532), Math.min(Math.max(y0, -77), 377)]
+                        : [Math.min(Math.max(x0, -112), 512), Math.min(Math.max(y0, 6), 354)];
     }
   }
-  for (let i = 1; i <= SEATS; i++) pos[i] = [Math.round(pos[i][0]), Math.round(pos[i][1])];
+  for (const i of SEATL) pos[i] = [Math.round(pos[i][0]), Math.round(pos[i][1])];
   return pos;
 }
 tblSvg.addEventListener("pointermove", e => {
@@ -577,7 +633,7 @@ tblSvg.addEventListener("pointermove", e => {
   dragging.moved = true;
   const pos = pushChairs(+dragging.i, p.x, p.y);
   dragging.pos = pos; [dragging.x, dragging.y] = pos[dragging.i];
-  for (let i = 1; i <= SEATS; i++) {
+  for (const i of SEATL) {
     const g = tblSvg.querySelector(`.chair[data-chair="${i}"]`);
     if (g) g.setAttribute("transform", chairXf(pos[i][0], pos[i][1]));
   }
@@ -589,12 +645,12 @@ const endDrag = e => {
   if (!d.moved && e && e.type === "pointerup") showChair(+d.i);   // tapped a chair: its card
   if (d.moved) {
     const moved = {};   // the dragged chair plus any it shoved
-    for (let i = 1; i <= SEATS; i++) {
+    for (const i of SEATL) {
       const [ox, oy] = chairPos(i), [nx, ny] = d.pos[i];
       if (ox !== nx || oy !== ny) { layout[i] = { x: nx, y: ny }; moved[i] = layout[i]; }
     }
-    try { localStorage.setItem("playerTracker.layout", JSON.stringify(layout)); } catch (e) {}
-    setDoc(LAYREF, moved, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+    try { localStorage.setItem(layKey(), JSON.stringify(layout)); } catch (e) {}
+    setDoc(layRef(), moved, { merge: true }).catch(() => { $("warn").style.display = "block"; });
     for (const i of Object.keys(moved)) applyChair(+i);   // stand-in for the proximity sensors
   }
   drawTable();
@@ -609,7 +665,7 @@ $("tblBox").onclick = e => {
   if (e.target.closest("[data-dealer]") && !box.classList.contains("full")) { showDealerPick(); return; }
   const num = e.target.closest("[data-num]");
   if (num && !box.classList.contains("full")) { showSeatQR(+num.dataset.num, "ask"); return; }
-  if (!box.classList.contains("full")) location.href = "./dealer-table.html";   // the table opens on its own page
+  if (!box.classList.contains("full")) location.href = "./dealer-table.html?t=" + TT;   // the table opens on its own page
 };
 /* ---- QR codes: each player's QR is their own link, so the iPhone camera opens it too.
    The dealer's Scan player button (full-screen view) reads it and seats them. ---- */
@@ -627,7 +683,7 @@ $("mbody").addEventListener("click", e => {
   const t = e.target.closest("[data-seat]"), ch = !t && e.target.closest("#pickSvg [data-chair]");
   if (!t && !ch) return;
   const c = pickFor, n = t ? +t.dataset.seat : nearSeat(+ch.dataset.chair).seat;
-  if (ch && Object.entries(state).some(([k, p]) => k !== c && p && p.status === "seated" && (p.table || 1) === 1 && p.seat === n)) { alert("Seat " + n + " is taken."); return; }
+  if (ch && Object.entries(state).some(([k, p]) => k !== c && p && p.status === "seated" && (p.table || 1) === TT && p.seat === n)) { alert("Seat " + n + " is taken."); return; }
   pickFor = null; closeModal(); seatAt(c, n);
 });
 function showQR(c) {
@@ -642,7 +698,7 @@ function showQR(c) {
 /* Tap the dealer box on the table: seat a dealer (the one already dealing gets pushed off), or log one out. */
 function showDealerPick() {
   const on = onTableDealer();
-  showModal(`<div class="mt">Dealer &middot; Table 1</div>
+  showModal(`<div class="mt">Dealer &middot; Table ${TT}</div>
     ${Object.entries(DEALERS).map(([d, nm]) => { const p = get(d), here = d === on, away = p.status === "seated" && !here;
       return `<div class="row"><div class="nm">${esc(nameOf(d))}<span>${here ? "Dealing this table" : away ? "On table " + (p.table || 1) : "Off the table"}</span></div>
         ${here ? `<button class="btn sm ghost" data-dl="out" data-d="${d}">Log out</button>` : `<button class="btn sm ok" data-dl="seat" data-d="${d}">Seat here</button>`}</div>`; }).join("")}`);
@@ -653,13 +709,13 @@ function showDealerPick() {
 }
 /* Chair card: its number, where it is, who's logged in, its QR, and its history. */
 function showChair(n) {
-  const link = withCasino(location.origin + location.pathname + "?join&t=1&ch=" + n);
+  const link = withCasino(location.origin + location.pathname + "?join&t=" + TT + "&ch=" + cid(n));
   const ns = nearSeat(n), c = chairOccupant(n), p = c && get(c);
   const where = ns.ft > PULL_FT ? "Pulled out (" + ns.ft.toFixed(1) + " ft from seat " + ns.seat + ")" : "At seat " + ns.seat + " (" + ns.ft.toFixed(1) + " ft)";
   const status = !p ? "Empty" : p.status !== "seated" ? "Logged in, not seated" : p.breakAt ? "On break, seat " + p.seat + " held" : "Seated at seat " + p.seat;
   const hist = events.filter(ev => ev.a && ev.a.indexOf("Chair " + n + " ") === 0 || (ev.a || "").indexOf("Chair " + n + ":") === 0).slice(-8).reverse();
   showModal(`<div class="mt">Chair ${n} &middot; C${n}</div>
-    <div class="note">Table 1 &middot; ${esc(where)}</div>
+    <div class="note">Table ${TT} &middot; ${esc(where)}</div>
     <div class="note"><b style="color:#fff">${c ? esc(nameOf(c)) : "No one logged in"}</b>${c ? " &middot; " + esc(status) : ""}</div>
     <div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px;margin-top:6px"></div>
     <p class="note">Player scans this to log into Chair ${n}. Where the chair sits decides their seat.</p>
@@ -679,9 +735,9 @@ function showChair(n) {
   };
 }
 function showSeatQR(n, kind) {
-  const link = withCasino(location.origin + location.pathname + "?join&t=1&s=" + n + (kind === "sit" ? "&sit" : ""));
+  const link = withCasino(location.origin + location.pathname + "?join&t=" + TT + "&s=" + n + (kind === "sit" ? "&sit" : ""));
   showModal(`<div class="mt">Seat ${n} &middot; ${kind === "sit" ? "Chair" : "Number"}</div><div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div>
-    <p class="note">Table 1, seat ${n} &mdash; ${kind === "sit" ? "seats the player right away" : "dealer approves first"}</p><p class="note" style="word-break:break-all">${esc(link)}</p>
+    <p class="note">Table ${TT}, seat ${n} &mdash; ${kind === "sit" ? "seats the player right away" : "dealer approves first"}</p><p class="note" style="word-break:break-all">${esc(link)}</p>
     <button class="btn sm" id="seatLinkCopy">Copy link</button>`);
   if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 240, height: 240, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
   $("seatLinkCopy").onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
@@ -732,6 +788,26 @@ $("reset").onclick = () => {
   render();
 };
 
+function watchLayout() {   // this table's chair spots
+  if (laySub) laySub();
+  const t = TT;
+  laySub = onSnapshot(layRef(), snap => {
+    if (t !== TT) return;
+    layout = snap.exists() ? snap.data() : {};
+    try { localStorage.setItem(layKey(), JSON.stringify(layout)); } catch (e) {}
+    render();
+  }, () => {});
+}
+/* Gear: pick which table to test here. */
+$("ttGear").onclick = () => {
+  showModal(`<div class="mt">Settings</div><div class="note">Pick a table to show here</div>`
+    + Object.entries(TABLES).map(([n, t]) => `<button class="btn ${+n === TT ? "" : "ghost"}" data-tt="${n}" style="display:block;width:100%;margin-top:8px;text-align:left">Table ${n} &middot; ${esc(t.game)}</button>`).join(""));
+  $("mbody").querySelectorAll("[data-tt]").forEach(b => b.onclick = () => {
+    setTable(+b.dataset.tt);
+    try { localStorage.setItem("playerTracker.testTable", String(TT)); } catch (e) {}
+    closeModal(); watchLayout(); render();
+  });
+};
 function start() {
   render();
   onSnapshot(REF, snap => {
@@ -741,11 +817,7 @@ function start() {
     render();
   }, () => { $("warn").style.display = "block"; });
   onSnapshot(LOGREF, snap => { events = (snap.exists() && snap.data().events) || []; render(); }, () => {});
-  onSnapshot(LAYREF, snap => {
-    layout = snap.exists() ? snap.data() : {};
-    try { localStorage.setItem("playerTracker.layout", JSON.stringify(layout)); } catch (e) {}
-    render();
-  }, () => {});
+  watchLayout();
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; render(); }, () => {});
   if (!myCard) onSnapshot(doc(db, "playerTracker", "tables"), snap => { tables = snap.exists() ? snap.data() : {}; }, () => {});   // hours only at an open table
   if (!myCard) onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; profLoaded = true; render(); }, () => { profLoaded = true; render(); });   // phones/emails: staff pages only
@@ -764,20 +836,22 @@ function signedIn(c) {
    to seat them there; the dealer approves on the dealer table page. */
 const reqT = +params.get("t"), reqS = +params.get("s");
 async function maybeRequestSeat() {
-  const reqCh = +params.get("ch");
-  if (reqCh && myCard && !DEALERS[myCard]) {   // chair QR: log into the chair; its spot decides the seat
+  const chId = +params.get("ch");
+  if (chId && myCard && !DEALERS[myCard]) {   // chair QR: log into the chair; its spot decides the seat
+    await loadTables(); setTable(chId >= 100 ? Math.floor(chId / 100) : 1);
+    const reqCh = chId >= 100 ? chId % 100 : chId;   // chair number at that table
     const c = myCard, box = $("reqBox"); box.hidden = false;
     const say = (t, col) => { box.innerHTML = `<div class="status" style="margin:0;color:${col}">${t}</div>`; };
     try {
-      const [a, l] = await Promise.all([getDoc(REF), getDoc(LAYREF)]);
+      const [a, l] = await Promise.all([getDoc(REF), getDoc(layRef())]);
       state = a.exists() ? a.data() : {}; layout = l.exists() ? l.data() : {};
     } catch (e) {}
     const who = chairOccupant(reqCh);
     if (who && who !== c) { say("Someone's already in Chair " + reqCh + ". Please pick another seat.", "#fca5a5"); return; }
     const p = get(c);
-    if (p.chair !== reqCh || p.standing) { save(c, { ...p, chair: reqCh, standing: false }); if (p.chair !== reqCh) logEvent(c, "Chair " + reqCh + ": logged in"); }
+    if (p.chair !== chId || p.standing) { save(c, { ...p, chair: chId, standing: false }); if (p.chair !== chId) logEvent(c, "Chair " + reqCh + ": logged in"); }
     const res = applyChair(reqCh);
-    if (res.r === "seated") say("You're seated at table 1, seat " + res.seat + " (Chair " + reqCh + ").", "var(--ok)");
+    if (res.r === "seated") say("You're seated at table " + TT + ", seat " + res.seat + " (Chair " + reqCh + ").", "var(--ok)");
     else if (res.r === "taken") say("Someone's already seated at seat " + res.seat + ". Please pick another seat.", "#fca5a5");
     else say("You're logged into Chair " + reqCh + ". Pull it up to the table to sit.", "#fff");
     return;
@@ -911,7 +985,11 @@ else {
     if (!u) { location.replace("./login.html?next=player-tracker.html"); return; }
     if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
     if (params.has("table")) { document.body.classList.add("tablemode"); $("tblBox").classList.add("full"); }
-    $(profId ? "prof" : "floor").hidden = false; start();
+    loadTables().then(() => {
+      let t = 1; try { t = +localStorage.getItem("playerTracker.testTable") || 1; } catch (e) {}
+      setTable(t);
+      $(profId ? "prof" : "floor").hidden = false; start();
+    });
   });
 }
 </script>
