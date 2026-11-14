@@ -148,7 +148,9 @@ import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setD
 import { ROSTER, DEALERS, CASINO, casinoDoc, withCasino, openGameNames, liveLists, expired } from "./pt-people.js";
 import { pg, setPg, pgName, pgAll, stakesFor, STAKES_NL, mountPgMenu } from "./pg-menu.js";   // the Games menu (poker and table games)   // 200 test players, 10 test dealers
 const doc = casinoDoc(fsDoc);   // this casino's Player Tracker documents
-if (new URLSearchParams(location.search).has("embed")) document.documentElement.classList.add("embed");   // inside the Waitlist page
+if (new URLSearchParams(location.search).has("embed")) {   // inside the Waitlist page: the plan sits in the top-right corner of its box
+  document.documentElement.classList.add("embed"); document.getElementById("plan").setAttribute("preserveAspectRatio", "xMaxYMin meet");
+}
 const app = initializeApp({
   apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
   authDomain: "khean-estimator-78f3e.firebaseapp.com",
