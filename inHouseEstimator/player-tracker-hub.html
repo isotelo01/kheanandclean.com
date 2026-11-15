@@ -62,8 +62,7 @@ document.querySelectorAll("[data-p]").forEach(a => a.href = "./" + a.dataset.p +
 document.querySelectorAll("[data-win]").forEach(a => a.addEventListener("click", e => { e.preventDefault(); window.open(a.href, "waitlistDisplay", "popup,width=1600,height=900"); }));
 /* Page lock: staff only. */
 onAuthStateChanged(getAuth(app), u => {
-  if (!u) { location.replace("./login.html?next=" + encodeURIComponent("player-tracker-hub.html" + location.search)); return; }
-  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  /* No login for now (Player Tracker is open to anyone with the link while testing). */
   document.body.style.visibility = "visible";
 });
 </script>

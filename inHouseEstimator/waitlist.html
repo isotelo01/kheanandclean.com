@@ -566,8 +566,7 @@ document.addEventListener("click", e => {
 
 /* ---- start (staff only) ---- */
 onAuthStateChanged(getAuth(app), u => {
-  if (!u) { location.replace("./login.html?next=waitlist.html"); return; }
-  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  /* No login for now (Player Tracker is open to anyone with the link while testing). */
   document.body.style.visibility = "visible";
   $("floorFrame").src = withCasino("./floor.html?embed=1");   // the floor plan, live, inside its box
   draw();

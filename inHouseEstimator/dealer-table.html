@@ -585,8 +585,7 @@ async function startScan(n) {
 
 /* ---- start (staff only) ---- */
 onAuthStateChanged(getAuth(app), async u => {
-  if (!u) { location.replace("./login.html?next=" + encodeURIComponent("dealer-table.html" + location.search)); return; }
-  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  /* No login for now (Player Tracker is open to anyone with the link while testing). */
   try {   // tables added on the Floor page
     const s = await getDoc(doc(db, "playerTracker", "tablelist"));
     for (const [n, t] of Object.entries(s.exists() ? s.data() : {})) {   // same rules as the Floor page

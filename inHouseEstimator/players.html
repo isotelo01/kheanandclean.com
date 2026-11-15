@@ -133,8 +133,7 @@ $("npSave").onclick = async () => {
 
 /* ---- start (staff only) ---- */
 onAuthStateChanged(getAuth(app), u => {
-  if (!u) { location.replace("./login.html?next=players.html"); return; }
-  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  /* No login for now (Player Tracker is open to anyone with the link while testing). */
   document.body.style.visibility = "visible";
   draw();
   onSnapshot(REF, snap => { $("warn").style.display = "none"; state = snap.exists() ? snap.data() : {}; draw(); }, fail);

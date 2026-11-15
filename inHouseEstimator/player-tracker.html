@@ -1100,8 +1100,7 @@ else if (params.has("join") || params.has("me")) signInStart();
 else {
   /* Floor view: staff only. */
   onAuthStateChanged(getAuth(app), u => {
-    if (!u) { location.replace("./login.html?next=player-tracker.html"); return; }
-    if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+    /* No login for now (Player Tracker is open to anyone with the link while testing). */
     if (params.has("table")) { document.body.classList.add("tablemode"); $("tblBox").classList.add("full"); }
     if (params.has("guests")) {   // Fix player time (from the Waitlist): just the guest sessions, each with Give hours
       document.querySelector("#floor h1").textContent = "Fix player time";

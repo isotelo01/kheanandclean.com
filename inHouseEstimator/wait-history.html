@@ -88,8 +88,7 @@ document.addEventListener("click", e => {
 });
 
 onAuthStateChanged(getAuth(app), u => {
-  if (!u) { location.replace("./login.html?next=wait-history.html"); return; }
-  if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
+  /* No login for now (Player Tracker is open to anyone with the link while testing). */
   document.body.style.visibility = "visible";
   draw();
   const on = (ref, set) => onSnapshot(ref, snap => { $("warn").style.display = "none"; set(snap.exists() ? snap.data() : {}); draw(); }, fail);
