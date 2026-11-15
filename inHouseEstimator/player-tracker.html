@@ -1074,6 +1074,10 @@ else {
     if (!u) { location.replace("./login.html?next=player-tracker.html"); return; }
     if (!STAFF.includes(u.uid)) { location.replace("./partner.html"); return; }
     if (params.has("table")) { document.body.classList.add("tablemode"); $("tblBox").classList.add("full"); }
+    if (params.has("guests")) {   // Fix player time (from the Waitlist): just the guest sessions, each with Give hours
+      document.querySelector("#floor h1").textContent = "Fix player time";
+      $("tblBox").style.display = "none"; $("tblBox").after($("guestList"), $("guestNames"));
+    }
     loadTables().then(() => {
       let t = 1; try { t = +localStorage.getItem("playerTracker.testTable") || 1; } catch (e) {}
       setTable(t);

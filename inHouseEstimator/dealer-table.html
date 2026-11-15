@@ -155,6 +155,13 @@ const seatColor = p => !p ? "#000" : p.breakAt ? (Date.now() - p.breakAt > BREAK
 /* Fill for the big seat number: open = dark, pressed into the felt; seated = shiny gold; break = blue/red with a sheen. */
 const numFill = p => !p ? "#04170c" : p.breakAt ? (Date.now() - p.breakAt > BREAK_LIMIT ? "url(#redN)" : "url(#blueN)") : "url(#goldN)";
 const whoIn = n => Object.keys(state).find(c => isPlayer(c) && onT(state[c]) && state[c].seat === n);
+/* Guests: someone sitting without logging in (playerTracker/guests, same as the Testing page). Their time can be given
+   to a player later (Waitlist › Fix player time). */
+const GUESTREF = doc(db, "playerTracker", "guests");
+let guests = {};
+const guestIn = n => (Object.entries(guests).find(([, g]) => g && !g.end && g.t === T && g.s === n) || [])[0];
+const saveGuest = (id, g) => { guests[id] = g; draw(); setDoc(GUESTREF, { [id]: g }, { merge: true }).catch(fail); };
+const endGuest = id => { if (guests[id] && !guests[id].end) saveGuest(id, { ...guests[id], end: Date.now() }); };
 const dealerOn = () => Object.keys(DEALERS).find(d => onT(get(d)));
 const fail = () => { $("warn").style.display = "block"; };
 
@@ -249,14 +256,17 @@ function draw() {
     </defs>`
         + `<g transform="rotate(180 200 ${FY})">` + tableBody(d) + `</g>` + tableDeco(d);
   TB.seats.forEach((i, k) => {
-    const [x, y] = seatXY(k), c = whoIn(i);
+    const [x, y] = seatXY(k), c = whoIn(i), gu = !c && guestIn(i);
     const wants = !c && Object.keys(requests).some(q => requests[q].t === T && requests[q].s === i);
     s += `<g data-seat="${i}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="24" fill="transparent"/>`
        + (wants ? `<circle class="pending" cx="${x}" cy="${y}" r="17" fill="none" stroke="var(--ok)" stroke-width="2.5"/>` : "")
        + (c ? `<text x="${x}" y="${y + 8}" fill="${numFill(get(c))}" stroke="rgba(0,0,0,.45)" stroke-width=".7" paint-order="stroke" filter="url(#numSh)" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`
+            : gu ? `<text x="${x}" y="${y + 8}" fill="#c084fc" stroke="rgba(0,0,0,.45)" stroke-width=".7" paint-order="stroke" filter="url(#numSh)" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`   // guest: purple
             : `<text x="${x}" y="${y + 8.8}" fill="rgba(255,255,255,.16)" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`   // light edge underneath = pressed in
             + `<text x="${x}" y="${y + 8}" fill="#04170c" fill-opacity=".85" font-size="24" font-weight="800" text-anchor="middle">${i}</text>`)
        + `</g>`;
+    if (gu) s += `<text x="${x}" y="${y + 18}" fill="#d8b4fe" font-size="8" font-weight="700" text-anchor="middle">Guest</text>`
+       + `<text x="${x}" y="${y + 27}" fill="rgba(255,255,255,.75)" font-size="7" text-anchor="middle">${fmtHrs(Date.now() - guests[gu].start)}</text>`;
     if (c) {   // under the number: wager, then name, then time seated / on break
       const nm = nameOf(c), q = get(c);
       let ty = y + 18;
@@ -403,11 +413,26 @@ $("callBtn").onclick = () => {
 
 function openSeat(n) {
   closeModal(); menuSeat = n;
-  const c = whoIn(n);
+  const c = whoIn(n), gu = guestIn(n);
+  if (!c && gu) {   // a guest is sitting here
+    const g = guests[gu];
+    showModal(`<div class="mt">Seat ${n}: Guest</div>
+      <div class="ln"><span>Sitting for</span><b>${fmtHrs(Date.now() - g.start)}</b></div>
+      <p class="note">Scan a player's QR to seat them here (the guest time ends). The guest time can be given to a player any time: Waitlist &rsaquo; Fix player time.</p>
+      <video id="scanVid" autoplay playsinline muted></video><canvas id="scanCv" hidden></canvas><p class="note" id="scanMsg">Scan the player's QR code.</p>
+      <div class="grid" style="margin-top:10px"><button class="btn ghost" id="gEnd">Guest left</button></div>`);
+    $("gEnd").onclick = () => { endGuest(gu); closeModal(); };
+    startScan(n);
+    return;
+  }
   if (!c) {   // empty seat: camera comes on to scan the player's QR into this seat
     showModal(`<div class="mt">Seat ${n}</div><video id="scanVid" autoplay playsinline muted></video><canvas id="scanCv" hidden></canvas>
       <p class="note" id="scanMsg">Scan the player's QR code.</p>
-      <button class="btn ghost" id="seatQr">This seat's sign-in QR</button><div id="seatQrBox" style="margin-top:10px;text-align:center"></div>`);
+      <div class="grid"><button class="btn" id="seatGuest">Seat guest</button><button class="btn ghost" id="seatQr">This seat's sign-in QR</button></div><div id="seatQrBox" style="margin-top:10px;text-align:center"></div>`);
+    $("seatGuest").onclick = () => {   // someone sits without logging in: their chair becomes a guest chair and their time starts
+      saveGuest("g" + Date.now(), { t: T, s: n, chair: T === 1 ? n : T * 100 + n, start: Date.now(), end: null, to: null });
+      closeModal();
+    };
     $("seatQr").onclick = () => {   // the code that goes on this chair: player scans it, signs in, dealer approves
       const url = location.origin + location.pathname.replace(/dealer-table(\.html)?$/, "player-tracker.html") + "?join&t=" + T + "&s=" + n + "&casino=" + CASINO;
       const b = $("seatQrBox"); b.innerHTML = `<div id="sq" style="display:inline-block;background:#fff;padding:10px;border-radius:8px"></div><p class="note">Table ${T}, seat ${n}</p>`;
@@ -518,13 +543,14 @@ function openPad(c, n) {
 
 function seatPlayer(c, n, how = "scanned") {
   const p = get(c);
+  if (guestIn(n)) endGuest(guestIn(n));   // a player takes the seat: the guest's time ends there
   if (whoIn(n) && whoIn(n) !== c) { alert("Seat " + n + " is taken."); return; }
   if (p.status === "seated") save(c, { ...p, seat: n, table: T }, "Moved from table " + (p.table || 1) + " seat " + p.seat + " to table " + T + " seat " + n);
   else save(c, { ...p, status: "seated", seat: n, table: T, since: clockStart(tables, T), waitAt: null, breakAt: null, sessionMs: 0 }, "Seated at table " + T + " (" + TB.game + ") seat " + n + " (" + how + ")");
 }
 
 async function startScan(n) {
-  try { scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }); }
+  try { scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false }   /* the camera facing the dealer (screen side) */); }
   catch (e) { $("scanMsg").textContent = "Couldn't open the camera."; return; }
   if (menuSeat !== n) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; return; }
   const v = $("scanVid"); v.muted = true; v.srcObject = scanStream; await v.play().catch(() => {});
@@ -588,6 +614,7 @@ onAuthStateChanged(getAuth(app), async u => {
   setInterval(draw, 30000);   // keep seated and break times ticking (and turn red at 30 min)
   onSnapshot(doc(db, "playerTracker", "tables"), snap => { tables = snap.exists() ? snap.data() : {}; }, () => {});
   onSnapshot(doc(db, "playerTracker", "layout"), snap => { layout = snap.exists() ? snap.data() : {}; }, () => {});   // where table 1's chairs are
+  onSnapshot(GUESTREF, snap => { guests = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(REQREF, snap => { requests = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
