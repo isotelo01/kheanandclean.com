@@ -356,12 +356,27 @@ function applyGuest(n) {
   if (ns.ft > PULL_FT) { endGuest(id); return; }
   if (ns.seat !== g.s) { endGuest(id); if (!seatTaken(ns.seat)) saveGuest("g" + Date.now(), { t: TT, s: ns.seat, chair: cid(n), start: Date.now(), end: null, to: null }); }
 }
+/* The player in chair i: logged into it, or (simulation) seated at the seat this chair is pushed up to. */
+function chairPlayer(i) {
+  const co = chairOccupant(i); if (co) return co;
+  const ns = nearSeat(i); if (ns.ft > PULL_FT || chairAt(ns.seat) !== i) return null;
+  return Object.keys(state).find(c => isPlayer(c) && state[c] && state[c].status === "seated" && (state[c].table || 1) === TT && state[c].seat === ns.seat) || null;
+}
+/* Simulation: tap a seated player's chair = they stand up (break, seat held, hours stop); tap again = sit back down. */
+function toggleStand(i) {
+  const c = chairPlayer(i); if (!c) return false;
+  const p = get(c);
+  if (p.status !== "seated") return false;
+  if (!p.standing && !p.breakAt) { save(c, { ...p, standing: true, totalMs: liveMs(p), sessionMs: seatedMs(p), since: null, breakAt: Date.now() }); logEvent(c, "Chair " + i + ": stood up, on break, seat " + p.seat + " held"); }
+  else { save(c, { ...p, standing: false, breakAt: null, since: clockStart(tables, TT) }); logEvent(c, "Chair " + i + ": sat down, seat " + p.seat); }
+  drawTable(); return true;
+}
 function lapReading(s) {
   let ft = null, warm = false;
   for (const i of SEATL) {
     const ns = nearSeat(i); if (ns.seat !== s) continue;
     if (ft == null || ns.ft < ft) ft = ns.ft;
-    const c = chairOccupant(i);
+    const c = chairPlayer(i);
     if (c && ns.ft <= PULL_FT && !get(c).standing) warm = true;
     if (!c && guestInChair(i) && ns.ft <= PULL_FT) warm = true;   // a guest is sitting
   }
@@ -479,7 +494,7 @@ function drawTable(pick) {
     const c = seated[i];
     /* Chair outside the rail, facing the table. Gold = its player is seated, blue = on break, grey = empty. */
     const [chx, chy] = chairPos(i);
-    const co = chairOccupant(i), cp = co && get(co), gu = !cp && guestInChair(i);   /* purple = a guest (not logged in) */
+    const co = chairOccupant(i), cpl = chairPlayer(i), cp = cpl && get(cpl), gu = !cp && guestInChair(i);   // gold = seated, blue = stood up / break   /* purple = a guest (not logged in) */
     const top = gu ? "#a855f7" : !cp ? "#3a3f4b" : cp.breakAt || cp.status !== "seated" ? "#3b82f6" : "var(--gold)";
     const back = gu ? "#7e22ce" : !cp ? "#2a2e37" : cp.breakAt || cp.status !== "seated" ? "#1d4ed8" : "#b8902f";
     s += `<g class="chair" data-chair="${i}" transform="${chairXf(chx, chy)}">`
@@ -736,7 +751,7 @@ const endDrag = e => {
   if (!dragging) return;
   const d = dragging; dragging = null;
   if (d.moved || (e && e.type === "pointerup")) { justDragged = true; setTimeout(() => { justDragged = false; }, 400); }   // eat the click that follows, then forget
-  if (!d.moved && e && e.type === "pointerup") showChair(+d.i);   // tapped a chair: its card
+  if (!d.moved && e && e.type === "pointerup" && !toggleStand(+d.i)) showChair(+d.i);   // tapped a chair: seated player stands / sits; empty chair: its card
   if (d.moved) {
     const moved = {};   // the dragged chair plus any it shoved
     for (const i of SEATL) {
