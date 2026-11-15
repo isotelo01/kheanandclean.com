@@ -214,7 +214,7 @@ function buildTables() {   // tables 1-5, changed by the floor's edits, plus add
   TABLES = T;
 }
 /* One table on the floor plan, drawn from the top in a 200 x 182 box: green felt when open, grey when
-   closed, a chair at each seat facing the table (gold = seated, blue = on break, red = break over 30 min,
+   closed, a chair at each seat facing the table (gold = seated, purple = guest, blue = on break, red = break over 30 min,
    dark = empty), then its name, dealer and seats under it. Drag to move it; tap to open/close it. */
 const tblXf = p => `translate(${p.x} ${p.y}) translate(100 91) rotate(${p.rot || 0}) scale(${p.scale || 1}) translate(-100 -91)`;
 const PLAN_DEFAULT = new Proxy({ 1: { x: 40, y: 30 }, 2: { x: 350, y: 30 }, 3: { x: 660, y: 30 }, 4: { x: 40, y: 300 }, 5: { x: 350, y: 300 } },
@@ -223,7 +223,7 @@ function planTable(n, tb, open, bySeat, dealer, nSeated, nBreak, pos) {
   const felt = open ? "#0f6b3a" : "#3a3f4b", rail = open ? "#5a3518" : "#2a2e37";
   const chair = (x, y, cx, cy, s) => {   // small chair at (x,y), turned to face the table centre (cx,cy)
     const p = bySeat[s];
-    const f = !p ? "#0b1220" : p.breakAt ? (Date.now() - p.breakAt > 30 * 60000 ? "#ef4444" : "#3b82f6") : "#E3B64A";
+    const f = !p ? "#0b1220" : p.guest ? "#a855f7" : p.breakAt ? (Date.now() - p.breakAt > 30 * 60000 ? "#ef4444" : "#3b82f6") : "#E3B64A";
     const rot = Math.atan2(y - cy, x - cx) * 180 / Math.PI - 90;
     return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(1)})">`
       + `<rect x="-8" y="-6" width="16" height="12" rx="3" fill="${f}" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>`
@@ -252,6 +252,8 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">
 const ago = t => { const m = Math.max(0, Math.floor((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m" : Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; };
 const fail = () => { $("warn").style.display = "block"; };
 let state = {}, roster = {}, profiles = {}, tables = {}, calls = {}, wait = {}, games = {}, plan = {};
+let guests = {};   // playerTracker/guests: people sitting without logging in (purple chairs, count as seated)
+const guestsAt = n => Object.values(guests).filter(g => g && !g.end && +g.t === +n);
 let planDrag = null;   // a table being dragged around the floor plan
 let moveMode = false;  // tables only move (drag, rotate, size) after "Edit table position on floor"
 let building = null, selT = 0;   // building outline (from measure.html?building=1); selected table
@@ -287,7 +289,8 @@ function draw() {
     const brk = players.filter(([, p]) => p.breakAt).length;
     const open = !!(tables[n] && tables[n].open);
     const bySeat = {}; players.forEach(([, p]) => { bySeat[p.seat] = p; });
-    return planTable(n, tb, open, bySeat, dealer && dealer[0], players.length, brk, plan[n] || PLAN_DEFAULT[n]);
+    const gs = guestsAt(n).filter(g => !bySeat[g.s]); gs.forEach(g => { bySeat[g.s] = { guest: true }; });
+    return planTable(n, tb, open, bySeat, dealer && dealer[0], players.length + gs.length, brk, plan[n] || PLAN_DEFAULT[n]);
   }).join("") + "</g>";
   /* Waitlist (embed): zoom to just the tables and inside walls, so the plan fills its spot instead of sitting small in empty floor. */
   if (EMBED && !planDrag) {
@@ -306,6 +309,7 @@ function draw() {
     const n = selT, tb = TABLES[n], q = plan[n] || PLAN_DEFAULT[n], open = !!(tables[n] && tables[n].open);
     const on = Object.entries(state).filter(([c, p]) => p && p.status === "seated" && (p.table || 1) === n);
     const dealer = on.find(([c]) => DEALERS[c]), players = on.filter(([c]) => isPlayer(c)).sort((a, b) => a[1].seat - b[1].seat);
+    const gs = guestsAt(n).filter(g => !players.some(([, p]) => p.seat === g.s)).sort((a, b) => a.s - b.s);
     $("tbar").hidden = false;
     /* Poker table: pick which poker game it's running (favorites, plus whatever it's on now). It stays until changed. */
     const favIds = pgAll().filter(id => pg.fav[id]), cur = tb.variant || "";
@@ -322,9 +326,11 @@ function draw() {
         <a class="btn ghost" href="./dealer-table.html?t=${n}">Dealer Control &rsaquo;</a>
         <button class="btn ghost" data-ta="edit">&#9998; Edit table</button></div>
       <div class="info"><span><span class="lbl">Dealer</span> ${dealer ? `<a href="./player-tracker.html?profile=${encodeURIComponent(dealer[0])}">${esc(nameOf(dealer[0]))}</a>` : `<span class="hint">None</span>`}</span>
-        <span><span class="lbl">Seated</span> ${players.length}/${tb.seats.length}</span></div>
+        <span><span class="lbl">Seated</span> ${players.length + gs.length}/${tb.seats.length}</span></div>
       ${players.length ? `<div class="sec">${players.map(([c, p]) => `<div class="row"><div class="nm"><a href="./player-tracker.html?profile=${encodeURIComponent(c)}"><b>${esc(nameOf(c))}</b></a>
           <span>Seat ${p.seat} &middot; ${p.breakAt ? "on break " + ago(p.breakAt) : "seated " + ago(p.since || Date.now())}</span></div></div>`).join("")}</div>` : ""}
+      ${gs.length ? `<div class="sec">${gs.map(g => `<div class="row"><div class="nm"><b style="color:#d8b4fe">Guest</b>
+          <span>Seat ${g.s} &middot; sitting ${ago(g.start)}</span></div></div>`).join("")}</div>` : ""}
       ${pick}
       ${moveMode ? "" : "<!--"}<div class="sec"><div class="lbl">On the floor plan &middot; ${Math.round(((q.rot || 0) % 360 + 360) % 360)}&deg; &middot; ${Math.round((q.scale || 1) * 100)}%</div>
         <div class="btns"><button class="btn ghost" data-ta="rl">&#10226; Rotate</button><button class="btn ghost" data-ta="rr">Rotate &#10227;</button>
@@ -546,6 +552,7 @@ onAuthStateChanged(getAuth(app), u => {
   on(PGREF, setPg);
   on(BLDREF, v => { try { building = v.sketch ? JSON.parse(v.sketch) : null; } catch (e) { building = null; } });
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; draw(); }, () => {});
+  onSnapshot(doc(db, "playerTracker", "guests"), snap => { guests = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; draw(); }, () => {});
   setInterval(draw, 30000);   // keep the times ticking
 });
