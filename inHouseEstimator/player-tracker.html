@@ -359,7 +359,7 @@ function applyGuest(n) {
 /* The player in chair i: logged into it, or (simulation) seated at the seat this chair is pushed up to. */
 function chairPlayer(i) {
   const co = chairOccupant(i); if (co) return co;
-  const ns = nearSeat(i); if (ns.ft > PULL_FT || chairAt(ns.seat) !== i) return null;
+  const ns = nearSeat(i); if (ns.ft > PULL_FT || chairAt(ns.seat) !== cid(i)) return null;   // chairAt gives the chair id (table 2 = 201, 202 ...)
   return Object.keys(state).find(c => isPlayer(c) && state[c] && state[c].status === "seated" && (state[c].table || 1) === TT && state[c].seat === ns.seat) || null;
 }
 /* Simulation: tap a seated player's chair = they stand up (break, seat held, hours stop); tap again = sit back down. */
@@ -751,7 +751,7 @@ const endDrag = e => {
   if (!dragging) return;
   const d = dragging; dragging = null;
   if (d.moved || (e && e.type === "pointerup")) { justDragged = true; setTimeout(() => { justDragged = false; }, 400); }   // eat the click that follows, then forget
-  if (!d.moved && e && e.type === "pointerup" && !toggleStand(+d.i)) showChair(+d.i);   // tapped a chair: seated player stands / sits; empty chair: its card
+  if (!d.moved && e && e.type === "pointerup") showChair(+d.i);   // tapped a chair: its card (who's in it, Stand up / Sit down)
   if (d.moved) {
     const moved = {};   // the dragged chair plus any it shoved
     for (const i of SEATL) {
@@ -819,18 +819,18 @@ function showDealerPick() {
 /* Chair card: its number, where it is, who's logged in, its QR, and its history. */
 function showChair(n) {
   const link = withCasino(location.origin + location.pathname + "?join&t=" + TT + "&ch=" + cid(n));
-  const ns = nearSeat(n), c = chairOccupant(n), p = c && get(c);
+  const ns = nearSeat(n), c = chairPlayer(n), p = c && get(c);   // whoever is in this chair: logged into it or seated at its seat
   const where = ns.ft > PULL_FT ? "Pulled out (" + ns.ft.toFixed(1) + " ft from seat " + ns.seat + ")" : "At seat " + ns.seat + " (" + ns.ft.toFixed(1) + " ft)";
   const status = !p ? "Empty" : p.status !== "seated" ? "Logged in, not seated" : p.breakAt ? "On break, seat " + p.seat + " held" : "Seated at seat " + p.seat;
   const hist = events.filter(ev => ev.a && ev.a.indexOf("Chair " + n + " ") === 0 || (ev.a || "").indexOf("Chair " + n + ":") === 0).slice(-8).reverse();
   showModal(`<div class="mt">Chair ${n} &middot; C${n}</div>
     <div class="note">Table ${TT} &middot; ${esc(where)}</div>
-    <div class="note"><b style="color:#fff">${c ? esc(nameOf(c)) : "No one logged in"}</b>${c ? " &middot; " + esc(status) : ""}</div>
+    <div class="note"><b style="color:#fff">${c ? esc(nameOf(c)) : "No one seated"}</b>${c ? " &middot; " + esc(status) : ""}</div>
     <div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px;margin-top:6px"></div>
     <p class="note">Player scans this to log into Chair ${n}. Where the chair sits decides their seat.</p>
     <p class="note" style="word-break:break-all">${esc(link)}</p>
     ${!c ? `<p><button class="btn ${guestInChair(n) ? "ok" : ""}" id="chairGuest">${guestInChair(n) ? "Guest stands up" : "Someone sits (not logged in)"}</button> <span class="note">Plays the lap sensor with no one logged in: their time is kept as Guest</span></p>` : ""}
-    ${c ? `<p><button class="btn ${p.standing ? "ok" : ""}" id="chairLap">${p.standing ? "Sit down" : "Stand up"}</button> <span class="note">Plays the lap sensor: ${p.standing ? "nobody in the seat" : "sitting"}</span></p>` : ""}
+    ${c && p.status === "seated" ? `<p><button class="btn ${p.standing || p.breakAt ? "ok" : ""}" id="chairLap">${p.standing || p.breakAt ? "Sit down" : "Stand up"}</button> <span class="note">Testing: plays the lap sensor (${p.standing || p.breakAt ? "stood up, seat held" : "sitting"})</span></p>` : ""}
     <p><button class="btn sm" id="seatLinkCopy">Copy link</button>${c ? ` <button class="btn ghost sm" id="chairOut">Log ${esc(nameOf(c))} out</button>` : ""}</p>
     <div class="note" style="margin-top:10px"><b style="color:var(--gold)">History</b>${hist.length ? hist.map(ev => `<div>${new Date(ev.t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} &middot; ${esc(nameOf(ev.c))}: ${esc(ev.a)}</div>`).join("") : "<div>Nothing yet.</div>"}</div>`);
   if (window.QRCode) new QRCode($("qrBox"), { text: link, width: 200, height: 200, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
@@ -848,12 +848,7 @@ function showChair(n) {
     render(); showChair(n);
   };
   if (c) $("chairOut").onclick = () => { act.out(c); logEvent(c, "Chair " + n + ": logged out"); closeModal(); };
-  if (c) $("chairLap").onclick = () => {
-    const q = get(c), up = !q.standing;
-    save(c, { ...q, standing: up });
-    if (!up) logEvent(c, "Chair " + n + ": sat down");
-    applyChair(n); showChair(n);
-  };
+  if (c && $("chairLap")) $("chairLap").onclick = () => { toggleStand(n); showChair(n); };
 }
 function showSeatQR(n, kind) {
   const link = withCasino(location.origin + location.pathname + "?join&t=" + TT + "&s=" + n + (kind === "sit" ? "&sit" : ""));
