@@ -268,6 +268,32 @@ function draw() {
   board.querySelectorAll(".wdg").forEach(el => { if (!keep.has(el.dataset.w)) el.remove(); });
   items.forEach((it, i) => { const el = board.querySelector(`.wdg[data-w="${CSS.escape(it.id)}"]`); if (el && board.children[i] !== el) board.insertBefore(el, board.children[i] || null); });   // keep the order (a game going live moves up)
   layoutApply(); fitNames();
+  phoneLists(names);
+}
+/* ---- Players' phones (Join the list on their card page). Phones can't open the wait list itself, so:
+   1) this page posts a summary (games running, interest lists, how many on each, and card order) in playerTracker/layout
+      under "lists", which phones can read;
+   2) a phone asks to join or leave by putting game ids in its own seat record (poc: join / leave), and this page
+      puts them on (or takes them off) the real list. */
+let pubLast = "";
+function phoneLists(names) {
+  const upd = {}, clr = {};
+  for (const [c, p] of Object.entries(state)) {
+    if (!isPlayer(c) || !p || (!(p.join || []).length && !(p.leave || []).length)) continue;
+    for (const gid of p.join || []) {
+      if (!games[gid] || Object.values(wait).some(v => v && v.card === c && v.game === gid)) continue;
+      const id = "p_" + c + "_" + gid;   // same id from every open Waitlist page, so no doubles
+      wait[id] = upd[id] = { name: nameOf(c), game: gid, at: Date.now(), card: c };
+    }
+    for (const gid of p.leave || []) for (const [id, v] of Object.entries(wait)) if (v && v.card === c && v.game === gid) { toHistory(id, v, "floor"); delete wait[id]; upd[id] = deleteField(); }
+    clr[c] = { join: deleteField(), leave: deleteField() };
+  }
+  if (Object.keys(upd).length) setDoc(WAITREF, upd, { merge: true }).catch(fail);
+  if (Object.keys(clr).length) setDoc(REF, clr, { merge: true }).catch(fail);
+  const lists = liveLists(games, wait, tables, tlist).filter(L => L.open || L.count).sort(byGame).map(L => ({ gid: L.gid, name: L.name, open: L.open,
+    count: L.count, cards: names.filter(w => w.game === L.gid && !expired(wait[w.id] || {})).sort((a, b) => a.k - b.k).map(w => w.card || "") }));
+  const j = JSON.stringify(lists);
+  if (j !== pubLast) { pubLast = j; setDoc(doc(db, "playerTracker", "layout"), { lists: { items: lists, at: Date.now() } }, { merge: true }).catch(fail); }
 }
 
 /* ---- Board layout (fixed): form and floor plan across the top, game lists 3 columns wide underneath. ---- */

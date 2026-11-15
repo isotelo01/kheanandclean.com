@@ -23,6 +23,8 @@ h1{font:700 28px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
 .back{margin-left:auto;color:var(--gold);text-decoration:none;font-weight:600}
 h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:24px 0 10px}
 .box{background:var(--navy);border:1px solid rgba(227,182,74,.5);border-radius:12px;padding:14px}
+.jbox{text-align:left;background:rgba(0,0,0,.25);border-radius:12px;padding:6px 12px}.jh{font-size:13px;color:var(--gold);font-weight:700;margin:8px 0 2px}
+.jl{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)}.jl:last-child{border-bottom:0}.jl>div{flex:1;min-width:0}.jl span{display:block;font-size:13px;color:rgba(255,255,255,.65)}
 .btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:12px 18px;font:700 16px "Archivo",sans-serif;cursor:pointer;text-align:center;text-decoration:none}
 .btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
 .btn.ok{background:var(--ok)}
@@ -580,18 +582,27 @@ function renderDealer() {
     </div>`;
 }
 
+let pubLists = {}, joinOpen = false;   // lists posted by the Waitlist page (playerTracker/layout "lists")
 function renderPlayer() {
   if (DEALERS[myCard]) return renderDealer();
   if (!isPlayer(myCard)) { $("meBox").innerHTML = `<div class="who">Card not found</div><p class="note">Ask the floor for your link.</p>`; return; }
-  const p = get(myCard);
-  const st = p.status === "seated" ? `You're seated at seat ${p.seat}` : p.status === "wait" ? `You're on the list (#${
+  const p = get(myCard), L = pubLists.items || [];
+  const mine = L.map(g => ({ g, pos: g.cards.indexOf(myCard) + 1 })).filter(x => x.pos);
+  const st = p.status === "seated" ? `You're seated at seat ${p.seat}` : mine.length ? "You're on the list" : p.status === "wait" ? `You're on the list (#${
     Object.values(state).filter(q => q.status === "wait" && q.waitAt <= p.waitAt).length})` : "You're logged out";
+  /* Join the list: games running now and interest lists, with how many are on each. Tap one to join or leave. */
+  const pend = new Set([...(p.join || []), ...(p.leave || [])]);
+  const gRow = g => { const pos = g.cards.indexOf(myCard) + 1;
+    return `<div class="jl"><div><b>${esc(g.name)}</b><span>${g.open ? "Running now" : "Interest list"} &middot; ${g.count} waiting${pos ? ` &middot; you're #${pos}` : ""}</span></div>`
+      + (pend.has(g.gid) ? `<button class="btn sm ghost" disabled>Sending&hellip;</button>`
+         : pos ? `<button class="btn sm ghost" data-a="leaveList" data-c="${esc(g.gid)}">Leave</button>` : `<button class="btn sm" data-a="joinList" data-c="${esc(g.gid)}">Join</button>`) + `</div>`; };
+  const run = L.filter(g => g.open), intr = L.filter(g => !g.open);
+  const pick = !joinOpen ? "" : `<div class="jbox">${run.length ? `<div class="jh">Games running now</div>${run.map(gRow).join("")}` : ""}${intr.length ? `<div class="jh">Interest lists</div>${intr.map(gRow).join("")}` : ""}${L.length ? "" : `<p class="note">No games or lists right now. Ask the floor.</p>`}</div>`;
   $("meBox").innerHTML = `<div class="who">${esc(nameOf(myCard))}</div><div class="card">Card #${myCard}</div>
     <div class="status">${st}</div>
     <div class="note">Hours today</div><div class="hrs">${fmtHrs(liveMs(p))}</div>
     <div class="grid">
-      <button class="btn" data-a="wait" data-c="${myCard}" ${p.status !== "out" ? "disabled" : ""}>Join the list</button>
-      <button class="btn ok" data-a="seat" data-c="${myCard}" ${p.status === "seated" ? "disabled" : ""}>Log in (I'm seated)</button>
+      <button class="btn" data-a="joinOpen" data-c="${myCard}">${joinOpen ? "Close" : mine.length ? "Lists" : "Join the list"}</button>${pick}
       <button class="btn ghost" data-a="out" data-c="${myCard}" ${p.status === "out" ? "disabled" : ""}>Log out</button>
     </div>`;
 }
@@ -650,6 +661,13 @@ document.addEventListener("click", e => {
     return;
   }
   if (a === "askSeat") { askSeat(c); return; }
+  if (a === "joinOpen") { joinOpen = !joinOpen; render(); return; }
+  if (a === "joinList" || a === "leaveList") {   // the Waitlist page puts them on / takes them off
+    const k = a === "joinList" ? "join" : "leave", p = get(myCard);
+    state[myCard] = { ...p, [k]: [...new Set([...(p[k] || []), c])] }; render();
+    setDoc(REF, { [myCard]: { [k]: arrayUnion(c) } }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+    return;
+  }
   if (a === "qr") { showQR(c); return; }
   if (act[a]) act[a](c);
 });
@@ -904,6 +922,7 @@ function start() {
     try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
     render();
   }, () => { $("warn").style.display = "block"; });
+  if (myCard) onSnapshot(doc(db, "playerTracker", "layout"), snap => { pubLists = (snap.exists() && snap.data().lists) || {}; render(); }, () => {});
   onSnapshot(LOGREF, snap => { events = (snap.exists() && snap.data().events) || []; render(); }, () => {});
   watchLayout();
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; render(); }, () => {});
