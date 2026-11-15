@@ -102,6 +102,29 @@ ul{margin:6px 0 0;padding-left:20px}
   </div>
   <p class="muted">Rough prices: Qorvo DWM3001CDK about $30 each (11 boards, around $330). AMG8833 $44.95 each at Adafruit (7, about $315; cheaper at 10+). Raspberry Pi 5 4&nbsp;GB $130 at Adafruit. Kew Labs UTS-1 about $105 each (7, about $735). NFC stickers are a dollar or two each. Prices change; check before ordering.</p>
 
+  <h2>Heat sensor: cheap one vs. grid one</h2>
+  <div class="box">
+    <p style="margin-top:0">One per seat, under the rail, aimed down at the lap. A 10-seat table needs 10. Either kind only says "warm or not": the chair's tag says who it is.</p>
+    <ul style="margin:0">
+      <li><b>Cheap: Melexis MLX90614</b>, about $16 each (<a href="https://www.adafruit.com/product/1748" target="_blank" rel="noopener">Adafruit</a>). Reads one temperature for the whole spot it's aimed at; warm = someone's sitting. Can be fooled by a hot coffee or a hand from the next seat. 10 seats: about $160.</li>
+      <li><b>Grid: Adafruit AMG8833</b>, $44.95 each (<a href="https://www.adafruit.com/product/3538" target="_blank" rel="noopener">Adafruit</a>). 64 little heat spots in an 8&times;8 grid on a chip about the size of a fingernail, so it sees a lap-sized shape and can tell it from a cup. About a 60&deg; view: from under the rail it covers about one seat. 10 seats: about $450 (cheaper at 10+).</li>
+    </ul>
+  </div>
+
+  <h2>3D-printed cases and chair batteries: the plan</h2>
+  <div class="box">
+    <ol style="margin:0;padding-left:20px">
+      <li><b>Seat sensor box</b>: start from a free case for the heat sensor and change it so the sensor looks down through an <b>open hole</b> (heat doesn't pass through clear plastic). Stick or screw it under the rail at each seat.
+        Cheap sensor: <a href="https://3dfinder.io/model/printables/1673370-compact-mlx90614-ir-sensor-case-for-seed-studio-esp32-s3-glue-assembly?lang=en" target="_blank" rel="noopener">compact MLX90614 case (holds a small ESP32 board too)</a>.
+        Grid sensor: <a href="https://www.thingiverse.com/thing:2836821" target="_blank" rel="noopener">AMG8833 sensor shell</a> (add a mounting tab).</li>
+      <li><b>Chair battery</b>: a rechargeable 18650 cell (flashlight battery) in a click-in holder with a USB-C charging board, so batteries swap in seconds. Free file: <a href="https://www.printables.com/model/341489-print-in-place-spring-loaded-18650-battery-cell-ho" target="_blank" rel="noopener">spring-loaded 18650 holder</a> (made for a TP4056 charging board). Keep a few charged spares; the app can warn when a chair is low.</li>
+      <li><b>Chair tag box</b>: a small box for the UWB tag, joined to the battery holder. The whole unit screws under the <b>center of the seat</b>, so the spot it reports is where the player sits.</li>
+      <li><b>Table receivers</b>: 3 or 4 small boxes for the UWB anchors, under the table near the corners.</li>
+      <li><b>Printing</b>: your own printer, a makerspace or library, or an online print service.</li>
+      <li><b>Test first</b>: print one seat box and one chair unit, check the fit and the readings, then print the rest.</li>
+    </ol>
+  </div>
+
   <h2>Keep in mind</h2>
   <div class="box">
     <ul style="margin:0">
@@ -121,6 +144,7 @@ ul{margin:6px 0 0;padding-left:20px}
       <li><a href="https://www.digikey.com/en/products/detail/qorvo/DWM3001CDK/24367348" target="_blank" rel="noopener">Qorvo DWM3001CDK on DigiKey</a></li>
       <li><a href="https://adafruit.com/product/5812" target="_blank" rel="noopener">Raspberry Pi 5, 4 GB, on Adafruit</a></li>
       <li><a href="https://chicagodist.com/collections/all/products/adafruit-amg8833-ir-thermal-camera-breakout" target="_blank" rel="noopener">Adafruit AMG8833 thermal sensor (specs)</a></li>
+      <li><a href="https://www.adafruit.com/product/3538" target="_blank" rel="noopener">AMG8833 on Adafruit ($44.95)</a> &middot; <a href="https://www.adafruit.com/product/1748" target="_blank" rel="noopener">MLX90614 on Adafruit ($15.95)</a></li>
     </ul>
   </div>
 </div>
