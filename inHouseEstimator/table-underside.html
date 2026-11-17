@@ -44,10 +44,10 @@ a{color:var(--gold)}
     <p class="muted" id="v3msg" style="margin:6px 0 0"></p>
   </div>
   <h2>Flat drawing</h2>
-  <div class="box"><svg id="ut" viewBox="0 0 1000 600" role="img" aria-label="Underside of the poker table"></svg></div>
+  <div class="box"><svg id="ut" viewBox="-60 0 1120 600" role="img" aria-label="Underside of the poker table"></svg></div>
   <h2>Chairs (simulated)</h2>
   <div class="box" style="overflow-x:auto">
-    <p class="muted" style="margin:0 0 8px">Test data, not real players yet. Each chair's tag reports its battery and its distance to each receiver (in feet, with a little noise like a real reading). The yellow ring on the drawing is where the receivers place the chair; the last column is the seat it works out.</p>
+    <p class="muted" style="margin:0 0 8px">Test data, not real players yet. Each chair's tag reports its battery and its distance to each receiver (in feet, with a little noise like a real reading). The yellow ring on the drawing is where the receivers place the chair; the last column is the seat it works out. Drag a chair here or on the Player Tracker's poker table and it moves in both.</p>
     <table><tr><th>Chair</th><th>Player</th><th>Battery</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Located at</th></tr><tbody id="simRows"></tbody></table>
   </div>
 
@@ -278,18 +278,27 @@ window.showPart = key => {
     const k = Math.round((deg + 90) / 36);
     return k >= 1 && k <= 9 ? k : null;
   };
-  const step = now => {
-    const t = now / 1000;
+  /* Chair spots are shared with the Player Tracker's overhead view of the poker table (table 3): same Firestore doc
+     (layout_t3) and same units there (oval centre 200,150, half-axes 200 x 80). Move a chair in either view and it
+     moves in the other. No saved spot = the overhead view's default (40 units outside the rail at its seat). */
+  const OCX = 200, OCY = 150, OA = 200, OB = 80, LKEY = "playerTracker.layout_t3";
+  const toFt = (x, y) => ({ x: (x - OCX) / OA * A, z: (y - OCY) / OB * B });
+  const toOv = (x, z) => [OCX + x / A * OA, OCY + z / B * OB];
+  let layout = {};
+  try { layout = JSON.parse(localStorage.getItem(LKEY) || "{}") || {}; } catch (e) { layout = {}; }
+  const ovPos = i => { const L = layout[i]; if (L && isFinite(L.x) && isFinite(L.y)) return [+L.x, +L.y]; const a = seatAng(i); return [OCX + Math.cos(a) * (OA + 40), OCY + Math.sin(a) * (OB + 40)]; };
+  const step = () => {
     chairs.forEach(c => {
-      const base = P(seatAng(c.seat), A + 0.5, B + 0.5), wob = 0.12;
-      c.x = base.x + Math.sin(t * 0.35 + c.ph) * wob; c.z = base.z + Math.cos(t * 0.27 + c.ph) * wob;   // players shift around a bit
+      if (!(window.PT_DRAG && PT_DRAG[c.seat])) { const p = toFt(...ovPos(c.seat)); c.x = p.x; c.z = p.z; }   // chairs stay where they were put
       c.d = RX.map(r => Math.hypot(c.x - r.x, c.z - r.z, TAG_Y - RX_Y) + noise());
       c.est = solve(c.d); c.at = seatOf(c.est);
       c.bat = Math.max(5, c.bat - 0.002);
     });
   };
-  window.PT_SIM = { chairs, A, B, step };
-  /* Flat drawing: chairs outside the rail, opaque, with the tag and battery drawn on the seat. */
+  const setLayout = obj => { layout = obj || {}; try { localStorage.setItem(LKEY, JSON.stringify(layout)); } catch (e) {} };
+  addEventListener("storage", e => { if (e.key === LKEY) { try { layout = JSON.parse(e.newValue || "{}") || {}; } catch (x) {} } });   // overhead view open in another tab
+  window.PT_SIM = { chairs, A, B, step, setLayout, ovPos, toFt, toOv, get layout() { return layout; } };
+  /* Flat drawing: see-through chairs outside the rail, with their rollers and the tag and battery on the seat. Drag one to move it. */
   const W = 1000, CX = 500, CY = 300, FA = 420, FB = 170, sx = FA / A, sz = FB / B;
   const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "chairsG";
   document.getElementById("ut").appendChild(g);
@@ -299,8 +308,10 @@ window.showPart = key => {
     g.innerHTML = chairs.map(c => {
       const x = CX + c.x * sx, y = CY + c.z * sz, ex = CX + c.est.x * sx, ey = CY + c.est.z * sz;
       const low = c.bat < 20, col = low ? "#f87171" : "#4ade80";
-      return `<g data-part="chair" style="cursor:pointer"><g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">`
-        + `<rect x="-29" y="-21" width="58" height="42" rx="8" fill="#374151" stroke="#9ca3af" stroke-width="2"/>`
+      const wheels = [0, 72, 144, 216, 288].map(d => { const r = d * Math.PI / 180; return `<line x1="0" y1="0" x2="${(Math.cos(r) * 22).toFixed(1)}" y2="${(Math.sin(r) * 22).toFixed(1)}" stroke="#6b7280" stroke-width="3"/><circle cx="${(Math.cos(r) * 22).toFixed(1)}" cy="${(Math.sin(r) * 22).toFixed(1)}" r="4" fill="#111" stroke="#9ca3af"/>`; }).join("");
+      return `<g data-part="chair" data-chair="${c.seat}" style="cursor:grab;touch-action:none"><g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">`
+        + wheels   // rollers on the floor, seen through the seat
+        + `<rect x="-29" y="-21" width="58" height="42" rx="8" fill="#374151" fill-opacity=".3" stroke="#9ca3af" stroke-width="2"/>`
         + `<text y="-7" fill="#fff" font-size="11" font-weight="800" text-anchor="middle">${c.id}</text>`
         + `<text y="6" fill="${c.name ? "#E3B64A" : "rgba(255,255,255,.5)"}" font-size="10" font-weight="700" text-anchor="middle">${c.name || "open"}</text>`
         + `<rect x="-20" y="10" width="17" height="7" rx="2" fill="#0c4a6e" stroke="#38bdf8"/>`
@@ -313,7 +324,80 @@ window.showPart = key => {
   let last = 0;
   const loop = now => { if (now - last > 500) { last = now; draw(now); } requestAnimationFrame(loop); };
   requestAnimationFrame(loop);
+  /* Drag a chair on the drawing. Same rules as the overhead view: chairs stay outside the rail, can't sit on top of
+     each other, and a dragged chair shoves the others out of its way. Saved to the shared spot when you let go. */
+  const svg = document.getElementById("ut"), SEATL = chairs.map(c => c.seat), GAP = 38;
+  const offTable = ([x, y]) => { const dx = x - OCX, dy = y - OCY, q = Math.hypot(dx / (OA + 36), dy / (OB + 36)) || 1; return q < 1 ? [OCX + dx / q, OCY + dy / q] : [x, y]; };
+  const pushChairs = (di, x, y) => {
+    const pos = {};
+    for (const i of SEATL) pos[i] = i === di ? offTable([x, y]) : PT_SIM.ovPos(i);
+    for (let pass = 0; pass < 6; pass++) {
+      for (let ka = 0; ka < SEATL.length; ka++) for (let kb = ka + 1; kb < SEATL.length; kb++) {
+        const a = SEATL[ka], b = SEATL[kb], [ax, ay] = pos[a], [bx, by] = pos[b], dx = bx - ax, dy = by - ay, d = Math.hypot(dx, dy) || .01;
+        if (d >= GAP) continue;
+        const over = GAP - d, ux = dx / d, uy = dy / d;
+        if (a === di) pos[b] = [bx + ux * over, by + uy * over];
+        else if (b === di) pos[a] = [ax - ux * over, ay - uy * over];
+        else { pos[a] = [ax - ux * over / 2, ay - uy * over / 2]; pos[b] = [bx + ux * over / 2, by + uy * over / 2]; }
+      }
+      for (const i of SEATL) { const [x0, y0] = offTable(pos[i]); pos[i] = [Math.min(Math.max(x0, -132), 532), Math.min(Math.max(y0, -77), 377)]; }
+    }
+    for (const i of SEATL) pos[i] = [Math.round(pos[i][0]), Math.round(pos[i][1])];
+    return pos;
+  };
+  const svgPt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+  let drag = null, eatClick = false;
+  svg.addEventListener("click", e => { if (eatClick) { eatClick = false; e.stopImmediatePropagation(); } }, true);
+  svg.addEventListener("pointerdown", e => {
+    const g = e.target.closest && e.target.closest("[data-chair]"); if (!g) return;
+    e.preventDefault(); svg.setPointerCapture(e.pointerId);
+    const p = svgPt(e); drag = { i: +g.dataset.chair, x0: p.x, y0: p.y, moved: false };
+  });
+  svg.addEventListener("pointermove", e => {
+    if (!drag) return;
+    const p = svgPt(e);
+    if (!drag.moved && Math.hypot(p.x - drag.x0, p.y - drag.y0) < 6) return;   // a little wiggle is still a tap
+    drag.moved = true;
+    const f = { x: (p.x - CX) / sx, z: (p.y - CY) / sz };   // drawing -> feet -> overhead units
+    drag.pos = pushChairs(drag.i, ...toOv(f.x, f.z));
+    window.PT_DRAG = {};
+    chairs.forEach(c => { const q = toFt(...drag.pos[c.seat]); c.x = q.x; c.z = q.z; PT_DRAG[c.seat] = 1; });
+    draw(performance.now());
+  });
+  const end = () => {
+    if (!drag) return;
+    const d = drag; drag = null; window.PT_DRAG = null;
+    eatClick = true; setTimeout(() => { eatClick = false; }, 400);   // the click that follows is handled here
+    if (!d.moved && window.showPart) showPart("chair");   // a tap still opens the chair's parts list
+    if (!d.moved || !d.pos) return;
+    const lay = { ...PT_SIM.layout }, moved = {};
+    for (const i of SEATL) { const [ox, oy] = PT_SIM.ovPos(i), [nx, ny] = d.pos[i]; if (ox !== nx || oy !== ny) { lay[i] = { x: nx, y: ny }; moved[i] = lay[i]; } }
+    PT_SIM.setLayout(lay);
+    if (window.PT_SAVE) PT_SAVE(moved);
+    draw(performance.now());
+  };
+  svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
 })();
+</script>
+<script type="module">
+/* Chair spots shared with the Player Tracker's overhead view (poker table = table 3, doc layout_t3). */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { casinoDoc } from "./pt-people.js";
+try {
+  const app = initializeApp({
+    apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+    authDomain: "khean-estimator-78f3e.firebaseapp.com",
+    projectId: "khean-estimator-78f3e",
+    storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+    messagingSenderId: "581692353222",
+    appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+  });
+  let db; try { db = initializeFirestore(app, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { db = fsGetFirestore(app); }
+  const ref = casinoDoc(fsDoc)(db, "playerTracker", "layout_t3");
+  onSnapshot(ref, snap => { if (window.PT_SIM) PT_SIM.setLayout(snap.exists() ? snap.data() : {}); }, () => {});
+  window.PT_SAVE = moved => setDoc(ref, moved, { merge: true }).catch(() => {});
+} catch (e) {}
 </script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 <script type="module">
@@ -405,14 +489,21 @@ try {
     tag(add(new THREE.BoxGeometry(0.08, 0.092, 0.162), purple, h.x + Math.sin(t) * 0.1, h.y, h.z - Math.cos(t) * 0.1), "seat").rotation.y = -t;   // the USB-C end
     label(String(k), "#ffffff", n.x, n.y, n.z, 0.5);
   }
-  /* Chairs (opaque) outside the rail, each with its tag (blue) and battery (green) under the seat, and a name tag.
-     They follow the simulated chairs (window.PT_SIM) as players shift around. */
-  const chairM = mat(0x374151), chair3 = [];
+  /* Chairs outside the rail, each with its tag (blue) and battery (green) under the seat, and a name tag.
+     They sit where they were put (window.PT_SIM, shared with the overhead view). */
+  /* See-through chairs (so the tag and battery show), on a five-spoke base with rollers on the floor. */
+  const chairM = mat(0x9ca3af, { transparent: true, opacity: 0.22, depthWrite: false }), legM = mat(0x6b7280, { transparent: true, opacity: 0.45, depthWrite: false }), wheelM = mat(0x111111, { roughness: 0.4 }), chair3 = [];
   (window.PT_SIM ? PT_SIM.chairs : []).forEach(c => {
     const g = new THREE.Group();
     const seat = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.1, 0.95), chairM); seat.position.y = -1.0; g.add(seat);
     const backr = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.1), chairM); backr.position.set(0, -0.55, 0.48); g.add(backr);
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.4, 12), mat(0x1f2937)); leg.position.y = -1.72; g.add(leg);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.25, 12), legM); leg.position.y = -1.67; g.add(leg);
+    for (let k = 0; k < 5; k++) {   // spokes out to the rollers, which sit on the floor (y = -2.46)
+      const t = k * Math.PI * 2 / 5, sp = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.07), legM);
+      sp.position.set(Math.cos(t) * 0.21, -2.3, Math.sin(t) * 0.21); sp.rotation.y = -t; g.add(sp);
+      const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.06, 16), wheelM);
+      wh.rotation.z = Math.PI / 2; wh.rotation.y = -t + Math.PI / 2; wh.position.set(Math.cos(t) * 0.42, -2.39, Math.sin(t) * 0.42); g.add(wh);
+    }
     const tagM = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.18), blue); tagM.position.set(-0.22, -1.08, 0); g.add(tagM);
     const bat = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 12), mat(0x4ade80, { emissive: 0x14532d })); bat.rotation.z = Math.PI / 2; bat.position.set(0.22, -1.1, 0); g.add(bat);
     g.traverse(o => { if (o.isMesh) o.userData.part = "chair"; });
