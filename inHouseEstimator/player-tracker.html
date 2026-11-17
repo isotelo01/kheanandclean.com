@@ -33,7 +33,6 @@ h2{font:700 13px "Archivo",sans-serif;color:var(--gold);text-transform:uppercase
 .note{color:rgba(255,255,255,.7);font-size:14px;margin:8px 0 0}
 .warn{background:#5a1d1d;border:1px solid #f87171;border-radius:10px;padding:10px;font-size:14px;margin-bottom:12px;display:none}
 svg.table{width:100%;height:auto;display:block}
-#tblBox{cursor:zoom-in}
 /* Testing page on a wide screen: table fills the screen */
 @media (min-width:900px){
   .wrap:has(#floor:not([hidden])){max-width:none}
@@ -795,7 +794,6 @@ $("tblBox").onclick = e => {
   if (e.target.closest("[data-tablet]")) { window.open(withCasino("./dealer-table.html?t=" + TT), "dealerTable" + TT, "popup,width=1280,height=800"); return; }   // the dealer's tablet: its own window
   const num = e.target.closest("[data-num]");
   if (num && !box.classList.contains("full")) { showSeatQR(+num.dataset.num, "ask"); return; }
-  if (!box.classList.contains("full")) location.href = "./dealer-table.html?t=" + TT;   // the table opens on its own page
 };
 /* ---- QR codes: each player's QR is their own link, so the iPhone camera opens it too.
    The dealer's Scan player button (full-screen view) reads it and seats them. ---- */
