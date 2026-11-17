@@ -410,18 +410,18 @@ try {
   const chairM = mat(0x374151), chair3 = [];
   (window.PT_SIM ? PT_SIM.chairs : []).forEach(c => {
     const g = new THREE.Group();
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 1.2), chairM); seat.position.y = -0.95; g.add(seat);
-    const backr = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.1, 0.12), chairM); backr.position.set(0, -0.35, 0.6); g.add(backr);
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.45, 12), mat(0x1f2937)); leg.position.y = -1.7; g.add(leg);
-    const tagM = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.18), blue); tagM.position.set(-0.25, -1.04, 0); g.add(tagM);
-    const bat = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 12), mat(0x4ade80, { emissive: 0x14532d })); bat.rotation.z = Math.PI / 2; bat.position.set(0.25, -1.06, 0); g.add(bat);
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.1, 0.95), chairM); seat.position.y = -1.0; g.add(seat);
+    const backr = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.1), chairM); backr.position.set(0, -0.55, 0.48); g.add(backr);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.4, 12), mat(0x1f2937)); leg.position.y = -1.72; g.add(leg);
+    const tagM = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.18), blue); tagM.position.set(-0.22, -1.08, 0); g.add(tagM);
+    const bat = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 12), mat(0x4ade80, { emissive: 0x14532d })); bat.rotation.z = Math.PI / 2; bat.position.set(0.22, -1.1, 0); g.add(bat);
     g.traverse(o => { if (o.isMesh) o.userData.part = "chair"; });
-    scene.add(g); chair3.push({ c, g, lab: label(c.id + (c.name ? " · " + c.name : " · open"), c.name ? "#E3B64A" : "#cbd5e1", 0, 0.55, 0, 0.42) });
+    scene.add(g); chair3.push({ c, g, lab: label(c.id + (c.name ? " · " + c.name : " · open"), c.name ? "#E3B64A" : "#cbd5e1", 0, 0.25, 0, 0.38) });
   });
   const moveChairs = () => chair3.forEach(({ c, g, lab }) => {
     if (c.x === undefined) return;
     g.position.set(c.x, 0, c.z); g.rotation.y = Math.PI / 2 - Math.atan2(c.z / B, c.x / A);   // back of the chair faces away from the table
-    lab.position.set(c.x, 0.55, c.z);
+    lab.position.set(c.x, 0.25, c.z);
   });
   [-144, -36, 36, 144].forEach((d, i) => {
     const p = RXP(d); tag(add(new THREE.BoxGeometry(0.24, 0.07, 0.13), blue, p.x, p.y, p.z), "rx").rotation.y = -rad(d);
