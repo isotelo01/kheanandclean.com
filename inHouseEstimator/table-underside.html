@@ -238,7 +238,7 @@ window.showPart = key => {
   /* Each seat: number outside the rail, one seat module under the rail (heat sensor + USB-C charger together). */
   for (let k = 1; k <= SEATS; k++) {
     const t = seatT(k), d0 = t * 180 / Math.PI + 90, deg = ((d0 % 360) + 360) % 360 > 90 && ((d0 % 360) + 360) % 360 < 270 ? d0 + 180 : d0;   // labels read upright
-    const [nx, ny] = P(t, 82), [hx, hy] = P(t, -26);
+    const [nx, ny] = P(t, 94), [hx, hy] = P(t, -26);
     s += `<text x="${f(nx)}" y="${f(ny + 8)}" fill="#fff" font-size="24" font-weight="800" text-anchor="middle">${k}</text>`
        + `<g data-part="seat" style="cursor:pointer" transform="translate(${f(hx)} ${f(hy)}) rotate(${f(deg)})"><rect x="-24" y="-10" width="48" height="20" rx="4" fill="#f97316" stroke="#fdba74"/>`
        + `<rect x="8" y="-10" width="16" height="20" rx="4" fill="#a855f7"/>`
@@ -281,7 +281,7 @@ window.showPart = key => {
   const step = now => {
     const t = now / 1000;
     chairs.forEach(c => {
-      const base = P(seatAng(c.seat), A + 0.75, B + 0.75), wob = 0.18;
+      const base = P(seatAng(c.seat), A + 0.5, B + 0.5), wob = 0.12;
       c.x = base.x + Math.sin(t * 0.35 + c.ph) * wob; c.z = base.z + Math.cos(t * 0.27 + c.ph) * wob;   // players shift around a bit
       c.d = RX.map(r => Math.hypot(c.x - r.x, c.z - r.z, TAG_Y - RX_Y) + noise());
       c.est = solve(c.d); c.at = seatOf(c.est);
