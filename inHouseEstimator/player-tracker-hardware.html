@@ -146,10 +146,49 @@ ul{margin:6px 0 0;padding-left:20px}
       <li><b>Mounting:</b> 4 countersunk holes for #8 wood screws up into the table. The top is open; the table's underside closes it.</li>
       <li><b>Drop-in, nothing to line up:</b> the charger lies in a U-shaped cradle that holds it at the hole's height, then slides forward through the hole. The heat sensor board drops into a little nest over its window and snaps under two small lips. Every hole and pocket has 0.5 mm of play.</li>
       <li><b>Charger it's drawn for:</b> Powerwerx PanelQCUSBC (USB-C PD fast charging, blue LED, 1-1/8 in hole, 1-7/8 in deep, runs on 8&ndash;32 V). Feed it 12 V; nine seats charging at once is roughly 15 A at 12 V.</li>
-      <li><b>Back:</b> a hole for the 12 V power and one for the heat sensor cable, both into the cable track.</li>
+      <li><b>Back:</b> one network jack (RJ45) for the seat's one Cat6 cable (see below). A small pass-through carries the 12 V from the seat board over to the charger.</li>
       <li><b>Sizes are starting guesses.</b> Measure the real parts and change the numbers at the top of the .scad file in <a href="https://openscad.org" target="_blank" rel="noopener">OpenSCAD</a> (free), then export a new STL. If the heat reading drifts while a phone fast charges, widen the gap to 2 in.</li>
     </ul>
     <p style="margin:10px 0 0"><a class="btn" href="./models/seat-module.stl" download>Download STL (print)</a> <a class="btn" href="./models/seat-module.scad" download>Download .scad (edit sizes)</a></p>
+  </div>
+
+  <h2>One cable per seat: Cat6 (plan)</h2>
+  <div class="box">
+    <p style="margin-top:0">Every seat module gets <b>one store-bought Cat6 network cable</b> back to the <b>hub box</b> under the table. The cable carries the 12&nbsp;V for the charger and the heat sensor's data. Nothing custom: any patch cable plugs in. The shuffler keeps its own power cord.</p>
+    <table>
+      <tr><th>Pins (T568B)</th><th>Wire colors</th><th>Carries</th></tr>
+      <tr><td>4 + 5</td><td>blue, blue-white</td><td><b>+12 V</b> (two wires together)</td></tr>
+      <tr><td>7 + 8</td><td>brown-white, brown</td><td><b>Ground</b> (two wires together)</td></tr>
+      <tr><td>1 + 2</td><td>orange-white, orange</td><td><b>Sensor data (SDA)</b> + ground</td></tr>
+      <tr><td>3 + 6</td><td>green-white, green</td><td><b>Sensor clock (SCL)</b> + ground</td></tr>
+    </table>
+    <ul style="margin:10px 0 0">
+      <li><b>Why it works:</b> a charger pulls about 2&nbsp;A at 12&nbsp;V; split over two wires that's about 1&nbsp;A each, fine for the few feet under a table. Each data wire is twisted with a ground, which keeps the reading clean.</li>
+      <li><b>The 3.3&nbsp;V for the heat sensor</b> is made on the seat board from the 12&nbsp;V, so no extra wire.</li>
+      <li><b>Label every jack "12 V &mdash; NOT ETHERNET"</b> so nobody plugs a router or laptop into it.</li>
+      <li><b>Before buying:</b> check the cable's rating (solid copper, not copper-clad aluminum).</li>
+    </ul>
+  </div>
+
+  <h2>Seat board (to have a board maker build)</h2>
+  <div class="box">
+    <p style="margin-top:0">One small board inside each seat module, about 1.6 &times; 1 in (40 &times; 25&nbsp;mm). Until it's made, off-the-shelf RJ45 breakout boards with screw terminals do the same job for testing.</p>
+    <ul style="margin:0">
+      <li><b>RJ45 jack</b> (through-hole, faces out the back of the case).</li>
+      <li><b>Heat sensor</b> MLX90614 (3.3&nbsp;V version) soldered on the bottom, pointing down through the case window.</li>
+      <li><b>3.3&nbsp;V regulator</b> that takes 12&nbsp;V in (for example MCP1703A, good up to 16&nbsp;V).</li>
+      <li><b>Resettable fuse</b> (about 2.5&nbsp;A) on the 12&nbsp;V, plus a surge diode on the 12&nbsp;V and on the two data lines.</li>
+      <li><b>Two 1/4 in quick-connect tabs</b> (12&nbsp;V and ground) with short wires to the charger's blade terminals.</li>
+    </ul>
+    <p style="margin:10px 0 6px"><b>Hub box</b> (one per table):</p>
+    <ul style="margin:0">
+      <li><b>12&nbsp;V power supply</b>, about 350&nbsp;W (Mean Well-type), plugged into a power strip under the table. The shuffler plugs into the same strip on its own cord.</li>
+      <li><b>9&ndash;10 RJ45 jacks</b>, each with its own resettable fuse on the 12&nbsp;V.</li>
+      <li><b>Raspberry Pi 5</b> on a 12&nbsp;V &rarr; 5&nbsp;V converter.</li>
+      <li><b>Two I2C switch boards</b> (TCA9548A, 8 channels each): each seat gets its own data channel, so all nine heat sensors can be the same part with no address setup, and the long cables don't add up on one line.</li>
+      <li>The 4 chair receivers plug into the Pi by USB.</li>
+    </ul>
+    <p class="muted" style="margin:10px 0 0">This is a plan to hand to a board maker (JLCPCB, PCBWay) or an electronics person to turn into a real board. Parts and values get checked when the board is drawn.</p>
   </div>
 
   <h2>Keep in mind</h2>

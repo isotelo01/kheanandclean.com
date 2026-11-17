@@ -6,6 +6,7 @@
 // Layout (left to right, seen from the player): charger bay | ~1 in air gap | heat sensor bay.
 // The top is open: the table's underside closes it. The port faces the player, set back 3 mm.
 // The heat sensor looks down at the lap through a flared window in the bottom.
+// One Cat6 network cable per seat carries 12 V and the heat sensor data (see the Hardware page for the pin layout).
 // Nothing has to be lined up: the charger lies in a U-shaped cradle at the hole's height, and the sensor board
 // drops into a nest over the window and snaps under two small lips. Every hole has 0.5 mm of play (CLR).
 
@@ -32,6 +33,8 @@ EAR = 18; EAR_T = 6; SCREW_D = 4.8; CSK_D = 9.2;
 CLR = 0.5;
 // Heat sensor board (GY-906 style MLX90614 board): width, length, thickness. It drops into a nest over the window.
 BOARD = [11.5, 17, 1.6];
+// RJ45 jack (panel opening) for the one Cat6 cable per seat
+RJ_W = 16; RJ_H = 13.5;
 
 CH0 = WALL; CH1 = WALL + CHARGER_BAY;
 GP0 = CH1 + 3; GP1 = GP0 + GAP;
@@ -70,8 +73,10 @@ difference() {
   translate([(SN0+SN1)/2, SENS_Y, -1]) cylinder(d1=SENS_D+CLR+2*WALL*1.1, d2=SENS_D+CLR, h=WALL+1.01);  // flared sensor window
   for (i = [0:5]) translate([CH0+5+i*6, FRONT+33, -2]) cube([2.5, D-FRONT-41, WALL+3]);         // vents under the charger
   for (i = [0:3]) translate([GP0+3+i*5.5, 12, -2]) cube([2.5, D-24, WALL+3]);                  // vents under the air gap
-  translate([(CH0+CH1)/2, D-WALL-1, H-14]) rotate([-90,0,0]) cylinder(d=10+CLR, h=WALL+6);     // back: 12 V power in
-  translate([(SN0+SN1)/2, D-WALL-1, H-14]) rotate([-90,0,0]) cylinder(d=8+CLR, h=WALL+6);      // back: sensor bus cable
+  // One cable per seat: RJ45 (network) jack opening in the back of the sensor bay, for the Cat6 cable from the hub box
+  translate([SX-(RJ_W+CLR)/2, D-WALL-1, H-10-(RJ_H+CLR)]) cube([RJ_W+CLR, WALL+6, RJ_H+CLR]);
+  // Wire pass through both walls of the air gap: 12 V from the seat board over to the charger
+  translate([CH1-1, D-12, H-8]) rotate([0,90,0]) cylinder(d=6+CLR, h=SN0-CH1+2);
   for (ex = [-EAR/2-1, W+EAR/2+1]) for (ey = [16, D-16]) {
     translate([ex, ey, H-EAR_T-1]) cylinder(d=SCREW_D+CLR, h=EAR_T+6);                             // screw hole
     translate([ex, ey, H-EAR_T-0.01]) cylinder(d1=CSK_D, d2=SCREW_D, h=2.2);                    // countersink
