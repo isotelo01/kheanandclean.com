@@ -53,7 +53,7 @@ a{color:var(--gold)}
     <div><span class="sw" style="background:#a855f7"></span><span><b>USB-C charging port</b> at each seat, under the rail, for the players' phones.</span></div>
     <div><span class="sw" style="background:rgba(148,163,184,.15);border:2px dashed rgba(148,163,184,.7);border-radius:50%"></span><span><b>Two pedestals</b> (the table's feet), one toward each end, like a real poker table. Keep cables and boxes clear of them.</span></div>
     <div><span class="sw" style="background:#7f1d1d;border:2px solid #f87171"></span><span><b>Power supply</b>: one plug to the wall runs everything on the table.</span></div>
-    <div><span class="ln" style="border-color:#38bdf8"></span><span><b>Receiver cables</b>: one USB cable from each receiver to the hub (data and power).</span></div>
+    <div><span class="ln" style="border-color:#38bdf8"></span><span><b>Receiver cables</b>: each receiver has its own micro USB to USB-A cable plugged straight into one of the Pi's 4 USB ports. That one cable powers it and carries its data; no extra board.</span></div>
     <div><span class="ln" style="border-color:#f97316;border-top-style:dashed"></span><span><b>Heat sensor cable</b>: one thin 4-wire cable runs seat to seat under the rail and back to the hub.</span></div>
     <div><span class="ln" style="border-color:#f87171"></span><span><b>Charging power</b>: a power run under the rail out to every USB-C port. Wiring details later.</span></div>
   </div>
@@ -67,7 +67,7 @@ a{color:var(--gold)}
       <li><b>Setup once per table</b>: measure where each receiver sits, mark each seat, and take an empty-seat reading for the heat sensors. Everything is mounted on the table, so the table can move without redoing it. Only redo it if a receiver gets moved.</li>
       <li><b>Wall power:</b> one cord from the floor outlet runs up a pedestal to a power strip under the table. The 12&nbsp;V power supply and the shuffle machine (on its own cord) plug into the strip.</li>
       <li><b>The dealer's tablet</b> runs off the 12&nbsp;V power supply; <b>the shuffle machine</b> plugs into the power strip. The shuffler sits on the dealer's right, in front of the chip tray (in front of the tablet); its top is flush with the felt and its body hangs under the table (see the 3D view).</li>
-      <li><b>Wire management</b>: one cable track clipped around the underside just inside the rail carries every cable (heat sensors, receivers, charging power). Each seat gets a short drop from it to its heat sensor and USB-C port; the hub, power supply, tablet and shuffler each tie into it. Everything mounts flat against the underside, clear of players' knees.</li>
+      <li><b>Wire management</b>: one cable track clipped around the underside just inside the rail carries every cable (heat sensors and charging power; the receiver cables run straight to the hub). Each seat gets a short drop from it to its heat sensor and USB-C port; the hub, power supply, tablet and shuffler each tie into it. Everything mounts flat against the underside, clear of players' knees.</li>
       <li><b>Newer plan (Hardware page):</b> one Cat6 cable per seat runs straight back to a <b>hub box</b> that holds the hub and the 12&nbsp;V power supply; the shuffler plugs into the power strip on its own cord. The drawing and 3D view still show the older cable track.</li>
       <li><b>Keep metal away</b> from the receivers and the chair tags.</li>
     </ul>
@@ -96,7 +96,9 @@ a{color:var(--gold)}
   const hub = [CX, CY - 20], psu = [CX, CY + 85];   // power right under the hub, so the receiver cables stay clear
   /* Receivers in the four corners (gaps between seats 8-9, 1-2, 3-4, 6-7), each cabled to the hub. */
   const rx = [-144, -36, 36, 144].map(d => P(rad(d), -70, -45));
-  rx.forEach(([x, y]) => { s += `<line x1="${f(x)}" y1="${f(y)}" x2="${hub[0]}" y2="${hub[1]}" stroke="#38bdf8" stroke-width="3"/>`; });
+  /* Each receiver's own micro USB cable plugs straight into one of the Pi's 4 USB-A ports (left pair, right pair). */
+  const usb = [[-62, -10], [62, -10], [62, 10], [-62, 10]].map(([dx, dy]) => [hub[0] + dx, hub[1] + dy]);
+  rx.forEach(([x, y], i) => { s += `<line x1="${f(x)}" y1="${f(y)}" x2="${usb[i][0]}" y2="${usb[i][1]}" stroke="#38bdf8" stroke-width="3"/>`; });
   s += `<line x1="${hub[0]}" y1="${hub[1]}" x2="${CX - 150}" y2="${CY + B - 52}" stroke="#f97316" stroke-width="2.5" stroke-dasharray="8 6"/>`   // hub to the heat sensor run
      + `<line x1="${psu[0]}" y1="${psu[1]}" x2="${CX}" y2="${CY + B - 14}" stroke="#f87171" stroke-width="3"/>`   // power supply to the charging run
      + `<line x1="${psu[0]}" y1="${psu[1]}" x2="${hub[0]}" y2="${hub[1]}" stroke="#f87171" stroke-width="3"/>`;   // power supply to the hub
@@ -107,6 +109,8 @@ a{color:var(--gold)}
   s += `<g transform="translate(${hub[0]} ${hub[1]})"><rect x="-62" y="-30" width="124" height="60" rx="8" fill="#111827" stroke="var(--gold)" stroke-width="2"/>`
      + `<text y="-4" fill="var(--gold)" font-size="16" font-weight="700" text-anchor="middle">HUB</text>`
      + `<text y="16" fill="rgba(255,255,255,.75)" font-size="12" text-anchor="middle">Raspberry Pi 5 &middot; Wi-Fi</text></g>`
+     + usb.map(([x, y]) => `<rect x="${x - 6}" y="${y - 4}" width="12" height="8" rx="1.5" fill="#e5e7eb" stroke="#38bdf8" stroke-width="1.5"/>`).join("")
+     + `<text x="${hub[0]}" y="${hub[1] - 38}" fill="#bae6fd" font-size="11" text-anchor="middle">4 USB-A ports: one micro USB cable per receiver</text>`
      + `<g transform="translate(${psu[0]} ${psu[1]})"><rect x="-58" y="-26" width="116" height="52" rx="8" fill="#7f1d1d" stroke="#f87171" stroke-width="2"/>`
      + `<text y="-3" fill="#fecaca" font-size="14" font-weight="700" text-anchor="middle">POWER</text>`
      + `<text y="15" fill="rgba(255,255,255,.75)" font-size="11" text-anchor="middle">plugs into the strip</text></g>`;
@@ -192,7 +196,6 @@ try {
   const track = tube(ring(TA, TB, 0), 0.085, mat(0x9ca3af, { transparent: true, opacity: 0.28, depthWrite: false }));
   track.scale.y = 0.45; track.position.y = TY; scene.add(track);
   scene.add(tube(ring(TA - 0.035, TB - 0.035, TY), 0.013, orange));
-  scene.add(tube(ring(TA, TB, TY), 0.013, blue));
   scene.add(tube(ring(TA + 0.035, TB + 0.035, TY), 0.013, red));
   for (let d = 0; d < 360; d += 20) { const c = at(rad(d)); add(new THREE.BoxGeometry(0.06, 0.03, 0.06), mat(0xe5e7eb), c.x, -0.135, c.z); }   // clips holding the track up
   const near = (x, z) => { let best = 0, bd = Infinity; for (let d = 0; d < 360; d += 0.5) { const q = at(rad(d)), dd = Math.hypot(q.x - x, q.z - z); if (dd < bd) { bd = dd; best = rad(d); } } return best; };
@@ -205,18 +208,26 @@ try {
     path([at(t + rad(9), 0.035), u], 0.012, red);
     label(String(k), "#ffffff", n.x, n.y, n.z, 0.5);
   }
-  /* Receivers toward the four corners, each with a short blue drop into the track. */
+  /* Receivers toward the four corners. Each has its own micro USB to USB-A cable that plugs straight into the Pi's
+     USB ports on the front of the hub (two stacked pairs, like a real Pi 5), routed clear of the pedestals. */
+  const usbX = [-1.45, -1.15, -1.0, -1.6];   // R1, R2, R3, R4 port positions along the hub's front edge
+  const lanes = [
+    [V(-1.95, TY, -0.65), V(-1.95, TY, 0.05), V(-1.45, TY, 0.05)],        // R1: around the left pedestal
+    [V(1.9, TY, -0.65), V(1.9, TY, 0.1), V(-1.15, TY, 0.1)],              // R2: between the pedestals
+    [V(2.0, TY, 0.2), V(-1.0, TY, 0.2)],                                  // R3
+    [V(-2.0, TY, 0.65), V(-2.0, TY, 0.15), V(-1.6, TY, 0.15)],            // R4
+  ];
   [-144, -36, 36, 144].forEach((d, i) => {
     const p = P(rad(d), A - 0.95, B - 0.8, TY);
     add(new THREE.BoxGeometry(0.33, 0.08, 0.17), blue, p.x, p.y, p.z); label("R" + (i + 1), "#bae6fd", p.x, p.y - 0.3, p.z, 0.35);
-    path([p, at(near(p.x, p.z))], 0.013, blue);
+    path([p, ...lanes[i], V(usbX[i], TY, 0.27)], 0.013, blue);
   });
+  for (const x of [-1.525, -1.075]) add(new THREE.BoxGeometry(0.22, 0.1, 0.08), mat(0xe5e7eb), x, TY, 0.29);   // the Pi's USB-A ports
   /* Hub and power supply flat under the table near the track, off to the sides of the pedestals and the shuffler. */
   const hub = add(new THREE.BoxGeometry(0.9, 0.12, 0.6), mat(0x111827, { emissive: 0x3a2a05 }), -1.3, TY, 0.6); label("HUB", "#E3B64A", -1.3, TY - 0.35, 0.6, 0.4);
   const psu = add(new THREE.BoxGeometry(0.8, 0.14, 0.5), mat(0x7f1d1d), 1.3, TY, 0.6); label("POWER", "#fecaca", 1.3, TY - 0.35, 0.6, 0.38);
   const hb = near(-1.3, 0.6), pb = near(1.3, 0.6);
   path([V(-1.45, TY, 0.9), at(hb - rad(2), -0.035)], 0.013, orange);   // hub: heat sensor cable
-  path([V(-1.15, TY, 0.9), at(hb + rad(2))], 0.013, blue);             // hub: receiver cables
   path([V(1.3, TY, 0.85), at(pb, 0.035)], 0.016, red);                 // power supply: into the charging run
   path([V(0.9, TY, 0.6), V(-0.85, TY, 0.6)], 0.016, red);             // power supply to the hub
   /* The tablet and the shuffler take power from the red run right behind them. */
