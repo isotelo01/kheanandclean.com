@@ -434,6 +434,12 @@ const chairXf = (x, y) => {
   else th = Math.atan2(y - oy, x - ox);
   return `translate(${x} ${y}) rotate(${th * 180 / Math.PI - 90})`;
 };
+/* Redraw the table without flashing: the table itself (felt picture, rail, logo) is only rebuilt when it changes;
+   the live part (seats, names, times) is redrawn on its own. */
+function paintTbl(svg, base, dyn) {
+  if (svg._base !== base || !svg.querySelector(":scope > g.tb1")) { svg.innerHTML = `<g class="tb0">${base}</g><g class="tb1"></g>`; svg._base = base; svg._dyn = null; }
+  if (svg._dyn !== dyn) { svg.querySelector(":scope > g.tb1").innerHTML = dyn; svg._dyn = dyn; }
+}
 function drawTable(pick) {
   if (dragging && !pick) return;   // don't redraw under a finger mid-drag
   /* Top-down table: dealer at the top, seats around the curve (half-moon) or all the way round (poker oval). */
@@ -477,6 +483,7 @@ function drawTable(pick) {
        + `<ellipse cx="${tcx}" cy="${tcy - 1}" rx="12" ry="6" fill="#0f6b3a" stroke="#222" stroke-width="1.2"/>`
        + `<text x="${tcx}" y="${tyy + th - 5}" fill="#E3B64A" font-size="4.5" font-weight="700" text-anchor="middle">DEALER CONTROL</text></g></g>`;
   }
+  const base = s;   // the table itself; everything after this is the live part
   if (!pick) {
     /* Simulated sensors: dashed 3-ft line (chairs past it = pulled out), and a lap sensor under the rail
        at each seat: orange = warm lap seen, green outline = a chair is there, dim = nothing. Shows the
@@ -559,7 +566,7 @@ function drawTable(pick) {
        + `<text x="${box.lx}" y="${box.ly + 4}" fill="#fff" font-size="10" font-weight="600" text-anchor="middle">${esc(nm)}</text>`;
   }
   if (pick) return s;
-  $("tbl").innerHTML = s;
+  paintTbl($("tbl"), base, s.slice(base.length));
 }
 
 /* Guest time: newest first. Finished ones can be given to a player once the floor checks the cameras. */

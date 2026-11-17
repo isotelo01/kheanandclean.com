@@ -205,6 +205,12 @@ const seatXY = k => {   // k = 0-based position in TB.seats
   const a = Math.PI * ((k + 1) / (TB.seats.length + 1));
   return flip(cx + Math.cos(a) * (r - 38), cy + Math.sin(a) * (r - 38));
 };
+/* Redraw the table without flashing: the table itself (felt picture, rail, logo) is only rebuilt when it changes;
+   the live part (seats, names, times) is redrawn on its own. */
+function paintTbl(svg, base, dyn) {
+  if (svg._base !== base || !svg.querySelector(":scope > g.tb1")) { svg.innerHTML = `<g class="tb0">${base}</g><g class="tb1"></g>`; svg._base = base; svg._dyn = null; }
+  if (svg._dyn !== dyn) { svg.querySelector(":scope > g.tb1").innerHTML = dyn; svg._dyn = dyn; }
+}
 function draw() {
   const d = dealerOn();
   /* Padded leather rail: dark edges, a soft highlight along the top of the roll, and a shadow where it meets the felt. */
@@ -255,6 +261,7 @@ function draw() {
       </radialGradient>
     </defs>`
         + `<g transform="rotate(180 200 ${FY})">` + tableBody(d) + `</g>` + tableDeco(d);
+  const base = s;
   TB.seats.forEach((i, k) => {
     const [x, y] = seatXY(k), c = whoIn(i), gu = !c && guestIn(i);
     const wants = !c && Object.keys(requests).some(q => requests[q].t === T && requests[q].s === i);
@@ -277,7 +284,7 @@ function draw() {
          + `<text x="${x}" y="${ty + 9}" fill="${q.breakAt ? seatColor(q) : "rgba(255,255,255,.75)"}" font-size="7" text-anchor="middle">${q.breakAt ? "Break " + fmtHrs(Date.now() - q.breakAt) : fmtHrs(seatedMs(q))}</text>`;
     }
   });
-  $("tbl").innerHTML = s;
+  paintTbl($("tbl"), base, s.slice(base.length));
   /* Seat requests for this table: a speech bubble pops out of that seat number; dealer taps Seat or No.
      One bubble per seat (the earliest request). It only pops in the first time it shows. */
   const ctm = $("tbl").getBoundingClientRect().width > 0, bySeatReq = {};
