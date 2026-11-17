@@ -493,11 +493,11 @@ function drawTable(pick) {
          + `<rect x="-17" y="-6" width="34" height="12" rx="3" fill="${col}" stroke="${rd.warm ? "#fdba74" : "rgba(255,255,255,.35)"}"/>`
          + `<text y="3.5" fill="#fff" font-size="7" text-anchor="middle">${rd.ft == null ? "-" : rd.ft.toFixed(1) + " ft"}</text></g>`;
     }
-    /* Poker tables: the 4 UWB receivers (anchors) under the table, two by the dealer's ends and two at the far
+    /* Poker tables: the 4 UWB receivers (anchors) under the rail, two toward the dealer's end and two at the far
        corners. Each one measures how far every chair's tag is (dashed lines); the table hub combines the 4 distances
        to work out where each chair is. */
     if (ov) {
-      const anc = [-150, -30, 30, 150].map(d => d * Math.PI / 180).map(t => [mx + Math.cos(t) * (OV.a - 34), my + Math.sin(t) * (OV.b - 20)]);
+      const anc = [-144, -36, 36, 144].map(d => d * Math.PI / 180).map(t => [mx + Math.cos(t) * (OV.a + 8), my + Math.sin(t) * (OV.b + 8)]);   // on the rail, in the gaps between seats (1-2, 3-4, 6-7, 8-9)
       for (const [ax, ay] of anc) for (const i of SEATL) { const [qx, qy] = chairPos(i);
         s += `<line x1="${ax.toFixed(1)}" y1="${ay.toFixed(1)}" x2="${qx.toFixed(1)}" y2="${qy.toFixed(1)}" stroke="rgba(56,189,248,.28)" stroke-width="1" stroke-dasharray="3 4"/>`; }
       anc.forEach(([ax, ay], k) => { s += `<g transform="translate(${ax.toFixed(1)} ${ay.toFixed(1)})"><rect x="-9" y="-9" width="18" height="18" rx="3" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.5"/>`
