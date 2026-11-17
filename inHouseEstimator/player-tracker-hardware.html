@@ -52,6 +52,25 @@ ul{margin:6px 0 0;padding-left:20px}
   <div class="top"><a class="btn" href="./player-tracker-hub.html">&lsaquo; Back</a><h1>Hardware</h1><a class="btn" href="./table-underside.html" style="margin-left:auto">Under the table &rsaquo;</a></div>
   <p class="muted">How the smart chairs will work, and what to buy for one table. A plan, not built yet.</p>
 
+  <h2>2.0: one sensor box on top of the jackpot board</h2>
+  <div class="box">
+    <img src="./models/jackpot-box-preview.png" alt="2.0 jackpot sensor box 3D model" style="width:100%;border-radius:8px;background:#fff;margin-bottom:10px">
+    <p style="margin-top:0">The next version replaces everything under the table with one small box on top of the progressive jackpot board, plus one power cord. The casino's tables stay exactly as they are.</p>
+    <ul style="margin:0">
+      <li><b>Inside:</b> two thermal cameras, one radar, and the Raspberry Pi. Only the power cord comes out; seat data goes to the dealer's tablet over Wi-Fi.</li>
+      <li><b>Thermal cameras (2):</b> Waveshare MLX90640-D110 (32&times;24, 110&deg;, board 28 &times; 16 mm), <a href="https://www.amazon.com/MLX90640-Interface-Compatible-Raspberry-MLX90640-D110/dp/B07ZMP7N2P" target="_blank" rel="noopener">Amazon</a>. Order the <b>D110</b>, not the D55.</li>
+      <li><b>Wall-eyed:</b> each camera sits on its own slope of the lid, turned <b>35&deg; out</b> from straight ahead (70&deg; apart) and tilted <b>40&deg; down</b>, so together they see the whole half circle of seats with a little overlap at the middle seat.</li>
+      <li><b>Radar:</b> drawn for the Hi-Link LD2450 (44 &times; 15 mm board). It clips to the inside of the front wall and looks out through the plastic. Plastic is fine for radar; metal isn't.</li>
+      <li><b>Board:</b> Raspberry Pi 3B drops onto 4 pegs in the floor. Its power plug lines up with a slot in the back wall for the cord.</li>
+      <li><b>Wiring:</b> both cameras use the same I2C address, so run them through one of your TCA9548A switch boards (or a second I2C bus on the Pi). Camera cables go through the slot in the lid between the two cameras. The radar talks over the Pi's serial pins.</li>
+      <li><b>Cameras slide in:</b> each board slides down into its cradle from the top and rests on a stop at the bottom, with a 5 mm gap behind it for the plug and wires.</li>
+      <li><b>Size:</b> box about 3.9 &times; 3.1 &times; 1.3 in (99 &times; 79 &times; 33 mm); about 3.5 in (90 mm) tall with the lid on. Box and lid print side by side, no supports (the camera slopes overhang about 40&deg;). PETG or PLA.</li>
+      <li><b>Mounting:</b> no screws into the sign. A strip of 3M VHB tape holds the box on top of the jackpot board, and a little double-sided tape (or a dab of hot glue) holds the lid on.</li>
+      <li><b>Sizes are starting guesses.</b> Measure the real boards before printing. The angles are a starting point; fine-tune them once you see the live heat image on a real table.</li>
+    </ul>
+    <p style="margin:10px 0 0"><a class="btn" href="./models/jackpot-box.stl" download>Download STL (print)</a></p>
+  </div>
+
   <h2>How the chairs work</h2>
   <div class="box">
     <p>Every chair has its own number (C1, C2&hellip;) and its own QR code. A player scans the chair's QR once to log into that chair. From then on, the table works out where they are by itself. The dealer doesn't have to do anything.</p>
