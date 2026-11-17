@@ -45,6 +45,11 @@ a{color:var(--gold)}
   </div>
   <h2>Flat drawing</h2>
   <div class="box"><svg id="ut" viewBox="0 0 1000 600" role="img" aria-label="Underside of the poker table"></svg></div>
+  <h2>Chairs (simulated)</h2>
+  <div class="box" style="overflow-x:auto">
+    <p class="muted" style="margin:0 0 8px">Test data, not real players yet. Each chair's tag reports its battery and its distance to each receiver (in feet, with a little noise like a real reading). The yellow ring on the drawing is where the receivers place the chair; the last column is the seat it works out.</p>
+    <table><tr><th>Chair</th><th>Player</th><th>Battery</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Located at</th></tr><tbody id="simRows"></tbody></table>
+  </div>
 
   <h2>What's on the drawing</h2>
   <div class="box key">
@@ -102,6 +107,9 @@ window.PT_PARTS = {
     p: ["Heat sensor: AMG8833 8&times;8 grid (Teyleten, about $25) or the cheap MLX90614", "USB-C fast charger, runs on 12 V (Powerwerx PanelQCUSBC)",
         "12 V &rarr; 5 V step-down (or the seat board) for the sensor; never 12 V on the sensor", "RJ45 jack (screw-terminal breakout for the prototype)", "3D-printed case (STL on the Hardware page)"],
     s: ["One Cat6 back to its box: pins 4, 5, 1 = +12 V; 7, 8, 2 = ground; 3 = SDA; 6 = SCL", "About 24 W per seat while a phone fast charges"] },
+  chair: { t: "Chair (C1&ndash;C9)", d: "Each chair has an ID and carries a tag and a swappable battery under the seat; nothing wires to the table. The tag pings the four receivers so the system knows where the chair is and which seat it's at. The name shows the player logged in at that seat (first name and last initial).",
+    p: ["UWB tag (same Qorvo DWM3001CDK board, set up as a tag)", "18650 battery (Samsung, Molicel or LG, 2,500&ndash;3,500 mAh) in a holder", "TP4056 USB-C charger board with protection (10 + 10 holders about $8)", "Printed case screwed under the center of the seat"],
+    s: ["Battery shows on the chair; the app can warn when it's low", "Position comes from distances to R1&ndash;R4 (shown on this page with test data)"] },
   rx: { t: "Chair receiver (R1&ndash;R4)", d: "Finds the chairs: each chair's tag talks to these four receivers spread toward the corners of the table.",
     p: ["Qorvo DWM3001CDK, about $29.50 (DigiKey)", "Micro USB to USB-A cable, 3&ndash;6 ft, to a USB jack on the nearest box", "Small printed case"],
     s: ["That one USB cable powers it and carries its data", "Keep metal away from it; the radio goes through wood and plastic"] },
@@ -230,7 +238,7 @@ window.showPart = key => {
   /* Each seat: number outside the rail, one seat module under the rail (heat sensor + USB-C charger together). */
   for (let k = 1; k <= SEATS; k++) {
     const t = seatT(k), d0 = t * 180 / Math.PI + 90, deg = ((d0 % 360) + 360) % 360 > 90 && ((d0 % 360) + 360) % 360 < 270 ? d0 + 180 : d0;   // labels read upright
-    const [nx, ny] = P(t, 56), [hx, hy] = P(t, -26);
+    const [nx, ny] = P(t, 82), [hx, hy] = P(t, -26);
     s += `<text x="${f(nx)}" y="${f(ny + 8)}" fill="#fff" font-size="24" font-weight="800" text-anchor="middle">${k}</text>`
        + `<g data-part="seat" style="cursor:pointer" transform="translate(${f(hx)} ${f(hy)}) rotate(${f(deg)})"><rect x="-24" y="-10" width="48" height="20" rx="4" fill="#f97316" stroke="#fdba74"/>`
        + `<rect x="8" y="-10" width="16" height="20" rx="4" fill="#a855f7"/>`
@@ -239,6 +247,72 @@ window.showPart = key => {
   }
   s += `<text x="${CX}" y="590" fill="rgba(255,255,255,.55)" font-size="13" text-anchor="middle">Not to scale. Cable routes are general; exact wiring gets worked out at the build.</text>`;
   document.getElementById("ut").innerHTML = s;
+})();
+</script>
+<script>
+/* Simulated chairs, tags and receivers (test data, nothing real yet). Each chair C1-C9 has a tag and a battery under
+   the seat. Its tag "pings" the four receivers; each receiver reports a distance with a little noise, the way a real
+   one would. From those four distances we work out where the chair is (trilateration) and which seat it's at.
+   Units: feet, table centre = 0, x toward seat 2/3, z toward seat 5 (same as the 3D view). */
+(function () {
+  const A = 4.5, B = 1.9, rad = d => d * Math.PI / 180, TAG_Y = -1.1, RX_Y = -0.17;
+  const P = (t, a, b) => ({ x: Math.cos(t) * a, z: Math.sin(t) * b });
+  const RX = [-144, -36, 36, 144].map(d => P(rad(d), A - 0.12, B - 0.12));
+  const seatAng = k => rad(-90 + 36 * k);
+  const players = ["Mike R.", "Dana T.", "Luis G.", "Kim P.", "Tony B.", "Sara L.", "", "Jen W.", "Omar H."];   // seat 7 open
+  const chairs = players.map((name, i) => ({ id: "C" + (i + 1), name, seat: i + 1, bat: 96 - i * 7, ph: i * 1.7 }));
+  const noise = () => (Math.random() - 0.5) * 0.2;   // about +/- 0.1 ft, like a real UWB reading
+  const solve = d => {   // least squares from the four receivers (horizontal distances)
+    const h = d.map(v => Math.max(0, v * v - (TAG_Y - RX_Y) ** 2));
+    let a11 = 0, a12 = 0, a22 = 0, b1 = 0, b2 = 0;
+    for (let i = 1; i < 4; i++) {
+      const ax = 2 * (RX[i].x - RX[0].x), az = 2 * (RX[i].z - RX[0].z);
+      const bb = h[0] - h[i] + RX[i].x ** 2 - RX[0].x ** 2 + RX[i].z ** 2 - RX[0].z ** 2;
+      a11 += ax * ax; a12 += ax * az; a22 += az * az; b1 += ax * bb; b2 += az * bb;
+    }
+    const det = a11 * a22 - a12 * a12;
+    return { x: (a22 * b1 - a12 * b2) / det, z: (a11 * b2 - a12 * b1) / det };
+  };
+  const seatOf = p => {   // nearest seat by angle around the oval
+    let deg = Math.atan2(p.z / B, p.x / A) * 180 / Math.PI; if (deg < -90) deg += 360;
+    const k = Math.round((deg + 90) / 36);
+    return k >= 1 && k <= 9 ? k : null;
+  };
+  const step = now => {
+    const t = now / 1000;
+    chairs.forEach(c => {
+      const base = P(seatAng(c.seat), A + 0.75, B + 0.75), wob = 0.18;
+      c.x = base.x + Math.sin(t * 0.35 + c.ph) * wob; c.z = base.z + Math.cos(t * 0.27 + c.ph) * wob;   // players shift around a bit
+      c.d = RX.map(r => Math.hypot(c.x - r.x, c.z - r.z, TAG_Y - RX_Y) + noise());
+      c.est = solve(c.d); c.at = seatOf(c.est);
+      c.bat = Math.max(5, c.bat - 0.002);
+    });
+  };
+  window.PT_SIM = { chairs, A, B, step };
+  /* Flat drawing: chairs outside the rail, opaque, with the tag and battery drawn on the seat. */
+  const W = 1000, CX = 500, CY = 300, FA = 420, FB = 170, sx = FA / A, sz = FB / B;
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "chairsG";
+  document.getElementById("ut").appendChild(g);
+  const rows = document.getElementById("simRows");
+  const draw = now => {
+    step(now);
+    g.innerHTML = chairs.map(c => {
+      const x = CX + c.x * sx, y = CY + c.z * sz, ex = CX + c.est.x * sx, ey = CY + c.est.z * sz;
+      const low = c.bat < 20, col = low ? "#f87171" : "#4ade80";
+      return `<g data-part="chair" style="cursor:pointer"><g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">`
+        + `<rect x="-29" y="-21" width="58" height="42" rx="8" fill="#374151" stroke="#9ca3af" stroke-width="2"/>`
+        + `<text y="-7" fill="#fff" font-size="11" font-weight="800" text-anchor="middle">${c.id}</text>`
+        + `<text y="6" fill="${c.name ? "#E3B64A" : "rgba(255,255,255,.5)"}" font-size="10" font-weight="700" text-anchor="middle">${c.name || "open"}</text>`
+        + `<rect x="-20" y="10" width="17" height="7" rx="2" fill="#0c4a6e" stroke="#38bdf8"/>`
+        + `<rect x="3" y="10" width="15" height="7" rx="1.5" fill="#111" stroke="${col}"/><rect x="4" y="11" width="${(13 * c.bat / 100).toFixed(1)}" height="5" fill="${col}"/><rect x="18" y="12" width="2" height="3" fill="${col}"/></g>`
+        + `<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="3" fill="none" stroke="#fde047" stroke-width="1.5"/></g>`;
+    }).join("");
+    if (rows) rows.innerHTML = chairs.map(c => `<tr><td><b>${c.id}</b></td><td>${c.name || "<span class=muted>open</span>"}</td>`
+      + `<td>${Math.round(c.bat)}%</td>${c.d.map(v => `<td>${v.toFixed(2)}</td>`).join("")}<td>${c.at ? "Seat " + c.at : "&mdash;"}</td></tr>`).join("");
+  };
+  let last = 0;
+  const loop = now => { if (now - last > 500) { last = now; draw(now); } requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
 })();
 </script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
@@ -326,11 +400,29 @@ try {
   /* Seat modules and receivers, all under the rail. */
   const SM = k => P(rad(-90 + 36 * k), A - 0.12, B - 0.12, TY), RXP = d => P(rad(d), A - 0.12, B - 0.12, TY);
   for (let k = 1; k <= SEATS; k++) {
-    const t = rad(-90 + 36 * k), h = SM(k), n = P(t, A + 0.9, B + 0.9, 0.35);
+    const t = rad(-90 + 36 * k), h = SM(k), n = P(t, A + 1.75, B + 1.75, 0.35);
     tag(add(new THREE.BoxGeometry(0.3, 0.09, 0.16), orange, h.x, h.y, h.z), "seat").rotation.y = -t;
     tag(add(new THREE.BoxGeometry(0.08, 0.092, 0.162), purple, h.x + Math.sin(t) * 0.1, h.y, h.z - Math.cos(t) * 0.1), "seat").rotation.y = -t;   // the USB-C end
     label(String(k), "#ffffff", n.x, n.y, n.z, 0.5);
   }
+  /* Chairs (opaque) outside the rail, each with its tag (blue) and battery (green) under the seat, and a name tag.
+     They follow the simulated chairs (window.PT_SIM) as players shift around. */
+  const chairM = mat(0x374151), chair3 = [];
+  (window.PT_SIM ? PT_SIM.chairs : []).forEach(c => {
+    const g = new THREE.Group();
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 1.2), chairM); seat.position.y = -0.95; g.add(seat);
+    const backr = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.1, 0.12), chairM); backr.position.set(0, -0.35, 0.6); g.add(backr);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.45, 12), mat(0x1f2937)); leg.position.y = -1.7; g.add(leg);
+    const tagM = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.18), blue); tagM.position.set(-0.25, -1.04, 0); g.add(tagM);
+    const bat = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 12), mat(0x4ade80, { emissive: 0x14532d })); bat.rotation.z = Math.PI / 2; bat.position.set(0.25, -1.06, 0); g.add(bat);
+    g.traverse(o => { if (o.isMesh) o.userData.part = "chair"; });
+    scene.add(g); chair3.push({ c, g, lab: label(c.id + (c.name ? " · " + c.name : " · open"), c.name ? "#E3B64A" : "#cbd5e1", 0, 0.55, 0, 0.42) });
+  });
+  const moveChairs = () => chair3.forEach(({ c, g, lab }) => {
+    if (c.x === undefined) return;
+    g.position.set(c.x, 0, c.z); g.rotation.y = Math.PI / 2 - Math.atan2(c.z / B, c.x / A);   // back of the chair faces away from the table
+    lab.position.set(c.x, 0.55, c.z);
+  });
   [-144, -36, 36, 144].forEach((d, i) => {
     const p = RXP(d); tag(add(new THREE.BoxGeometry(0.24, 0.07, 0.13), blue, p.x, p.y, p.z), "rx").rotation.y = -rad(d);
     label("R" + (i + 1), "#bae6fd", p.x, p.y - 0.28, p.z, 0.32);
@@ -361,7 +453,7 @@ try {
     if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
     const r = ren.domElement.getBoundingClientRect(); ptr.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
     ray.setFromCamera(ptr, cam);
-    const hits = ray.intersectObjects(scene.children, false).filter(h => h.object.userData.part);
+    const hits = ray.intersectObjects(scene.children, true).filter(h => h.object.userData.part);
     const hit = hits.find(h => h.object.userData.part !== "pedestal") || hits[0];   // the see-through pedestals don't block parts behind them
     if (hit && window.showPart) showPart(hit.object.userData.part);
   });
@@ -373,7 +465,7 @@ try {
   document.getElementById("v3top").onclick = () => view(0, 8.5, 4);
   view(5, -4.2, 6.5);
   addEventListener("resize", () => { cam.aspect = box.clientWidth / box.clientHeight; cam.updateProjectionMatrix(); ren.setSize(box.clientWidth, box.clientHeight); });
-  ren.setAnimationLoop(() => { ctl.update(); ren.render(scene, cam); });
+  ren.setAnimationLoop(() => { moveChairs(); ctl.update(); ren.render(scene, cam); });
 } catch (e) { document.getElementById("v3msg").textContent = "The 3D view couldn't start on this device (" + e.message + "). The flat drawing is below."; }
 </script>
 </body>
