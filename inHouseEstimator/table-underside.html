@@ -139,7 +139,7 @@ try {
   const label = (txt, col, x, y, z, size = 0.45) => {   // flat text that always faces the camera
     const c = document.createElement("canvas"), g = c.getContext("2d"); c.width = 256; c.height = 128;
     g.font = "bold 72px system-ui,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = col; g.fillText(txt, 128, 64);
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
     sp.position.set(x, y, z); sp.scale.set(size * 2, size, 1); sp.renderOrder = 10; scene.add(sp); return sp;
   };
   /* Tabletop (wood underneath, felt on top), rail, and a pedestal down to the floor. */
