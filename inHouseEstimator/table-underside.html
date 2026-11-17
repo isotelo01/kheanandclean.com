@@ -33,6 +33,16 @@ a{color:var(--gold)}
 <div class="wrap">
   <div class="top"><a class="btn" href="./player-tracker-hardware.html">&lsaquo; Hardware</a><h1>Under the Table</h1></div>
   <p class="muted" style="margin:0 0 10px">Poker table, 9 seats. Drawn looking down through the tabletop (like an x-ray), dealer at the top, so the seat numbers match the Testing page. Lying underneath, everything is mirrored left to right.</p>
+  <div class="box" style="padding:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px">
+      <b style="color:var(--gold)">3D</b><span class="muted">Drag to turn it, scroll or pinch to zoom, right-drag (two fingers) to slide.</span>
+      <span style="flex:1"></span>
+      <button class="btn" id="v3see" type="button">See-through table</button><button class="btn" id="v3under" type="button">View from under</button><button class="btn" id="v3top" type="button">View from above</button>
+    </div>
+    <div id="v3" style="height:560px;border-radius:8px;overflow:hidden;background:#0e1628;touch-action:none"></div>
+    <p class="muted" id="v3msg" style="margin:6px 0 0"></p>
+  </div>
+  <h2>Flat drawing</h2>
   <div class="box"><svg id="ut" viewBox="0 0 1000 600" role="img" aria-label="Underside of the poker table"></svg></div>
 
   <h2>What's on the drawing</h2>
@@ -105,6 +115,76 @@ a{color:var(--gold)}
   s += `<text x="${CX}" y="590" fill="rgba(255,255,255,.55)" font-size="13" text-anchor="middle">Not to scale. Cable routes are general; exact wiring gets worked out at the build.</text>`;
   document.getElementById("ut").innerHTML = s;
 })();
+</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+/* 3D view: the same table and parts as the flat drawing, built in three.js so it can be turned around.
+   Units are feet: table about 9 x 3.8 ft, dealer at the back (-z), seat 5 at the front (+z). */
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+const box = document.getElementById("v3");
+try {
+  const A = 4.5, B = 1.9, SEATS = 9, rad = d => d * Math.PI / 180;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0e1628);
+  const cam = new THREE.PerspectiveCamera(40, box.clientWidth / box.clientHeight, 0.1, 200);
+  const ren = new THREE.WebGLRenderer({ antialias: true }); ren.setPixelRatio(Math.min(2, devicePixelRatio)); ren.setSize(box.clientWidth, box.clientHeight); box.appendChild(ren.domElement);
+  const ctl = new OrbitControls(cam, ren.domElement); ctl.enableDamping = true; ctl.target.set(0, -0.4, 0);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.75)); const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(3, 8, 5); scene.add(sun);
+  const low = new THREE.DirectionalLight(0xffffff, 0.8); low.position.set(-3, -8, 4); scene.add(low);   // lights the underside too
+  const P = (t, a, b, y) => new THREE.Vector3(Math.cos(t) * a, y, Math.sin(t) * b);   // a point on an oval (z = toward the players)
+  const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, ...o });
+  const ring = (a, b, y) => new THREE.CatmullRomCurve3(Array.from({ length: 96 }, (_, i) => P(i / 96 * Math.PI * 2, a, b, y)), true);
+  const tube = (curve, r, m) => new THREE.Mesh(new THREE.TubeGeometry(curve, 200, r, 10, true), m);
+  const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); scene.add(o); return o; };
+  const label = (txt, col, x, y, z, size = 0.45) => {   // flat text that always faces the camera
+    const c = document.createElement("canvas"), g = c.getContext("2d"); c.width = 256; c.height = 128;
+    g.font = "bold 72px system-ui,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = col; g.fillText(txt, 128, 64);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    sp.position.set(x, y, z); sp.scale.set(size * 2, size, 1); sp.renderOrder = 10; scene.add(sp); return sp;
+  };
+  /* Tabletop (wood underneath, felt on top), rail, and a pedestal down to the floor. */
+  const shape = new THREE.Shape(); shape.absellipse(0, 0, A, B, 0, Math.PI * 2);
+  const woodM = mat(0x6b4f2a), feltM = mat(0x0f6b3a, { roughness: 0.95 });
+  const wood = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false, curveSegments: 96 }), woodM); wood.rotation.x = Math.PI / 2; scene.add(wood);
+  const felt = new THREE.Mesh(new THREE.ShapeGeometry(shape, 96), feltM); felt.rotation.x = -Math.PI / 2; felt.position.y = 0.003; scene.add(felt);
+  scene.add(tube(ring(A + 0.1, B + 0.1, 0.02), 0.17, mat(0x151515, { roughness: 0.5 })));
+  add(new THREE.CylinderGeometry(0.35, 0.35, 2.3, 32), mat(0x2a2a2a), 0, -1.27, 0);
+  add(new THREE.CylinderGeometry(1.1, 1.2, 0.08, 48), mat(0x2a2a2a), 0, -2.42, 0);
+  const grid = new THREE.GridHelper(14, 14, 0x334155, 0x1e293b); grid.position.y = -2.46; scene.add(grid);
+  label("DEALER", "#E3B64A", 0, 0.45, -(B + 0.9), 0.5);
+  /* Under the table: hub in the middle, power supply in front of it, 4 receivers toward the corners. */
+  const Y = -0.24;
+  const hub = add(new THREE.BoxGeometry(0.9, 0.2, 0.6), mat(0x111827, { emissive: 0x3a2a05 }), 0, Y, -0.35); label("HUB", "#E3B64A", 0, Y - 0.35, -0.35, 0.4);
+  const psu = add(new THREE.BoxGeometry(0.8, 0.22, 0.5), mat(0x7f1d1d), 0, Y, 0.6); label("POWER", "#fecaca", 0, Y - 0.35, 0.6, 0.38);
+  const blue = mat(0x38bdf8, { emissive: 0x0c4a6e }), orange = mat(0xf97316, { emissive: 0x7c2d12 }), red = mat(0xf87171, { emissive: 0x7f1d1d }), purple = mat(0xa855f7, { emissive: 0x3b0764 });
+  [-144, -36, 36, 144].forEach((d, i) => {
+    const p = P(rad(d), A - 0.8, B - 0.5, Y);
+    add(new THREE.BoxGeometry(0.33, 0.1, 0.17), blue, p.x, p.y, p.z); label("R" + (i + 1), "#bae6fd", p.x, p.y - 0.3, p.z, 0.35);
+    scene.add(tube(new THREE.LineCurve3(p, hub.position.clone()), 0.025, blue));   // USB cable to the hub
+  });
+  /* Each seat: heat sensor under the rail, USB-C charging port next to it, seat number outside. */
+  for (let k = 1; k <= SEATS; k++) {
+    const t = rad(-90 + 36 * k), h = P(t, A - 0.12, B - 0.12, -0.18), u = P(t + rad(7), A - 0.12, B - 0.12, -0.18), n = P(t, A + 0.9, B + 0.9, 0.35);
+    const hm = add(new THREE.BoxGeometry(0.22, 0.09, 0.14), orange, h.x, h.y, h.z); hm.rotation.y = -t;
+    const um = add(new THREE.BoxGeometry(0.16, 0.06, 0.08), purple, u.x, u.y, u.z); um.rotation.y = -t;
+    label(String(k), "#ffffff", n.x, n.y, n.z, 0.5);
+  }
+  /* Cables: heat sensor run (orange), charging power run (red), each back to the hub / power supply. */
+  scene.add(tube(ring(A - 0.35, B - 0.35, -0.22), 0.02, orange));
+  scene.add(tube(new THREE.LineCurve3(hub.position.clone(), P(rad(-90), A - 0.35, B - 0.35, -0.22)), 0.02, orange));
+  scene.add(tube(ring(A - 0.22, B - 0.22, -0.26), 0.025, red));
+  scene.add(tube(new THREE.LineCurve3(psu.position.clone(), P(rad(90), A - 0.22, B - 0.22, -0.26)), 0.025, red));
+  scene.add(tube(new THREE.LineCurve3(psu.position.clone(), hub.position.clone()), 0.025, red));
+  /* Buttons: see-through tabletop, and quick camera spots. */
+  let see = false;
+  document.getElementById("v3see").onclick = () => { see = !see; for (const m of [woodM, feltM]) { m.transparent = see; m.opacity = see ? 0.25 : 1; m.depthWrite = !see; m.needsUpdate = true; } };
+  const view = (x, y, z) => { cam.position.set(x, y, z); ctl.target.set(0, -0.4, 0); ctl.update(); };
+  document.getElementById("v3under").onclick = () => view(5, -4.2, 6.5);
+  document.getElementById("v3top").onclick = () => view(0, 8.5, 4);
+  view(5, -4.2, 6.5);
+  addEventListener("resize", () => { cam.aspect = box.clientWidth / box.clientHeight; cam.updateProjectionMatrix(); ren.setSize(box.clientWidth, box.clientHeight); });
+  ren.setAnimationLoop(() => { ctl.update(); ren.render(scene, cam); });
+} catch (e) { document.getElementById("v3msg").textContent = "The 3D view couldn't start on this device (" + e.message + "). The flat drawing is below."; }
 </script>
 </body>
 </html>
