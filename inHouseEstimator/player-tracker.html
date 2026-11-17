@@ -499,7 +499,7 @@ function drawTable(pick) {
       let near = null, nd = Infinity;
       for (const j of SEATL) { const [qx, qy] = chairPos(j), d = Math.hypot(qx - rx0, qy - ry0); if (d < nd) { nd = d; near = [qx, qy]; } }
       const a = near ? Math.atan2(near[1] - ly, near[0] - lx) : Math.atan2(ly - my, lx - mx);
-      if (near) s += `<line data-sl="${i}" x1="${lx.toFixed(1)}" y1="${ly.toFixed(1)}" x2="${near[0].toFixed(1)}" y2="${near[1].toFixed(1)}" stroke="rgba(255,255,255,.75)" stroke-width="1.5"/>`;
+      if (near) s += `<line data-sl="${i}" x1="${lx.toFixed(1)}" y1="${ly.toFixed(1)}" x2="${near[0].toFixed(1)}" y2="${near[1].toFixed(1)}" stroke="rgba(255,255,255,.75)" stroke-width="1.5" stroke-dasharray="3 4"/>`;   // dashed, like the receiver lines
       const col = rd.warm ? "#f97316" : rd.ft != null && rd.ft <= PULL_FT ? "rgba(74,222,128,.25)" : "rgba(0,0,0,.25)";
       s += `<g data-sb="${i}" transform="translate(${lx.toFixed(1)} ${ly.toFixed(1)}) rotate(${(a * 180 / Math.PI - 90).toFixed(1)})">`
          + `<rect x="-17" y="-6" width="34" height="12" rx="3" fill="${col}" stroke="${rd.warm ? "#fdba74" : "rgba(255,255,255,.35)"}"/>`
