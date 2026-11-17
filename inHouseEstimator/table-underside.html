@@ -65,7 +65,8 @@ a{color:var(--gold)}
       <li><b>Heat sensors on one cable</b> each need their own address. The cheap MLX90614 can be given one in software; the grid AMG8833 only has two, so it needs a small splitter board (I2C multiplexer).</li>
       <li><b>Charging ports</b>: plan the power supply for every seat charging at once (USB-C phones pull about 20&nbsp;W each).</li>
       <li><b>Setup once per table</b>: measure where each receiver sits, mark each seat, and take an empty-seat reading for the heat sensors. Everything is mounted on the table, so the table can move without redoing it. Only redo it if a receiver gets moved.</li>
-      <li><b>The dealer's tablet and the shuffle machine</b> run off the same power supply. The shuffler sits on the dealer's right, in front of the chip tray (in front of the tablet); its top is flush with the felt and its body hangs under the table (see the 3D view).</li>
+      <li><b>Wall power:</b> one cord from the floor outlet runs up a pedestal to a power strip under the table. The 12&nbsp;V power supply and the shuffle machine (on its own cord) plug into the strip.</li>
+      <li><b>The dealer's tablet</b> runs off the 12&nbsp;V power supply; <b>the shuffle machine</b> plugs into the power strip. The shuffler sits on the dealer's right, in front of the chip tray (in front of the tablet); its top is flush with the felt and its body hangs under the table (see the 3D view).</li>
       <li><b>Wire management</b>: one cable track clipped around the underside just inside the rail carries every cable (heat sensors, receivers, charging power). Each seat gets a short drop from it to its heat sensor and USB-C port; the hub, power supply, tablet and shuffler each tie into it. Everything mounts flat against the underside, clear of players' knees.</li>
       <li><b>Newer plan (Hardware page):</b> one Cat6 cable per seat runs straight back to a <b>hub box</b> that holds the hub and the 12&nbsp;V power supply; the shuffler plugs into the power strip on its own cord. The drawing and 3D view still show the older cable track.</li>
       <li><b>Keep metal away</b> from the receivers and the chair tags.</li>
@@ -108,7 +109,17 @@ a{color:var(--gold)}
      + `<text y="16" fill="rgba(255,255,255,.75)" font-size="12" text-anchor="middle">Raspberry Pi 5 &middot; Wi-Fi</text></g>`
      + `<g transform="translate(${psu[0]} ${psu[1]})"><rect x="-58" y="-26" width="116" height="52" rx="8" fill="#7f1d1d" stroke="#f87171" stroke-width="2"/>`
      + `<text y="-3" fill="#fecaca" font-size="14" font-weight="700" text-anchor="middle">POWER</text>`
-     + `<text y="15" fill="rgba(255,255,255,.75)" font-size="11" text-anchor="middle">1 plug to the wall</text></g>`;
+     + `<text y="15" fill="rgba(255,255,255,.75)" font-size="11" text-anchor="middle">plugs into the strip</text></g>`;
+  /* Power strip under the table by the right pedestal: its cord runs down the pedestal to the floor outlet.
+     The 12 V power supply and the shuffler plug into it. */
+  const PS = [800, CY];
+  s += `<polyline points="${psu[0] + 58},${psu[1] + 12} 752,${psu[1] + 12} 752,${PS[1] + 8} ${PS[0] - 40},${PS[1] + 8}" fill="none" stroke="#e5e7eb" stroke-width="3"/>`   // power supply's cord
+     + `<line x1="${PS[0] - 40}" y1="${PS[1] - 6}" x2="${CX + 215 + 30}" y2="${CY - 6}" stroke="#111" stroke-width="5"/>`   // strip's cord, to the pedestal
+     + `<g transform="translate(${PS[0]} ${PS[1]})"><rect x="-40" y="-13" width="80" height="26" rx="5" fill="#e5e7eb" stroke="#111" stroke-width="2"/>`
+     + [-24, -8, 8, 24].map(x => `<rect x="${x - 4}" y="-5" width="8" height="10" rx="2" fill="#374151"/>`).join("") + `</g>`
+     + `<text x="${PS[0]}" y="${PS[1] - 20}" fill="#e5e7eb" font-size="12" font-weight="700" text-anchor="middle">POWER STRIP</text>`
+     + `<text x="${PS[0] + 4}" y="${PS[1] + 30}" fill="rgba(229,231,235,.85)" font-size="11" text-anchor="middle">&#8595; cord down the pedestal</text>`
+     + `<text x="${PS[0] + 4}" y="${PS[1] + 43}" fill="rgba(229,231,235,.85)" font-size="11" text-anchor="middle">to the floor outlet</text>`;
   /* Each seat: number outside the rail, heat sensor under the rail, USB-C port just beside it. */
   for (let k = 1; k <= SEATS; k++) {
     const t = seatT(k), d0 = t * 180 / Math.PI + 90, deg = ((d0 % 360) + 360) % 360 > 90 && ((d0 % 360) + 360) % 360 < 270 ? d0 + 180 : d0;   // labels read upright
@@ -210,7 +221,15 @@ try {
   path([V(0.9, TY, 0.6), V(-0.85, TY, 0.6)], 0.016, red);             // power supply to the hub
   /* The tablet and the shuffler take power from the red run right behind them. */
   const tb = near(-1.0, TZ); path([at(tb, 0.035), V(-1.0, -0.12, TZ)], 0.016, red);
-  const sb = near(SH.x, SH.z); path([at(sb, 0.035), V(SH.x, -0.4, SH.z - 0.275)], 0.016, red);
+  /* Wall power: a floor outlet, its cord up the right pedestal to a power strip under the table. The 12 V power
+     supply and the shuffler (its own cord) plug into the strip. */
+  const cordM = mat(0x111111, { roughness: 0.6 });
+  const strip = add(new THREE.BoxGeometry(1.0, 0.1, 0.2), mat(0xe5e7eb), 1.85, TY, -0.45); label("POWER STRIP", "#e5e7eb", 1.85, TY - 0.32, -0.45, 0.42);
+  for (let i = 0; i < 4; i++) add(new THREE.BoxGeometry(0.08, 0.02, 0.12), mat(0x374151), 1.5 + i * 0.22, TY - 0.06, -0.45);
+  add(new THREE.BoxGeometry(0.35, 0.25, 0.12), mat(0xd1d5db), 3.4, -2.33, 0.9); label("FLOOR OUTLET", "#e5e7eb", 3.4, -1.95, 0.9, 0.45);
+  path([V(3.4, -2.3, 0.84), V(2.65, -2.4, 0.3), V(2.62, -2.2, 0), V(2.62, -0.3, 0), V(2.35, TY, -0.45)], 0.03, cordM);   // up the pedestal
+  path([V(1.3, TY - 0.03, 0.35), V(1.4, TY - 0.03, -0.45)], 0.022, cordM);                                                  // power supply into the strip
+  path([V(SH.x + 0.28, -0.8, SH.z), V(0.6, -0.8, -0.6), V(1.4, TY - 0.03, -0.5)], 0.022, cordM);                          // shuffler's own cord into the strip
   /* Buttons: see-through tabletop, and quick camera spots. */
   let see = false;
   document.getElementById("v3see").onclick = () => { see = !see; for (const m of [woodM, feltM]) { m.transparent = see; m.opacity = see ? 0.25 : 1; m.depthWrite = !see; m.needsUpdate = true; } };
