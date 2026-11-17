@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Under the Table</title>
+<style>
+/* Player Tracker: the underside of a poker table, with where the receivers, hub, heat sensors, USB-C charging
+   ports and cables go. Drawing only, no data. Linked from the Hardware page. */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80}
+*{box-sizing:border-box}
+body{margin:0;background:var(--navy);color:#fff;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 48px}
+.wrap{max-width:1100px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+h1{margin:0;font-size:26px;color:var(--gold)}
+h2{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:26px 0 10px}
+.btn{display:inline-block;background:none;color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:6px 12px;font:700 14px system-ui,sans-serif;text-decoration:none}
+.box{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:14px 16px}
+.muted{color:rgba(255,255,255,.65);font-size:14px}
+svg{width:100%;height:auto;display:block}
+.key{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px 18px}
+.key div{display:flex;gap:10px;align-items:flex-start}
+.sw{flex:none;width:18px;height:18px;border-radius:4px;margin-top:4px}
+.ln{flex:none;width:26px;height:0;margin-top:12px;border-top:3px solid}
+ul{margin:6px 0 0;padding-left:20px}
+a{color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a class="btn" href="./player-tracker-hardware.html">&lsaquo; Hardware</a><h1>Under the Table</h1></div>
+  <p class="muted" style="margin:0 0 10px">Poker table, 9 seats. Drawn looking down through the tabletop (like an x-ray), dealer at the top, so the seat numbers match the Testing page. Lying underneath, everything is mirrored left to right.</p>
+  <div class="box"><svg id="ut" viewBox="0 0 1000 600" role="img" aria-label="Underside of the poker table"></svg></div>
+
+  <h2>What's on the drawing</h2>
+  <div class="box key">
+    <div><span class="sw" style="background:#0c4a6e;border:2px solid #38bdf8"></span><span><b>R1&ndash;R4 receivers</b> (UWB anchors, Qorvo DWM3001CDK, about 2&times;1 in). Spread out toward the four corners, not bunched together, so they can place every chair. Hidden under the table; the radio goes through wood and plastic, not metal.</span></div>
+    <div><span class="sw" style="background:#111827;border:2px solid var(--gold)"></span><span><b>Hub</b> (Raspberry Pi 5) under the middle. Collects where the chairs are and who's sitting, and sends it over Wi-Fi to the app's database. The tablet, the Floor page and the wait list all read it from there.</span></div>
+    <div><span class="sw" style="background:#f97316"></span><span><b>Heat sensor</b> at each seat, under the rail, aimed down at the lap. Needs an open hole to look through.</span></div>
+    <div><span class="sw" style="background:#a855f7"></span><span><b>USB-C charging port</b> at each seat, under the rail, for the players' phones.</span></div>
+    <div><span class="sw" style="background:#7f1d1d;border:2px solid #f87171"></span><span><b>Power supply</b>: one plug to the wall runs everything on the table.</span></div>
+    <div><span class="ln" style="border-color:#38bdf8"></span><span><b>Receiver cables</b>: one USB cable from each receiver to the hub (data and power).</span></div>
+    <div><span class="ln" style="border-color:#f97316;border-top-style:dashed"></span><span><b>Heat sensor cable</b>: one thin 4-wire cable runs seat to seat under the rail and back to the hub.</span></div>
+    <div><span class="ln" style="border-color:#f87171"></span><span><b>Charging power</b>: a power run under the rail out to every USB-C port. Wiring details later.</span></div>
+  </div>
+
+  <h2>Good to know</h2>
+  <div class="box">
+    <ul style="margin:0">
+      <li><b>Chairs aren't on this drawing.</b> Each chair carries its own tag and swappable 18650 battery under the seat; nothing wires to the table.</li>
+      <li><b>Heat sensors on one cable</b> each need their own address. The cheap MLX90614 can be given one in software; the grid AMG8833 only has two, so it needs a small splitter board (I2C multiplexer).</li>
+      <li><b>Charging ports</b>: plan the power supply for every seat charging at once (USB-C phones pull about 20&nbsp;W each).</li>
+      <li><b>Setup once per table</b>: measure where each receiver sits, mark each seat, and take an empty-seat reading for the heat sensors. Everything is mounted on the table, so the table can move without redoing it. Only redo it if a receiver gets moved.</li>
+      <li><b>Keep metal away</b> from the receivers and the chair tags.</li>
+    </ul>
+  </div>
+</div>
+<script>
+/* The drawing: oval table (same shape as the Testing page, 400 x 160 there), 9 seats, dealer at the top. */
+(function () {
+  const W = 1000, CX = 500, CY = 300, A = 420, B = 170, SEATS = 9;
+  const P = (t, da = 0, db = da) => [CX + Math.cos(t) * (A + da), CY + Math.sin(t) * (B + db)];
+  const rad = d => d * Math.PI / 180, f = n => n.toFixed(1);
+  const seatT = k => rad(-90 + 36 * k);   // seat 1 = dealer's left (right side of the picture)
+  const ell = (da, attr) => `<ellipse cx="${CX}" cy="${CY}" rx="${A + da}" ry="${B + da}" ${attr}/>`;
+  let s = `<rect width="${W}" height="600" fill="#0e1628"/>`
+    + ell(26, `fill="#1b1b1b" stroke="#444" stroke-width="2"`)   // rail (seen through)
+    + ell(0, `fill="#2a2016" stroke="#6b4f2a" stroke-width="2"`)    // underside of the tabletop (wood)
+    + `<text x="${CX}" y="${CY - B - 34}" fill="var(--gold)" font-size="15" font-weight="700" text-anchor="middle">DEALER</text>`;
+  /* Charging power: red run under the rail to every port, fed from the power supply. */
+  s += ell(-14, `fill="none" stroke="#f87171" stroke-width="3" opacity=".8"`);
+  /* Heat sensor cable: orange dashed run seat to seat. */
+  s += ell(-30, `fill="none" stroke="#f97316" stroke-width="2.5" stroke-dasharray="8 6"`);
+  /* Hub and power supply in the middle. */
+  const hub = [CX - 70, CY + 10], psu = [CX + 90, CY + 10];
+  /* Receivers in the four corners (gaps between seats 8-9, 1-2, 3-4, 6-7), each cabled to the hub. */
+  const rx = [-144, -36, 36, 144].map(d => P(rad(d), -70, -45));
+  rx.forEach(([x, y]) => { s += `<line x1="${f(x)}" y1="${f(y)}" x2="${hub[0]}" y2="${hub[1]}" stroke="#38bdf8" stroke-width="3"/>`; });
+  s += `<line x1="${hub[0]}" y1="${hub[1]}" x2="${CX - 70}" y2="${CY + B - 30}" stroke="#f97316" stroke-width="2.5" stroke-dasharray="8 6"/>`   // hub to the heat sensor run
+     + `<line x1="${psu[0]}" y1="${psu[1]}" x2="${CX + 90}" y2="${CY + B - 14}" stroke="#f87171" stroke-width="3"/>`   // power supply to the charging run
+     + `<line x1="${psu[0]}" y1="${psu[1]}" x2="${hub[0]}" y2="${hub[1]}" stroke="#f87171" stroke-width="3"/>`;   // power supply to the hub
+  rx.forEach(([x, y], i) => {
+    s += `<g transform="translate(${f(x)} ${f(y)})"><rect x="-26" y="-15" width="52" height="30" rx="5" fill="#0c4a6e" stroke="#38bdf8" stroke-width="2"/>`
+       + `<text y="6" fill="#bae6fd" font-size="16" font-weight="700" text-anchor="middle">R${i + 1}</text></g>`;
+  });
+  s += `<g transform="translate(${hub[0]} ${hub[1]})"><rect x="-62" y="-30" width="124" height="60" rx="8" fill="#111827" stroke="var(--gold)" stroke-width="2"/>`
+     + `<text y="-4" fill="var(--gold)" font-size="16" font-weight="700" text-anchor="middle">HUB</text>`
+     + `<text y="16" fill="rgba(255,255,255,.75)" font-size="12" text-anchor="middle">Raspberry Pi 5 &middot; Wi-Fi</text></g>`
+     + `<g transform="translate(${psu[0]} ${psu[1]})"><rect x="-58" y="-26" width="116" height="52" rx="8" fill="#7f1d1d" stroke="#f87171" stroke-width="2"/>`
+     + `<text y="-3" fill="#fecaca" font-size="14" font-weight="700" text-anchor="middle">POWER</text>`
+     + `<text y="15" fill="rgba(255,255,255,.75)" font-size="11" text-anchor="middle">1 plug to the wall</text></g>`;
+  /* Each seat: number outside the rail, heat sensor under the rail, USB-C port just beside it. */
+  for (let k = 1; k <= SEATS; k++) {
+    const t = seatT(k), deg = t * 180 / Math.PI + 90;
+    const [nx, ny] = P(t, 56), [hx, hy] = P(t, -30), [ux, uy] = P(t + rad(9), -14, -14);
+    s += `<text x="${f(nx)}" y="${f(ny + 8)}" fill="#fff" font-size="24" font-weight="800" text-anchor="middle">${k}</text>`
+       + `<g transform="translate(${f(hx)} ${f(hy)}) rotate(${f(deg)})"><rect x="-17" y="-9" width="34" height="18" rx="4" fill="#f97316" stroke="#fdba74"/>`
+       + `<text y="5" fill="#000" font-size="11" font-weight="800" text-anchor="middle">HEAT</text></g>`
+       + `<g transform="translate(${f(ux)} ${f(uy)}) rotate(${f(deg)})"><rect x="-13" y="-7" width="26" height="14" rx="7" fill="#a855f7" stroke="#e9d5ff"/>`
+       + `<text y="4" fill="#fff" font-size="8" font-weight="800" text-anchor="middle">USB-C</text></g>`;
+  }
+  s += `<text x="${CX}" y="590" fill="rgba(255,255,255,.55)" font-size="13" text-anchor="middle">Not to scale. Cable routes are general; exact wiring gets worked out at the build.</text>`;
+  document.getElementById("ut").innerHTML = s;
+})();
+</script>
+</body>
+</html>

@@ -49,7 +49,7 @@ ul{margin:6px 0 0;padding-left:20px}
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><a class="btn" href="./player-tracker-hub.html">&lsaquo; Back</a><h1>Hardware</h1></div>
+  <div class="top"><a class="btn" href="./player-tracker-hub.html">&lsaquo; Back</a><h1>Hardware</h1><a class="btn" href="./table-underside.html" style="margin-left:auto">Under the table &rsaquo;</a></div>
   <p class="muted">How the smart chairs will work, and what to buy for one table. A plan, not built yet.</p>
 
   <h2>How the chairs work</h2>
@@ -91,7 +91,7 @@ ul{margin:6px 0 0;padding-left:20px}
   <div class="box">
     <p style="margin-top:0">The goal: a player sets their phone on the rail at their seat. It charges, and it logs them in to that seat. The chair then keeps their time accurate (sitting, on break, gone).</p>
     <ul style="margin:0">
-      <li><b>Charging pad</b> built into the rail at each seat: a wireless (Qi2 / MagSafe-style) charger, the kind you set a phone on. On its own it only charges; it can't tell whose phone it is.</li>
+      <li><b>USB-C charging port</b> under the rail at each seat (cheaper than a wireless pad and works with every phone). On its own it only charges; it can't tell whose phone it is.</li>
       <li><b>NFC tag</b> next to the pad, under the rail cover. It holds that seat's sign-in link (the same one the seat QR uses, e.g. <code>player-tracker.html?join&amp;t=2&amp;s=5</code>).</li>
       <li><b>What the player sees:</b> they set down an unlocked phone and a notification pops up; one tap opens their sign-in for that seat. A phone that's signed in before goes straight to asking the dealer for the seat.</li>
       <li><b>Then the chair takes over:</b> once they're in, the chair's tag and the lap sensor keep their hours (sitting = time counts, pulled out = break).</li>
@@ -106,12 +106,12 @@ ul{margin:6px 0 0;padding-left:20px}
       <tr><td><b>UWB anchor</b> &mdash; same Qorvo DWM3001CDK board, set up as an anchor. Three or four of them let the table work out where every chair is at once.<span class="spec"><b>Range:</b> same board as the tag, so same accuracy.</span><span class="buy"><a href="https://www.digikey.com/en/products/detail/qorvo/DWM3001CDK/24367348" target="_blank" rel="noopener">DigiKey</a><a href="https://www.mouser.com/c/?q=DWM3001CDK" target="_blank" rel="noopener">Mouser</a><a href="https://www.amazon.com/s?k=DWM3001CDK" target="_blank" rel="noopener">Amazon</a></span></td><td>Under the rail, spread around the table</td><td class="n">4</td></tr>
       <tr><td><b>Thermal lap sensor</b> &mdash; Adafruit AMG8833 IR Thermal Camera Breakout (product #3538), a Panasonic Grid-EYE 8&times;8 heat grid on a ready-to-plug board.<span class="spec"><b>Range:</b> picks up a person up to about 23 ft (7&nbsp;m); a lap 1&ndash;2 ft below the rail is easy. Reads 32&ndash;176&deg;F, &plusmn;4.5&deg;F, 10 times a second.</span><span class="buy"><a href="https://www.adafruit.com/product/3538" target="_blank" rel="noopener">Adafruit ($44.95)</a><a href="https://www.digikey.com/en/products/result?keywords=1528-2409-ND" target="_blank" rel="noopener">DigiKey</a><a href="https://chicagodist.com/collections/all/products/adafruit-amg8833-ir-thermal-camera-breakout" target="_blank" rel="noopener">Chicago Electronic Distributors</a></span></td><td>Under the rail at each seat, aimed down at the lap</td><td class="n">7</td></tr>
       <tr><td><b>Table hub</b> &mdash; Raspberry Pi 5 (4&nbsp;GB). Reads the anchors and the lap sensors and sends the chair positions to Firebase; Dealer Control and the Floor update live like they do now.<span class="spec"><b>Range:</b> n/a, it's the brain. Plugs into the anchors and lap sensors.</span><span class="buy"><a href="https://adafruit.com/product/5812" target="_blank" rel="noopener">Adafruit</a><a href="https://www.amazon.com/s?k=Raspberry+Pi+5+4GB" target="_blank" rel="noopener">Amazon</a></span></td><td>Under the table</td><td class="n">1</td></tr>
-      <tr><td><b>Wireless charging pad</b> &mdash; Kew Labs UTS-1 invisible wireless charger, mounts under the rail and charges through it. Charges the phone; doesn't identify it.<span class="spec"><b>Range:</b> charges through 0.7&ndash;1 in (18&ndash;25&nbsp;mm) of non-metal rail. Phone has to sit right over it, so mark the spot. About $105 each.</span><span class="buy"><a href="https://www.google.com/search?q=Kew+Labs+UTS-1+wireless+charger" target="_blank" rel="noopener">Kew Labs</a><a href="https://www.amazon.com/s?k=Kew+Labs+UTS-1" target="_blank" rel="noopener">Amazon</a></span></td><td>Set into the rail at each seat</td><td class="n">7</td></tr>
-      <tr><td><b>NFC tag</b> &mdash; NTAG215 round sticker, 25&nbsp;mm (1 in), written with that seat's sign-in link.<span class="spec"><b>Range:</b> a phone reads it from about 1&ndash;2 in (1&ndash;5&nbsp;cm), so it has to sit just under the rail top. Not through metal.</span><span class="buy"><a href="https://store.gototags.com/nfc-sticker-ntag215-25-mm-circle/" target="_blank" rel="noopener">GoToTags</a><a href="https://www.amazon.com/s?k=NTAG215+25mm+NFC+sticker" target="_blank" rel="noopener">Amazon</a></span></td><td>In the rail next to each charging pad</td><td class="n">7</td></tr>
+      <tr><td><b>USB-C charging port</b> &mdash; a panel-mount USB-C charging port under the rail at each seat, fed from the table's power supply. Every phone works with it and it's rated for far more plug-ins than USB-A. (Wireless pads were about $105 a seat and need the phone in exactly the right spot; maybe later.)<span class="spec"><b>Power:</b> plan about 20&nbsp;W per seat so every seat can charge at once.</span></td><td>Under the rail at each seat</td><td class="n">7</td></tr>
+      <tr><td><b>NFC tag</b> &mdash; NTAG215 round sticker, 25&nbsp;mm (1 in), written with that seat's sign-in link.<span class="spec"><b>Range:</b> a phone reads it from about 1&ndash;2 in (1&ndash;5&nbsp;cm), so it has to sit just under the rail top. Not through metal.</span><span class="buy"><a href="https://store.gototags.com/nfc-sticker-ntag215-25-mm-circle/" target="_blank" rel="noopener">GoToTags</a><a href="https://www.amazon.com/s?k=NTAG215+25mm+NFC+sticker" target="_blank" rel="noopener">Amazon</a></span></td><td>In the rail next to each charging port</td><td class="n">7</td></tr>
       <tr><td><b>Odds and ends</b> &mdash; USB hub and cables, power supply, wiring for the lap sensors, chair batteries, small cases.</td><td>Table and chairs</td><td class="n">&mdash;</td></tr>
     </table>
   </div>
-  <p class="muted">Rough prices: Qorvo DWM3001CDK about $30 each (11 boards, around $330). AMG8833 $44.95 each at Adafruit (7, about $315; cheaper at 10+). Raspberry Pi 5 4&nbsp;GB $130 at Adafruit. Kew Labs UTS-1 about $105 each (7, about $735). NFC stickers are a dollar or two each. Prices change; check before ordering.</p>
+  <p class="muted">Rough prices: Qorvo DWM3001CDK about $30 each (11 boards, around $330). AMG8833 $44.95 each at Adafruit (7, about $315; cheaper at 10+). Raspberry Pi 5 4&nbsp;GB $130 at Adafruit. USB-C ports are a few dollars each. NFC stickers are a dollar or two each. Prices change; check before ordering.</p>
 
   <h2>Heat sensor: cheap one vs. grid one</h2>
   <div class="box">
@@ -144,7 +144,7 @@ ul{margin:6px 0 0;padding-left:20px}
       <li><b>Chair batteries</b> need a swap schedule.</li>
       <li><b>Programming:</b> the Qorvo boards come with firmware that already works out positions; each board just gets set as a tag or an anchor. The only new code is the small bridge on the Raspberry Pi that sends positions to Firebase.</li>
       <li><b>Phone tap:</b> iPhones read the NFC tag on their own only when unlocked and the screen is on; Android needs NFC turned on. The QR at each seat stays as the backup.</li>
-      <li><b>Charging pads</b> need power run under the rail, and the rail cover has to be thin enough (no metal) for the charger and tag to work through it.</li>
+      <li><b>Charging ports</b> need power run under the rail (see <a href="./table-underside.html">Under the table</a>), and the rail cover has to be thin enough (no metal) for the NFC tag to work through it.</li>
       <li><b>Test it now:</b> the Player Tracker table already acts this out. Drag chairs around, and use Sit / Stand on a chair's card to play the lap sensor.</li>
     </ul>
   </div>
