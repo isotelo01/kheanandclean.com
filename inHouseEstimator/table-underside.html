@@ -51,6 +51,7 @@ a{color:var(--gold)}
     <div><span class="sw" style="background:#111827;border:2px solid var(--gold)"></span><span><b>Hub</b> (Raspberry Pi 5) under the middle. Collects where the chairs are and who's sitting, and sends it over Wi-Fi to the app's database. The tablet, the Floor page and the wait list all read it from there.</span></div>
     <div><span class="sw" style="background:#f97316"></span><span><b>Heat sensor</b> at each seat, under the rail, aimed down at the lap. Needs an open hole to look through.</span></div>
     <div><span class="sw" style="background:#a855f7"></span><span><b>USB-C charging port</b> at each seat, under the rail, for the players' phones.</span></div>
+    <div><span class="sw" style="background:rgba(148,163,184,.15);border:2px dashed rgba(148,163,184,.7);border-radius:50%"></span><span><b>Two pedestals</b> (the table's feet), one toward each end, like a real poker table. Keep cables and boxes clear of them.</span></div>
     <div><span class="sw" style="background:#7f1d1d;border:2px solid #f87171"></span><span><b>Power supply</b>: one plug to the wall runs everything on the table.</span></div>
     <div><span class="ln" style="border-color:#38bdf8"></span><span><b>Receiver cables</b>: one USB cable from each receiver to the hub (data and power).</span></div>
     <div><span class="ln" style="border-color:#f97316;border-top-style:dashed"></span><span><b>Heat sensor cable</b>: one thin 4-wire cable runs seat to seat under the rail and back to the hub.</span></div>
@@ -83,6 +84,9 @@ a{color:var(--gold)}
     + ell(26, `fill="#1b1b1b" stroke="#444" stroke-width="2"`)   // rail (seen through)
     + ell(0, `fill="#2a2016" stroke="#6b4f2a" stroke-width="2"`)    // underside of the tabletop (wood)
     + `<text x="${CX}" y="${CY - B - 34}" fill="var(--gold)" font-size="15" font-weight="700" text-anchor="middle">DEALER</text>`;
+  /* Two pedestals (feet), drawn faint so the parts on top stay readable. */
+  for (const px of [CX - 215, CX + 215]) s += `<circle cx="${px}" cy="${CY}" r="32" fill="rgba(148,163,184,.10)" stroke="rgba(148,163,184,.55)" stroke-width="2" stroke-dasharray="5 4"/>`
+    + `<text x="${px}" y="${CY + 4}" fill="rgba(203,213,225,.75)" font-size="11" font-weight="700" text-anchor="middle">PEDESTAL</text>`;
   /* Charging power: red run under the rail to every port, fed from the power supply. */
   s += ell(-14, `fill="none" stroke="#f87171" stroke-width="3" opacity=".8"`);
   /* Heat sensor cable: orange dashed run seat to seat. */
