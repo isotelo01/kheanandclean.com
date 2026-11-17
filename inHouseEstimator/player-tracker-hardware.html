@@ -152,18 +152,19 @@ ul{margin:6px 0 0;padding-left:20px}
     <p style="margin:10px 0 0"><a class="btn" href="./models/seat-module.stl" download>Download STL (print)</a> <a class="btn" href="./models/seat-module.scad" download>Download .scad (edit sizes)</a></p>
   </div>
 
-  <h2>One cable per seat: Cat6 (plan)</h2>
+  <h2>One cable per seat: Cat5e (plan)</h2>
   <div class="box">
-    <p style="margin-top:0">Every seat module gets <b>one store-bought Cat6 network cable</b> back to the <b>hub box</b> under the table. The cable carries the 12&nbsp;V for the charger and the heat sensor's data. Nothing custom: any patch cable plugs in. The shuffler keeps its own power cord.</p>
+    <p style="margin-top:0">Every seat module gets <b>one store-bought Cat5e network cable</b> (Cat6 works too, same plug) back to its own jack in the <b>hub box</b> under the table. The cable carries the 12&nbsp;V for the charger and the heat sensor's data. Nothing custom: any patch cable plugs in. Every table is wired for <b>10 seats</b>: cash games use 9, seat 10 gets turned on for 10-handed tournaments. The shuffler keeps its own power cord.</p>
     <table>
       <tr><th>Pins (T568B)</th><th>Wire colors</th><th>Carries</th></tr>
-      <tr><td>4 + 5</td><td>blue, blue-white</td><td><b>+12 V</b> (two wires together)</td></tr>
-      <tr><td>7 + 8</td><td>brown-white, brown</td><td><b>Ground</b> (two wires together)</td></tr>
-      <tr><td>1 + 2</td><td>orange-white, orange</td><td><b>Sensor data (SDA)</b> + ground</td></tr>
-      <tr><td>3 + 6</td><td>green-white, green</td><td><b>Sensor clock (SCL)</b> + ground</td></tr>
+      <tr><td>4 + 5 + 1</td><td>blue, blue-white, orange-white</td><td><b>+12 V</b> (three wires together)</td></tr>
+      <tr><td>7 + 8 + 2</td><td>brown-white, brown, orange</td><td><b>Ground</b> (three wires together)</td></tr>
+      <tr><td>3</td><td>green-white</td><td><b>Sensor data (SDA)</b></td></tr>
+      <tr><td>6</td><td>green</td><td><b>Sensor clock (SCL)</b></td></tr>
     </table>
     <ul style="margin:10px 0 0">
-      <li><b>Why it works:</b> a charger pulls about 2&nbsp;A at 12&nbsp;V; split over two wires that's about 1&nbsp;A each, fine for the few feet under a table. Each data wire is twisted with a ground, which keeps the reading clean.</li>
+      <li><b>Why it works:</b> a charger pulls about 2&nbsp;A at 12&nbsp;V; split over three wires that's under 0.7&nbsp;A each, comfortable for Cat5e's thinner wires over a few feet. Wired in parallel (a star): every seat has its own cable and fuse, so one bad seat doesn't take the others down.</li>
+      <li><b>Data wires:</b> SDA and SCL share the green pair. Fine for short runs at a slow sensor speed (100&nbsp;kHz or less); test on a real table.</li>
       <li><b>The 3.3&nbsp;V for the heat sensor</b> is made on the seat board from the 12&nbsp;V, so no extra wire.</li>
       <li><b>Label every jack "12 V &mdash; NOT ETHERNET"</b> so nobody plugs a router or laptop into it.</li>
       <li><b>Before buying:</b> check the cable's rating (solid copper, not copper-clad aluminum).</li>
@@ -182,13 +183,57 @@ ul{margin:6px 0 0;padding-left:20px}
     </ul>
     <p style="margin:10px 0 6px"><b>Hub box</b> (one per table):</p>
     <ul style="margin:0">
-      <li><b>12&nbsp;V power supply</b>, about 350&nbsp;W (Mean Well-type), plugged into a power strip under the table. The shuffler plugs into the same strip on its own cord.</li>
-      <li><b>9&ndash;10 RJ45 jacks</b>, each with its own resettable fuse on the 12&nbsp;V.</li>
+      <li><b>12&nbsp;V power supply</b>, about 350&nbsp;W (Mean Well-type; 10 chargers need about 250&nbsp;W), plugged into a power strip under the table. The shuffler plugs into the same strip on its own cord.</li>
+      <li><b>10-port RJ45 jack panel</b> (or 10 RJ45 breakout boards with screw terminals), each jack with its own fuse on the 12&nbsp;V. <b>Not a network switch</b>: these cables carry 12&nbsp;V and would fry one.</li>
       <li><b>Raspberry Pi 5</b> on a 12&nbsp;V &rarr; 5&nbsp;V converter.</li>
-      <li><b>Two I2C switch boards</b> (TCA9548A, 8 channels each): each seat gets its own data channel, so all nine heat sensors can be the same part with no address setup, and the long cables don't add up on one line.</li>
+      <li><b>Two I2C switch boards</b> (TCA9548A, 8 channels each): each seat gets its own data channel, so all ten heat sensors can be the same part with no address setup, and the long cables don't add up on one line.</li>
       <li>The 4 chair receivers plug into the Pi by USB.</li>
+      <li><b>Tablet power:</b> a plain 12&nbsp;V &rarr; USB-C charger (not fast charging), always plugged in. Cheap tablets kept full all day can swell: check every few months for a bulging back or a lifting screen.</li>
     </ul>
     <p class="muted" style="margin:10px 0 0">This is a plan to hand to a board maker (JLCPCB, PCBWay) or an electronics person to turn into a real board. Parts and values get checked when the board is drawn.</p>
+  </div>
+
+  <h2>Hub box wiring</h2>
+  <div class="box">
+    <svg viewBox="0 0 900 330" role="img" aria-label="Hub box wiring">
+      <g font-family="system-ui,sans-serif" font-size="14" fill="#fff">
+      <rect x="20" y="20" width="170" height="70" rx="8" fill="#7f1d1d" stroke="#f87171" stroke-width="2"/><text x="105" y="50" text-anchor="middle" font-weight="700">12 V power supply</text><text x="105" y="72" text-anchor="middle" font-size="12">from the power strip</text>
+      <rect x="20" y="200" width="170" height="60" rx="8" fill="#1f2937" stroke="#9ca3af" stroke-width="2"/><text x="105" y="228" text-anchor="middle" font-weight="700">12 V &#8594; 5 V</text><text x="105" y="247" text-anchor="middle" font-size="12">converter</text>
+      <rect x="280" y="20" width="170" height="70" rx="8" fill="#1f2937" stroke="#fbbf24" stroke-width="2"/><text x="365" y="50" text-anchor="middle" font-weight="700">10 fuses</text><text x="365" y="72" text-anchor="middle" font-size="12">one per seat, on the +12 V</text>
+      <rect x="560" y="20" width="320" height="290" rx="8" fill="#0c4a6e" stroke="#38bdf8" stroke-width="2"/><text x="720" y="48" text-anchor="middle" font-weight="700">10-port jack panel</text>
+      <text x="720" y="70" text-anchor="middle" font-size="12">one Cat5e per seat, out to the seat modules</text>
+      <g font-size="13"><rect x="575" y="95" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="600" y="121" text-anchor="middle">S1</text><rect x="636" y="95" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="661" y="121" text-anchor="middle">S2</text><rect x="697" y="95" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="722" y="121" text-anchor="middle">S3</text><rect x="758" y="95" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="783" y="121" text-anchor="middle">S4</text><rect x="819" y="95" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="844" y="121" text-anchor="middle">S5</text><rect x="575" y="165" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="600" y="191" text-anchor="middle">S6</text><rect x="636" y="165" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="661" y="191" text-anchor="middle">S7</text><rect x="697" y="165" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="722" y="191" text-anchor="middle">S8</text><rect x="758" y="165" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="783" y="191" text-anchor="middle">S9</text><rect x="819" y="165" width="50" height="40" rx="5" fill="#082f49" stroke="#7dd3fc"/><text x="844" y="191" text-anchor="middle">S10</text></g>
+      <text x="720" y="260" text-anchor="middle" font-size="12">pins 4,5,1 = +12 V · 7,8,2 = ground · 3 = SDA · 6 = SCL</text>
+      <rect x="280" y="200" width="170" height="60" rx="8" fill="#111827" stroke="#E3B64A" stroke-width="2"/><text x="365" y="228" text-anchor="middle" font-weight="700">Raspberry Pi 5</text><text x="365" y="247" text-anchor="middle" font-size="12">+ 4 receivers by USB</text>
+      <rect x="280" y="110" width="170" height="60" rx="8" fill="#14532d" stroke="#4ade80" stroke-width="2"/><text x="365" y="137" text-anchor="middle" font-weight="700">2 &#215; TCA9548A</text><text x="365" y="156" text-anchor="middle" font-size="12">I2C switch boards</text>
+      </g>
+      <g fill="none" stroke-width="3">
+      <path d="M190 45H280" stroke="#f87171"/><path d="M450 45H560" stroke="#f87171"/>
+      <path d="M105 90V200" stroke="#f87171"/><path d="M190 230H280" stroke="#fde047"/>
+      <path d="M365 200V170" stroke="#4ade80"/><path d="M450 140H560" stroke="#4ade80"/>
+      <path d="M20 75H8V318H560" stroke="#9ca3af" stroke-dasharray="6 5"/>
+      </g>
+      <g font-family="system-ui,sans-serif" font-size="12" fill="rgba(255,255,255,.75)">
+      <text x="200" y="38">+12 V</text><text x="460" y="38">+12 V out</text><text x="112" y="150">+12 V</text><text x="200" y="222">5 V</text>
+      <text x="372" y="190">4 pins</text><text x="460" y="132">SDA/SCL</text><text x="200" y="308">all grounds join the supply's minus</text>
+      </g>
+    </svg>
+    <table style="margin-top:10px">
+      <tr><th>From</th><th>To</th><th>Carries</th></tr>
+      <tr><td>Power supply +</td><td>each fuse &rarr; jack pins 4, 5, 1</td><td>+12 V to every seat</td></tr>
+      <tr><td>Power supply &minus;</td><td>every jack pins 7, 8, 2</td><td>Ground</td></tr>
+      <tr><td>Pi pin 1 (3.3 V) and pin 6 (GND)</td><td>both switch boards VIN and GND</td><td>Power for the switch boards</td></tr>
+      <tr><td>Pi pin 3 (GPIO2, SDA)</td><td>both switch boards SDA</td><td>Data</td></tr>
+      <tr><td>Pi pin 5 (GPIO3, SCL)</td><td>both switch boards SCL</td><td>Clock</td></tr>
+      <tr><td>Switch board 1, channels 0&ndash;7</td><td>jacks S1&ndash;S8, pin 3 (SDA) and pin 6 (SCL)</td><td>Seats 1&ndash;8</td></tr>
+      <tr><td>Switch board 2, channels 0&ndash;1</td><td>jacks S9&ndash;S10, pin 3 and pin 6</td><td>Seats 9&ndash;10 (6 spare channels)</td></tr>
+      <tr><td>12 V &rarr; 5 V converter</td><td>Pi USB-C power in</td><td>Power for the Pi</td></tr>
+    </table>
+    <ul style="margin:10px 0 0">
+      <li><b>Switch board 2's address:</b> bridge its A0 pad so it answers at 0x71 (board 1 stays at 0x70).</li>
+      <li><b>Pull-up resistors</b> (about 4.7k) on each seat's SDA and SCL, on the seat board, if the sensor board doesn't have them.</li>
+      <li>Short jumper wires and screw terminals; no soldering needed for a test build.</li>
+    </ul>
   </div>
 
   <h2>Keep in mind</h2>
