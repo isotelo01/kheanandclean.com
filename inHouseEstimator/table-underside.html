@@ -139,7 +139,8 @@ try {
   const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); scene.add(o); return o; };
   const label = (txt, col, x, y, z, size = 0.45) => {   // flat text that always faces the camera
     const c = document.createElement("canvas"), g = c.getContext("2d"); c.width = 256; c.height = 128;
-    g.font = "bold 72px system-ui,sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = col; g.fillText(txt, 128, 64);
+    let fs = 72; g.font = `bold ${fs}px system-ui,sans-serif`; while (g.measureText(txt).width > 244 && fs > 30) { fs -= 4; g.font = `bold ${fs}px system-ui,sans-serif`; }   // long words shrink to fit
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = col; g.fillText(txt, 128, 64);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
     sp.position.set(x, y, z); sp.scale.set(size * 2, size, 1); sp.renderOrder = 10; scene.add(sp); return sp;
   };
