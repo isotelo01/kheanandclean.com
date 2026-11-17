@@ -64,6 +64,7 @@ a{color:var(--gold)}
       <li><b>Heat sensors on one cable</b> each need their own address. The cheap MLX90614 can be given one in software; the grid AMG8833 only has two, so it needs a small splitter board (I2C multiplexer).</li>
       <li><b>Charging ports</b>: plan the power supply for every seat charging at once (USB-C phones pull about 20&nbsp;W each).</li>
       <li><b>Setup once per table</b>: measure where each receiver sits, mark each seat, and take an empty-seat reading for the heat sensors. Everything is mounted on the table, so the table can move without redoing it. Only redo it if a receiver gets moved.</li>
+      <li><b>The dealer's tablet and the shuffle machine</b> run off the same power supply. The shuffler sits on the dealer's right, in front of the chip tray (in front of the tablet); its top is flush with the felt and its body hangs under the table (see the 3D view).</li>
       <li><b>Keep metal away</b> from the receivers and the chair tags.</li>
     </ul>
   </div>
@@ -148,33 +149,52 @@ try {
   const wood = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false, curveSegments: 96 }), woodM); wood.rotation.x = Math.PI / 2; scene.add(wood);
   const felt = new THREE.Mesh(new THREE.ShapeGeometry(shape, 96), feltM); felt.rotation.x = -Math.PI / 2; felt.position.y = 0.003; scene.add(felt);
   scene.add(tube(ring(A + 0.1, B + 0.1, 0.02), 0.17, mat(0x151515, { roughness: 0.5 })));
-  add(new THREE.CylinderGeometry(0.35, 0.35, 2.3, 32), mat(0x2a2a2a), 0, -1.27, 0);
-  add(new THREE.CylinderGeometry(1.1, 1.2, 0.08, 48), mat(0x2a2a2a), 0, -2.42, 0);
+  /* The foot: faint and see-through so it doesn't hide the parts. */
+  const ghost = mat(0x94a3b8, { transparent: true, opacity: 0.12, depthWrite: false });
+  add(new THREE.CylinderGeometry(0.35, 0.35, 2.3, 32), ghost, 0, -1.27, 0);
+  add(new THREE.CylinderGeometry(1.1, 1.2, 0.08, 48), ghost, 0, -2.42, 0);
   const grid = new THREE.GridHelper(14, 14, 0x334155, 0x1e293b); grid.position.y = -2.46; scene.add(grid);
   label("DEALER", "#E3B64A", 0, 0.45, -(B + 0.9), 0.5);
-  /* Under the table: hub in the middle, power supply in front of it, 4 receivers toward the corners. */
-  const Y = -0.24;
-  const hub = add(new THREE.BoxGeometry(0.9, 0.2, 0.6), mat(0x111827, { emissive: 0x3a2a05 }), 0, Y, -0.35); label("HUB", "#E3B64A", 0, Y - 0.35, -0.35, 0.4);
-  const psu = add(new THREE.BoxGeometry(0.8, 0.22, 0.5), mat(0x7f1d1d), 0, Y, 0.6); label("POWER", "#fecaca", 0, Y - 0.35, 0.6, 0.38);
   const blue = mat(0x38bdf8, { emissive: 0x0c4a6e }), orange = mat(0xf97316, { emissive: 0x7c2d12 }), red = mat(0xf87171, { emissive: 0x7f1d1d }), purple = mat(0xa855f7, { emissive: 0x3b0764 });
+  const path = (pts, r, m) => { const c = new THREE.CurvePath(); for (let i = 1; i < pts.length; i++) c.add(new THREE.LineCurve3(pts[i - 1], pts[i])); scene.add(new THREE.Mesh(new THREE.TubeGeometry(c, 64 * pts.length, r, 8, false), m)); };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  /* On the felt, dealer's end: chip tray, the dealer's tablet on the dealer's right (-x, the dealer faces +z),
+     and the shuffle machine in front of the tablet: its top is flush with the felt, its body hangs under the table. */
+  const TZ = -(B - 0.45);
+  add(new THREE.BoxGeometry(1.0, 0.06, 0.35), mat(0x0b4a28), 0, 0.03, TZ);
+  add(new THREE.BoxGeometry(0.65, 0.04, 0.45), mat(0x0b0b0b, { roughness: 0.3 }), -1.0, 0.02, TZ);
+  add(new THREE.BoxGeometry(0.55, 0.01, 0.35), mat(0x1e3a8a, { emissive: 0x172554 }), -1.0, 0.045, TZ); label("TABLET", "#e5e7eb", -1.0, 0.4, TZ, 0.32);
+  const SH = V(-0.95, 0, TZ + 0.75);
+  add(new THREE.BoxGeometry(0.6, 0.012, 0.6), mat(0x374151), SH.x, 0.007, SH.z);
+  add(new THREE.BoxGeometry(0.55, 0.9, 0.55), mat(0x4b5563), SH.x, -0.12 - 0.45, SH.z); label("SHUFFLER", "#e5e7eb", SH.x, -1.25, SH.z, 0.4);
+  /* Layers under the table, so nothing runs into anything: heat sensors and their cable just under the rail (-0.18),
+     the charging power run a bit lower (-0.30), and the hub, power supply and receivers lower again (-0.5) on short
+     posts, off to the sides of the foot and the shuffler. */
+  const Y = -0.5, post = (x, z) => add(new THREE.CylinderGeometry(0.03, 0.03, -0.12 - Y, 8), mat(0x64748b), x, (Y - 0.12) / 2, z);
+  const hub = add(new THREE.BoxGeometry(0.9, 0.2, 0.6), mat(0x111827, { emissive: 0x3a2a05 }), -1.7, Y, 0.55); label("HUB", "#E3B64A", -1.7, Y - 0.35, 0.55, 0.4);
+  const psu = add(new THREE.BoxGeometry(0.8, 0.22, 0.5), mat(0x7f1d1d), 1.6, -0.8, 0.2); label("POWER", "#fecaca", 1.6, -1.15, 0.2, 0.38);   // lower than the receiver cables
+  post(-1.7, 0.55); add(new THREE.CylinderGeometry(0.03, 0.03, 0.68, 8), mat(0x64748b), 1.6, -0.46, 0.2);
   [-144, -36, 36, 144].forEach((d, i) => {
     const p = P(rad(d), A - 0.8, B - 0.5, Y);
-    add(new THREE.BoxGeometry(0.33, 0.1, 0.17), blue, p.x, p.y, p.z); label("R" + (i + 1), "#bae6fd", p.x, p.y - 0.3, p.z, 0.35);
+    add(new THREE.BoxGeometry(0.33, 0.1, 0.17), blue, p.x, p.y, p.z); post(p.x, p.z); label("R" + (i + 1), "#bae6fd", p.x, p.y - 0.3, p.z, 0.35);
     scene.add(tube(new THREE.LineCurve3(p, hub.position.clone()), 0.025, blue));   // USB cable to the hub
   });
   /* Each seat: heat sensor under the rail, USB-C charging port next to it, seat number outside. */
   for (let k = 1; k <= SEATS; k++) {
-    const t = rad(-90 + 36 * k), h = P(t, A - 0.12, B - 0.12, -0.18), u = P(t + rad(7), A - 0.12, B - 0.12, -0.18), n = P(t, A + 0.9, B + 0.9, 0.35);
+    const t = rad(-90 + 36 * k), h = P(t, A - 0.12, B - 0.12, -0.18), u = P(t + rad(9), A - 0.12, B - 0.12, -0.18), n = P(t, A + 0.9, B + 0.9, 0.35);
     const hm = add(new THREE.BoxGeometry(0.22, 0.09, 0.14), orange, h.x, h.y, h.z); hm.rotation.y = -t;
     const um = add(new THREE.BoxGeometry(0.16, 0.06, 0.08), purple, u.x, u.y, u.z); um.rotation.y = -t;
     label(String(k), "#ffffff", n.x, n.y, n.z, 0.5);
   }
-  /* Cables: heat sensor run (orange), charging power run (red), each back to the hub / power supply. */
-  scene.add(tube(ring(A - 0.35, B - 0.35, -0.22), 0.02, orange));
-  scene.add(tube(new THREE.LineCurve3(hub.position.clone(), P(rad(-90), A - 0.35, B - 0.35, -0.22)), 0.02, orange));
-  scene.add(tube(ring(A - 0.22, B - 0.22, -0.26), 0.025, red));
-  scene.add(tube(new THREE.LineCurve3(psu.position.clone(), P(rad(90), A - 0.22, B - 0.22, -0.26)), 0.025, red));
-  scene.add(tube(new THREE.LineCurve3(psu.position.clone(), hub.position.clone()), 0.025, red));
+  /* Cables: heat sensor run (orange) back to the hub; charging power run (red) from the power supply;
+     power supply to the hub, up to the dealer's tablet, and to the shuffle machine. */
+  scene.add(tube(ring(A - 0.3, B - 0.3, -0.18), 0.02, orange));
+  path([hub.position.clone(), V(-1.7, -0.18, (B - 0.3) * Math.sin(Math.acos(-1.7 / (A - 0.3))))], 0.02, orange);
+  scene.add(tube(ring(A - 0.25, B - 0.25, -0.3), 0.025, red));
+  path([psu.position.clone(), V(1.6, -0.3, (B - 0.25) * Math.sin(Math.acos(1.6 / (A - 0.25))))], 0.025, red);
+  path([psu.position.clone(), V(0, -0.62, 0.55), hub.position.clone()], 0.025, red);
+  path([psu.position.clone(), V(1.6, -0.4, TZ), V(-1.0, -0.4, TZ), V(-1.0, -0.12, TZ)], 0.025, red);   // up through the table to the tablet
+  path([psu.position.clone(), V(1.0, -0.75, -0.2), V(SH.x + 0.28, -0.75, SH.z)], 0.025, red);   // to the shuffler's side
   /* Buttons: see-through tabletop, and quick camera spots. */
   let see = false;
   document.getElementById("v3see").onclick = () => { see = !see; for (const m of [woodM, feltM]) { m.transparent = see; m.opacity = see ? 0.25 : 1; m.depthWrite = !see; m.needsUpdate = true; } };
