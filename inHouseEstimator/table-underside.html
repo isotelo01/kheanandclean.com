@@ -75,12 +75,12 @@ a{color:var(--gold)}
   /* Heat sensor cable: orange dashed run seat to seat. */
   s += ell(-30, `fill="none" stroke="#f97316" stroke-width="2.5" stroke-dasharray="8 6"`);
   /* Hub and power supply in the middle. */
-  const hub = [CX - 70, CY + 10], psu = [CX + 90, CY + 10];
+  const hub = [CX, CY - 20], psu = [CX, CY + 85];   // power right under the hub, so the receiver cables stay clear
   /* Receivers in the four corners (gaps between seats 8-9, 1-2, 3-4, 6-7), each cabled to the hub. */
   const rx = [-144, -36, 36, 144].map(d => P(rad(d), -70, -45));
   rx.forEach(([x, y]) => { s += `<line x1="${f(x)}" y1="${f(y)}" x2="${hub[0]}" y2="${hub[1]}" stroke="#38bdf8" stroke-width="3"/>`; });
-  s += `<line x1="${hub[0]}" y1="${hub[1]}" x2="${CX - 70}" y2="${CY + B - 30}" stroke="#f97316" stroke-width="2.5" stroke-dasharray="8 6"/>`   // hub to the heat sensor run
-     + `<line x1="${psu[0]}" y1="${psu[1]}" x2="${CX + 90}" y2="${CY + B - 14}" stroke="#f87171" stroke-width="3"/>`   // power supply to the charging run
+  s += `<line x1="${hub[0]}" y1="${hub[1]}" x2="${CX - 150}" y2="${CY + B - 52}" stroke="#f97316" stroke-width="2.5" stroke-dasharray="8 6"/>`   // hub to the heat sensor run
+     + `<line x1="${psu[0]}" y1="${psu[1]}" x2="${CX}" y2="${CY + B - 14}" stroke="#f87171" stroke-width="3"/>`   // power supply to the charging run
      + `<line x1="${psu[0]}" y1="${psu[1]}" x2="${hub[0]}" y2="${hub[1]}" stroke="#f87171" stroke-width="3"/>`;   // power supply to the hub
   rx.forEach(([x, y], i) => {
     s += `<g transform="translate(${f(x)} ${f(y)})"><rect x="-26" y="-15" width="52" height="30" rx="5" fill="#0c4a6e" stroke="#38bdf8" stroke-width="2"/>`
@@ -94,7 +94,7 @@ a{color:var(--gold)}
      + `<text y="15" fill="rgba(255,255,255,.75)" font-size="11" text-anchor="middle">1 plug to the wall</text></g>`;
   /* Each seat: number outside the rail, heat sensor under the rail, USB-C port just beside it. */
   for (let k = 1; k <= SEATS; k++) {
-    const t = seatT(k), deg = t * 180 / Math.PI + 90;
+    const t = seatT(k), d0 = t * 180 / Math.PI + 90, deg = ((d0 % 360) + 360) % 360 > 90 && ((d0 % 360) + 360) % 360 < 270 ? d0 + 180 : d0;   // labels read upright
     const [nx, ny] = P(t, 56), [hx, hy] = P(t, -30), [ux, uy] = P(t + rad(9), -14, -14);
     s += `<text x="${f(nx)}" y="${f(ny + 8)}" fill="#fff" font-size="24" font-weight="800" text-anchor="middle">${k}</text>`
        + `<g transform="translate(${f(hx)} ${f(hy)}) rotate(${f(deg)})"><rect x="-17" y="-9" width="34" height="18" rx="4" fill="#f97316" stroke="#fdba74"/>`
