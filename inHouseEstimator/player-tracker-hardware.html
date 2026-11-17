@@ -152,6 +152,21 @@ ul{margin:6px 0 0;padding-left:20px}
     <p style="margin:10px 0 0"><a class="btn" href="./models/seat-module.stl" download>Download STL (print)</a> <a class="btn" href="./models/seat-module.scad" download>Download .scad (edit sizes)</a></p>
   </div>
 
+  <h2>Sensor box: heat sensor only, no charger (AMG8833)</h2>
+  <div class="box">
+    <img src="./models/sensor-box-preview.png" alt="Heat sensor box 3D model" style="width:100%;border-radius:8px;background:#fff;margin-bottom:10px">
+    <p style="margin-top:0">For seats without a phone charger. A small printed box for the <b>Adafruit AMG8833</b> 8&times;8 heat grid board (25.6 &times; 25.3 mm). No charger means no extra heat near the sensor, so no air gap.</p>
+    <ul style="margin:0">
+      <li><b>Size:</b> about 1.3 &times; 1.2 &times; 0.7 in (32 &times; 31 &times; 17 mm), plus a screw ear on each side.</li>
+      <li><b>Board goes in face-down:</b> it drops in from the open top onto 4 posts, the silver sensor looking down through a 14 mm square window at the lap. Four M2.5 self-tapping screws (about 6 mm long) hold it. 0.5 mm of play all around.</li>
+      <li><b>Mounting:</b> the open top screws flat against the underside of the rail with 2 countersunk #6 wood screws.</li>
+      <li><b>Cable:</b> a notch in the back wall for the Cat5e. Wire VIN, GND, SDA, SCL to the board's bottom pins (or use its STEMMA QT plug with an adapter).</li>
+      <li><b>Power:</b> the board runs on 3&ndash;5 V. Without chargers, the cable doesn't need 12 V; send 5 V from the hub box instead. Don't feed this board 12 V.</li>
+      <li><b>Check before printing:</b> the post spacing (20.3 mm) is a guess from Adafruit's usual 0.1 in hole spacing. Measure your board and change <b>HOLE</b> at the top of the .scad file.</li>
+    </ul>
+    <p style="margin:10px 0 0"><a class="btn" href="./models/sensor-box.stl" download>Download STL (print)</a> <a class="btn" href="./models/sensor-box.scad" download>Download .scad (edit sizes)</a></p>
+  </div>
+
   <h2>One cable per seat: Cat5e (plan)</h2>
   <div class="box">
     <p style="margin-top:0">Every seat module gets <b>one store-bought Cat5e network cable</b> (Cat6 works too, same plug) back to its own jack in the <b>hub box</b> under the table. The cable carries the 12&nbsp;V for the charger and the heat sensor's data. Nothing custom: any patch cable plugs in. Every table is wired for <b>10 seats</b>: cash games use 9, seat 10 gets turned on for 10-handed tournaments. The shuffler keeps its own power cord.</p>
