@@ -792,7 +792,7 @@ $("tblBox").onclick = e => {
   if (e.target.closest("#tblBack")) { location.href = "./player-tracker.html"; return; }
   if (e.target.closest("#tblScan")) { openScanner(); return; }
   if (e.target.closest("[data-dealer]") && !box.classList.contains("full")) { showDealerPick(); return; }
-  if (e.target.closest("[data-tablet]")) { location.href = "./dealer-table.html?t=" + TT; return; }   // the dealer's tablet
+  if (e.target.closest("[data-tablet]")) { window.open(withCasino("./dealer-table.html?t=" + TT), "dealerTable" + TT, "popup,width=1280,height=800"); return; }   // the dealer's tablet: its own window
   const num = e.target.closest("[data-num]");
   if (num && !box.classList.contains("full")) { showSeatQR(+num.dataset.num, "ask"); return; }
   if (!box.classList.contains("full")) location.href = "./dealer-table.html?t=" + TT;   // the table opens on its own page
