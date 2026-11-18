@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Game Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* Game Map (Player Tracker): a map of poker rooms and what's running.
+   - Rooms on our software (a casino in pt-people.js CASINOS) show their live games straight from the Player Tracker:
+     every open table's game, plus how many are waiting on each list.
+   - Other rooms show a link to the live games page on their own website.
+   Rooms are kept in playerTracker/gameMap (shared by every casino): { id: { name, address, lat, lng, url, casino, at } }.
+   Addresses are turned into map spots with OpenStreetMap's free lookup when a room is saved. Name still to be picked. */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--navy);color:#fff;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 40px}
+.wrap{max-width:900px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{margin:0;font-size:26px;color:var(--gold)}
+.btn{display:inline-block;background:var(--gold);color:#000;border:0;border-radius:999px;padding:10px 16px;font:700 15px system-ui,sans-serif;cursor:pointer;text-decoration:none;text-align:center}
+.btn.ghost{background:none;color:var(--gold);border:1px solid var(--gold)}
+.btn.ok{background:var(--ok)}
+.btn.sm{padding:6px 12px;font-size:14px}
+.warn{background:#5a1d1d;border:1px solid var(--bad);border-radius:10px;padding:10px;font-size:14px;margin-top:12px;display:none}
+.box{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:10px 12px;margin-top:12px}
+#map{height:340px;border-radius:12px;margin-top:12px;background:#0b1220}
+input,select{background:#000;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:11px;font:inherit;width:100%}
+.grid{display:grid;gap:8px}
+.room{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.room:last-child{border-bottom:0}
+.rh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rh b{font-size:17px;flex:1;min-width:150px}
+.addr{font-size:13px;color:rgba(255,255,255,.65)}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;white-space:nowrap}
+.tag.live{background:var(--ok);color:#000}
+.tag.off{background:rgba(255,255,255,.15)}
+.games{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.g{background:#000;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:4px 10px;font-size:14px}
+.g.open{border-color:var(--ok)}
+.g span{color:rgba(255,255,255,.65);font-size:12px}
+.note{color:rgba(255,255,255,.7);font-size:14px}
+.note a,.room a.lnk{color:var(--gold)}
+.leaflet-popup-content{font:14px/1.4 system-ui,sans-serif}
+</style>
+</head>
+<body style="visibility:hidden">
+<div class="wrap">
+  <div class="top"><a class="btn ghost sm" href="./player-tracker-hub.html">&lsaquo; Player Tracker</a><h1>Game Map</h1>
+    <button class="btn sm" id="addBtn" style="margin-left:auto">+ Add room</button></div>
+  <div class="warn" id="warn">Not syncing with the server.</div>
+  <div class="box grid" id="form" hidden>
+    <input id="fName" placeholder="Room name, e.g. Capitol Casino" autocomplete="off">
+    <input id="fAddr" placeholder="Street address, city" autocomplete="off">
+    <input id="fUrl" type="url" placeholder="Their live games page (link), optional" autocomplete="off">
+    <select id="fCasino"></select>
+    <div><button class="btn sm ok" id="fSave">Save room</button> <button class="btn sm ghost" id="fCancel">Cancel</button>
+      <button class="btn sm ghost" id="fDel" style="float:right;border-color:var(--bad);color:var(--bad)" hidden>Delete</button> <span class="note" id="fMsg"></span></div>
+  </div>
+  <div id="map"></div>
+  <div class="box" id="rooms"></div>
+  <p class="note">Rooms on our software show live games automatically. Other rooms link to their own live games page.</p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { CASINOS, liveLists } from "./pt-people.js";
+const app = initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const getFirestore = a => { try { return initializeFirestore(a, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { return fsGetFirestore(a); } };
+const db = getFirestore(app);
+const MAPREF = doc(db, "playerTracker", "gameMap");   // shared by every casino (plain doc(), not casinoDoc)
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fail = () => { $("warn").style.display = "block"; };
+
+/* ---- Live games for rooms on our software: each casino's own Player Tracker documents (EDH has no prefix). */
+const live = {};   // casino key -> { tables, tablelist, waitgames, waitlist }
+const pdoc = (k, name) => doc(db, "playerTracker", k === "edh" ? name : k + "_" + name);
+const EDH_BASE = { 1: { game: "Blackjack" }, 2: { game: "Baccarat" }, 3: { game: "Poker" }, 4: { game: "Three Card Poker" }, 5: { game: "Ultimate Texas Hold'em" } };
+function gamesFor(k) {
+  const L = live[k]; if (!L) return null;
+  const tables = L.tables || {}, list = L.tablelist || {}, base = k === "edh" ? EDH_BASE : {};
+  /* Open tables: what's running right now. */
+  const T = { ...base };
+  for (const [n, t] of Object.entries(list)) { if (!t) continue; if (t.deleted) { delete T[n]; continue; } T[n] = { ...(T[n] || {}), ...t, game: t.game || (base[n] || {}).game }; }
+  const running = {};
+  for (const [n, t] of Object.entries(T)) {
+    if (!t || !t.game || !(tables[n] && tables[n].open)) continue;
+    const nm = t.variant ? (t.stakes ? t.stakes + " " : "") + t.variant : t.game;
+    running[nm] = (running[nm] || 0) + 1;
+  }
+  /* Wait lists (live lists for open games, interest lists that still have names). */
+  const waits = {};
+  for (const W of liveLists(L.waitgames, L.waitlist, tables, list)) waits[W.name] = W;
+  const names = new Set([...Object.keys(running), ...Object.values(waits).filter(w => w.count).map(w => w.name)]);
+  return [...names].sort().map(nm => ({ name: nm, tables: running[nm] || 0, waiting: waits[nm] ? waits[nm].count : 0 }));
+}
+function watchCasino(k) {
+  live[k] = {};
+  for (const name of ["tables", "tablelist", "waitgames", "waitlist"])
+    onSnapshot(pdoc(k, name), snap => { live[k][name] = snap.exists() ? snap.data() : {}; render(); }, () => {});
+}
+
+/* ---- Rooms */
+let rooms = {}, editId = null;
+const map = L.map("map", { zoomControl: true }).setView([38.62, -121.3], 9);   // Sacramento area to start
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(map);
+const layer = L.layerGroup().addTo(map);
+let fitted = false;
+
+function gamesHtml(r) {
+  if (!r.casino) return r.url ? `<a class="lnk" href="${esc(r.url)}" target="_blank" rel="noopener">See their live games &rsaquo;</a>` : `<span class="note">No live games link yet.</span>`;
+  const g = gamesFor(r.casino);
+  if (!g) return `<span class="note">Loading&hellip;</span>`;
+  if (!g.length) return `<span class="note">No games running right now.</span>`;
+  return `<div class="games">${g.map(x => `<span class="g${x.tables ? " open" : ""}">${esc(x.name)} <span>${x.tables ? x.tables + (x.tables > 1 ? " tables" : " table") : "list only"}${x.waiting ? " &middot; " + x.waiting + " waiting" : ""}</span></span>`).join("")}</div>`;
+}
+function render() {
+  const list = Object.entries(rooms).filter(([, r]) => r && r.name).sort((a, b) => (!!b[1].casino - !!a[1].casino) || a[1].name.localeCompare(b[1].name));
+  $("rooms").innerHTML = list.length ? list.map(([id, r]) => `<div class="room"><div class="rh"><b>${esc(r.name)}</b>
+      <span class="tag ${r.casino ? "live" : "off"}">${r.casino ? "Live" : "Not on our system"}</span>
+      <button class="btn sm ghost" data-edit="${id}">Edit</button></div>
+      <div class="addr">${esc(r.address || "No address")}${r.address && r.lat == null ? " &middot; couldn't find it on the map" : ""}
+        ${r.address ? ` &middot; <a class="lnk" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(r.address)}" target="_blank" rel="noopener">Directions</a>` : ""}</div>
+      ${gamesHtml(r)}</div>`).join("") : `<div class="note">No rooms yet. Tap + Add room.</div>`;
+  layer.clearLayers();
+  const pts = [];
+  for (const [, r] of list) {
+    if (r.lat == null) continue;
+    const m = L.circleMarker([r.lat, r.lng], { radius: 9, color: r.casino ? "#4ade80" : "#E3B64A", weight: 3, fillOpacity: .6 }).addTo(layer);
+    m.bindPopup(`<b>${esc(r.name)}</b><br>${gamesHtml(r).replace(/class="g[^"]*"/g, "").replace(/<div class="games">|<\/div>/g, "").replace(/<\/span><span/g, "</span><br><span")}`);
+    pts.push([r.lat, r.lng]);
+  }
+  if (pts.length && !fitted) { fitted = true; pts.length === 1 ? map.setView(pts[0], 12) : map.fitBounds(pts, { padding: [30, 30] }); }
+}
+
+/* ---- Add / edit */
+$("fCasino").innerHTML = `<option value="">Not on our software</option>` + Object.entries(CASINOS).map(([k, n]) => `<option value="${k}">On our software: ${esc(n)}</option>`).join("");
+function openForm(id) {
+  editId = id; const r = id ? rooms[id] : {};
+  $("fName").value = r.name || ""; $("fAddr").value = r.address || ""; $("fUrl").value = r.url || ""; $("fCasino").value = r.casino || "";
+  $("fDel").hidden = !id; $("fMsg").textContent = ""; $("form").hidden = false; $("fName").focus();
+}
+$("addBtn").onclick = () => openForm(null);
+$("fCancel").onclick = () => { $("form").hidden = true; };
+$("rooms").addEventListener("click", e => { const b = e.target.closest("[data-edit]"); if (b) openForm(b.dataset.edit); });
+async function geocode(q) {   // OpenStreetMap's free address lookup (one request per save)
+  try {
+    const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=" + encodeURIComponent(q), { headers: { "Accept-Language": "en" } });
+    const j = await r.json(); return j && j[0] ? { lat: +j[0].lat, lng: +j[0].lon } : null;
+  } catch (e) { return null; }
+}
+$("fSave").onclick = async () => {
+  const name = $("fName").value.trim(), address = $("fAddr").value.trim(), url = $("fUrl").value.trim(), casino = $("fCasino").value;
+  if (!name) { $("fMsg").textContent = "Enter a name."; return; }
+  const old = editId ? rooms[editId] : {};
+  let spot = old.address === address && old.lat != null ? { lat: old.lat, lng: old.lng } : null;
+  if (address && !spot) { $("fMsg").textContent = "Finding it on the map…"; spot = await geocode(address); }
+  const id = editId || "r" + Date.now();
+  const r = { name, address, url, casino, lat: spot ? spot.lat : null, lng: spot ? spot.lng : null, at: old.at || Date.now() };
+  rooms[id] = r; fitted = false; $("form").hidden = true; render();
+  setDoc(MAPREF, { [id]: r }, { merge: true }).catch(fail);
+};
+$("fDel").onclick = () => {
+  if (!editId || !confirm("Delete " + (rooms[editId] || {}).name + " from the map?")) return;
+  delete rooms[editId]; setDoc(MAPREF, { [editId]: deleteField() }, { merge: true }).catch(fail);
+  $("form").hidden = true; render();
+};
+
+onAuthStateChanged(getAuth(app), () => {
+  /* No login for now (Player Tracker is open to anyone with the link while testing). */
+  document.body.style.visibility = "visible";
+  setTimeout(() => map.invalidateSize(), 50);
+  Object.keys(CASINOS).forEach(watchCasino);
+  onSnapshot(MAPREF, snap => { $("warn").style.display = "none"; rooms = snap.exists() ? snap.data() : {}; render(); }, fail);
+});
+</script>
+</body>
+</html>
