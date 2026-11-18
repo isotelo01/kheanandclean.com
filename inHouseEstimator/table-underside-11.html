@@ -27,6 +27,9 @@ td.n{text-align:right;white-space:nowrap}
 ul{margin:6px 0 0;padding-left:20px}
 a{color:var(--gold)}
 #partBox[hidden]{display:none!important}
+#qrWin[hidden]{display:none!important}
+#qrWin{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+#qrWin .in{background:#0b1220;border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:16px;max-width:340px;width:100%;text-align:center}
 .key{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px}
 .key div{display:flex;gap:10px;align-items:flex-start}
 .sw{flex:none;width:16px;height:16px;border-radius:4px;margin-top:5px}
@@ -46,6 +49,13 @@ a{color:var(--gold)}
   <div id="v3" style="height:min(78vh,860px);min-height:420px;border-radius:8px;overflow:hidden;background:#0e1628;touch-action:none"></div>
   <p class="muted" id="v3msg" style="margin:6px 0 0"></p>
 </div>
+<div id="qrWin" hidden><div class="in">
+  <b id="qrTitle" style="color:var(--gold);font-size:18px"></b>
+  <div id="qrBox" style="display:inline-block;background:#fff;padding:10px;border-radius:8px;margin:10px 0"></div>
+  <p class="muted" style="margin:0 0 6px">The NFC sticker and this QR hold the same link: the player taps or scans it to sign in to this seat, then the dealer approves.</p>
+  <p class="muted" id="qrLink" style="word-break:break-all;margin:0 0 10px"></p>
+  <button class="btn" id="qrCopy" type="button">Copy link</button> <a class="btn" id="qrOpen" target="_blank" rel="noopener">Open link</a> <button class="btn" id="qrClose" type="button">Close</button>
+</div></div>
 <div class="box" id="partBox" hidden style="margin-top:12px">
   <div style="display:flex;align-items:center;gap:10px"><b id="partTitle" style="flex:1;color:var(--gold);font-size:18px"></b><button class="btn" id="partClose" type="button">Close</button></div>
   <div id="partBody"></div>
@@ -122,6 +132,7 @@ window.showPart = k => {
 };
 document.getElementById("partClose").onclick = () => { document.getElementById("partBox").hidden = true; };
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 <script type="module">
 /* 3D blackjack table, in feet. Half-moon table: the dealer's straight edge at the back (z = 0, dealer at -z),
@@ -131,7 +142,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { ROSTER, casinoDoc } from "./pt-people.js";
+import { ROSTER, casinoDoc, withCasino } from "./pt-people.js";
 const TNUM = 4;   // the table this page draws
 const box = document.getElementById("v3");
 try {
@@ -245,7 +256,7 @@ try {
       const ct = t + 0.12, cp = arcPt(ct, A + 0.27, B + 0.27, 0.02), co = V(Math.cos(ct) / A, 0, Math.sin(ct) / B).normalize();
       const chg = put(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 20), mat(0x22d3ee, { emissive: 0x155e75 }), cp.x, cp.y, cp.z, "charger");
       chg.quaternion.setFromUnitVectors(V(0, 1, 0), co);
-      const n = arcPt(t, A + 0.1, B + 0.1, 0.195); put(new THREE.CylinderGeometry(0.1, 0.1, 0.012, 24), nfcM, n.x, n.y, n.z, "nfc");
+      const n = arcPt(t, A + 0.1, B + 0.1, 0.195); put(new THREE.CylinderGeometry(0.1, 0.1, 0.012, 24), nfcM, n.x, n.y, n.z, "nfc").userData.seat = i;
       lab(String(i), "#ffffff", n.x + out.x * 0.05, 0.55, n.z + out.z * 0.05, 0.35, seatG);
       const g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(-out.x, -out.z);   // -z faces the table
       const stool = (geo, y) => { const o = new THREE.Mesh(geo, stoolM); o.position.set(0, y, 0); o.userData.part = "stool"; g.add(o); };
@@ -286,6 +297,20 @@ try {
     new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: 0.1, gapSize: 0.07 }));
   bt.computeLineDistances(); scene.add(bt); label("Bluetooth", "#38bdf8", -1.05, -0.75, 0.15, 0.32);
 
+  /* Tap an NFC sticker: a window with that seat's QR code. Same link as the sticker and the seat number's QR on the
+     Testing page (player-tracker.html?join&t=&s=), so the player signs in and the dealer approves. */
+  const qrEl = id => document.getElementById(id);
+  function showSeatQR(seat) {
+    const link = withCasino(location.origin + location.pathname.replace(/[^/]*$/, "") + "player-tracker.html?join&t=" + TNUM + "&s=" + seat);
+    qrEl("qrTitle").textContent = "Table " + TNUM + " · Seat " + seat;
+    qrEl("qrBox").innerHTML = "";
+    if (window.QRCode) new QRCode(qrEl("qrBox"), { text: link, width: 240, height: 240, colorDark: "#172239", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+    qrEl("qrLink").textContent = link; qrEl("qrOpen").href = link; qrEl("qrCopy").textContent = "Copy link";
+    qrEl("qrCopy").onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => { qrEl("qrCopy").textContent = "Copied"; }, () => prompt("Copy this link:", link));
+    qrEl("qrWin").hidden = false;
+  }
+  qrEl("qrClose").onclick = () => { qrEl("qrWin").hidden = true; };
+  qrEl("qrWin").onclick = e => { if (e.target.id === "qrWin") qrEl("qrWin").hidden = true; };
   /* Tap a part to see what it is. */
   const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let downAt = null;
   ren.domElement.addEventListener("pointerdown", e => { downAt = [e.clientX, e.clientY]; });
@@ -296,6 +321,7 @@ try {
     const hits = ray.intersectObjects(scene.children, true).filter(h => h.object.userData.part && h.object.visible);
     const solid = ["pedestal", "player", "stool"], cone = h => h.object.geometry.type === "ConeGeometry";
     const hit = hits.find(h => !solid.includes(h.object.userData.part) && !cone(h)) || hits.find(h => !cone(h)) || hits[0];
+    if (hit && hit.object.userData.part === "nfc" && hit.object.userData.seat) { showSeatQR(hit.object.userData.seat); return; }
     if (hit) showPart(hit.object.userData.part);
   });
   /* Buttons */
