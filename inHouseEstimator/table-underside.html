@@ -509,38 +509,41 @@ try {
      They sit where they were put (window.PT_SIM, shared with the overhead view). */
   /* See-through chairs (so the tag and battery show), on a five-spoke base with rollers on the floor. */
   const chairM = mat(0x9ca3af, { transparent: true, opacity: 0.22, depthWrite: false }), legM = mat(0x6b7280, { transparent: true, opacity: 0.45, depthWrite: false }), wheelM = mat(0x111111, { roughness: 0.4 }), chair3 = [];
+  /* Real sizes, in feet: seat 1.6 ft wide, seat top 1.7 ft off the floor (S = -0.75, so the table sits lower
+     against the chair than before), and a full-size see-through player with arms down at their sides. */
+  const S = -0.75, FL = -2.46;
   (window.PT_SIM ? PT_SIM.chairs : []).forEach(c => {
     const g = new THREE.Group();
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.1, 0.95), chairM); seat.position.y = -1.0; g.add(seat);
-    const backr = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.1), chairM); backr.position.set(0, -0.55, 0.48); g.add(backr);
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.25, 12), legM); leg.position.y = -1.67; g.add(leg);
-    for (let k = 0; k < 5; k++) {   // spokes out to the rollers, which sit on the floor (y = -2.46)
-      const t = k * Math.PI * 2 / 5, sp = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.07), legM);
-      sp.position.set(Math.cos(t) * 0.21, -2.3, Math.sin(t) * 0.21); sp.rotation.y = -t; g.add(sp);
-      const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.06, 16), wheelM);
-      wh.rotation.z = Math.PI / 2; wh.rotation.y = -t + Math.PI / 2; wh.position.set(Math.cos(t) * 0.42, -2.39, Math.sin(t) * 0.42); g.add(wh);
+    const part = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); g.add(o); return o; };
+    part(new THREE.BoxGeometry(1.6, 0.15, 1.5), chairM, 0, S - 0.075, 0);                       // seat
+    part(new THREE.BoxGeometry(1.6, 1.4, 0.15), chairM, 0, S + 0.85, 0.72);                      // back
+    part(new THREE.CylinderGeometry(0.08, 0.08, 1.4, 12), legM, 0, (S - 0.15 + FL + 0.16) / 2, 0);   // post down to the base
+    for (let k = 0; k < 5; k++) {   // spokes out to the rollers, which sit on the floor
+      const t = k * Math.PI * 2 / 5;
+      part(new THREE.BoxGeometry(0.62, 0.06, 0.1), legM, Math.cos(t) * 0.31, FL + 0.16, Math.sin(t) * 0.31).rotation.y = -t;
+      const wh = part(new THREE.CylinderGeometry(0.08, 0.08, 0.07, 16), wheelM, Math.cos(t) * 0.62, FL + 0.08, Math.sin(t) * 0.62);
+      wh.rotation.z = Math.PI / 2; wh.rotation.y = -t + Math.PI / 2;
     }
-    const tagM = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.18), blue); tagM.position.set(-0.22, -1.08, 0); g.add(tagM);
-    const bat = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 12), mat(0x4ade80, { emissive: 0x14532d })); bat.rotation.z = Math.PI / 2; bat.position.set(0.22, -1.1, 0); g.add(bat);
-    if (c.name) {   // a see-through "ghost" player sitting in the chair, facing the table (-z), forearms on the rail
+    part(new THREE.BoxGeometry(0.3, 0.06, 0.18), blue, -0.3, S - 0.2, 0);                         // chair tag
+    part(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 12), mat(0x4ade80, { emissive: 0x14532d }), 0.3, S - 0.2, 0).rotation.z = Math.PI / 2;   // battery
+    if (c.name) {   // see-through "ghost" player, facing the table (-z), arms down at their sides
       const gh = mat(0xcbd5e1, { transparent: true, opacity: 0.18, depthWrite: false, emissive: 0x334155 });
-      const cap = (r, len, x, y, z, rx = 0) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 12), gh); m.position.set(x, y, z); m.rotation.x = rx; g.add(m); };
-      cap(0.24, 0.5, 0, -0.55, 0.22);                                    // torso
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 14), gh); head.position.set(0, 0.0, 0.14); g.add(head);
-      for (const x of [-0.17, 0.17]) {
-        cap(0.11, 0.45, x, -0.86, -0.12, Math.PI / 2);                   // thigh, forward along the seat
-        cap(0.09, 0.95, x, -1.72, -0.42);                                // shin, down to the floor
-        cap(0.07, 0.4, x * 1.9, -0.45, 0.08, 0.5);                       // upper arm
-        cap(0.06, 0.42, x * 1.6, -0.12, -0.28, Math.PI / 2);             // forearm, resting toward the rail
+      const cap = (r, len, x, y, z, rx = 0) => { part(new THREE.CapsuleGeometry(r, len, 6, 12), gh, x, y, z).rotation.x = rx; };
+      cap(0.32, 1.25, 0, S + 0.97, 0.3);                                   // torso
+      part(new THREE.SphereGeometry(0.34, 20, 14), gh, 0, S + 2.3, 0.22);  // head
+      for (const x of [-0.26, 0.26]) {
+        cap(0.19, 1.0, x, S + 0.2, -0.25, Math.PI / 2);                    // thigh, forward along the seat
+        cap(0.16, 1.44, x, (S + 0.1 + FL + 0.05) / 2, -0.85);              // shin, down to the floor
+        cap(0.12, 1.0, x * 1.8, S + 1.25, 0.3);                           // arm, hanging down
       }
     }
     g.traverse(o => { if (o.isMesh) o.userData.part = "chair"; });
-    scene.add(g); chair3.push({ c, g, lab: label(c.id + (c.name ? " · " + c.name : " · open"), c.name ? "#E3B64A" : "#cbd5e1", 0, 0.25, 0, 0.38) });
+    scene.add(g); chair3.push({ c, g, lab: label(c.id + (c.name ? " · " + c.name : " · open"), c.name ? "#E3B64A" : "#cbd5e1", 0, 2.1, 0, 0.38) });
   });
   const moveChairs = () => chair3.forEach(({ c, g, lab }) => {
     if (c.x === undefined) return;
     g.position.set(c.x, 0, c.z); g.rotation.y = Math.PI / 2 - Math.atan2(c.z / B, c.x / A);   // back of the chair faces away from the table
-    lab.position.set(c.x, 0.25, c.z);
+    lab.position.set(c.x, 2.1, c.z);
   });
   [-144, -36, 36, 144].forEach((d, i) => {
     const p = RXP(d); tag(add(new THREE.BoxGeometry(0.24, 0.07, 0.13), blue, p.x, p.y, p.z), "rx").rotation.y = -rad(d);
