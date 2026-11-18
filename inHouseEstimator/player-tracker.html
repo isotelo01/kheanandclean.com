@@ -420,6 +420,46 @@ function applyChair(n) {
 }
 const onTableDealer = () => Object.keys(DEALERS).find(d => get(d).status === "seated" && (get(d).table || 1) === TT);
 
+/* ---- 1.1 build (blackjack tables): heat sensors only, no chairs. One heat sensor under the rail at each seat,
+   tilted out so it sees a seated lap or someone standing. Tap a sensor on the table to make it warm or cold
+   (stands in for the real sensor). Signed-in player + warm = playing; goes cold = on break (seat held);
+   warm again = back. Warm with nobody signed in for 3 seconds = a Guest pops up; cold = the guest leaves
+   (guest time under 10 minutes is dropped). Seat changes: the dealer drags the name in Dealer Control.
+   playerTracker/heat: { "<table>_<seat>": { warm, at } } */
+const is11 = () => /blackjack/i.test(TD.game || "");
+const HEATREF = doc(db, "playerTracker", "heat");
+let heat = {};
+const hk = s => TT + "_" + s;
+const isWarm = s => !!(heat[hk(s)] && heat[hk(s)].warm);
+const playerAtSeat = s => Object.keys(state).find(c => isPlayer(c) && state[c] && state[c].status === "seated" && (state[c].table || 1) === TT && state[c].seat === s);
+const MIN_GUEST = 10 * 60000;
+function closeGuest(id) {   // a guest leaves: under 10 minutes is dropped, longer stays in the log
+  const g = guests[id]; if (!g || g.end) return;
+  if (Date.now() - g.start < MIN_GUEST) { delete guests[id]; setDoc(GUESTREF, { [id]: deleteField() }, { merge: true }).catch(() => { $("warn").style.display = "block"; }); renderGuests(); }
+  else endGuest(id);
+}
+function setHeat(s, warm) {
+  heat[hk(s)] = { warm, at: Date.now() };
+  setDoc(HEATREF, { [hk(s)]: heat[hk(s)] }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
+  const c = playerAtSeat(s), p = c && get(c), gid = guestAtSeat(s);
+  if (warm) {
+    if (p && p.breakAt) { save(c, { ...p, breakAt: null, since: clockStart(tables, TT) }); logEvent(c, "Heat sensor: back at seat " + s + " (table " + TT + ")", { tb: TT, sn: s }); }
+    else if (!c && !gid) {   // nobody signed in: a Guest after 3 seconds, if it's still warm and still nobody
+      const t0 = Date.now();
+      setTimeout(() => { if (isWarm(s) && heat[hk(s)].at <= t0 && !playerAtSeat(s) && !guestAtSeat(s)) { saveGuest("g" + Date.now(), { t: TT, s, start: t0, end: null, to: null }); render(); } }, 3000);
+    }
+  } else {
+    if (p && !p.breakAt) { save(c, { ...p, totalMs: liveMs(p), sessionMs: seatedMs(p), since: null, breakAt: Date.now() }); logEvent(c, "Heat sensor: left seat " + s + ", on break, seat held"); }
+    if (gid) closeGuest(gid);
+  }
+  render();
+}
+/* A player signs in at a seat where a guest was: the guest's time ends there. */
+function sync11() {
+  if (!is11() || myCard || profId) return;
+  for (const s of SEATL) { const gid = guestAtSeat(s); if (gid && playerAtSeat(s)) closeGuest(gid); }
+}
+
 const params = new URLSearchParams(location.search);
 let myCard = params.get("card") || params.get("dealer");
 if (myCard) { try { localStorage.setItem("playerTracker.card", myCard); } catch (e) {} }
@@ -500,7 +540,17 @@ function drawTable(pick) {
        + `<circle cx="${dx + dw - 3.5}" cy="${dyy + dh / 2}" r="4.5" fill="#22c55e" opacity=".25"/><circle cx="${dx + dw - 3.5}" cy="${dyy + dh / 2}" r="1.8" fill="#4ade80"/>`;
   }
   const base = s;   // the table itself; everything after this is the live part
-  if (!pick) {
+  if (!pick && is11()) {
+    /* 1.1: a heat sensor under the rail at each seat. Orange = warm, dark = cold. Tap it to switch. */
+    for (const i of SEATL) {
+      const [lx, ly] = railAt(i, -9), a = Math.atan2(ly - my, lx - mx), w = isWarm(i);
+      s += `<g data-heat="${i}" style="cursor:pointer" transform="translate(${lx.toFixed(1)} ${ly.toFixed(1)}) rotate(${(a * 180 / Math.PI - 90).toFixed(1)})">`
+         + `<rect x="-17" y="-6" width="34" height="12" rx="3" fill="${w ? "#f97316" : "rgba(0,0,0,.35)"}" stroke="${w ? "#fdba74" : "rgba(255,255,255,.35)"}"/>`
+         + `<text y="3.5" fill="#fff" font-size="7" text-anchor="middle">${w ? "warm" : "cold"}</text></g>`;
+    }
+    s += `<text x="${mx}" y="${cy + r + 52}" fill="rgba(253,186,116,.85)" font-size="10" text-anchor="middle">1.1: tap a heat sensor to make it warm or cold</text>`;
+  }
+  if (!pick && !is11()) {
     /* Simulated sensors: dashed 3-ft line (chairs past it = pulled out), and a lap sensor under the rail
        at each seat: orange = warm lap seen, green outline = a chair is there, dim = nothing. Shows the
        nearest chair's distance in feet. */
@@ -541,11 +591,11 @@ function drawTable(pick) {
     const [x, y] = railAt(i, -30);
     const c = seated[i];
     /* Chair outside the rail, facing the table. Gold = its player is seated, blue = on break, grey = empty. */
-    const [chx, chy] = chairPos(i);
-    const co = chairOccupant(i), cpl = chairPlayer(i), cp = cpl && get(cpl), gu = !cp && guestInChair(i);   // gold = seated, blue = stood up / break   /* purple = a guest (not logged in) */
+    const [chx, chy] = is11() ? railAt(i, 30) : chairPos(i);
+    const co = is11() ? null : chairOccupant(i), cpl = is11() ? null : chairPlayer(i), cp = cpl && get(cpl), gu = is11() ? guestAtSeat(i) : !cp && guestInChair(i);   // gold = seated, blue = stood up / break   /* purple = a guest (not logged in) */
     const top = gu ? "#a855f7" : !cp ? "#3a3f4b" : cp.breakAt || cp.status !== "seated" ? "#3b82f6" : "var(--gold)";
     const back = gu ? "#7e22ce" : !cp ? "#2a2e37" : cp.breakAt || cp.status !== "seated" ? "#1d4ed8" : "#b8902f";
-    s += `<g class="chair" data-chair="${i}" transform="${chairXf(chx, chy)}">`
+    if (!is11()) s += `<g class="chair" data-chair="${i}" transform="${chairXf(chx, chy)}">`
        + `<rect x="-15" y="-12" width="30" height="24" rx="6" fill="${top}" stroke="rgba(255,255,255,.5)"/>`
        + `<rect x="-17" y="12" width="34" height="7" rx="3" fill="${back}" stroke="rgba(255,255,255,.5)"/>`
        + `<text y="5" fill="${cp ? "#000" : "rgba(255,255,255,.6)"}" font-size="11" font-weight="700" text-anchor="middle">C${i}</text></g>`;
@@ -561,7 +611,7 @@ function drawTable(pick) {
   /* Names go with their chair, just outside it. If a name would sit on another chair or name,
      it slides further out until it's clear. */
   const chairs = [];
-  for (const i of SEATL) chairs.push(chairPos(i));
+  if (!is11()) for (const i of SEATL) chairs.push(chairPos(i));
   const placed = [];
   const hit = (b, o) => b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1;
   for (const lb of labels) {
@@ -711,7 +761,7 @@ $("pfSave").onclick = () => {
   render();
 };
 
-function render() { if (myCard) renderPlayer(); else if (profId) renderProfile(); else renderFloor(); }
+function render() { sync11(); if (myCard) renderPlayer(); else if (profId) renderProfile(); else renderFloor(); }
 
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-a]"); if (!b) return;
@@ -829,6 +879,8 @@ $("tblBox").onclick = e => {
   if (e.target.closest("#tblScan")) { openScanner(); return; }
   if (e.target.closest("[data-dealer]") && !box.classList.contains("full")) { showDealerPick(); return; }
   if (e.target.closest("[data-tablet]")) { window.open(withCasino("./dealer-table.html?t=" + TT), "dealerTable" + TT, "popup,width=1280,height=800"); return; }   // the dealer's tablet: its own window
+  const ht = e.target.closest("[data-heat]");
+  if (ht) { const n = +ht.dataset.heat; setHeat(n, !isWarm(n)); return; }
   const num = e.target.closest("[data-num]");
   if (num && !box.classList.contains("full")) { showSeatQR(+num.dataset.num, "ask"); return; }
 };
@@ -1000,6 +1052,7 @@ function start() {
   watchLayout();
   onSnapshot(ROSTREF, snap => { roster = snap.exists() ? snap.data() : {}; render(); }, () => {});
   if (!myCard) onSnapshot(GUESTREF, snap => { guests = snap.exists() ? snap.data() : {}; render(); }, () => {});
+  if (!myCard) onSnapshot(HEATREF, snap => { heat = snap.exists() ? snap.data() : {}; render(); }, () => {});   // 1.1 heat sensors
   if (!myCard) onSnapshot(doc(db, "playerTracker", "tables"), snap => { tables = snap.exists() ? snap.data() : {}; }, () => {});   // hours only at an open table
   if (!myCard) onSnapshot(PROFREF, snap => { profiles = snap.exists() ? snap.data() : {}; profLoaded = true; render(); }, () => { profLoaded = true; render(); });   // phones/emails: staff pages only
   setInterval(render, 30000);   // keep the hours ticking
