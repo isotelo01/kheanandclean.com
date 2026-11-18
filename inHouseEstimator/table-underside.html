@@ -124,6 +124,8 @@ window.PT_PARTS = {
   link: { t: "Link cables", d: "Two Cat6 cables between the boxes.",
     p: ["Yellow: sensor data from the side box's switch board to the Pi", "Green: the side box's two receivers through a USB-over-Cat6 extender pair"],
     s: ["Data link pins: 1+2 SDA + ground, 3+6 SCL + ground, 7 = 3.3 V for switch board B, 8 = ground"] },
+  drop: { t: "Drop box", d: "A rectangular box, about a foot tall, hanging under each drop slot. The chips dropped through the slot on the felt land in it.",
+    p: ["The casino's own locking drop boxes (one per slot, two per table)"], s: ["Keep cables and boxes clear of them so they slide out for the count"] },
   shuffler: { t: "Shuffle machine", d: "Dealer's right, in front of the chip tray. Top flush with the felt, body hangs under the table.", p: ["Plugs into the power strip on its own cord"], s: [] },
   pedestal: { t: "Pedestal", d: "The table's two feet, with round bases. Cables and boxes stay clear of them.", p: [], s: [] },
 };
@@ -225,9 +227,17 @@ window.showPart = key => {
      + `<text x="${CX + 128}" y="${PS[1] - 18}" fill="rgba(229,231,235,.85)" font-size="10">cord to the pedestal,</text>`
      + `<text x="${CX + 128}" y="${PS[1] - 6}" fill="rgba(229,231,235,.85)" font-size="10">down to the floor outlet</text>`;
   /* The dealer's tablet (dealer's right of the chip tray) gets 12 V from the back of the main box. */
-  s += line([[CX + 120, top], [CX + 120, CY - 100], [CX - 120, CY - 100], [CX - 120, CY - 112]], "#f87171")
-     + `<g data-part="tablet" style="cursor:pointer"><rect x="${CX - 155}" y="${CY - 138}" width="70" height="26" rx="4" fill="#1e3a8a" stroke="#93c5fd" stroke-width="2"/>`
-     + `<text x="${CX - 120}" y="${CY - 120}" fill="#fff" font-size="12" font-weight="700" text-anchor="middle">TABLET</text></g>`
+  /* Drop boxes: one under each drop slot on the felt (dealer's right by the card swiper, and dealer's left of the
+     tray). Rectangular, about a foot tall, hanging under the table where the chips fall. */
+  for (const [fx, fz] of [[-1.09, -1.41], [1.23, -1.41]]) {
+    const bx = CX + fx * 420 / 4.5, by = CY + fz * 170 / 1.9;
+    s += `<g data-part="drop" style="cursor:pointer"><rect x="${(bx - 23).toFixed(1)}" y="${(by - 16).toFixed(1)}" width="46" height="32" rx="3" fill="#3f3f46" stroke="#a1a1aa" stroke-width="2"/>`
+       + `<rect x="${(bx - 10).toFixed(1)}" y="${(by - 13).toFixed(1)}" width="20" height="4" rx="2" fill="#111"/>`
+       + `<text x="${bx.toFixed(1)}" y="${(by + 6).toFixed(1)}" fill="#fff" font-size="8" font-weight="700" text-anchor="middle">DROP BOX</text></g>`;
+  }
+  s += line([[CX + 120, top], [CX + 120, CY - 100], [CX - 85, CY - 100]], "#f87171")
+     + `<g data-part="tablet" style="cursor:pointer"><rect x="${CX - 155}" y="${CY - 104}" width="70" height="26" rx="4" fill="#1e3a8a" stroke="#93c5fd" stroke-width="2"/>`
+     + `<text x="${CX - 120}" y="${CY - 86}" fill="#fff" font-size="12" font-weight="700" text-anchor="middle">TABLET</text></g>`
      + `<text x="${CX - 80}" y="${CY - 104}" fill="#fca5a5" font-size="10">&#8592; 12 V to the dealer's tablet</text>`;
   const boxG = (sgn, part, t1, t2, t3, stroke, fill, tc) => `<g data-part="${part}" style="cursor:pointer" transform="translate(${CX + sgn * BOX.x} ${BOX.y})"><rect x="${-BOX.w / 2}" y="${-BOX.h / 2}" width="${BOX.w}" height="${BOX.h}" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`
      + `<text y="-12" fill="${tc}" font-size="14" font-weight="700" text-anchor="middle">${t1}</text>`
@@ -446,6 +456,12 @@ try {
   add(new THREE.BoxGeometry(1.0, 0.06, 0.35), mat(0x0b4a28), 0, 0.03, TZ);
   add(new THREE.BoxGeometry(0.65, 0.04, 0.45), mat(0x0b0b0b, { roughness: 0.3 }), -1.0, 0.02, TZ);
   add(new THREE.BoxGeometry(0.55, 0.01, 0.35), mat(0x1e3a8a, { emissive: 0x172554 }), -1.0, 0.045, TZ).userData.part = "tablet"; label("TABLET", "#e5e7eb", -1.0, 0.4, TZ, 0.32);
+  /* Drop boxes under the two drop slots: about a foot tall (6 x 4 in), hanging from the underside where the chips fall. */
+  for (const x of [-1.09, 1.23]) {
+    add(new THREE.BoxGeometry(0.42, 0.012, 0.12), mat(0xc7cdd4, { roughness: 0.35, metalness: 0.4 }), x, 0.006, -1.41);   // the slot plate on the felt
+    tag(add(new THREE.BoxGeometry(0.5, 1.0, 0.33), mat(0x3f3f46, { roughness: 0.5 }), x, -0.12 - 0.5, -1.41), "drop");
+    label("DROP BOX", "#e5e7eb", x, -1.3, -1.41, 0.36);
+  }
   const SH = V(-0.95, 0, TZ + 0.75);
   add(new THREE.BoxGeometry(0.6, 0.012, 0.6), mat(0x374151), SH.x, 0.007, SH.z);
   add(new THREE.BoxGeometry(0.55, 0.9, 0.55), mat(0x4b5563), SH.x, -0.12 - 0.45, SH.z).userData.part = "shuffler"; label("SHUFFLER", "#e5e7eb", SH.x, -1.25, SH.z, 0.4);

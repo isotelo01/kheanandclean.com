@@ -446,21 +446,26 @@ function drawTable(pick) {
   const cx = 200, cy = 40, r = 170, ov = isOval(), [mx, my] = CTR();
   if (!pick) $("tbl").setAttribute("viewBox", ov ? "-150 -95 700 490" : "-130 -10 660 380");
   const game = TD.game.toUpperCase(), gsz = game.length > 12 ? 9 : 12;
-  const dy = ov ? OV.cy - OV.b - 40 : cy - 28, ty = ov ? OV.cy - OV.b + 10 : cy + 6, gy = ov ? OV.cy - 26 : cy + 32;
+  const dy = ov ? OV.cy - OV.b - 40 : cy - 28, ty = ov ? OV.cy - OV.b + 10 : cy + 6, gy = ov ? OV.cy - 20 : cy + 32;
   /* Same table look as Dealer Control: the picture's felt under one overhead light, black leather rail with a gold trim
      line (poker), brown padded rail (half-moons). */
   const defs = `<defs><radialGradient id="ptFelt" cx="${mx}" cy="${my}" r="${ov ? OV.a : r}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#14894a"/><stop offset=".8" stop-color="#0f6b3a"/><stop offset="1" stop-color="#0a4f2a"/></radialGradient>`
     + `<radialGradient id="ptLight" cx="${mx}" cy="${my - (ov ? OV.b : 0)}" r="${ov ? 230 : 190}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".14"/><stop offset=".55" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></radialGradient>`
     + `<pattern id="ptFeltImg" patternUnits="userSpaceOnUse" width="200" height="52.5"><image href="../images/edh-felt.jpg?v=2" width="200" height="52.5" preserveAspectRatio="none"/></pattern>`
     + `<pattern id="ptLeather" patternUnits="userSpaceOnUse" width="250" height="11.25"><image href="../images/edh-leather.jpg" width="250" height="11.25" preserveAspectRatio="none"/></pattern>`
-    + `<filter id="ptSh" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter></defs>`;
+    + `<filter id="ptSh" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>`
+    /* Poker table (EDH table 3): blue felt like the real one. Same felt texture, turned grey so it only adds the weave. */
+    + `<radialGradient id="ptFeltBlue" cx="${mx}" cy="${my}" r="${ov ? OV.a : r}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4aa3cb"/><stop offset=".8" stop-color="#3489b0"/><stop offset="1" stop-color="#256b8c"/></radialGradient>`
+    + `<filter id="ptGrey"><feColorMatrix type="saturate" values="0"/></filter>`
+    + `<pattern id="ptFeltWeave" patternUnits="userSpaceOnUse" width="200" height="52.5"><image href="../images/edh-felt.jpg?v=2" width="200" height="52.5" preserveAspectRatio="none" filter="url(#ptGrey)"/></pattern></defs>`;
   const RAIL_BLACK = [[17, "#030303"], [14, "#121212"], [11, "#262626"], [7, "#3d3d3d"], [4, "#5e5e5e"], [1.5, "#8c8c8c"]];
   const RAIL_BROWN = [[17, "#1a0e06"], [14, "#3e2410"], [11, "#6b3f1d"], [7, "#8f5e33"], [4, "#b07a46"], [1.5, "#d09a62"]];
   const ell = (o, f) => `<ellipse cx="${mx}" cy="${my}" rx="${OV.a + o}" ry="${OV.b + o}" ${f}/>`;
   const moon = (o, f, z = " Z") => `<path d="M${cx - r - o} ${cy} A ${r + o} ${r + o} 0 0 0 ${cx + r + o} ${cy}${z}" ${f}/>`;
   let s = defs + (ov
     ? ell(16, `fill="#000" opacity=".55" filter="url(#ptSh)"`)   // floor shadow
-      + ell(0, `fill="url(#ptFelt)"`) + ell(0, `fill="url(#ptFeltImg)"`) + ell(0, `fill="url(#ptLight)"`)
+      + ell(0, `fill="url(#ptFeltBlue)"`) + ell(0, `fill="url(#ptFeltWeave)" opacity=".3" style="mix-blend-mode:soft-light"`) + ell(0, `fill="url(#ptLight)"`)
+      + `<rect x="${OV.cx - 160}" y="${OV.cy - 24}" width="320" height="72" rx="36" fill="none" stroke="#d9b45a" stroke-width="2"/>`   // gold betting line
       + ell(-2, `fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"`)
       + ell(0.6, `fill="none" stroke="#d4a843" stroke-width="1.2"`)   // gold trim where the felt meets the rail
       + RAIL_BLACK.map(([w, col]) => ell(8, `fill="none" stroke="${col}" stroke-width="${w}"`)).join("")
@@ -470,18 +475,30 @@ function drawTable(pick) {
       + RAIL_BROWN.map(([w, col]) => moon(8, `fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"`)).join(""))
         + `<g data-dealer="1" style="cursor:pointer"><rect x="${mx - 60}" y="${dy}" width="120" height="24" rx="6" fill="#222" stroke="var(--gold)"/>`
         + `<text x="${mx}" y="${dy + 17}" fill="var(--gold)" font-size="11" font-weight="700" text-anchor="middle">${esc(onTableDealer() ? nameOf(onTableDealer()) : "NO DEALER")}</text></g>`
-        + `<rect x="${mx - 30}" y="${ty}" width="60" height="22" rx="3" fill="#0b4a28" stroke="rgba(255,255,255,.4)"/>`
+        + `<rect x="${mx - 30}" y="${ty}" width="60" height="22" rx="3" fill="${ov ? "#141414" : "#0b4a28"}" stroke="rgba(255,255,255,.4)"/>`
         + `<text x="${mx}" y="${ty + 15}" fill="#fff" font-size="9" text-anchor="middle">CHIP TRAY</text>`
         + `<image href="../images/edh-casino-logo.png" x="${mx - 30}" y="${gy}" width="60" height="47" opacity=".9"/>`
-        + `<text x="${mx}" y="${gy + 64}" fill="rgba(255,255,255,.75)" font-size="${gsz}" font-weight="700" letter-spacing="3" text-anchor="middle">${esc(game)}</text>`;
+        + `<text x="${mx}" y="${gy + (ov ? 58 : 64)}" fill="rgba(255,255,255,.75)" font-size="${gsz}" font-weight="700" letter-spacing="3" text-anchor="middle">${esc(game)}</text>`;
   /* Poker tables: the dealer's tablet, lying flat on the dealer's right of the chip tray (left side of the picture,
      since the dealer sits at the top facing down). Its screen faces the dealer. Tap it: that table's Dealer Control. */
   if (ov) {
-    const tw = 44, th = 28, tx = mx - 30 - 8 - tw, tyy = ty - 3, tcx = tx + tw / 2, tcy = tyy + th / 2;
-    s += `<g data-tablet="1" style="cursor:pointer"><rect x="${tx}" y="${tyy}" width="${tw}" height="${th}" rx="4" fill="#111" stroke="#9ca3af" stroke-width="1"/>`
-       + `<g transform="rotate(180 ${tcx} ${tcy})"><rect x="${tx + 3}" y="${tyy + 3}" width="${tw - 6}" height="${th - 6}" rx="2" fill="#172239"/>`
-       + `<ellipse cx="${tcx}" cy="${tcy - 1}" rx="12" ry="6" fill="#0f6b3a" stroke="#222" stroke-width="1.2"/>`
-       + `<text x="${tcx}" y="${tyy + th - 5}" fill="#E3B64A" font-size="4.5" font-weight="700" text-anchor="middle">DEALER CONTROL</text></g></g>`;
+    /* Laid out like EDH table 3 (dealer's right = left of the picture): card swiper and a drop slot by the chip tray,
+       the tablet just past them, the Deck Mate 2 shuffler (green light) inside the betting line, and a second drop
+       slot on the dealer's left. */
+    const tw = 36, th = 22, tx = mx - 30 - 2 - tw, tyy = ty + 20, tcx = tx + tw / 2, tcy = tyy + th / 2;
+    s += `<g data-tablet="1" style="cursor:pointer"><rect x="${tx}" y="${tyy}" width="${tw}" height="${th}" rx="3" fill="#111" stroke="#9ca3af" stroke-width="1"/>`
+       + `<g transform="rotate(180 ${tcx} ${tcy})"><rect x="${tx + 2.5}" y="${tyy + 2.5}" width="${tw - 5}" height="${th - 5}" rx="2" fill="#172239"/>`
+       + `<ellipse cx="${tcx}" cy="${tcy - 1}" rx="9" ry="4.5" fill="#3489b0" stroke="#222" stroke-width="1"/>`
+       + `<text x="${tcx}" y="${tyy + th - 4}" fill="#E3B64A" font-size="3.6" font-weight="700" text-anchor="middle">DEALER CONTROL</text></g></g>`;
+    const swx = mx - 30 - 8;   // card swiper, between the tray and the near drop slot
+    s += `<rect x="${swx}" y="${ty + 1}" width="6" height="16" rx="1" fill="#0b0b0b" stroke="#555" stroke-width=".6"/><circle cx="${swx + 3}" cy="${ty + 4}" r=".9" fill="#4ade80"/>`;
+    const slot = x => `<rect x="${x}" y="${ty + 7}" width="13" height="7" rx="1" fill="#c7cdd4" stroke="#7b8590" stroke-width=".6"/><rect x="${x + 2.5}" y="${ty + 9.8}" width="8" height="1.4" rx=".7" fill="#111"/>`;
+    s += slot(swx - 4 - 13) + slot(mx + 30 + 18);   // drop slots: dealer's right (by the swiper) and dealer's left
+    const dw = 44, dh = 22, dx = tx - 12, dyy = OV.cy - 20;   // Deck Mate 2, inside the betting line
+    s += `<rect x="${dx}" y="${dyy}" width="${dw}" height="${dh}" rx="2.5" fill="#2b2f33" stroke="#111" stroke-width="1"/>`
+       + `<rect x="${dx + 3}" y="${dyy + 3}" width="20" height="${dh - 6}" rx="1" fill="#1d2023" stroke="#000" stroke-width=".6"/>`
+       + `<text x="${dx + 31}" y="${dyy + 12}" fill="#6b7076" font-size="3.2" font-weight="800" text-anchor="middle" transform="rotate(180 ${dx + 31} ${dyy + 11})">DECK MATE 2</text>`
+       + `<circle cx="${dx + dw - 3.5}" cy="${dyy + dh / 2}" r="4.5" fill="#22c55e" opacity=".25"/><circle cx="${dx + dw - 3.5}" cy="${dyy + dh / 2}" r="1.8" fill="#4ade80"/>`;
   }
   const base = s;   // the table itself; everything after this is the live part
   if (!pick) {
