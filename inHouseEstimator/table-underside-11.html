@@ -90,8 +90,8 @@ window.PT_PARTS = {
   sensor: { t: "Heat sensor (seats 1&ndash;6)", d: "Melexis MLX90614 in a small printed case under the rail, tilted out and down so it sees a seated lap and a standing player's waist.",
     p: ["MLX90614 infrared temperature sensor board, about $16", "Printed case, screwed up under the rail", "4-wire cable back to the hub"],
     s: ["Warm = someone's there; the sign-in says who", "Each sensor gets its own address in software, so all 6 share one pair of data wires"] },
-  hub: { t: "ESP32 hub", d: "One small board in a printed box under the middle of the table. Reads the 6 sensors and sends the readings to the dealer's tablet over Bluetooth.",
-    p: ["ESP32 dev board, about $10", "Printed hub box", "Terminal block for the 6 seat cables"],
+  hub: { t: "ESP32 hub", d: "A printed box under the middle of the table with the ESP32 board inside. It reads every seat's sensor and sends the readings to the dealer's tablet over Bluetooth.",
+    p: ["ESP32 dev board, about $10", "Printed hub box", "Screw terminal block for the seat cables", "12 V &rarr; 5 V step-down"],
     s: ["Bluetooth to the tablet; no Raspberry Pi, no router", "Powered by 5 V from the step-down"] },
   wire: { t: "Sensor wires", d: "One 4-wire cable from each seat's sensor back to the hub: 5 V, ground, data (SDA), clock (SCL).",
     p: ["4-conductor cable (or Cat5e), clipped under the table"], s: [] },
@@ -99,6 +99,10 @@ window.PT_PARTS = {
     p: ["NTAG215 round sticker, 25 mm, a dollar or two each"], s: ["Phones read it from about 1&ndash;2 in", "Not through metal"] },
   tablet: { t: "Dealer's tablet", d: "Runs Dealer Control and gets the sensor readings from the hub over Bluetooth, then sends everything to the database.",
     p: ["Cheap Android tablet with Chrome (about $100)", "Or an iPad with the Bluefy browser for a demo"], s: ["Tablet off = table closed"] },
+  terminal: { t: "Screw terminal block", d: "Inside the hub box, along its back wall. Each seat cable comes in through the wall and screws onto its own terminal, so nothing is soldered.",
+    p: ["Screw terminal block (one per seat cable)", "Short jumper wires to the ESP32 and the step-down"],
+    s: ["12 V bus: feeds every seat's charger", "Sensor bus: 5 V, ground, SDA (yellow) and SCL (white), wired to the ESP32's pins", "All the sensors share SDA and SCL; each has its own address"] },
+  stepdown: { t: "12 V &rarr; 5 V step-down", d: "A small board in the hub box that turns the 12 V supply into 5 V for the ESP32 and the sensors.", p: ["Buck converter board, a few dollars"], s: ["Keeps 12 V away from the ESP32 and the sensors"] },
   power: { t: "12 V power supply", d: "Runs the fast chargers on 12 V; a small step-down makes 5 V for the hub and sensors. Its cord runs down the pedestal to the floor outlet.",
     p: ["Mean Well LRS-350-12 (about 350 W): room for every seat fast charging at once", "12 V &rarr; 5 V step-down for the ESP32 and sensors"], s: ["Never feed the sensors or the ESP32 12 V", "Phones usually pull 20&ndash;45 W while fast charging"] },
   charger: { t: "USB-C fast charger", d: "A panel-mount USB-C fast charger in the rail at each seat, so players charge their phone while they play.",
@@ -172,14 +176,39 @@ try {
   const grid = new THREE.GridHelper(14, 14, 0x334155, 0x1e293b); grid.position.y = FLOOR; scene.add(grid);
 
   /* Hub (ESP32) under the middle, power supply next to it, cord down the pedestal to the floor outlet. */
-  const HUB = V(0, TY - 0.06, 0.75);
-  add(new THREE.BoxGeometry(0.5, 0.12, 0.35), mat(0x111827, { emissive: 0x3a2a05 }), HUB.x, HUB.y, HUB.z, "hub");
-  add(new THREE.BoxGeometry(0.22, 0.03, 0.12), mat(0x1f2937), HUB.x, HUB.y - 0.075, HUB.z, "hub");
-  label("ESP32 HUB", "#E3B64A", HUB.x, TY - 0.45, HUB.z - 0.05, 0.4);
-  add(new THREE.BoxGeometry(0.3, 0.1, 0.18), mat(0xe5e7eb), -0.65, TY - 0.05, 0.75, "power"); label("12 V POWER", "#e5e7eb", -0.85, TY - 0.4, 0.55, 0.32);
+  /* Hub box (see-through) screwed up under the table. Inside, hanging from the underside: the ESP32 board, a 12 V -> 5 V
+     step-down, and a screw terminal block along the back wall. Every seat cable comes in through the back wall and lands
+     on its own terminal; the terminals share one 12 V bus (chargers), and one 5 V / ground / SDA / SCL bus for the sensors
+     that runs over to the ESP32's pins (all the sensors share the same two data wires, each with its own address). */
+  const HUB = V(0, -0.21, 0.75), HB = { x0: -0.5, x1: 0.5, z0: 0.5, z1: 1.0, y0: -0.12, y1: -0.3 };
+  add(new THREE.BoxGeometry(1.0, 0.18, 0.5), mat(0x94a3b8, { transparent: true, opacity: 0.12, depthWrite: false }), 0, -0.21, 0.75, "hub");   // the box
+  /* ESP32 dev board: black board, silver Wi-Fi/Bluetooth module, two rows of pins. */
+  add(new THREE.BoxGeometry(0.21, 0.02, 0.1), mat(0x111111), 0.18, -0.15, 0.68, "hub");
+  add(new THREE.BoxGeometry(0.07, 0.012, 0.065), mat(0xc0c4ca, { metalness: 0.6, roughness: 0.3 }), 0.24, -0.166, 0.68, "hub");
+  for (const z of [0.64, 0.72]) for (let k = 0; k < 8; k++) add(new THREE.BoxGeometry(0.01, 0.025, 0.01), mat(0xE3B64A, { metalness: 0.5 }), 0.1 + k * 0.022, -0.172, z, "hub");
+  label("ESP32", "#E3B64A", 0.18, -0.42, 0.62, 0.26);
+  /* 12 V -> 5 V step-down (blue board). */
+  add(new THREE.BoxGeometry(0.13, 0.02, 0.08), mat(0x1d4ed8, { emissive: 0x0b1f5e }), -0.26, -0.15, 0.66, "stepdown");
+  add(new THREE.CylinderGeometry(0.018, 0.018, 0.03, 12), mat(0x222222), -0.29, -0.175, 0.66, "stepdown");
+  label("5 V STEP-DOWN", "#93c5fd", -0.3, -0.42, 0.56, 0.24);
+  /* Screw terminal block along the back wall: one green terminal per seat, filled in by buildSeats. */
+  add(new THREE.BoxGeometry(0.82, 0.04, 0.05), mat(0x14532d), 0, -0.17, 0.95, "terminal");   // its rail (the bus)
+  label("TERMINALS", "#86efac", 0, -0.42, 1.02, 0.26);
+  /* Inside wiring: 12 V in -> step-down and -> the terminal bus (red); step-down 5 V -> ESP32 (orange);
+     terminal bus SDA/SCL -> ESP32 pins (yellow, white); ground (black). */
+  const jw = (pts, c) => path(pts, 0.008, mat(c, { emissive: c, emissiveIntensity: 0.25 }), "terminal");
+  jw([V(-0.5, -0.17, 0.7), V(-0.34, -0.16, 0.66)], 0xef4444);                          // 12 V in to the step-down
+  jw([V(-0.5, -0.17, 0.72), V(-0.42, -0.18, 0.9), V(-0.38, -0.18, 0.94)], 0xef4444);   // 12 V in to the terminal bus
+  jw([V(-0.19, -0.16, 0.66), V(0.09, -0.17, 0.64)], 0xf97316);                          // 5 V to the ESP32
+  jw([V(-0.19, -0.16, 0.68), V(-0.05, -0.18, 0.86), V(0.0, -0.18, 0.93)], 0xf97316);   // 5 V to the sensor bus
+  jw([V(0.12, -0.17, 0.72), V(0.1, -0.18, 0.86), V(0.06, -0.18, 0.93)], 0xfacc15);     // SDA
+  jw([V(0.15, -0.17, 0.72), V(0.15, -0.18, 0.86), V(0.12, -0.18, 0.93)], 0xe5e7eb);    // SCL
+  jw([V(0.2, -0.17, 0.72), V(0.22, -0.18, 0.86), V(0.2, -0.18, 0.93)], 0x111111);      // ground
+  label("ESP32 HUB", "#E3B64A", 0, -0.62, 0.75, 0.4);
+  add(new THREE.BoxGeometry(0.3, 0.1, 0.18), mat(0xe5e7eb), -0.85, TY - 0.05, 0.75, "power"); label("12 V POWER", "#e5e7eb", -1.05, TY - 0.4, 0.55, 0.32);
   const cordM = mat(0x111111, { roughness: 0.6 });
-  path([V(-0.5, TY - 0.05, 0.75), V(-0.25, TY - 0.05, 0.75)], 0.018, cordM, "power");   // supply to hub
-  path([V(-0.8, TY - 0.05, 0.75), V(-0.32, -0.4, 1.2), V(-0.32, FLOOR + 0.1, 1.2), V(-1.4, FLOOR + 0.05, 1.6)], 0.025, cordM, "power");
+  path([V(-0.7, TY - 0.05, 0.72), V(-0.5, -0.17, 0.71)], 0.018, cordM, "power");   // supply into the hub box
+  path([V(-1.0, TY - 0.05, 0.75), V(-0.32, -0.4, 1.2), V(-0.32, FLOOR + 0.1, 1.2), V(-1.4, FLOOR + 0.05, 1.6)], 0.025, cordM, "power");
   add(new THREE.BoxGeometry(0.35, 0.25, 0.12), mat(0xd1d5db), -1.45, FLOOR + 0.13, 1.6, "power"); label("FLOOR OUTLET", "#e5e7eb", -1.45, FLOOR + 0.55, 1.6, 0.35);
 
   /* Per seat: heat sensor under the rail tilted out and down with its view cone, a wire back to the hub,
@@ -204,8 +233,12 @@ try {
       const dir = out.clone().multiplyScalar(0.62).add(V(0, -0.78, 0)).normalize(), H = 1.7;
       const cg = new THREE.ConeGeometry(H * 0.75, H, 32, 1, true); cg.translate(0, -H / 2, 0);
       const cone = new THREE.Mesh(cg, coneM); cone.position.copy(s); cone.quaternion.setFromUnitVectors(V(0, -1, 0), dir); cone.userData.part = "sensor"; cone.visible = showCones; seatG.add(cone); cones.push(cone);
-      const m1 = arcPt(t, A - 0.7, B - 0.7, TY - 0.03), w = new THREE.CurvePath();   // wire in under the table, then to the hub
-      const pts = [V(s.x, TY - 0.03, s.z), m1, V(HUB.x + Math.cos(t) * 0.22, TY - 0.03, HUB.z + 0.1)];
+      /* Seat cable: in under the table, through the hub box's back wall, onto this seat's own screw terminal. */
+      const k = SEATL.indexOf(i), tx = SEATL.length > 1 ? 0.34 - k * 0.68 / (SEATL.length - 1) : 0;   // first seat (dealer's left, +x) on the +x end
+      put(new THREE.BoxGeometry(0.09, 0.06, 0.07), mat(0x16a34a), tx, -0.2, 0.95, "terminal");   // the terminal
+      put(new THREE.CylinderGeometry(0.018, 0.018, 0.012, 12), mat(0xc0c4ca, { metalness: 0.6 }), tx, -0.233, 0.95, "terminal");   // its screw
+      const m1 = arcPt(t, A - 0.7, B - 0.7, TY - 0.03), w = new THREE.CurvePath();
+      const pts = [V(s.x, TY - 0.03, s.z), m1, V(tx, TY - 0.05, 1.25), V(tx, -0.2, 1.0), V(tx, -0.2, 0.975)];
       for (let k = 1; k < pts.length; k++) w.add(new THREE.LineCurve3(pts[k - 1], pts[k]));
       const wm = new THREE.Mesh(new THREE.TubeGeometry(w, 48, 0.014, 8, false), wireM); wm.userData.part = "wire"; seatG.add(wm);
       /* USB-C fast charger: a round port in the face of the rail, just past the NFC sticker toward the next seat. */
