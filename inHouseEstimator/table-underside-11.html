@@ -39,7 +39,7 @@ a{color:var(--gold)}
 <body>
 <div class="top"><a class="btn" href="./player-tracker-hardware.html">&lsaquo; Hardware</a><h1 id="h1">Table 4 &middot; 1.1</h1>
   <a class="btn" href="./table-underside.html" style="margin-left:auto">1.0 poker table &rsaquo;</a></div>
-<p class="muted" style="margin:0 0 10px">Heat sensors only: no chairs, tags, batteries or receivers. Table 4 from the Floor page (its game and seats). Live: a ghost sits in every seat with a signed-in player (green) or a Guest (purple). Tap any part to see what it is.</p>
+<p class="muted" style="margin:0 0 10px">Heat sensors only: no chairs, tags, batteries or receivers. Table 4 from the Floor page (its game and seats). Live: a ghost sits in every seat with a signed-in player (green) or a Guest (purple). Tap an empty seat to sit a person there (tap again to clear; just on this page). Tap any other part to see what it is.</p>
 <div class="box" style="padding:8px">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px">
     <b style="color:var(--gold)">3D</b><span class="muted">Drag to turn it, scroll or pinch to zoom, right-drag (two fingers) to slide.</span>
@@ -259,7 +259,7 @@ try {
       const n = arcPt(t, A + 0.1, B + 0.1, 0.195); put(new THREE.CylinderGeometry(0.1, 0.1, 0.012, 24), nfcM, n.x, n.y, n.z, "nfc").userData.seat = i;
       lab(String(i), "#ffffff", n.x + out.x * 0.05, 0.55, n.z + out.z * 0.05, 0.35, seatG);
       const g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(-out.x, -out.z);   // -z faces the table
-      const stool = (geo, y) => { const o = new THREE.Mesh(geo, stoolM); o.position.set(0, y, 0); o.userData.part = "stool"; g.add(o); };
+      const stool = (geo, y) => { const o = new THREE.Mesh(geo, stoolM); o.position.set(0, y, 0); o.userData.part = "stool"; o.userData.seat = i; g.add(o); };
       stool(new THREE.CylinderGeometry(0.42, 0.42, 0.1, 24), -1.0); stool(new THREE.CylinderGeometry(0.05, 0.05, 1.4, 12), -1.7); stool(new THREE.CylinderGeometry(0.4, 0.4, 0.04, 24), FLOOR + 0.02);
       seatG.add(g);
     }
@@ -267,22 +267,26 @@ try {
   /* Ghosts: one per seat with a signed-in player (green name) or a Guest (purple). */
   let state = {}, guests = {}, profiles = {}, roster = {};
   const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
+  const demo = new Set();   // seats with a person tapped in on this page
+  const realAt = n => Object.values(state).some(p => p && p.status === "seated" && (p.table || 1) === TNUM && p.seat === n)
+    || Object.values(guests).some(g => g && !g.end && +g.t === TNUM && g.s === n);
   function buildGhosts() {
     scene.remove(ghostG); ghostG = new THREE.Group(); scene.add(ghostG);
     const who = {};
     for (const [c, p] of Object.entries(state)) if (p && p.status === "seated" && (p.table || 1) === TNUM && p.seat) who[p.seat] = { name: nameOf(c), brk: !!p.breakAt };
     for (const g of Object.values(guests)) if (g && !g.end && +g.t === TNUM && !who[g.s]) who[g.s] = { guest: true };
+    for (const d of demo) if (!who[d] && SEATL.includes(d)) who[d] = { demo: true };   // tapped in on this page (not saved)
     for (const i of SEATL) {
       const { out, st } = stoolAt(i), w = who[i];
       if (!w) { lab("Open", "#cbd5e1", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG); continue; }
       if (w.brk) { lab(w.name.split(" ")[0] + " · break", "#60a5fa", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG); continue; }   // on break: seat held, nobody there
       const m = w.guest ? guestM : ghM, g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(-out.x, -out.z);
-      const cap = (r, len, x, y, z, rx = 0) => { const o = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 12), m); o.position.set(x, y, z); o.rotation.x = rx; o.userData.part = "player"; g.add(o); };
+      const cap = (r, len, x, y, z, rx = 0) => { const o = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 12), m); o.position.set(x, y, z); o.rotation.x = rx; o.userData.part = "player"; o.userData.seat = i; g.add(o); };
       cap(0.24, 0.5, 0, -0.55, 0.18);
-      const h = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 14), m); h.position.set(0, 0.0, 0.1); h.userData.part = "player"; g.add(h);
+      const h = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 14), m); h.position.set(0, 0.0, 0.1); h.userData.part = "player"; h.userData.seat = i; g.add(h);
       for (const x of [-0.17, 0.17]) { cap(0.11, 0.45, x, -0.86, -0.16, Math.PI / 2); cap(0.09, 0.95, x, -1.72, -0.46); cap(0.07, 0.4, x * 1.9, -0.45, 0.04, 0.5); cap(0.06, 0.42, x * 1.6, -0.12, -0.32, Math.PI / 2); }
       ghostG.add(g);
-      lab(w.guest ? "Guest" : w.name.split(" ")[0] + " " + (w.name.split(" ")[1] || "").slice(0, 1), w.guest ? "#c4b5fd" : "#4ade80", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG);
+      lab(w.demo ? "Sitting (tap to clear)" : w.guest ? "Guest" : w.name.split(" ")[0] + " " + (w.name.split(" ")[1] || "").slice(0, 1), w.demo ? "#e5e7eb" : w.guest ? "#c4b5fd" : "#4ade80", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG);
     }
   }
   let showCones = true;
@@ -320,6 +324,14 @@ try {
     ray.setFromCamera(ptr, cam);
     const hits = ray.intersectObjects(scene.children, true).filter(h => h.object.userData.part && h.object.visible);
     const solid = ["pedestal", "player", "stool"], cone = h => h.object.geometry.type === "ConeGeometry";
+    /* Tap a seat (its stool, or the person on it): a person sits down there; tap again and they get up.
+       Only on this page, nothing is saved. Seats with a real signed-in player or Guest aren't changed. */
+    const near = hits.find(h => !cone(h));
+    if (near && ["stool", "player"].includes(near.object.userData.part) && near.object.userData.seat) {
+      const n = near.object.userData.seat;
+      if (demo.has(n)) { demo.delete(n); buildGhosts(); return; }
+      if (!realAt(n)) { demo.add(n); buildGhosts(); return; }
+    }
     const hit = hits.find(h => !solid.includes(h.object.userData.part) && !cone(h)) || hits.find(h => !cone(h)) || hits[0];
     if (hit && hit.object.userData.part === "nfc" && hit.object.userData.seat) { showSeatQR(hit.object.userData.seat); return; }
     if (hit) showPart(hit.object.userData.part);
