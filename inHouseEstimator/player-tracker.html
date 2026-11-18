@@ -130,7 +130,7 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
     <p><button class="btn sm" id="joinLink">Copy player sign-in link</button></p>
     <p style="margin-top:16px"><button class="btn ghost sm" id="reset">Reset all</button></p>
     </div>
-    <p style="margin-top:12px"><a class="btn" href="./floor.html">Floor</a> <a class="btn" href="./waitlist.html">Waitlist</a> <a class="btn" href="./players.html">Players</a> <a class="btn" href="./dealers.html">Dealers</a> <a class="btn ghost" href="./player-tracker-hardware.html">Hardware</a></p>
+    <p style="margin-top:12px"><a class="btn" href="./floor.html">Floor</a> <a class="btn" href="./waitlist.html">Waitlist</a> <a class="btn" href="./players.html">Players</a> <a class="btn" href="./dealers.html">Dealers</a> <a class="btn ghost" href="./player-tracker-hardware.html">Hardware</a> <button class="btn ghost" id="tt4">Table 4</button></p>
   </div>
   <div id="prof" hidden>
     <div class="top">
@@ -970,6 +970,13 @@ function watchLayout() {   // this table's chair spots
     render();
   }, () => {});
 }
+/* Table 4 button (bottom bar): show table 4 here, same as picking it under the gear. */
+$("tt4").onclick = () => {
+  if (!TABLES[4]) { alert("There's no Table 4 on the Floor page."); return; }
+  setTable(4);
+  try { localStorage.setItem("playerTracker.testTable", "4"); } catch (e) {}
+  watchLayout(); render(); window.scrollTo({ top: 0, behavior: "smooth" });
+};
 /* Gear: pick which table to test here. */
 $("ttGear").onclick = () => {
   showModal(`<div class="mt">Settings</div><div class="note">Pick a table to show here</div>`
