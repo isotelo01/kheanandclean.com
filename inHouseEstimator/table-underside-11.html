@@ -258,9 +258,9 @@ try {
       chg.quaternion.setFromUnitVectors(V(0, 1, 0), co);
       const n = arcPt(t, A + 0.1, B + 0.1, 0.195); put(new THREE.CylinderGeometry(0.1, 0.1, 0.012, 24), nfcM, n.x, n.y, n.z, "nfc").userData.seat = i;
       lab(String(i), "#ffffff", n.x + out.x * 0.05, 0.55, n.z + out.z * 0.05, 0.35, seatG);
-      const g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(-out.x, -out.z);   // -z faces the table
+      const g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(out.x, out.z);   // -z faces the table
       const stool = (geo, y) => { const o = new THREE.Mesh(geo, stoolM); o.position.set(0, y, 0); o.userData.part = "stool"; o.userData.seat = i; g.add(o); };
-      stool(new THREE.CylinderGeometry(0.42, 0.42, 0.1, 24), -1.0); stool(new THREE.CylinderGeometry(0.05, 0.05, 1.4, 12), -1.7); stool(new THREE.CylinderGeometry(0.4, 0.4, 0.04, 24), FLOOR + 0.02);
+      stool(new THREE.CylinderGeometry(0.6, 0.6, 0.1, 24), -1.0); stool(new THREE.CylinderGeometry(0.05, 0.05, 1.4, 12), -1.7); stool(new THREE.CylinderGeometry(0.4, 0.4, 0.04, 24), FLOOR + 0.02);
       seatG.add(g);
     }
   }
@@ -278,15 +278,22 @@ try {
     for (const d of demo) if (!who[d] && SEATL.includes(d)) who[d] = { demo: true };   // tapped in on this page (not saved)
     for (const i of SEATL) {
       const { out, st } = stoolAt(i), w = who[i];
-      if (!w) { lab("Open", "#cbd5e1", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG); continue; }
-      if (w.brk) { lab(w.name.split(" ")[0] + " · break", "#60a5fa", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG); continue; }   // on break: seat held, nobody there
-      const m = w.guest ? guestM : ghM, g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(-out.x, -out.z);
+      if (!w) { lab("Open", "#cbd5e1", st.x + out.x * 0.4, 2.0, st.z + out.z * 0.4, 0.34, ghostG); continue; }
+      if (w.brk) { lab(w.name.split(" ")[0] + " · break", "#60a5fa", st.x + out.x * 0.4, 2.0, st.z + out.z * 0.4, 0.34, ghostG); continue; }   // on break: seat held, nobody there
+      const m = w.guest ? guestM : ghM, g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(out.x, out.z);   // -z faces the table
       const cap = (r, len, x, y, z, rx = 0) => { const o = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 12), m); o.position.set(x, y, z); o.rotation.x = rx; o.userData.part = "player"; o.userData.seat = i; g.add(o); };
-      cap(0.24, 0.5, 0, -0.55, 0.18);
-      const h = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 14), m); h.position.set(0, 0.0, 0.1); h.userData.part = "player"; h.userData.seat = i; g.add(h);
-      for (const x of [-0.17, 0.17]) { cap(0.11, 0.45, x, -0.86, -0.16, Math.PI / 2); cap(0.09, 0.95, x, -1.72, -0.46); cap(0.07, 0.4, x * 1.9, -0.45, 0.04, 0.5); cap(0.06, 0.42, x * 1.6, -0.12, -0.32, Math.PI / 2); }
+      /* Full-size person sitting on the stool (seat top S), facing the table: tall torso, head, thighs along the seat,
+         shins down to the floor, one arm hanging down on each side. */
+      const S = -0.95;
+      cap(0.32, 1.45, 0, S + 1.07, 0.2);                                   // torso
+      const h = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 14), m); h.position.set(0, S + 2.5, 0.12); h.userData.part = "player"; h.userData.seat = i; g.add(h);
+      for (const x of [-0.26, 0.26]) {
+        cap(0.19, 1.0, x, S + 0.2, -0.35, Math.PI / 2);                    // thigh, forward along the seat
+        cap(0.16, (S + 0.1) - (FLOOR + 0.05) - 0.32, x, (S + 0.1 + FLOOR + 0.05) / 2, -0.95);   // shin, down to the floor
+        cap(0.12, 1.1, x * 1.8, S + 1.35, 0.2);                           // arm, hanging down
+      }
       ghostG.add(g);
-      lab(w.demo ? "Sitting (tap to clear)" : w.guest ? "Guest" : w.name.split(" ")[0] + " " + (w.name.split(" ")[1] || "").slice(0, 1), w.demo ? "#e5e7eb" : w.guest ? "#c4b5fd" : "#4ade80", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG);
+      lab(w.demo ? "Sitting (tap to clear)" : w.guest ? "Guest" : w.name.split(" ")[0] + " " + (w.name.split(" ")[1] || "").slice(0, 1), w.demo ? "#e5e7eb" : w.guest ? "#c4b5fd" : "#4ade80", st.x + out.x * 0.4, 2.0, st.z + out.z * 0.4, 0.34, ghostG);
     }
   }
   let showCones = true;
