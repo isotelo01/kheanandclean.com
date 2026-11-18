@@ -120,6 +120,7 @@ document.getElementById("partClose").onclick = () => { document.getElementById("
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ROSTER, casinoDoc } from "./pt-people.js";
 const TNUM = 4;   // the table this page draws
@@ -271,6 +272,7 @@ try {
       storageBucket: "khean-estimator-78f3e.firebasestorage.app", messagingSenderId: "581692353222", appId: "1:581692353222:web:21f62f057ac5506bbb45c7" });
     let db; try { db = initializeFirestore(app, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { db = fsGetFirestore(app); }
     const d = n => casinoDoc(fsDoc)(db, "playerTracker", n);
+    onAuthStateChanged(getAuth(app), () => {   // the database needs the signed-in login, same as the other pages
     onSnapshot(d("tablelist"), snap => {
       const t = (snap.exists() && snap.data()[TNUM]) || {};
       const seats = Array.isArray(t.seats) && t.seats.length ? t.seats.map(Number).sort((a, b) => a - b) : [1, 2, 3, 4, 5, 6, 7];
@@ -282,6 +284,7 @@ try {
     onSnapshot(d("guests"), snap => { guests = snap.exists() ? snap.data() : {}; buildGhosts(); }, () => {});
     onSnapshot(d("profiles"), snap => { profiles = snap.exists() ? snap.data() : {}; buildGhosts(); }, () => {});
     onSnapshot(d("roster"), snap => { roster = snap.exists() ? snap.data() : {}; buildGhosts(); }, () => {});
+    });
   } catch (e) {}
 } catch (e) { document.getElementById("v3msg").textContent = "The 3D view couldn't start on this device (" + e.message + ")."; }
 </script>
