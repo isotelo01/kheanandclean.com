@@ -30,12 +30,12 @@ a{color:var(--gold)}
 <body>
 <div class="top"><a class="btn" href="./player-tracker-hardware.html">&lsaquo; Hardware</a><h1>Seat Module 1.1</h1>
   <a class="btn" href="./table-underside-11.html" style="margin-left:auto">Table 4 &rsaquo;</a></div>
-<p class="muted" style="margin:0 0 10px">One per seat, screwed under the rail. Mock-up only: sizes are guesses until we measure the real strip and Apple cube. Tap any part to see what it is.</p>
+<p class="muted" style="margin:0 0 10px">One long box per seat, screwed under the rail, front facing the player. Mock-up only: sizes are guesses until we measure the real strip and Apple cube. Tap any part to see what it is.</p>
 <div class="box" style="padding:8px">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px">
     <b style="color:var(--gold)">3D</b><span class="muted">Drag to turn, scroll or pinch to zoom.</span>
     <span style="flex:1"></span>
-    <button class="btn" id="bExplode" type="button">Take bezel off</button>
+    <button class="btn" id="bExplode" type="button">Take bezel off, lift sled</button>
     <button class="btn" id="bSee" type="button">Solid case</button>
     <button class="btn" id="bFront" type="button">Front</button>
     <button class="btn" id="bSide" type="button">Side</button>
@@ -51,28 +51,32 @@ a{color:var(--gold)}
 
 <h2>What's in it</h2>
 <div class="box"><ol style="margin:0">
-  <li><b>SUPERDANNY flat-plug strip</b> (black): its flat plug and 3 ft cord go to the table's power strip.</li>
-  <li><b>Apple 20 W USB-C cube</b> (white), plugged into the strip's end outlet, port facing the player through the bezel.</li>
-  <li><b>XIAO ESP32C3 Wi-Fi board</b> (blue), powered from the strip's side USB port by a short right-angle cable.</li>
-  <li><b>GY-906 heat sensor</b>, in the front bay, tilted out and down at the player's lap.</li>
-  <li><b>Front bezel</b>: covers the cube, held by one M3 screw (about 12 mm) into a square M3 nut that slides into a slot in the back piece. With the bezel off, finger notches on both sides let you pinch the cube and pull it out.</li>
-  <li><b>Back piece</b>: holds the strip, vents on top, cord track out the back with two bends (an L and an L) and a zip-tie slot where the cord leaves.</li>
-  <li><b>NFC sticker</b> on top of the bezel (or in the rail above it).</li>
+  <li><b>One long box</b> under the rail, its front facing the player.</li>
+  <li><b>SUPERDANNY flat-plug strip</b> (black), turned so its top outlets face the player. Its cord comes out the right end, through the cord track (an L and an L) with a zip-tie slot, and out the back to the table's power strip.</li>
+  <li><b>Apple 20 W USB-C cube</b> (white), plugged into the strip's front outlet, USB-C port facing the player through the bezel.</li>
+  <li><b>Front bezel</b> over the cube, held by one M3 screw (about 12 mm) into a square M3 nut in a slot in the back piece. With it off, finger notches on both sides let you pinch the cube and pull it out.</li>
+  <li><b>XIAO ESP32C3 Wi-Fi board</b> (blue) in the right-hand bay, powered from the strip's USB port by a short right-angle cable.</li>
+  <li><b>GY-906 heat sensor</b>, screwed to a <b>sled</b> that slides in and out on rails. It sits recessed back in the right-hand bay, angled down and out, looking through a <b>funnel</b> that flares wider toward the front so the walls don't block its view.</li>
+  <li><b>Round IR window</b> at the front of the funnel: two rings snap together with the black polyethylene film between them; pins on one ring poke through the film into holes in the other so it stays tight.</li>
+  <li><b>NFC sticker</b> on top of the bezel (or in the rail above it). Vents on top.</li>
 </ol></div>
 
 <script>
 window.PARTS = {
-  strip: { t: "SUPERDANNY flat-plug strip", d: "The power strip in the back piece. Its end outlet feeds the Apple cube; one of its side USB ports powers the Wi-Fi board. Its flat plug and 3 ft cord run out the back to the table's power strip.", p: ["SUPERDANNY 3 ft flat-plug strip, 4 outlets + 4 USB", "Size here is a guess: measure it"] },
-  cube: { t: "Apple 20 W USB-C cube", d: "Plugs into the strip's end outlet. Its USB-C port faces the player through the hole in the bezel, so phones fast charge. Same shape for years, sold everywhere: easy to replace.", p: ["Apple 20W USB-C Power Adapter"] },
-  board: { t: "XIAO ESP32C3 Wi-Fi board", d: "Reads the heat sensor and sends the seat's readings over the casino's device Wi-Fi to the database.", p: ["Seeed Studio XIAO ESP32C3, 21 x 17.5 mm, $5.39", "Short right-angle USB cable from the strip's side port"] },
-  sensor: { t: "GY-906 heat sensor", d: "In the front bay, tilted about 40 degrees down and out so it sees a seated lap or a standing player's waist. It looks out through an open window (heat doesn't pass through clear plastic).", p: ["GY-906 MLX90614 module, $12.95", "4 short wires to the XIAO (3.3 V, ground, SDA, SCL)"] },
-  cable: { t: "Short right-angle USB cable", d: "From the strip's side USB port to the XIAO's USB-C port. About 4 in.", p: [] },
+  strip: { t: "SUPERDANNY flat-plug strip", d: "Turned so its top outlets face the player. The Apple cube plugs into the front outlet; a USB port on the right-hand side powers the Wi-Fi board. Its cord leaves from the right end, through the cord track and out the back.", p: ["SUPERDANNY 3 ft flat-plug strip, 4 outlets + 4 USB", "Size here is a guess: measure it"] },
+  cube: { t: "Apple 20 W USB-C cube", d: "Plugs into the strip's front outlet, USB-C port facing the player through the bezel so phones fast charge. Same shape for years and sold everywhere, so it's easy to replace.", p: ["Apple 20W USB-C Power Adapter"] },
+  board: { t: "XIAO ESP32C3 Wi-Fi board", d: "In the right-hand bay. Reads the heat sensor and sends the seat's readings over the casino's device Wi-Fi to the database.", p: ["Seeed Studio XIAO ESP32C3, 21 x 17.5 mm, $5.39", "Wired to the sensor: 3V3, GND, SDA to D4, SCL to D5"] },
+  sensor: { t: "GY-906 heat sensor", d: "Screwed to the sled, recessed back in the bay and angled down and out at the player's lap. It looks out through the funnel and the round window.", p: ["GY-906 MLX90614 module, $12.95", "Two small screws through its mounting holes into the sled"] },
+  sled: { t: "Sensor sled", d: "The sensor screws onto this plate, and the plate slides in and out on two rails like a drawer. To swap a sensor or try a new angle, pluck the sled out (or print one at a different angle).", p: ["Printed (PETG)", "2 small screws for the sensor"] },
+  funnel: { t: "Funnel", d: "Flares wider toward the front so the walls stay out of the sensor's view (otherwise it reads the plastic, not the player). If it doesn't see the whole seat, pull the sensor back, drop it, or widen the opening.", p: [] },
+  window: { t: "Round IR window", d: "Two printed rings that snap together with a piece of thin black polyethylene (a trash bag works for testing) between them. Pins on one ring poke through the film into holes in the other ring, so the film stays tight. It presses into the round hole at the front of the funnel. Heat passes through; clear plastic would block it.", p: ["2 printed rings", "Thin black polyethylene film"] },
+  cable: { t: "Short right-angle USB cable", d: "From the strip's right-hand USB port to the XIAO. About 4 in.", p: [] },
   bezel: { t: "Front bezel", d: "Covers the Apple cube. One M3 screw through the front goes into a square nut held in the back piece. Take it off and pinch the cube by the finger notches to pull it out.", p: ["Printed (PETG)", "M3 screw, about 12 mm"] },
-  back: { t: "Back piece", d: "Holds the strip. Vents on top let the heat out. The cord leaves through a track with two bends and a zip-tie slot, so a yank lands on the case, not the plugs.", p: ["Printed (PETG)", "Square M3 nut in its slot"] },
+  back: { t: "Back piece", d: "The long box that holds everything. Vents on top let the heat out. The strip's cord leaves through a track with two bends and a zip-tie slot, so a yank lands on the case, not the plugs.", p: ["Printed (PETG)", "Square M3 nut in its slot"] },
   notch: { t: "Finger notch", d: "With the bezel off, put a finger in each notch, pinch the cube and pull it straight out.", p: [] },
   nut: { t: "Square M3 nut", d: "Slides into the slot in the back piece and stays there, so the bezel screw has something to bite into.", p: [] },
   screw: { t: "M3 screw, about 12 mm", d: "Holds the bezel on. Swap for a security screw later if players mess with it.", p: [] },
-  cord: { t: "Strip cord", d: "Runs through the cord track (an L and an L) and out the back, zip-tied at the exit, to the table's power strip.", p: [] },
+  cord: { t: "Strip cord", d: "Out the strip's right end, through the cord track (an L and an L) and out the back, zip-tied at the exit, to the table's power strip.", p: [] },
   zip: { t: "Zip-tie slot", d: "Two slots across the cord track at the exit. A zip tie locks the cord in place.", p: [] },
   nfc: { t: "NFC sticker", d: "Holds this seat's sign-in link. A phone tapped on it opens the seat sign-in.", p: ["NTAG215, 25 mm"] }
 };
@@ -90,11 +94,11 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const box = document.getElementById("v3");
 try {
-  /* ---- Sizes in mm (GUESSES until measured). x = side to side, y = up, z = toward the player (+z = front). ---- */
-  const STRIP = { w: 50, h: 40, l: 110 };          // SUPERDANNY strip body
+  /* ---- Sizes in mm (GUESSES until measured). x = side to side (+x = player's right), y = up, z = toward the player. ---- */
+  const STRIP = { l: 110, w: 50, d: 40 };          // strip body: length (x), width (y), depth front-to-back (z); its top outlets face +z
   const CUBE = { w: 45, h: 45, d: 29 };            // Apple 20 W cube (without prongs)
-  const WALL = 3;
-  const S = 0.01;                                  // mm -> scene units
+  const SEN_TILT = 40, SEN_BACK = 34;              // sensor tilt (degrees down) and how far it sits back from the front face (mm)
+  const WALL = 3, S = 0.01;                        // wall thickness; mm -> scene units
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0e1628);
   const cam = new THREE.PerspectiveCamera(38, box.clientWidth / box.clientHeight, 0.01, 50);
   const ren = new THREE.WebGLRenderer({ antialias: true }); ren.setPixelRatio(Math.min(2, devicePixelRatio)); ren.setSize(box.clientWidth, box.clientHeight); box.appendChild(ren.domElement);
@@ -102,108 +106,131 @@ try {
   scene.add(new THREE.AmbientLight(0xffffff, 0.8)); const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(3, 5, 4); scene.add(sun);
   const fill = new THREE.DirectionalLight(0xffffff, 0.6); fill.position.set(-4, -2, -3); scene.add(fill);
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, ...o });
-  const caseM = mat(0x9ca3af, { transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
+  const caseM = mat(0x9ca3af, { transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide });
   const bezM = mat(0xE3B64A, { transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide });
-  /* A box from min/max corners in mm, added to a group, tagged with a part name. */
-  const bx = (grp, x0, x1, y0, y1, z0, z1, m, part) => {
+  const V = (x, y, z) => new THREE.Vector3(x * S, y * S, z * S);
+  const bx = (g, x0, x1, y0, y1, z0, z1, m, part) => {
     const o = new THREE.Mesh(new THREE.BoxGeometry((x1 - x0) * S, (y1 - y0) * S, (z1 - z0) * S), m);
-    o.position.set((x0 + x1) / 2 * S, (y0 + y1) / 2 * S, (z0 + z1) / 2 * S); o.userData.part = part; grp.add(o); return o;
+    o.position.set((x0 + x1) / 2 * S, (y0 + y1) / 2 * S, (z0 + z1) / 2 * S); o.userData.part = part; g.add(o); return o;
   };
-  const cyl = (grp, r, len, x, y, z, rx, rz, m, part) => {
-    const o = new THREE.Mesh(new THREE.CylinderGeometry(r * S, r * S, len * S, 20), m); o.position.set(x * S, y * S, z * S); o.rotation.x = rx || 0; o.rotation.z = rz || 0; o.userData.part = part; grp.add(o); return o;
+  const cylAlong = (g, r0, r1, a, b, m, part, open) => {   // a cylinder/cone from point a (radius r0) to point b (radius r1), in mm
+    const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), len = A.distanceTo(B);
+    const o = new THREE.Mesh(new THREE.CylinderGeometry(r1 * S, r0 * S, len * S, 32, 1, !!open), m);
+    o.position.copy(A.clone().add(B).multiplyScalar(0.5 * S)); o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize());
+    o.userData.part = part; g.add(o); return o;
   };
-  const tube = (grp, pts, r, m, part) => {
-    const c = new THREE.CurvePath(); for (let i = 1; i < pts.length; i++) c.add(new THREE.LineCurve3(new THREE.Vector3(...pts[i - 1].map(v => v * S)), new THREE.Vector3(...pts[i].map(v => v * S))));
-    const o = new THREE.Mesh(new THREE.TubeGeometry(c, 40 * pts.length, r * S, 10, false), m); o.userData.part = part; grp.add(o); return o;
+  const tube = (g, pts, r, m, part) => {
+    const c = new THREE.CurvePath(); for (let i = 1; i < pts.length; i++) c.add(new THREE.LineCurve3(V(...pts[i - 1]), V(...pts[i])));
+    const o = new THREE.Mesh(new THREE.TubeGeometry(c, 40 * pts.length, r * S, 10, false), m); o.userData.part = part; g.add(o); return o;
   };
 
-  /* Layout (mm): strip centred on x, its end outlet at z = 40. Cube in front of it, z 40..69. Side bay on +x for the
-     board and sensor. Case inner space: x -30..52, y -28..26, z -78..72. */
-  const ZE = 40, X0 = -STRIP.w / 2 - 5, X1 = 52, Y0 = -28, Y1 = 26, ZB = -78, ZF = ZE + CUBE.d + 3, ZJ = ZE + 4;   // ZJ: where bezel meets back piece
+  /* ---- Layout (mm). Strip across the left/middle, its outlet face at z = 0. The cube in its left outlet. Cord track
+     right of the strip. Sensor bay on the far right, deeper at the bottom so the sensor can sit lower. ---- */
+  const SX0 = -STRIP.l / 2, SX1 = STRIP.l / 2, ZF = CUBE.d + 3;                     // ZF: front face of the box
+  const OUT_L = -25, OUT_R = 22;                                                    // the strip's two front outlets (x)
+  const TX0 = SX1 + 3, TX1 = TX0 + 10;                                              // cord track
+  const BX0 = TX1 + 3, BX1 = BX0 + 36;                                              // sensor bay
+  const X0 = SX0 - 6, X1 = BX1, Y0 = -STRIP.w / 2 - 3, Y1 = STRIP.w / 2 + 3, ZB = -STRIP.d - 8, YB = Y0 - 16;   // YB: bay floor (dropped)
   const parts = new THREE.Group(); scene.add(parts);
 
-  /* Strip: black body, two outlets on top, one on the front end, 4 USB ports on the +x side. */
+  /* Strip: black body, front outlets facing the player, USB ports on the right-hand end of its top. */
   const black = mat(0x1a1a1a, { roughness: 0.5 }), slot = mat(0x050505);
-  bx(parts, -STRIP.w / 2, STRIP.w / 2, -STRIP.h / 2, STRIP.h / 2, ZE - STRIP.l, ZE, black, "strip");
-  for (const z of [-20, -55]) { bx(parts, -10, -7, STRIP.h / 2, STRIP.h / 2 + 0.5, z - 6, z + 6, slot, "strip"); bx(parts, 7, 10, STRIP.h / 2, STRIP.h / 2 + 0.5, z - 6, z + 6, slot, "strip"); }
-  for (let k = 0; k < 4; k++) bx(parts, STRIP.w / 2, STRIP.w / 2 + 0.6, -6, 6, -50 + k * 13, -44 + k * 13, slot, "strip");   // USB ports (side)
-  /* Apple cube in the end outlet: white body, prongs into the strip, USB-C port facing +z. */
+  bx(parts, SX0, SX1, -STRIP.w / 2, STRIP.w / 2, -STRIP.d, 0, black, "strip");
+  for (const x of [OUT_L, OUT_R]) { bx(parts, x - 7, x - 5, -6, 6, 0, 0.5, slot, "strip"); bx(parts, x + 5, x + 7, -6, 6, 0, 0.5, slot, "strip"); bx(parts, x - 2, x + 2, -14, -10, 0, 0.5, slot, "strip"); }
+  for (let k = 0; k < 4; k++) bx(parts, 20 + k * 8, 25 + k * 8, STRIP.w / 2, STRIP.w / 2 + 0.6, -30, -10, slot, "strip");   // USB ports on top, right side
+  /* Apple cube in the left outlet, port toward the player. */
   const white = mat(0xf5f5f5, { roughness: 0.35 });
-  bx(parts, -CUBE.w / 2, CUBE.w / 2, -CUBE.h / 2, CUBE.h / 2, ZE, ZE + CUBE.d, white, "cube");
-  for (const x of [-6, 6]) bx(parts, x - 1, x + 1, -4, 4, ZE - 10, ZE, mat(0xc0c4ca, { metalness: 0.7 }), "cube");
-  bx(parts, -4.5, 4.5, -1.6, 1.6, ZE + CUBE.d, ZE + CUBE.d + 0.4, slot, "cube");   // its USB-C port
-  /* Side bay (+x): XIAO board and the heat sensor, with the short right-angle cable from the strip's side USB port. */
-  const blue = mat(0x1d4ed8, { emissive: 0x0b1f5e });
-  bx(parts, 33, 35, -10, 10, -5, 16, blue, "board");                                   // XIAO, standing on its edge
-  bx(parts, 35, 37, -4, 4, 10, 16, mat(0xc0c4ca, { metalness: 0.6 }), "board");        // its USB-C plug end
-  tube(parts, [[STRIP.w / 2 + 1, 0, -4], [30, 0, -4], [31, 0, 8], [35, 0, 12]], 1.8, mat(0x6b7280), "cable");
-  /* Heat sensor: small board + metal can, tilted 40 degrees down, looking out the front of the bay. */
-  const sen = new THREE.Group(); sen.position.set(42 * S, -18 * S, (ZF - 4) * S); sen.rotation.x = 40 * Math.PI / 180; parts.add(sen);
-  bx(sen, -8, 8, -5.5, 5.5, -1, 1, mat(0x1e3a8a), "sensor");
-  cyl(sen, 4.5, 5, 0, 0, 3, Math.PI / 2, 0, mat(0xc0c4ca, { metalness: 0.7, roughness: 0.3 }), "sensor");
-  tube(parts, [[34, -10, 0], [38, -16, (ZF - 12)], [42, -18, ZF - 6]], 0.8, mat(0xfacc15), "sensor");   // wires to the board
-  /* Its view (orange cone), out and down toward the lap. */
-  const cg = new THREE.ConeGeometry(0.7, 1.4, 32, 1, true); cg.translate(0, -0.7, 0);
-  const cone = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide }));
-  cone.position.set(42 * S, -18 * S, (ZF - 2) * S); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, -Math.sin(40 * Math.PI / 180), Math.cos(40 * Math.PI / 180)).normalize()); cone.userData.part = "sensor"; parts.add(cone);
-  /* Strip cord: out the back of the strip, through the cord track (an L and an L) and out the rear wall. */
+  bx(parts, OUT_L - CUBE.w / 2, OUT_L + CUBE.w / 2, -CUBE.h / 2, CUBE.h / 2, 0, CUBE.d, white, "cube");
+  bx(parts, OUT_L - 4.5, OUT_L + 4.5, -1.6, 1.6, CUBE.d, CUBE.d + 0.4, slot, "cube");
+  /* Strip cord: out the right end, back through the track (an L and an L), out the back wall. */
   const cordM = mat(0x111111, { roughness: 0.5 });
-  tube(parts, [[0, -10, ZE - STRIP.l], [0, -10, -72], [-18, -10, -72], [-18, -10, ZB - 2], [-18, -10, ZB - 40]], 3, cordM, "cord");
+  tube(parts, [[SX1, -12, -20], [TX0 + 5, -12, -20], [TX0 + 5, -12, -STRIP.d - 2], [TX0 - 8, -12, -STRIP.d - 2], [TX0 - 8, -12, ZB - 40]], 3, cordM, "cord");
+  /* XIAO in the bay, standing up near the back, with the right-angle cable from the strip's top USB port. */
+  const blue = mat(0x1d4ed8, { emissive: 0x0b1f5e });
+  bx(parts, BX0 + 3, BX0 + 5, -10, 12, -36, -15, blue, "board");
+  bx(parts, BX0 + 5, BX0 + 7, -4, 4, -20, -15, mat(0xc0c4ca, { metalness: 0.6 }), "board");
+  tube(parts, [[42, STRIP.w / 2, -20], [42, STRIP.w / 2 + 4, -20], [BX0 + 2, STRIP.w / 2 + 4, -18], [BX0 + 7, 0, -18]], 1.8, mat(0x6b7280), "cable");
 
-  /* ---- Back piece (see-through grey): floor, roof with vents, sides, rear wall with the cord exit, the cord track,
-     the zip-tie slots, the nut slot and the finger notches. ---- */
+  /* Sensor on its sled: recessed SEN_BACK mm behind the front, tilted SEN_TILT down. Looks out through the funnel. */
+  const t = SEN_TILT * Math.PI / 180, dir = [0, -Math.sin(t), Math.cos(t)];
+  const SC = [(BX0 + BX1) / 2 + 2, 2, ZF - SEN_BACK];                              // sensor centre
+  const reach = (ZF - SC[2]) / dir[2], WC = [SC[0], SC[1] + dir[1] * reach, ZF];   // window centre on the front face
+  const sledG = new THREE.Group(); sledG.position.set(...SC.map(v => v * S)); sledG.rotation.x = t; parts.add(sledG);
+  bx(sledG, -11, 11, -9, 9, -4, -1, mat(0x475569), "sled");                      // sled plate
+  bx(sledG, -8, 8, -5.5, 5.5, -1, 1, mat(0x1e3a8a), "sensor");                     // GY-906 board
+  const can = new THREE.Mesh(new THREE.CylinderGeometry(4.5 * S, 4.5 * S, 5 * S, 20), mat(0xc0c4ca, { metalness: 0.7, roughness: 0.3 })); can.rotation.x = Math.PI / 2; can.position.z = 3.5 * S; can.userData.part = "sensor"; sledG.add(can);
+  for (const x of [-6.5, 6.5]) { const sc = new THREE.Mesh(new THREE.CylinderGeometry(1.2 * S, 1.2 * S, 1.5 * S, 12), mat(0xd1d5db, { metalness: 0.8 })); sc.rotation.x = Math.PI / 2; sc.position.set(x * S, 0, 1.5 * S); sc.userData.part = "sled"; sledG.add(sc); }   // its 2 screws
+  /* Sled rails (the sled slides in from the top). */
+  const railM = mat(0x64748b, { transparent: true, opacity: 0.6 });
+  for (const x of [SC[0] - 13, SC[0] + 13]) cylAlong(parts, 1.2, 1.2, [x, SC[1] + 14, SC[2] - 6], [x, SC[1] - 14, SC[2] + 6], railM, "sled");
+  tube(parts, [[BX0 + 5, -2, -20], [SC[0] - 8, -4, SC[2] - 6], [SC[0], SC[1], SC[2] - 2]], 0.8, mat(0xfacc15), "sensor");   // wires to the board
+  /* Funnel: flares from the sensor out to the round window. */
+  cylAlong(parts, 7, 15, [SC[0] + dir[0] * 6, SC[1] + dir[1] * 6, SC[2] + dir[2] * 6], WC, mat(0x94a3b8, { transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }), "funnel", true);
+  /* Round IR window: two rings, the film between, pins through it. */
+  const ringM = mat(0x374151), filmM = mat(0x0b0b0b, { transparent: true, opacity: 0.85 });
+  cylAlong(parts, 17, 17, [WC[0], WC[1], ZF - 1], [WC[0], WC[1], ZF + 1.2], ringM, "window");
+  cylAlong(parts, 15, 15, [WC[0], WC[1], ZF + 1.2], [WC[0], WC[1], ZF + 1.5], filmM, "window");
+  cylAlong(parts, 17, 17, [WC[0], WC[1], ZF + 1.5], [WC[0], WC[1], ZF + 3.5], ringM, "window");
+  for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4; cylAlong(parts, 0.8, 0.8, [WC[0] + Math.cos(a) * 16, WC[1] + Math.sin(a) * 16, ZF - 1], [WC[0] + Math.cos(a) * 16, WC[1] + Math.sin(a) * 16, ZF + 3.6], mat(0xd1d5db), "window"); }
+  /* Its view: an orange cone out of the window toward the lap. */
+  const cg = new THREE.ConeGeometry(0.75, 1.4, 32, 1, true); cg.translate(0, -0.7, 0);
+  const cone = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide }));
+  cone.position.copy(V(...WC)); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(...dir)); cone.userData.part = "sensor"; parts.add(cone);
+
+  /* ---- Back piece: the long box. The bay drops lower so the sensor can sit low. ---- */
   const back = new THREE.Group(); scene.add(back);
-  bx(back, X0 - WALL, X1 + WALL, Y0 - WALL, Y0, ZB - WALL, ZJ, caseM, "back");          // floor
-  bx(back, X0 - WALL, X1 + WALL, Y1, Y1 + WALL, ZB - WALL, ZJ, caseM, "back");          // roof
-  bx(back, X0 - WALL, X0, Y0, Y1, ZB - WALL, ZJ, caseM, "back");                        // left side
-  bx(back, X1, X1 + WALL, Y0, Y1, ZB - WALL, ZJ, caseM, "back");                        // right side
-  bx(back, X0, X1, Y0, Y1, ZB - WALL, ZB, caseM, "back");                               // rear wall
+  bx(back, X0 - WALL, BX0, Y0 - WALL, Y0, ZB - WALL, ZF, caseM, "back");               // floor (strip side)
+  bx(back, BX0, X1 + WALL, YB - WALL, YB, ZB - WALL, ZF, caseM, "back");               // floor (bay, dropped)
+  bx(back, BX0 - WALL, BX0, YB, Y0, ZB - WALL, ZF, caseM, "back");                     // step down to the bay
+  bx(back, X0 - WALL, X1 + WALL, Y1, Y1 + WALL, ZB - WALL, ZF, caseM, "back");         // roof
+  bx(back, X0 - WALL, X0, Y0, Y1, ZB - WALL, ZF, caseM, "back");                       // left end
+  bx(back, X1, X1 + WALL, YB, Y1, ZB - WALL, ZF, caseM, "back");                       // right end
+  bx(back, X0, X1, YB, Y1, ZB - WALL, ZB, caseM, "back");                              // rear wall
+  bx(back, BX0, X1, YB, Y1, ZF, ZF + WALL, caseM, "back");                             // bay front (window hole drawn by the window)
+  bx(back, 2, BX0, Y0, Y1, ZF, ZF + WALL, caseM, "back");                              // front, between bezel and bay
   const ventM = mat(0x0e1628);
-  for (let k = 0; k < 6; k++) bx(back, -20, 20, Y1 + WALL - 0.2, Y1 + WALL + 0.2, -60 + k * 14, -55 + k * 14, ventM, "back");   // vents
-  /* Cord track walls: an L and an L. */
+  for (let k = 0; k < 7; k++) bx(back, -45 + k * 14, -40 + k * 14, Y1 + WALL - 0.2, Y1 + WALL + 0.2, -38, -8, ventM, "back");
   const trackM = mat(0x64748b, { transparent: true, opacity: 0.5 });
-  bx(back, 4, 6, Y0, -4, ZB, -66, trackM, "back"); bx(back, -24, 4, Y0, -4, -66, -64, trackM, "back");
-  bx(back, -12, -10, Y0, -4, ZB, -78 + 10, trackM, "back");
-  /* Zip-tie slots across the track at the exit. */
-  for (const x of [-26, -10]) bx(back, x - 1.5, x + 1.5, Y0 - WALL - 0.3, Y0 + 0.3, ZB + 3, ZB + 7, mat(0x0e1628), "zip");
-  /* Finger notches beside the cube (seen with the bezel off). */
+  bx(back, TX0 - 1, TX0 + 1, -24, 0, -STRIP.d + 4, -14, trackM, "back"); bx(back, TX1 - 1, TX1 + 1, -24, 0, -STRIP.d - 6, -14, trackM, "back");
+  bx(back, TX0 - 14, TX0 + 1, -24, 0, -STRIP.d + 3, -STRIP.d + 5, trackM, "back");
+  for (const x of [TX0 - 12, TX0 - 4]) bx(back, x - 1.5, x + 1.5, Y0 - WALL - 0.3, Y0 + 0.3, ZB + 2, ZB + 6, ventM, "zip");
   const notchM = mat(0x334155);
-  for (const x of [-CUBE.w / 2 - 2.5, CUBE.w / 2 + 2.5]) bx(back, x - 2, x + 2, -10, 10, ZE + 2, ZE + CUBE.d, notchM, "notch");
-  /* Nut slot: a square M3 nut in a pocket in the floor, under the cube. */
-  bx(back, -3.5, 3.5, Y0 + 1, Y0 + 3.5, ZE - 1, ZE + 1.5, mat(0xc0c4ca, { metalness: 0.7 }), "nut");
-  bx(back, -4, 4, Y0, Y0 + 5, ZE - 2, ZE + 2.5, mat(0x64748b, { transparent: true, opacity: 0.6 }), "nut");   // its boss
+  for (const x of [OUT_L - CUBE.w / 2 - 2.5, OUT_L + CUBE.w / 2 + 2.5]) bx(back, x - 2, x + 2, -10, 10, 2, CUBE.d, notchM, "notch");
+  bx(back, OUT_L - 3.5, OUT_L + 3.5, Y0 + 1, Y0 + 3.5, -1, 1.5, mat(0xc0c4ca, { metalness: 0.7 }), "nut");
+  bx(back, OUT_L - 4, OUT_L + 4, Y0, Y0 + 5, -2, 2.5, mat(0x64748b, { transparent: true, opacity: 0.6 }), "nut");
 
-  /* ---- Front bezel (see-through gold): a cap over the cube with the USB-C hole, the sensor window, the screw. ---- */
+  /* ---- Front bezel over the cube (left part of the front). ---- */
   const bez = new THREE.Group(); scene.add(bez);
-  const t = WALL;
-  bx(bez, X0 - t, X1 + t, Y0 - t, Y0, ZJ, ZF + t, bezM, "bezel");
-  bx(bez, X0 - t, X1 + t, Y1, Y1 + t, ZJ, ZF + t, bezM, "bezel");
-  bx(bez, X0 - t, X0, Y0, Y1, ZJ, ZF + t, bezM, "bezel");
-  bx(bez, X1, X1 + t, Y0, Y1, ZJ, ZF + t, bezM, "bezel");
-  bx(bez, X0, X1, Y0, Y1, ZF, ZF + t, bezM, "bezel");                                    // front face
-  bx(bez, -6, 6, -3, 3, ZF + t - 0.2, ZF + t + 0.2, mat(0x0e1628), "bezel");             // USB-C opening
-  bx(bez, 34, 50, Y0, -10, ZF + t - 0.2, ZF + t + 0.2, mat(0x0e1628), "sensor");         // sensor window (open)
-  cyl(bez, 2.8, 1.6, 0, Y0 + 2.5, ZF + t + 0.8, Math.PI / 2, 0, mat(0xd1d5db, { metalness: 0.8, roughness: 0.25 }), "screw");   // screw head
-  cyl(bez, 1.5, ZF + t - ZE, 0, Y0 + 2.5, (ZF + t + ZE) / 2, Math.PI / 2, 0, mat(0x9ca3af, { metalness: 0.8 }), "screw");       // screw shank to the nut
-  cyl(bez, 12.5, 0.4, -12, Y1 + t + 0.2, ZF - 12, 0, 0, mat(0xa855f7, { emissive: 0x3b0764 }), "nfc");                         // NFC sticker on top
+  const BZ0 = X0 - WALL, BZ1 = 2;
+  bx(bez, BZ0, BZ1, Y0 - WALL, Y0, 2, ZF + WALL, bezM, "bezel");
+  bx(bez, BZ0, BZ1, Y1, Y1 + WALL, 2, ZF + WALL, bezM, "bezel");
+  bx(bez, BZ0, BZ0 + WALL, Y0, Y1, 2, ZF + WALL, bezM, "bezel");
+  bx(bez, BZ0, BZ1, Y0, Y1, ZF, ZF + WALL, bezM, "bezel");
+  bx(bez, OUT_L - 6, OUT_L + 6, -3, 3, ZF + WALL - 0.2, ZF + WALL + 0.2, ventM, "bezel");           // USB-C opening
+  cylAlong(bez, 2.8, 2.8, [OUT_L, Y0 + 2.5, ZF + WALL], [OUT_L, Y0 + 2.5, ZF + WALL + 1.6], mat(0xd1d5db, { metalness: 0.8, roughness: 0.25 }), "screw");
+  cylAlong(bez, 1.5, 1.5, [OUT_L, Y0 + 2.5, 0], [OUT_L, Y0 + 2.5, ZF + WALL], mat(0x9ca3af, { metalness: 0.8 }), "screw");
+  cylAlong(bez, 12.5, 12.5, [OUT_L, Y1 + WALL, ZF - 14], [OUT_L, Y1 + WALL + 0.4, ZF - 14], mat(0xa855f7, { emissive: 0x3b0764 }), "nfc");
 
   /* ---- Buttons ---- */
   let exploded = false, solid = false;
-  const setExplode = on => { exploded = on; bez.position.z = on ? 0.7 : 0; document.getElementById("bExplode").textContent = on ? "Put bezel on" : "Take bezel off"; document.getElementById("bExplode").classList.toggle("on", on); };
+  const setExplode = on => {
+    exploded = on; bez.position.z = on ? 0.7 : 0; sledG.position.y = (SC[1] + (on ? 45 : 0)) * S;   // bezel off, sled lifted out
+    const b = document.getElementById("bExplode"); b.textContent = on ? "Put it back together" : "Take bezel off, lift sled"; b.classList.toggle("on", on);
+  };
   document.getElementById("bExplode").onclick = () => setExplode(!exploded);
+  setExplode(false);
   document.getElementById("bSee").onclick = e => {
     solid = !solid;
-    for (const m of [caseM, bezM]) { m.opacity = solid ? 0.95 : (m === caseM ? 0.22 : 0.3); m.depthWrite = solid; m.needsUpdate = true; }
+    for (const m of [caseM, bezM]) { m.opacity = solid ? 0.95 : (m === caseM ? 0.2 : 0.3); m.depthWrite = solid; m.needsUpdate = true; }
     e.target.textContent = solid ? "See-through case" : "Solid case";
   };
-  const target = new THREE.Vector3(0.1, 0, -0.1);
-  const view = (x, y, z) => { const k = Math.max(1, 1.5 / cam.aspect); cam.position.set(target.x + (x - target.x) * k, target.y + (y - target.y) * k, target.z + (z - target.z) * k); ctl.target.copy(target); ctl.update(); };   // back off on narrow screens
-  document.getElementById("bFront").onclick = () => view(0.35, 0.15, 2.2);
-  document.getElementById("bSide").onclick = () => view(2.3, 0.3, -0.1);
-  document.getElementById("bTop").onclick = () => view(0.1, 2.4, 0.2);
-  view(1.5, 0.9, 1.6);
+  const target = V((X0 + X1) / 2, -5, -8);
+  const view = (x, y, z) => { const k = Math.max(1, 1.6 / cam.aspect); cam.position.set(target.x + (x - target.x) * k, target.y + (y - target.y) * k, target.z + (z - target.z) * k); ctl.target.copy(target); ctl.update(); };   // back off on narrow screens
+  document.getElementById("bFront").onclick = () => view(0.2, 0.1, 2.6);
+  document.getElementById("bSide").onclick = () => view(2.9, 0.3, -0.1);
+  document.getElementById("bTop").onclick = () => view(0.2, 2.9, 0.2);
+  view(1.6, 1.0, 2.1);
 
-  /* Tap a part. */
   const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let downAt = null;
   ren.domElement.addEventListener("pointerdown", e => { downAt = [e.clientX, e.clientY]; });
   ren.domElement.addEventListener("pointerup", e => {
@@ -211,8 +238,8 @@ try {
     const r = ren.domElement.getBoundingClientRect(); ptr.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
     ray.setFromCamera(ptr, cam);
     const hits = ray.intersectObjects(scene.children, true).filter(h => h.object.userData.part);
-    const shell = ["back", "bezel"];
-    const hit = (solid ? hits[0] : hits.find(h => !shell.includes(h.object.userData.part))) || hits[0];   // see-through case: tap the part inside
+    const shell = ["back", "bezel", "funnel"];
+    const hit = (solid ? hits[0] : hits.find(h => !shell.includes(h.object.userData.part))) || hits[0];
     if (hit) showPart(hit.object.userData.part);
   });
   addEventListener("resize", () => { cam.aspect = box.clientWidth / box.clientHeight; cam.updateProjectionMatrix(); ren.setSize(box.clientWidth, box.clientHeight); });
