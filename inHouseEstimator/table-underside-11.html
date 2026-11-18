@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172239">
+<meta name="robots" content="noindex, nofollow">
+<title>Table 4 · 1.1</title>
+<style>
+/* Player Tracker 1.1: a blackjack table with heat sensors only (no chairs, tags or receivers).
+   6 seats, one heat sensor under the rail at each seat (tilted out and down so it sees a lap or a standing player),
+   one ESP32 hub under the table sending to the dealer's tablet over Bluetooth, an NFC sticker in the rail at each seat.
+   Drawing only, no data. The 1.0 poker table (chairs + receivers) is table-underside.html. */
+:root{--navy:#172239;--gold:#E3B64A;--ok:#4ade80}
+*{box-sizing:border-box}
+body{margin:0;background:var(--navy);color:#fff;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:calc(env(safe-area-inset-top) + 12px) 16px 48px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+h1{margin:0;font-size:26px;color:var(--gold)}
+h2{font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:.12em;margin:26px 0 10px}
+.btn{display:inline-block;background:none;color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:6px 12px;font:700 14px system-ui,sans-serif;text-decoration:none;cursor:pointer}
+.box{background:#0b1220;border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:14px 16px}
+.muted{color:rgba(255,255,255,.65);font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:6px;border-bottom:1px solid rgba(255,255,255,.1);vertical-align:top}
+td.n{text-align:right;white-space:nowrap}
+ul{margin:6px 0 0;padding-left:20px}
+a{color:var(--gold)}
+#partBox[hidden]{display:none!important}
+.key{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 18px}
+.key div{display:flex;gap:10px;align-items:flex-start}
+.sw{flex:none;width:16px;height:16px;border-radius:4px;margin-top:5px}
+@media (max-width:600px){table,tbody,tr,td{display:block;width:100%}tr:first-child{display:none}td{border-bottom:0;padding:3px 6px}td.n{text-align:left}tr{border-bottom:1px solid rgba(255,255,255,.1);padding:6px 0}}
+</style>
+</head>
+<body>
+<div class="top"><a class="btn" href="./player-tracker-hardware.html">&lsaquo; Hardware</a><h1 id="h1">Table 4 &middot; 1.1</h1>
+  <a class="btn" href="./table-underside.html" style="margin-left:auto">1.0 poker table &rsaquo;</a></div>
+<p class="muted" style="margin:0 0 10px">Heat sensors only: no chairs, tags, batteries or receivers. Table 4 from the Floor page (its game and seats). Live: a ghost sits in every seat with a signed-in player (green) or a Guest (purple). Tap any part to see what it is.</p>
+<div class="box" style="padding:8px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px">
+    <b style="color:var(--gold)">3D</b><span class="muted">Drag to turn it, scroll or pinch to zoom, right-drag (two fingers) to slide.</span>
+    <span style="flex:1"></span>
+    <button class="btn" id="v3see" type="button">See-through table</button><button class="btn" id="v3cones" type="button">Hide sensor views</button><button class="btn" id="v3under" type="button">View from under</button><button class="btn" id="v3top" type="button">View from above</button>
+  </div>
+  <div id="v3" style="height:min(78vh,860px);min-height:420px;border-radius:8px;overflow:hidden;background:#0e1628;touch-action:none"></div>
+  <p class="muted" id="v3msg" style="margin:6px 0 0"></p>
+</div>
+<div class="box" id="partBox" hidden style="margin-top:12px">
+  <div style="display:flex;align-items:center;gap:10px"><b id="partTitle" style="flex:1;color:var(--gold);font-size:18px"></b><button class="btn" id="partClose" type="button">Close</button></div>
+  <div id="partBody"></div>
+</div>
+
+<h2>What's on it</h2>
+<div class="box key">
+  <div><span class="sw" style="background:#f97316"></span><span><b>Heat sensor</b> (MLX90614), one per seat under the rail, tilted out and down. The orange cone is what it sees: a lap or a standing player's waist.</span></div>
+  <div><span class="sw" style="background:#E3B64A"></span><span><b>ESP32 hub</b> under the middle of the table. Reads all 6 sensors and sends them to the tablet over Bluetooth.</span></div>
+  <div><span class="sw" style="background:#2dd4bf"></span><span><b>Sensor wires</b>, one 4-wire cable per seat back to the hub (5 V, ground, data, clock).</span></div>
+  <div><span class="sw" style="background:#a855f7"></span><span><b>NFC sticker</b> in the rail at each seat. Tap a phone to sign in to that seat.</span></div>
+  <div><span class="sw" style="background:#38bdf8"></span><span><b>Dealer's tablet</b> runs Dealer Control. The dashed blue line is the Bluetooth link from the hub.</span></div>
+  <div><span class="sw" style="background:#e5e7eb"></span><span><b>5 V power supply</b> under the table, cord down the pedestal to the floor outlet.</span></div>
+</div>
+
+<h2>How it works</h2>
+<div class="box"><ul style="margin:0">
+  <li>The player signs in at the seat (NFC sticker or seat QR). From then on the heat sensor keeps their hours: warm = playing, cold = on break.</li>
+  <li>The sensor tilts out from under the rail, so it sees a seated lap and a player standing at the seat.</li>
+  <li>Someone warm at a seat (sitting or standing) for 3 seconds or more who hasn't signed in pops up as a <b>Guest</b>. Guest sessions under 10 minutes are dropped; the rest stay in the table's log so the floor can give the hours to the right player.</li>
+  <li>Seat changes: the dealer drags the player's name to the new seat in Dealer Control.</li>
+  <li>Tablet off = table closed, so nothing is lost when the tablet is off.</li>
+</ul></div>
+
+<h2>Parts for one table</h2>
+<div class="box"><table>
+  <tr><td><b>Part</b></td><td><b>Where</b></td><td class="n"><b>Qty</b></td><td class="n"><b>About</b></td></tr>
+  <tr><td>Heat sensor: Melexis MLX90614 (each one gets its own address, so no switch board)</td><td>Under the rail at each seat</td><td class="n">6</td><td class="n">$96</td></tr>
+  <tr><td>ESP32 board (Wi-Fi + Bluetooth built in)</td><td>Hub box under the table</td><td class="n">1</td><td class="n">$10</td></tr>
+  <tr><td>5 V power supply + 4-wire cable to each seat</td><td>Under the table</td><td class="n">1</td><td class="n">$20</td></tr>
+  <tr><td>NFC sticker (NTAG215) with that seat's sign-in link</td><td>In the rail at each seat</td><td class="n">6</td><td class="n">$10</td></tr>
+  <tr><td>Printed cases (sensor case per seat + hub box)</td><td>Seats and under the table</td><td class="n">7</td><td class="n">filament</td></tr>
+  <tr><td>Android tablet for Dealer Control (Bluefy on an iPad works for a demo)</td><td>Dealer's spot</td><td class="n">1</td><td class="n">$100</td></tr>
+  <tr><td colspan="3"><b>Total</b></td><td class="n"><b>~$240</b></td></tr>
+</table><p class="muted" style="margin:8px 0 0">Rough prices; check before ordering.</p></div>
+
+<script>
+window.PT_PARTS = {
+  sensor: { t: "Heat sensor (seats 1&ndash;6)", d: "Melexis MLX90614 in a small printed case under the rail, tilted out and down so it sees a seated lap and a standing player's waist.",
+    p: ["MLX90614 infrared temperature sensor board, about $16", "Printed case, screwed up under the rail", "4-wire cable back to the hub"],
+    s: ["Warm = someone's there; the sign-in says who", "Each sensor gets its own address in software, so all 6 share one pair of data wires"] },
+  hub: { t: "ESP32 hub", d: "One small board in a printed box under the middle of the table. Reads the 6 sensors and sends the readings to the dealer's tablet over Bluetooth.",
+    p: ["ESP32 dev board, about $10", "Printed hub box", "Terminal block for the 6 seat cables"],
+    s: ["Bluetooth to the tablet; no Raspberry Pi, no router", "Powered by the 5 V supply"] },
+  wire: { t: "Sensor wires", d: "One 4-wire cable from each seat's sensor back to the hub: 5 V, ground, data (SDA), clock (SCL).",
+    p: ["4-conductor cable (or Cat5e), clipped under the table"], s: [] },
+  nfc: { t: "NFC sticker", d: "An NTAG215 sticker just under the rail top at each seat. It holds that seat's sign-in link, so a player taps their phone to sign in.",
+    p: ["NTAG215 round sticker, 25 mm, a dollar or two each"], s: ["Phones read it from about 1&ndash;2 in", "Not through metal"] },
+  tablet: { t: "Dealer's tablet", d: "Runs Dealer Control and gets the sensor readings from the hub over Bluetooth, then sends everything to the database.",
+    p: ["Cheap Android tablet with Chrome (about $100)", "Or an iPad with the Bluefy browser for a demo"], s: ["Tablet off = table closed"] },
+  power: { t: "5 V power supply", d: "Powers the hub and the sensors. Its cord runs down the pedestal to the floor outlet.",
+    p: ["5 V USB power supply + cable"], s: ["Never feed the sensors 12 V"] },
+  player: { t: "Player", d: "Someone sitting at Table 4 right now (live from the Player Tracker). Green = signed in, hours counting. Purple = Guest: the sensor sees someone who hasn't signed in.", p: [], s: [] },
+  stool: { t: "Stool", d: "Plain casino stool. Nothing on it: 1.1 has no chair tags or batteries.", p: [], s: [] },
+  tray: { t: "Chip tray", d: "The dealer's chip tray.", p: [], s: [] },
+  pedestal: { t: "Pedestal", d: "The table's base. The power cord runs down it to the floor outlet.", p: [], s: [] }
+};
+window.showPart = k => {
+  const x = PT_PARTS[k]; if (!x) return;
+  document.getElementById("partTitle").innerHTML = x.t;
+  document.getElementById("partBody").innerHTML = `<p style="margin:6px 0">${x.d}</p>`
+    + (x.p.length ? `<b>Made of</b><ul>${x.p.map(i => `<li>${i}</li>`).join("")}</ul>` : "")
+    + (x.s.length ? `<b style="display:block;margin-top:8px">Good to know</b><ul>${x.s.map(i => `<li>${i}</li>`).join("")}</ul>` : "");
+  const b = document.getElementById("partBox"); b.hidden = false; b.scrollIntoView({ behavior: "smooth", block: "nearest" });
+};
+document.getElementById("partClose").onclick = () => { document.getElementById("partBox").hidden = true; };
+</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+/* 3D blackjack table, in feet. Half-moon table: the dealer's straight edge at the back (z = 0, dealer at -z),
+   players around the curve (+z). Seat 1 (first base) is on the dealer's left (+x). Tabletop at y = 0, floor at y = -2.46. */
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore as fsGetFirestore, initializeFirestore, doc as fsDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { ROSTER, casinoDoc } from "./pt-people.js";
+const TNUM = 4;   // the table this page draws
+const box = document.getElementById("v3");
+try {
+  const A = 3.6, B = 3.0, TY = -0.17, FLOOR = -2.46;
+  let SEATL = [1, 2, 3, 4, 5, 6, 7];   // table 4's seats (Floor page edits come from tablelist)
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0e1628);
+  const cam = new THREE.PerspectiveCamera(40, box.clientWidth / box.clientHeight, 0.1, 200);
+  const ren = new THREE.WebGLRenderer({ antialias: true }); ren.setPixelRatio(Math.min(2, devicePixelRatio)); ren.setSize(box.clientWidth, box.clientHeight); box.appendChild(ren.domElement);
+  const ctl = new OrbitControls(cam, ren.domElement); ctl.enableDamping = true;
+  scene.add(new THREE.AmbientLight(0xffffff, 0.75)); const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(3, 8, 5); scene.add(sun);
+  const low = new THREE.DirectionalLight(0xffffff, 0.8); low.position.set(-3, -8, 4); scene.add(low);
+  const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, ...o });
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const add = (geo, m, x, y, z, part) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); if (part) o.userData.part = part; scene.add(o); return o; };
+  const label = (txt, col, x, y, z, size = 0.4) => {
+    const c = document.createElement("canvas"), g = c.getContext("2d"); c.width = 256; c.height = 128;
+    let fs = 72; g.font = `bold ${fs}px system-ui,sans-serif`; while (g.measureText(txt).width > 244 && fs > 26) { fs -= 4; g.font = `bold ${fs}px system-ui,sans-serif`; }
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = col; g.fillText(txt, 128, 64);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    sp.position.set(x, y, z); sp.scale.set(size * 2, size, 1); sp.renderOrder = 10; scene.add(sp); return sp;
+  };
+  const path = (pts, r, m, part) => { const c = new THREE.CurvePath(); for (let i = 1; i < pts.length; i++) c.add(new THREE.LineCurve3(pts[i - 1], pts[i])); const o = new THREE.Mesh(new THREE.TubeGeometry(c, 24 * pts.length, r, 8, false), m); if (part) o.userData.part = part; scene.add(o); return o; };
+  const arcPt = (t, a, b, y) => V(Math.cos(t) * a, y, Math.sin(t) * b);   // t: 0 = dealer's left (+x), PI = dealer's right
+
+  /* Tabletop: half-moon, wood underneath, felt on top, padded rail around the curve. */
+  const half = (sz) => { const s = new THREE.Shape(); s.moveTo(A, 0); for (let i = 1; i <= 64; i++) { const t = i / 64 * Math.PI; s.lineTo(Math.cos(t) * A, sz * Math.sin(t) * B); } s.lineTo(A, 0); return s; };
+  const woodM = mat(0x6b4f2a), feltM = mat(0x0f6b3a, { roughness: 0.95 });
+  const wood = new THREE.Mesh(new THREE.ExtrudeGeometry(half(1), { depth: 0.12, bevelEnabled: false }), woodM); wood.rotation.x = Math.PI / 2; scene.add(wood);   // shape (x, z), extruded down
+  const felt = new THREE.Mesh(new THREE.ShapeGeometry(half(-1)), feltM); felt.rotation.x = -Math.PI / 2; felt.position.y = 0.003; scene.add(felt);    // shape (x, -z)
+  const railC = new THREE.CatmullRomCurve3(Array.from({ length: 65 }, (_, i) => arcPt(i / 64 * Math.PI, A + 0.1, B + 0.1, 0.02)));
+  scene.add(new THREE.Mesh(new THREE.TubeGeometry(railC, 160, 0.17, 12, false), mat(0x151515, { roughness: 0.5 })));
+  add(new THREE.BoxGeometry(2 * A + 0.2, 0.12, 0.12), mat(0x3b2a16), 0, -0.06, -0.06);   // dealer's edge
+  /* Felt: betting circles, chip tray, the dealer. */
+  const seatT = i => Math.PI * (SEATL.indexOf(i) + 0.5) / SEATL.length;   // first seat at the dealer's left
+  add(new THREE.BoxGeometry(1.5, 0.08, 0.4), mat(0x111111, { roughness: 0.3 }), 0, 0.04, 0.32, "tray");
+  for (let k = 0; k < 9; k++) add(new THREE.BoxGeometry(0.12, 0.05, 0.3), mat([0xf4f4f4, 0xd62828, 0x1f9d55, 0x1b1b1b, 0x7b3fbf][k % 5]), -0.62 + k * 0.155, 0.09, 0.32);
+  label("DEALER", "#E3B64A", 0, 0.5, -0.8, 0.45);
+  /* Pedestal and floor. */
+  const ghost = mat(0x94a3b8, { transparent: true, opacity: 0.14, depthWrite: false });
+  add(new THREE.CylinderGeometry(0.3, 0.3, 2.3, 32), ghost, 0, -1.27, 1.2, "pedestal");
+  add(new THREE.CylinderGeometry(0.9, 0.9, 0.08, 48), ghost, 0, FLOOR + 0.04, 1.2, "pedestal");
+  const grid = new THREE.GridHelper(14, 14, 0x334155, 0x1e293b); grid.position.y = FLOOR; scene.add(grid);
+
+  /* Hub (ESP32) under the middle, power supply next to it, cord down the pedestal to the floor outlet. */
+  const HUB = V(0, TY - 0.06, 0.75);
+  add(new THREE.BoxGeometry(0.5, 0.12, 0.35), mat(0x111827, { emissive: 0x3a2a05 }), HUB.x, HUB.y, HUB.z, "hub");
+  add(new THREE.BoxGeometry(0.22, 0.03, 0.12), mat(0x1f2937), HUB.x, HUB.y - 0.075, HUB.z, "hub");
+  label("ESP32 HUB", "#E3B64A", HUB.x, TY - 0.45, HUB.z - 0.05, 0.4);
+  add(new THREE.BoxGeometry(0.3, 0.1, 0.18), mat(0xe5e7eb), -0.65, TY - 0.05, 0.75, "power"); label("5 V POWER", "#e5e7eb", -0.85, TY - 0.4, 0.55, 0.32);
+  const cordM = mat(0x111111, { roughness: 0.6 });
+  path([V(-0.5, TY - 0.05, 0.75), V(-0.25, TY - 0.05, 0.75)], 0.018, cordM, "power");   // supply to hub
+  path([V(-0.8, TY - 0.05, 0.75), V(-0.32, -0.4, 1.2), V(-0.32, FLOOR + 0.1, 1.2), V(-1.4, FLOOR + 0.05, 1.6)], 0.025, cordM, "power");
+  add(new THREE.BoxGeometry(0.35, 0.25, 0.12), mat(0xd1d5db), -1.45, FLOOR + 0.13, 1.6, "power"); label("FLOOR OUTLET", "#e5e7eb", -1.45, FLOOR + 0.55, 1.6, 0.35);
+
+  /* Per seat: heat sensor under the rail tilted out and down with its view cone, a wire back to the hub,
+     an NFC sticker in the rail, a stool, and a ghost player. */
+  const orange = mat(0xf97316, { emissive: 0x7c2d12 }), wireM = mat(0x2dd4bf, { emissive: 0x134e4a }), nfcM = mat(0xa855f7, { emissive: 0x3b0764 });
+  const coneM = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide });
+  let cones = [], seatG = new THREE.Group(), ghostG = new THREE.Group(); scene.add(seatG, ghostG);
+  const ghM = mat(0xcbd5e1, { transparent: true, opacity: 0.2, depthWrite: false, emissive: 0x334155 });
+  const stoolM = mat(0x9ca3af, { transparent: true, opacity: 0.3, depthWrite: false });
+  const guestM = mat(0xa78bfa, { transparent: true, opacity: 0.22, depthWrite: false, emissive: 0x3b0764 });
+  const lab = (txt, col, x, y, z, size, grp) => { const sp = label(txt, col, x, y, z, size); scene.remove(sp); grp.add(sp); return sp; };
+  const stoolAt = i => { const t = seatT(i), out = V(Math.cos(t) / A, 0, Math.sin(t) / B).normalize(); return { t, out, st: arcPt(t, A + 0.85, B + 0.85, 0) }; };
+  function buildSeats() {
+    scene.remove(seatG); seatG = new THREE.Group(); scene.add(seatG); cones = [];
+    const put = (geo, m, x, y, z, part) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); if (part) o.userData.part = part; seatG.add(o); return o; };
+    for (const i of SEATL) {
+      const { t, out, st } = stoolAt(i);
+      const c = put(new THREE.RingGeometry(0.2, 0.24, 40), mat(0xE3B64A, { side: THREE.DoubleSide }), ...arcPt(t, A - 0.9, B - 0.9, 0.006).toArray()); c.rotation.x = -Math.PI / 2;   // betting circle
+      const s = arcPt(t, A - 0.25, B - 0.25, TY - 0.05);
+      put(new THREE.BoxGeometry(0.28, 0.1, 0.2), orange, s.x, s.y, s.z, "sensor").rotation.y = -t + Math.PI / 2;
+      /* View cone: apex at the sensor, opening out and down (about 90 degrees wide). */
+      const dir = out.clone().multiplyScalar(0.62).add(V(0, -0.78, 0)).normalize(), H = 1.7;
+      const cg = new THREE.ConeGeometry(H * 0.75, H, 32, 1, true); cg.translate(0, -H / 2, 0);
+      const cone = new THREE.Mesh(cg, coneM); cone.position.copy(s); cone.quaternion.setFromUnitVectors(V(0, -1, 0), dir); cone.userData.part = "sensor"; cone.visible = showCones; seatG.add(cone); cones.push(cone);
+      const m1 = arcPt(t, A - 0.7, B - 0.7, TY - 0.03), w = new THREE.CurvePath();   // wire in under the table, then to the hub
+      const pts = [V(s.x, TY - 0.03, s.z), m1, V(HUB.x + Math.cos(t) * 0.22, TY - 0.03, HUB.z + 0.1)];
+      for (let k = 1; k < pts.length; k++) w.add(new THREE.LineCurve3(pts[k - 1], pts[k]));
+      const wm = new THREE.Mesh(new THREE.TubeGeometry(w, 48, 0.014, 8, false), wireM); wm.userData.part = "wire"; seatG.add(wm);
+      const n = arcPt(t, A + 0.1, B + 0.1, 0.195); put(new THREE.CylinderGeometry(0.1, 0.1, 0.012, 24), nfcM, n.x, n.y, n.z, "nfc");
+      lab(String(i), "#ffffff", n.x + out.x * 0.05, 0.55, n.z + out.z * 0.05, 0.35, seatG);
+      const g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(-out.x, -out.z);   // -z faces the table
+      const stool = (geo, y) => { const o = new THREE.Mesh(geo, stoolM); o.position.set(0, y, 0); o.userData.part = "stool"; g.add(o); };
+      stool(new THREE.CylinderGeometry(0.42, 0.42, 0.1, 24), -1.0); stool(new THREE.CylinderGeometry(0.05, 0.05, 1.4, 12), -1.7); stool(new THREE.CylinderGeometry(0.4, 0.4, 0.04, 24), FLOOR + 0.02);
+      seatG.add(g);
+    }
+  }
+  /* Ghosts: one per seat with a signed-in player (green name) or a Guest (purple). */
+  let state = {}, guests = {}, profiles = {}, roster = {};
+  const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || c;
+  function buildGhosts() {
+    scene.remove(ghostG); ghostG = new THREE.Group(); scene.add(ghostG);
+    const who = {};
+    for (const [c, p] of Object.entries(state)) if (p && p.status === "seated" && (p.table || 1) === TNUM && p.seat) who[p.seat] = { name: nameOf(c), brk: !!p.breakAt };
+    for (const g of Object.values(guests)) if (g && !g.end && +g.t === TNUM && !who[g.s]) who[g.s] = { guest: true };
+    for (const i of SEATL) {
+      const { out, st } = stoolAt(i), w = who[i];
+      if (!w) { lab("Open", "#cbd5e1", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG); continue; }
+      if (w.brk) { lab(w.name.split(" ")[0] + " · break", "#60a5fa", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG); continue; }   // on break: seat held, nobody there
+      const m = w.guest ? guestM : ghM, g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(-out.x, -out.z);
+      const cap = (r, len, x, y, z, rx = 0) => { const o = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 12), m); o.position.set(x, y, z); o.rotation.x = rx; o.userData.part = "player"; g.add(o); };
+      cap(0.24, 0.5, 0, -0.55, 0.18);
+      const h = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 14), m); h.position.set(0, 0.0, 0.1); h.userData.part = "player"; g.add(h);
+      for (const x of [-0.17, 0.17]) { cap(0.11, 0.45, x, -0.86, -0.16, Math.PI / 2); cap(0.09, 0.95, x, -1.72, -0.46); cap(0.07, 0.4, x * 1.9, -0.45, 0.04, 0.5); cap(0.06, 0.42, x * 1.6, -0.12, -0.32, Math.PI / 2); }
+      ghostG.add(g);
+      lab(w.guest ? "Guest" : w.name.split(" ")[0] + " " + (w.name.split(" ")[1] || "").slice(0, 1), w.guest ? "#c4b5fd" : "#4ade80", st.x + out.x * 0.4, 0.75, st.z + out.z * 0.4, 0.34, ghostG);
+    }
+  }
+  let showCones = true;
+  buildSeats(); buildGhosts();
+
+  /* Dealer's tablet on the felt (dealer's right = -x) and the Bluetooth link from the hub. */
+  const TAB = V(-1.55, 0.03, 0.35);
+  add(new THREE.BoxGeometry(0.6, 0.04, 0.42), mat(0x0b0b0b, { roughness: 0.3 }), TAB.x, 0.02, TAB.z, "tablet");
+  add(new THREE.BoxGeometry(0.52, 0.01, 0.34), mat(0x1e3a8a, { emissive: 0x172554 }), TAB.x, 0.045, TAB.z, "tablet");
+  label("TABLET", "#e5e7eb", TAB.x, 0.4, TAB.z, 0.3);
+  const bt = new THREE.Line(new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(V(HUB.x, HUB.y, HUB.z), V(-1.0, -0.6, 0.2), V(TAB.x, 0.02, TAB.z)).getPoints(40)),
+    new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: 0.1, gapSize: 0.07 }));
+  bt.computeLineDistances(); scene.add(bt); label("Bluetooth", "#38bdf8", -1.05, -0.75, 0.15, 0.32);
+
+  /* Tap a part to see what it is. */
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let downAt = null;
+  ren.domElement.addEventListener("pointerdown", e => { downAt = [e.clientX, e.clientY]; });
+  ren.domElement.addEventListener("pointerup", e => {
+    if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
+    const r = ren.domElement.getBoundingClientRect(); ptr.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+    ray.setFromCamera(ptr, cam);
+    const hits = ray.intersectObjects(scene.children, true).filter(h => h.object.userData.part && h.object.visible);
+    const solid = ["pedestal", "player", "stool"], cone = h => h.object.geometry.type === "ConeGeometry";
+    const hit = hits.find(h => !solid.includes(h.object.userData.part) && !cone(h)) || hits.find(h => !cone(h)) || hits[0];
+    if (hit) showPart(hit.object.userData.part);
+  });
+  /* Buttons */
+  let see = false;
+  document.getElementById("v3see").onclick = () => { see = !see; for (const m of [woodM, feltM]) { m.transparent = see; m.opacity = see ? 0.25 : 1; m.depthWrite = !see; m.needsUpdate = true; } };
+  document.getElementById("v3cones").onclick = e => { showCones = !showCones; cones.forEach(c => c.visible = showCones); e.target.textContent = showCones ? "Hide sensor views" : "Show sensor views"; };
+  const view = (x, y, z) => { cam.position.set(x, y, z); ctl.target.set(0, -0.6, 1.4); ctl.update(); };
+  document.getElementById("v3under").onclick = () => view(4.5, -3.6, 7.5);
+  document.getElementById("v3top").onclick = () => view(0, 8.5, 5.5);
+  view(4.5, -3.6, 7.5);
+  addEventListener("resize", () => { cam.aspect = box.clientWidth / box.clientHeight; cam.updateProjectionMatrix(); ren.setSize(box.clientWidth, box.clientHeight); });
+  ren.setAnimationLoop(() => { ctl.update(); ren.render(scene, cam); });
+  /* Live: table 4's game and seats (Floor page), who's seated, guests. */
+  try {
+    const app = initializeApp({ apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg", authDomain: "khean-estimator-78f3e.firebaseapp.com", projectId: "khean-estimator-78f3e",
+      storageBucket: "khean-estimator-78f3e.firebasestorage.app", messagingSenderId: "581692353222", appId: "1:581692353222:web:21f62f057ac5506bbb45c7" });
+    let db; try { db = initializeFirestore(app, /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? { experimentalForceLongPolling: true } : {}); } catch (e) { db = fsGetFirestore(app); }
+    const d = n => casinoDoc(fsDoc)(db, "playerTracker", n);
+    onSnapshot(d("tablelist"), snap => {
+      const t = (snap.exists() && snap.data()[TNUM]) || {};
+      const seats = Array.isArray(t.seats) && t.seats.length ? t.seats.map(Number).sort((a, b) => a - b) : [1, 2, 3, 4, 5, 6, 7];
+      const game = t.variant || t.game || "Three Card Poker";
+      document.getElementById("h1").innerHTML = "Table " + TNUM + " &middot; " + game + " &middot; 1.1";
+      if (seats.join() !== SEATL.join()) { SEATL = seats; buildSeats(); buildGhosts(); }
+    }, () => {});
+    onSnapshot(d("poc"), snap => { state = snap.exists() ? snap.data() : {}; buildGhosts(); }, () => {});
+    onSnapshot(d("guests"), snap => { guests = snap.exists() ? snap.data() : {}; buildGhosts(); }, () => {});
+    onSnapshot(d("profiles"), snap => { profiles = snap.exists() ? snap.data() : {}; buildGhosts(); }, () => {});
+    onSnapshot(d("roster"), snap => { roster = snap.exists() ? snap.data() : {}; buildGhosts(); }, () => {});
+  } catch (e) {}
+} catch (e) { document.getElementById("v3msg").textContent = "The 3D view couldn't start on this device (" + e.message + ")."; }
+</script>
+</body>
+</html>
