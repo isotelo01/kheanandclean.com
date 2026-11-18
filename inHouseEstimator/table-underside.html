@@ -522,6 +522,18 @@ try {
     }
     const tagM = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.18), blue); tagM.position.set(-0.22, -1.08, 0); g.add(tagM);
     const bat = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 12), mat(0x4ade80, { emissive: 0x14532d })); bat.rotation.z = Math.PI / 2; bat.position.set(0.22, -1.1, 0); g.add(bat);
+    if (c.name) {   // a see-through "ghost" player sitting in the chair, facing the table (-z), forearms on the rail
+      const gh = mat(0xcbd5e1, { transparent: true, opacity: 0.18, depthWrite: false, emissive: 0x334155 });
+      const cap = (r, len, x, y, z, rx = 0) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 6, 12), gh); m.position.set(x, y, z); m.rotation.x = rx; g.add(m); };
+      cap(0.24, 0.5, 0, -0.55, 0.22);                                    // torso
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 14), gh); head.position.set(0, 0.0, 0.14); g.add(head);
+      for (const x of [-0.17, 0.17]) {
+        cap(0.11, 0.45, x, -0.86, -0.12, Math.PI / 2);                   // thigh, forward along the seat
+        cap(0.09, 0.95, x, -1.72, -0.42);                                // shin, down to the floor
+        cap(0.07, 0.4, x * 1.9, -0.45, 0.08, 0.5);                       // upper arm
+        cap(0.06, 0.42, x * 1.6, -0.12, -0.28, Math.PI / 2);             // forearm, resting toward the rail
+      }
+    }
     g.traverse(o => { if (o.isMesh) o.userData.part = "chair"; });
     scene.add(g); chair3.push({ c, g, lab: label(c.id + (c.name ? " · " + c.name : " · open"), c.name ? "#E3B64A" : "#cbd5e1", 0, 0.25, 0, 0.38) });
   });
