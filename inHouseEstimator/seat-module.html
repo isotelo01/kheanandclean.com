@@ -197,7 +197,7 @@ try {
     e.target.textContent = solid ? "See-through case" : "Solid case";
   };
   const target = new THREE.Vector3(0.1, 0, -0.1);
-  const view = (x, y, z) => { cam.position.set(x, y, z); ctl.target.copy(target); ctl.update(); };
+  const view = (x, y, z) => { const k = Math.max(1, 1.5 / cam.aspect); cam.position.set(target.x + (x - target.x) * k, target.y + (y - target.y) * k, target.z + (z - target.z) * k); ctl.target.copy(target); ctl.update(); };   // back off on narrow screens
   document.getElementById("bFront").onclick = () => view(0.35, 0.15, 2.2);
   document.getElementById("bSide").onclick = () => view(2.3, 0.3, -0.1);
   document.getElementById("bTop").onclick = () => view(0.1, 2.4, 0.2);
