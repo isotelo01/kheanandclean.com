@@ -247,8 +247,8 @@ let events = [], profiles = {};
 try { events = JSON.parse(localStorage.getItem("playerTracker.log") || "[]"); profiles = JSON.parse(localStorage.getItem("playerTracker.profiles") || "{}"); } catch (e) {}
 const nameOf = c => (profiles[c] && profiles[c].name) || (roster[c] && roster[c].name) || ROSTER[c] || DEALERS[c] || c;
 const isPlayer = c => !!(c && (ROSTER[c] || roster[c]));
-function logEvent(c, a) {
-  const ev = { c, a, t: Date.now() };
+function logEvent(c, a, w) {   // w = { tb, sn }: table and seat, when they're seated (Table Profile reads these)
+  const ev = { c, a, t: Date.now(), ...(w || {}) };
   events.push(ev);
   try { localStorage.setItem("playerTracker.log", JSON.stringify(events.slice(-2000))); } catch (e) {}
   setDoc(LOGREF, { events: arrayUnion(ev) }, { merge: true }).catch(() => { $("warn").style.display = "block"; });
@@ -259,7 +259,7 @@ function save(card, p) {
     const a = p.status === "wait" ? "Joined the list"
       : p.status === "seated" ? (DEALERS[card] ? "Logged in to table" : "Seated at seat " + p.seat)
       : "Logged out" + (old.status === "seated" && old.since ? " after " + fmtHrs(Date.now() - old.since) : old.status === "wait" ? " (left the list)" : "");
-    logEvent(card, a);
+    logEvent(card, a, p.status === "seated" ? { tb: p.table || 1, sn: p.seat } : null);
   }
   state[card] = p;
   try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}

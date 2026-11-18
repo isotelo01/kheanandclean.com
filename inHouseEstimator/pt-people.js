@@ -58,7 +58,7 @@ export const casinoDoc = fsDoc => (db, col, name, ...rest) =>
 /* Links that go to a player's phone (QR codes, copied links) carry the casino. */
 export const withCasino = u => u + (u.includes("?") ? "&" : "?") + "casino=" + CASINO;
 /* Links between Player Tracker pages carry it too, so two tabs on two casinos don't mix up. */
-const PT_PAGES = /(player-tracker|players|dealers|dealer-table|floor|waitlist|measure|player-tracker-hardware|promotions|wait-history|waitlist-display|table-underside)\.html/;
+const PT_PAGES = /(player-tracker|players|dealers|dealer-table|floor|waitlist|measure|player-tracker-hardware|promotions|wait-history|waitlist-display|table-underside|table-profile)\.html/;
 document.addEventListener("click", e => {
   const a = e.target.closest && e.target.closest("a[href]"); if (!a) return;
   const h = a.getAttribute("href");

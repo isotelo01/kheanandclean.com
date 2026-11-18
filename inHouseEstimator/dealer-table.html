@@ -165,11 +165,11 @@ const endGuest = id => { if (guests[id] && !guests[id].end) saveGuest(id, { ...g
 const dealerOn = () => Object.keys(DEALERS).find(d => onT(get(d)));
 const fail = () => { $("warn").style.display = "block"; };
 
-function logEvent(c, a) { setDoc(LOGREF, { events: arrayUnion({ c, a, t: Date.now() }) }, { merge: true }).catch(fail); }
+function logEvent(c, a, w) { setDoc(LOGREF, { events: arrayUnion({ c, a, t: Date.now(), ...(w || {}) }) }, { merge: true }).catch(fail); }   // w = { tb, sn } when seated
 let layout = {};   // table 1 chair spots (playerTracker/layout)
 let tables = null;   // which tables are open (playerTracker/tables): hours only count at an open table
 function save(c, p, logText) {
-  state[c] = p; draw(); if (logText) logEvent(c, logText);
+  state[c] = p; draw(); if (logText) logEvent(c, logText, p && p.status === "seated" ? { tb: p.table || T, sn: p.seat } : null);
   setDoc(REF, { [c]: p }, { merge: true }).catch(fail);
 }
 
