@@ -55,10 +55,11 @@ a{color:var(--gold)}
 <div class="box key">
   <div><span class="sw" style="background:#f97316"></span><span><b>Heat sensor</b> (MLX90614), one per seat under the rail, tilted out and down. The orange cone is what it sees: a lap or a standing player's waist.</span></div>
   <div><span class="sw" style="background:#E3B64A"></span><span><b>ESP32 hub</b> under the middle of the table. Reads all 6 sensors and sends them to the tablet over Bluetooth.</span></div>
-  <div><span class="sw" style="background:#2dd4bf"></span><span><b>Sensor wires</b>, one 4-wire cable per seat back to the hub (5 V, ground, data, clock).</span></div>
+  <div><span class="sw" style="background:#2dd4bf"></span><span><b>Seat cables</b>, one per seat back to the hub: 12 V for the charger, plus 5 V, ground, data and clock for the sensor.</span></div>
+  <div><span class="sw" style="background:#22d3ee"></span><span><b>USB-C fast charger</b> in the rail at each seat, next to the NFC sticker.</span></div>
   <div><span class="sw" style="background:#a855f7"></span><span><b>NFC sticker</b> in the rail at each seat. Tap a phone to sign in to that seat.</span></div>
   <div><span class="sw" style="background:#38bdf8"></span><span><b>Dealer's tablet</b> runs Dealer Control. The dashed blue line is the Bluetooth link from the hub.</span></div>
-  <div><span class="sw" style="background:#e5e7eb"></span><span><b>5 V power supply</b> under the table, cord down the pedestal to the floor outlet.</span></div>
+  <div><span class="sw" style="background:#e5e7eb"></span><span><b>12 V power supply</b> under the table (chargers run on 12 V; a step-down makes 5 V for the hub and sensors), cord down the pedestal to the floor outlet.</span></div>
 </div>
 
 <h2>How it works</h2>
@@ -75,11 +76,13 @@ a{color:var(--gold)}
   <tr><td><b>Part</b></td><td><b>Where</b></td><td class="n"><b>Qty</b></td><td class="n"><b>About</b></td></tr>
   <tr><td>Heat sensor: Melexis MLX90614 (each one gets its own address, so no switch board)</td><td>Under the rail at each seat</td><td class="n">6</td><td class="n">$96</td></tr>
   <tr><td>ESP32 board (Wi-Fi + Bluetooth built in)</td><td>Hub box under the table</td><td class="n">1</td><td class="n">$10</td></tr>
-  <tr><td>5 V power supply + 4-wire cable to each seat</td><td>Under the table</td><td class="n">1</td><td class="n">$20</td></tr>
+  <tr><td>USB-C fast charger, panel mount: Powerwerx PanelUSB-100W (one USB-C, PD 3.1 with PPS; up to 65 W on 12 V, 1-1/8 in hole)</td><td>In the rail at each seat</td><td class="n">6</td><td class="n">$240</td></tr>
+  <tr><td>12 V power supply, about 350 W (Mean Well LRS-350-12)</td><td>Under the table</td><td class="n">1</td><td class="n">check</td></tr>
+  <tr><td>12 V &rarr; 5 V step-down + cable to each seat</td><td>Under the table</td><td class="n">1</td><td class="n">$20</td></tr>
   <tr><td>NFC sticker (NTAG215) with that seat's sign-in link</td><td>In the rail at each seat</td><td class="n">6</td><td class="n">$10</td></tr>
   <tr><td>Printed cases (sensor case per seat + hub box)</td><td>Seats and under the table</td><td class="n">7</td><td class="n">filament</td></tr>
   <tr><td>Android tablet for Dealer Control (Bluefy on an iPad works for a demo)</td><td>Dealer's spot</td><td class="n">1</td><td class="n">$100</td></tr>
-  <tr><td colspan="3"><b>Total</b></td><td class="n"><b>~$240</b></td></tr>
+  <tr><td colspan="3"><b>Total</b></td><td class="n"><b>~$480 + 12 V supply</b></td></tr>
 </table><p class="muted" style="margin:8px 0 0">Rough prices; check before ordering.</p></div>
 
 <script>
@@ -89,15 +92,17 @@ window.PT_PARTS = {
     s: ["Warm = someone's there; the sign-in says who", "Each sensor gets its own address in software, so all 6 share one pair of data wires"] },
   hub: { t: "ESP32 hub", d: "One small board in a printed box under the middle of the table. Reads the 6 sensors and sends the readings to the dealer's tablet over Bluetooth.",
     p: ["ESP32 dev board, about $10", "Printed hub box", "Terminal block for the 6 seat cables"],
-    s: ["Bluetooth to the tablet; no Raspberry Pi, no router", "Powered by the 5 V supply"] },
+    s: ["Bluetooth to the tablet; no Raspberry Pi, no router", "Powered by 5 V from the step-down"] },
   wire: { t: "Sensor wires", d: "One 4-wire cable from each seat's sensor back to the hub: 5 V, ground, data (SDA), clock (SCL).",
     p: ["4-conductor cable (or Cat5e), clipped under the table"], s: [] },
   nfc: { t: "NFC sticker", d: "An NTAG215 sticker just under the rail top at each seat. It holds that seat's sign-in link, so a player taps their phone to sign in.",
     p: ["NTAG215 round sticker, 25 mm, a dollar or two each"], s: ["Phones read it from about 1&ndash;2 in", "Not through metal"] },
   tablet: { t: "Dealer's tablet", d: "Runs Dealer Control and gets the sensor readings from the hub over Bluetooth, then sends everything to the database.",
     p: ["Cheap Android tablet with Chrome (about $100)", "Or an iPad with the Bluefy browser for a demo"], s: ["Tablet off = table closed"] },
-  power: { t: "5 V power supply", d: "Powers the hub and the sensors. Its cord runs down the pedestal to the floor outlet.",
-    p: ["5 V USB power supply + cable"], s: ["Never feed the sensors 12 V"] },
+  power: { t: "12 V power supply", d: "Runs the fast chargers on 12 V; a small step-down makes 5 V for the hub and sensors. Its cord runs down the pedestal to the floor outlet.",
+    p: ["Mean Well LRS-350-12 (about 350 W): room for every seat fast charging at once", "12 V &rarr; 5 V step-down for the ESP32 and sensors"], s: ["Never feed the sensors or the ESP32 12 V", "Phones usually pull 20&ndash;45 W while fast charging"] },
+  charger: { t: "USB-C fast charger", d: "A panel-mount USB-C fast charger in the rail at each seat, so players charge their phone while they play.",
+    p: ["Powerwerx PanelUSB-100W, $39.99 each (was out of stock when checked)", "USB-C Power Delivery 3.1 with PPS: up to 65 W when fed 12 V", "Fits a 1-1/8 in hole, runs on 9&ndash;31 V"], s: ["Fed 12 V down the seat's cable"] },
   player: { t: "Player", d: "Someone sitting at Table 4 right now (live from the Player Tracker). Green = signed in, hours counting. Purple = Guest: the sensor sees someone who hasn't signed in.", p: [], s: [] },
   stool: { t: "Stool", d: "Plain casino stool. Nothing on it: 1.1 has no chair tags or batteries.", p: [], s: [] },
   tray: { t: "Chip tray", d: "The dealer's chip tray.", p: [], s: [] },
@@ -171,7 +176,7 @@ try {
   add(new THREE.BoxGeometry(0.5, 0.12, 0.35), mat(0x111827, { emissive: 0x3a2a05 }), HUB.x, HUB.y, HUB.z, "hub");
   add(new THREE.BoxGeometry(0.22, 0.03, 0.12), mat(0x1f2937), HUB.x, HUB.y - 0.075, HUB.z, "hub");
   label("ESP32 HUB", "#E3B64A", HUB.x, TY - 0.45, HUB.z - 0.05, 0.4);
-  add(new THREE.BoxGeometry(0.3, 0.1, 0.18), mat(0xe5e7eb), -0.65, TY - 0.05, 0.75, "power"); label("5 V POWER", "#e5e7eb", -0.85, TY - 0.4, 0.55, 0.32);
+  add(new THREE.BoxGeometry(0.3, 0.1, 0.18), mat(0xe5e7eb), -0.65, TY - 0.05, 0.75, "power"); label("12 V POWER", "#e5e7eb", -0.85, TY - 0.4, 0.55, 0.32);
   const cordM = mat(0x111111, { roughness: 0.6 });
   path([V(-0.5, TY - 0.05, 0.75), V(-0.25, TY - 0.05, 0.75)], 0.018, cordM, "power");   // supply to hub
   path([V(-0.8, TY - 0.05, 0.75), V(-0.32, -0.4, 1.2), V(-0.32, FLOOR + 0.1, 1.2), V(-1.4, FLOOR + 0.05, 1.6)], 0.025, cordM, "power");
@@ -203,6 +208,10 @@ try {
       const pts = [V(s.x, TY - 0.03, s.z), m1, V(HUB.x + Math.cos(t) * 0.22, TY - 0.03, HUB.z + 0.1)];
       for (let k = 1; k < pts.length; k++) w.add(new THREE.LineCurve3(pts[k - 1], pts[k]));
       const wm = new THREE.Mesh(new THREE.TubeGeometry(w, 48, 0.014, 8, false), wireM); wm.userData.part = "wire"; seatG.add(wm);
+      /* USB-C fast charger: a round port in the face of the rail, just past the NFC sticker toward the next seat. */
+      const ct = t + 0.12, cp = arcPt(ct, A + 0.27, B + 0.27, 0.02), co = V(Math.cos(ct) / A, 0, Math.sin(ct) / B).normalize();
+      const chg = put(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 20), mat(0x22d3ee, { emissive: 0x155e75 }), cp.x, cp.y, cp.z, "charger");
+      chg.quaternion.setFromUnitVectors(V(0, 1, 0), co);
       const n = arcPt(t, A + 0.1, B + 0.1, 0.195); put(new THREE.CylinderGeometry(0.1, 0.1, 0.012, 24), nfcM, n.x, n.y, n.z, "nfc");
       lab(String(i), "#ffffff", n.x + out.x * 0.05, 0.55, n.z + out.z * 0.05, 0.35, seatG);
       const g = new THREE.Group(); g.position.set(st.x, 0, st.z); g.rotation.y = Math.atan2(-out.x, -out.z);   // -z faces the table

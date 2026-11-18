@@ -54,15 +54,17 @@ ul{margin:6px 0 0;padding-left:20px}
 
   <h2>1.1: heat sensors only (blackjack table first)</h2>
   <div class="box">
-    <p style="margin-top:0">No chair tags, batteries or receivers. Players sign in at the seat (QR or NFC). A heat sensor under the rail at each seat keeps their hours: warm = playing, cold = on break. Each sensor tilts out and down from under the rail so it sees a lap and a player standing at the seat. Someone there 3 seconds or more pops up as a Guest; guest sessions under 10 minutes are dropped. Seat changes are done by the dealer in Dealer Control (drag the name). One ESP32 under the table reads the sensors and sends them over Bluetooth to the dealer's tablet; the tablet sends everything to the database. Tablet off = table closed.</p>
+    <p style="margin-top:0">No chair tags, batteries or receivers. Players sign in at the seat (QR or NFC). A heat sensor under the rail at each seat keeps their hours: warm = playing, cold = on break. Each sensor tilts out and down from under the rail so it sees a lap and a player standing at the seat. Someone there 3 seconds or more pops up as a Guest; guest sessions under 10 minutes are dropped. Seat changes are done by the dealer in Dealer Control (drag the name). Each seat also gets a USB-C fast charger in the rail. One ESP32 under the table reads the sensors and sends them over Bluetooth to the dealer's tablet; the tablet sends everything to the database. Tablet off = table closed.</p>
     <table>
       <tr><td><b>Part</b></td><td><b>Where</b></td><td class="n"><b>Qty</b></td><td class="n"><b>About</b></td></tr>
       <tr><td>Heat sensor: Melexis MLX90614 (each gets its own address, so no switch board)</td><td>Under the rail at each seat, aimed down at the lap</td><td class="n">6</td><td class="n">$96</td></tr>
       <tr><td>ESP32 board (Wi-Fi + Bluetooth built in)</td><td>Hub box under the table</td><td class="n">1</td><td class="n">$10</td></tr>
-      <tr><td>5 V power supply + wire to each seat</td><td>Under the table</td><td class="n">1</td><td class="n">$20</td></tr>
+      <tr><td>USB-C fast charger, panel mount: Powerwerx PanelUSB-100W (one USB-C, PD 3.1 with PPS; up to 65 W on 12 V, 1-1/8 in hole)</td><td>In the rail at each seat, next to the sensor</td><td class="n">6</td><td class="n">$240</td></tr>
+      <tr><td>12 V power supply, about 350 W (Mean Well LRS-350-12): room for every seat fast charging a phone at once</td><td>Under the table</td><td class="n">1</td><td class="n">check</td></tr>
+      <tr><td>12 V &rarr; 5 V step-down for the ESP32 and sensors, + cable to each seat (12 V for the charger, 5 V and data for the sensor)</td><td>Under the table</td><td class="n">1</td><td class="n">$20</td></tr>
       <tr><td>Printed cases (sensor case per seat + hub box)</td><td>Seats and under the table</td><td class="n">7</td><td class="n">filament</td></tr>
       <tr><td>Android tablet for Dealer Control</td><td>Dealer's spot</td><td class="n">1</td><td class="n">$100</td></tr>
-      <tr><td colspan="3"><b>Total for one table</b></td><td class="n"><b>~$230</b></td></tr>
+      <tr><td colspan="3"><b>Total for one table</b></td><td class="n"><b>~$470 + 12 V supply</b></td></tr>
     </table>
     <p class="muted" style="margin-bottom:0">Rough prices; check before ordering. <a href="./table-underside-11.html">See it on Table 4 in 3D &rsaquo;</a></p>
   </div>
