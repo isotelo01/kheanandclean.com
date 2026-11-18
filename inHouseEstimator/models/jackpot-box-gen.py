@@ -48,6 +48,7 @@ def frame(sx):
   return n,u,v
 def boxf(c,n,u,v,a0,a1,b0,b1,c0,c1):   # cuboid in face frame: v from a0..a1, u from b0..b1, n from c0..c1
   P.append(np.array([c+v*a+u*b+n*cc for a in (a0,a1) for b in (b0,b1) for cc in (c0,c1)]))
+HOOD_IN=[]
 for sx in (-1,1):
   n,u,v=frame(sx)
   c=np.array([LX+sx*24,y1-2,T+16.0])          # centre of the face plate
@@ -68,6 +69,17 @@ for sx in (-1,1):
     boxf(c,n,u,v,min(e,e-s*2.5),max(e,e-s*2.5),-FH/2,FH/2,0,GAP)               # ledge the board rests on
     boxf(c,n,u,v,min(e,e-s*1.5),max(e,e-s*1.5),-FH/2,FH/2,GAP+BT+0.6,GAP+BT+0.6+1.2)  # lip over the board's front edge
   boxf(c,n,u,v,-BW_/2-2,BW_/2+2,-FH/2,-FH/2+2,0,GAP+BT+0.6+1.2)                # bottom stop
+  # Hood: a window frame 5 mm in front of the camera, closed in on the sides and bottom. The black HDPE sheet
+  # (about 0.5 mm) is glued across the frames; heat goes through it, so the cameras can't be seen. Top stays open
+  # (faces up and back) so the boards slide in and the wires come out.
+  HD=GAP+BT+0.6+1.2+5; FT=1.6; OW_,OH_=13,8          # frame plane, frame thickness, half the window opening
+  for a0,a1 in ((-FW/2,-OW_),(OW_,FW/2)): boxf(c,n,u,v,a0,a1,-FH/2,FH/2,HD,HD+FT)      # frame sides
+  for b0,b1 in ((-FH/2,-OH_),(OH_,FH/2)): boxf(c,n,u,v,-FW/2,FW/2,b0,b1,HD,HD+FT)      # frame top and bottom
+  for a0,a1 in ((-FW/2,-FW/2+1.5),(FW/2-1.5,FW/2)): boxf(c,n,u,v,a0,a1,-FH/2,FH/2,0,HD+FT)   # side skirts
+  boxf(c,n,u,v,-FW/2,FW/2,-FH/2,-FH/2+1.5,0,HD+FT)                                     # bottom skirt
+  inner=min((FW/2,-FW/2),key=lambda a:abs((c+v*a)[0]-LX))                             # the side toward the middle
+  HOOD_IN.append([c+v*inner+u*b+n*k for b in (-FH/2,FH/2) for k in (0,HD+FT)])
+P.append(np.array(HOOD_IN[0]+HOOD_IN[1]))   # bridge between the two hoods, so the sheet runs across the whole front
 P=Pbox+L
 # ---- convex hull (brute force, small point sets) -> triangles
 def hull(pts):
