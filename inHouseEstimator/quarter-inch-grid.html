@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Quarter Inch Grid</title>
+<style>
+/* Printable 1/4 inch grid on US Letter. 8 x 10.5 in of grid (32 x 42 squares) inside 1/4 in margins; every inch is a darker line.
+   Print at 100% / "Actual size" so the squares come out exactly 1/4 inch. */
+@page { size: letter; margin: 0.25in; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #e5e7eb; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #111; }
+.bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 16px; background: #172239; color: #fff; }
+.bar a, .bar button { color: #E3B64A; background: none; border: 1px solid #E3B64A; border-radius: 999px; padding: 6px 14px; font: 700 14px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+.bar span { opacity: .75; font-size: 14px; }
+.sheet { width: 8.5in; height: 11in; margin: 16px auto; background: #fff; padding: 0.25in; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+svg { display: block; width: 8in; height: 10.5in; }
+@media print {
+  body { background: #fff; }
+  .bar { display: none; }
+  .sheet { width: auto; height: auto; margin: 0; padding: 0; box-shadow: none; }
+}
+</style>
+</head>
+<body>
+<div class="bar">
+  <a href="./">&lsaquo; Back</a>
+  <button type="button" onclick="print()">Print</button>
+  <span>US Letter. Print at 100% ("Actual size"), not "Fit to page", so each square is exactly 1/4 inch.</span>
+</div>
+<div class="sheet"><svg id="g" viewBox="0 0 32 42" preserveAspectRatio="none"></svg></div>
+<script>
+const g = document.getElementById("g"), W = 32, H = 42; let s = "";
+for (let x = 0; x <= W; x++) s += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="${x % 4 ? "#9ca3af" : "#4b5563"}" stroke-width="${x % 4 ? 0.02 : 0.04}"/>`;
+for (let y = 0; y <= H; y++) s += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${y % 4 ? "#9ca3af" : "#4b5563"}" stroke-width="${y % 4 ? 0.02 : 0.04}"/>`;
+g.innerHTML = s;
+</script>
+</body>
+</html>
