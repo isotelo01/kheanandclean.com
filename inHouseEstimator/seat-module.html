@@ -51,6 +51,26 @@ a{color:var(--gold)}
   <div id="partBody"></div>
 </div>
 
+<h2>Printable parts</h2>
+<div class="box" style="padding:8px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px">
+    <b style="color:var(--gold)">Lens rings</b><span class="muted">Drag to turn, scroll or pinch to zoom.</span>
+    <span style="flex:1"></span>
+    <button class="btn on" id="pExplode" type="button">Snap together</button>
+    <button class="btn" id="pRingA" type="button">Download ring A (STL)</button>
+    <button class="btn" id="pRingB" type="button">Download ring B (STL)</button>
+  </div>
+  <div id="v3p" style="height:min(50vh,460px);min-height:300px;border-radius:8px;overflow:hidden;background:#0e1628;touch-action:none"></div>
+  <p class="muted" id="v3pmsg" style="margin:6px 0 0"></p>
+  <ol style="margin:8px 0 0">
+    <li><b>Ring A</b> (bottom, gray): 36 mm across with a 25 mm opening, 1.6 mm thick, with 4 pins that stick up.</li>
+    <li><b>Film</b> (black): lay a piece of thin black polyethylene (4 mil sheeting or a heavy trash bag) over ring A and press it down onto the pins so they poke through.</li>
+    <li><b>Ring B</b> (top, gold): press it straight down. Its outer skirt slides over ring A and the barb snaps under ring A's bottom edge for good. The pins go into a groove on its underside, so it fits at any angle.</li>
+    <li>Trim the extra film around the outside with scissors.</li>
+  </ol>
+  <p class="muted" style="margin:6px 0 0">Print both flat on a normal printer (0.4 mm nozzle, 0.2 mm layers), PETG or PLA, no supports: ring A pins up, ring B upside down (flat top on the bed). Sizes are a first try; if the snap is too tight or loose, tell me and I'll change the gap.</p>
+</div>
+
 <h2>What's in it</h2>
 <div class="box"><ol style="margin:0">
   <li><b>Mount</b> (purple): a wide plate screwed up under the table for good with 9 screws (4 down each side, 1 in the middle). It's the box's lid, with a C-channel down each side: the box is open on top, and a lip along each of its top edges slides into the C's like a drawer until it hits the stop at the back. The wood screws sit countersunk and flush inside the C's (4 a side, 1 in the middle), with holes in the bottom of each C so a screwdriver reaches straight in. One M3 screw through the side of the right C locks the box into a nut in the lip, so taking the box in and out never touches the table screws.</li>
@@ -115,6 +135,7 @@ document.getElementById("partClose").onclick = () => { document.getElementById("
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { STLExporter } from "three/addons/exporters/STLExporter.js";
 const box = document.getElementById("v3");
 try {
   /* ---- Sizes in mm (GUESSES until measured). x = side to side, y = up, z = toward the player (+z = front). ---- */
@@ -454,6 +475,47 @@ try {
   addEventListener("resize", () => { cam.aspect = box.clientWidth / box.clientHeight; cam.updateProjectionMatrix(); ren.setSize(box.clientWidth, box.clientHeight); });
   ren.setAnimationLoop(() => { ctl.update(); ren.render(scene, cam); });
 } catch (e) { document.getElementById("v3msg").textContent = "The 3D view couldn't start on this device (" + e.message + ")."; }
+
+/* ---- Printable parts: the two lens rings and the film, in real millimetres (so the STL files print at size). ---- */
+try {
+  const el = document.getElementById("v3p");
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0x0e1628);
+  const cm = new THREE.PerspectiveCamera(35, el.clientWidth / el.clientHeight, 0.5, 2000);
+  const rd = new THREE.WebGLRenderer({ antialias: true }); rd.setPixelRatio(Math.min(2, devicePixelRatio)); rd.setSize(el.clientWidth, el.clientHeight); el.appendChild(rd.domElement);
+  const oc = new OrbitControls(cm, rd.domElement); oc.enableDamping = true;
+  sc.add(new THREE.AmbientLight(0xffffff, 0.8)); const l1 = new THREE.DirectionalLight(0xffffff, 1.6); l1.position.set(40, 80, 60); sc.add(l1);
+  const l2 = new THREE.DirectionalLight(0xffffff, 0.6); l2.position.set(-50, -40, -30); sc.add(l2);
+  const lathe = (pts, m) => { m.side = THREE.DoubleSide; return new THREE.Mesh(new THREE.LatheGeometry([...pts, pts[0]].map(([r, y]) => new THREE.Vector2(r, y)), 96), m); };   // closed outline spun around the axis
+  /* Ring A: 36 mm across, 25 mm opening, 1.6 mm thick, top outer edge chamfered so ring B's barb rides over it. Four
+     1.6 mm pins at 15.5 mm radius stick up 1.3 mm to poke through the film into ring B's groove. */
+  const ringA = new THREE.Group(), mA = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.55 });
+  ringA.add(lathe([[12.5, 0], [18, 0], [18, 1.0], [17.4, 1.6], [12.5, 1.6]], mA));
+  for (let k = 0; k < 4; k++) { const t = k * Math.PI / 2 + Math.PI / 4, p = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.5, 24), mA); p.position.set(Math.cos(t) * 15.5, 1.6 + 0.65, Math.sin(t) * 15.5); ringA.add(p); }
+  /* Film: thin black polyethylene, trimmed to size after the rings are snapped. */
+  const film = new THREE.Mesh(new THREE.CylinderGeometry(21, 21, 0.1, 96), new THREE.MeshStandardMaterial({ color: 0x0b0b0b, roughness: 0.9, transparent: true, opacity: 0.85 }));
+  film.position.y = 1.65;
+  /* Ring B: top plate (1.8 to 3.4 mm) with a groove underneath for the pins, an outer skirt that slides down over ring A
+     (0.15 mm gap), and an inward barb at its bottom that snaps under ring A's bottom edge. Print it upside down. */
+  const mB = new THREE.MeshStandardMaterial({ color: 0xE3B64A, roughness: 0.5 });
+  const ringB = lathe([[12.5, 1.8], [14.5, 1.8], [14.5, 3.0], [16.5, 3.0], [16.5, 1.8], [18.15, 1.8], [18.15, -0.05], [17.5, -0.05], [18.15, -1.2], [19.4, -1.2], [19.4, 3.4], [12.5, 3.4]], mB);
+  sc.add(ringA, film, ringB);
+  let apart = true;
+  const place = () => { film.position.y = 1.65 + (apart ? 8 : 0); ringB.position.y = apart ? 16 : 0; };
+  place();
+  cm.position.set(45, 55, 70); oc.target.set(0, 6, 0); oc.update();
+  const pb = document.getElementById("pExplode");
+  pb.onclick = () => { apart = !apart; place(); pb.textContent = apart ? "Snap together" : "Explode"; pb.classList.toggle("on", apart); };
+  const save = (obj, name) => {
+    const holder = new THREE.Group(); holder.add(obj.clone(true)); holder.updateMatrixWorld(true);
+    const holderPos = holder.children[0]; holderPos.position.set(0, 0, 0); holder.updateMatrixWorld(true);
+    const data = new STLExporter().parse(holder, { binary: true });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "model/stl" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+  document.getElementById("pRingA").onclick = () => save(ringA, "lens-ring-A.stl");
+  document.getElementById("pRingB").onclick = () => save(ringB, "lens-ring-B.stl");
+  addEventListener("resize", () => { cm.aspect = el.clientWidth / el.clientHeight; cm.updateProjectionMatrix(); rd.setSize(el.clientWidth, el.clientHeight); });
+  rd.setAnimationLoop(() => { oc.update(); rd.render(sc, cm); });
+} catch (e) { document.getElementById("v3pmsg").textContent = "The parts view couldn't start on this device (" + e.message + ")."; }
 </script>
 </body>
 </html>
