@@ -60,7 +60,7 @@ a{color:var(--gold)}
   <li><b>Thermal wall</b> (foil plate): a second slide-in plate half an inch behind the back plate, foil facing the strip. Its cord and USB-C notches are offset from the back plate's, so the cables zigzag and the strip's heat has no straight path to the sensor.</li>
   <li><b>Front housing</b>: a little wider than the Apple 20 W cube, with finger room inside on both sides so you can reach in and pluck the cube out. The cube plugs into the strip's end outlet, its USB-C port facing the player.</li>
   <li><b>Front bezel</b> slides up into a track on the front of the box and screws in at its two top corners into square M3 nuts. A wide opening lets any USB-C cable plug in. Foam pads inside it and on the cradle squeeze the cube so it fits tight.</li>
-  <li><b>SUPERDANNY flat-plug strip</b> (white, like the real one) in the middle, its end outlet facing front: 2 outlets on its face (with the green and red safety lights), facing down (the front one is open through the bottom so you can use it), 1 on each end, and the USB ports on one side, about mid-length and toward the table side: A1, A2, C1, C2 from the outlet end. The two keyhole slots are on the table side. It's mounted outlets-down, like under a desk. Its flat cord comes out of the dead centre of the long side opposite the USB ports, runs back and down to the floor, through the back plate's notch and the thermal wall's offset notch, then back along that wall, past a zip-tie slot, out the rear to the table's power strip.</li>
+  <li><b>SUPERDANNY flat-plug strip</b> (white, like the real one) in the middle, its end outlet facing front: 2 outlets on its face (with the green and red safety lights), facing down (the front one is open through the bottom so you can use it), 1 on each end, and the USB ports on one side, about mid-length and toward the table side: A1, A2, C1, C2 from the outlet end. The two keyhole slots are on the table side. It's mounted outlets-down, like under a desk. Its flat cord comes out of the dead centre of the long side opposite the USB ports, runs back and down to the floor, through the back plate's notch, then S-curves across the half-inch gap to the USB side, out through the thermal wall's notch next to the USB-C cable, and back along that wall, past a zip-tie slot, out the rear to the table's power strip.</li>
   <li><b>Sensor pod</b>: the bottom plate behind the thermal wall, with the lens, the heat sensor and the Wi-Fi board on it as one piece. Four screws go up into two struts (one right behind the thermal wall, one at the back). Unscrew it, drop it out, unplug the USB-C, and work on it on the bench.</li>
   <li><b>XIAO ESP32C3 Wi-Fi board</b> (blue) on the pod, powered from the strip's USB port by a short right-angle cable.</li>
   <li><b>GY-906 BCC heat sensor</b> (black tube, narrow view) on two posts on the pod, angled forward, looking down through a funnel and the <b>lens</b> toward the player's lap. If it can't see enough, we drop it lower.</li>
@@ -98,7 +98,7 @@ window.PARTS = {
   foam: { t: "Foam pads", d: "Little foam pads in pockets on the cradle and inside the bezel. When the bezel goes on, they squish the cube so it fits tight and can't rattle.", p: ["Thin adhesive foam, cut to size"] },
   backplate: { t: "Back plate", d: "Slides down into slots right against the back of the strip so the strip can't move. Open notches in its bottom edge slide down over the power cord and the USB-C cable, no threading.", p: ["Printed (PETG)"] },
   partition: { t: "Thermal wall (foil plate)", d: "A second slide-in plate a little further back, with foil on the side facing the strip. It sits half an inch behind the back plate. Its cord and USB-C notches are offset from the back plate's notches, so warm air has no straight path through to the sensor bay.", p: ["Printed (PETG)", "Aluminum foil tape on the strip side"] },
-  cord: { t: "Strip cord", d: "Out of the dead centre of the strip's long side (opposite the USB ports), back and down to the floor, through the back plate's notch, through the thermal wall's offset notch, then along that wall and out the rear, zip-tied at the exit, to the table's power strip.", p: [] },
+  cord: { t: "Strip cord", d: "Out of the dead centre of the strip's long side (opposite the USB ports), back and down to the floor, through the back plate's notch, an S across the half-inch gap to the USB side, out through the thermal wall's notch beside the USB-C cable, then along that wall and out the rear, zip-tied at the exit, to the table's power strip.", p: [] },
   zip: { t: "Zip-tie slot", d: "Two slots across the cord track at the exit. A zip tie locks the cord in place.", p: [] },
   nfc: { t: "NFC sticker", d: "Goes on the tabletop, not the module. A phone tapped on it opens the seat sign-in.", p: ["NTAG215, 25 mm"] }
 };
@@ -231,12 +231,12 @@ try {
   const stripG = new THREE.Group(); stripG.rotation.z = Math.PI;
   boxG.children.slice(nStrip).forEach(o => stripG.add(o)); boxG.add(stripG);
   /* Strip cord: out of the dead centre of the +x side, back along that side and down to the floor, through its notch in
-     the back plate, then the thermal wall's offset notch (a half-inch gap has no room for an S), and
-     back along the +x wall to the rear. */
+     the back plate, an S across the half-inch gap to the USB side, out the thermal wall's notch beside the USB-C cable,
+     and back along the -x wall to the rear. */
   bx(boxG, STRIP.w / 2, STRIP.w / 2 + 4, -3, 3, CZ - 6, CZ + 6, cordM, "cord");                   // its strain relief
-  const CDY = Y0 + 3, CDX = X1 - 3.75;                                                            // cord height on the floor, x along the +x wall
+  const CDY = Y0 + 3, CDX = X0 + 4.5, GZ = (ZQ - 3 + ZP + 0.4) / 2;                             // cord height on the floor, x along the -x wall, middle of the half-inch gap
   ribbon(boxG, [[STRIP.w / 2 + 2, 0, CZ], [30, 0, CZ - 1], [33, -3, CZ - 8], [33, -9, CZ - 24], [33, CDY, ZS + 6], [33, CDY, ZQ - 1.5],
-    [37.5, CDY, (ZQ - 3 + ZP) / 2], [CDX, CDY, ZP - 1.5], [CDX, CDY, ZP - 10], [CDX, CDY, ZB - 40]], 7, 3, cordM, "cord");
+    [28, CDY, GZ + 1.5], [0, CDY, GZ], [-36, CDY, GZ - 1.5], [CDX, CDY, ZP - 1.5], [CDX, CDY, ZP - 10], [CDX, CDY, ZB - 40]], 7, 3, cordM, "cord");   // S across the gap to the USB side
   /* No separate tray: the strip sits right on the thin floor, screwed down through its keyholes (one less part to
      break), with its face flush with the bottom, and a cover clips over it. The strip's front down-facing outlet is left open through the floor and the case
      bottom so it can be used. The cube sits on a hollow, ribbed cradle (strong, less plastic) with a foam pad in a pocket. */
@@ -343,9 +343,9 @@ try {
   const podG = new THREE.Group(); boxG.add(podG);
   boxG.children.slice(nPod).filter(o => o !== podG && o.userData.part !== "cable").forEach(o => podG.add(o));
   const podM = mat(0x475569, { transparent: true, opacity: 0.6 });
-  holed(podG, { x: [X0, X1], y: [Y0 - WALL, Y0], z: [ZB, ZP - 3] }, [[WC[2] - 12.5, WC[2] + 12.5, -12.5, 12.5], ...[X1 - 2.5, X1 - 9.5].map(x => [ZB + 2, ZB + 6, x - 1.5, x + 1.5])], "z", "x", podM, "pod");
+  holed(podG, { x: [X0, X1], y: [Y0 - WALL, Y0], z: [ZB, ZP - 3] }, [[WC[2] - 12.5, WC[2] + 12.5, -12.5, 12.5], ...[X0 + 2.5, X0 + 9.5].map(x => [ZB + 2, ZB + 6, x - 1.5, x + 1.5])], "z", "x", podM, "pod");
   const strutM = mat(0x64748b, { transparent: true, opacity: 0.7 });
-  for (const [z0, z1] of [[PF, ZP - 3], [ZB, ZB + 6]]) holed(boxG, { x: [X0, X1], y: [Y0, Y0 + 5], z: [z0, z1] }, [[X1 - 9, X1, Y0, Y0 + 5]], "x", "y", strutM, "strut");   // struts, notched for the cord
+  for (const [z0, z1] of [[PF, ZP - 3], [ZB, ZB + 6]]) holed(boxG, { x: [X0, X1], y: [Y0, Y0 + 5], z: [z0, z1] }, [[X0, X0 + 9, Y0, Y0 + 5]], "x", "y", strutM, "strut");   // struts, notched for the cord
   for (const z of [(PF + ZP - 3) / 2, ZB + 3]) for (const x of [-30, 30]) {
     cylAlong(podG, 2.8, 2.8, [x, Y0 - WALL, z], [x, Y0 - WALL - 1.6, z], mat(0xd1d5db, { metalness: 0.8 }), "screw");   // 4 screws from below
     cylAlong(podG, 1.5, 1.5, [x, Y0 - WALL, z], [x, Y0 + 4.5, z], mat(0x9ca3af, { metalness: 0.8 }), "screw");
@@ -370,7 +370,7 @@ try {
         notches in the two plates don't line up, so the cables zigzag and warm air has no straight path to the sensor. */
   const partM = mat(0x94a3b8, { transparent: true, opacity: 0.6 }), foilM = mat(0xe5e7eb, { metalness: 1, roughness: 0.2 });
   holed(boxG, { x: [X0, X1], y: [Y0, Y1], z: [ZQ - 3, ZQ] }, [[-31, -24.5, Y0, Y0 + 10], [28, 38, Y0, Y0 + 6]], "x", "y", partM, "backplate");
-  const FN = [[-40, -33, Y0, Y0 + 10], [38.5, X1, Y0, Y0 + 6]];   // USB-C and cord notches, offset from the back plate's
+  const FN = [[X0, -33, Y0, Y0 + 10]];   // one notch near the -x wall for both the cord and the USB-C, offset from the back plate's
   holed(boxG, { x: [X0, X1], y: [Y0, Y1], z: [ZP - 3, ZP] }, FN, "x", "y", partM, "partition");
   holed(boxG, { x: [X0, X1], y: [Y0, Y1], z: [ZP, ZP + 0.4] }, FN, "x", "y", foilM, "partition");
   for (const x of [X0, X1 - 1]) for (const [zf, part] of [[ZQ, "backplate"], [ZP, "partition"]]) for (const z of [zf + 0.4, zf - 4.5]) bx(boxG, x, x + 1, Y0, Y1, z, z + 1.1, trackM, part);   // slot guides
