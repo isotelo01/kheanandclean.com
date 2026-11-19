@@ -57,7 +57,7 @@ a{color:var(--gold)}
   <li><b>One long box</b>, front to back: the Apple plug housing at the front, the strip in the middle, the Wi-Fi board and heat sensor at the back.</li>
   <li><b>Front housing</b>: a little wider than the Apple 20 W cube, with finger holes on both sides so you can reach in and pluck the cube out. The cube plugs into the strip's end outlet, its USB-C port facing the player.</li>
   <li><b>Front bezel</b> keeps the cube in: one M3 screw (about 12 mm) into a square M3 nut in a slot in the box. A hole lets the USB-C port show through.</li>
-  <li><b>SUPERDANNY flat-plug strip</b> (white, like the real one) in the middle, its end outlet facing front: 2 outlets on its face (with the green and red safety lights and the two keyhole slots), facing down, 1 on each end, and 2 USB-A + 2 USB-C on one side. It's mounted outlets-down, like under a desk. Its flat cord comes straight out of the back end, through the cord track (an L and an L) with a zip-tie slot, and out the rear to the table's power strip.</li>
+  <li><b>SUPERDANNY flat-plug strip</b> (white, like the real one) in the middle, its end outlet facing front: 2 outlets on its face (with the green and red safety lights and the two keyhole slots), facing down, 1 on each end, and 2 USB-A + 2 USB-C on one side. It's mounted outlets-down, like under a desk. Its flat cord comes out of the long side opposite the USB ports, runs back along that side, through the cord track (an L and an L) with a zip-tie slot, and out the rear to the table's power strip.</li>
   <li><b>XIAO ESP32C3 Wi-Fi board</b> (blue) at the back, powered from the strip's USB port by a short right-angle cable.</li>
   <li><b>GY-906 BCC heat sensor</b> (black tube, narrow view) at the back on a sled that slides out the rear. It's recessed up inside the box and angled forward, looking down through a funnel and a <b>round IR window</b> in the bottom toward the player's lap. If it can't see enough, we drop it lower.</li>
   <li><b>Round IR window</b>: two rings snap together with black polyethylene film between them; pins on one ring poke through the film into the other.</li>
@@ -84,7 +84,7 @@ window.PARTS = {
   back: { t: "The box", d: "One long box: plug housing at the front, strip in the middle, board and sensor at the back. Vents on the sides. Tongues on top slide into the mount's rails.", p: ["Printed (PETG)"] },
   nut: { t: "Square M3 nut", d: "Slides into a slot and stays put, so a screw has something to bite into.", p: [] },
   screw: { t: "M3 screw, about 12 mm", d: "Holds the bezel on (and another locks the box in the mount). Swap for security screws later if players mess with them.", p: [] },
-  cord: { t: "Strip cord", d: "Out the back of the strip, through the cord track (an L and an L) and out the rear, zip-tied at the exit, to the table's power strip.", p: [] },
+  cord: { t: "Strip cord", d: "Out of the strip's long side (opposite the USB ports), back along that side, through the cord track (an L and an L) and out the rear, zip-tied at the exit, to the table's power strip.", p: [] },
   zip: { t: "Zip-tie slot", d: "Two slots across the cord track at the exit. A zip tie locks the cord in place.", p: [] },
   nfc: { t: "NFC sticker", d: "Holds this seat's sign-in link. A phone tapped on it opens the seat sign-in.", p: ["NTAG215, 25 mm"] }
 };
@@ -190,10 +190,10 @@ try {
     bx(boxG, c[0] - h[0], c[0] + h[0], c[1] - h[1], c[1] + h[1], c[2] - h[2], c[2] + h[2], m, part);
   } };
   const cordM = mat(0xf2f2f0, { roughness: 0.45 });
-  /* The cord comes straight out of the back end, above the back outlet, right at the edge next to the outlet face. */
-  const CY = STRIP.h / 2 - 5;
-  bx(boxG, -6, 6, CY - 2.5, CY + 2.5, ZS - 6, ZS, cordM, "cord");                                                     // its strain relief
-  flat([[0, CY, ZS - 6], [0, CY, ZS - 10], [X0 + 6, CY, ZS - 10], [X0 + 6, CY, ZB - 40]], 7, 3, cordM, "cord");
+  /* The cord comes out of the long side opposite the USB ports, toward the back end, then runs back along that side. */
+  const CY = STRIP.h / 2 - 8, CZ = ZS + 16;
+  bx(boxG, -STRIP.w / 2 - 4, -STRIP.w / 2, CY - 3, CY + 3, CZ - 6, CZ + 6, cordM, "cord");                         // its strain relief
+  flat([[-STRIP.w / 2 - 4, CY, CZ], [X0 + 4, CY, CZ], [X0 + 4, CY, ZB - 40]], 7, 3, cordM, "cord");
   /* Flip the strip over so its outlet face (2 outlets, lights, keyholes) faces DOWN, like it's mounted under a desk.
      Turning it over also puts its USB ports on the -x side and the cord on the +x side. */
   const stripG = new THREE.Group(); stripG.rotation.z = Math.PI;
