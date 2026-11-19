@@ -30,7 +30,7 @@ a{color:var(--gold)}
 <body>
 <div class="top"><a class="btn" href="./player-tracker-hardware.html">&lsaquo; Hardware</a><h1>Seat Module 1.1</h1>
   <a class="btn" href="./table-underside-11.html" style="margin-left:auto">Table 4 &rsaquo;</a></div>
-<p class="muted" style="margin:0 0 10px">One long box per seat, front facing the player, sliding into a mount that stays screwed under the rail. Mock-up only: sizes are guesses until we measure the real strip and Apple cube. Tap any part to see what it is.</p>
+<p class="muted" style="margin:0 0 10px">One long box per seat, front facing the player, sliding into a mount that stays screwed under the rail. Mock-up only: the strip is its real size from the listing; the other sizes are still guesses. Tap any part to see what it is.</p>
 <div class="box" style="padding:8px">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px">
     <b style="color:var(--gold)">3D</b><span class="muted">Drag to turn, scroll or pinch to zoom.</span>
@@ -67,7 +67,7 @@ a{color:var(--gold)}
 <script>
 window.PARTS = {
   mount: { t: "Mount", d: "A plate screwed up under the table once and left there. The box slides into its two rails like a drawer, then one M3 screw through the side tab locks it into a nut. That screw goes into plastic and a metal nut, not the wood, so you can take the box out as often as you want without wearing out the table screws.", p: ["Printed (PETG)", "4 wood screws into the table", "M3 lock screw + square M3 nut"] },
-  strip: { t: "SUPERDANNY flat-plug strip", d: "In the middle of the box, its end outlet facing the front. The Apple cube plugs in there; one of its USB ports powers the Wi-Fi board. Its cord leaves from the back.", p: ["SUPERDANNY 3 ft flat-plug strip (4 outlets, 2 USB-C, 2 USB-A), about $10.99 with Prime", "Guessed size: about 115 x 58 x 40 mm. Measure it"] },
+  strip: { t: "SUPERDANNY flat-plug strip", d: "In the middle of the box, its end outlet facing the front. The Apple cube plugs in there; one of its USB ports powers the Wi-Fi board. Its cord leaves from the back.", p: ["SUPERDANNY 3 ft flat-plug strip (4 outlets, 2 USB-C, 2 USB-A), about $10.99 with Prime", "4.43 x 1.89 x 1.53 in (112.5 x 48 x 39 mm), from the listing", "Two keyhole slots on the bottom, 3.45 in apart: it hangs on two screw heads in the box floor"] },
   cube: { t: "Apple 20 W USB-C cube", d: "Plugs into the strip's end outlet, USB-C port facing the player through the bezel so phones fast charge. Same shape for years and sold everywhere, so it's easy to replace.", p: ["Apple 20W USB-C Power Adapter"] },
   housing: { t: "Front housing", d: "A little wider than the Apple cube, with a finger hole on each side. Take the bezel off, reach in, pinch the cube and pull it out.", p: [] },
   board: { t: "XIAO ESP32C3 Wi-Fi board", d: "At the back of the box. Reads the heat sensor and sends the seat's readings over the casino's device Wi-Fi to the database.", p: ["Seeed Studio XIAO ESP32C3", "Wired to the sensor: VIN to 3V3, GND to GND, SDA to D4, SCL to D5"] },
@@ -104,7 +104,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 const box = document.getElementById("v3");
 try {
   /* ---- Sizes in mm (GUESSES until measured). x = side to side, y = up, z = toward the player (+z = front). ---- */
-  const STRIP = { w: 52, h: 46, l: 112 };          // SUPERDANNY strip: width (x), height (y), length front-to-back (z); guessed from the photo
+  const STRIP = { w: 48, h: 39, l: 112.5 };        // SUPERDANNY strip, real size from the listing: 4.43 x 1.89 x 1.53 in
   const CUBE = { w: 45, h: 45, d: 29 };            // Apple 20 W cube (without prongs)
   const FINGER = 10;                               // finger room each side of the cube
   const SEN_FWD = 35, SEN_UP = 14;                 // sensor aims this many degrees forward of straight down; sits this far up from the bottom (recess)
@@ -169,6 +169,12 @@ try {
   const USBZ = [-14, -23, -32, -40];                                                     // USB-A, USB-A, USB-C, USB-C (from the front)
   USBZ.forEach((z, k) => bx(boxG, STRIP.w / 2 - 0.2, STRIP.w / 2 + 0.4, k < 2 ? -6.2 : -4.3, k < 2 ? 6.2 : 4.3, z - (k < 2 ? 2.3 : 1.3), z + (k < 2 ? 2.3 : 1.3), slot, "strip"));
   tag("SUPERDANNY", [0, STRIP.h / 2 + 0.6, -56], 3, "#4b5563");
+  /* Two keyhole slots on the bottom, 3.45 in (87.6 mm) apart: two screw heads in the box floor hold the strip in place. */
+  for (const z of [-STRIP.l / 2 - 43.8, -STRIP.l / 2 + 43.8]) {
+    cylAlong(boxG, 2.6, 2.6, [0, -STRIP.h / 2 - 0.2, z - 2.5], [0, -STRIP.h / 2 + 0.2, z - 2.5], slot, "strip");
+    bx(boxG, -1.3, 1.3, -STRIP.h / 2 - 0.2, -STRIP.h / 2 + 0.2, z - 2.5, z + 3, slot, "strip");
+    cylAlong(boxG, 2.8, 2.8, [0, Y0, z + 2.5], [0, -STRIP.h / 2 - 1.5, z + 2.5], mat(0x9ca3af, { transparent: true, opacity: 0.6 }), "strip"); cylAlong(boxG, 2.4, 2.4, [0, -STRIP.h / 2 - 1.5, z + 2.5], [0, -STRIP.h / 2 + 0.3, z + 2.5], mat(0xd1d5db, { metalness: 0.8 }), "strip");   // printed post + screw head into the keyhole
+  }
   for (const z of [-48, -64]) cylAlong(boxG, 0.9, 0.9, [-9, STRIP.h / 2, z], [-9, STRIP.h / 2 + 0.3, z], mat(0x22d3ee, { emissive: 0x0891b2 }), "strip");   // indicator lights
   /* Apple 20 W cube: white, rounded, USB-C port on its face. */
   { const g = new THREE.Mesh(new RoundedBoxGeometry(CUBE.w * S, CUBE.h * S, CUBE.d * S, 4, 6 * S), white); g.position.set(0, 0, CUBE.d / 2 * S); g.userData.part = "cube"; boxG.add(g); }
