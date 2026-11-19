@@ -41,6 +41,7 @@ a{color:var(--gold)}
     <button class="btn" id="bFront" type="button">Front</button>
     <button class="btn" id="bSide" type="button">Side</button>
     <button class="btn" id="bTop" type="button">Bottom</button>
+    <button class="btn" id="bWire" type="button">Zoom to wiring</button>
   </div>
   <div id="v3" style="height:min(70vh,720px);min-height:380px;border-radius:8px;overflow:hidden;background:#0e1628;touch-action:none"></div>
   <p class="muted" id="v3msg" style="margin:6px 0 0"></p>
@@ -74,6 +75,10 @@ window.PARTS = {
   sled: { t: "Sensor sled", d: "The sensor screws onto it, and it slides out the back of the box like a drawer. To swap the sensor or try a new angle or height, pull it out (or print one at a different angle).", p: ["Printed (PETG)"] },
   funnel: { t: "Funnel", d: "Flares wider toward the window so the walls stay out of the sensor's view. If it doesn't see the whole seat, drop the sensor lower or widen the opening.", p: [] },
   window: { t: "Round IR window", d: "Two printed rings snap together with thin black polyethylene (a trash bag works for testing) between them. Pins on one ring poke through the film into holes in the other, so it stays tight. Heat passes through; clear plastic would block it.", p: ["2 printed rings", "Thin black polyethylene film"] },
+  wVIN: { t: "Red wire: sensor VIN to XIAO 3V3", d: "Power for the sensor. Solder one end to the VIN pad on the GY-906 and the other to the 3V3 pad on the XIAO (third pad down on the 5V / GND side).", p: [] },
+  wGND: { t: "Black wire: sensor GND to XIAO GND", d: "Ground. GND pad on the GY-906 to the GND pad on the XIAO (second pad down, next to 5V).", p: [] },
+  wSDA: { t: "Yellow wire: sensor SDA to XIAO D4", d: "Data. SDA pad on the GY-906 to D4 on the XIAO (fifth pad down on the D0-D6 side).", p: [] },
+  wSCL: { t: "White wire: sensor SCL to XIAO D5", d: "Clock. SCL pad on the GY-906 to D5 on the XIAO (sixth pad down on the D0-D6 side).", p: [] },
   cable: { t: "Short right-angle USB-C cable", d: "From the strip's USB-C port to the XIAO. 4 inches.", p: ["4 in right-angle USB-C to USB-C, 2-pack, $9.99"] },
   bezel: { t: "Front bezel", d: "Keeps the Apple cube in. One M3 screw through the front into a square nut in the box. The USB-C port shows through its hole.", p: ["Printed (PETG)", "M3 screw, about 12 mm"] },
   back: { t: "The box", d: "One long box: plug housing at the front, strip in the middle, board and sensor at the back. Vents on the sides. Tongues on top slide into the mount's rails.", p: ["Printed (PETG)"] },
@@ -104,7 +109,7 @@ try {
   const SEN_FWD = 35, SEN_UP = 14;                 // sensor aims this many degrees forward of straight down; sits this far up from the bottom (recess)
   const WALL = 3, S = 0.01;
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0e1628);
-  const cam = new THREE.PerspectiveCamera(38, box.clientWidth / box.clientHeight, 0.01, 50);
+  const cam = new THREE.PerspectiveCamera(38, box.clientWidth / box.clientHeight, 0.001, 50);   // near plane small enough to zoom right up to a solder joint
   const ren = new THREE.WebGLRenderer({ antialias: true }); ren.setPixelRatio(Math.min(2, devicePixelRatio)); ren.setSize(box.clientWidth, box.clientHeight); box.appendChild(ren.domElement);
   const ctl = new OrbitControls(cam, ren.domElement); ctl.enableDamping = true;
   scene.add(new THREE.AmbientLight(0xffffff, 0.8)); const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(3, 5, 4); scene.add(sun);
@@ -145,8 +150,35 @@ try {
   tube(boxG, [[0, 0, ZS], [0, 0, ZS - 3], [X0 + 6, 0, ZS - 3], [X0 + 6, 0, ZB - 40]], 3, mat(0x111111, { roughness: 0.5 }), "cord");
   /* Board at the back, on the +x side, with the short cable from the strip's side USB-C port. */
   const blue = mat(0x1d4ed8, { emissive: 0x0b1f5e });
-  bx(boxG, X1 - 6, X1 - 4, -8, 12, ZB + 4, ZB + 25, blue, "board");
-  tube(boxG, [[STRIP.w / 2 + 0.5, 0, -97], [X1 - 3, 0, -97], [X1 - 3, 2, ZB + 27], [X1 - 5, 2, ZB + 24]], 1.8, mat(0x6b7280), "cable");
+  /* Small text tags sized in mm (only readable when you zoom in), and solder blobs. */
+  const tag = (txt, p, mm, col, g = boxG) => {
+    const c = document.createElement("canvas"), x = c.getContext("2d"); c.width = 256; c.height = 64;
+    x.font = "bold 44px system-ui,sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillStyle = col; x.fillText(txt, 128, 34);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    sp.position.copy(V(...p)); sp.scale.set(mm * 4 * S, mm * S, 1); sp.renderOrder = 20; g.add(sp); return sp;
+  };
+  const solder = (g, p, part) => { const o = new THREE.Mesh(new THREE.SphereGeometry(0.7 * S, 12, 8), mat(0xd1d5db, { metalness: 0.9, roughness: 0.25 })); o.position.copy(V(...p)); o.userData.part = part; g.add(o); };
+  /* XIAO ESP32C3 lying flat on the bay floor, parts side up, USB-C toward the strip. 17.5 x 21 mm.
+     Seen from above with the USB at the far end: D0-D6 down the +x edge, 5V / GND / 3V3 / D10-D7 down the -x edge. */
+  const XB = { x0: 14.5, x1: 32, z0: ZB + 6, z1: ZB + 27, y: Y0 + 0.5 }, XT = XB.y + 1.2;   // XT: top of the board
+  bx(boxG, XB.x0, XB.x1, XB.y, XT, XB.z0, XB.z1, mat(0x111111, { roughness: 0.5 }), "board");
+  bx(boxG, XB.x0 + 3, XB.x1 - 3, XT, XT + 1.6, XB.z0 + 5, XB.z1 - 6, mat(0xc0c4ca, { metalness: 0.8, roughness: 0.3 }), "board");   // shield can
+  bx(boxG, (XB.x0 + XB.x1) / 2 - 4.5, (XB.x0 + XB.x1) / 2 + 4.5, XT, XT + 3.2, XB.z1 - 7.5, XB.z1 + 0.5, mat(0xc0c4ca, { metalness: 0.8, roughness: 0.3 }), "board");   // USB-C socket
+  for (const x of [XB.x0 + 3.5, XB.x1 - 3.5]) bx(boxG, x - 1.5, x + 1.5, XT, XT + 1.2, XB.z0 + 0.8, XB.z0 + 3.6, mat(0x6b7280), "board");   // B / R buttons
+  cylAlong(boxG, 0.9, 0.9, [(XB.x0 + XB.x1) / 2, XT, XB.z0 + 2.2], [(XB.x0 + XB.x1) / 2, XT + 1.2, XB.z0 + 2.2], mat(0xE3B64A, { metalness: 0.7 }), "board");   // antenna socket
+  tag("XIAO ESP32C3", [(XB.x0 + XB.x1) / 2, XT + 2.2, (XB.z0 + XB.z1) / 2 - 1], 2.2, "#e5e7eb");
+  const padZ = k => XB.z1 - 3.2 - k * 2.54, PADS = {};
+  const goldM = mat(0xE3B64A, { metalness: 0.7, roughness: 0.3 });
+  [["D0", "D1", "D2", "D3", "D4", "D5", "D6"], ["5V", "GND", "3V3", "D10", "D9", "D8", "D7"]].forEach((col, side) => col.forEach((nm, k) => {
+    const x = side ? XB.x0 + 0.9 : XB.x1 - 0.9, z = padZ(k);
+    bx(boxG, x - 0.9, x + 0.9, XT - 0.05, XT + 0.06, z - 0.8, z + 0.8, goldM, "board");
+    PADS[nm] = [x, XT + 0.3, z];
+    tag(nm, [side ? x + 2.6 : x - 2.6, XT + 0.6, z], 1.1, "#fde68a");
+  }));
+  /* Short right-angle USB-C cable from the strip's side USB-C port into the XIAO. */
+  const XC = (XB.x0 + XB.x1) / 2;
+  tube(boxG, [[STRIP.w / 2 + 0.5, 0, -97], [STRIP.w / 2 + 2, -2, -100], [XC, -14, XB.z1 + 12], [XC, XT + 1.6, XB.z1 + 7]], 1.6, mat(0x6b7280), "cable");
+  bx(boxG, XC - 4, XC + 4, XT + 0.2, XT + 3.2, XB.z1 + 0.5, XB.z1 + 7, mat(0x374151), "cable");   // the plug
   /* Sensor: recessed up in the bay, aimed down and forward. */
   const a = SEN_FWD * Math.PI / 180, dir = [0, -Math.cos(a), Math.sin(a)];
   const SC = [0, Y0 + SEN_UP + 8, (ZBAY + ZB) / 2 + 2];
@@ -154,14 +186,33 @@ try {
   const sledG = new THREE.Group(); boxG.add(sledG);
   const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...dir));   // sensor's own +z = its view
   const sen = new THREE.Group(); sen.position.copy(V(...SC)); sen.quaternion.copy(q); sledG.add(sen);
-  bx(sen, -11, 11, -9, 9, -5, -2, mat(0x475569), "sled");
-  bx(sen, -8, 8, -5.5, 5.5, -2, 0, mat(0x1e3a8a), "sensor");
+  /* GY-906 BCC board (blue, about 11.5 x 16.5 mm): black tube on the front, one mounting hole in the corner, and the
+     four pads VIN / GND / SCL / SDA along the bottom edge. The wires are soldered to the pads from the back. */
+  bx(sen, -7, 7, -3.5, 10, -4.5, -1.6, mat(0x475569), "sled");                                    // sled plate (stops short of the pads)
+  bx(sen, -5.75, 5.75, -8.25, 8.25, -1.6, 0, mat(0x1e40af, { roughness: 0.5 }), "sensor");
   const tubeM = mat(0x111111, { roughness: 0.4 });
-  const can = new THREE.Mesh(new THREE.CylinderGeometry(4.8 * S, 4.8 * S, 9 * S, 24), tubeM); can.rotation.x = Math.PI / 2; can.position.z = 4.5 * S; can.userData.part = "sensor"; sen.add(can);   // BCC: black tube
-  for (const x of [-6.5, 6.5]) { const sc = new THREE.Mesh(new THREE.CylinderGeometry(1.2 * S, 1.2 * S, 1.5 * S, 12), mat(0xd1d5db, { metalness: 0.8 })); sc.rotation.x = Math.PI / 2; sc.position.set(x * S, 6 * S, 0.5 * S); sc.userData.part = "sled"; sen.add(sc); }
+  const can = new THREE.Mesh(new THREE.CylinderGeometry(5.2 * S, 5.2 * S, 10 * S, 28), tubeM); can.rotation.x = Math.PI / 2; can.position.set(0.4 * S, 1.2 * S, 5 * S); can.userData.part = "sensor"; sen.add(can);   // BCC tube
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(2.2 * S, 2.2 * S, 0.3 * S, 20), mat(0x050505)); lens.rotation.x = Math.PI / 2; lens.position.set(0.4 * S, 1.2 * S, 10.1 * S); lens.userData.part = "sensor"; sen.add(lens);
+  const SPAD = {}; [["VIN", -4.2], ["GND", -1.4], ["SCL", 1.4], ["SDA", 4.2]].forEach(([nm, x]) => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.75 * S, 0.75 * S, 1.8 * S, 14), goldM); p.rotation.x = Math.PI / 2; p.position.set(x * S, -6.9 * S, -0.8 * S); p.userData.part = "sensor"; sen.add(p);
+    tag(nm, [x, -8.9, 0.3], 1.0, "#ffffff", sen).position.multiplyScalar(1);
+    SPAD[nm] = new THREE.Vector3(x * S, -6.9 * S, -2.2 * S);   // the back of the pad, where the wire lands (sensor's own frame)
+  });
+  { const sc = new THREE.Mesh(new THREE.CylinderGeometry(1.3 * S, 1.3 * S, 1.2 * S, 14), mat(0xd1d5db, { metalness: 0.8 })); sc.rotation.x = Math.PI / 2; sc.position.set(-3.4 * S, 6.2 * S, 0.6 * S); sc.userData.part = "sled"; sen.add(sc); }   // screw through its mounting hole into the sled
   bx(sledG, -13, 13, Y1 - 8, Y1 - 5, ZB - 2, ZBAY, mat(0x475569), "sled");                                    // sled carrier, slides out the rear
   tube(sledG, [[-6, Y1 - 8, SC[2]], [-6, SC[1] + 6, SC[2] + 2]], 2, mat(0x475569), "sled"); tube(sledG, [[6, Y1 - 8, SC[2]], [6, SC[1] + 6, SC[2] + 2]], 2, mat(0x475569), "sled");
-  tube(boxG, [[X1 - 6, 0, ZB + 14], [8, -2, SC[2] - 4], [2, SC[1], SC[2]]], 0.8, mat(0xfacc15), "sensor");   // 4 wires to the board
+  /* Four wires, each soldered pad to pad: VIN -> 3V3 (red), GND -> GND (black), SDA -> D4 (yellow), SCL -> D5 (white). */
+  sen.updateMatrixWorld(true);
+  const toBox = v => { const w = sen.localToWorld(v.clone()); return [w.x / S, w.y / S, w.z / S]; };
+  const back = new THREE.Vector3(0, 0, -1).applyQuaternion(q);                  // straight out the back of the sensor board
+  [["VIN", "3V3", 0xef4444, "wVIN"], ["GND", "GND", 0x111111, "wGND"], ["SDA", "D4", 0xfacc15, "wSDA"], ["SCL", "D5", 0xf8fafc, "wSCL"]].forEach(([sp, xp, col, part], i) => {
+    const a = toBox(SPAD[sp]), b = PADS[xp];
+    const a2 = [a[0] + back.x / S * 0.04, a[1] + back.y / S * 0.04, a[2] + back.z / S * 0.04];   // 4 mm straight off the pad
+    const mid = [(a2[0] + b[0]) / 2, Math.max(a2[1], b[1]) + 4 + i * 1.2, (a2[2] + b[2]) / 2];
+    const curve = new THREE.CatmullRomCurve3([a, a2, mid, [b[0], b[1] + 3, b[2]], b].map(p => V(...p)));
+    const w = new THREE.Mesh(new THREE.TubeGeometry(curve, 60, 0.45 * S, 8, false), mat(col, { roughness: 0.5 })); w.userData.part = part; boxG.add(w);
+    solder(boxG, b, part); solder(boxG, a, part);
+  });
   cylAlong(boxG, 8, 16, [SC[0] + dir[0] * 9, SC[1] + dir[1] * 9, SC[2] + dir[2] * 9], WC, mat(0x94a3b8, { transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }), "funnel", true);
   /* Round IR window in the bottom: two rings, the film, four pins. */
   const ringM = mat(0x374151), filmM = mat(0x0b0b0b, { transparent: true, opacity: 0.85 });
@@ -224,6 +275,12 @@ try {
   document.getElementById("bFront").onclick = () => view(0.15, -0.15, 2.4);
   document.getElementById("bSide").onclick = () => view(2.6, -0.1, -0.6);
   document.getElementById("bTop").onclick = () => view(0.1, -2.6, -0.5);   // "Bottom" view: from under, to see the window
+  /* Zoom to wiring: close in over the XIAO and the sensor, case see-through. Scroll/pinch to get right up to a joint. */
+  document.getElementById("bWire").onclick = () => {
+    if (solid) document.getElementById("bSee").click();
+    const t = V((XB.x0 + XB.x1) / 2 - 6, -12, (XB.z0 + XB.z1) / 2 + 2);
+    cam.position.set(t.x + 0.32, t.y + 0.42, t.z + 0.30); ctl.target.copy(t); ctl.update();
+  };
   view(1.7, -0.9, 1.3);
 
   const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let downAt = null;
