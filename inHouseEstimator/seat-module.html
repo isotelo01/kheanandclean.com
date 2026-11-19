@@ -67,7 +67,7 @@ a{color:var(--gold)}
     <li><b>Film</b> (black): lay a piece of thin black polyethylene (4 mil sheeting or a heavy trash bag) over ring A and press it onto the pins so they poke through.</li>
     <li><b>Ring B</b> (top, gold): a 33.1 mm square cap with holes for the pins. Its skirt has two slots per side so it flexes; press it straight down and the barb snaps under ring A for good. There's a 0.35 mm gap inside the skirt for the film.</li>
     <li>Trim the extra film with scissors along the edges.</li>
-    <li>Drop the finished lens into the pocket in the sensor pod's floor, from the top. The plate under it is the stop.</li>
+    <li>Take the sensor pod out and slide the lens into the slot on its floor from the back, under the sensor, until it hits the stop.</li>
   </ol>
   <p class="muted" style="margin:6px 0 0">Print both flat on a normal printer (0.4 mm nozzle, 0.2 mm layers), PETG or PLA, no supports: frame A pins up, frame B upside down (flat top on the bed). Sizes are a first try; if the snap is too tight or loose, tell me and I'll change the gap.</p>
 </div>
@@ -102,8 +102,8 @@ window.PARTS = {
   strut: { t: "Pod struts", d: "Two bars across the inside of the box, one right behind the thermal wall and one at the back, for the sensor pod's four screws. Notched so the power cord passes over the pod.", p: ["Printed (PETG), part of the box"] },
   funnel: { t: "Funnel", d: "Flares wider toward the window so the walls stay out of the sensor's view. If it doesn't see the whole seat, drop the sensor lower or widen the opening.", p: [] },
   window: { t: "Lens opening", d: "The 22 mm square opening in the sensor pod's floor, under the lens.", p: [] },
-  lens: { t: "Lens", d: "Two printed square frames with thin black polyethylene snapped between them. It drops from the top into the pocket in the pod floor, right where the sensor looks out; the plate under it is the stop. Lift it straight out to swap the film. See Printable parts below.", p: ["2 printed frames (STL files below)", "Thin black polyethylene film"] },
-  holder: { t: "Lens pocket", d: "Low walls on the sensor pod's floor around the lens opening. The lens drops in from the top and sits on the plate.", p: ["Printed (PETG), part of the pod"] },
+  lens: { t: "Lens", d: "Two printed square frames with thin black polyethylene snapped between them. It slides into the slot on the pod floor from the back, under the sensor, until it hits the stop. Slide it back out to swap the film. See Printable parts below.", p: ["2 printed frames (STL files below)", "Thin black polyethylene film"] },
+  holder: { t: "Lens slot", d: "Two rails on the sensor pod's floor with lips over the lens edges, open at the back with a stop at the front. Take the pod out, slide the lens in from the back under the sensor until it stops; slide it back out to swap the film.", p: ["Printed (PETG), part of the pod"] },
   wVIN: { t: "Red wire: sensor VIN to XIAO 3V3", d: "Power for the sensor. Solder one end to the VIN pad on the GY-906 and the other to the 3V3 pad on the XIAO (third pad down on the 5V / GND side).", p: [] },
   wGND: { t: "Black wire: sensor GND to XIAO GND", d: "Ground. GND pad on the GY-906 to the GND pad on the XIAO (second pad down, next to 5V).", p: [] },
   wSDA: { t: "Yellow wire: sensor SDA to XIAO D4", d: "Data. SDA pad on the GY-906 to D4 on the XIAO (fifth pad down on the D0-D6 side).", p: [] },
@@ -349,7 +349,15 @@ try {
   bx(lensG, LC[0] - LH, LC[0] + LH, Y0 + 2.2, Y0 + 2.3, LC[2] - LH, LC[2] + LH, mat(0x0b0b0b, { transparent: true, opacity: 0.85 }), "lens");   // film
   sqFrame(lensG, BH, LO, Y0 + 2.3, Y0 + 3.9, mat(0xE3B64A), "lens");                                   // frame B cap
   sqFrame(lensG, BH, LH + LG, Y0, Y0 + 2.3, mat(0xE3B64A), "lens");                                    // frame B skirt (slotted, see Printable parts)
-  sqFrame(boxG, BH + 1.95, BH + 0.35, Y0, Y0 + 3, mat(0x475569), "holder");                            // pocket walls around it on the pod plate
+  /* Lens slot on the pod plate: two rails with lips over the lens edges, open at the back, a stop at the front. With the
+     pod out, slide the lens in from the back under the sensor until it hits the stop. */
+  const holdM = mat(0x475569), RZ0 = ZB + 10.5, RZ1 = LC[2] + BH + 0.35;
+  for (const sx of [-1, 1]) {
+    const xi = LC[0] + sx * (BH + 0.35), xo = LC[0] + sx * (BH + 1.95);
+    bx(boxG, Math.min(xi, xo), Math.max(xi, xo), Y0, Y0 + 5.2, RZ0, RZ1 + 1.6, holdM, "holder");                                         // rail
+    bx(boxG, Math.min(xi, LC[0] + sx * (BH - 1.2)), Math.max(xi, LC[0] + sx * (BH - 1.2)), Y0 + 4.2, Y0 + 5.2, RZ0, RZ1, holdM, "holder");   // lip over the lens edge
+  }
+  bx(boxG, LC[0] - BH - 1.95, LC[0] + BH + 1.95, Y0, Y0 + 5.2, RZ1, RZ1 + 1.6, holdM, "holder");                                         // stop at the front
   for (const x of [SC[0] - 20.5, SC[0] + 20.5]) tube(sledG, [[x, Y0, SC[2] - 4], [x, SC[1] + 2, SC[2] - 4]], 2, mat(0x475569), "sled");   // two posts up from the pod plate, outside the big lens
   bx(sledG, SC[0] - 20.5, SC[0] + 20.5, SC[1] + 1, SC[1] + 3, SC[2] - 5, SC[2] - 3, mat(0x475569), "sled");                                   // crossbar the sensor mounts to
   /* Four wires, each soldered pad to pad: VIN -> 3V3 (red), GND -> GND (black), SDA -> D4 (yellow), SCL -> D5 (white). */
@@ -451,7 +459,7 @@ try {
   /* ---- Buttons ---- */
   const setBtn = (id, on, a, b) => { const el = document.getElementById(id); el.textContent = on ? b : a; el.classList.toggle("on", on); };
   let exploded = false, slid = false, solid = false;
-  document.getElementById("bExplode").onclick = () => { exploded = !exploded; bez.position.y = exploded ? -0.7 : 0; podG.position.y = exploded ? -0.6 : 0; lensG.position.y = exploded ? 0.25 : 0; setBtn("bExplode", exploded, "Slide bezel down, drop sensor pod", "Put it back together"); };
+  document.getElementById("bExplode").onclick = () => { exploded = !exploded; bez.position.y = exploded ? -0.7 : 0; podG.position.y = exploded ? -0.6 : 0; lensG.position.z = exploded ? -0.3 : 0; setBtn("bExplode", exploded, "Slide bezel down, drop sensor pod", "Put it back together"); };
   document.getElementById("bSlide").onclick = () => { slid = !slid; boxG.position.z = slid ? 1.0 : 0; setBtn("bSlide", slid, "Slide box out of mount", "Slide box back in"); };
   document.getElementById("bSee").onclick = e => {
     solid = !solid;
