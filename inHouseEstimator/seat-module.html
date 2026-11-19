@@ -63,9 +63,9 @@ a{color:var(--gold)}
   <div id="v3p" style="height:min(50vh,460px);min-height:300px;border-radius:8px;overflow:hidden;background:#0e1628;touch-action:none"></div>
   <p class="muted" id="v3pmsg" style="margin:6px 0 0"></p>
   <ol style="margin:8px 0 0">
-    <li><b>Ring A</b> (bottom, gray): a square frame 20 x 20 mm with a 13 x 13 mm opening, 1.6 mm thick, with 4 pins that stick up.</li>
+    <li><b>Ring A</b> (bottom, gray): a square frame 30 x 30 mm with a 22 x 22 mm opening, 1.6 mm thick, with 4 pins that stick up.</li>
     <li><b>Film</b> (black): lay a piece of thin black polyethylene (4 mil sheeting or a heavy trash bag) over ring A and press it onto the pins so they poke through.</li>
-    <li><b>Ring B</b> (top, gold): a 23.1 mm square cap with holes for the pins. Its skirt has two slots per side so it flexes; press it straight down and the barb snaps under ring A for good. There's a 0.35 mm gap inside the skirt for the film.</li>
+    <li><b>Ring B</b> (top, gold): a 33.1 mm square cap with holes for the pins. Its skirt has two slots per side so it flexes; press it straight down and the barb snaps under ring A for good. There's a 0.35 mm gap inside the skirt for the film.</li>
     <li>Trim the extra film with scissors along the edges.</li>
     <li>Drop the finished lens into the pocket in the sensor pod's floor, from the top. The plate under it is the stop.</li>
   </ol>
@@ -101,7 +101,7 @@ window.PARTS = {
   pod: { t: "Sensor pod", d: "The bottom plate behind the thermal wall. The lens, the heat sensor and the Wi-Fi board are all on it, so it's one piece. Four screws hold it up into the two struts. Unscrew them, drop the pod out, unplug the USB-C, and work on it on the bench.", p: ["Printed (PETG)", "4 screws into the struts"] },
   strut: { t: "Pod struts", d: "Two bars across the inside of the box, one right behind the thermal wall and one at the back, for the sensor pod's four screws. Notched so the power cord passes over the pod.", p: ["Printed (PETG), part of the box"] },
   funnel: { t: "Funnel", d: "Flares wider toward the window so the walls stay out of the sensor's view. If it doesn't see the whole seat, drop the sensor lower or widen the opening.", p: [] },
-  window: { t: "Lens opening", d: "The 13 mm square opening in the sensor pod's floor, under the lens.", p: [] },
+  window: { t: "Lens opening", d: "The 22 mm square opening in the sensor pod's floor, under the lens.", p: [] },
   lens: { t: "Lens", d: "Two printed square frames with thin black polyethylene snapped between them. It drops from the top into the pocket in the pod floor, right where the sensor looks out; the plate under it is the stop. Lift it straight out to swap the film. See Printable parts below.", p: ["2 printed frames (STL files below)", "Thin black polyethylene film"] },
   holder: { t: "Lens pocket", d: "Low walls on the sensor pod's floor around the lens opening. The lens drops in from the top and sits on the plate.", p: ["Printed (PETG), part of the pod"] },
   wVIN: { t: "Red wire: sensor VIN to XIAO 3V3", d: "Power for the sensor. Solder one end to the VIN pad on the GY-906 and the other to the 3V3 pad on the XIAO (third pad down on the 5V / GND side).", p: [] },
@@ -320,7 +320,7 @@ try {
   /* Sensor: recessed up in the bay, aimed down and forward. */
   const a = SEN_FWD * Math.PI / 180, dir = [0, -Math.cos(a), Math.sin(a)];
   const SCY = Y0 + SEN_UP + 8, PF = ZP - 9;                                   // PF: front edge of the pod, behind the front strut
-  const SC = [0, SCY, PF - 21 - dir[2] * (Y0 - WALL - SCY) / dir[1]];          // sensor set back so the lens clears the thermal wall
+  const SC = [4, SCY, PF - 21 - dir[2] * (Y0 - WALL - SCY) / dir[1]];          // sensor set back so the lens clears the thermal wall
   const reach = (Y0 - WALL - SC[1]) / dir[1], WC = [SC[0], Y0 - WALL, SC[2] + dir[2] * reach];
   const sledG = new THREE.Group(); boxG.add(sledG);
   const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...dir));   // sensor's own +z = its view
@@ -340,7 +340,7 @@ try {
   { const sc = new THREE.Mesh(new THREE.CylinderGeometry(1.3 * S, 1.3 * S, 1.2 * S, 14), mat(0xd1d5db, { metalness: 0.8 })); sc.rotation.x = Math.PI / 2; sc.position.set(-3.4 * S, 6.2 * S, 0.6 * S); sc.userData.part = "sled"; sen.add(sc); }   // screw through its mounting hole into the sled
   /* Lens in the pod floor: square frames A + B with the film snapped between, dropped from the top into a pocket in the
      pod plate, right where the sensor looks through the floor; the plate under it is the stop. */
-  const LH = 10, LO = 6.5, LG = 0.35, LSK = 1.2, BH = LH + LG + LSK;   // frame A half-size, opening half-size, film gap, skirt, frame B half-size
+  const LH = 15, LO = 11, LG = 0.35, LSK = 1.2, BH = LH + LG + LSK;   // big lens: frame A half-size, opening half-size, film gap, skirt, frame B half-size
   const lr = (Y0 + 2 - SC[1]) / dir[1], LC = [SC[0] + dir[0] * lr, Y0, SC[2] + dir[2] * lr];   // lens centre: where the view crosses the floor
   const lensG = new THREE.Group(); boxG.add(lensG);
   const sqFrame = (g, half, hole, y0, y1, m, part) => { const [cx, , cz] = LC; bx(g, cx - half, cx + half, y0, y1, cz + hole, cz + half, m, part); bx(g, cx - half, cx + half, y0, y1, cz - half, cz - hole, m, part); bx(g, cx - half, cx - hole, y0, y1, cz - hole, cz + hole, m, part); bx(g, cx + hole, cx + half, y0, y1, cz - hole, cz + hole, m, part); };
@@ -349,7 +349,8 @@ try {
   sqFrame(lensG, BH, LO, Y0 + 2.3, Y0 + 3.9, mat(0xE3B64A), "lens");                                   // frame B cap
   sqFrame(lensG, BH, LH + LG, Y0, Y0 + 2.3, mat(0xE3B64A), "lens");                                    // frame B skirt (slotted, see Printable parts)
   sqFrame(boxG, BH + 1.95, BH + 0.35, Y0, Y0 + 3, mat(0x475569), "holder");                            // pocket walls around it on the pod plate
-  for (const x of [-8, 8]) tube(sledG, [[x, Y0, SC[2] - 4], [x, SC[1] + 1, SC[2] - 4]], 2, mat(0x475569), "sled");   // two posts up from the pod plate to the sensor mount
+  for (const x of [SC[0] - 20.5, SC[0] + 20.5]) tube(sledG, [[x, Y0, SC[2] - 4], [x, SC[1] + 2, SC[2] - 4]], 2, mat(0x475569), "sled");   // two posts up from the pod plate, outside the big lens
+  bx(sledG, SC[0] - 20.5, SC[0] + 20.5, SC[1] + 1, SC[1] + 3, SC[2] - 5, SC[2] - 3, mat(0x475569), "sled");                                   // crossbar the sensor mounts to
   /* Four wires, each soldered pad to pad: VIN -> 3V3 (red), GND -> GND (black), SDA -> D4 (yellow), SCL -> D5 (white). */
   sen.updateMatrixWorld(true);
   const toBox = v => { const w = sen.localToWorld(v.clone()); return [w.x / S, w.y / S, w.z / S]; };
@@ -493,10 +494,10 @@ try {
   sc.add(new THREE.AmbientLight(0xffffff, 0.8)); const l1 = new THREE.DirectionalLight(0xffffff, 1.6); l1.position.set(40, 80, 60); sc.add(l1);
   const l2 = new THREE.DirectionalLight(0xffffff, 0.6); l2.position.set(-50, -40, -30); sc.add(l2);
   const lathe = (pts, m) => { m.side = THREE.DoubleSide; return new THREE.Mesh(new THREE.LatheGeometry([...pts, pts[0]].map(([r, y]) => new THREE.Vector2(r, y)), 96), m); };   // closed outline spun around the axis
-  /* Square lens frames, sizes in mm (same numbers as the lens in the module). Ring A: 20 x 20, 13 x 13 opening, 1.6 thick,
-     4 pins. Ring B: a 23.1 x 23.1 cap with matching pin holes and a skirt down all four sides, cut by two slots per side
+  /* Square lens frames, sizes in mm (same numbers as the lens in the module). Ring A: 30 x 30, 22 x 22 opening, 1.6 thick,
+     4 pins. Ring B: a 33.1 x 33.1 cap with matching pin holes and a skirt down all four sides, cut by two slots per side
      so it flexes, with a barb along the bottom that snaps under ring A. 0.35 mm gap inside the skirt for the film. */
-  const LH = 10, LO = 6.5, LP = 8, LG = 0.35, LSK = 1.2, BH = LH + LG + LSK;
+  const LH = 15, LO = 11, LP = 13, LG = 0.35, LSK = 1.2, BH = LH + LG + LSK;
   const frameGeo = (half, hole, y0, y1, holes = []) => {
     const sh = new THREE.Shape([new THREE.Vector2(-half, -half), new THREE.Vector2(half, -half), new THREE.Vector2(half, half), new THREE.Vector2(-half, half)]);
     sh.holes.push(new THREE.Path([new THREE.Vector2(-hole, -hole), new THREE.Vector2(-hole, hole), new THREE.Vector2(hole, hole), new THREE.Vector2(hole, -hole)]));
