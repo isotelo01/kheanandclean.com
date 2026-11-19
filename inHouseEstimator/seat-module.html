@@ -57,7 +57,7 @@ a{color:var(--gold)}
   <li><b>One long box</b>, front to back: the Apple plug housing at the front, the strip in the middle, the Wi-Fi board and heat sensor at the back.</li>
   <li><b>Front housing</b>: a little wider than the Apple 20 W cube, with finger holes on both sides so you can reach in and pluck the cube out. The cube plugs into the strip's end outlet, its USB-C port facing the player.</li>
   <li><b>Front bezel</b> keeps the cube in: one M3 screw (about 12 mm) into a square M3 nut in a slot in the box. A hole lets the USB-C port show through.</li>
-  <li><b>SUPERDANNY flat-plug strip</b> (white, like the real one) in the middle, its end outlet facing front: 2 outlets on top (with the green and red safety lights and the two keyhole slots), 1 on each end, and 2 USB-A + 2 USB-C on one side. Its flat cord comes out of the top at the back, runs down the back end, through the cord track (an L and an L) with a zip-tie slot, and out the rear to the table's power strip.</li>
+  <li><b>SUPERDANNY flat-plug strip</b> (white, like the real one) in the middle, its end outlet facing front: 2 outlets on top (with the green and red safety lights and the two keyhole slots), 1 on each end, and 2 USB-A + 2 USB-C on one side. It's mounted outlets-down, like under a desk. Its flat cord comes straight out of the back end, through the cord track (an L and an L) with a zip-tie slot, and out the rear to the table's power strip.</li>
   <li><b>XIAO ESP32C3 Wi-Fi board</b> (blue) at the back, powered from the strip's USB port by a short right-angle cable.</li>
   <li><b>GY-906 BCC heat sensor</b> (black tube, narrow view) at the back on a sled that slides out the rear. It's recessed up inside the box and angled forward, looking down through a funnel and a <b>round IR window</b> in the bottom toward the player's lap. If it can't see enough, we drop it lower.</li>
   <li><b>Round IR window</b>: two rings snap together with black polyethylene film between them; pins on one ring poke through the film into the other.</li>
@@ -67,7 +67,7 @@ a{color:var(--gold)}
 <script>
 window.PARTS = {
   mount: { t: "Mount", d: "A plate screwed up under the table once and left there. The box slides into its two rails like a drawer, then one M3 screw through the side tab locks it into a nut. That screw goes into plastic and a metal nut, not the wood, so you can take the box out as often as you want without wearing out the table screws.", p: ["Printed (PETG)", "4 wood screws into the table", "M3 lock screw + square M3 nut"] },
-  strip: { t: "SUPERDANNY flat-plug strip", d: "In the middle of the box, its end outlet facing the front. The Apple cube plugs in there; one of its USB ports powers the Wi-Fi board. Its cord leaves from the back.", p: ["SUPERDANNY 3 ft flat-plug strip (4 outlets, 2 USB-C, 2 USB-A), about $10.99 with Prime", "4.43 x 1.89 x 1.53 in (112.5 x 48 x 39 mm), from the listing", "Two keyhole slots on the outlet face, 3.45 in apart: it hangs on two screw heads on posts from the box roof"] },
+  strip: { t: "SUPERDANNY flat-plug strip", d: "In the middle of the box, its end outlet facing the front. The Apple cube plugs in there; one of its USB ports powers the Wi-Fi board. Its cord leaves from the back.", p: ["SUPERDANNY 3 ft flat-plug strip (4 outlets, 2 USB-C, 2 USB-A), about $10.99 with Prime", "4.43 x 1.89 x 1.53 in (112.5 x 48 x 39 mm), from the listing", "Mounted outlets-down. Two keyhole slots on the outlet face, 3.45 in apart, sit on two screw heads on posts in the box floor"] },
   cube: { t: "Apple 20 W USB-C cube", d: "Plugs into the strip's end outlet, USB-C port facing the player through the bezel so phones fast charge. Same shape for years and sold everywhere, so it's easy to replace.", p: ["Apple 20W USB-C Power Adapter"] },
   housing: { t: "Front housing", d: "A little wider than the Apple cube, with a finger hole on each side. Take the bezel off, reach in, pinch the cube and pull it out.", p: [] },
   board: { t: "XIAO ESP32C3 Wi-Fi board", d: "At the back of the box. Reads the heat sensor and sends the seat's readings over the casino's device Wi-Fi to the database.", p: ["Seeed Studio XIAO ESP32C3", "Wired to the sensor: VIN to 3V3, GND to GND, SDA to D4, SCL to D5"] },
@@ -148,6 +148,7 @@ try {
     sp.position.copy(V(...p)); sp.scale.set(mm * 4 * S, mm * S, 1); sp.renderOrder = 20; g.add(sp); return sp;
   };
   const solder = (g, p, part) => { const o = new THREE.Mesh(new THREE.SphereGeometry(0.7 * S, 12, 8), mat(0xd1d5db, { metalness: 0.9, roughness: 0.25 })); o.position.copy(V(...p)); o.userData.part = part; g.add(o); };
+  const nStrip = boxG.children.length;   // everything drawn from here to the cord is the strip; it gets flipped below
   /* Strip, like the real SUPERDANNY: white rounded block. One outlet on the front end (the cube plugs in there), two
      outlets on top with the logo and two little indicator lights between them, a fourth outlet on the -x side, and the
      USB ports on the +x side: USB-A, USB-A, USB-C, USB-C from the front. The flat cord comes out of the top, at the back. */
@@ -189,13 +190,19 @@ try {
     bx(boxG, c[0] - h[0], c[0] + h[0], c[1] - h[1], c[1] + h[1], c[2] - h[2], c[2] + h[2], m, part);
   } };
   const cordM = mat(0xf2f2f0, { roughness: 0.45 });
-  bx(boxG, -14, -2, STRIP.h / 2 - 0.5, STRIP.h / 2 + 2.5, ZS + 8, ZS + 18, cordM, "cord");                        // strain relief on top
-  flat([[-8, STRIP.h / 2 + 2.5, ZS + 10], [-8, STRIP.h / 2 + 2.5, ZS - 3], [-8, 0, ZS - 3], [X0 + 6, 0, ZS - 3], [X0 + 6, 0, ZB - 40]], 7, 3, cordM, "cord");
-  /* Board at the back, on the +x side, with the short cable from the strip's side USB-C port. */
+  /* The cord comes straight out of the back end, above the back outlet, right at the edge next to the outlet face. */
+  const CY = STRIP.h / 2 - 5;
+  bx(boxG, -6, 6, CY - 2.5, CY + 2.5, ZS - 6, ZS, cordM, "cord");                                                     // its strain relief
+  flat([[0, CY, ZS - 6], [0, CY, ZS - 10], [X0 + 6, CY, ZS - 10], [X0 + 6, CY, ZB - 40]], 7, 3, cordM, "cord");
+  /* Flip the strip over so its outlet face (2 outlets, lights, keyholes) faces DOWN, like it's mounted under a desk.
+     Turning it over also puts its USB ports on the -x side and the cord on the +x side. */
+  const stripG = new THREE.Group(); stripG.rotation.z = Math.PI;
+  boxG.children.slice(nStrip).forEach(o => stripG.add(o)); boxG.add(stripG);
+  /* Board at the back, on the -x side, with the short cable from the strip's side USB-C port. */
   const blue = mat(0x1d4ed8, { emissive: 0x0b1f5e });
   /* XIAO ESP32C3 lying flat on the bay floor, parts side up, USB-C toward the strip. 17.5 x 21 mm.
      Seen from above with the USB at the far end: D0-D6 down the +x edge, 5V / GND / 3V3 / D10-D7 down the -x edge. */
-  const XB = { x0: 14.5, x1: 32, z0: ZB + 6, z1: ZB + 27, y: Y0 + 0.5 }, XT = XB.y + 1.2;   // XT: top of the board
+  const XB = { x0: -32, x1: -14.5, z0: ZB + 6, z1: ZB + 27, y: Y0 + 0.5 }, XT = XB.y + 1.2;   // XT: top of the board
   bx(boxG, XB.x0, XB.x1, XB.y, XT, XB.z0, XB.z1, mat(0x111111, { roughness: 0.5 }), "board");
   bx(boxG, XB.x0 + 3, XB.x1 - 3, XT, XT + 1.6, XB.z0 + 5, XB.z1 - 6, mat(0xc0c4ca, { metalness: 0.8, roughness: 0.3 }), "board");   // shield can
   bx(boxG, (XB.x0 + XB.x1) / 2 - 4.5, (XB.x0 + XB.x1) / 2 + 4.5, XT, XT + 3.2, XB.z1 - 7.5, XB.z1 + 0.5, mat(0xc0c4ca, { metalness: 0.8, roughness: 0.3 }), "board");   // USB-C socket
@@ -212,7 +219,7 @@ try {
   }));
   /* Short right-angle USB-C cable from the strip's side USB-C port into the XIAO. */
   const XC = (XB.x0 + XB.x1) / 2;
-  tube(boxG, [[STRIP.w / 2 + 1, 0, USBZ[2]], [STRIP.w / 2 + 3.5, 0, USBZ[2]], [STRIP.w / 2 + 3.5, -8, USBZ[2] - 10], [XC + 4, -14, XB.z1 + 12], [XC, XT + 1.6, XB.z1 + 7]], 1.6, mat(0x6b7280), "cable");   // from the first USB-C port
+  tube(boxG, [[-STRIP.w / 2 - 1, 0, USBZ[2]], [-STRIP.w / 2 - 3.5, 0, USBZ[2]], [-STRIP.w / 2 - 3.5, -8, USBZ[2] - 10], [XC - 4, -14, XB.z1 + 12], [XC, XT + 1.6, XB.z1 + 7]], 1.6, mat(0x6b7280), "cable");   // from the first USB-C port
   bx(boxG, XC - 4, XC + 4, XT + 0.2, XT + 3.2, XB.z1 + 0.5, XB.z1 + 7, mat(0x374151), "cable");   // the plug
   /* Sensor: recessed up in the bay, aimed down and forward. */
   const a = SEN_FWD * Math.PI / 180, dir = [0, -Math.cos(a), Math.sin(a)];
@@ -272,8 +279,8 @@ try {
   }
   for (const x of [X0 + 8, X1 - 8]) bx(boxG, x - 4, x + 4, Y1 + WALL, Y1 + WALL + 4, ZB, ZF - 4, mat(0x9ca3af, { transparent: true, opacity: 0.5 }), "back");   // tongues into the mount rails
   const trackM = mat(0x64748b, { transparent: true, opacity: 0.5 });
-  bx(boxG, X0 + 12, X0 + 14, -14, 14, ZB, ZS - 8, trackM, "back"); bx(boxG, X0 + 1, X0 + 14, -14, 14, ZS - 8, ZS - 6, trackM, "back");
-  for (const x of [X0 + 3, X0 + 10]) bx(boxG, x - 1.5, x + 1.5, Y0 - WALL - 0.3, Y0 + 0.3, ZB + 2, ZB + 6, holeM, "zip");
+  bx(boxG, X1 - 14, X1 - 12, -14, 14, ZB, ZS - 13, trackM, "back"); bx(boxG, X1 - 14, X1 - 1, -14, 14, ZS - 15, ZS - 13, trackM, "back");   // cord track, +x side
+  for (const x of [X1 - 3, X1 - 10]) bx(boxG, x - 1.5, x + 1.5, Y0 - WALL - 0.3, Y0 + 0.3, ZB + 2, ZB + 6, holeM, "zip");
   bx(boxG, -3.5, 3.5, Y0 + 1, Y0 + 3.5, 1, 3.5, mat(0xc0c4ca, { metalness: 0.7 }), "nut");        // bezel nut in its slot
   bx(boxG, X1 + WALL, X1 + WALL + 1.5, Y1 - 8, Y1 - 2, -64, -58, mat(0xc0c4ca, { metalness: 0.7 }), "nut");   // lock-screw nut
 
