@@ -321,7 +321,7 @@ try {
   /* Sensor: recessed up in the bay, aimed down and forward. */
   const a = SEN_FWD * Math.PI / 180, dir = [0, -Math.cos(a), Math.sin(a)];
   const SCY = Y0 + SEN_UP + 8, PF = ZP - 9;                                   // PF: front edge of the pod, behind the front strut
-  const SC = [4, SCY, PF - 21 - dir[2] * (Y0 - WALL - SCY) / dir[1]];          // sensor set back so the lens clears the thermal wall
+  const SC = [X1 - 23.5, SCY, PF - 21 - dir[2] * (Y0 - WALL - SCY) / dir[1]];          // sensor set back so the lens clears the thermal wall
   const reach = (Y0 - WALL - SC[1]) / dir[1], WC = [SC[0], Y0 - WALL, SC[2] + dir[2] * reach];
   const sledG = new THREE.Group(); boxG.add(sledG);
   const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...dir));   // sensor's own +z = its view
