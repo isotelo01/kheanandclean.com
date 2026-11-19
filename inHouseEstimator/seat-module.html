@@ -284,7 +284,7 @@ try {
      strips hold it down. Openings let the cord out of the +x side and the USB ports show on the -x side. */
   const CWX = STRIP.w / 2 + 0.5, CWT = 2, CTOP = STRIP.h / 2 + 2;                                // wall inner face, thickness, top of the strips
   const cvent = [...Array(9)].map((_, k) => [-8 - k * 11.5 - 3, -8 - k * 11.5 + 3, -8, 8]);
-  holed(boxG, { x: [CWX, CWX + CWT], y: [TF, CTOP], z: [ZS, -1] }, [...cvent, [CZ - 7, CZ + 7, -5, 5]], "z", "y", caseM, "cover");                       // +x wall, cord opening
+  holed(boxG, { x: [CWX, CWX + CWT], y: [TF, CTOP], z: [ZS, -1] }, [...cvent, [CZ - 7, CZ + 7, -5, CTOP]], "z", "y", caseM, "cover");                    // +x wall: open notch from the top for the cord, so the strip drops in with its cord attached
   holed(boxG, { x: [-CWX - CWT, -CWX], y: [TF, CTOP], z: [ZS, -1] }, [...cvent, [USBZ[3] - 6, USBZ[0] + 6, USBY - 8, USBY + 8]], "z", "y", caseM, "cover");   // -x wall, USB opening
   for (const sx of [-1, 1]) for (const z of [-14, -34]) prism(boxG, [[sx * (CWX + CWT), TF], [sx * (CWX + CWT + 8), TF], [sx * (CWX + CWT), TF + 14]], z - 1, z + 1, caseM, "cover");   // L gussets
   for (const sx of [-1, 1]) for (const z of [-12, -35, -100]) bx(boxG, sx > 0 ? CWX + CWT : X0, sx > 0 ? X1 : -CWX - CWT, 14, 18, z - 1.5, z + 1.5, caseM, "brace");   // braces from the cradle walls to the box side walls, up high, clear of the cord and the USB-C cable
