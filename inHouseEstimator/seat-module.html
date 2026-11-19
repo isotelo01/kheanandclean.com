@@ -114,6 +114,7 @@ window.PARTS = {
   nut: { t: "Square M3 nut", d: "Slides into a slot and stays put, so a screw has something to bite into.", p: [] },
   screw: { t: "M3 screw, about 12 mm", d: "Holds the bezel on (and another locks the box in the mount). Swap for security screws later if players mess with them.", p: [] },
   bar: { t: "Front bars", d: "Two bars all the way across the front of the box: the top one holds a square M3 nut in each end for the bezel screws, the bottom one ties into the cube cradle. They stiffen the front.", p: ["Printed (PETG), part of the box"] },
+  brace: { t: "Cradle braces", d: "Bars from the top of each cradle wall across to the box side wall, three a side, up high so they clear the power cord and the USB-C cable. They tie the cradle to the box so it can't flex.", p: ["Printed (PETG), part of the box"] },
   stop: { t: "Back stop", d: "Closes the back of each track, so the box can't slide all the way through and always stops in the same spot.", p: [] },
   floor: { t: "Thin floor", d: "The strip sits right on it, screwed down through its keyholes (no separate tray to break). The strip's front down-facing outlet is open and flush with the bottom of the box so it can be used.", p: ["Printed (PETG), part of the box"] },
   cover: { t: "Strip cradle", d: "Vented walls rise from the floor on both sides of the strip, held stiff by L-shaped gussets off the floor. No ceiling and no screws; the mount above keeps the strip in. The strip slides in; the cord comes out an opening on one side and the USB ports show through an opening on the other.", p: ["Printed (PETG), part of the box"] },
@@ -287,6 +288,7 @@ try {
   holed(boxG, { x: [CWX, CWX + CWT], y: [TF, CTOP], z: [ZS, -1] }, [...cvent, [CZ - 7, CZ + 7, -5, 5]], "z", "y", trayM, "cover");                       // +x wall, cord opening
   holed(boxG, { x: [-CWX - CWT, -CWX], y: [TF, CTOP], z: [ZS, -1] }, [...cvent, [USBZ[3] - 6, USBZ[0] + 6, USBY - 8, USBY + 8]], "z", "y", trayM, "cover");   // -x wall, USB opening
   for (const sx of [-1, 1]) for (const z of [-14, -34]) prism(boxG, [[sx * (CWX + CWT), TF], [sx * (CWX + CWT + 8), TF], [sx * (CWX + CWT), TF + 14]], z - 1, z + 1, trayM, "cover");   // L gussets
+  for (const sx of [-1, 1]) for (const z of [-12, -35, -100]) bx(boxG, sx > 0 ? CWX + CWT : X0, sx > 0 ? X1 : -CWX - CWT, 14, 18, z - 1.5, z + 1.5, trayM, "brace");   // braces from the cradle walls to the box side walls, up high, clear of the cord and the USB-C cable
 
   const nPod = boxG.children.length;   // everything from here to the lens (except the USB-C cable) is the sensor pod
   /* Board at the back, on the -x side, with the short cable from the strip's side USB-C port. */
