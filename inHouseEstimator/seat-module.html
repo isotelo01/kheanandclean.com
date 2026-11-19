@@ -167,7 +167,7 @@ try {
 
   /* ---- Layout (mm). Strip's end outlet at z = 0; cube in front of it; board + sensor bay behind the strip. ---- */
   const X0 = -(STRIP.w / 2 + SIDE), X1 = -X0, Y0 = -STRIP.h / 2, Y1 = STRIP.h / 2 + 6;
-  const ZF = CUBE.d + 3, ZS = -STRIP.l, ZQ = ZS - 0.5, ZP = ZS - 34, ZBAY = ZS - 44, ZB = ZBAY - 46;   // ZF front face, ZS strip back, ZQ back plate, ZP foil plate, ZB rear wall
+  const ZF = CUBE.d + 3, ZS = -STRIP.l, ZQ = ZS - 0.5, ZP = ZS - 34, ZBAY = ZS - 44, ZB = ZBAY - 56;   // ZF front face, ZS strip back, ZQ back plate, ZP foil plate, ZB rear wall
   const boxG = new THREE.Group(); scene.add(boxG);                       // everything that slides out of the mount
 
   /* Small text tags sized in mm (only readable when you zoom in), and solder blobs. */
@@ -306,7 +306,7 @@ try {
     SPAD[nm] = new THREE.Vector3(x * S, -6.9 * S, -2.2 * S);   // the back of the pad, where the wire lands (sensor's own frame)
   });
   { const sc = new THREE.Mesh(new THREE.CylinderGeometry(1.3 * S, 1.3 * S, 1.2 * S, 14), mat(0xd1d5db, { metalness: 0.8 })); sc.rotation.x = Math.PI / 2; sc.position.set(-3.4 * S, 6.2 * S, 0.6 * S); sc.userData.part = "sled"; sen.add(sc); }   // screw through its mounting hole into the sled
-  for (const x of [-6, 6]) tube(sledG, [[x, Y0, SC[2] - 10], [x, SC[1] + 2, SC[2] - 4]], 2, mat(0x475569), "sled");   // two posts up from the pod plate to the sensor mount
+  for (const x of [-8, 8]) tube(sledG, [[x, Y0, SC[2] - 4], [x, SC[1] + 1, SC[2] - 4]], 2, mat(0x475569), "sled");   // two posts up from the pod plate to the sensor mount
   /* Four wires, each soldered pad to pad: VIN -> 3V3 (red), GND -> GND (black), SDA -> D4 (yellow), SCL -> D5 (white). */
   sen.updateMatrixWorld(true);
   const toBox = v => { const w = sen.localToWorld(v.clone()); return [w.x / S, w.y / S, w.z / S]; };
