@@ -202,6 +202,7 @@ try {
   for (const z of [-STRIP.l / 2 - 43.8, -STRIP.l / 2 + 43.8]) {
     cylAlong(boxG, 2.6, 2.6, [0, STRIP.h / 2 - 0.2, z], [0, STRIP.h / 2 + 0.2, z], slot, "strip");
     bx(boxG, -1.3, 1.3, STRIP.h / 2 - 0.2, STRIP.h / 2 + 0.2, z - 5, z, slot, "strip");
+    if (z > -STRIP.l / 2) continue;   // front keyhole sits over the wide outlet opening, so only the back one gets a screw
     cylAlong(boxG, 1.5, 1.5, [0, STRIP.h / 2 + WALL, z], [0, STRIP.h / 2, z], mat(0x9ca3af, { metalness: 0.8 }), "floor");   // screw up through the thin floor
     cylAlong(boxG, 2.4, 2.4, [0, STRIP.h / 2, z], [0, STRIP.h / 2 - 1.8, z], mat(0xd1d5db, { metalness: 0.8 }), "strip");     // its head, inside the keyhole
   }
@@ -240,7 +241,8 @@ try {
      bottom so it can be used. The cube sits on a hollow, ribbed cradle (strong, less plastic) with a foam pad in a pocket. */
   const trayM = mat(0x0ea5e9, { transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide });
   const TF = Y0;                                                                                 // top of the thin floor
-  const OUT = [-STRIP.l / 2 + 30 - 20, -STRIP.l / 2 + 30 + 20, -17, 17];                          // open front outlet: z0, z1, x0, x1
+  const OUT = [-STRIP.l / 2 + 6, -2, -32, 32];                                                  // wide opening for the front outlet (a fat plug fits), green light included: z0, z1, x0, x1
+  const LITE = [-STRIP.l / 2 - 17, -STRIP.l / 2 - 7, -4, 4];                                     // little window for the red light
   const cradM = mat(0xf59e0b, { transparent: true, opacity: 0.6 }), CX = CUBE.w / 2 + 2.5, CT = -CUBE.h / 2;
   bx(boxG, -CX, CX, CT - 2, CT, 4.5, CUBE.d - 1, cradM, "cradle");                               // top
   for (const s of [-1, 1]) {
@@ -326,7 +328,7 @@ try {
 
   /* ---- The box: floor (with the window), roof with tongues for the mount, sides with vents, rear wall, finger holes. ---- */
   holed(boxG, { x: [X0 - WALL, X1 + WALL], y: [Y0 - WALL, Y0], z: [ZB - WALL, ZF] },
-    [OUT, [WC[2] - 12.5, WC[2] + 12.5, -12.5, 12.5], ...[X0 + 2.5, X0 + 9.5].map(x => [ZB + 2, ZB + 6, x - 1.5, x + 1.5])], "z", "x", caseM, "back");   // floor: open outlet, window, zip-tie slots
+    [OUT, LITE, [WC[2] - 12.5, WC[2] + 12.5, -12.5, 12.5], ...[X0 + 2.5, X0 + 9.5].map(x => [ZB + 2, ZB + 6, x - 1.5, x + 1.5])], "z", "x", caseM, "back");   // floor: open outlet, window, zip-tie slots
   bx(boxG, X0 - WALL, X1 + WALL, Y1, Y1 + WALL, ZB - WALL, ZF, caseM, "back");
   const sideHoles = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(k => [-100 + k * 15, -95 + k * 15, -10, 10]);   // open vents, all the same
   for (const [x0, x1] of [[X0 - WALL, X0], [X1, X1 + WALL]]) holed(boxG, { x: [x0, x1], y: [Y0, Y1], z: [ZB - WALL, ZF] }, sideHoles, "z", "y", caseM, "back");
