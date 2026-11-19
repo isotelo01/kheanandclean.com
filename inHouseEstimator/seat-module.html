@@ -265,7 +265,6 @@ try {
   /* No separate tray: the strip sits right on the thin floor, screwed down through its keyholes (one less part to
      break), with its face flush with the bottom, and a cover clips over it. The strip's front down-facing outlet is left open through the floor and the case
      bottom so it can be used. The cube sits on a hollow, ribbed cradle (strong, less plastic) with a foam pad in a pocket. */
-  const trayM = mat(0x0ea5e9, { transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide });
   const TF = Y0, steel0 = mat(0xd1d5db, { metalness: 0.8, roughness: 0.3 });                                                                                 // top of the thin floor
   const OUT = [-STRIP.l / 2 + 6, -2, -32, 32];                                                  // wide opening for the front outlet (a fat plug fits), green light included: z0, z1, x0, x1
   const LITE = [-STRIP.l / 2 - 17, -STRIP.l / 2 - 7, -4, 4];                                     // little window for the red light
@@ -285,10 +284,10 @@ try {
      strips hold it down. Openings let the cord out of the +x side and the USB ports show on the -x side. */
   const CWX = STRIP.w / 2 + 0.5, CWT = 2, CTOP = STRIP.h / 2 + 2;                                // wall inner face, thickness, top of the strips
   const cvent = [...Array(9)].map((_, k) => [-8 - k * 11.5 - 3, -8 - k * 11.5 + 3, -8, 8]);
-  holed(boxG, { x: [CWX, CWX + CWT], y: [TF, CTOP], z: [ZS, -1] }, [...cvent, [CZ - 7, CZ + 7, -5, 5]], "z", "y", trayM, "cover");                       // +x wall, cord opening
-  holed(boxG, { x: [-CWX - CWT, -CWX], y: [TF, CTOP], z: [ZS, -1] }, [...cvent, [USBZ[3] - 6, USBZ[0] + 6, USBY - 8, USBY + 8]], "z", "y", trayM, "cover");   // -x wall, USB opening
-  for (const sx of [-1, 1]) for (const z of [-14, -34]) prism(boxG, [[sx * (CWX + CWT), TF], [sx * (CWX + CWT + 8), TF], [sx * (CWX + CWT), TF + 14]], z - 1, z + 1, trayM, "cover");   // L gussets
-  for (const sx of [-1, 1]) for (const z of [-12, -35, -100]) bx(boxG, sx > 0 ? CWX + CWT : X0, sx > 0 ? X1 : -CWX - CWT, 14, 18, z - 1.5, z + 1.5, trayM, "brace");   // braces from the cradle walls to the box side walls, up high, clear of the cord and the USB-C cable
+  holed(boxG, { x: [CWX, CWX + CWT], y: [TF, CTOP], z: [ZS, -1] }, [...cvent, [CZ - 7, CZ + 7, -5, 5]], "z", "y", caseM, "cover");                       // +x wall, cord opening
+  holed(boxG, { x: [-CWX - CWT, -CWX], y: [TF, CTOP], z: [ZS, -1] }, [...cvent, [USBZ[3] - 6, USBZ[0] + 6, USBY - 8, USBY + 8]], "z", "y", caseM, "cover");   // -x wall, USB opening
+  for (const sx of [-1, 1]) for (const z of [-14, -34]) prism(boxG, [[sx * (CWX + CWT), TF], [sx * (CWX + CWT + 8), TF], [sx * (CWX + CWT), TF + 14]], z - 1, z + 1, caseM, "cover");   // L gussets
+  for (const sx of [-1, 1]) for (const z of [-12, -35, -100]) bx(boxG, sx > 0 ? CWX + CWT : X0, sx > 0 ? X1 : -CWX - CWT, 14, 18, z - 1.5, z + 1.5, caseM, "brace");   // braces from the cradle walls to the box side walls, up high, clear of the cord and the USB-C cable
 
   const nPod = boxG.children.length;   // everything from here to the lens (except the USB-C cable) is the sensor pod
   /* Board at the back, on the -x side, with the short cable from the strip's side USB-C port. */
