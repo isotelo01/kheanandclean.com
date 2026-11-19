@@ -70,7 +70,7 @@ a{color:var(--gold)}
 window.PARTS = {
   mount: { t: "Mount", d: "A wide plate screwed up under the table once and left there, with 9 screws: 4 down each side and 1 in the middle. The box slides into its double track like a drawer until it hits the stop at the back, then one M3 screw through the side tab locks it into a nut. That screw goes into plastic and a metal nut, not the wood, so you can take the box out as often as you want without wearing out the table screws.", p: ["Printed (PETG)", "9 wood screws into the table", "M3 lock screw + square M3 nut"] },
   strip: { t: "SUPERDANNY flat-plug strip", d: "In the middle of the box, its end outlet facing the front. The Apple cube plugs in there; one of its USB ports powers the Wi-Fi board. Its cord leaves from the back.", p: ["SUPERDANNY 3 ft flat-plug strip (4 outlets, 2 USB-C, 2 USB-A), about $10.99 with Prime", "4.43 x 1.89 x 1.53 in (112.5 x 48 x 39 mm), from the listing", "Mounted outlets-down. Two keyhole slots on the outlet face, 3.45 in apart, sit on two screw heads on posts in the box floor"] },
-  cube: { t: "Apple 20 W USB-C cube", d: "Plugs into the strip's end outlet, USB-C port facing the player through the bezel so phones fast charge. Same shape for years and sold everywhere, so it's easy to replace.", p: ["Apple 20W USB-C Power Adapter", "About 42.5 x 41.5 x 27 mm without prongs (ChargerLAB measurement)"] },
+  cube: { t: "Apple 20 W USB-C cube", d: "Plugs into the strip's end outlet, USB-C port facing the player through the bezel so phones fast charge. Same shape for years and sold everywhere, so it's easy to replace.", p: ["Apple 20W USB-C Power Adapter", "Port face about 42.5 x 27 mm, 41.5 mm from the prong face to the port (prongs about 15 mm more)"] },
   housing: { t: "Front housing", d: "A little wider than the Apple cube, with a finger hole on each side. Take the bezel off, reach in, pinch the cube and pull it out.", p: [] },
   board: { t: "XIAO ESP32C3 Wi-Fi board", d: "At the back of the box. Reads the heat sensor and sends the seat's readings over the casino's device Wi-Fi to the database.", p: ["Seeed Studio XIAO ESP32C3", "Wired to the sensor: VIN to 3V3, GND to GND, SDA to D4, SCL to D5"] },
   sensor: { t: "GY-906 BCC heat sensor", d: "The BCC version has the black tube and a narrow view, so it reads mostly the player in front of it, not the neighbours. It sits recessed at the back, angled forward, looking down through the funnel and the window in the bottom of the box.", p: ["Teyleten GY-906 MLX90614ESF-BCC, $13.99", "Screwed to the sled"] },
@@ -112,7 +112,7 @@ const box = document.getElementById("v3");
 try {
   /* ---- Sizes in mm (GUESSES until measured). x = side to side, y = up, z = toward the player (+z = front). ---- */
   const STRIP = { w: 48, h: 39, l: 112.5 };        // SUPERDANNY strip, real size from the listing: 4.43 x 1.89 x 1.53 in
-  const CUBE = { w: 42.5, h: 41.5, d: 27 };        // Apple 20 W cube (without prongs), ChargerLAB measured about 42.5 x 41.5 x 27 mm
+  const CUBE = { w: 42.5, h: 27, d: 41.5 };        // Apple 20 W cube (without prongs): port face 42.5 wide x 27 tall, 41.5 from prongs to port (from Israel's photos on the grid)
   const SIDE = 22;                                 // room each side of the strip: a hand, the cord and the USB-C cable bend without getting smashed
   const TW = STRIP.w / 2 + 3;                      // half-width of the inner tray that holds the strip and the cube
   const SEN_FWD = 35, SEN_UP = 14;                 // sensor aims this many degrees forward of straight down; sits this far up from the bottom (recess)
@@ -304,7 +304,7 @@ try {
   const holeM = mat(0x0e1628);
   for (const x of [X0 - WALL - 0.2, X1 + 0.2]) {
     for (let k = 0; k < 6; k++) bx(boxG, x, x + WALL, -10, 10, -100 + k * 15, -95 + k * 15, holeM, "back");   // side vents
-    bx(boxG, x, x + WALL, -12, 12, 6, 24, mat(0x334155), "housing");                                           // finger holes beside the cube
+    bx(boxG, x, x + WALL, -12, 12, 10, 32, mat(0x334155), "housing");                                           // finger holes beside the cube
   }
   for (const x of [X0 + 8, X1 - 8]) bx(boxG, x - 4, x + 4, Y1 + WALL, Y1 + WALL + 4, ZB, ZF - 4, mat(0x9ca3af, { transparent: true, opacity: 0.5 }), "back");   // tongues into the mount rails
   const trackM = mat(0x64748b, { transparent: true, opacity: 0.5 });
