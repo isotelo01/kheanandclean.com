@@ -57,7 +57,7 @@ a{color:var(--gold)}
   <li><b>One long box</b>, front to back: the Apple plug housing at the front, the strip in the middle, the Wi-Fi board and heat sensor at the back.</li>
   <li><b>Front housing</b>: a little wider than the Apple 20 W cube, with finger holes on both sides so you can reach in and pluck the cube out. The cube plugs into the strip's end outlet, its USB-C port facing the player.</li>
   <li><b>Front bezel</b> keeps the cube in: one M3 screw (about 12 mm) into a square M3 nut in a slot in the box. A hole lets the USB-C port show through.</li>
-  <li><b>SUPERDANNY flat-plug strip</b> (black) in the middle, its end outlet facing front. Its cord leaves the back, through the cord track (an L and an L) with a zip-tie slot, and out the rear to the table's power strip.</li>
+  <li><b>SUPERDANNY flat-plug strip</b> (white, like the real one) in the middle, its end outlet facing front: 2 outlets on top, 1 on the end, 1 on the side, and 2 USB-A + 2 USB-C on the other side. Its flat cord comes out of the top at the back, runs down the back end, through the cord track (an L and an L) with a zip-tie slot, and out the rear to the table's power strip.</li>
   <li><b>XIAO ESP32C3 Wi-Fi board</b> (blue) at the back, powered from the strip's USB port by a short right-angle cable.</li>
   <li><b>GY-906 BCC heat sensor</b> (black tube, narrow view) at the back on a sled that slides out the rear. It's recessed up inside the box and angled forward, looking down through a funnel and a <b>round IR window</b> in the bottom toward the player's lap. If it can't see enough, we drop it lower.</li>
   <li><b>Round IR window</b>: two rings snap together with black polyethylene film between them; pins on one ring poke through the film into the other.</li>
@@ -100,10 +100,11 @@ document.getElementById("partClose").onclick = () => { document.getElementById("
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 const box = document.getElementById("v3");
 try {
   /* ---- Sizes in mm (GUESSES until measured). x = side to side, y = up, z = toward the player (+z = front). ---- */
-  const STRIP = { w: 58, h: 40, l: 115 };          // SUPERDANNY strip: width (x), height (y), length front-to-back (z)
+  const STRIP = { w: 52, h: 46, l: 112 };          // SUPERDANNY strip: width (x), height (y), length front-to-back (z); guessed from the photo
   const CUBE = { w: 45, h: 45, d: 29 };            // Apple 20 W cube (without prongs)
   const FINGER = 10;                               // finger room each side of the cube
   const SEN_FWD = 35, SEN_UP = 14;                 // sensor aims this many degrees forward of straight down; sits this far up from the bottom (recess)
@@ -139,17 +140,6 @@ try {
   const ZF = CUBE.d + 3, ZS = -STRIP.l, ZBAY = ZS - 6, ZB = ZBAY - 46;   // ZF front face, ZS strip back, ZB rear wall
   const boxG = new THREE.Group(); scene.add(boxG);                       // everything that slides out of the mount
 
-  /* Strip, cube. */
-  const black = mat(0x1a1a1a, { roughness: 0.5 }), slot = mat(0x050505), white = mat(0xf5f5f5, { roughness: 0.35 });
-  bx(boxG, -STRIP.w / 2, STRIP.w / 2, -STRIP.h / 2, STRIP.h / 2, ZS, 0, black, "strip");
-  for (const z of [-30, -75]) { bx(boxG, -10, -7, STRIP.h / 2, STRIP.h / 2 + 0.5, z - 6, z + 6, slot, "strip"); bx(boxG, 7, 10, STRIP.h / 2, STRIP.h / 2 + 0.5, z - 6, z + 6, slot, "strip"); }
-  for (let k = 0; k < 4; k++) bx(boxG, STRIP.w / 2, STRIP.w / 2 + 0.6, -5, 5, -100 + k * 11, -94 + k * 11, slot, "strip");   // USB ports on the side, toward the back
-  bx(boxG, -CUBE.w / 2, CUBE.w / 2, -CUBE.h / 2, CUBE.h / 2, 0, CUBE.d, white, "cube");
-  bx(boxG, -4.5, 4.5, -1.6, 1.6, CUBE.d, CUBE.d + 0.4, slot, "cube");
-  /* Cord: out the strip's back, an L to the side, an L back along the wall, out the rear. */
-  tube(boxG, [[0, 0, ZS], [0, 0, ZS - 3], [X0 + 6, 0, ZS - 3], [X0 + 6, 0, ZB - 40]], 3, mat(0x111111, { roughness: 0.5 }), "cord");
-  /* Board at the back, on the +x side, with the short cable from the strip's side USB-C port. */
-  const blue = mat(0x1d4ed8, { emissive: 0x0b1f5e });
   /* Small text tags sized in mm (only readable when you zoom in), and solder blobs. */
   const tag = (txt, p, mm, col, g = boxG) => {
     const c = document.createElement("canvas"), x = c.getContext("2d"); c.width = 256; c.height = 64;
@@ -158,6 +148,43 @@ try {
     sp.position.copy(V(...p)); sp.scale.set(mm * 4 * S, mm * S, 1); sp.renderOrder = 20; g.add(sp); return sp;
   };
   const solder = (g, p, part) => { const o = new THREE.Mesh(new THREE.SphereGeometry(0.7 * S, 12, 8), mat(0xd1d5db, { metalness: 0.9, roughness: 0.25 })); o.position.copy(V(...p)); o.userData.part = part; g.add(o); };
+  /* Strip, like the real SUPERDANNY: white rounded block. One outlet on the front end (the cube plugs in there), two
+     outlets on top with the logo and two little indicator lights between them, a fourth outlet on the -x side, and the
+     USB ports on the +x side: USB-A, USB-A, USB-C, USB-C from the front. The flat cord comes out of the top, at the back. */
+  const slot = mat(0x050505), white = mat(0xf5f5f5, { roughness: 0.35 }), stripM = mat(0xf2f2f0, { roughness: 0.4 });
+  { const g = new THREE.Mesh(new RoundedBoxGeometry(STRIP.w * S, STRIP.h * S, STRIP.l * S, 4, 5 * S), stripM); g.position.set(0, 0, (ZS / 2) * S); g.userData.part = "strip"; boxG.add(g); }
+  /* A US outlet (two slots, the left one taller, and the ground hole below) on a face. c = centre; u, v = the face's
+     right and up directions; n = outward normal. */
+  const outlet = (c, u, v, n) => {
+    const P = (du, dv) => [c[0] + u[0] * du + v[0] * dv + n[0] * 0.2, c[1] + u[1] * du + v[1] * dv + n[1] * 0.2, c[2] + u[2] * du + v[2] * dv + n[2] * 0.2];
+    const piece = (du, dv, wu, wv) => {
+      const p = P(du, dv), sz = [0, 0, 0]; for (let i = 0; i < 3; i++) sz[i] = Math.abs(u[i]) * wu + Math.abs(v[i]) * wv + Math.abs(n[i]) * 0.6;
+      bx(boxG, p[0] - sz[0] / 2, p[0] + sz[0] / 2, p[1] - sz[1] / 2, p[1] + sz[1] / 2, p[2] - sz[2] / 2, p[2] + sz[2] / 2, slot, "strip");
+    };
+    piece(-6, 3, 2, 8); piece(6, 3, 2, 6.5); piece(0, -6, 4, 4);
+  };
+  outlet([0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]);                                  // front end: the cube plugs in here
+  for (const z of [-28, -84]) outlet([0, STRIP.h / 2, z], [1, 0, 0], [0, 0, -1], [0, 1, 0]);   // two on top
+  outlet([-STRIP.w / 2, 0, -56], [0, 0, 1], [0, 1, 0], [-1, 0, 0]);                       // one on the -x side
+  const USBZ = [-14, -23, -32, -40];                                                     // USB-A, USB-A, USB-C, USB-C (from the front)
+  USBZ.forEach((z, k) => bx(boxG, STRIP.w / 2 - 0.2, STRIP.w / 2 + 0.4, k < 2 ? -6.2 : -4.3, k < 2 ? 6.2 : 4.3, z - (k < 2 ? 2.3 : 1.3), z + (k < 2 ? 2.3 : 1.3), slot, "strip"));
+  tag("SUPERDANNY", [0, STRIP.h / 2 + 0.6, -56], 3, "#4b5563");
+  for (const z of [-48, -64]) cylAlong(boxG, 0.9, 0.9, [-9, STRIP.h / 2, z], [-9, STRIP.h / 2 + 0.3, z], mat(0x22d3ee, { emissive: 0x0891b2 }), "strip");   // indicator lights
+  /* Apple 20 W cube: white, rounded, USB-C port on its face. */
+  { const g = new THREE.Mesh(new RoundedBoxGeometry(CUBE.w * S, CUBE.h * S, CUBE.d * S, 4, 6 * S), white); g.position.set(0, 0, CUBE.d / 2 * S); g.userData.part = "cube"; boxG.add(g); }
+  bx(boxG, -4.5, 4.5, -1.6, 1.6, CUBE.d, CUBE.d + 0.4, slot, "cube");
+  /* Flat cord: out of the top at the back, back over the top, down the back end, an L to the side, an L back out the rear. */
+  const flat = (pts, wd, th, m, part) => { for (let i = 1; i < pts.length; i++) {
+    const [p, q] = [pts[i - 1], pts[i]], d = [0, 1, 2].map(k => Math.abs(q[k] - p[k])), ax = d.indexOf(Math.max(...d));
+    const c = [0, 1, 2].map(k => (p[k] + q[k]) / 2);
+    const h = [0, 1, 2].map(k => k === ax ? d[k] / 2 + th / 2 : (ax === 1 ? (k === 0 ? wd / 2 : th / 2) : (k === 1 ? th / 2 : wd / 2)));
+    bx(boxG, c[0] - h[0], c[0] + h[0], c[1] - h[1], c[1] + h[1], c[2] - h[2], c[2] + h[2], m, part);
+  } };
+  const cordM = mat(0xf2f2f0, { roughness: 0.45 });
+  bx(boxG, -14, -2, STRIP.h / 2 - 0.5, STRIP.h / 2 + 2.5, ZS + 8, ZS + 18, cordM, "cord");                        // strain relief on top
+  flat([[-8, STRIP.h / 2 + 2.5, ZS + 10], [-8, STRIP.h / 2 + 2.5, ZS - 3], [-8, 0, ZS - 3], [X0 + 6, 0, ZS - 3], [X0 + 6, 0, ZB - 40]], 7, 2.5, cordM, "cord");
+  /* Board at the back, on the +x side, with the short cable from the strip's side USB-C port. */
+  const blue = mat(0x1d4ed8, { emissive: 0x0b1f5e });
   /* XIAO ESP32C3 lying flat on the bay floor, parts side up, USB-C toward the strip. 17.5 x 21 mm.
      Seen from above with the USB at the far end: D0-D6 down the +x edge, 5V / GND / 3V3 / D10-D7 down the -x edge. */
   const XB = { x0: 14.5, x1: 32, z0: ZB + 6, z1: ZB + 27, y: Y0 + 0.5 }, XT = XB.y + 1.2;   // XT: top of the board
@@ -177,7 +204,7 @@ try {
   }));
   /* Short right-angle USB-C cable from the strip's side USB-C port into the XIAO. */
   const XC = (XB.x0 + XB.x1) / 2;
-  tube(boxG, [[STRIP.w / 2 + 0.5, 0, -97], [STRIP.w / 2 + 2, -2, -100], [XC, -14, XB.z1 + 12], [XC, XT + 1.6, XB.z1 + 7]], 1.6, mat(0x6b7280), "cable");
+  tube(boxG, [[STRIP.w / 2 + 1, 0, USBZ[2]], [STRIP.w / 2 + 3.5, 0, USBZ[2]], [STRIP.w / 2 + 3.5, -8, USBZ[2] - 10], [XC + 4, -14, XB.z1 + 12], [XC, XT + 1.6, XB.z1 + 7]], 1.6, mat(0x6b7280), "cable");   // from the first USB-C port
   bx(boxG, XC - 4, XC + 4, XT + 0.2, XT + 3.2, XB.z1 + 0.5, XB.z1 + 7, mat(0x374151), "cable");   // the plug
   /* Sensor: recessed up in the bay, aimed down and forward. */
   const a = SEN_FWD * Math.PI / 180, dir = [0, -Math.cos(a), Math.sin(a)];
