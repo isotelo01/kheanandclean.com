@@ -36,7 +36,7 @@ a{color:var(--gold)}
     <b style="color:var(--gold)">3D</b><span class="muted">Drag to turn, scroll or pinch to zoom.</span>
     <span style="flex:1"></span>
     <button class="btn" id="bSlide" type="button">Slide box out of mount</button>
-    <button class="btn" id="bExplode" type="button">Slide bezel down, slide sled out</button>
+    <button class="btn" id="bExplode" type="button">Slide bezel down, drop sensor pod</button>
     <button class="btn" id="bSee" type="button">Solid case</button>
     <button class="btn" id="bFront" type="button">Front</button>
     <button class="btn" id="bSide" type="button">Side</button>
@@ -57,13 +57,14 @@ a{color:var(--gold)}
   <li><b>One long box</b>, front to back: the Apple plug housing at the front, the strip in the middle, then a foil partition, then the Wi-Fi board and heat sensor at the back. It's wide enough to get a hand in and pull a plug, with room on both sides so the power cord and the USB-C cable bend in a wide curve instead of getting smashed.</li>
   <li><b>Thin floor</b>: no separate tray. The strip sits right on the floor, screwed down through its keyholes, and a cover clips over it. Its front down-facing outlet is open and flush with the bottom of the box so it can be used. The cube sits on a hollow, ribbed cradle with a foam pad.</li>
   <li><b>Back plate</b>: slides down into slots right against the back of the strip and holds it in place. Open notches in its bottom edge slide down over the power cord and the USB-C cable.</li>
-  <li><b>Foil plate</b>: a second slide-in plate a little further back, foil facing the strip. Its cable notch is off to the side, not lined up with the back plate's, so the cables zigzag and the strip's heat has no straight path to the sensor.</li>
+  <li><b>Thermal wall</b> (foil plate): a second slide-in plate a little further back, foil facing the strip. Its cable notch is off to the side, not lined up with the back plate's, so the cables zigzag and the strip's heat has no straight path to the sensor.</li>
   <li><b>Front housing</b>: a little wider than the Apple 20 W cube, with finger room inside on both sides so you can reach in and pluck the cube out. The cube plugs into the strip's end outlet, its USB-C port facing the player.</li>
   <li><b>Front bezel</b> slides up into a track on the front of the box and screws in at its two top corners into square M3 nuts. A wide opening lets any USB-C cable plug in. Foam pads inside it and on the cradle squeeze the cube so it fits tight.</li>
   <li><b>SUPERDANNY flat-plug strip</b> (white, like the real one) in the middle, its end outlet facing front: 2 outlets on its face (with the green and red safety lights and the two keyhole slots), facing down (the front one is open through the bottom so you can use it), 1 on each end, and 2 USB-A + 2 USB-C on one side. It's mounted outlets-down, like under a desk. Its flat cord comes out of the dead centre of the long side opposite the USB ports, runs back and down to the floor, through the back plate's notch, then S-curves across to the USB side, out through the foil plate's notch next to the USB-C cable, and back along that wall, past a zip-tie slot, out the rear to the table's power strip.</li>
-  <li><b>XIAO ESP32C3 Wi-Fi board</b> (blue) at the back, powered from the strip's USB port by a short right-angle cable.</li>
-  <li><b>GY-906 BCC heat sensor</b> (black tube, narrow view) at the back on a sled that slides out the rear. It's recessed up inside the box and angled forward, looking down through a funnel and a <b>round IR window</b> in the bottom toward the player's lap. If it can't see enough, we drop it lower.</li>
-  <li><b>Round IR window</b>: two rings snap together with black polyethylene film between them; pins on one ring poke through the film into the other.</li>
+  <li><b>Sensor pod</b>: the bottom plate behind the thermal wall, with the lens, the heat sensor and the Wi-Fi board on it as one piece. Four screws go up into two struts (one right behind the thermal wall, one at the back). Unscrew it, drop it out, unplug the USB-C, and work on it on the bench.</li>
+  <li><b>XIAO ESP32C3 Wi-Fi board</b> (blue) on the pod, powered from the strip's USB port by a short right-angle cable.</li>
+  <li><b>GY-906 BCC heat sensor</b> (black tube, narrow view) on two posts on the pod, angled forward, looking down through a funnel and the <b>lens</b> toward the player's lap. If it can't see enough, we drop it lower.</li>
+  <li><b>Lens</b> (round IR window in the pod): two rings snap together with black polyethylene film between them; pins on one ring poke through the film into the other. Set back so it clears the thermal wall.</li>
   <li><b>Open vent slots</b> along both sides. (The NFC sign-in sticker goes on the tabletop, not the module.)</li>
 </ol></div>
 
@@ -75,9 +76,11 @@ window.PARTS = {
   housing: { t: "Front housing", d: "A little wider than the Apple cube, with a finger hole on each side. Take the bezel off, reach in, pinch the cube and pull it out.", p: [] },
   board: { t: "XIAO ESP32C3 Wi-Fi board", d: "At the back of the box. Reads the heat sensor and sends the seat's readings over the casino's device Wi-Fi to the database.", p: ["Seeed Studio XIAO ESP32C3", "Wired to the sensor: VIN to 3V3, GND to GND, SDA to D4, SCL to D5"] },
   sensor: { t: "GY-906 BCC heat sensor", d: "The BCC version has the black tube and a narrow view, so it reads mostly the player in front of it, not the neighbours. It sits recessed at the back, angled forward, looking down through the funnel and the window in the bottom of the box.", p: ["Teyleten GY-906 MLX90614ESF-BCC, $13.99", "Screwed to the sled"] },
-  sled: { t: "Sensor sled", d: "The sensor screws onto it, and it slides out the back of the box like a drawer. To swap the sensor or try a new angle or height, pull it out (or print one at a different angle).", p: ["Printed (PETG)"] },
+  sled: { t: "Sensor mount", d: "Two posts up from the sensor pod plate; the sensor screws onto them at its angle. Print a new one to try a different angle or height.", p: ["Printed (PETG), part of the pod"] },
+  pod: { t: "Sensor pod", d: "The bottom plate behind the thermal wall. The lens, the heat sensor and the Wi-Fi board are all on it, so it's one piece. Four screws hold it up into the two struts. Unscrew them, drop the pod out, unplug the USB-C, and work on it on the bench.", p: ["Printed (PETG)", "4 screws into the struts"] },
+  strut: { t: "Pod struts", d: "Two bars across the inside of the box, one right behind the thermal wall and one at the back, for the sensor pod's four screws. Notched so the power cord passes over the pod.", p: ["Printed (PETG), part of the box"] },
   funnel: { t: "Funnel", d: "Flares wider toward the window so the walls stay out of the sensor's view. If it doesn't see the whole seat, drop the sensor lower or widen the opening.", p: [] },
-  window: { t: "Round IR window", d: "Two printed rings snap together with thin black polyethylene (a trash bag works for testing) between them. Pins on one ring poke through the film into holes in the other, so it stays tight. Heat passes through; clear plastic would block it.", p: ["2 printed rings", "Thin black polyethylene film"] },
+  window: { t: "Lens (round IR window)", d: "Two printed rings snap together with thin black polyethylene (a trash bag works for testing) between them. Pins on one ring poke through the film into holes in the other, so it stays tight. Heat passes through; clear plastic would block it.", p: ["2 printed rings", "Thin black polyethylene film"] },
   wVIN: { t: "Red wire: sensor VIN to XIAO 3V3", d: "Power for the sensor. Solder one end to the VIN pad on the GY-906 and the other to the 3V3 pad on the XIAO (third pad down on the 5V / GND side).", p: [] },
   wGND: { t: "Black wire: sensor GND to XIAO GND", d: "Ground. GND pad on the GY-906 to the GND pad on the XIAO (second pad down, next to 5V).", p: [] },
   wSDA: { t: "Yellow wire: sensor SDA to XIAO D4", d: "Data. SDA pad on the GY-906 to D4 on the XIAO (fifth pad down on the D0-D6 side).", p: [] },
@@ -94,7 +97,7 @@ window.PARTS = {
   cradle: { t: "Cube cradle", d: "Hollow with ribs inside, like an egg crate: just as strong as solid, less plastic, faster to print. Side lips keep the cube centred, so its weight isn't hanging on its prongs.", p: ["Printed (PETG)"] },
   foam: { t: "Foam pads", d: "Little foam pads in pockets on the cradle and inside the bezel. When the bezel goes on, they squish the cube so it fits tight and can't rattle.", p: ["Thin adhesive foam, cut to size"] },
   backplate: { t: "Back plate", d: "Slides down into slots right against the back of the strip so the strip can't move. Open notches in its bottom edge slide down over the power cord and the USB-C cable, no threading.", p: ["Printed (PETG)"] },
-  partition: { t: "Foil plate", d: "A second slide-in plate a little further back, with foil on the side facing the strip. Its cable notch is off to the side, not lined up with the back plate's notches, so warm air has no straight path through to the sensor bay.", p: ["Printed (PETG)", "Aluminum foil tape on the strip side"] },
+  partition: { t: "Thermal wall (foil plate)", d: "A second slide-in plate a little further back, with foil on the side facing the strip. Its cable notch is off to the side, not lined up with the back plate's notches, so warm air has no straight path through to the sensor bay.", p: ["Printed (PETG)", "Aluminum foil tape on the strip side"] },
   cord: { t: "Strip cord", d: "Out of the dead centre of the strip's long side (opposite the USB ports), back and down to the floor, through the back plate's notch, an S across to the USB side, out through the foil plate's notch beside the USB-C cable, then along that wall and out the rear, zip-tied at the exit, to the table's power strip.", p: [] },
   zip: { t: "Zip-tie slot", d: "Two slots across the cord track at the exit. A zip tie locks the cord in place.", p: [] },
   nfc: { t: "NFC sticker", d: "Goes on the tabletop, not the module. A phone tapped on it opens the seat sign-in.", p: ["NTAG215, 25 mm"] }
@@ -256,6 +259,7 @@ try {
   bx(boxG, -14, 14, CT - 1.5, CT + 0.01, 10, CUBE.d - 6, foamM, "foam");                          // foam pad in its pocket
   bx(boxG, -TW, TW, STRIP.h / 2, STRIP.h / 2 + 2, ZS + 2, -2, trayM, "cover");                   // cover over the strip
   for (const s of [-1, 1]) for (const z of [-4, ZS + 30]) bx(boxG, s > 0 ? TW - 2 : -TW, s > 0 ? TW : -TW + 2, TF, STRIP.h / 2, z - 2, z + 2, trayM, "cover");   // clip legs down to the floor
+  const nPod = boxG.children.length;   // everything from here to the lens (except the USB-C cable) is the sensor pod
   /* Board at the back, on the -x side, with the short cable from the strip's side USB-C port. */
   const blue = mat(0x1d4ed8, { emissive: 0x0b1f5e });
   /* XIAO ESP32C3 lying flat on the bay floor, parts side up, USB-C toward the strip. 17.5 x 21 mm.
@@ -283,7 +287,8 @@ try {
   bx(boxG, XC - 4, XC + 4, XT + 0.2, XT + 3.2, XB.z1 + 0.5, XB.z1 + 7, mat(0x374151), "cable");   // the plug
   /* Sensor: recessed up in the bay, aimed down and forward. */
   const a = SEN_FWD * Math.PI / 180, dir = [0, -Math.cos(a), Math.sin(a)];
-  const SC = [0, Y0 + SEN_UP + 8, (ZBAY + ZB) / 2 + 2];
+  const SCY = Y0 + SEN_UP + 8, PF = ZP - 9;                                   // PF: front edge of the pod, behind the front strut
+  const SC = [0, SCY, PF - 21 - dir[2] * (Y0 - WALL - SCY) / dir[1]];          // sensor set back so the lens clears the thermal wall
   const reach = (Y0 - WALL - SC[1]) / dir[1], WC = [SC[0], Y0 - WALL, SC[2] + dir[2] * reach];
   const sledG = new THREE.Group(); boxG.add(sledG);
   const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...dir));   // sensor's own +z = its view
@@ -301,8 +306,7 @@ try {
     SPAD[nm] = new THREE.Vector3(x * S, -6.9 * S, -2.2 * S);   // the back of the pad, where the wire lands (sensor's own frame)
   });
   { const sc = new THREE.Mesh(new THREE.CylinderGeometry(1.3 * S, 1.3 * S, 1.2 * S, 14), mat(0xd1d5db, { metalness: 0.8 })); sc.rotation.x = Math.PI / 2; sc.position.set(-3.4 * S, 6.2 * S, 0.6 * S); sc.userData.part = "sled"; sen.add(sc); }   // screw through its mounting hole into the sled
-  bx(sledG, -13, 13, Y1 - 8, Y1 - 5, ZB - 2, ZBAY, mat(0x475569), "sled");                                    // sled carrier, slides out the rear
-  tube(sledG, [[-6, Y1 - 8, SC[2]], [-6, SC[1] + 6, SC[2] + 2]], 2, mat(0x475569), "sled"); tube(sledG, [[6, Y1 - 8, SC[2]], [6, SC[1] + 6, SC[2] + 2]], 2, mat(0x475569), "sled");
+  for (const x of [-6, 6]) tube(sledG, [[x, Y0, SC[2] - 10], [x, SC[1] + 2, SC[2] - 4]], 2, mat(0x475569), "sled");   // two posts up from the pod plate to the sensor mount
   /* Four wires, each soldered pad to pad: VIN -> 3V3 (red), GND -> GND (black), SDA -> D4 (yellow), SCL -> D5 (white). */
   sen.updateMatrixWorld(true);
   const toBox = v => { const w = sen.localToWorld(v.clone()); return [w.x / S, w.y / S, w.z / S]; };
@@ -325,10 +329,23 @@ try {
   const cg = new THREE.ConeGeometry(0.55, 1.6, 32, 1, true); cg.translate(0, -0.8, 0);   // narrow BCC view
   const cone = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide }));
   cone.position.copy(V(...WC)); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(...dir)); cone.userData.part = "sensor"; boxG.add(cone);
+  /* Sensor pod: the bottom plate behind the thermal wall carries the lens, sensor and Wi-Fi board as one piece. Four
+     screws up into two struts (one right behind the thermal wall, one at the back); unscrew, drop it, unplug the USB-C. */
+  const podG = new THREE.Group(); boxG.add(podG);
+  boxG.children.slice(nPod).filter(o => o !== podG && o.userData.part !== "cable").forEach(o => podG.add(o));
+  const podM = mat(0x475569, { transparent: true, opacity: 0.6 });
+  holed(podG, { x: [X0, X1], y: [Y0 - WALL, Y0], z: [ZB, ZP - 3] }, [[WC[2] - 12.5, WC[2] + 12.5, -12.5, 12.5], ...[X0 + 2.5, X0 + 9.5].map(x => [ZB + 2, ZB + 6, x - 1.5, x + 1.5])], "z", "x", podM, "pod");
+  const strutM = mat(0x64748b, { transparent: true, opacity: 0.7 });
+  for (const [z0, z1] of [[PF, ZP - 3], [ZB, ZB + 6]]) holed(boxG, { x: [X0, X1], y: [Y0, Y0 + 5], z: [z0, z1] }, [[X0, X0 + 9, Y0, Y0 + 5]], "x", "y", strutM, "strut");   // struts, notched for the cord
+  for (const z of [(PF + ZP - 3) / 2, ZB + 3]) for (const x of [-30, 30]) {
+    cylAlong(podG, 2.8, 2.8, [x, Y0 - WALL, z], [x, Y0 - WALL - 1.6, z], mat(0xd1d5db, { metalness: 0.8 }), "screw");   // 4 screws from below
+    cylAlong(podG, 1.5, 1.5, [x, Y0 - WALL, z], [x, Y0 + 4.5, z], mat(0x9ca3af, { metalness: 0.8 }), "screw");
+  }
 
   /* ---- The box: floor (with the window), roof with tongues for the mount, sides with vents, rear wall, finger holes. ---- */
-  holed(boxG, { x: [X0 - WALL, X1 + WALL], y: [Y0 - WALL, Y0], z: [ZB - WALL, ZF] },
-    [OUT, LITE, [WC[2] - 12.5, WC[2] + 12.5, -12.5, 12.5], ...[X0 + 2.5, X0 + 9.5].map(x => [ZB + 2, ZB + 6, x - 1.5, x + 1.5])], "z", "x", caseM, "back");   // floor: open outlet, window, zip-tie slots
+  holed(boxG, { x: [X0 - WALL, X1 + WALL], y: [Y0 - WALL, Y0], z: [ZP - 3, ZF] }, [OUT, LITE], "z", "x", caseM, "back");   // floor up front: open outlet, red light window
+  for (const [x0, x1] of [[X0 - WALL, X0], [X1, X1 + WALL]]) bx(boxG, x0, x1, Y0 - WALL, Y0, ZB - WALL, ZP - 3, caseM, "back");   // floor edges beside the pod
+  bx(boxG, X0, X1, Y0 - WALL, Y0, ZB - WALL, ZB, caseM, "back");
   bx(boxG, X0 - WALL, X1 + WALL, Y1, Y1 + WALL, ZB - WALL, ZF, caseM, "back");
   const sideHoles = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(k => [-100 + k * 15, -95 + k * 15, -10, 10]);   // open vents, all the same
   for (const [x0, x1] of [[X0 - WALL, X0], [X1, X1 + WALL]]) holed(boxG, { x: [x0, x1], y: [Y0, Y1], z: [ZB - WALL, ZF] }, sideHoles, "z", "y", caseM, "back");
@@ -387,7 +404,7 @@ try {
   /* ---- Buttons ---- */
   const setBtn = (id, on, a, b) => { const el = document.getElementById(id); el.textContent = on ? b : a; el.classList.toggle("on", on); };
   let exploded = false, slid = false, solid = false;
-  document.getElementById("bExplode").onclick = () => { exploded = !exploded; bez.position.y = exploded ? -0.7 : 0; sledG.position.z = exploded ? -0.6 : 0; setBtn("bExplode", exploded, "Slide bezel down, slide sled out", "Put it back together"); };
+  document.getElementById("bExplode").onclick = () => { exploded = !exploded; bez.position.y = exploded ? -0.7 : 0; podG.position.y = exploded ? -0.6 : 0; setBtn("bExplode", exploded, "Slide bezel down, drop sensor pod", "Put it back together"); };
   document.getElementById("bSlide").onclick = () => { slid = !slid; boxG.position.z = slid ? 1.0 : 0; setBtn("bSlide", slid, "Slide box out of mount", "Slide box back in"); };
   document.getElementById("bSee").onclick = e => {
     solid = !solid;
