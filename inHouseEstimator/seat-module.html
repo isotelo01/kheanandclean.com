@@ -54,21 +54,22 @@ a{color:var(--gold)}
 <h2>Printable parts</h2>
 <div class="box" style="padding:8px">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px">
-    <b style="color:var(--gold)">Lens rings</b><span class="muted">Drag to turn, scroll or pinch to zoom.</span>
+    <b style="color:var(--gold)">Lens frames</b><span class="muted">Drag to turn, scroll or pinch to zoom.</span>
     <span style="flex:1"></span>
     <button class="btn on" id="pExplode" type="button">Snap together</button>
-    <button class="btn" id="pRingA" type="button">Download ring A (STL)</button>
-    <button class="btn" id="pRingB" type="button">Download ring B (STL)</button>
+    <button class="btn" id="pRingA" type="button">Download frame A (STL)</button>
+    <button class="btn" id="pRingB" type="button">Download frame B (STL)</button>
   </div>
   <div id="v3p" style="height:min(50vh,460px);min-height:300px;border-radius:8px;overflow:hidden;background:#0e1628;touch-action:none"></div>
   <p class="muted" id="v3pmsg" style="margin:6px 0 0"></p>
   <ol style="margin:8px 0 0">
-    <li><b>Ring A</b> (bottom, gray): 36 mm across with a 25 mm opening, 1.6 mm thick, with 4 pins that stick up.</li>
-    <li><b>Film</b> (black): lay a piece of thin black polyethylene (4 mil sheeting or a heavy trash bag) over ring A and press it down onto the pins so they poke through.</li>
-    <li><b>Ring B</b> (top, gold): press it straight down. Its outer skirt slides over ring A and the barb snaps under ring A's bottom edge for good. The pins go into a groove on its underside, so it fits at any angle.</li>
-    <li>Trim the extra film around the outside with scissors.</li>
+    <li><b>Ring A</b> (bottom, gray): a square frame 20 x 20 mm with a 13 x 13 mm opening, 1.6 mm thick, with 4 pins that stick up.</li>
+    <li><b>Film</b> (black): lay a piece of thin black polyethylene (4 mil sheeting or a heavy trash bag) over ring A and press it onto the pins so they poke through.</li>
+    <li><b>Ring B</b> (top, gold): a 23.1 mm square cap with holes for the pins. Its skirt has two slots per side so it flexes; press it straight down and the barb snaps under ring A for good. There's a 0.35 mm gap inside the skirt for the film.</li>
+    <li>Trim the extra film with scissors along the edges.</li>
+    <li>Drop the finished lens into the holder in front of the sensor, from the top. A stop at the bottom keeps it from sliding through.</li>
   </ol>
-  <p class="muted" style="margin:6px 0 0">Print both flat on a normal printer (0.4 mm nozzle, 0.2 mm layers), PETG or PLA, no supports: ring A pins up, ring B upside down (flat top on the bed). Sizes are a first try; if the snap is too tight or loose, tell me and I'll change the gap.</p>
+  <p class="muted" style="margin:6px 0 0">Print both flat on a normal printer (0.4 mm nozzle, 0.2 mm layers), PETG or PLA, no supports: frame A pins up, frame B upside down (flat top on the bed). Sizes are a first try; if the snap is too tight or loose, tell me and I'll change the gap.</p>
 </div>
 
 <h2>What's in it</h2>
@@ -100,7 +101,9 @@ window.PARTS = {
   pod: { t: "Sensor pod", d: "The bottom plate behind the thermal wall. The lens, the heat sensor and the Wi-Fi board are all on it, so it's one piece. Four screws hold it up into the two struts. Unscrew them, drop the pod out, unplug the USB-C, and work on it on the bench.", p: ["Printed (PETG)", "4 screws into the struts"] },
   strut: { t: "Pod struts", d: "Two bars across the inside of the box, one right behind the thermal wall and one at the back, for the sensor pod's four screws. Notched so the power cord passes over the pod.", p: ["Printed (PETG), part of the box"] },
   funnel: { t: "Funnel", d: "Flares wider toward the window so the walls stay out of the sensor's view. If it doesn't see the whole seat, drop the sensor lower or widen the opening.", p: [] },
-  window: { t: "Lens (round IR window)", d: "Two printed rings snap together with thin black polyethylene (a trash bag works for testing) between them. Pins on one ring poke through the film into holes in the other, so it stays tight. Heat passes through; clear plastic would block it.", p: ["2 printed rings", "Thin black polyethylene film"] },
+  window: { t: "Lens opening", d: "The opening in the sensor pod's floor the sensor looks through. The lens itself sits in the holder in front of the sensor.", p: [] },
+  lens: { t: "Lens", d: "Two printed square frames with thin black polyethylene snapped between them. It drops into the holder in front of the sensor from the top and sits on the stop. Pull it straight up to swap the film. See Printable parts below.", p: ["2 printed frames (STL files below)", "Thin black polyethylene film"] },
+  holder: { t: "Lens holder", d: "A slot on the sensor mount, right in front of the sensor's tube. The lens drops in from the top; the stop at the bottom keeps it from sliding through.", p: ["Printed (PETG), part of the sensor mount"] },
   wVIN: { t: "Red wire: sensor VIN to XIAO 3V3", d: "Power for the sensor. Solder one end to the VIN pad on the GY-906 and the other to the 3V3 pad on the XIAO (third pad down on the 5V / GND side).", p: [] },
   wGND: { t: "Black wire: sensor GND to XIAO GND", d: "Ground. GND pad on the GY-906 to the GND pad on the XIAO (second pad down, next to 5V).", p: [] },
   wSDA: { t: "Yellow wire: sensor SDA to XIAO D4", d: "Data. SDA pad on the GY-906 to D4 on the XIAO (fifth pad down on the D0-D6 side).", p: [] },
@@ -336,6 +339,21 @@ try {
     SPAD[nm] = new THREE.Vector3(x * S, -6.9 * S, -2.2 * S);   // the back of the pad, where the wire lands (sensor's own frame)
   });
   { const sc = new THREE.Mesh(new THREE.CylinderGeometry(1.3 * S, 1.3 * S, 1.2 * S, 14), mat(0xd1d5db, { metalness: 0.8 })); sc.rotation.x = Math.PI / 2; sc.position.set(-3.4 * S, 6.2 * S, 0.6 * S); sc.userData.part = "sled"; sen.add(sc); }   // screw through its mounting hole into the sled
+  /* Lens: square frames A + B with the film snapped between, dropped in from the top into a holder right in front of the
+     tube, with a stop so it can't slide through. In the sensor's own frame, +z is its view and -y is "up" (toward the top). */
+  const LH = 10, LO = 6.5, LP = 8, LG = 0.35, LSK = 1.2, BH = LH + LG + LSK, LZ = 11;   // frame A half-size, opening half-size, pin offset, film gap, skirt, frame B half-size, lens distance
+  const lensG = new THREE.Group(); sen.add(lensG);
+  const sqFrame = (g, half, hole, z0, z1, m, part) => { bx(g, -half, half, hole, half, z0, z1, m, part); bx(g, -half, half, -half, -hole, z0, z1, m, part); bx(g, -half, -hole, -hole, hole, z0, z1, m, part); bx(g, hole, half, -hole, hole, z0, z1, m, part); };
+  sqFrame(lensG, LH, LO, LZ + 0.6, LZ + 2.2, mat(0x9ca3af), "lens");                                   // frame A
+  bx(lensG, -LH, LH, -LH, LH, LZ + 2.2, LZ + 2.3, mat(0x0b0b0b, { transparent: true, opacity: 0.85 }), "lens");   // film
+  sqFrame(lensG, BH, LO, LZ + 2.3, LZ + 3.9, mat(0xE3B64A), "lens");                                   // frame B plate
+  sqFrame(lensG, BH, LH + LG, LZ, LZ + 2.3, mat(0xE3B64A), "lens");                                    // frame B skirt (slotted, see Printable parts)
+  const holdM = mat(0x475569);
+  for (const sx of [-1, 1]) {
+    bx(sen, sx > 0 ? BH + 0.35 : -BH - 1.95, sx > 0 ? BH + 1.95 : -BH - 0.35, -BH, BH + 1.95, LZ - 1.25, LZ + 5.15, holdM, "holder");   // side rail
+    for (const [z0, z1] of [[LZ - 1.25, LZ - 0.25], [LZ + 4.15, LZ + 5.15]]) bx(sen, sx > 0 ? BH - 1.5 : -BH - 1.95, sx > 0 ? BH + 1.95 : -BH + 1.5, -BH, BH + 1.95, z0, z1, holdM, "holder");   // front / back lips
+  }
+  bx(sen, -BH - 1.95, BH + 1.95, BH + 0.35, BH + 1.95, LZ - 1.25, LZ + 5.15, holdM, "holder");                // stop at the bottom of the slot
   for (const x of [-8, 8]) tube(sledG, [[x, Y0, SC[2] - 4], [x, SC[1] + 1, SC[2] - 4]], 2, mat(0x475569), "sled");   // two posts up from the pod plate to the sensor mount
   /* Four wires, each soldered pad to pad: VIN -> 3V3 (red), GND -> GND (black), SDA -> D4 (yellow), SCL -> D5 (white). */
   sen.updateMatrixWorld(true);
@@ -349,13 +367,8 @@ try {
     const w = new THREE.Mesh(new THREE.TubeGeometry(curve, 60, 0.45 * S, 8, false), mat(col, { roughness: 0.5 })); w.userData.part = part; boxG.add(w);
     solder(boxG, b, part); solder(boxG, a, part);
   });
-  cylAlong(boxG, 8, 16, [SC[0] + dir[0] * 9, SC[1] + dir[1] * 9, SC[2] + dir[2] * 9], WC, mat(0x94a3b8, { transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }), "funnel", true);
-  /* Round IR window in the bottom: two rings, the film, four pins. */
-  const ringM = mat(0x374151), filmM = mat(0x0b0b0b, { transparent: true, opacity: 0.85 });
-  cylAlong(boxG, 18, 18, [WC[0], Y0, WC[2]], [WC[0], Y0 - 1.5, WC[2]], ringM, "window");
-  cylAlong(boxG, 16, 16, [WC[0], Y0 - 1.5, WC[2]], [WC[0], Y0 - 1.8, WC[2]], filmM, "window");
-  cylAlong(boxG, 18, 18, [WC[0], Y0 - 1.8, WC[2]], [WC[0], Y0 - 3.6, WC[2]], ringM, "window");
-  for (let k = 0; k < 4; k++) { const t = k * Math.PI / 2 + Math.PI / 4; cylAlong(boxG, 0.8, 0.8, [WC[0] + Math.cos(t) * 17, Y0 + 0.5, WC[2] + Math.sin(t) * 17], [WC[0] + Math.cos(t) * 17, Y0 - 3.8, WC[2] + Math.sin(t) * 17], mat(0xd1d5db), "window"); }
+  cylAlong(boxG, 8, 16, [SC[0] + dir[0] * 18, SC[1] + dir[1] * 18, SC[2] + dir[2] * 18], WC, mat(0x94a3b8, { transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide }), "funnel", true);
+  /* The opening in the pod floor stays open; the lens itself sits in the holder in front of the sensor. */
   const cg = new THREE.ConeGeometry(0.55, 1.6, 32, 1, true); cg.translate(0, -0.8, 0);   // narrow BCC view
   const cone = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide }));
   cone.position.copy(V(...WC)); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(...dir)); cone.userData.part = "sensor"; boxG.add(cone);
@@ -441,7 +454,7 @@ try {
   /* ---- Buttons ---- */
   const setBtn = (id, on, a, b) => { const el = document.getElementById(id); el.textContent = on ? b : a; el.classList.toggle("on", on); };
   let exploded = false, slid = false, solid = false;
-  document.getElementById("bExplode").onclick = () => { exploded = !exploded; bez.position.y = exploded ? -0.7 : 0; podG.position.y = exploded ? -0.6 : 0; setBtn("bExplode", exploded, "Slide bezel down, drop sensor pod", "Put it back together"); };
+  document.getElementById("bExplode").onclick = () => { exploded = !exploded; bez.position.y = exploded ? -0.7 : 0; podG.position.y = exploded ? -0.6 : 0; lensG.position.y = exploded ? -30 * S : 0; setBtn("bExplode", exploded, "Slide bezel down, drop sensor pod", "Put it back together"); };
   document.getElementById("bSlide").onclick = () => { slid = !slid; boxG.position.z = slid ? 1.0 : 0; setBtn("bSlide", slid, "Slide box out of mount", "Slide box back in"); };
   document.getElementById("bSee").onclick = e => {
     solid = !solid;
@@ -486,23 +499,40 @@ try {
   sc.add(new THREE.AmbientLight(0xffffff, 0.8)); const l1 = new THREE.DirectionalLight(0xffffff, 1.6); l1.position.set(40, 80, 60); sc.add(l1);
   const l2 = new THREE.DirectionalLight(0xffffff, 0.6); l2.position.set(-50, -40, -30); sc.add(l2);
   const lathe = (pts, m) => { m.side = THREE.DoubleSide; return new THREE.Mesh(new THREE.LatheGeometry([...pts, pts[0]].map(([r, y]) => new THREE.Vector2(r, y)), 96), m); };   // closed outline spun around the axis
-  /* Ring A: 36 mm across, 25 mm opening, 1.6 mm thick, top outer edge chamfered so ring B's barb rides over it. Four
-     1.6 mm pins at 15.5 mm radius stick up 1.3 mm to poke through the film into ring B's groove. */
-  const ringA = new THREE.Group(), mA = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.55 });
-  ringA.add(lathe([[12.5, 0], [18, 0], [18, 1.0], [17.4, 1.6], [12.5, 1.6]], mA));
-  for (let k = 0; k < 4; k++) { const t = k * Math.PI / 2 + Math.PI / 4, p = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.5, 24), mA); p.position.set(Math.cos(t) * 15.5, 1.6 + 0.65, Math.sin(t) * 15.5); ringA.add(p); }
-  /* Film: thin black polyethylene, trimmed to size after the rings are snapped. */
-  const film = new THREE.Mesh(new THREE.CylinderGeometry(21, 21, 0.1, 96), new THREE.MeshStandardMaterial({ color: 0x0b0b0b, roughness: 0.9, transparent: true, opacity: 0.85 }));
+  /* Square lens frames, sizes in mm (same numbers as the lens in the module). Ring A: 20 x 20, 13 x 13 opening, 1.6 thick,
+     4 pins. Ring B: a 23.1 x 23.1 cap with matching pin holes and a skirt down all four sides, cut by two slots per side
+     so it flexes, with a barb along the bottom that snaps under ring A. 0.35 mm gap inside the skirt for the film. */
+  const LH = 10, LO = 6.5, LP = 8, LG = 0.35, LSK = 1.2, BH = LH + LG + LSK;
+  const frameGeo = (half, hole, y0, y1, holes = []) => {
+    const sh = new THREE.Shape([new THREE.Vector2(-half, -half), new THREE.Vector2(half, -half), new THREE.Vector2(half, half), new THREE.Vector2(-half, half)]);
+    sh.holes.push(new THREE.Path([new THREE.Vector2(-hole, -hole), new THREE.Vector2(-hole, hole), new THREE.Vector2(hole, hole), new THREE.Vector2(hole, -hole)]));
+    holes.forEach(([x, z, r]) => { const c = new THREE.Path(); c.absarc(x, z, r, 0, Math.PI * 2, true); sh.holes.push(c); });
+    const g = new THREE.ExtrudeGeometry(sh, { depth: y1 - y0, bevelEnabled: false, curveSegments: 24 }); g.rotateX(-Math.PI / 2); g.translate(0, y0, 0); return g;
+  };
+  const block = (g, x0, x1, y0, y1, z0, z1, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m); o.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); g.add(o); };
+  const PIN = [[-LP, -LP], [LP, -LP], [LP, LP], [-LP, LP]];
+  const ringA = new THREE.Group(), mA = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.55, side: THREE.DoubleSide });
+  ringA.add(new THREE.Mesh(frameGeo(LH, LO, 0, 1.6), mA));
+  PIN.forEach(([x, z]) => { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.5, 24), mA); p.position.set(x, 1.6 + 0.65, z); ringA.add(p); });
+  const film = new THREE.Mesh(new THREE.BoxGeometry(2 * LH + 6, 0.1, 2 * LH + 6), new THREE.MeshStandardMaterial({ color: 0x0b0b0b, roughness: 0.9, transparent: true, opacity: 0.85 }));
   film.position.y = 1.65;
-  /* Ring B: top plate (1.8 to 3.4 mm) with a groove underneath for the pins, an outer skirt that slides down over ring A
-     (0.15 mm gap), and an inward barb at its bottom that snaps under ring A's bottom edge. Print it upside down. */
-  const mB = new THREE.MeshStandardMaterial({ color: 0xE3B64A, roughness: 0.5 });
-  const ringB = lathe([[12.5, 1.8], [14.5, 1.8], [14.5, 3.0], [16.5, 3.0], [16.5, 1.8], [18.15, 1.8], [18.15, -0.05], [17.5, -0.05], [18.15, -1.2], [19.4, -1.2], [19.4, 3.4], [12.5, 3.4]], mB);
+  const ringB = new THREE.Group(), mB = new THREE.MeshStandardMaterial({ color: 0xE3B64A, roughness: 0.5, side: THREE.DoubleSide });
+  ringB.add(new THREE.Mesh(frameGeo(BH, LO, 1.8, 3.4, PIN.map(([x, z]) => [x, z, 1.0])), mB));          // cap with pin holes
+  const SL = 1.4, segs = [[-BH, -BH / 3 - SL / 2], [-BH / 3 + SL / 2, BH / 3 - SL / 2], [BH / 3 + SL / 2, BH]];   // three fingers per side, two slots
+  for (let k = 0; k < 4; k++) {
+    const side = new THREE.Group(); side.rotation.y = k * Math.PI / 2; ringB.add(side);
+    for (const [x0, x1] of segs) {
+      block(side, x0, x1, -1.2, 1.8, LH + LG, BH, mB);                                              // finger of the skirt
+      const tri = new THREE.Shape([new THREE.Vector2(LH + LG, -0.05), new THREE.Vector2(LH - 0.3, -0.05), new THREE.Vector2(LH + LG, -1.2)]);
+      const bg = new THREE.ExtrudeGeometry(tri, { depth: x1 - x0, bevelEnabled: false }); bg.rotateY(-Math.PI / 2); bg.translate(x1, 0, 0);
+      side.add(new THREE.Mesh(bg, mB));                                                             // barb that snaps under ring A
+    }
+  }
   sc.add(ringA, film, ringB);
   let apart = true;
-  const place = () => { film.position.y = 1.65 + (apart ? 8 : 0); ringB.position.y = apart ? 16 : 0; };
+  const place = () => { film.position.y = 1.65 + (apart ? 7 : 0); ringB.position.y = apart ? 14 : 0; };
   place();
-  cm.position.set(45, 55, 70); oc.target.set(0, 6, 0); oc.update();
+  cm.position.set(30, 38, 48); oc.target.set(0, 5, 0); oc.update();
   const pb = document.getElementById("pExplode");
   pb.onclick = () => { apart = !apart; place(); pb.textContent = apart ? "Snap together" : "Explode"; pb.classList.toggle("on", apart); };
   const save = (obj, name) => {
@@ -511,8 +541,8 @@ try {
     const data = new STLExporter().parse(holder, { binary: true });
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "model/stl" })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
-  document.getElementById("pRingA").onclick = () => save(ringA, "lens-ring-A.stl");
-  document.getElementById("pRingB").onclick = () => save(ringB, "lens-ring-B.stl");
+  document.getElementById("pRingA").onclick = () => save(ringA, "lens-frame-A.stl");
+  document.getElementById("pRingB").onclick = () => save(ringB, "lens-frame-B.stl");
   addEventListener("resize", () => { cm.aspect = el.clientWidth / el.clientHeight; cm.updateProjectionMatrix(); rd.setSize(el.clientWidth, el.clientHeight); });
   rd.setAnimationLoop(() => { oc.update(); rd.render(sc, cm); });
 } catch (e) { document.getElementById("v3pmsg").textContent = "The parts view couldn't start on this device (" + e.message + ")."; }
