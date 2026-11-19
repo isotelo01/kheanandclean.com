@@ -53,7 +53,7 @@ a{color:var(--gold)}
 
 <h2>What's in it</h2>
 <div class="box"><ol style="margin:0">
-  <li><b>Mount</b> (purple): a wide plate screwed up under the table for good with 9 screws (4 down each side, 1 in the middle). The box slides into its double track like a drawer until it hits the stop at the back, and one M3 screw on the side locks it into a nut in the mount, so taking the box in and out never touches the table screws.</li>
+  <li><b>Mount</b> (purple): a wide plate screwed up under the table for good with 9 screws (4 down each side, 1 in the middle). The box's two dovetail tongues slide into matching dovetail grooves like a drawer (it can't drop out, only slide), until it hits the stop at the back, and one M3 screw on the side locks it into a nut in the mount, so taking the box in and out never touches the table screws.</li>
   <li><b>One long box</b>, front to back: the Apple plug housing at the front, the strip in the middle, then a foil partition, then the Wi-Fi board and heat sensor at the back. It's wide enough to get a hand in and pull a plug, with room on both sides so the power cord and the USB-C cable bend in a wide curve instead of getting smashed.</li>
   <li><b>Thin floor</b>: no separate tray. The strip sits right on the floor, screwed down through its keyholes, and a cover clips over it. Its front down-facing outlet is open and flush with the bottom of the box so it can be used. The cube sits on a hollow, ribbed cradle with a foam pad.</li>
   <li><b>Foil partition</b>: slides down into slots right behind the strip, foil facing the strip, with an air gap on both sides, so the strip's heat doesn't reach the sensor.</li>
@@ -68,7 +68,7 @@ a{color:var(--gold)}
 
 <script>
 window.PARTS = {
-  mount: { t: "Mount", d: "A wide plate screwed up under the table once and left there, with 9 screws: 4 down each side and 1 in the middle. The box slides into its double track like a drawer until it hits the stop at the back, then one M3 screw through the side tab locks it into a nut. That screw goes into plastic and a metal nut, not the wood, so you can take the box out as often as you want without wearing out the table screws.", p: ["Printed (PETG)", "9 wood screws into the table", "M3 lock screw + square M3 nut"] },
+  mount: { t: "Mount", d: "A wide plate screwed up under the table once and left there, with 9 screws: 4 down each side and 1 in the middle. The box's two dovetail tongues slide into matching dovetail grooves, so it can't drop out, only slide in from the front, until it hits the stop at the back. Then one M3 screw through the side tab locks it into a nut. That screw goes into plastic and a metal nut, not the wood, so you can take the box out as often as you want without wearing out the table screws.", p: ["Printed (PETG)", "9 wood screws into the table", "M3 lock screw + square M3 nut"] },
   strip: { t: "SUPERDANNY flat-plug strip", d: "In the middle of the box, its end outlet facing the front. The Apple cube plugs in there; one of its USB ports powers the Wi-Fi board. Its cord leaves from the back.", p: ["SUPERDANNY 3 ft flat-plug strip (4 outlets, 2 USB-C, 2 USB-A), about $10.99 with Prime", "4.43 x 1.89 x 1.53 in (112.5 x 48 x 39 mm), from the listing", "Mounted outlets-down. Two keyhole slots on the outlet face, 3.45 in apart, sit on two screw heads on posts in the box floor"] },
   cube: { t: "Apple 20 W USB-C cube", d: "Plugs into the strip's end outlet, USB-C port facing the player through the bezel so phones fast charge. Same shape for years and sold everywhere, so it's easy to replace.", p: ["Apple 20W USB-C Power Adapter", "Port face about 42.5 x 27 mm, 41.5 mm from the prong face to the port (prongs about 15 mm more)"] },
   housing: { t: "Front housing", d: "A little wider than the Apple cube, with a finger hole on each side. Take the bezel off, reach in, pinch the cube and pull it out.", p: [] },
@@ -83,9 +83,10 @@ window.PARTS = {
   wSCL: { t: "White wire: sensor SCL to XIAO D5", d: "Clock. SCL pad on the GY-906 to D5 on the XIAO (sixth pad down on the D0-D6 side).", p: [] },
   cable: { t: "Short right-angle USB-C cable", d: "From the strip's USB-C port to the XIAO. 4 inches.", p: ["4 in right-angle USB-C to USB-C, 2-pack, $9.99"] },
   bezel: { t: "Front bezel", d: "Slides up into a track on the front of the box and screws in at its two top corners into square M3 nuts. A wide opening lets any USB-C cable plug into the cube. Foam pads on its inside squeeze the cube tight.", p: ["Printed (PETG)", "2 M3 screws, about 12 mm, + 2 square M3 nuts"] },
-  back: { t: "The box", d: "One long box: plug housing at the front, strip in the middle, board and sensor at the back. Vents on the sides. Tongues on top slide into the mount's rails.", p: ["Printed (PETG)"] },
+  back: { t: "The box", d: "One long box: plug housing at the front, strip in the middle, board and sensor at the back. Vents on the sides. Two dovetail tongues on top slide into the mount's grooves.", p: ["Printed (PETG)"] },
   nut: { t: "Square M3 nut", d: "Slides into a slot and stays put, so a screw has something to bite into.", p: [] },
   screw: { t: "M3 screw, about 12 mm", d: "Holds the bezel on (and another locks the box in the mount). Swap for security screws later if players mess with them.", p: [] },
+  bar: { t: "Front bars", d: "Two bars all the way across the front of the box: the top one holds a square M3 nut in each end for the bezel screws, the bottom one ties into the cube cradle. They stiffen the front.", p: ["Printed (PETG), part of the box"] },
   stop: { t: "Back stop", d: "Closes the back of each track, so the box can't slide all the way through and always stops in the same spot.", p: [] },
   floor: { t: "Thin floor", d: "The strip sits right on it, screwed down through its keyholes (no separate tray to break). The strip's front down-facing outlet is open and flush with the bottom of the box so it can be used.", p: ["Printed (PETG), part of the box"] },
   cover: { t: "Strip cover", d: "Clips over the top of the strip, legs down to the floor, so it can't lift off its posts.", p: ["Printed (PETG)"] },
@@ -142,6 +143,11 @@ try {
       let c = B[C][0];
       for (const [c0, c1] of [...cuts, [B[C][1], B[C][1]]]) { if (c0 > c) { const Q = { ...B, [A]: [a0, a1], [C]: [c, c0] }; bx(g, Q.x[0], Q.x[1], Q.y[0], Q.y[1], Q.z[0], Q.z[1], m, part); } c = Math.max(c, c1); }
     }
+  };
+  /* A straight prism along z from a 2D outline in x-y (mm), e.g. a dovetail. */
+  const prism = (g, pts, z0, z1, m, part) => {
+    const o = new THREE.Mesh(new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x * S, y * S))), { depth: (z1 - z0) * S, bevelEnabled: false }), m);
+    o.position.z = z0 * S; o.userData.part = part; g.add(o); return o;
   };
   const cylAlong = (g, r0, r1, a, b, m, part, open) => {
     const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), len = A.distanceTo(B);
@@ -216,7 +222,7 @@ try {
   const smooth = (g, pts, r, m, part) => { const c = new THREE.CatmullRomCurve3(pts.map(p => V(...p)), false, "centripetal"); const o = new THREE.Mesh(new THREE.TubeGeometry(c, 120, r * S, 10, false), m); o.userData.part = part; g.add(o); return c; };
   const cordM = mat(0xf2f2f0, { roughness: 0.45, side: THREE.DoubleSide });
   /* The cord comes out of the long side opposite the USB ports, toward the back end, then runs back along that side. */
-  const CY = 0, CZ = ZS + 16;   // middle of the side
+  const CY = 0, CZ = ZS / 2;   // dead centre of the side: halfway along and halfway up
   bx(boxG, -STRIP.w / 2 - 4, -STRIP.w / 2, CY - 3, CY + 3, CZ - 6, CZ + 6, cordM, "cord");                         // its strain relief
   ribbon(boxG, [[-STRIP.w / 2 - 2, CY, CZ], [-30, CY, CZ - 1], [-36, CY, CZ - 6], [X0 + 6.5, CY, CZ - 14], [X0 + 6, CY, CZ - 26], [X0 + 6, CY, ZB - 40]], 7, 3, cordM, "cord");   // wide bend, then back along the side channel
   /* Flip the strip over so its outlet face (2 outlets, lights, keyholes) faces DOWN, like it's mounted under a desk.
@@ -318,7 +324,8 @@ try {
   for (const [x0, x1] of [[X0 - WALL, X0], [X1, X1 + WALL]]) holed(boxG, { x: [x0, x1], y: [Y0, Y1], z: [ZB - WALL, ZF] }, sideHoles, "z", "y", caseM, "back");
   bx(boxG, X0, X1, Y0, Y1, ZB - WALL, ZB, caseM, "back");
   const holeM = mat(0x0e1628);
-  for (const x of [X0 + 8, X1 - 8]) bx(boxG, x - 4, x + 4, Y1 + WALL, Y1 + WALL + 4, ZB, ZF - 4, mat(0x9ca3af, { transparent: true, opacity: 0.5 }), "back");   // tongues into the mount rails
+  const T0 = Y1 + WALL, T1 = T0 + 4;   // dovetail tongues on the roof: narrow at the roof, wide at the top, so the box hangs from the mount
+  for (const x of [X0 + 8, X1 - 8]) prism(boxG, [[x - 3, T0], [x + 3, T0], [x + 5, T1], [x - 5, T1]], ZB, ZF - 4, mat(0x9ca3af, { transparent: true, opacity: 0.6 }), "back");
   const trackM = mat(0x64748b, { transparent: true, opacity: 0.5 });
   bx(boxG, X1 - 14, X1 - 12, Y0, Y1, ZB, ZP, trackM, "back");   // cord channel wall, +x side: keeps the cord out of the sensor bay
   /* Foil partition: slides down into slots right behind the strip, foil side facing the strip, with an air gap on both
@@ -331,9 +338,10 @@ try {
   for (const x of [X0, X1 - 15]) for (const z of [ZP + 0.4, ZP - 4.5]) bx(boxG, x, x + 1, Y0, Y1, z, z + 1.1, trackM, "partition");   // slot guides
   /* Bezel track: lips on the front of the side walls; the bezel slides up behind them from below. Bosses in the top
      front corners hold square M3 nuts for the bezel's two screws. */
+  bx(boxG, X0, X1, Y1 - 9, Y1, ZF - 10, ZF, caseM, "bar");                                      // top bar all the way across, a nut slot in each end
+  bx(boxG, X0, X1, Y0, -CUBE.h / 2, ZF - 10, ZF, caseM, "bar");                                  // bottom bar all the way across, tied into the cradle
   for (const s of [-1, 1]) {
     bx(boxG, s > 0 ? X1 - 4 : X0 - WALL, s > 0 ? X1 + WALL : X0 + 4, Y0 - WALL, Y1 + WALL, ZF + WALL, ZF + WALL + 2, caseM, "back");   // track lips
-    bx(boxG, s > 0 ? X1 - 11 : X0, s > 0 ? X1 : X0 + 11, Y1 - 9, Y1, ZF - 10, ZF, caseM, "back");                                      // nut boss
     bx(boxG, s * (X1 - 6) - 2.75, s * (X1 - 6) + 2.75, Y1 - 6.75, Y1 - 1.25, ZF - 8, ZF - 5.6, mat(0xc0c4ca, { metalness: 0.7 }), "nut");   // square nut
   }
   bx(boxG, X1 + WALL, X1 + WALL + 1.5, Y1 - 8, Y1 - 2, -64, -58, mat(0xc0c4ca, { metalness: 0.7 }), "nut");   // lock-screw nut
@@ -354,7 +362,12 @@ try {
   bx(mount, X0 - 20, X1 + 20, MY + 2, MY + 6, ZB - 8, ZF, mountM, "mount");
   const MS = [[0, (ZB + ZF) / 2]]; for (const x of [X0 - 13, X1 + 13]) for (let k = 0; k < 4; k++) MS.push([x, ZB - 2 + k * (ZF - 6 - ZB + 2) / 3]);
   for (const [x, z] of MS) cylAlong(mount, 3, 3, [x, MY + 6, z], [x, MY + 7, z], mat(0xd1d5db, { metalness: 0.8 }), "mount");
-  for (const x of [X0 + 8, X1 - 8]) { bx(mount, x - 7, x - 5, MY - 4, MY + 2, ZB - 8, ZF, mountM, "mount"); bx(mount, x + 5, x + 7, MY - 4, MY + 2, ZB - 8, ZF, mountM, "mount"); bx(mount, x - 5, x + 5, MY - 4, MY + 2, ZB - 8, ZB, mountM, "stop"); }   // rail walls either side of each tongue, and the back stop
+  /* Dovetail grooves: each side wall's inner face slants to match the tongue (0.5 mm clearance), so the lips under the
+     tongue's wide top hold the box up. The box can only slide in from the front, until it hits the back stop. */
+  for (const x of [X0 + 8, X1 - 8]) {
+    for (const k of [-1, 1]) prism(mount, [[x + k * 9, MY + 2], [x + k * 9, T0 + 0.5], [x + k * 3.6, T0 + 0.5], [x + k * 5.5, T1], [x + k * 5.5, MY + 2]], ZB - 8, ZF, mountM, "mount");
+    bx(mount, x - 5.5, x + 5.5, T0, MY + 2, ZB - 8, ZB, mountM, "stop");                          // back stop
+  }
   bx(mount, X1 + WALL, X1 + WALL + 4, Y1 - 10, MY + 2, -70, -52, mountM, "mount");                       // side tab
   cylAlong(mount, 2.8, 2.8, [X1 + WALL + 4, Y1 - 5, -61], [X1 + WALL + 6, Y1 - 5, -61], mat(0xd1d5db, { metalness: 0.8 }), "screw");
   cylAlong(mount, 1.5, 1.5, [X1 + WALL - 1, Y1 - 5, -61], [X1 + WALL + 4, Y1 - 5, -61], mat(0x9ca3af, { metalness: 0.8 }), "screw");
