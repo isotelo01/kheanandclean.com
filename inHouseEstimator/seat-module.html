@@ -374,8 +374,9 @@ try {
   const podM = mat(0x475569, { transparent: true, opacity: 0.6 });
   holed(podG, { x: [X0, X1], y: [Y0 - WALL, Y0], z: [ZB, ZP - 3] }, [[LC[2] - LO, LC[2] + LO, LC[0] - LO, LC[0] + LO], ...[X0 + 2.5, X0 + 9.5].map(x => [ZB + 2, ZB + 6, x - 1.5, x + 1.5])], "z", "x", podM, "pod");
   const strutM = mat(0x64748b, { transparent: true, opacity: 0.7 });
-  for (const [z0, z1] of [[PF, ZP - 3], [ZB, ZB + 6]]) holed(boxG, { x: [X0, X1], y: [Y0, Y0 + 5], z: [z0, z1] }, [[X0, X0 + 9, Y0, Y0 + 5]], "x", "y", strutM, "strut");   // struts, notched for the cord
-  for (const z of [(PF + ZP - 3) / 2, ZB + 3]) for (const x of [-30, 30]) {
+  holed(boxG, { x: [X0, X1], y: [Y0, Y0 + 5], z: [PF, ZP - 3] }, [[X0, X0 + 9, Y0, Y0 + 5]], "x", "y", strutM, "strut");   // front strut, notched for the cord
+  holed(boxG, { x: [X0, X1], y: [Y0, Y0 + 12], z: [ZB, ZB + 10] }, [[X0, X0 + 9, Y0, Y0 + 6]], "x", "y", strutM, "strut");   // back strut: thick, wall to wall, the cord goes through a tunnel underneath
+  for (const z of [(PF + ZP - 3) / 2, ZB + 5]) for (const x of [-30, 30]) {
     cylAlong(podG, 2.8, 2.8, [x, Y0 - WALL, z], [x, Y0 - WALL - 1.6, z], mat(0xd1d5db, { metalness: 0.8 }), "screw");   // 4 screws from below
     cylAlong(podG, 1.5, 1.5, [x, Y0 - WALL, z], [x, Y0 + 4.5, z], mat(0x9ca3af, { metalness: 0.8 }), "screw");
   }
