@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="../favicon.ico" sizes="48x48">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="robots" content="noindex, nofollow">
+<title>Kid Voices &middot; Personal</title>
+<link rel="apple-touch-icon" href="../images/icon-180.png">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Kid Voices admin: play, remove and re-record each kid's Unicorn Math recordings. */
+:root{--navy:#172239;--gold:#E3B64A}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#fff;font:16px/1.5 "Archivo",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:22px 18px 110px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.top img{width:56px;height:56px;border-radius:8px}
+h1{font:700 28px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
+.back{margin-left:auto;color:var(--gold);text-decoration:none;font-weight:600}
+.kid{background:var(--navy);border:1px solid rgba(227,182,74,.5);border-radius:12px;padding:14px;margin-bottom:14px}
+.kh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.kh .n{font-size:20px;font-weight:700}
+.kh .c{color:rgba(255,255,255,.7);font-size:14px}
+.kh a,.btn{margin-left:auto;background:var(--gold);color:#000;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}
+.lines{margin-top:10px;display:grid;gap:6px}
+.line{display:flex;align-items:center;gap:8px;background:#0b1424;border-radius:8px;padding:6px 8px}
+.line .t{flex:1}
+.line button{background:#24314d;color:#fff;border:1px solid rgba(227,182,74,.4);border-radius:8px;padding:5px 10px;font:inherit;font-size:14px;cursor:pointer}
+.line button.rm{border-color:#c0504d;color:#ffb3b0}
+.miss{opacity:.45}
+.toggle{background:none;border:0;color:var(--gold);font:inherit;font-weight:600;cursor:pointer;padding:6px 0 0}
+.note{color:rgba(255,255,255,.7);font-size:14px}
+</style>
+<link rel="stylesheet" href="./theme-dark.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="./hub.html" aria-label="Hub"><img src="../images/icon-180.png" alt=""></a>
+    <h1>Kid Voices</h1>
+    <a class="back" href="./personal.html">&lsaquo; Personal</a>
+  </div>
+  <p class="note">Unicorn Math recordings saved on the website. Play or remove any line. Re-record opens that kid's profile in the game.</p>
+  <div id="kids">Loading…</div>
+</div>
+<script src="../kids/voice.js?v=2"></script>
+<script>
+(function () {
+  var box = document.getElementById("kids");
+  function draw() {
+    KidVoice.siteKids().then(function (kids) {
+      box.innerHTML = "";
+      if (!kids.length) { box.innerHTML = '<p class="note">No kid profiles on the website yet.</p>'; return; }
+      kids.forEach(function (k) {
+        var have = Object.keys(k.clips).length;
+        var el = document.createElement("div");
+        el.className = "kid";
+        el.innerHTML = '<div class="kh"><span class="n"></span><span class="c">' + have + " of " + KidVoice.LINES.length + ' recorded</span>' +
+          '<a href="../kids/unicorn-math.html?kid=' + encodeURIComponent(k.id) + "&name=" + encodeURIComponent(k.name) + '#profile">🎤 Re-record</a></div>' +
+          '<button class="toggle">Show lines ▾</button><div class="lines" hidden></div>';
+        el.querySelector(".n").textContent = k.name;
+        var lines = el.querySelector(".lines"), tg = el.querySelector(".toggle");
+        tg.onclick = function () { lines.hidden = !lines.hidden; tg.textContent = lines.hidden ? "Show lines ▾" : "Hide lines ▴"; };
+        KidVoice.LINES.forEach(function (l) {
+          var url = k.clips[l.key], row = document.createElement("div");
+          row.className = "line" + (url ? "" : " miss");
+          row.innerHTML = '<span class="t"></span>';
+          row.querySelector(".t").textContent = (url ? "✅ " : "⬜ ") + l.text;
+          if (url) {
+            var pb = document.createElement("button"); pb.textContent = "▶ Play";
+            pb.onclick = function () { new Audio(url).play().catch(function () {}); };
+            var rm = document.createElement("button"); rm.textContent = "Remove"; rm.className = "rm";
+            rm.onclick = function () {
+              rm.disabled = true; rm.textContent = "Removing…";
+              KidVoice.deleteClip(k.id, l.key).then(draw, function () { rm.textContent = "Didn't work"; });
+            };
+            row.appendChild(pb); row.appendChild(rm);
+          }
+          lines.appendChild(row);
+        });
+        box.appendChild(el);
+      });
+    });
+  }
+  draw();
+})();
+</script>
+<script type="module">
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+const app = getApps().length ? getApp() : initializeApp({
+  apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+  authDomain: "khean-estimator-78f3e.firebaseapp.com",
+  projectId: "khean-estimator-78f3e",
+  storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+  messagingSenderId: "581692353222",
+  appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+});
+const STAFF = ["6lZy8VTy4gTBeLg4HrEGnTNPixg1", "eoYah1xNcaT7R4lAMOVFFMS7ITN2", "p0cjvQnfHiWXDxRvMuAWm5dyb9e2"];
+/* Page lock: staff only. */
+onAuthStateChanged(getAuth(app), u => {
+  if (!u) { location.replace("./login.html?next=kid-voices.html"); return; }
+  if (!STAFF.includes(u.uid)) location.replace("./partner.html");
+});
+</script>
+<script src="./tabbar.js" defer></script>
+</body>
+</html>

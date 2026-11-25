@@ -48,7 +48,7 @@
     if (!name) return null;
     var list = getProfiles(), id = slug(name);
     var found = list.filter(function (p) { return p.id === id; })[0];
-    if (!found) { found = { id: id, name: name }; list.push(found); setProfiles(list); }
+    if (!found) { found = { id: id, name: name }; list.push(found); setProfiles(list); registerKid(found); }
     useProfile(id);
     return found;
   }
@@ -142,7 +142,6 @@
     var local = idb("readwrite", function (st) { st.put(blob, p.id + "/" + key); }).catch(function () {});
     return local.then(function () {
       return firebase().then(function (f) {
-        if (!f.auth.currentUser) return "local";
         var ext = /mp4|m4a|aac/.test(blob.type) ? "m4a" : "webm";
         var ref = f.S.ref(f.S.getStorage(f.app), "kid-voices/" + p.id + "/" + key + "." + ext);
         return f.S.uploadBytes(ref, blob, { contentType: blob.type || "audio/mp4" })
@@ -154,6 +153,47 @@
           })
           .then(function () { return "shared"; });
       }).catch(function (e) { console.warn("upload failed", e); return "local-error"; });
+    });
+  }
+
+  // ---- kids saved on the website (so a name made on one iPad shows up on the others)
+  var FS = "https://firestore.googleapis.com/v1/projects/" + FB.projectId + "/databases/(default)/documents/";
+  function siteKids() {
+    return fetch(FS + "kidVoices?pageSize=100").then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) {
+      return (j.documents || []).map(function (d) {
+        var f = d.fields || {}, clipsF = (f.clips && f.clips.mapValue && f.clips.mapValue.fields) || {}, c = {};
+        Object.keys(clipsF).forEach(function (k) { if (clipsF[k].stringValue) c[k] = clipsF[k].stringValue; });
+        return { id: d.name.split("/").pop(), name: (f.name && f.name.stringValue) || d.name.split("/").pop(), clips: c };
+      });
+    }).catch(function () { return []; });
+  }
+  function syncProfiles() {
+    return siteKids().then(function (kids) {
+      var list = getProfiles();
+      kids.forEach(function (k) { if (!list.some(function (p) { return p.id === k.id; })) list.push({ id: k.id, name: k.name }); });
+      setProfiles(list);
+      return list;
+    });
+  }
+  // make sure a new name exists on the website even before anything is recorded
+  function registerKid(p) {
+    return firebase().then(function (f) {
+      return f.F.setDoc(f.F.doc(f.F.getFirestore(f.app), "kidVoices", p.id), { name: p.name }, { merge: true });
+    }).catch(function () {});
+  }
+  // admin: remove one recording everywhere
+  function deleteClip(kidId, key) {
+    return firebase().then(function (f) {
+      var st = f.S.getStorage(f.app);
+      var dels = ["m4a", "webm"].map(function (ext) { return f.S.deleteObject(f.S.ref(st, "kid-voices/" + kidId + "/" + key + "." + ext)).catch(function () {}); });
+      var upd = {}; upd["clips." + key] = f.F.deleteField();
+      dels.push(f.F.updateDoc(f.F.doc(f.F.getFirestore(f.app), "kidVoices", kidId), upd));
+      return Promise.all(dels);
+    }).then(function () {
+      return idb("readwrite", function (st) { st.delete(kidId + "/" + key); }).catch(function () {});
+    }).then(function () {
+      var a = active();
+      if (a && a.id === kidId) delete clips[key];
     });
   }
 
@@ -183,7 +223,18 @@
     LINES: LINES, keyFor: function (t) { return BY_TEXT[t]; },
     getProfiles: getProfiles, active: active, addProfile: addProfile, useProfile: useProfile,
     loadClips: loadClips, saveClip: saveClip, play: play, stop: stop, hasAll: hasAll,
-    has: function (k) { return !!clips[k]; }, signedIn: signedIn, signIn: signIn
+    has: function (k) { return !!clips[k]; }, signedIn: signedIn, signIn: signIn,
+    siteKids: siteKids, syncProfiles: syncProfiles, registerKid: registerKid, deleteClip: deleteClip, FB: FB
   };
+  // ?kid=<id> opens that kid's profile (used by the admin page's Re-record button)
+  try {
+    var want = new URLSearchParams(location.search).get("kid");
+    if (want) {
+      var nm = new URLSearchParams(location.search).get("name") || want;
+      var L = getProfiles();
+      if (!L.some(function (p) { return p.id === want; })) { L.push({ id: want, name: nm }); setProfiles(L); }
+      localStorage.setItem("unicornActive", want);
+    }
+  } catch (e) {}
   loadClips();
 })(window);

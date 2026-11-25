@@ -110,6 +110,11 @@
   .wbtns .check { background: #ff7eb6; }
   .wbtns .check:disabled { opacity: .45; }
 
+  .beat { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px 10px; max-width: 520px; margin: 8px auto 4px; background: #fff; border-radius: 18px; padding: 12px 14px; box-shadow: 0 4px 0 #d3b8f0; font-size: 17px; text-align: left; align-items: center; }
+  .beat .h { font-weight: 800; color: #7b3fb5; font-size: 15px; }
+  .beat .m { font-weight: 800; }
+  .beat .sc b { font-size: 20px; color: #c2408a; }
+  .timer { font-size: 22px; font-weight: 800; }
   .who { font: inherit; font-size: 22px; font-weight: 700; border: 0; border-radius: 18px; padding: 10px 18px; background: #fff; color: #7b3fb5; box-shadow: 0 4px 0 #d3b8f0; margin-bottom: 6px; }
   #profile h2 { font-size: 26px; margin: 26px 0 4px; }
   .namebox { display: flex; gap: 10px; justify-content: center; margin: 8px 0 10px; }
@@ -159,11 +164,21 @@
     <button data-how="tap">👆 Tap it</button>
   </div>
 
+  <div class="label">How do you play?</div>
+  <div class="row" id="playHow">
+    <button data-t="0" class="sel">🔟 10 questions</button>
+    <button data-t="30">⏱ 30 seconds</button>
+    <button data-t="60">⏱ 1 minute</button>
+  </div>
+
   <div class="pick">
     <button class="add" data-mode="add">➕ Adding</button>
     <button class="sub-b" data-mode="sub">➖ Taking away</button>
     <button class="mix" data-mode="mix">🌈 Mix it up</button>
   </div>
+
+  <div class="label">🏆 Scores to beat</div>
+  <div class="beat" id="beat"></div>
 
   <div class="label">My unicorn friends</div>
   <div class="stable" id="stableHome"></div>
@@ -200,13 +215,7 @@
 
   <div id="voiceArea">
     <h2>🎤 Record the game's voice</h2>
-    <p class="small" id="signState"></p>
-    <div class="signin" id="signBox" hidden>
-      <input id="sEmail" type="email" placeholder="Email (app login)" autocomplete="username">
-      <input id="sPw" type="password" placeholder="Password" autocomplete="current-password">
-      <button id="sGo">Sign in</button>
-      <div class="small" id="sErr"></div>
-    </div>
+    <p class="small">Recordings save to the website, so every iPad plays them.</p>
     <div class="pick"><button class="add" id="recAll">Record the missing ones</button></div>
     <div class="lines" id="lineList"></div>
   </div>
@@ -234,8 +243,8 @@
   </div>
 </div>
 
-<script src="digits.js?v=3"></script>
-<script src="voice.js?v=1"></script>
+<script src="digits.js?v=4"></script>
+<script src="voice.js?v=2"></script>
 <script>
 (function () {
   var ROUND = 10;
@@ -243,7 +252,7 @@
   var PRAISE = ["Woohoo! You got it!","Yay! That's magical!","Amazing! Super star!","Wow! Rainbow power!","Yes! You did it!","Sparkly! Great job!"];
   var TRY = ["Ooh, so close! Try again!","Oops! You can do it, try again!","Almost! One more try!"];
 
-  var state = { max: 5, mode: "add", how: "write", n: 0, right: 0, missed: false, a: 0, b: 0, op: "+", ans: 0 };
+  var state = { max: 5, mode: "add", how: "write", timed: 0, endAt: 0, solved: 0, over: false, n: 0, right: 0, missed: false, a: 0, b: 0, op: "+", ans: 0 };
   var save = { stars: 0, friends: [] };
 
   // each profile keeps its own stars and unicorn friends
@@ -258,6 +267,8 @@
   function $(id) { return document.getElementById(id); }
   function show(id) {
     ["home","game","reward","profile"].forEach(function (x) { $(x).classList.toggle("on", x === id); });
+    if (id !== "game") stopTimer();
+    if (id === "home") drawBeat();
     $("homeBtn").style.display = id === "home" ? "none" : "inline-block";
   }
   function rand(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
@@ -328,6 +339,13 @@
       state.max = +b.getAttribute("data-max");
     };
   });
+  Array.prototype.forEach.call(document.querySelectorAll("#playHow button"), function (b) {
+    b.onclick = function () {
+      document.querySelectorAll("#playHow button").forEach(function (x) { x.classList.remove("sel"); });
+      b.classList.add("sel");
+      state.timed = +b.getAttribute("data-t");
+    };
+  });
   Array.prototype.forEach.call(document.querySelectorAll("#answerHow button"), function (b) {
     b.onclick = function () {
       document.querySelectorAll("#answerHow button").forEach(function (x) { x.classList.remove("sel"); });
@@ -343,7 +361,32 @@
   $("again").onclick = start;
   $("sayBtn").onclick = sayProblem;
 
-  function start() { state.n = 0; state.right = 0; show("game"); next(); }
+  function start() {
+    state.n = 0; state.right = 0; state.solved = 0; state.over = false;
+    show("game");
+    if (state.timed) startTimer();
+    next();
+  }
+
+  // ---- timed games: answer as many as you can before the clock runs out
+  var timerId = null;
+  function startTimer() {
+    stopTimer();
+    state.endAt = Date.now() + state.timed * 1000;
+    timerId = setInterval(tick, 200);
+  }
+  function stopTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
+  function tick() {
+    var left = Math.max(0, state.endAt - Date.now());
+    $("bar").style.width = ((1 - left / (state.timed * 1000)) * 100) + "%";
+    $("count").innerHTML = '<span class="timer">⏱ ' + Math.ceil(left / 1000) + "s</span> &nbsp; Score: <b>" + state.solved + "</b>";
+    if (left <= 0) { stopTimer(); state.over = true; finishTimed(); }
+  }
+  // after a right answer: next question, or the end of a 10-question game
+  function advance() {
+    if (state.timed) { setTimeout(function () { if (!state.over) next(); }, 650); return; }
+    setTimeout(function () { state.n >= ROUND ? finish() : next(); }, 1300);
+  }
 
   function next() {
     state.n++;
@@ -357,8 +400,11 @@
     }
     state.a = a; state.b = b; state.op = op; state.ans = ans;
 
-    $("bar").style.width = ((state.n - 1) / ROUND * 100) + "%";
-    $("count").textContent = "Question " + state.n + " of " + ROUND;
+    if (state.timed) tick();
+    else {
+      $("bar").style.width = ((state.n - 1) / ROUND * 100) + "%";
+      $("count").textContent = "Question " + state.n + " of " + ROUND;
+    }
     $("problem").textContent = a + " " + (op === "+" ? "+" : "−") + " " + b + " = ?";
     $("msg").textContent = "";
 
@@ -396,7 +442,8 @@
       $("msg").textContent = p + " 🌈";
       speak(p);
       sparkle(btn);
-      setTimeout(function () { state.n >= ROUND ? finish() : next(); }, 1300);
+      state.solved++;
+      advance();
     } else {
       state.missed = true;
       btn.classList.add("wrong");
@@ -492,7 +539,8 @@
       $("msg").textContent = p + " 🌈";
       speak(p);
       sparkle($("checkBtn"));
-      setTimeout(function () { state.n >= ROUND ? finish() : next(); }, 1300);
+      state.solved++;
+      advance();
     } else {
       state.missed = true;
       var t = pickOne(TRY);
@@ -530,6 +578,68 @@
     for (var i = 0; i < 3; i++) setTimeout(function () { sparkle($("newFriend")); }, i * 300);
   }
 
+  // ---- high scores (shared on the website): one per game type and clock length
+  var MODE_NAMES = { add: "➕ Adding", sub: "➖ Taking away", mix: "🌈 Mix it up" };
+  var SCORES_URL = "https://firestore.googleapis.com/v1/projects/khean-estimator-78f3e/databases/(default)/documents/unicornScores/top";
+  var scores = {};
+  function loadScores() {
+    return fetch(SCORES_URL).then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) {
+      var f = j.fields || {};
+      scores = {};
+      Object.keys(f).forEach(function (k) {
+        var m = f[k].mapValue && f[k].mapValue.fields;
+        if (m) scores[k] = { name: m.name && m.name.stringValue, score: +(m.score && (m.score.integerValue || m.score.doubleValue)) || 0 };
+      });
+      return scores;
+    }).catch(function () { return scores; });
+  }
+  function saveScore(key, name, score) {
+    var body = { fields: {} };
+    body.fields[key] = { mapValue: { fields: { name: { stringValue: name }, score: { integerValue: String(score) } } } };
+    return fetch(SCORES_URL + "?updateMask.fieldPaths=" + key, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.ok; }).catch(function () { return false; });
+  }
+  function drawBeat() {
+    function render() {
+      var h = '<span></span><span class="h">30 seconds</span><span class="h">1 minute</span>';
+      ["add", "sub", "mix"].forEach(function (m) {
+        h += '<span class="m">' + MODE_NAMES[m] + "</span>";
+        [30, 60].forEach(function (t) {
+          var sc = scores[m + "_" + t];
+          h += '<span class="sc">' + (sc && sc.score ? "<b>" + sc.score + "</b> " + esc(sc.name || "") : "—") + "</span>";
+        });
+      });
+      $("beat").innerHTML = h;
+    }
+    render();
+    loadScores().then(render);
+  }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  function finishTimed() {
+    Array.prototype.forEach.call(document.querySelectorAll("#answers button"), function (x) { x.disabled = true; });
+    $("checkBtn").disabled = true;
+    var score = state.solved, key = state.mode + "_" + state.timed;
+    var p = window.KidVoice && KidVoice.active(), name = p ? p.name : "A unicorn";
+    var friend = pickOne(FRIENDS);
+    if (score > 0) { save.friends.push(friend); persist(); drawStars(); }
+    $("newFriend").textContent = score > 0 ? friend : "⏱";
+    $("rewardText").textContent = "Time's up! You got " + score + " right.";
+    show("reward");
+    speak(score > 0 ? "Woohoo! You did it! A new friend joined your stable!" : "Almost! One more try!");
+    loadScores().then(function () {
+      var best = scores[key];
+      if (score > 0 && (!best || score > best.score)) {
+        $("rewardText").textContent = "Time's up! You got " + score + " right. 🏆 New high score!";
+        for (var i = 0; i < 4; i++) setTimeout(function () { sparkle($("newFriend")); }, i * 250);
+        saveScore(key, name, score);
+        scores[key] = { name: name, score: score };
+      } else if (best) {
+        $("rewardText").textContent = "Time's up! You got " + score + " right. Score to beat: " + best.score + " by " + best.name + ".";
+      }
+    });
+  }
+
   // ---- profile + voice recording
   function drawWho() {
     var p = window.KidVoice && KidVoice.active();
@@ -563,18 +673,7 @@
     KidVoice.loadClips().then(drawLines);
     drawProfiles(); drawLines();
   };
-  function drawSign() {
-    KidVoice.signedIn().then(function (yes) {
-      $("signState").textContent = yes
-        ? "Signed in: recordings save to the website, so every device uses them."
-        : "Not signed in: recordings stay on this iPad. Sign in with your app login to share them to every device.";
-      $("signBox").hidden = yes;
-    });
-  }
-  $("sGo").onclick = function () {
-    $("sErr").textContent = "";
-    KidVoice.signIn($("sEmail").value.trim(), $("sPw").value).then(drawSign, function () { $("sErr").textContent = "That didn't work. Check the email and password."; });
-  };
+  function drawSign() { KidVoice.syncProfiles().then(drawProfiles); }
   function drawLines() {
     var box = $("lineList"), p = KidVoice.active();
     $("voiceArea").style.display = p ? "" : "none";
@@ -698,6 +797,8 @@
 
   if (window.KidVoice) { drawWho(); KidVoice.loadClips(); }
   drawStars();
+  drawBeat();
+  if (location.hash === "#profile" && window.KidVoice) KidVoice.loadClips().then(openProfile);
 })();
 </script>
 </body>
