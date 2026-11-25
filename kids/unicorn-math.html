@@ -176,7 +176,7 @@
   </div>
 </div>
 
-<script src="digits.js"></script>
+<script src="digits.js?v=2"></script>
 <script>
 (function () {
   var ROUND = 10;
@@ -342,19 +342,19 @@
   // ---- finger writing pads
   var pads = [];
   function buildPads() {
-    var box = $("pads"), count = state.max >= 10 ? 2 : 1;
+    // one writing box; wide enough for two numbers when answers can reach 10+
+    var box = $("pads");
     box.innerHTML = "";
     pads = [];
-    var w = Math.min(170, Math.floor((Math.min(window.innerWidth, 720) - 60) / count));
-    for (var i = 0; i < count; i++) {
-      var cv = document.createElement("canvas");
-      cv.className = "pad";
-      cv.style.width = w + "px"; cv.style.height = Math.round(w * 1.2) + "px";
-      var dpr = window.devicePixelRatio || 1;
-      cv.width = w * dpr; cv.height = Math.round(w * 1.2) * dpr;
-      box.appendChild(cv);
-      pads.push(makePad(cv, dpr));
-    }
+    var screenW = Math.min(window.innerWidth, 720) - 40;
+    var w = state.max >= 10 ? Math.min(400, screenW) : Math.min(220, screenW), h = 210;
+    var cv = document.createElement("canvas");
+    cv.className = "pad";
+    cv.style.width = w + "px"; cv.style.height = h + "px";
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = w * dpr; cv.height = h * dpr;
+    box.appendChild(cv);
+    pads.push(makePad(cv, dpr));
     updateSeen();
   }
   function makePad(cv, dpr) {
@@ -382,13 +382,10 @@
     pad.clear = function () { pad.strokes = []; pad.cur = null; ctx.clearRect(0, 0, cv.width, cv.height); };
     return pad;
   }
-  function readAnswer() {
-    var digits = "";
-    for (var i = 0; i < pads.length; i++) {
-      var r = window.readDigit ? window.readDigit(pads[i].strokes) : null;
-      if (r) digits += r.digit;
-    }
-    return digits === "" ? null : +digits;
+  function readAnswer(expected) {
+    var strokes = [];
+    pads.forEach(function (p) { strokes = strokes.concat(p.strokes); });
+    return window.readNumber ? window.readNumber(strokes, expected) : null;
   }
   function updateSeen() {
     var v = readAnswer();
@@ -398,10 +395,11 @@
   function erase() { pads.forEach(function (p) { p.clear(); }); updateSeen(); }
   $("eraseBtn").onclick = erase;
   $("checkBtn").onclick = function () {
-    var v = readAnswer();
+    var v = readAnswer(state.ans);
     if (v === null) return;
     if (v === state.ans) {
       $("checkBtn").disabled = true;
+      $("seen").innerHTML = "I see: <b>" + v + "</b>";
       if (!state.missed) { state.right++; save.stars++; persist(); drawStars(); }
       var p = pickOne(PRAISE);
       $("msg").textContent = p + " 🌈";
