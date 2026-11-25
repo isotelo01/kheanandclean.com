@@ -110,32 +110,35 @@
   .wbtns .check { background: #ff7eb6; }
   .wbtns .check:disabled { opacity: .45; }
 
-  /* home: everything on one screen, menu down the right side */
-  #home { max-width: 1100px; padding-top: 0; padding-bottom: 10px; }
-  .homegrid { display: grid; grid-template-columns: 1fr 290px; gap: 18px; align-items: start; }
-  .title { display: flex; align-items: center; justify-content: center; gap: 14px; }
-  #home .big-unicorn { font-size: 72px; margin: 0; display: inline-block; }
-  #home h1 { font-size: 38px; margin: 0; }
-  #home .sub { font-size: 18px; margin: 2px 0 0; }
+  /* home: big centered menu like before; small scores + side quests panel on the right */
+  #home { max-width: 720px; padding-top: 0; padding-bottom: 10px; }
+  .homegrid { position: static; }
+  .title { display: block; }
+  #home .big-unicorn { font-size: 96px; margin: 0; display: inline-block; }
+  #home h1 { font-size: 40px; margin: 2px 0 2px; }
+  #home .sub { font-size: 19px; margin: 0 0 6px; }
   #home .label { margin-top: 8px; }
-  #home .row { margin: 6px 0 6px; }
-  #home .pick { gap: 10px; margin: 8px auto; max-width: 440px; }
-  #home .pick button { padding: 14px; font-size: 24px; }
-  #home .stable { font-size: 40px; min-height: 52px; margin: 4px 0; line-height: 1.3; max-height: 26vh; overflow-y: auto; padding: 6px 0; }
-  .side { display: flex; flex-direction: column; gap: 8px; text-align: left; }
-  .side-h { font-size: 18px; font-weight: 800; margin-top: 2px; }
-  .beat { display: grid; grid-template-columns: auto 1fr 1fr; gap: 4px 8px; background: #fff; border-radius: 16px; padding: 10px 12px; box-shadow: 0 4px 0 #d3b8f0; font-size: 14px; align-items: center; }
-  .beat .h { font-weight: 800; color: #7b3fb5; font-size: 13px; }
-  .beat .m { font-weight: 800; font-size: 18px; }
+  #home .row { margin: 6px 0 8px; }
+  #home .pick { gap: 12px; margin: 10px auto; max-width: 420px; }
+  #home .stable { font-size: 40px; min-height: 52px; margin: 4px 0; line-height: 1.3; max-height: 20vh; overflow-y: auto; padding: 6px 0; }
+  .side { position: fixed; top: 58px; right: 12px; width: 180px; display: flex; flex-direction: column; gap: 6px; text-align: left; z-index: 2; }
+  .side-h { font-size: 14px; font-weight: 800; }
+  .beat { display: grid; grid-template-columns: auto 1fr 1fr; gap: 2px 6px; background: #fff; border-radius: 12px; padding: 7px 9px; box-shadow: 0 3px 0 #d3b8f0; font-size: 12px; align-items: center; }
+  .beat .h { font-weight: 800; color: #7b3fb5; font-size: 11px; }
+  .beat .m { font-size: 14px; }
   .beat .sc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .beat .sc b { font-size: 17px; color: #c2408a; }
-  .quests { display: flex; flex-direction: column; gap: 10px; }
-  .quests button { font: inherit; font-size: 20px; font-weight: 700; border: 0; border-radius: 18px; padding: 14px; background: #fff; color: #7b3fb5; box-shadow: 0 4px 0 #d3b8f0; text-align: left; }
+  .beat .sc b { font-size: 14px; color: #c2408a; }
+  .quests { display: flex; flex-direction: column; gap: 6px; }
+  .quests button { font: inherit; font-size: 14px; font-weight: 700; border: 0; border-radius: 12px; padding: 8px 10px; background: #fff; color: #7b3fb5; box-shadow: 0 3px 0 #d3b8f0; text-align: left; }
   .quests button.sel { background: #7b3fb5; color: #fff; }
   .starbox { font-size: 24px; }
-  @media (max-width: 760px) {
-    .homegrid { grid-template-columns: 1fr; }
-    .quests { flex-direction: row; flex-wrap: wrap; }
+  /* narrower screens (iPad upright, phones): the small panel sits under the menu instead */
+  @media (max-width: 1000px) {
+    .side { position: static; width: auto; max-width: 440px; margin: 6px auto 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; align-items: start; }
+    .side .sh1 { grid-column: 1; grid-row: 1; }
+    .side .beat { grid-column: 1; grid-row: 2; }
+    .side .sh2 { grid-column: 2; grid-row: 1; }
+    .side .quests { grid-column: 2; grid-row: 2; }
   }
   /* tap a unicorn friend to make it dance */
   .stable .f { display: inline-block; cursor: pointer; }
@@ -184,7 +187,7 @@
 <div class="screen on" id="home">
   <div class="homegrid">
     <div class="main">
-      <div class="title"><span class="big-unicorn">🦄</span><div><h1>Unicorn Math</h1><p class="sub">Help the unicorn find the magic numbers!</p></div></div>
+      <div class="title"><div class="big-unicorn">🦄</div><h1>Unicorn Math</h1><p class="sub">Help the unicorn find the magic numbers!</p></div>
 
       <div class="label">How big are the numbers?</div>
       <div class="row" id="levels">
@@ -204,13 +207,13 @@
     </div>
 
     <aside class="side">
-      <div class="side-h">🏆 High scores</div>
+      <div class="side-h sh1">🏆 High scores</div>
       <div class="beat" id="beat"></div>
-      <div class="side-h">⚔️ Super Side Quests</div>
+      <div class="side-h sh2">⚔️ Super Side Quests</div>
       <div class="quests" id="playHow">
         <button data-t="0" class="sel">🔟 10 questions</button>
-        <button data-t="30">⏱ 30 seconds</button>
-        <button data-t="60">⏱ 1 minute</button>
+        <button data-t="30">⏱ 30 sec</button>
+        <button data-t="60">⏱ 1 min</button>
       </div>
     </aside>
   </div>
@@ -634,7 +637,8 @@
   }
 
   // ---- high scores (shared on the website): one per game type and clock length
-  var MODE_NAMES = { add: "➕ Adding", sub: "➖ Taking away", mix: "🌈 Mix it up" };
+  var MODE_NAMES = { add: "Adding", sub: "Taking away", mix: "Mix it up" };
+  var MODE_ICONS = { add: "➕", sub: "➖", mix: "🌈" };
   var SCORES_URL = "https://firestore.googleapis.com/v1/projects/khean-estimator-78f3e/databases/(default)/documents/unicornScores/top";
   var scores = {};
   function loadScores() {
@@ -656,9 +660,9 @@
   }
   function drawBeat() {
     function render() {
-      var h = '<span></span><span class="h">30 seconds</span><span class="h">1 minute</span>';
+      var h = '<span></span><span class="h">30 sec</span><span class="h">1 min</span>';
       ["add", "sub", "mix"].forEach(function (m) {
-        h += '<span class="m">' + MODE_NAMES[m] + "</span>";
+        h += '<span class="m" title="' + MODE_NAMES[m] + '">' + MODE_ICONS[m] + "</span>";
         [30, 60].forEach(function (t) {
           var sc = scores[m + "_" + t];
           h += '<span class="sc">' + (sc && sc.score ? "<b>" + sc.score + "</b> " + esc(sc.name || "") : "—") + "</span>";
