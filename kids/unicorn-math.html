@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Unicorn Math</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(180deg, #fde4f2 0%, #e9ddff 55%, #d8f1ff 100%);
+    color: #4a2c6d;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; overflow-x: hidden; user-select: none;
+  }
+  .top {
+    width: 100%; display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; font-size: 22px; font-weight: 700;
+  }
+  .top button {
+    font: inherit; font-size: 18px; border: 0; border-radius: 14px;
+    padding: 8px 14px; background: #fff; color: #7b3fb5; box-shadow: 0 3px 0 #d3b8f0;
+  }
+  .screen { display: none; width: 100%; max-width: 720px; padding: 8px 16px 32px; text-align: center; }
+  .screen.on { display: block; }
+  h1 { font-size: 40px; margin: 10px 0 4px; }
+  .sub { font-size: 20px; margin: 0 0 20px; }
+  .big-unicorn { font-size: 110px; line-height: 1; margin: 6px 0; animation: bob 2.4s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  .pick { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 16px auto; max-width: 420px; }
+  .pick button, .row button {
+    font: inherit; font-size: 26px; font-weight: 700; border: 0; border-radius: 22px;
+    padding: 18px; color: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.15);
+  }
+  .add { background: #ff7eb6; } .sub-b { background: #9b6bff; } .mix { background: #4cc3ff; }
+  .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 8px 0 18px; }
+  .row button { font-size: 20px; padding: 12px 18px; background: #fff; color: #7b3fb5; }
+  .row button.sel { background: #7b3fb5; color: #fff; }
+  .label { font-size: 18px; font-weight: 700; margin-top: 10px; }
+
+  .problem { font-size: 72px; font-weight: 800; margin: 14px 0 6px; letter-spacing: 2px; }
+  .counters { min-height: 70px; font-size: 34px; line-height: 1.3; margin-bottom: 10px; }
+  .counters .gone { opacity: .25; filter: grayscale(1); }
+  .counters .op { font-size: 34px; margin: 0 10px; color: #7b3fb5; font-weight: 800; }
+  .answers { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 480px; margin: 0 auto; }
+  .answers button {
+    font: inherit; font-size: 48px; font-weight: 800; border: 0; border-radius: 24px;
+    padding: 22px 0; background: #fff; color: #4a2c6d; box-shadow: 0 6px 0 #d3b8f0;
+  }
+  .answers button:active { transform: translateY(3px); box-shadow: 0 3px 0 #d3b8f0; }
+  .answers button.right { background: #7ee0a1; color: #fff; }
+  .answers button.wrong { background: #ffb3b3; color: #fff; animation: shake .35s; }
+  @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+  .msg { font-size: 28px; font-weight: 800; min-height: 40px; margin: 14px 0; }
+  .progress { height: 22px; background: #fff; border-radius: 12px; overflow: hidden; margin: 6px auto 4px; max-width: 480px; }
+  .progress div { height: 100%; width: 0; background: linear-gradient(90deg,#ff7eb6,#ffd166,#7ee0a1,#4cc3ff,#9b6bff); transition: width .4s; }
+  .small { font-size: 16px; }
+  .say { font: inherit; font-size: 18px; border: 0; border-radius: 14px; padding: 8px 14px; background: #fff; color: #7b3fb5; margin-top: 8px; }
+
+  .stable { font-size: 46px; line-height: 1.4; min-height: 60px; margin: 10px 0; word-wrap: break-word; }
+  .reward .big-unicorn { font-size: 140px; }
+
+  .spark { position: fixed; pointer-events: none; font-size: 30px; z-index: 10; animation: fly 1.2s ease-out forwards; }
+  @keyframes fly { to { transform: translate(var(--x), var(--y)) rotate(360deg); opacity: 0; } }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span>⭐ <span id="stars">0</span></span>
+  <button id="homeBtn" style="display:none">🏠 Home</button>
+</div>
+
+<!-- HOME -->
+<div class="screen on" id="home">
+  <div class="big-unicorn">🦄</div>
+  <h1>Unicorn Math</h1>
+  <p class="sub">Help the unicorn find the magic numbers!</p>
+
+  <div class="label">How big are the numbers?</div>
+  <div class="row" id="levels">
+    <button data-max="5" class="sel">Up to 5</button>
+    <button data-max="10">Up to 10</button>
+    <button data-max="20">Up to 20</button>
+  </div>
+
+  <div class="pick">
+    <button class="add" data-mode="add">➕ Adding</button>
+    <button class="sub-b" data-mode="sub">➖ Taking away</button>
+    <button class="mix" data-mode="mix">🌈 Mix it up</button>
+  </div>
+
+  <div class="label">My unicorn friends</div>
+  <div class="stable" id="stableHome"></div>
+</div>
+
+<!-- GAME -->
+<div class="screen" id="game">
+  <div class="progress"><div id="bar"></div></div>
+  <div class="small" id="count"></div>
+  <div class="problem" id="problem"></div>
+  <div class="counters" id="counters"></div>
+  <div class="answers" id="answers"></div>
+  <div class="msg" id="msg"></div>
+  <button class="say" id="sayBtn">🔊 Read it to me</button>
+</div>
+
+<!-- REWARD -->
+<div class="screen reward" id="reward">
+  <h1>You did it! 🎉</h1>
+  <div class="big-unicorn" id="newFriend">🦄</div>
+  <p class="sub" id="rewardText"></p>
+  <div class="stable" id="stableReward"></div>
+  <div class="pick">
+    <button class="add" id="again">Play again</button>
+    <button class="mix" id="goHome">Home</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var ROUND = 10;
+  var FRIENDS = ["🦄","🌈","🦋","🌸","⭐","🍭","🧁","🌙","💖","🎀","🍦","🌟","🪄","🍓","☁️","👑"];
+  var PRAISE = ["Magical!","Sparkly!","You got it!","Super star!","Rainbow power!","Amazing!","Yay!"];
+  var TRY = ["Try again!","So close!","Oops, one more try!"];
+
+  var state = { max: 5, mode: "add", n: 0, right: 0, missed: false, a: 0, b: 0, op: "+", ans: 0 };
+  var save = { stars: 0, friends: [] };
+
+  try { var s = JSON.parse(localStorage.getItem("unicornMath") || "null"); if (s) save = s; } catch (e) {}
+  function persist() { try { localStorage.setItem("unicornMath", JSON.stringify(save)); } catch (e) {} }
+
+  function $(id) { return document.getElementById(id); }
+  function show(id) {
+    ["home","game","reward"].forEach(function (x) { $(x).classList.toggle("on", x === id); });
+    $("homeBtn").style.display = id === "home" ? "none" : "inline-block";
+  }
+  function rand(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+  function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function drawStars() {
+    $("stars").textContent = save.stars;
+    var txt = save.friends.length ? save.friends.join(" ") : "Play to earn unicorn friends!";
+    $("stableHome").textContent = txt;
+    $("stableReward").textContent = txt;
+    $("stableHome").style.fontSize = save.friends.length ? "46px" : "18px";
+  }
+
+  function speak(text) {
+    try {
+      if (!window.speechSynthesis) return;
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.9; u.pitch = 1.3;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function sayProblem() {
+    speak(state.a + (state.op === "+" ? " plus " : " take away ") + state.b + " equals what?");
+  }
+
+  // ---- home controls
+  Array.prototype.forEach.call(document.querySelectorAll("#levels button"), function (b) {
+    b.onclick = function () {
+      document.querySelectorAll("#levels button").forEach(function (x) { x.classList.remove("sel"); });
+      b.classList.add("sel");
+      state.max = +b.getAttribute("data-max");
+    };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#home .pick button"), function (b) {
+    b.onclick = function () { state.mode = b.getAttribute("data-mode"); start(); };
+  });
+  $("homeBtn").onclick = function () { drawStars(); show("home"); };
+  $("goHome").onclick = function () { drawStars(); show("home"); };
+  $("again").onclick = start;
+  $("sayBtn").onclick = sayProblem;
+
+  function start() { state.n = 0; state.right = 0; show("game"); next(); }
+
+  function next() {
+    state.n++;
+    state.missed = false;
+    var op = state.mode === "mix" ? pickOne(["+","-"]) : (state.mode === "add" ? "+" : "-");
+    var a, b, ans, max = state.max;
+    if (op === "+") {
+      ans = rand(1, max); a = rand(0, ans); b = ans - a;
+    } else {
+      a = rand(1, max); b = rand(0, a); ans = a - b;
+    }
+    state.a = a; state.b = b; state.op = op; state.ans = ans;
+
+    $("bar").style.width = ((state.n - 1) / ROUND * 100) + "%";
+    $("count").textContent = "Question " + state.n + " of " + ROUND;
+    $("problem").textContent = a + " " + (op === "+" ? "+" : "−") + " " + b + " = ?";
+    $("msg").textContent = "";
+
+    // picture helpers (only when small enough to count)
+    var c = $("counters");
+    c.innerHTML = "";
+    if (max <= 10) {
+      if (op === "+") {
+        c.innerHTML = "🦄".repeat(a) + '<span class="op">+</span>' + "🦄".repeat(b);
+      } else {
+        var html = "";
+        for (var i = 0; i < a; i++) html += i < a - b ? "🦄" : '<span class="gone">🦄</span>';
+        c.innerHTML = html;
+      }
+    }
+
+    // answer choices
+    var opts = [ans];
+    while (opts.length < 4) {
+      var w = ans + rand(-3, 3);
+      if (w >= 0 && w <= max + 3 && opts.indexOf(w) < 0) opts.push(w);
+    }
+    opts.sort(function () { return Math.random() - 0.5; });
+    var box = $("answers");
+    box.innerHTML = "";
+    opts.forEach(function (v) {
+      var btn = document.createElement("button");
+      btn.textContent = v;
+      btn.onclick = function () { choose(btn, v); };
+      box.appendChild(btn);
+    });
+  }
+
+  function choose(btn, v) {
+    if (btn.disabled) return;
+    if (v === state.ans) {
+      btn.classList.add("right");
+      Array.prototype.forEach.call(document.querySelectorAll("#answers button"), function (x) { x.disabled = true; });
+      if (!state.missed) { state.right++; save.stars++; persist(); drawStars(); }
+      var p = pickOne(PRAISE);
+      $("msg").textContent = p + " 🌈";
+      speak(p);
+      sparkle(btn);
+      setTimeout(function () { state.n >= ROUND ? finish() : next(); }, 1300);
+    } else {
+      state.missed = true;
+      btn.classList.add("wrong");
+      btn.disabled = true;
+      var t = pickOne(TRY);
+      $("msg").textContent = t;
+      speak(t);
+    }
+  }
+
+  function sparkle(el) {
+    var r = el.getBoundingClientRect();
+    var bits = ["✨","⭐","💖","🌈","🦄"];
+    for (var i = 0; i < 12; i++) {
+      var s = document.createElement("div");
+      s.className = "spark";
+      s.textContent = pickOne(bits);
+      s.style.left = (r.left + r.width / 2) + "px";
+      s.style.top = (r.top + r.height / 2) + "px";
+      s.style.setProperty("--x", rand(-160, 160) + "px");
+      s.style.setProperty("--y", rand(-200, 60) + "px");
+      document.body.appendChild(s);
+      setTimeout(function (n) { return function () { n.remove(); }; }(s), 1300);
+    }
+  }
+
+  function finish() {
+    $("bar").style.width = "100%";
+    var friend = pickOne(FRIENDS);
+    save.friends.push(friend);
+    persist(); drawStars();
+    $("newFriend").textContent = friend;
+    $("rewardText").textContent = "You got " + state.right + " out of " + ROUND + " on the first try! A new friend joined your stable.";
+    speak("You did it! A new friend joined your stable!");
+    show("reward");
+    for (var i = 0; i < 3; i++) setTimeout(function () { sparkle($("newFriend")); }, i * 300);
+  }
+
+  drawStars();
+})();
+</script>
+</body>
+</html>
