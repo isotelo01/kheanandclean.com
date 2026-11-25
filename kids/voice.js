@@ -163,7 +163,9 @@
       return (j.documents || []).map(function (d) {
         var f = d.fields || {}, clipsF = (f.clips && f.clips.mapValue && f.clips.mapValue.fields) || {}, c = {};
         Object.keys(clipsF).forEach(function (k) { if (clipsF[k].stringValue) c[k] = clipsF[k].stringValue; });
-        return { id: d.name.split("/").pop(), name: (f.name && f.name.stringValue) || d.name.split("/").pop(), clips: c };
+        var fr = ((f.friends && f.friends.arrayValue && f.friends.arrayValue.values) || []).map(function (v) { return v.stringValue; });
+        return { id: d.name.split("/").pop(), name: (f.name && f.name.stringValue) || d.name.split("/").pop(), clips: c,
+                 stars: +((f.stars && f.stars.integerValue) || 0), friends: fr };
       });
     }).catch(function () { return []; });
   }
@@ -197,6 +199,19 @@
     });
   }
 
+  // admin: delete a whole kid profile (recordings, stars, friends) from the website
+  function deleteKid(kid) {
+    return firebase().then(function (f) {
+      var st = f.S.getStorage(f.app), dels = [];
+      Object.keys(kid.clips || {}).forEach(function (key) {
+        ["m4a", "webm"].forEach(function (ext) { dels.push(f.S.deleteObject(f.S.ref(st, "kid-voices/" + kid.id + "/" + key + "." + ext)).catch(function () {})); });
+      });
+      return Promise.all(dels).then(function () { return f.F.deleteDoc(f.F.doc(f.F.getFirestore(f.app), "kidVoices", kid.id)); });
+    }).then(function () {
+      setProfiles(getProfiles().filter(function (p) { return p.id !== kid.id; }));
+    });
+  }
+
   // ---- playback: play a list of clips in a row. Resolves false (and plays nothing) if any are missing.
   var current = null;
   function stop() { if (current) { try { current.pause(); } catch (e) {} current = null; } }
@@ -224,7 +239,7 @@
     getProfiles: getProfiles, active: active, addProfile: addProfile, useProfile: useProfile,
     loadClips: loadClips, saveClip: saveClip, play: play, stop: stop, hasAll: hasAll,
     has: function (k) { return !!clips[k]; }, signedIn: signedIn, signIn: signIn,
-    siteKids: siteKids, syncProfiles: syncProfiles, registerKid: registerKid, deleteClip: deleteClip, FB: FB
+    siteKids: siteKids, syncProfiles: syncProfiles, registerKid: registerKid, deleteClip: deleteClip, deleteKid: deleteKid, FB: FB
   };
   // ?kid=<id> opens that kid's profile (used by the admin page's Re-record button)
   try {

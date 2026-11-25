@@ -151,6 +151,15 @@
   @keyframes fDance { 0%,100% { transform: rotate(0) scale(1); } 15% { transform: rotate(-25deg) scale(1.7); } 30% { transform: rotate(25deg) scale(1.9); } 45% { transform: rotate(-25deg) scale(1.9); } 60% { transform: rotate(25deg) scale(1.7); } 80% { transform: rotate(0) scale(2); } }
   @keyframes fFlip { 0% { transform: scale(1) rotateY(0); } 50% { transform: scale(2) rotateY(540deg) translateY(-20px); } 100% { transform: scale(1) rotateY(720deg); } }
   .timer { font-size: 22px; font-weight: 800; }
+  .top > span:first-child { position: relative; }
+  .badge { position: absolute; left: 6px; top: 58px; font-size: 54px !important; background: none !important; box-shadow: none !important; padding: 0 !important; line-height: 1; cursor: pointer; animation: badgeGlow 2s ease-in-out infinite; z-index: 3; }
+  .badge[hidden] { display: none; }
+  @keyframes badgeGlow { 0%,100% { transform: rotate(-6deg) scale(1); filter: drop-shadow(0 0 4px #ffd34d); } 50% { transform: rotate(6deg) scale(1.08); filter: drop-shadow(0 0 14px #ffd34d); } }
+  .badge.party { animation: badgeParty 1.2s ease; }
+  @keyframes badgeParty { 0% { transform: scale(1) rotate(0); } 30% { transform: scale(1.8) rotate(-20deg); } 55% { transform: scale(1.8) rotate(380deg); } 80% { transform: translateY(-20px) scale(1.4) rotate(360deg); } 100% { transform: scale(1) rotate(360deg); } }
+  .trophy-big { font-size: 100px; line-height: 1; margin-bottom: 10px; animation: trophyPop 1.2s ease; }
+  @keyframes trophyPop { 0% { transform: scale(.4) rotate(0); } 50% { transform: scale(1.15) rotate(360deg); } 75% { transform: translateY(-10px) rotate(360deg); } 100% { transform: scale(1) rotate(360deg); } }
+  .reclist { font-size: 22px; font-weight: 700; margin: 8px 0 14px; line-height: 1.6; }
   .who { font: inherit; font-size: 22px; font-weight: 700; border: 0; border-radius: 18px; padding: 10px 18px; background: #fff; color: #7b3fb5; box-shadow: 0 4px 0 #d3b8f0; margin-bottom: 6px; }
   #profile h2 { font-size: 26px; margin: 26px 0 4px; }
   .namebox { display: flex; gap: 10px; justify-content: center; margin: 8px 0 10px; }
@@ -178,6 +187,7 @@
 <div class="top">
   <span>
     <button class="who" id="profileBtn">🦄 <span id="pname">Who's playing?</span></button>
+    <button class="badge" id="badge" hidden>🏆</button>
     <button id="homeBtn" style="display:none">🏠 Home</button>
   </span>
   <span class="starbox">⭐ <span id="stars">0</span></span>
@@ -238,6 +248,15 @@
   <button class="say" id="sayBtn">🔊 Read it to me</button>
 </div>
 
+<div class="rec" id="records" hidden>
+  <div class="rec-card">
+    <div class="trophy-big" id="trophyBig">🏆</div>
+    <div class="rec-words" style="font-size:30px">Your records!</div>
+    <div class="reclist" id="recList"></div>
+    <div class="wbtns"><button class="check" id="recClose">Yay!</button></div>
+  </div>
+</div>
+
 <!-- PROFILE + VOICE RECORDING -->
 <div class="screen" id="profile">
   <h1>🦄 My Profile</h1>
@@ -279,11 +298,32 @@
 </div>
 
 <script src="digits.js?v=4"></script>
-<script src="voice.js?v=2"></script>
+<script src="voice.js?v=3"></script>
 <script>
 (function () {
   var ROUND = 10;
-  var FRIENDS = ["🦄","🌈","🦋","🌸","⭐","🍭","🧁","🌙","💖","🎀","🍦","🌟","🪄","🍓","☁️","👑"];
+  // Unicorn friends: Up to 5 has a starter set; playing Up to 10 and Up to 20 unlocks more.
+  var FRIEND_TIERS = {
+    5:  ["🦄", "🌈", "🦋", "🌸", "⭐", "🍭"],
+    10: ["🧁", "🌙", "💖", "🎀", "🍦", "🐬", "🐰", "🦊"],
+    20: ["🌟", "🪄", "🍓", "👑", "🐉", "🧚", "🦚", "🪐"]
+  };
+  function friendPool() {
+    var pool = FRIEND_TIERS[5].slice();
+    if (state.max >= 10) pool = pool.concat(FRIEND_TIERS[10]);
+    if (state.max >= 20) pool = pool.concat(FRIEND_TIERS[20]);
+    return pool;
+  }
+  // a friend she doesn't have yet if there is one, from the friends this level unlocks
+  function newFriend() {
+    var pool = friendPool(), fresh = pool.filter(function (f) { return save.friends.indexOf(f) < 0; });
+    return pickOne(fresh.length ? fresh : pool);
+  }
+  function unlockHint() {
+    if (state.max < 10) return " Play Up to 10 to unlock new friends!";
+    if (state.max < 20) return " Play Up to 20 to unlock even more friends!";
+    return "";
+  }
   var PRAISE = ["Woohoo! You got it!","Yay! That's magical!","Amazing! Super star!","Wow! Rainbow power!","Yes! You did it!","Sparkly! Great job!"];
   var TRY = ["Ooh, so close! Try again!","Oops! You can do it, try again!","Almost! One more try!"];
 
@@ -297,13 +337,48 @@
     try { var s = JSON.parse(localStorage.getItem(saveKey()) || "null"); if (s) save = s; } catch (e) {}
   }
   loadSave();
-  function persist() { try { localStorage.setItem(saveKey(), JSON.stringify(save)); } catch (e) {} }
+  function persist() {
+    try { localStorage.setItem(saveKey(), JSON.stringify(save)); } catch (e) {}
+    pushProgress();
+  }
+  // Stars and friends also live on the website under the kid's profile, so nothing is lost.
+  var KID_URL = "https://firestore.googleapis.com/v1/projects/khean-estimator-78f3e/databases/(default)/documents/kidVoices/";
+  function pushProgress() {
+    var p = window.KidVoice && KidVoice.active();
+    if (!p) return;
+    var body = { fields: {
+      name: { stringValue: p.name },
+      stars: { integerValue: String(save.stars || 0) },
+      friends: { arrayValue: { values: (save.friends || []).map(function (f) { return { stringValue: f }; }) } }
+    } };
+    fetch(KID_URL + encodeURIComponent(p.id) + "?updateMask.fieldPaths=name&updateMask.fieldPaths=stars&updateMask.fieldPaths=friends",
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(function () {});
+  }
+  // Use whichever copy has more progress (this iPad or the website).
+  function pullProgress() {
+    var p = window.KidVoice && KidVoice.active();
+    if (!p) return Promise.resolve();
+    var id = p.id;
+    return fetch(KID_URL + encodeURIComponent(id)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      var a = KidVoice.active();
+      if (!j || !j.fields || !a || a.id !== id) return;
+      var f = j.fields, stars = +((f.stars && f.stars.integerValue) || 0);
+      var friends = ((f.friends && f.friends.arrayValue && f.friends.arrayValue.values) || []).map(function (v) { return v.stringValue; });
+      if (stars > (save.stars || 0) || friends.length > (save.friends || []).length) {
+        save.stars = Math.max(stars, save.stars || 0);
+        if (friends.length > save.friends.length) save.friends = friends;
+        try { localStorage.setItem(saveKey(), JSON.stringify(save)); } catch (e) {}
+        drawStars();
+      }
+      if ((save.stars || 0) > stars || save.friends.length > friends.length) pushProgress();
+    }).catch(function () {});
+  }
 
   function $(id) { return document.getElementById(id); }
   function show(id) {
     ["home","game","reward","profile"].forEach(function (x) { $(x).classList.toggle("on", x === id); });
     if (id !== "game") stopTimer();
-    if (id === "home") drawBeat();
+    if (id === "home") drawBeat(); else $("badge").hidden = true;
     $("homeBtn").style.display = id === "home" ? "none" : "inline-block";
     $("profileBtn").style.display = id === "home" ? "inline-block" : "none";
   }
@@ -626,11 +701,11 @@
 
   function finish() {
     $("bar").style.width = "100%";
-    var friend = pickOne(FRIENDS);
+    var friend = newFriend();
     save.friends.push(friend);
     persist(); drawStars();
     $("newFriend").textContent = friend;
-    $("rewardText").textContent = "You got " + state.right + " out of " + ROUND + " on the first try! A new friend joined your stable.";
+    $("rewardText").textContent = "You got " + state.right + " out of " + ROUND + " on the first try! A new friend joined your stable." + unlockHint();
     speak("Woohoo! You did it! A new friend joined your stable!");
     show("reward");
     for (var i = 0; i < 3; i++) setTimeout(function () { sparkle($("newFriend")); }, i * 300);
@@ -671,7 +746,7 @@
       $("beat").innerHTML = h;
     }
     render();
-    loadScores().then(render);
+    loadScores().then(function () { render(); drawBadge(); });
   }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
@@ -680,7 +755,7 @@
     $("checkBtn").disabled = true;
     var score = state.solved, key = state.mode + "_" + state.timed;
     var p = window.KidVoice && KidVoice.active(), name = p ? p.name : "A unicorn";
-    var friend = pickOne(FRIENDS);
+    var friend = newFriend();
     if (score > 0) { save.friends.push(friend); persist(); drawStars(); }
     $("newFriend").textContent = score > 0 ? friend : "⏱";
     $("rewardText").textContent = "Time's up! You got " + score + " right.";
@@ -693,11 +768,44 @@
         for (var i = 0; i < 4; i++) setTimeout(function () { sparkle($("newFriend")); }, i * 250);
         saveScore(key, name, score);
         scores[key] = { name: name, score: score };
+        drawBadge();
       } else if (best) {
         $("rewardText").textContent = "Time's up! You got " + score + " right. Score to beat: " + best.score + " by " + best.name + ".";
       }
     });
   }
+
+  // ---- trophy badge: shows under her name while she holds a record
+  var LEN_NAMES = { 30: "30 sec", 60: "1 min" };
+  function myRecords() {
+    var p = window.KidVoice && KidVoice.active(), out = [];
+    if (!p) return out;
+    ["add", "sub", "mix"].forEach(function (m) {
+      [30, 60].forEach(function (t) {
+        var sc = scores[m + "_" + t];
+        if (sc && sc.score && sc.name === p.name) out.push(MODE_ICONS[m] + " " + MODE_NAMES[m] + ", " + LEN_NAMES[t] + ": " + sc.score);
+      });
+    });
+    return out;
+  }
+  function drawBadge() {
+    var recs = myRecords(), b = $("badge");
+    b.hidden = !recs.length || !$("home").classList.contains("on");
+    b.title = recs.length + " record" + (recs.length === 1 ? "" : "s");
+  }
+  $("badge").onclick = function () {
+    var b = $("badge");
+    b.classList.remove("party"); void b.offsetWidth; b.classList.add("party");
+    sparkle(b);
+    setTimeout(function () {
+      var recs = myRecords();
+      $("recList").innerHTML = recs.map(esc).join("<br>") || "No records right now.";
+      $("records").hidden = false;
+      var t = $("trophyBig"); t.style.animation = "none"; void t.offsetWidth; t.style.animation = "";
+      for (var i = 0; i < 3; i++) setTimeout(function () { sparkle(t); }, i * 250);
+    }, 700);
+  };
+  $("recClose").onclick = function () { $("records").hidden = true; };
 
   // ---- profile + voice recording
   function drawWho() {
@@ -724,7 +832,7 @@
       box.appendChild(b);
     });
   }
-  function switchedProfile() { loadSave(); drawStars(); drawWho(); }
+  function switchedProfile() { loadSave(); drawStars(); drawWho(); pullProgress(); drawBadge(); }
   $("nameSave").onclick = function () {
     var p = KidVoice.addProfile($("nameIn").value);
     if (!p) return;
@@ -854,7 +962,7 @@
     recBtns([{ cls: "erase", text: "OK", fn: function () { $("rec").hidden = true; } }]);
   }
 
-  if (window.KidVoice) { drawWho(); KidVoice.loadClips(); }
+  if (window.KidVoice) { drawWho(); KidVoice.loadClips(); pullProgress(); }
   drawStars();
   drawBeat();
   if (location.hash === "#profile" && window.KidVoice) KidVoice.loadClips().then(openProfile);

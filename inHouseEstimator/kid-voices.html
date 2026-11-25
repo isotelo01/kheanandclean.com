@@ -23,7 +23,9 @@ h1{font:700 28px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
 .kh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .kh .n{font-size:20px;font-weight:700}
 .kh .c{color:rgba(255,255,255,.7);font-size:14px}
-.kh a,.btn{margin-left:auto;background:var(--gold);color:#000;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}
+.kh a{margin-left:auto}
+.btn.del{background:#7a2a2a;color:#fff;margin-left:0}
+.kh a,.btn{background:var(--gold);color:#000;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}
 .lines{margin-top:10px;display:grid;gap:6px}
 .line{display:flex;align-items:center;gap:8px;background:#0b1424;border-radius:8px;padding:6px 8px}
 .line .t{flex:1}
@@ -45,7 +47,7 @@ h1{font:700 28px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
   <p class="note">Unicorn Math recordings saved on the website. Play or remove any line. Re-record opens that kid's profile in the game.</p>
   <div id="kids">Loading…</div>
 </div>
-<script src="../kids/voice.js?v=2"></script>
+<script src="../kids/voice.js?v=3"></script>
 <script>
 (function () {
   var box = document.getElementById("kids");
@@ -58,9 +60,17 @@ h1{font:700 28px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
         var el = document.createElement("div");
         el.className = "kid";
         el.innerHTML = '<div class="kh"><span class="n"></span><span class="c">' + have + " of " + KidVoice.LINES.length + ' recorded</span>' +
-          '<a href="../kids/unicorn-math.html?kid=' + encodeURIComponent(k.id) + "&name=" + encodeURIComponent(k.name) + '#profile">🎤 Re-record</a></div>' +
+          '<a href="../kids/unicorn-math.html?kid=' + encodeURIComponent(k.id) + "&name=" + encodeURIComponent(k.name) + '#profile">🎤 Re-record</a>' +
+          '<button class="btn del">Delete profile</button></div>' +
+          '<div class="c">⭐ ' + (k.stars || 0) + ' stars &nbsp; ' + (k.friends && k.friends.length ? k.friends.join(" ") : "no friends yet") + '</div>' +
           '<button class="toggle">Show lines ▾</button><div class="lines" hidden></div>';
         el.querySelector(".n").textContent = k.name;
+        var del = el.querySelector(".del");
+        del.onclick = function () {
+          if (del.dataset.sure !== "1") { del.dataset.sure = "1"; del.textContent = "Tap again to delete " + k.name; return; }
+          del.disabled = true; del.textContent = "Deleting…";
+          KidVoice.deleteKid(k).then(draw, function () { del.textContent = "Didn't work"; });
+        };
         var lines = el.querySelector(".lines"), tg = el.querySelector(".toggle");
         tg.onclick = function () { lines.hidden = !lines.hidden; tg.textContent = lines.hidden ? "Show lines ▾" : "Hide lines ▴"; };
         KidVoice.LINES.forEach(function (l) {
