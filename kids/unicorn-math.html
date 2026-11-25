@@ -110,10 +110,43 @@
   .wbtns .check { background: #ff7eb6; }
   .wbtns .check:disabled { opacity: .45; }
 
-  .beat { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px 10px; max-width: 520px; margin: 8px auto 4px; background: #fff; border-radius: 18px; padding: 12px 14px; box-shadow: 0 4px 0 #d3b8f0; font-size: 17px; text-align: left; align-items: center; }
-  .beat .h { font-weight: 800; color: #7b3fb5; font-size: 15px; }
-  .beat .m { font-weight: 800; }
-  .beat .sc b { font-size: 20px; color: #c2408a; }
+  /* home: everything on one screen, menu down the right side */
+  #home { max-width: 1100px; padding-top: 0; padding-bottom: 10px; }
+  .homegrid { display: grid; grid-template-columns: 1fr 290px; gap: 18px; align-items: start; }
+  .title { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  #home .big-unicorn { font-size: 72px; margin: 0; display: inline-block; }
+  #home h1 { font-size: 38px; margin: 0; }
+  #home .sub { font-size: 18px; margin: 2px 0 0; }
+  #home .label { margin-top: 8px; }
+  #home .row { margin: 6px 0 6px; }
+  #home .pick { gap: 10px; margin: 8px auto; max-width: 440px; }
+  #home .pick button { padding: 14px; font-size: 24px; }
+  #home .stable { font-size: 40px; min-height: 52px; margin: 4px 0; line-height: 1.3; max-height: 26vh; overflow-y: auto; padding: 6px 0; }
+  .side { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+  .side-h { font-size: 18px; font-weight: 800; margin-top: 2px; }
+  .beat { display: grid; grid-template-columns: auto 1fr 1fr; gap: 4px 8px; background: #fff; border-radius: 16px; padding: 10px 12px; box-shadow: 0 4px 0 #d3b8f0; font-size: 14px; align-items: center; }
+  .beat .h { font-weight: 800; color: #7b3fb5; font-size: 13px; }
+  .beat .m { font-weight: 800; font-size: 18px; }
+  .beat .sc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .beat .sc b { font-size: 17px; color: #c2408a; }
+  .quests { display: flex; flex-direction: column; gap: 10px; }
+  .quests button { font: inherit; font-size: 20px; font-weight: 700; border: 0; border-radius: 18px; padding: 14px; background: #fff; color: #7b3fb5; box-shadow: 0 4px 0 #d3b8f0; text-align: left; }
+  .quests button.sel { background: #7b3fb5; color: #fff; }
+  .starbox { font-size: 24px; }
+  @media (max-width: 760px) {
+    .homegrid { grid-template-columns: 1fr; }
+    .quests { flex-direction: row; flex-wrap: wrap; }
+  }
+  /* tap a unicorn friend to make it dance */
+  .stable .f { display: inline-block; cursor: pointer; }
+  .f.spin { animation: fSpin 1s ease; }
+  .f.bounce { animation: fBounce 1s ease; }
+  .f.dance { animation: fDance 1.1s ease; }
+  .f.flip { animation: fFlip 1s ease; }
+  @keyframes fSpin { 0% { transform: scale(1) rotate(0); } 50% { transform: scale(2.2) rotate(360deg); } 100% { transform: scale(1) rotate(720deg); } }
+  @keyframes fBounce { 0%,100% { transform: translateY(0) scale(1); } 20% { transform: translateY(-40px) scale(1.6); } 40% { transform: translateY(0) scale(1.2, .8); } 60% { transform: translateY(-25px) scale(1.5); } 80% { transform: translateY(0) scale(1.1, .9); } }
+  @keyframes fDance { 0%,100% { transform: rotate(0) scale(1); } 15% { transform: rotate(-25deg) scale(1.7); } 30% { transform: rotate(25deg) scale(1.9); } 45% { transform: rotate(-25deg) scale(1.9); } 60% { transform: rotate(25deg) scale(1.7); } 80% { transform: rotate(0) scale(2); } }
+  @keyframes fFlip { 0% { transform: scale(1) rotateY(0); } 50% { transform: scale(2) rotateY(540deg) translateY(-20px); } 100% { transform: scale(1) rotateY(720deg); } }
   .timer { font-size: 22px; font-weight: 800; }
   .who { font: inherit; font-size: 22px; font-weight: 700; border: 0; border-radius: 18px; padding: 10px 18px; background: #fff; color: #7b3fb5; box-shadow: 0 4px 0 #d3b8f0; margin-bottom: 6px; }
   #profile h2 { font-size: 26px; margin: 26px 0 4px; }
@@ -140,48 +173,47 @@
 <body>
 
 <div class="top">
-  <span>⭐ <span id="stars">0</span></span>
-  <button id="homeBtn" style="display:none">🏠 Home</button>
+  <span>
+    <button class="who" id="profileBtn">🦄 <span id="pname">Who's playing?</span></button>
+    <button id="homeBtn" style="display:none">🏠 Home</button>
+  </span>
+  <span class="starbox">⭐ <span id="stars">0</span></span>
 </div>
 
 <!-- HOME -->
 <div class="screen on" id="home">
-  <div class="big-unicorn">🦄</div>
-  <h1>Unicorn Math</h1>
-  <p class="sub">Help the unicorn find the magic numbers!</p>
-  <button class="who" id="profileBtn">🦄 <span id="pname">Who's playing?</span></button>
+  <div class="homegrid">
+    <div class="main">
+      <div class="title"><span class="big-unicorn">🦄</span><div><h1>Unicorn Math</h1><p class="sub">Help the unicorn find the magic numbers!</p></div></div>
 
-  <div class="label">How big are the numbers?</div>
-  <div class="row" id="levels">
-    <button data-max="5" class="sel">Up to 5</button>
-    <button data-max="10">Up to 10</button>
-    <button data-max="20">Up to 20</button>
+      <div class="label">How big are the numbers?</div>
+      <div class="row" id="levels">
+        <button data-max="5" class="sel">Up to 5</button>
+        <button data-max="10">Up to 10</button>
+        <button data-max="20">Up to 20</button>
+      </div>
+
+      <div class="pick">
+        <button class="add" data-mode="add">➕ Adding</button>
+        <button class="sub-b" data-mode="sub">➖ Taking away</button>
+        <button class="mix" data-mode="mix">🌈 Mix it up</button>
+      </div>
+
+      <div class="label">My unicorn friends <span class="small">(tap one!)</span></div>
+      <div class="stable" id="stableHome"></div>
+    </div>
+
+    <aside class="side">
+      <div class="side-h">🏆 High scores</div>
+      <div class="beat" id="beat"></div>
+      <div class="side-h">⚔️ Super Side Quests</div>
+      <div class="quests" id="playHow">
+        <button data-t="0" class="sel">🔟 10 questions</button>
+        <button data-t="30">⏱ 30 seconds</button>
+        <button data-t="60">⏱ 1 minute</button>
+      </div>
+    </aside>
   </div>
-
-  <div class="label">How do you answer?</div>
-  <div class="row" id="answerHow">
-    <button data-how="write" class="sel">✍️ Write it</button>
-    <button data-how="tap">👆 Tap it</button>
-  </div>
-
-  <div class="label">How do you play?</div>
-  <div class="row" id="playHow">
-    <button data-t="0" class="sel">🔟 10 questions</button>
-    <button data-t="30">⏱ 30 seconds</button>
-    <button data-t="60">⏱ 1 minute</button>
-  </div>
-
-  <div class="pick">
-    <button class="add" data-mode="add">➕ Adding</button>
-    <button class="sub-b" data-mode="sub">➖ Taking away</button>
-    <button class="mix" data-mode="mix">🌈 Mix it up</button>
-  </div>
-
-  <div class="label">🏆 Scores to beat</div>
-  <div class="beat" id="beat"></div>
-
-  <div class="label">My unicorn friends</div>
-  <div class="stable" id="stableHome"></div>
 </div>
 
 <!-- GAME -->
@@ -270,15 +302,25 @@
     if (id !== "game") stopTimer();
     if (id === "home") drawBeat();
     $("homeBtn").style.display = id === "home" ? "none" : "inline-block";
+    $("profileBtn").style.display = id === "home" ? "inline-block" : "none";
   }
   function rand(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
   function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   function drawStars() {
     $("stars").textContent = save.stars;
-    var txt = save.friends.length ? save.friends.join(" ") : "Play to earn unicorn friends!";
-    $("stableHome").textContent = txt;
-    $("stableReward").textContent = txt;
-    $("stableHome").style.fontSize = save.friends.length ? "46px" : "18px";
+    ["stableHome", "stableReward"].forEach(function (id) {
+      var box = $(id);
+      box.innerHTML = "";
+      if (!save.friends.length) { box.textContent = "Play to earn unicorn friends!"; box.style.fontSize = "18px"; return; }
+      box.style.fontSize = "";
+      save.friends.forEach(function (f) {
+        var el = document.createElement("span");
+        el.className = "f"; el.textContent = f;
+        el.onclick = function () { danceFriend(el); };
+        box.appendChild(el);
+        box.appendChild(document.createTextNode(" "));
+      });
+    });
   }
 
   // Pick the nicest woman's voice the device has (Premium/Enhanced first).
@@ -549,6 +591,19 @@
       erase();
     }
   };
+
+  var MOVES = ["spin", "bounce", "dance", "flip"];
+  function danceFriend(el) {
+    if (el.dancing) return;
+    el.dancing = true;
+    var m = pickOne(MOVES);
+    el.classList.add(m);
+    sparkle(el);
+    el.addEventListener("animationend", function done() {
+      el.classList.remove(m); el.dancing = false;
+      el.removeEventListener("animationend", done);
+    });
+  }
 
   function sparkle(el) {
     var r = el.getBoundingClientRect();
