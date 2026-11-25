@@ -181,8 +181,8 @@
 (function () {
   var ROUND = 10;
   var FRIENDS = ["🦄","🌈","🦋","🌸","⭐","🍭","🧁","🌙","💖","🎀","🍦","🌟","🪄","🍓","☁️","👑"];
-  var PRAISE = ["Magical!","Sparkly!","You got it!","Super star!","Rainbow power!","Amazing!","Yay!"];
-  var TRY = ["Try again!","So close!","Oops, one more try!"];
+  var PRAISE = ["Woohoo! You got it!","Yay! That's magical!","Amazing! Super star!","Wow! Rainbow power!","Yes! You did it!","Sparkly! Great job!"];
+  var TRY = ["Ooh, so close! Try again!","Oops! You can do it, try again!","Almost! One more try!"];
 
   var state = { max: 5, mode: "add", how: "write", n: 0, right: 0, missed: false, a: 0, b: 0, op: "+", ans: 0 };
   var save = { stars: 0, friends: [] };
@@ -205,17 +205,41 @@
     $("stableHome").style.fontSize = save.friends.length ? "46px" : "18px";
   }
 
+  // Pick the nicest woman's voice the device has (Premium/Enhanced first).
+  var VOICE_NAMES = ["Ava", "Zoe", "Samantha", "Allison", "Susan", "Nicky", "Karen", "Tessa", "Moira", "Serena", "Kate", "Victoria",
+                     "Google US English", "Microsoft Aria", "Microsoft Jenny", "Microsoft Zira"];
+  var voice = null;
+  function pickVoice() {
+    try {
+      var vs = speechSynthesis.getVoices().filter(function (v) { return /^en/i.test(v.lang); });
+      var best = null, bestScore = -1;
+      vs.forEach(function (v) {
+        var i = -1;
+        VOICE_NAMES.forEach(function (n, k) { if (i < 0 && v.name.indexOf(n) === 0) i = k; });
+        if (i < 0) return;
+        var score = 100 - i + (/premium/i.test(v.name) ? 60 : /enhanced|natural|neural|online/i.test(v.name) ? 40 : 0);
+        if (score > bestScore) { bestScore = score; best = v; }
+      });
+      voice = best;
+    } catch (e) {}
+  }
+  if (window.speechSynthesis) {
+    pickVoice();
+    try { speechSynthesis.addEventListener("voiceschanged", pickVoice); } catch (e) { speechSynthesis.onvoiceschanged = pickVoice; }
+  }
   function speak(text) {
     try {
       if (!window.speechSynthesis) return;
       speechSynthesis.cancel();
+      if (!voice) pickVoice();
       var u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.9; u.pitch = 1.3;
+      if (voice) { u.voice = voice; u.lang = voice.lang; }
+      u.rate = 1.05; u.pitch = 1.15;
       speechSynthesis.speak(u);
     } catch (e) {}
   }
   function sayProblem() {
-    speak(state.a + (state.op === "+" ? " plus " : " take away ") + state.b + " equals what?");
+    speak("What is " + state.a + (state.op === "+" ? " plus " : " take away ") + state.b + "?");
   }
 
   // ---- home controls
@@ -439,7 +463,7 @@
     persist(); drawStars();
     $("newFriend").textContent = friend;
     $("rewardText").textContent = "You got " + state.right + " out of " + ROUND + " on the first try! A new friend joined your stable.";
-    speak("You did it! A new friend joined your stable!");
+    speak("Woohoo! You did it! A new friend joined your stable!");
     show("reward");
     for (var i = 0; i < 3; i++) setTimeout(function () { sparkle($("newFriend")); }, i * 300);
   }
