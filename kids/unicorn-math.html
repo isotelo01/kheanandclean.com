@@ -170,6 +170,7 @@
   .line { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 14px; padding: 8px 10px; margin: 6px 0; }
   .line .tx { flex: 1; font-size: 18px; font-weight: 600; }
   .line .ok { width: 26px; text-align: center; }
+  .line.taken { opacity: .5; background: #f1edf7; }
   .line button { font: inherit; font-size: 16px; font-weight: 700; border: 0; border-radius: 10px; padding: 8px 12px; background: #efe6ff; color: #7b3fb5; }
   .rec { position: fixed; inset: 0; background: rgba(74,44,109,.55); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
   .rec[hidden] { display: none; }
@@ -298,7 +299,7 @@
 </div>
 
 <script src="digits.js?v=4"></script>
-<script src="voice.js?v=3"></script>
+<script src="voice.js?v=4"></script>
 <script>
 (function () {
   var ROUND = 10;
@@ -849,16 +850,21 @@
     KidVoice.LINES.forEach(function (l) {
       var row = document.createElement("div");
       row.className = "line";
+      // first come, first served: a line another kid already recorded is grayed out
+      var by = KidVoice.ownerOf(l.key);
+      if (by) row.className += " taken";
       row.innerHTML = '<span class="ok">' + (KidVoice.has(l.key) ? "✅" : "⬜") + '</span><span class="tx"></span>';
-      row.querySelector(".tx").textContent = l.text;
+      row.querySelector(".tx").textContent = l.text + (by ? " — recorded by " + by : "");
       if (KidVoice.has(l.key)) {
         var pb = document.createElement("button"); pb.textContent = "▶ Play";
         pb.onclick = function () { KidVoice.play([l.key]); };
         row.appendChild(pb);
       }
-      var rb = document.createElement("button"); rb.textContent = "🎤 Record";
-      rb.onclick = function () { recordLines([l]); };
-      row.appendChild(rb);
+      if (!by) {
+        var rb = document.createElement("button"); rb.textContent = "🎤 Record";
+        rb.onclick = function () { recordLines([l]); };
+        row.appendChild(rb);
+      }
       box.appendChild(row);
     });
   }

@@ -84,9 +84,11 @@
 
   // clips[key] = playable URL for the active profile
   var clips = {};
+  var owner = {};   // key -> name of the OTHER kid whose recording is used (first come, first served)
   function loadClips() {
     var p = active();
-    if (!p) return Promise.resolve(clips);
+    owner = {};
+    if (!p) return sharedFill(null).then(function () { return clips; });
     var prefix = p.id + "/";
     var local = idb("readonly", function (st) {
       var keysReq = st.getAllKeys ? st.getAllKeys() : null, valsReq = st.getAll ? st.getAll() : null;
@@ -105,7 +107,18 @@
     return Promise.all([local, remote]).then(function (r) {
       var f = r[1];
       Object.keys(f).forEach(function (k) { if (!clips[k] && f[k].stringValue) clips[k] = f[k].stringValue; });
-      return clips;
+      return sharedFill(p.id);
+    }).then(function () { return clips; });
+  }
+  // One shared set of lines: anything this kid hasn't recorded uses another kid's recording.
+  function sharedFill(myId) {
+    return siteKids().then(function (kids) {
+      kids.forEach(function (k) {
+        if (k.id === myId) return;
+        Object.keys(k.clips).forEach(function (key) {
+          if (!clips[key]) { clips[key] = k.clips[key]; owner[key] = k.name; }
+        });
+      });
     });
   }
 
@@ -139,6 +152,7 @@
     var p = active();
     if (!p) return Promise.reject(new Error("No profile"));
     clips[key] = URL.createObjectURL(blob);
+    delete owner[key];
     var local = idb("readwrite", function (st) { st.put(blob, p.id + "/" + key); }).catch(function () {});
     return local.then(function () {
       return firebase().then(function (f) {
@@ -238,7 +252,9 @@
     LINES: LINES, keyFor: function (t) { return BY_TEXT[t]; },
     getProfiles: getProfiles, active: active, addProfile: addProfile, useProfile: useProfile,
     loadClips: loadClips, saveClip: saveClip, play: play, stop: stop, hasAll: hasAll,
-    has: function (k) { return !!clips[k]; }, signedIn: signedIn, signIn: signIn,
+    has: function (k) { return !!clips[k]; },
+    ownerOf: function (k) { return owner[k] || null; },
+    mine: function (k) { return !!clips[k] && !owner[k]; }, signedIn: signedIn, signIn: signIn,
     siteKids: siteKids, syncProfiles: syncProfiles, registerKid: registerKid, deleteClip: deleteClip, deleteKid: deleteKid, FB: FB
   };
   // ?kid=<id> opens that kid's profile (used by the admin page's Re-record button)
