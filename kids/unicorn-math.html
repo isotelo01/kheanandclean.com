@@ -110,6 +110,24 @@
   .wbtns .check { background: #ff7eb6; }
   .wbtns .check:disabled { opacity: .45; }
 
+  .who { font: inherit; font-size: 22px; font-weight: 700; border: 0; border-radius: 18px; padding: 10px 18px; background: #fff; color: #7b3fb5; box-shadow: 0 4px 0 #d3b8f0; margin-bottom: 6px; }
+  #profile h2 { font-size: 26px; margin: 26px 0 4px; }
+  .namebox { display: flex; gap: 10px; justify-content: center; margin: 8px 0 10px; }
+  .namebox input, .signin input { font: inherit; font-size: 22px; padding: 12px 14px; border-radius: 14px; border: 2px solid #d3b8f0; width: 100%; max-width: 280px; }
+  .namebox button, .signin button { font: inherit; font-size: 20px; font-weight: 700; border: 0; border-radius: 14px; padding: 12px 18px; background: #7b3fb5; color: #fff; }
+  .signin { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 6px 0 10px; }
+  .lines { max-width: 520px; margin: 0 auto; text-align: left; }
+  .line { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 14px; padding: 8px 10px; margin: 6px 0; }
+  .line .tx { flex: 1; font-size: 18px; font-weight: 600; }
+  .line .ok { width: 26px; text-align: center; }
+  .line button { font: inherit; font-size: 16px; font-weight: 700; border: 0; border-radius: 10px; padding: 8px 12px; background: #efe6ff; color: #7b3fb5; }
+  .rec { position: fixed; inset: 0; background: rgba(74,44,109,.55); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .rec[hidden] { display: none; }
+  .rec-card { background: #fff; border-radius: 26px; padding: 22px 18px; width: 100%; max-width: 560px; text-align: center; }
+  .rec-words { font-size: 54px; font-weight: 800; margin: 8px 0; line-height: 1.15; }
+  .rec-count { font-size: 40px; font-weight: 800; color: #ff5fa2; min-height: 54px; }
+  .rec-bar { height: 14px; background: #f1e9ff; border-radius: 8px; overflow: hidden; margin: 8px 0 14px; }
+  .rec-bar div { height: 100%; width: 0; background: #ff5fa2; }
   .spark { position: fixed; pointer-events: none; font-size: 30px; z-index: 10; animation: fly 1.2s ease-out forwards; }
   @keyframes fly { to { transform: translate(var(--x), var(--y)) rotate(360deg); opacity: 0; } }
 </style>
@@ -126,6 +144,7 @@
   <div class="big-unicorn">🦄</div>
   <h1>Unicorn Math</h1>
   <p class="sub">Help the unicorn find the magic numbers!</p>
+  <button class="who" id="profileBtn">🦄 <span id="pname">Who's playing?</span></button>
 
   <div class="label">How big are the numbers?</div>
   <div class="row" id="levels">
@@ -169,6 +188,40 @@
   <button class="say" id="sayBtn">🔊 Read it to me</button>
 </div>
 
+<!-- PROFILE + VOICE RECORDING -->
+<div class="screen" id="profile">
+  <h1>🦄 My Profile</h1>
+  <div class="label">What's your name?</div>
+  <div class="namebox">
+    <input id="nameIn" maxlength="24" placeholder="Type your name" autocomplete="off">
+    <button id="nameSave">Save</button>
+  </div>
+  <div class="row" id="profList"></div>
+
+  <div id="voiceArea">
+    <h2>🎤 Record the game's voice</h2>
+    <p class="small" id="signState"></p>
+    <div class="signin" id="signBox" hidden>
+      <input id="sEmail" type="email" placeholder="Email (app login)" autocomplete="username">
+      <input id="sPw" type="password" placeholder="Password" autocomplete="current-password">
+      <button id="sGo">Sign in</button>
+      <div class="small" id="sErr"></div>
+    </div>
+    <div class="pick"><button class="add" id="recAll">Record the missing ones</button></div>
+    <div class="lines" id="lineList"></div>
+  </div>
+</div>
+
+<div class="rec" id="rec" hidden>
+  <div class="rec-card">
+    <div class="small">Read the words</div>
+    <div class="rec-words" id="recWords"></div>
+    <div class="rec-count" id="recCount"></div>
+    <div class="rec-bar"><div id="recBar"></div></div>
+    <div class="wbtns" id="recBtns"></div>
+  </div>
+</div>
+
 <!-- REWARD -->
 <div class="screen reward" id="reward">
   <h1>You did it! 🎉</h1>
@@ -181,7 +234,8 @@
   </div>
 </div>
 
-<script src="digits.js?v=2"></script>
+<script src="digits.js?v=3"></script>
+<script src="voice.js?v=1"></script>
 <script>
 (function () {
   var ROUND = 10;
@@ -192,12 +246,18 @@
   var state = { max: 5, mode: "add", how: "write", n: 0, right: 0, missed: false, a: 0, b: 0, op: "+", ans: 0 };
   var save = { stars: 0, friends: [] };
 
-  try { var s = JSON.parse(localStorage.getItem("unicornMath") || "null"); if (s) save = s; } catch (e) {}
-  function persist() { try { localStorage.setItem("unicornMath", JSON.stringify(save)); } catch (e) {} }
+  // each profile keeps its own stars and unicorn friends
+  function saveKey() { var p = window.KidVoice && KidVoice.active(); return p ? "unicornMath:" + p.id : "unicornMath"; }
+  function loadSave() {
+    save = { stars: 0, friends: [] };
+    try { var s = JSON.parse(localStorage.getItem(saveKey()) || "null"); if (s) save = s; } catch (e) {}
+  }
+  loadSave();
+  function persist() { try { localStorage.setItem(saveKey(), JSON.stringify(save)); } catch (e) {} }
 
   function $(id) { return document.getElementById(id); }
   function show(id) {
-    ["home","game","reward"].forEach(function (x) { $(x).classList.toggle("on", x === id); });
+    ["home","game","reward","profile"].forEach(function (x) { $(x).classList.toggle("on", x === id); });
     $("homeBtn").style.display = id === "home" ? "none" : "inline-block";
   }
   function rand(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
@@ -232,7 +292,19 @@
     pickVoice();
     try { speechSynthesis.addEventListener("voiceschanged", pickVoice); } catch (e) { speechSynthesis.onvoiceschanged = pickVoice; }
   }
-  function speak(text) {
+  // Use the kid's recordings when they exist; otherwise the iPad voice.
+  function speak(text, keys) {
+    if (window.KidVoice) {
+      if (!keys) { var k = KidVoice.keyFor(text); keys = k ? [k] : null; }
+      if (keys && KidVoice.hasAll(keys)) {
+        try { speechSynthesis.cancel(); } catch (e) {}
+        KidVoice.play(keys);
+        return;
+      }
+    }
+    tts(text);
+  }
+  function tts(text) {
     try {
       if (!window.speechSynthesis) return;
       speechSynthesis.cancel();
@@ -244,7 +316,8 @@
     } catch (e) {}
   }
   function sayProblem() {
-    speak("What is " + state.a + (state.op === "+" ? " plus " : " take away ") + state.b + "?");
+    speak("What is " + state.a + (state.op === "+" ? " plus " : " take away ") + state.b + "?",
+          ["what_is", "n" + state.a, state.op === "+" ? "plus" : "take_away", "n" + state.b]);
   }
 
   // ---- home controls
@@ -457,6 +530,173 @@
     for (var i = 0; i < 3; i++) setTimeout(function () { sparkle($("newFriend")); }, i * 300);
   }
 
+  // ---- profile + voice recording
+  function drawWho() {
+    var p = window.KidVoice && KidVoice.active();
+    $("pname").textContent = p ? p.name : "Who's playing?";
+  }
+  $("profileBtn").onclick = openProfile;
+  function openProfile() {
+    var p = KidVoice.active();
+    $("nameIn").value = p ? p.name : "";
+    drawProfiles();
+    drawLines();
+    drawSign();
+    show("profile");
+  }
+  function drawProfiles() {
+    var box = $("profList"), act = KidVoice.active();
+    box.innerHTML = "";
+    KidVoice.getProfiles().forEach(function (p) {
+      var b = document.createElement("button");
+      b.textContent = p.name;
+      if (act && act.id === p.id) b.classList.add("sel");
+      b.onclick = function () { KidVoice.useProfile(p.id).then(drawLines); switchedProfile(); openProfile(); };
+      box.appendChild(b);
+    });
+  }
+  function switchedProfile() { loadSave(); drawStars(); drawWho(); }
+  $("nameSave").onclick = function () {
+    var p = KidVoice.addProfile($("nameIn").value);
+    if (!p) return;
+    switchedProfile();
+    KidVoice.loadClips().then(drawLines);
+    drawProfiles(); drawLines();
+  };
+  function drawSign() {
+    KidVoice.signedIn().then(function (yes) {
+      $("signState").textContent = yes
+        ? "Signed in: recordings save to the website, so every device uses them."
+        : "Not signed in: recordings stay on this iPad. Sign in with your app login to share them to every device.";
+      $("signBox").hidden = yes;
+    });
+  }
+  $("sGo").onclick = function () {
+    $("sErr").textContent = "";
+    KidVoice.signIn($("sEmail").value.trim(), $("sPw").value).then(drawSign, function () { $("sErr").textContent = "That didn't work. Check the email and password."; });
+  };
+  function drawLines() {
+    var box = $("lineList"), p = KidVoice.active();
+    $("voiceArea").style.display = p ? "" : "none";
+    if (!p) return;
+    box.innerHTML = "";
+    KidVoice.LINES.forEach(function (l) {
+      var row = document.createElement("div");
+      row.className = "line";
+      row.innerHTML = '<span class="ok">' + (KidVoice.has(l.key) ? "✅" : "⬜") + '</span><span class="tx"></span>';
+      row.querySelector(".tx").textContent = l.text;
+      if (KidVoice.has(l.key)) {
+        var pb = document.createElement("button"); pb.textContent = "▶ Play";
+        pb.onclick = function () { KidVoice.play([l.key]); };
+        row.appendChild(pb);
+      }
+      var rb = document.createElement("button"); rb.textContent = "🎤 Record";
+      rb.onclick = function () { recordLines([l]); };
+      row.appendChild(rb);
+      box.appendChild(row);
+    });
+  }
+  $("recAll").onclick = function () {
+    recordLines(KidVoice.LINES.filter(function (l) { return !KidVoice.has(l.key); }));
+  };
+
+  // Recorder: show the words, count "1, 2, 3", record, play it back, then Keep or Redo.
+  var stream = null;
+  function getMic() {
+    if (stream) return Promise.resolve(stream);
+    return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+      .then(function (s) { stream = s; return s; });
+  }
+  function pickType() {
+    var types = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
+    for (var i = 0; i < types.length; i++) if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(types[i])) return types[i];
+    return "";
+  }
+  var beepCtx = null;
+  function beep(hi) {
+    try {
+      beepCtx = beepCtx || new (window.AudioContext || window.webkitAudioContext)();
+      var o = beepCtx.createOscillator(), g = beepCtx.createGain();
+      o.frequency.value = hi ? 880 : 520; g.gain.value = 0.15;
+      o.connect(g); g.connect(beepCtx.destination);
+      o.start(); o.stop(beepCtx.currentTime + 0.15);
+    } catch (e) {}
+  }
+  function recBtns(list) {
+    var box = $("recBtns"); box.innerHTML = "";
+    list.forEach(function (b) {
+      var el = document.createElement("button");
+      el.className = b.cls; el.textContent = b.text; el.onclick = b.fn;
+      box.appendChild(el);
+    });
+  }
+  function recordLines(list) {
+    if (!list.length) return;
+    if (!window.MediaRecorder || !navigator.mediaDevices) { alertBox("This browser can't record. Try Safari on the iPad."); return; }
+    try { speechSynthesis.cancel(); } catch (e) {}
+    var i = 0;
+    $("rec").hidden = false;
+    getMic().then(function () { one(); }, function () { alertBox("The microphone is blocked. Allow the mic for this page in Safari, then try again."); });
+    function close() { $("rec").hidden = true; drawLines(); }
+    function one() {
+      if (i >= list.length) { close(); return; }
+      var l = list[i];
+      $("recWords").textContent = l.text;
+      $("recBar").style.width = "0";
+      $("recCount").textContent = "On three, say it!";
+      recBtns([{ cls: "check", text: "Start", fn: go }, { cls: "erase", text: "Stop", fn: close }]);
+    }
+    function go() {
+      recBtns([]);
+      var c = 1;
+      $("recCount").textContent = "1"; beep();
+      var t = setInterval(function () {
+        c++;
+        if (c <= 2) { $("recCount").textContent = String(c); beep(); return; }
+        clearInterval(t);
+        $("recCount").textContent = "3 — say it! 🎤"; beep(true);
+        capture(list[i]);
+      }, 800);
+    }
+    function capture(l) {
+      var type = pickType(), chunks = [], mr;
+      try { mr = type ? new MediaRecorder(stream, { mimeType: type }) : new MediaRecorder(stream); } catch (e) { mr = new MediaRecorder(stream); }
+      mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      mr.onstop = function () {
+        var blob = new Blob(chunks, { type: mr.mimeType || type || "audio/mp4" });
+        var url = URL.createObjectURL(blob);
+        $("recCount").textContent = "Listen…";
+        var a = new Audio(url); a.play().catch(function () {});
+        recBtns([
+          { cls: "check", text: "Keep ✅", fn: function () {
+              recBtns([]); $("recCount").textContent = "Saving…";
+              KidVoice.saveClip(l.key, blob).then(function (where) {
+                $("recCount").textContent = where === "shared" ? "Saved!" : where === "local" ? "Saved on this iPad" : "Saved here (website upload didn't work)";
+                setTimeout(function () { i++; one(); }, 700);
+              }, function () { $("recCount").textContent = "Couldn't save"; setTimeout(one, 900); });
+            } },
+          { cls: "erase", text: "Redo", fn: go },
+          { cls: "erase", text: "▶ Again", fn: function () { new Audio(url).play().catch(function () {}); } }
+        ]);
+      };
+      mr.start();
+      var ms = l.secs * 1000, t0 = Date.now();
+      recBtns([{ cls: "check", text: "Done", fn: function () { if (mr.state === "recording") mr.stop(); } }]);
+      var t = setInterval(function () {
+        var f = Math.min(1, (Date.now() - t0) / ms);
+        $("recBar").style.width = (f * 100) + "%";
+        if (f >= 1 || mr.state !== "recording") { clearInterval(t); if (mr.state === "recording") mr.stop(); }
+      }, 50);
+    }
+  }
+  function alertBox(msg) {
+    $("rec").hidden = false;
+    $("recWords").textContent = "";
+    $("recCount").textContent = msg;
+    recBtns([{ cls: "erase", text: "OK", fn: function () { $("rec").hidden = true; } }]);
+  }
+
+  if (window.KidVoice) { drawWho(); KidVoice.loadClips(); }
   drawStars();
 })();
 </script>

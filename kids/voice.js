@@ -1,0 +1,189 @@
+/* Unicorn Math: kid profiles + recorded voice clips.
+   Clips are kept on this device (IndexedDB) and, when signed in, uploaded to Firebase
+   (Storage: kid-voices/<profile>/<key>, Firestore: kidVoices/<profile>) so any device can play them. */
+(function (global) {
+  var FB = {
+    apiKey: "AIzaSyCC1AXsqeWVBS792gor4BA6MLmz1yLypqg",
+    authDomain: "khean-estimator-78f3e.firebaseapp.com",
+    projectId: "khean-estimator-78f3e",
+    storageBucket: "khean-estimator-78f3e.firebasestorage.app",
+    messagingSenderId: "581692353222",
+    appId: "1:581692353222:web:21f62f057ac5506bbb45c7"
+  };
+  var SDK = "https://www.gstatic.com/firebasejs/12.19.0/";
+
+  // Everything the game says, in the order they get recorded. secs = how long the recorder listens.
+  var LINES = [{ key: "what_is", text: "What is", secs: 2 },
+               { key: "plus", text: "plus", secs: 2 },
+               { key: "take_away", text: "take away", secs: 2 }];
+  for (var n = 0; n <= 20; n++) LINES.push({ key: "n" + n, text: String(n), secs: 2 });
+  LINES = LINES.concat([
+    { key: "p0", text: "Woohoo! You got it!", secs: 3.5 },
+    { key: "p1", text: "Yay! That's magical!", secs: 3.5 },
+    { key: "p2", text: "Amazing! Super star!", secs: 3.5 },
+    { key: "p3", text: "Wow! Rainbow power!", secs: 3.5 },
+    { key: "p4", text: "Yes! You did it!", secs: 3.5 },
+    { key: "p5", text: "Sparkly! Great job!", secs: 3.5 },
+    { key: "t0", text: "Ooh, so close! Try again!", secs: 3.5 },
+    { key: "t1", text: "Oops! You can do it, try again!", secs: 4 },
+    { key: "t2", text: "Almost! One more try!", secs: 3.5 },
+    { key: "win", text: "Woohoo! You did it! A new friend joined your stable!", secs: 5 }
+  ]);
+  var BY_TEXT = {};
+  LINES.forEach(function (l) { BY_TEXT[l.text] = l.key; });
+
+  // ---- profiles (kept on this device)
+  function slug(name) { return String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "kid"; }
+  function getProfiles() { try { return JSON.parse(localStorage.getItem("unicornProfiles") || "[]"); } catch (e) { return []; } }
+  function setProfiles(p) { try { localStorage.setItem("unicornProfiles", JSON.stringify(p)); } catch (e) {} }
+  function active() {
+    var id = null;
+    try { id = localStorage.getItem("unicornActive"); } catch (e) {}
+    var list = getProfiles();
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function addProfile(name) {
+    name = String(name || "").trim();
+    if (!name) return null;
+    var list = getProfiles(), id = slug(name);
+    var found = list.filter(function (p) { return p.id === id; })[0];
+    if (!found) { found = { id: id, name: name }; list.push(found); setProfiles(list); }
+    useProfile(id);
+    return found;
+  }
+  function useProfile(id) {
+    try { localStorage.setItem("unicornActive", id); } catch (e) {}
+    clips = {};
+    return loadClips();
+  }
+
+  // ---- local clip store
+  var dbp = null;
+  function db() {
+    if (dbp) return dbp;
+    dbp = new Promise(function (res, rej) {
+      try {
+        var r = indexedDB.open("unicornVoice", 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore("clips"); };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      } catch (e) { rej(e); }
+    });
+    return dbp;
+  }
+  function idb(mode, fn) {
+    return db().then(function (d) {
+      return new Promise(function (res, rej) {
+        var tx = d.transaction("clips", mode), st = tx.objectStore("clips"), out = fn(st);
+        tx.oncomplete = function () { res(out && out.result !== undefined ? out.result : out); };
+        tx.onerror = function () { rej(tx.error); };
+      });
+    });
+  }
+
+  // clips[key] = playable URL for the active profile
+  var clips = {};
+  function loadClips() {
+    var p = active();
+    if (!p) return Promise.resolve(clips);
+    var prefix = p.id + "/";
+    var local = idb("readonly", function (st) {
+      var keysReq = st.getAllKeys ? st.getAllKeys() : null, valsReq = st.getAll ? st.getAll() : null;
+      return { keysReq: keysReq, valsReq: valsReq };
+    }).then(function (r) {
+      var ks = r.keysReq.result || [], vs = r.valsReq.result || [];
+      ks.forEach(function (k, i) { if (String(k).indexOf(prefix) === 0) clips[k.slice(prefix.length)] = URL.createObjectURL(vs[i]); });
+    }).catch(function () {});
+    // shared copies from the website (fill in anything this device doesn't have)
+    var remote = fetch("https://firestore.googleapis.com/v1/projects/" + FB.projectId + "/databases/(default)/documents/kidVoices/" + p.id)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var f = j && j.fields && j.fields.clips && j.fields.clips.mapValue && j.fields.clips.mapValue.fields;
+        return f || {};
+      }).catch(function () { return {}; });
+    return Promise.all([local, remote]).then(function (r) {
+      var f = r[1];
+      Object.keys(f).forEach(function (k) { if (!clips[k] && f[k].stringValue) clips[k] = f[k].stringValue; });
+      return clips;
+    });
+  }
+
+  // ---- Firebase (only loaded when recording)
+  var fbp = null;
+  function firebase() {
+    if (fbp) return fbp;
+    fbp = Promise.all([import(SDK + "firebase-app.js"), import(SDK + "firebase-auth.js"),
+                       import(SDK + "firebase-storage.js"), import(SDK + "firebase-firestore.js")])
+      .then(function (m) {
+        var app = m[0].getApps().length ? m[0].getApp() : m[0].initializeApp(FB);
+        var auth = m[1].getAuth(app);
+        return new Promise(function (res) {
+          var off = m[1].onAuthStateChanged(auth, function () { off(); res({ app: app, auth: auth, A: m[1], S: m[2], F: m[3] }); });
+        });
+      });
+    return fbp;
+  }
+  function signedIn() { return firebase().then(function (f) { return !!f.auth.currentUser; }).catch(function () { return false; }); }
+  function signIn(email, pw) {
+    return firebase().then(function (f) {
+      return f.A.setPersistence(f.auth, f.A.browserLocalPersistence).then(function () {
+        return f.A.signInWithEmailAndPassword(f.auth, email, pw);
+      });
+    });
+  }
+
+  // Save a recording: always on this device; also to the website when signed in.
+  // Resolves "shared" (on the website too), "local" (this device only, not signed in) or "local-error".
+  function saveClip(key, blob) {
+    var p = active();
+    if (!p) return Promise.reject(new Error("No profile"));
+    clips[key] = URL.createObjectURL(blob);
+    var local = idb("readwrite", function (st) { st.put(blob, p.id + "/" + key); }).catch(function () {});
+    return local.then(function () {
+      return firebase().then(function (f) {
+        if (!f.auth.currentUser) return "local";
+        var ext = /mp4|m4a|aac/.test(blob.type) ? "m4a" : "webm";
+        var ref = f.S.ref(f.S.getStorage(f.app), "kid-voices/" + p.id + "/" + key + "." + ext);
+        return f.S.uploadBytes(ref, blob, { contentType: blob.type || "audio/mp4" })
+          .then(function () { return f.S.getDownloadURL(ref); })
+          .then(function (url) {
+            var data = { name: p.name, updatedAt: f.F.serverTimestamp(), clips: {} };
+            data.clips[key] = url;
+            return f.F.setDoc(f.F.doc(f.F.getFirestore(f.app), "kidVoices", p.id), data, { merge: true });
+          })
+          .then(function () { return "shared"; });
+      }).catch(function (e) { console.warn("upload failed", e); return "local-error"; });
+    });
+  }
+
+  // ---- playback: play a list of clips in a row. Resolves false (and plays nothing) if any are missing.
+  var current = null;
+  function stop() { if (current) { try { current.pause(); } catch (e) {} current = null; } }
+  function play(keys) {
+    stop();
+    for (var i = 0; i < keys.length; i++) if (!clips[keys[i]]) return Promise.resolve(false);
+    var idx = 0;
+    return new Promise(function (res) {
+      function nextClip() {
+        if (idx >= keys.length) { current = null; return res(true); }
+        var a = new Audio(clips[keys[idx++]]);
+        current = a;
+        a.onended = nextClip;
+        a.onerror = nextClip;
+        var pr = a.play();
+        if (pr && pr.catch) pr.catch(function () { nextClip(); });
+      }
+      nextClip();
+    });
+  }
+  function hasAll(keys) { return keys.every(function (k) { return !!clips[k]; }); }
+
+  global.KidVoice = {
+    LINES: LINES, keyFor: function (t) { return BY_TEXT[t]; },
+    getProfiles: getProfiles, active: active, addProfile: addProfile, useProfile: useProfile,
+    loadClips: loadClips, saveClip: saveClip, play: play, stop: stop, hasAll: hasAll,
+    has: function (k) { return !!clips[k]; }, signedIn: signedIn, signIn: signIn
+  };
+  loadClips();
+})(window);

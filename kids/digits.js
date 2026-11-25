@@ -162,7 +162,8 @@
       // same digit if this stroke mostly sits over the group (e.g. the stem of a 4, a 5's top bar)
       var over = g ? Math.min(g.b, bx.b) - Math.max(g.a, bx.a) : -1;
       var narrow = g ? Math.max(4, Math.min(g.b - g.a, bx.b - bx.a)) : 1;
-      if (g && over >= -2 && over / narrow > 0.35) { g.strokes.push(bx.s); g.b = Math.max(g.b, bx.b); }
+      var inside = g && bx.a >= g.a - 3 && bx.b <= g.b + 3;   // e.g. the straight line of a 4 sitting under its top
+      if (g && (inside || (over >= -2 && over / narrow > 0.35))) { g.strokes.push(bx.s); g.b = Math.max(g.b, bx.b); }
       else groups.push({ strokes: [bx.s], a: bx.a, b: bx.b });
     });
     // A short piece (a 1's flag or base, a 7's cross line) isn't a number by itself:
