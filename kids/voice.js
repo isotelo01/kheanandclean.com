@@ -179,7 +179,8 @@
         Object.keys(clipsF).forEach(function (k) { if (clipsF[k].stringValue) c[k] = clipsF[k].stringValue; });
         var fr = ((f.friends && f.friends.arrayValue && f.friends.arrayValue.values) || []).map(function (v) { return v.stringValue; });
         return { id: d.name.split("/").pop(), name: (f.name && f.name.stringValue) || d.name.split("/").pop(), clips: c,
-                 stars: +((f.stars && f.stars.integerValue) || 0), friends: fr };
+                 stars: +((f.stars && f.stars.integerValue) || 0), friends: fr,
+                 password: (f.password && f.password.stringValue) || "" };
       });
     }).catch(function () { return []; });
   }
@@ -210,6 +211,61 @@
     }).then(function () {
       var a = active();
       if (a && a.id === kidId) delete clips[key];
+    });
+  }
+
+  // ---- kids' login: any username (changeable) + any password. Simple, not real security.
+  function patchKid(id, fields) {
+    var body = { fields: {} }, mask = [];
+    Object.keys(fields).forEach(function (k) { body.fields[k] = { stringValue: String(fields[k]) }; mask.push("updateMask.fieldPaths=" + k); });
+    return fetch(FS + "kidVoices/" + encodeURIComponent(id) + "?" + mask.join("&"),
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { if (!r.ok) throw new Error("save failed"); });
+  }
+  function findKid(kids, name) {
+    var n = String(name).trim().toLowerCase();
+    return kids.filter(function (k) { return String(k.name).trim().toLowerCase() === n; })[0];
+  }
+  function remember(id, name) {
+    var list = getProfiles().filter(function (p) { return p.id !== id; });
+    list.push({ id: id, name: name });
+    setProfiles(list);
+    return useProfile(id);
+  }
+  function signUp(name, pw) {
+    name = String(name || "").trim();
+    if (!name) return Promise.reject(new Error("Type a username"));
+    return siteKids().then(function (kids) {
+      if (findKid(kids, name)) throw new Error("That name is taken. Try another, or log in.");
+      var id = slug(name), base = id, n = 2;
+      while (kids.some(function (k) { return k.id === id; })) id = base + "-" + n++;
+      return patchKid(id, { name: name, password: pw || "" }).then(function () { return remember(id, name); });
+    });
+  }
+  function logIn(name, pw) {
+    return siteKids().then(function (kids) {
+      var k = findKid(kids, name);
+      if (!k) throw new Error("No one has that username yet. Tap Sign up.");
+      if (k.password && k.password !== String(pw || "")) throw new Error("Wrong password. Try again!");
+      var done = k.password ? Promise.resolve() : patchKid(k.id, { password: pw || "" });   // older profile: first login sets it
+      return done.then(function () { return remember(k.id, k.name); });
+    });
+  }
+  function logOut() {
+    try { localStorage.removeItem("unicornActive"); } catch (e) {}
+    clips = {}; owner = {};
+    return loadClips();
+  }
+  function rename(newName) {
+    var p = active();
+    newName = String(newName || "").trim();
+    if (!p || !newName) return Promise.reject(new Error("Type a username"));
+    return siteKids().then(function (kids) {
+      var other = findKid(kids, newName);
+      if (other && other.id !== p.id) throw new Error("That name is taken.");
+      return patchKid(p.id, { name: newName });
+    }).then(function () {
+      setProfiles(getProfiles().map(function (q) { return q.id === p.id ? { id: q.id, name: newName } : q; }));
     });
   }
 
@@ -255,7 +311,7 @@
     has: function (k) { return !!clips[k]; },
     ownerOf: function (k) { return owner[k] || null; },
     mine: function (k) { return !!clips[k] && !owner[k]; }, signedIn: signedIn, signIn: signIn,
-    siteKids: siteKids, syncProfiles: syncProfiles, registerKid: registerKid, deleteClip: deleteClip, deleteKid: deleteKid, FB: FB
+    siteKids: siteKids, syncProfiles: syncProfiles, registerKid: registerKid, deleteClip: deleteClip, deleteKid: deleteKid, signUp: signUp, logIn: logIn, logOut: logOut, rename: rename, FB: FB
   };
   // ?kid=<id> opens that kid's profile (used by the admin page's Re-record button)
   try {

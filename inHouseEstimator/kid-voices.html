@@ -47,7 +47,7 @@ h1{font:700 28px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
   <p class="note">Unicorn Math recordings saved on the website. Play or remove any line. Re-record opens that kid's profile in the game.</p>
   <div id="kids">Loading…</div>
 </div>
-<script src="../kids/voice.js?v=4"></script>
+<script src="../kids/voice.js?v=5"></script>
 <script>
 (function () {
   var box = document.getElementById("kids");
@@ -63,8 +63,11 @@ h1{font:700 28px/1.2 "Archivo",system-ui,sans-serif;margin:0;color:var(--gold)}
           '<a href="../kids/unicorn-math.html?kid=' + encodeURIComponent(k.id) + "&name=" + encodeURIComponent(k.name) + '#profile">🎤 Re-record</a>' +
           '<button class="btn del">Delete profile</button></div>' +
           '<div class="c">⭐ ' + (k.stars || 0) + ' stars &nbsp; ' + (k.friends && k.friends.length ? k.friends.join(" ") : "no friends yet") + '</div>' +
+          '<div class="c">👤 Username: <b class="un"></b> &nbsp; 🔑 Password: <b class="pw"></b></div>' +
           '<button class="toggle">Show lines ▾</button><div class="lines" hidden></div>';
         el.querySelector(".n").textContent = k.name;
+        el.querySelector(".un").textContent = k.name;
+        el.querySelector(".pw").textContent = k.password || "(none yet)";
         var del = el.querySelector(".del");
         del.onclick = function () {
           if (del.dataset.sure !== "1") { del.dataset.sure = "1"; del.textContent = "Tap again to delete " + k.name; return; }
