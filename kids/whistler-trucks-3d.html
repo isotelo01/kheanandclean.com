@@ -16,7 +16,14 @@
   @media (max-width: 560px) { #pick { grid-template-columns: repeat(2, auto); } }
   #pick button { font: inherit; font-size: 17px; font-weight: 800; padding: 12px 14px; border: 4px solid transparent; border-radius: 16px; color: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.35); cursor: pointer; white-space: nowrap; }
   #pick button.sel { border-color: #ffd60a; transform: translateY(-3px); }
-  #hint { position: fixed; top: 76px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.85); padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 15px; transition: opacity .6s; pointer-events: none; }
+  #jump { position: fixed; top: 76px; left: 50%; transform: translateX(-50%); font: inherit; font-size: 24px; font-weight: 900; padding: 12px 26px; border: none; border-radius: 18px; background: #ffd60a; color: #1a1a1a; box-shadow: 0 6px 0 #1a1a1a; cursor: pointer; }
+  #jump:active { transform: translateX(-50%) translateY(4px); box-shadow: 0 2px 0 #1a1a1a; }
+  /* in the game pop-up: a little round video button at the bottom */
+  body.embed #jump { top: auto; bottom: 26px; width: 76px; height: 76px; padding: 0; border-radius: 50%; font-size: 36px; }
+  #banner { position: fixed; bottom: 4%; left: 50%; transform: translate(-50%,0) scale(0); font-size: clamp(40px, 10vw, 84px); font-weight: 900; color: #ffd60a; text-shadow: 4px 4px 0 #d62828, 8px 8px 0 #1a1a1a; transition: transform .3s; pointer-events: none; white-space: nowrap; }
+  #banner.show { transform: translate(-50%,0) scale(1); }
+  body.stunting #pick, body.stunting #jump, body.stunting #hint, body.stunting #spin { visibility: hidden; }
+  #hint { position: fixed; top: 150px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.85); padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 15px; transition: opacity .6s; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -28,6 +35,8 @@
 </div>
 <div id="hint">Drag to turn the truck · Pinch to zoom</div>
 <div id="pick"></div>
+<button id="jump">🚀 Jump!</button>
+<div id="banner">BIG JUMP!</div>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 <script type="module">
@@ -53,20 +62,20 @@ view.appendChild(ren.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#8fd3ff');
-scene.fog = new THREE.Fog('#8fd3ff', 14, 30);
+scene.fog = new THREE.Fog('#8fd3ff', 24, 50);
 
 const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
-function fitCam() { const far = innerWidth < innerHeight ? 11.5 : 8.5; cam.position.set(far * 0.62, 3.6, far * 0.78); }
+function fitCam() { const asp = innerWidth / innerHeight, far = asp < 1 ? Math.min(24, 9.2 / asp) : 8.5; cam.position.set(far * 0.62, 3.6 + (far - 8.5) * .12, far * 0.78); }
 fitCam();
 const ctl = new OrbitControls(cam, ren.domElement);
 ctl.enableDamping = true; ctl.target.set(0, 1.5, 0);
-ctl.minDistance = 4; ctl.maxDistance = 18; ctl.maxPolarAngle = Math.PI * 0.49; ctl.enablePan = false;
+ctl.minDistance = 4; ctl.maxDistance = 30; ctl.maxPolarAngle = Math.PI * 0.49; ctl.enablePan = false;
 ctl.autoRotate = true; ctl.autoRotateSpeed = 2.2;
 
 scene.add(new THREE.HemisphereLight('#ffffff', '#8b5a2b', 1.4));
 const sun = new THREE.DirectionalLight('#ffffff', 2.2);
 sun.position.set(5, 9, 4); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03;
 Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 });
 scene.add(sun);
 
@@ -257,6 +266,9 @@ function show(i) {
 const qs = new URLSearchParams(location.search);
 show(Math.min(TRUCKS.length - 1, Math.max(0, parseInt(qs.get('truck'), 10) || 0)));
 if (qs.has('embed')) {
+  document.body.classList.add('embed');
+  document.getElementById('jump').textContent = '🎬';
+  document.getElementById('jump').setAttribute('aria-label', 'Play the jump');
   pick.style.display = 'none';
   document.querySelector('#top a').style.visibility = 'hidden';
 }
@@ -265,10 +277,167 @@ const spinBtn = document.getElementById('spin');
 spinBtn.onclick = () => { ctl.autoRotate = !ctl.autoRotate; spinBtn.style.opacity = ctl.autoRotate ? 1 : .5; };
 ctl.addEventListener('start', () => { document.getElementById('hint').style.opacity = 0; });
 
+/* ---------- school bus ---------- */
+function textTex(text, w, h, bg, fg) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const c = cv.getContext('2d'); c.fillStyle = bg; c.fillRect(0, 0, w, h);
+  c.fillStyle = fg; c.font = `900 ${h * .62}px Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(text, w / 2, h / 2 + 2);
+  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; return tx;
+}
+const busParts = {
+  yellow: std('#f7b500', { metalness: .2, roughness: .45 }),
+  black: std('#151515', { roughness: .8 }),
+  glass: std('#1f3550', { metalness: .3, roughness: .15 }),
+  red: std('#e53935', { emissive: '#b71c1c', emissiveIntensity: .4 }),
+  amber: std('#ffb300', { emissive: '#ff8f00', emissiveIntensity: .4 }),
+  sign: new THREE.MeshStandardMaterial({ map: textTex('SCHOOL BUS', 512, 96, '#f7b500', '#111'), roughness: .5 })
+};
+function schoolBus() {
+  // long side faces the jump; front hood points +z
+  const g = new THREE.Group(), M = busParts;
+  const BW = 1.6, BH = 1.8, BASE = .45, BL = 5.5, BZ = -.55; // box body
+  const front = BZ + BL / 2;
+  const add = (geo, mat, x, y, z) => { const m = mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
+  add(new THREE.BoxGeometry(BW, BH, BL), M.yellow, 0, BASE + BH / 2, BZ);
+  add(new THREE.BoxGeometry(BW * .92, .14, BL * .98), M.yellow, 0, BASE + BH + .07, BZ);
+  add(new THREE.BoxGeometry(BW * .88, .85, 1.1), M.yellow, 0, BASE + .42, front + .55);
+  add(new THREE.BoxGeometry(BW * .7, .5, .05), M.black, 0, BASE + .45, front + 1.11);
+  add(new THREE.BoxGeometry(BW + .1, .2, .14), M.black, 0, BASE + .12, front + 1.16);
+  add(new THREE.BoxGeometry(BW + .1, .2, .14), M.black, 0, BASE + .12, BZ - BL / 2 - .05);
+  [.55, 1.0].forEach(y => add(new THREE.BoxGeometry(BW + .03, .06, BL), M.black, 0, BASE + y, BZ));
+  for (let i = 0; i < 8; i++) add(new THREE.BoxGeometry(BW + .04, .55, .5), M.glass, 0, BASE + 1.38, BZ - BL / 2 + .55 + i * .64);
+  add(new THREE.BoxGeometry(BW * .86, .62, .05), M.glass, 0, BASE + 1.3, front + .01);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(BW * .9, .26), M.sign);
+  sign.position.set(0, BASE + BH - .16, front + .03); g.add(sign);
+  const back = sign.clone(); back.position.z = BZ - BL / 2 - .03; back.rotation.y = Math.PI; g.add(back);
+  [-1, 1].forEach(s => {
+    add(new THREE.BoxGeometry(.18, .14, .06), M.amber, s * .55, BASE + BH - .16 + .0, front + .02).position.x = s * .66;
+    add(new THREE.BoxGeometry(.18, .14, .06), M.red, s * .66, BASE + BH - .16, BZ - BL / 2 - .02);
+    [front + .6, BZ - BL / 2 + 1.1].forEach(z => {
+      const w = add(new THREE.CylinderGeometry(.45, .45, .32, 20), M.black, s * (BW / 2 - .1), .45, z);
+      w.rotation.z = Math.PI / 2;
+    });
+  });
+  g.traverse(o => { o.receiveShadow = false; });   // buses still cast shadows; skipping self-shadow avoids roof blotches
+  return g;
+}
+
+/* ---------- jump stunt ---------- */
+const RAMP_H = 2.6, RAMP_L = 4.5, LAUNCH = 6.5;            // ramps end/start at x = ±6.5
+const TH = Math.atan(RAMP_H / RAMP_L), VX = 15, G = 20, VY = VX * Math.tan(TH);
+const T_GROUND = 1.0, T_RAMP = RAMP_L / VX, T_AIR = 2 * LAUNCH / VX, T_RUN = 1.5;
+const START_X = -LAUNCH - RAMP_L - VX * T_GROUND;
+let stunt = null, stuntSet = null;
+
+function buildStuntSet() {
+  const g = new THREE.Group();
+  const track = new THREE.Mesh(new THREE.PlaneGeometry(140, 90), new THREE.MeshStandardMaterial({ color: '#7a4a22', roughness: 1 }));
+  track.rotation.x = -Math.PI / 2; track.position.y = .003; track.receiveShadow = true; g.add(track);
+  const rampMat = std('#8a8a8a', { metalness: .5, roughness: .4 });
+  const stripe = std('#ffd60a');
+  const wedge = pts => { const m = mesh(new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(p => new THREE.Vector2(...p))), { depth: 3.4, bevelEnabled: false }), rampMat); m.position.z = -1.7; return m; };
+  g.add(wedge([[-LAUNCH - RAMP_L, 0], [-LAUNCH, 0], [-LAUNCH, RAMP_H]]));
+  g.add(wedge([[LAUNCH, RAMP_H], [LAUNCH, 0], [LAUNCH + RAMP_L, 0]]));
+  [-1, 1].forEach(s => { const lip = mesh(new THREE.BoxGeometry(.12, .1, 3.45), stripe); lip.position.set(s * LAUNCH, RAMP_H, 0); g.add(lip); });
+  [-3.6, -1.2, 1.2, 3.6].forEach(x => { const b = schoolBus(); b.position.x = x; g.add(b); });
+  return g;
+}
+
+// sound: engine rumble while driving, thud on landing
+let actx = null, engine = null;
+function startEngine() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume();
+    const t = actx.currentTime, lp = actx.createBiquadFilter(), g = actx.createGain();
+    lp.type = 'lowpass'; lp.frequency.value = 320; lp.Q.value = 4; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.4, t + .1);
+    const oscs = [0, 70].map(d => { const o = actx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 40; o.detune.value = d; o.connect(lp); o.start(); return o; });
+    lp.connect(g).connect(actx.destination);
+    engine = { oscs, g };
+  } catch (e) { engine = null; }
+}
+function engineRev(f) { if (engine) engine.oscs.forEach(o => o.frequency.setTargetAtTime(f, actx.currentTime, .15)); }
+function stopEngine() { if (!engine) return; const t = actx.currentTime; engine.g.gain.setTargetAtTime(.0001, t, .2); engine.oscs.forEach(o => o.stop(t + 1)); engine = null; }
+function thud() {
+  if (!actx) return;
+  const n = actx.sampleRate * .4, buf = actx.createBuffer(1, n, actx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = buf; f.type = 'lowpass'; f.frequency.value = 500; g.gain.value = 1.2; s.connect(f).connect(g).connect(actx.destination); s.start();
+}
+
+function startJump() {
+  if (stunt || !current) return;
+  stuntSet = stuntSet || buildStuntSet();
+  scene.add(stuntSet); ring.visible = false;
+  scene.fog.near = 30; scene.fog.far = 70;
+  Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16 }); sun.shadow.camera.updateProjectionMatrix();
+  document.body.classList.add('stunting');
+  ctl.enabled = false; ctl.autoRotate = false;
+  current.userData.drop = 1;
+  stunt = { tau: -0.9, landed: false, snap: true };
+  startEngine();
+}
+
+function endJump() {
+  scene.remove(stuntSet); ring.visible = true;
+  scene.fog.near = 24; scene.fog.far = 50;
+  Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); sun.shadow.camera.updateProjectionMatrix();
+  current.position.set(0, 0, 0); current.rotation.set(0, 0, 0);
+  sun.position.set(5, 9, 4); sun.target.position.set(0, 0, 0);
+  fitCam(); ctl.target.set(0, 1.5, 0); ctl.enabled = true; ctl.autoRotate = spinBtn.style.opacity !== '0.5';
+  document.body.classList.remove('stunting');
+  document.getElementById('banner').classList.remove('show');
+  stopEngine(); stunt = null;
+}
+
+function stuntStep(dt) {
+  const s = stunt;
+  const t1 = T_GROUND, t2 = t1 + T_RAMP, t3 = t2 + T_AIR, t4 = t3 + T_RAMP, t5 = t4 + T_RUN;
+  const inAir = s.tau > t2 && s.tau < t3;
+  const scale = inAir ? .38 : 1;                      // slow motion over the buses
+  s.tau += dt * scale;
+  const tau = s.tau;
+  let x, y = 0, pitch = 0, speed = VX;
+  if (tau < 0) { x = START_X; speed = 0; y = Math.abs(Math.sin(tau * 40)) * .03; engineRev(55); }
+  else if (tau < t1) { x = START_X + VX * tau; engineRev(70); }
+  else if (tau < t2) { x = START_X + VX * tau; y = (x - (-LAUNCH - RAMP_L)) * Math.tan(TH); pitch = TH; engineRev(85); }
+  else if (tau < t3) {
+    const ta = tau - t2; x = -LAUNCH + VX * ta; y = RAMP_H + VY * ta - G * ta * ta / 2;
+    pitch = Math.atan2(VY - G * ta, VX); engineRev(95);
+    if (ta > T_AIR * .25) document.getElementById('banner').classList.add('show');
+  }
+  else if (tau < t4) {
+    if (!s.landed) { s.landed = true; thud(); }
+    x = LAUNCH + VX * (tau - t3); y = RAMP_H - (x - LAUNCH) * Math.tan(TH); pitch = -TH; engineRev(60);
+  }
+  else if (tau < t5) {
+    const tr = tau - t4, a = VX / T_RUN;
+    x = LAUNCH + RAMP_L + VX * tr - a * tr * tr / 2; speed = VX - a * tr;
+    y = .35 * Math.exp(-5 * tr) * Math.abs(Math.sin(tr * 11));
+    pitch = -.08 * Math.exp(-4 * tr) * Math.sin(tr * 11); engineRev(45);
+  }
+  else { x = LAUNCH + RAMP_L + VX * T_RUN / 2; speed = 0; if (tau > t5 + 1.4) return endJump(); }
+
+  current.position.set(x, y, 0);
+  current.rotation.set(0, 0, pitch);
+  current.userData.wheels.forEach(w => w.rotation.z -= dt * scale * speed / TIRE_R);
+  sun.position.set(x + 5, 9, 4); sun.target.position.set(x, 0, 0);
+
+  // chase camera from the side
+  const zoff = 15 * Math.max(1, .85 / cam.aspect);   // back up on narrow phone screens
+  const want = new THREE.Vector3(x - 5, 4.2 + y * .4 + (zoff - 15) * .15, zoff), look = new THREE.Vector3(x + 1.5, 1.8 + y * .5, 0);
+  if (s.snap) { cam.position.copy(want); s.snap = false; } else cam.position.lerp(want, 1 - Math.exp(-dt * 5));
+  cam.lookAt(look);
+}
+scene.add(sun.target);
+document.getElementById('jump').onclick = startJump;
+
 /* ---------- animate ---------- */
 const clock = new THREE.Clock();
 function loop() {
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  if (stunt) { stuntStep(dt); ren.render(scene, cam); requestAnimationFrame(loop); return; }
   if (current) {
     // drop in with a bounce, then idle with a little engine shake
     const u = current.userData;
@@ -282,7 +451,7 @@ function loop() {
 }
 loop();
 
-addEventListener('resize', () => { ren.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+addEventListener('resize', () => { ren.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); if (!stunt) fitCam(); });
 </script>
 </body>
 </html>
