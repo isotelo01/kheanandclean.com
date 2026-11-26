@@ -9,14 +9,15 @@ export const TRUCKS = [
   { name: 'Thunder Bolt',  body: '#1565c0', accent: '#ffd60a', rim: '#c0c0c0', deco: 'bolt' },
   { name: 'Dragon Roar',   body: '#1d7a2e', accent: '#a0e426', rim: '#ff6f00', deco: 'dragon' },
   // shaped like a later (2007+) Avalanche: long crew cab, short bed, body-color sail panels, blunt front, no gray trim
-  { name: 'Tyda Mad',      body: '#e0218a', accent: '#ffd60a', rim: '#c0c0c0', deco: 'mad', shape: 'avalanche' }
+  { name: 'Tyda Mad',      body: '#c9a66b', accent: '#d62828', rim: '#c0c0c0', deco: 'mad', shape: 'avalanche' }
 ];
 // side outline for each body shape (2D drawing coordinates; front is on the right)
 export const SHAPES = {
   pickup:    { body: [[30,100],[30,62],[40,52],[112,52],[124,22],[178,22],[189,30],[196,52],[214,56],[222,68],[222,100]],
                windows: [[[128,50],[120,50],[128,28],[174,28],[182,50]]], stackX: 105 },
-  avalanche: { body: [[30,100],[30,56],[34,51],[52,51],[100,24],[110,22],[170,22],[182,27],[194,50],[218,52],[222,58],[222,100]],
-               windows: [[[104,50],[110,28],[138,28],[138,50]], [[142,50],[142,28],[173,28],[181,50]]], ws: [[182, 29], [193, 49]], stackX: 40 }
+  avalanche: { body: [[30,100],[30,56],[34,51],[52,51],[100,24],[110,22],[170,22],[182,27],[194,50],[219,51],[222,54],[222,100]],
+               windows: [[[104,50],[110,28],[138,28],[138,50]], [[142,50],[142,28],[173,28],[181,50]]], ws: [[182, 29], [193, 49]], stackX: 40,
+               faceTop: 54, face: 'chevy' }
 };
 
 /* ---------- helpers ---------- */
@@ -67,6 +68,23 @@ export function madDeco(t) {
   return `${mark(43, 66)}${mark(181, 64)}
     <text x="112" y="78" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="17"
       fill="${t.accent}" stroke="#111" stroke-width="3" paint-order="stroke" letter-spacing="1">TYDA MAD</text>`;
+}
+
+// Chevy-style front (Tyda Mad): headlights as angry eyes, upper grille between them, the wide chrome
+// bar across the middle (no logo), toothy lower grille, bumper
+export function chevyFaceSVG() {
+  let teeth = '';
+  for (let x = 18; x < 180; x += 16) teeth += `<path d="M${x} 60 l8 12 l8 -12 z M${x} 88 l8 -11 l8 11 z" fill="#fff"/>`;
+  const slats = [16, 24, 32].map(y => `<path d="M72 ${y} H128" stroke="#555" stroke-width="3"/>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 104" width="800" height="416">
+    <path d="M6 12 L62 22 L60 42 L8 38 Z M194 12 L138 22 L140 42 L192 38 Z" fill="#fff" stroke="#111" stroke-width="5" stroke-linejoin="round"/>
+    <circle cx="40" cy="30" r="7" fill="#111"/><circle cx="160" cy="30" r="7" fill="#111"/>
+    <path d="M2 4 L66 18 M198 4 L134 18" stroke="#111" stroke-width="9" stroke-linecap="round"/>
+    <rect x="68" y="8" width="64" height="36" rx="3" fill="#111" stroke="#cfcfcf" stroke-width="4"/>${slats}
+    <rect x="3" y="46" width="194" height="10" rx="2" fill="#dcdcdc" stroke="#111" stroke-width="3"/>
+    <rect x="14" y="58" width="172" height="31" rx="4" fill="#111"/>${teeth}
+    <rect x="1" y="91" width="198" height="12" rx="3" fill="#8a8a8a" stroke="#111" stroke-width="3"/>
+  </svg>`;
 }
 
 // angry face for the front grille
@@ -229,8 +247,9 @@ export function buildTruck(t) {
   });
 
   // angry face on the front
-  const fTop = P(222, 58), fBot = P(222, 100);
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(W - .1, fTop.y - fBot.y), new THREE.MeshStandardMaterial({ map: svgTexture(faceSVG(), 800, 416), transparent: true, roughness: .4 }));
+  const chevy = shape.face === 'chevy';
+  const fTop = P(222, shape.faceTop || 58), fBot = P(222, 100);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(chevy ? W + .06 : W - .1, fTop.y - fBot.y), new THREE.MeshStandardMaterial({ map: svgTexture(chevy ? chevyFaceSVG() : faceSVG(), 800, 416), transparent: true, roughness: .4 }));
   face.position.set(fTop.x + .056, BODY_Y + (fTop.y + fBot.y) / 2, 0); face.rotation.y = Math.PI / 2; truck.add(face);
 
   // roof: light bar, or dragon spikes

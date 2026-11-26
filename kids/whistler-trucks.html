@@ -359,7 +359,7 @@ function truckSVG(which) {
   // body outline + windows: the regular pickup, or the later-model Avalanche (long crew cab, short bed, sloped sail panels)
   const ava = t.shape === 'avalanche';
   const bodyPath = ava
-    ? 'M30 100 L30 56 Q30 51 35 51 L52 51 L100 24 Q103 22 110 22 L170 22 Q178 22 182 27 L194 50 L216 52 Q222 53 222 60 L222 100 Z'
+    ? 'M30 100 L30 56 Q30 51 35 51 L52 51 L100 24 Q103 22 110 22 L170 22 Q178 22 182 27 L194 50 L218 51 Q222 51 222 55 L222 100 Z'
     : 'M30 100 L30 62 Q30 52 40 52 L112 52 L124 22 L178 22 Q186 22 189 30 L196 52 L214 56 Q222 58 222 68 L222 100 Z';
   const winPath = ava ? 'M110 28 L138 28 L138 50 L104 50 Z M142 28 L173 28 L181 50 L142 50 Z' : 'M128 28 L174 28 L182 50 L120 50 Z';
   const stackX = ava ? 36 : 100;
@@ -379,6 +379,7 @@ function truckSVG(which) {
     <circle cx="211" cy="69" r="3.5" fill="#111"/>
     <path d="M195 55 L221 62" stroke="#111" stroke-width="5" stroke-linecap="round"/>
     <rect x="188" y="82" width="34" height="16" rx="3" fill="#111"/>${teeth}
+    ${ava ? '<rect x="186" y="76" width="38" height="5" rx="1.5" fill="#dcdcdc" stroke="#111" stroke-width="2"/><rect x="184" y="96" width="40" height="6" rx="2" fill="#8a8a8a" stroke="#111" stroke-width="2"/>' : ''}
     ${tire(62)}${tire(178)}
   </svg>`;
 }
@@ -399,7 +400,7 @@ const TRUCKS = [
   { name: 'Skull Crusher', body: '#2b2b2b', accent: '#9be564', rim: '#9be564', deco: 'skull' },
   { name: 'Thunder Bolt',  body: '#1565c0', accent: '#ffd60a', rim: '#c0c0c0', deco: 'bolt' },
   { name: 'Dragon Roar',   body: '#1d7a2e', accent: '#a0e426', rim: '#ff6f00', deco: 'dragon' },
-  { name: 'Tyda Mad',      body: '#e0218a', accent: '#ffd60a', rim: '#c0c0c0', deco: 'mad', shape: 'avalanche' }
+  { name: 'Tyda Mad',      body: '#c9a66b', accent: '#d62828', rim: '#c0c0c0', deco: 'mad', shape: 'avalanche' }
 ];
 let truckColor = 0;   // index into TRUCKS
 let mode = 'colors', stars = 0, meter = 0, round = null, busy = false;
@@ -670,7 +671,7 @@ try { localStorage.setItem('trucksProfiles', JSON.stringify([{ id: 'whistler', n
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
 <script type="module">
 import * as THREE from "three";
-import { TRUCKS, buildTruck, car3d, TIRE_R, buildArena, Exhaust, bump } from "./trucks3d.js?v=2";
+import { TRUCKS, buildTruck, car3d, TIRE_R, buildArena, Exhaust, bump } from "./trucks3d.js?v=3";
 
 const host = document.getElementById('scene3d'), gameScreen = document.getElementById('game');
 const ren = new THREE.WebGLRenderer({ antialias: true });
