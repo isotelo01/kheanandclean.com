@@ -256,7 +256,7 @@ function avalancheSideSVG(t, frontRight) {
 }
 function avalancheBody(truck, t) {
   const s = AV_IN, xF = 1.2 + 39 * s;                                  // front of the bumper (front axle at x = 1.2)
-  const X = i => xF - i * s, Y = h => BODY_Y + (h - 16) * s;           // inches → world
+  const X = i => xF - i * s, Y = h => BODY_Y + .32 + (h - 16) * s;     // inches → world (body lifted up over the tires, like a real monster truck)
   const BW = 79.8 * s;
   const paint = std(t.body, { metalness: .55, roughness: .28 });
   const black = std('#151515', { roughness: .6 });
