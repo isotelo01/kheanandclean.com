@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Molly's Wonderland</title>
+<link rel="icon" type="image/png" href="molly-icon-180.png">
+<link rel="apple-touch-icon" href="molly-icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Molly's Wonderland">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta property="og:title" content="Molly's Wonderland">
+<meta property="og:description" content="Decorate your land, dress up Molly, and fill the castle">
+<meta property="og:image" content="https://kheanandclean.com/kids/molly-preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://kheanandclean.com/kids/molly-wonderland.html">
+<meta name="twitter:card" content="summary_large_image">
+<script src="molly-art.js"></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #fde2ff; color: #3a2340; touch-action: none; }
+  svg { display: block; width: 100%; height: auto; }
+  .screen { position: fixed; inset: 0; display: none; flex-direction: column; height: 100dvh; }
+  .screen.on { display: flex; }
+  button { font-family: inherit; color: inherit; border: none; cursor: pointer; }
+
+  /* top bar */
+  .bar { display: flex; align-items: center; gap: 8px; padding: max(8px, env(safe-area-inset-top)) 10px 8px; background: rgba(255,255,255,.85); z-index: 5; }
+  .bar h2 { flex: 1; margin: 0; font-size: 22px; font-weight: 900; color: #a24bd1; text-align: center; }
+  .rb { width: 48px; height: 48px; border-radius: 16px; background: #fff; box-shadow: 0 3px 0 #e6b8e0; font-size: 26px; display: grid; place-items: center; flex: none; }
+  .rb:active { transform: translateY(2px); box-shadow: 0 1px 0 #e6b8e0; }
+  .rb.lit { background: #ffe27a; box-shadow: 0 0 0 4px #ffb3d9, 0 3px 0 #e0a800; }
+
+  /* home */
+  #home { background: linear-gradient(#8fd3ff 0%, #c9ecff 55%, #8ee08e 55%, #6cc96c 100%); align-items: center; justify-content: center; overflow: hidden; }
+  #home .bgrain { position: absolute; width: 70vmin; right: -14vmin; top: calc(55vh - 36vmin); opacity: .85; }
+  #home .bgcastle { position: absolute; width: 30vmin; right: 4vw; top: calc(55vh - 28vmin); }
+  #home .bgtree { position: absolute; width: 30vmin; left: -4vmin; top: calc(55vh - 34vmin); }
+  .title { position: relative; margin: 0 0 4px; font-size: clamp(34px, 9vw, 64px); font-weight: 900; color: #fff; text-align: center; line-height: 1.05;
+    text-shadow: 3px 3px 0 #d65db1, 6px 6px 0 #7b2cbf; z-index: 2; }
+  .stars { position: relative; color: #ffd23f; font-size: 22px; letter-spacing: 6px; z-index: 2; }
+  .heroes { position: relative; display: flex; align-items: flex-end; gap: 4px; z-index: 2; margin-top: 6px; }
+  .heroes .m { width: min(42vw, 30vh, 220px); cursor: pointer; }
+  .heroes .p { width: min(18vw, 13vh, 95px); cursor: pointer; margin-bottom: 4px; }
+  .sign { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 10px; margin-top: 14px; width: min(86vw, 340px); }
+  .sign button { font-size: 26px; font-weight: 900; padding: 14px 18px; border-radius: 20px; color: #fff; text-align: left; display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 6px 0 rgba(0,0,0,.22); }
+  .sign button:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.22); }
+  .sign .e { font-size: 32px; }
+
+  /* scenes */
+  .scene { position: relative; flex: 1; overflow: hidden; }
+  .land { background: linear-gradient(var(--sky1), var(--sky2) 48%, #8ee08e 48%, #5fbf5f 100%); --sky1:#7cc8ff; --sky2:#d4f0ff; transition: background .6s; }
+  .land.sunset { --sky1:#ff9fb6; --sky2:#ffd08a; }
+  .land.night { --sky1:#1c1452; --sky2:#5b3b9e; }
+  .land .path { position: absolute; left: 38%; right: 38%; top: 48%; bottom: 0; background: linear-gradient(#f2d4a8, #e8c08a); clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); opacity: .9; }
+  .land .nightstars { position: absolute; inset: 0 0 52% 0; opacity: 0; transition: opacity .6s; pointer-events: none;
+    background-image: radial-gradient(2px 2px at 10% 20%, #fff, transparent), radial-gradient(2px 2px at 30% 60%, #fff, transparent), radial-gradient(3px 3px at 55% 25%, #fff6c2, transparent),
+      radial-gradient(2px 2px at 75% 50%, #fff, transparent), radial-gradient(2px 2px at 88% 15%, #fff, transparent), radial-gradient(3px 3px at 45% 80%, #fff6c2, transparent), radial-gradient(2px 2px at 20% 85%, #fff, transparent); }
+  .land.night .nightstars { opacity: 1; }
+  .land .sun { position: absolute; right: 8%; top: 6%; width: 13vmin; height: 13vmin; border-radius: 50%; background: #ffe14d; box-shadow: 0 0 30px #ffe14d; transition: all .6s; pointer-events: none; }
+  .land.sunset .sun { top: 30%; background: #ff9a2e; box-shadow: 0 0 40px #ff9a2e; }
+  .land.night .sun { background: #fff6c2; box-shadow: 0 0 24px #fff6c2; width: 10vmin; height: 10vmin; top: 6%; }
+  .room { background: linear-gradient(var(--wall) 0 62%, #f3c9a0 62%, #e6b07e 100%); --wall:#ffd9ec; transition: background .6s; }
+  .room.w1 { --wall:#e6d1ff; } .room.w2 { --wall:#d3eeff; } .room.w3 { --wall:#fff0c2; }
+  .room .stripes { position: absolute; inset: 0 0 38% 0; background: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 18px, transparent 18px 44px); pointer-events: none; }
+
+  .item { position: absolute; transform: translate(-50%, -100%); touch-action: none; cursor: grab; }
+  .item .in { transform-origin: 50% 100%; }
+  .item.flip .in { transform: scaleX(-1); }
+  .item .emo { font-size: var(--fs); line-height: 1; text-align: center; }
+  .item.sel { outline: 3px dashed #d65db1; outline-offset: 4px; border-radius: 12px; }
+  .item.dance .in { animation: dance .9s ease-in-out; }
+  .item.flip.dance .in { animation: danceF .9s ease-in-out; }
+  @keyframes dance { 0%,100% { transform: none; } 25% { transform: rotate(-14deg) scale(1.15); } 50% { transform: translateY(-20%) scale(1.25); } 75% { transform: rotate(14deg) scale(1.15); } }
+  @keyframes danceF { 0%,100% { transform: scaleX(-1); } 25% { transform: scaleX(-1) rotate(-14deg) scale(1.15); } 50% { transform: scaleX(-1) translateY(-20%) scale(1.25); } 75% { transform: scaleX(-1) rotate(14deg) scale(1.15); } }
+  .grow .in { animation: grow .5s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes grow { from { transform: scale(0); } to { transform: scale(1); } }
+  .hop { animation: hop .5s ease-out; }
+  @keyframes hop { 40% { transform: translateY(-18%); } }
+
+  .fx { position: absolute; pointer-events: none; font-size: 26px; z-index: 9999; animation: fx 1s ease-out forwards; }
+  @keyframes fx { from { opacity: 1; transform: translate(-50%,-50%) scale(.6); } to { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.3); } }
+
+  .selbar { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); display: none; gap: 8px; background: rgba(255,255,255,.95); padding: 8px; border-radius: 20px; box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 10000; }
+  .selbar.on { display: flex; }
+  .selbar button { width: 48px; height: 48px; border-radius: 14px; background: #fde2ff; font-size: 24px; }
+  .selbar button.del { background: #ffd1d1; }
+
+  /* tray */
+  .tray { background: #fff; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); box-shadow: 0 -4px 12px rgba(0,0,0,.1); z-index: 5; }
+  .tabs { display: flex; gap: 6px; padding: 0 10px 8px; overflow-x: auto; }
+  .tabs button { flex: none; padding: 8px 14px; border-radius: 999px; background: #f4e6f7; font-size: 17px; font-weight: 800; }
+  .tabs button.on { background: #d65db1; color: #fff; }
+  .row { display: flex; gap: 8px; overflow-x: auto; padding: 0 10px; touch-action: pan-x; scrollbar-width: none; }
+  .row::-webkit-scrollbar { display: none; }
+  .row button { flex: none; width: 72px; height: 72px; border-radius: 18px; background: #fff6fb; border: 3px solid #ffd1ea; font-size: 40px; display: grid; place-items: center; padding: 6px; touch-action: pan-x; }
+  .row button:active { transform: scale(.92); }
+  .row button svg { max-height: 56px; width: auto; max-width: 56px; }
+
+  /* dress up */
+  #dress { background: linear-gradient(#ffe6f4, #e9d6ff); }
+  .dwrap { flex: 1; display: flex; gap: 10px; padding: 10px; min-height: 0; }
+  .stage { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; min-height: 0; }
+  .stage .m { height: 100%; max-height: 100%; width: auto; aspect-ratio: 218/270; cursor: pointer; }
+  .stage .m svg { height: 100%; width: auto; }
+  .opts { width: min(46vw, 330px); overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 10px; touch-action: pan-y; }
+  .opts h3 { margin: 0; font-size: 18px; color: #a24bd1; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
+  .grid button { background: #fff; border-radius: 16px; padding: 8px 4px; font-size: 30px; font-weight: 800; border: 3px solid #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; touch-action: pan-y; }
+  .grid button small { font-size: 12px; }
+  .grid button.on { border-color: #d65db1; background: #fff0fa; }
+  .sw { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 2px #e6b8e0; }
+  @media (max-aspect-ratio: 3/4) {
+    .dwrap { flex-direction: column; }
+    .stage { flex: 1; }
+    .opts { width: 100%; flex: none; max-height: 42%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<section class="screen on" id="home">
+  <div class="bgrain" id="hRain"></div>
+  <div class="bgtree" id="hTree"></div>
+  <div class="bgcastle" id="hCastle"></div>
+  <h1 class="title">Molly's<br>Wonderland</h1>
+  <div class="stars">★ ★ ★</div>
+  <div class="heroes"><div class="m" id="hMolly"></div><div class="p" id="hPippi"></div></div>
+  <div class="sign">
+    <button style="background:#5fbf5f" data-go="land"><span class="e">🌸</span>My Land</button>
+    <button style="background:#d65db1" data-go="castle"><span class="e">🏰</span>Castle</button>
+    <button style="background:#a24bd1" data-go="dress"><span class="e">👗</span>Dress Up</button>
+  </div>
+</section>
+
+<!-- LAND -->
+<section class="screen" id="land">
+  <div class="bar">
+    <button class="rb" data-go="home">⬅️</button>
+    <h2>My Land</h2>
+    <button class="rb" id="landSky">🌗</button>
+    <button class="rb wandBtn">🪄</button>
+  </div>
+  <div class="scene land" id="landScene"><div class="nightstars"></div><div class="sun"></div><div class="path"></div></div>
+  <div class="tray"><div class="tabs" id="landTabs"></div><div class="row" id="landRow"></div></div>
+</section>
+
+<!-- CASTLE -->
+<section class="screen" id="castle">
+  <div class="bar">
+    <button class="rb" data-go="home">⬅️</button>
+    <h2>Castle</h2>
+    <button class="rb" id="wallBtn">🎨</button>
+    <button class="rb wandBtn">🪄</button>
+  </div>
+  <div class="scene room" id="castleScene"><div class="stripes"></div></div>
+  <div class="tray"><div class="tabs" id="castleTabs"></div><div class="row" id="castleRow"></div></div>
+</section>
+
+<!-- DRESS UP -->
+<section class="screen" id="dress">
+  <div class="bar">
+    <button class="rb" data-go="home">⬅️</button>
+    <h2>Dress Up Molly</h2>
+    <button class="rb" id="dressReset">🧽</button>
+  </div>
+  <div class="dwrap">
+    <div class="stage"><div class="m" id="dMolly"></div></div>
+    <div class="opts" id="dOpts"></div>
+  </div>
+</section>
+
+<div class="selbar" id="selbar">
+  <button data-a="small">➖</button>
+  <button data-a="big">➕</button>
+  <button data-a="flip">↔️</button>
+  <button data-a="front">⬆️</button>
+  <button class="del" data-a="del">🗑️</button>
+  <button data-a="done">✅</button>
+</div>
+
+<script>
+const A = window.MollyArt;
+const $ = (s, r = document) => r.querySelector(s);
+
+/* ---------- save ---------- */
+const KEY = 'mollyWonderland1';
+let S = null;
+try { S = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+if (!S) S = {
+  outfit: { dress: 'pink', crown: true, wand: false, bow: true, necklace: false, blush: true, gloss: false, shadow: false, glitter: false },
+  sky: 0, wall: 0,
+  land: [
+    { k: 'rainbow', x: 22, y: 46, s: 1.1 }, { k: 'castle', x: 78, y: 52, s: 1 }, { k: 'pinktree', x: 12, y: 62, s: 1 },
+    { k: 'pond', x: 70, y: 82, s: 1 }, { k: 'f1', x: 30, y: 78, s: 1 }, { k: 'f3', x: 88, y: 92, s: 1 },
+    { k: 'molly', x: 46, y: 88, s: 1 }, { k: 'pippi', x: 58, y: 92, s: 1 }
+  ],
+  castle: [
+    { k: 'window', x: 22, y: 42, s: 1 }, { k: 'chandelier', x: 55, y: 28, s: 1 }, { k: 'rug', x: 52, y: 92, s: 1.1 },
+    { k: 'bed', x: 78, y: 78, s: 1 }, { k: 'throne', x: 30, y: 82, s: 1 }
+  ]
+};
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+/* ---------- sounds ---------- */
+let AC = null;
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+function tone(f, t0, d, type = 'sine', vol = .18, f2) {
+  const c = ac(); if (!c) return;
+  const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0;
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+  o.connect(g).connect(c.destination); o.start(t); o.stop(t + d + .02);
+}
+const snd = {
+  pop: () => tone(520, 0, .12, 'sine', .2, 900),
+  boop: () => tone(300, 0, .1, 'triangle', .15),
+  sparkle: () => [1047, 1319, 1568, 2093, 1568, 2093].forEach((f, i) => tone(f, i * .06, .25, 'sine', .09)),
+  chirp: () => { tone(1800, 0, .08, 'sine', .14, 2600); tone(1900, .12, .08, 'sine', .14, 2800); },
+  giggle: () => [660, 880, 740, 990].forEach((f, i) => tone(f, i * .08, .12, 'triangle', .12)),
+  trash: () => tone(400, 0, .25, 'sawtooth', .07, 120)
+};
+
+/* ---------- sparkles ---------- */
+const FXE = ['✨', '💖', '⭐', '🌟', '💫', '🩷'];
+function burst(parent, x, y, n = 10, list = FXE) {
+  for (let i = 0; i < n; i++) {
+    const e = document.createElement('div'); e.className = 'fx';
+    e.textContent = list[Math.floor(Math.random() * list.length)];
+    const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 70;
+    e.style.left = x + 'px'; e.style.top = y + 'px';
+    e.style.setProperty('--dx', Math.cos(a) * r + 'px'); e.style.setProperty('--dy', Math.sin(a) * r + 'px');
+    parent.appendChild(e); setTimeout(() => e.remove(), 1000);
+  }
+}
+
+/* ---------- catalog ---------- */
+const E = (v, w = 54) => ({ e: v, w });
+const P = (v, w) => ({ p: v, w });
+const CAT = {
+  f1: E('🌸', 40), f2: E('🌷', 44), f3: E('🌻', 48), f4: E('🌹', 40), f5: E('🌼', 40), f6: E('🍄', 40), f7: E('🌳', 110), f8: E('🌲', 100),
+  pinktree: P('pinktree', 130), rainbow: P('rainbow', 190), castle: P('castle', 150), pond: P('pond', 150), fence: P('fence', 110),
+  fountain: E('⛲', 80), cloud: E('☁️', 80), star: E('⭐', 40), heart: E('💖', 40), balloon: E('🎈', 50), rock: E('🪨', 44), sparkle: E('✨', 40),
+  molly: { molly: 1, w: 100 }, pippi: { pippi: 1, w: 62 },
+  a1: E('🐰', 50), a2: E('🐱', 50), a3: E('🐶', 50), a4: E('🦆', 50), a5: E('🦋', 40), a6: E('🐞', 34), a7: E('🐢', 46), a8: E('🦄', 60),
+  a9: E('🐑', 54), a10: E('🐝', 34), a11: E('🐟', 38), a12: E('🐿️', 46), a13: E('🦔', 44), a14: E('🐴', 64), a15: E('🐼', 54), a16: E('🐸', 42),
+  bed: P('bed', 170), mirror: P('mirror', 80), rug: P('rug', 170), window: P('window', 100), chandelier: P('chandelier', 130), throne: P('throne', 100),
+  table: P('table', 120), stove: P('stove', 100), fridge: P('fridge', 80),
+  c1: E('🫖', 40), c2: E('🧁', 36), c3: E('🎂', 50), c4: E('🍓', 30), c5: E('🍪', 32), c6: E('🥛', 32), c7: E('🍽️', 40), c8: E('🍰', 36), c9: E('🍩', 34),
+  c10: E('🧸', 50), c11: E('👑', 40), c12: E('🪴', 60), c13: E('🛋️', 110), c14: E('🪑', 60), c15: E('🎀', 36), c16: E('💐', 44), c17: E('🖼️', 60), c18: E('🕯️', 34), c19: E('🎹', 90), c20: E('📚', 44)
+};
+const LAND_TABS = [
+  ['🌸 Flowers', ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'pinktree', 'f7', 'f8']],
+  ['🐥 Animals', ['molly', 'pippi', 'a1', 'a2', 'a3', 'a4', 'a5', 'a8', 'a14', 'a9', 'a15', 'a7', 'a12', 'a13', 'a16', 'a6', 'a10', 'a11']],
+  ['🌈 Pretty', ['rainbow', 'castle', 'pond', 'fence', 'fountain', 'cloud', 'star', 'heart', 'balloon', 'sparkle', 'rock']]
+];
+const CASTLE_TABS = [
+  ['🛏️ Bedroom', ['bed', 'mirror', 'throne', 'rug', 'window', 'chandelier', 'c13', 'c14', 'c12', 'c10', 'c17', 'c19', 'c20', 'c18', 'c16', 'c15', 'c11']],
+  ['🧁 Kitchen', ['stove', 'fridge', 'table', 'c1', 'c2', 'c3', 'c8', 'c9', 'c5', 'c4', 'c6', 'c7']],
+  ['🐥 Friends', ['molly', 'pippi', 'a2', 'a3', 'a1', 'a8', 'a15', 'a5']]
+];
+function art(k) {
+  const c = CAT[k];
+  if (c.molly) return A.molly(S.outfit);
+  if (c.pippi) return A.pippi();
+  if (c.p) return A.PIECES[c.p];
+  return '<div class="emo" style="--fs:' + Math.round(c.w * .9) + 'px">' + c.e + '</div>';
+}
+function icon(k) { const c = CAT[k]; return c.e ? c.e : (c.molly ? A.molly(S.outfit) : c.pippi ? A.pippi() : A.PIECES[c.p]); }
+
+/* ---------- scenes ---------- */
+const wandOn = { v: false };
+let sel = null; // {scene, item, el}
+const selbar = $('#selbar');
+
+function makeScene(name, el, tabsEl, rowEl, tabs) {
+  const list = S[name];
+  function draw() {
+    el.querySelectorAll('.item').forEach(n => n.remove());
+    list.forEach(it => el.appendChild(itemEl(it)));
+    order();
+  }
+  function order() { [...el.querySelectorAll('.item')].forEach(n => { n.style.zIndex = n._it.z != null ? 1000 + n._it.z : Math.round(n._it.y * 10); }); }
+  function itemEl(it) {
+    const n = document.createElement('div'); n.className = 'item' + (it.f ? ' flip' : ''); n._it = it;
+    n.innerHTML = '<div class="in">' + art(it.k) + '</div>';
+    place(n); bind(n); return n;
+  }
+  function place(n) { const it = n._it; n.style.left = it.x + '%'; n.style.top = it.y + '%'; n.style.width = (CAT[it.k].w * it.s * sceneScale()) + 'px'; }
+  function sceneScale() { return Math.max(.6, Math.min(1.5, el.clientWidth / 420, el.clientHeight / 560)); }
+  function bind(n) {
+    let sx, sy, ox, oy, moved, id;
+    n.addEventListener('pointerdown', ev => {
+      ev.stopPropagation(); id = ev.pointerId; n.setPointerCapture(id);
+      const r = el.getBoundingClientRect(); sx = ev.clientX; sy = ev.clientY; ox = n._it.x; oy = n._it.y; moved = false; n._r = r;
+    });
+    n.addEventListener('pointermove', ev => {
+      if (ev.pointerId !== id || sx == null) return;
+      const dx = ev.clientX - sx, dy = ev.clientY - sy;
+      if (!moved && Math.hypot(dx, dy) < 8) return;
+      moved = true;
+      n._it.x = Math.max(0, Math.min(100, ox + dx / n._r.width * 100));
+      n._it.y = Math.max(5, Math.min(100, oy + dy / n._r.height * 100));
+      place(n); if (n._it.z == null) n.style.zIndex = Math.round(n._it.y * 10);
+    });
+    const up = ev => {
+      if (ev.pointerId !== id || sx == null) return; sx = null;
+      if (moved) { save(); select(n); return; }
+      tapItem(n);
+    };
+    n.addEventListener('pointerup', up); n.addEventListener('pointercancel', up);
+  }
+  function tapItem(n) {
+    const k = n._it.k, r = el.getBoundingClientRect(), b = n.getBoundingClientRect();
+    if (k === 'pippi') snd.chirp(); else if (k === 'molly') snd.giggle(); else snd.boop();
+    n.classList.remove('dance'); void n.offsetWidth; n.classList.add('dance'); setTimeout(() => n.classList.remove('dance'), 900);
+    if (wandOn.v) { snd.sparkle(); burst(el, b.left - r.left + b.width / 2, b.top - r.top + b.height / 2, 14); deselect(); return; }
+    select(n);
+  }
+  function add(k, x, y, grow) {
+    const it = { k, x: x != null ? x : 30 + Math.random() * 40, y: y != null ? y : (name === 'land' ? 60 : 70) + Math.random() * 25, s: 1 };
+    list.push(it); const n = itemEl(it); el.appendChild(n);
+    if (grow) { n.classList.add('grow'); setTimeout(() => n.classList.remove('grow'), 500); }
+    save(); return n;
+  }
+  el.addEventListener('pointerdown', ev => {
+    if (ev.target.closest('.item')) return;
+    deselect();
+    if (!wandOn.v) return;
+    const r = el.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
+    snd.sparkle(); burst(el, x, y, 12);
+    if (name === 'land') {
+      const fl = ['f1', 'f2', 'f3', 'f4', 'f5', 'heart', 'star', 'a5'];
+      const n = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        const px = (x + (Math.random() - .5) * 120) / r.width * 100, py = (y + (Math.random() - .3) * 60) / r.height * 100;
+        setTimeout(() => add(fl[Math.floor(Math.random() * fl.length)], Math.max(2, Math.min(98, px)), Math.max(20, Math.min(99, py)), true), i * 90);
+      }
+    } else {
+      const fl = ['heart', 'star', 'sparkle', 'c2', 'c15', 'c16'];
+      add(fl[Math.floor(Math.random() * fl.length)], x / r.width * 100, Math.max(15, y / r.height * 100 + 4), true);
+    }
+  });
+  // tray
+  let tab = 0;
+  function tray() {
+    tabsEl.innerHTML = tabs.map((t, i) => '<button class="' + (i === tab ? 'on' : '') + '" data-t="' + i + '">' + t[0] + '</button>').join('');
+    rowEl.innerHTML = tabs[tab][1].map(k => '<button data-k="' + k + '">' + icon(k) + '</button>').join('');
+    rowEl.scrollLeft = 0;
+  }
+  tabsEl.addEventListener('click', ev => { const b = ev.target.closest('button'); if (!b) return; tab = +b.dataset.t; snd.boop(); tray(); });
+  let rowDown = null;
+  rowEl.addEventListener('pointerdown', ev => { rowDown = { x: ev.clientX, y: ev.clientY }; });
+  rowEl.addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    if (rowDown && Math.abs(ev.clientX - rowDown.x) > 10) return;
+    snd.pop(); const n = add(b.dataset.k, null, null, true); select(n);
+  });
+  function api() {}
+  api.draw = draw; api.place = place; api.order = order; api.list = list; api.el = el; api.tray = tray; api.name = name;
+  return api;
+}
+
+function select(n) {
+  if (sel && sel.el !== n) sel.el.classList.remove('sel');
+  const scene = n.closest('.scene') === landS.el ? landS : castleS;
+  sel = { el: n, scene }; n.classList.add('sel'); selbar.classList.add('on');
+  scene.el.appendChild(selbar);
+}
+function deselect() { if (sel) sel.el.classList.remove('sel'); sel = null; selbar.classList.remove('on'); }
+selbar.addEventListener('pointerdown', ev => ev.stopPropagation());
+selbar.addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b || !sel) return;
+  const it = sel.el._it, sc = sel.scene, a = b.dataset.a;
+  if (a === 'big') { it.s = Math.min(3.5, it.s * 1.2); snd.pop(); }
+  if (a === 'small') { it.s = Math.max(.35, it.s / 1.2); snd.boop(); }
+  if (a === 'flip') { it.f = !it.f; sel.el.classList.toggle('flip', !!it.f); snd.boop(); }
+  if (a === 'front') { const m = Math.max(0, ...sc.list.map(i => i.z || 0)); it.z = m + 1; sc.order(); snd.boop(); }
+  if (a === 'del') { sc.list.splice(sc.list.indexOf(it), 1); sel.el.remove(); snd.trash(); deselect(); save(); return; }
+  if (a === 'done') { deselect(); snd.boop(); return; }
+  sc.place(sel.el); save();
+});
+
+const landS = makeScene('land', $('#landScene'), $('#landTabs'), $('#landRow'), LAND_TABS);
+const castleS = makeScene('castle', $('#castleScene'), $('#castleTabs'), $('#castleRow'), CASTLE_TABS);
+
+/* sky + wall */
+const SKIES = ['', 'sunset', 'night'];
+function sky() { landS.el.classList.remove('sunset', 'night'); if (SKIES[S.sky]) landS.el.classList.add(SKIES[S.sky]); }
+$('#landSky').onclick = () => { S.sky = (S.sky + 1) % 3; sky(); save(); snd.sparkle(); };
+function wall() { castleS.el.classList.remove('w1', 'w2', 'w3'); if (S.wall) castleS.el.classList.add('w' + S.wall); }
+$('#wallBtn').onclick = () => { S.wall = (S.wall + 1) % 4; wall(); save(); snd.sparkle(); };
+document.querySelectorAll('.wandBtn').forEach(b => b.onclick = () => {
+  wandOn.v = !wandOn.v; document.querySelectorAll('.wandBtn').forEach(x => x.classList.toggle('lit', wandOn.v));
+  deselect(); snd.sparkle();
+});
+
+/* ---------- dress up ---------- */
+const DOPTS = [
+  ['Dresses', 'dress', [['none', '🐰', 'None'], ['pink', '#ff8fc8', 'Pink'], ['purple', '#b77dff', 'Purple'], ['blue', '#6fc3ff', 'Blue'], ['gold', '#ffc94d', 'Gold']]],
+  ['Accessories', 'acc', [['crown', '👑', 'Crown'], ['wand', '🪄', 'Wand'], ['bow', '🎀', 'Bow'], ['necklace', '📿', 'Pearls']]],
+  ['Makeup', 'acc', [['blush', '🌸', 'Blush'], ['gloss', '💋', 'Lip gloss'], ['shadow', '👁️', 'Eyeshadow'], ['glitter', '✨', 'Glitter']]]
+];
+function dressDraw() {
+  $('#dMolly').innerHTML = A.molly(S.outfit);
+  $('#dOpts').innerHTML = DOPTS.map(([h, t, os]) => '<h3>' + h + '</h3><div class="grid">' + os.map(([k, v, l]) => {
+    const on = t === 'dress' ? S.outfit.dress === k : !!S.outfit[k];
+    const face = v.startsWith('#') ? '<span class="sw" style="background:' + v + '"></span>' : v;
+    return '<button class="' + (on ? 'on' : '') + '" data-t="' + t + '" data-k="' + k + '">' + face + '<small>' + l + '</small></button>';
+  }).join('') + '</div>').join('');
+}
+$('#dOpts').addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  if (b.dataset.t === 'dress') S.outfit.dress = b.dataset.k; else S.outfit[b.dataset.k] = !S.outfit[b.dataset.k];
+  save(); dressDraw(); snd.sparkle();
+  const st = $('.stage'), r = st.getBoundingClientRect(); burst(st, r.width / 2, r.height / 2, 10);
+});
+$('#dMolly').addEventListener('click', () => {
+  const m = $('#dMolly'); m.classList.remove('hop'); void m.offsetWidth; m.classList.add('hop'); snd.giggle();
+  if (S.outfit.wand) { snd.sparkle(); const st = $('.stage'), r = st.getBoundingClientRect(); burst(st, r.width * .7, r.height * .35, 16); }
+});
+$('#dressReset').onclick = () => { S.outfit = { dress: 'none', crown: false, wand: false, bow: false, necklace: false, blush: false, gloss: false, shadow: false, glitter: false }; save(); dressDraw(); snd.boop(); };
+
+/* ---------- home + nav ---------- */
+function homeDraw() {
+  $('#hMolly').innerHTML = A.molly(S.outfit); $('#hPippi').innerHTML = A.pippi();
+  $('#hRain').innerHTML = A.PIECES.rainbow; $('#hCastle').innerHTML = A.PIECES.castle; $('#hTree').innerHTML = A.PIECES.pinktree;
+}
+$('#hPippi').onclick = e => { const p = e.currentTarget; p.classList.remove('hop'); void p.offsetWidth; p.classList.add('hop'); snd.chirp(); };
+$('#hMolly').onclick = e => { const p = e.currentTarget; p.classList.remove('hop'); void p.offsetWidth; p.classList.add('hop'); snd.giggle(); };
+
+function go(id) {
+  deselect();
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+  if (id === 'home') homeDraw();
+  if (id === 'land') { landS.draw(); landS.tray(); sky(); }
+  if (id === 'castle') { castleS.draw(); castleS.tray(); wall(); }
+  if (id === 'dress') dressDraw();
+}
+document.addEventListener('click', ev => { const b = ev.target.closest('[data-go]'); if (b) { snd.pop(); go(b.dataset.go); } });
+window.addEventListener('resize', () => { landS.el.querySelectorAll('.item').forEach(n => landS.place(n)); castleS.el.querySelectorAll('.item').forEach(n => castleS.place(n)); });
+homeDraw();
+</script>
+</body>
+</html>
