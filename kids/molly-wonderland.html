@@ -59,7 +59,8 @@
     background-image: radial-gradient(2px 2px at 10% 20%, #fff, transparent), radial-gradient(2px 2px at 30% 60%, #fff, transparent), radial-gradient(3px 3px at 55% 25%, #fff6c2, transparent),
       radial-gradient(2px 2px at 75% 50%, #fff, transparent), radial-gradient(2px 2px at 88% 15%, #fff, transparent), radial-gradient(3px 3px at 45% 80%, #fff6c2, transparent), radial-gradient(2px 2px at 20% 85%, #fff, transparent); }
   .land.night .nightstars { opacity: 1; }
-  .land .sun { position: absolute; right: 8%; top: 6%; width: 13vmin; height: 13vmin; border-radius: 50%; background: #ffe14d; box-shadow: 0 0 30px #ffe14d; transition: all .6s; pointer-events: none; }
+  .land .sun { position: absolute; right: 8%; top: 6%; width: 13vmin; height: 13vmin; border-radius: 50%; background: #ffe14d; box-shadow: 0 0 30px #ffe14d; transition: all .6s; pointer-events: auto; cursor: pointer; z-index: 1; }
+  .sun svg { width: 100%; height: 100%; }
   .land.sunset .sun { top: 30%; background: #ff9a2e; box-shadow: 0 0 40px #ff9a2e; }
   .land.night .sun { background: #fff6c2; box-shadow: 0 0 24px #fff6c2; width: 10vmin; height: 10vmin; top: 6%; }
   .room { background: linear-gradient(var(--wall) 0 62%, #f3c9a0 62%, #e6b07e 100%); --wall:#ffd9ec; transition: background .6s; }
@@ -116,6 +117,10 @@
   .who button svg { width: 40px; height: 40px; flex: none; }
   .who button.on { border-color: #d65db1; background: #fff0fa; color: #a24bd1; }
   .sw { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 2px #e6b8e0; }
+  #viewer3d { position: fixed; inset: 0; z-index: 50; background: #fde2ff; display: none; }
+  #viewer3d.on { display: block; }
+  #viewer3d iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #close3d { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; width: 58px; height: 58px; border-radius: 50%; background: #fff; font-size: 30px; font-weight: 900; box-shadow: 0 4px 0 rgba(0,0,0,.25); z-index: 2; }
   @media (max-aspect-ratio: 3/4) {
     .dwrap { flex-direction: column; }
     .stage { flex: 1; }
@@ -148,7 +153,7 @@
     <button class="rb" id="landSky">🌗</button>
     <button class="rb wandBtn">🪄</button>
   </div>
-  <div class="scene land" id="landScene"><div class="nightstars"></div><div class="sun"></div><div class="path"></div></div>
+  <div class="scene land" id="landScene"><div class="nightstars"></div><div class="sun" id="sun"></div><div class="path"></div></div>
   <div class="tray"><div class="tabs" id="landTabs"></div><div class="row" id="landRow"></div></div>
 </section>
 
@@ -169,6 +174,7 @@
   <div class="bar">
     <button class="rb" data-go="home">⬅️</button>
     <h2>Dress Up</h2>
+    <button class="rb" id="view3d" style="font-size:18px;font-weight:900;color:#a24bd1">3D</button>
     <button class="rb" id="dressReset">🧽</button>
   </div>
   <div class="dwrap">
@@ -177,6 +183,7 @@
   </div>
 </section>
 
+<div id="viewer3d"><button id="close3d" aria-label="Close">✕</button><iframe title="3D"></iframe></div>
 <div class="selbar" id="selbar">
   <button data-a="small">➖</button>
   <button data-a="big">➕</button>
@@ -396,6 +403,14 @@ const castleS = makeScene('castle', $('#castleScene'), $('#castleTabs'), $('#cas
 
 /* sky + wall */
 const SKIES = ['', 'sunset', 'night'];
+const SUNFACE = '<svg viewBox="0 0 100 100"><circle cx="34" cy="46" r="7" fill="#2b1d22"/><circle cx="66" cy="46" r="7" fill="#2b1d22"/><circle cx="36.5" cy="43.5" r="2.4" fill="#fff"/><circle cx="68.5" cy="43.5" r="2.4" fill="#fff"/><ellipse cx="22" cy="62" rx="10" ry="6" fill="#ff8fb8" opacity=".8"/><ellipse cx="78" cy="62" rx="10" ry="6" fill="#ff8fb8" opacity=".8"/><path d="M41 60 Q45.5 66 50 60 Q54.5 66 59 60" stroke="#2b1d22" stroke-width="3.5" fill="none" stroke-linecap="round"/></svg>';
+function sunDraw() { $('#sun').innerHTML = S.sunFace ? SUNFACE : ''; }
+$('#sun').addEventListener('pointerdown', ev => {
+  ev.stopPropagation(); deselect();
+  const r = landS.el.getBoundingClientRect(), b = ev.currentTarget.getBoundingClientRect(), x = b.left - r.left + b.width / 2, y = b.top - r.top + b.height / 2;
+  if (!wandOn.v) { snd.boop(); burst(landS.el, x, y, 4, ['☀️', '✨']); return; }
+  S.sunFace = !S.sunFace; sunDraw(); save(); snd.sparkle(); burst(landS.el, x, y, 16);
+});
 function sky() { landS.el.classList.remove('sunset', 'night'); if (SKIES[S.sky]) landS.el.classList.add(SKIES[S.sky]); }
 $('#landSky').onclick = () => { S.sky = (S.sky + 1) % 3; sky(); save(); snd.sparkle(); };
 function wall() { castleS.el.classList.remove('w1', 'w2', 'w3'); if (S.wall) castleS.el.classList.add('w' + S.wall); }
@@ -412,14 +427,16 @@ const DOPTS = [
   ['Accessories', 'acc', [['crown', '👑', 'Crown'], ['wand', '🪄', 'Wand'], ['bow', '🎀', 'Bow'], ['necklace', '📿', 'Pearls']]],
   ['Makeup', 'acc', [['blush', '🌸', 'Blush'], ['gloss', '💋', 'Lip gloss'], ['shadow', '👁️', 'Eyeshadow'], ['glitter', '✨', 'Glitter']]]
 ];
-const POPTS = [DOPTS[0], ['Accessories', 'acc', [['crown', '👑', 'Crown'], ['wand', '🪄', 'Wand'], ['bow', '🎀', 'Bow'], ['necklace', '📿', 'Pearls'], ['glasses', '🤩', 'Star glasses'], ['flower', '🌸', 'Flower']]], DOPTS[2]];
+const SHOES = ['Shoes', 'shoes', [['none', '🦶', 'None'], ['pink', '#ff6fb1', 'Pink'], ['purple', '#a24bd1', 'Purple'], ['blue', '#3fa0e0', 'Blue'], ['gold', '#ffc21a', 'Gold'], ['red', '#e8344e', 'Red']]];
+DOPTS.splice(1, 0, SHOES);
+const POPTS = [DOPTS[0], SHOES, ['Accessories', 'acc', [['crown', '👑', 'Crown'], ['wand', '🪄', 'Wand'], ['bow', '🎀', 'Bow'], ['necklace', '📿', 'Pearls'], ['glasses', '🤩', 'Star glasses'], ['flower', '🌸', 'Flower']]], DOPTS[3]];
 const outfit = () => who === 'molly' ? S.outfit : S.pippiOutfit;
 function dressDraw() {
   const o = outfit(), m = $('#dMolly');
   m.innerHTML = who === 'molly' ? A.molly(o) : A.pippi(o);
   $('#dOpts').innerHTML = '<div class="who"><button data-who="molly" class="' + (who === 'molly' ? 'on' : '') + '">' + A.molly(S.outfit) + '<span>Molly</span></button><button data-who="pippi" class="' + (who === 'pippi' ? 'on' : '') + '">' + A.pippi(S.pippiOutfit) + '<span>Pippi</span></button></div>' +
     (who === 'molly' ? DOPTS : POPTS).map(([h, t, os]) => '<h3>' + h + '</h3><div class="grid">' + os.map(([k, v, l]) => {
-    const on = t === 'dress' ? o.dress === k : !!o[k];
+    const on = t === 'dress' || t === 'shoes' ? (o[t] || 'none') === k : !!o[k];
     const face = v.startsWith('#') ? '<span class="sw" style="background:' + v + '"></span>' : v;
     return '<button class="' + (on ? 'on' : '') + '" data-t="' + t + '" data-k="' + k + '">' + face + '<small>' + l + '</small></button>';
   }).join('') + '</div>').join('');
@@ -428,7 +445,7 @@ $('#dOpts').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
   if (b.dataset.who) { who = b.dataset.who; dressDraw(); who === 'pippi' ? snd.chirp() : snd.giggle(); return; }
   const o = outfit();
-  if (b.dataset.t === 'dress') o.dress = b.dataset.k; else o[b.dataset.k] = !o[b.dataset.k];
+  if (b.dataset.t === 'dress' || b.dataset.t === 'shoes') o[b.dataset.t] = b.dataset.k; else o[b.dataset.k] = !o[b.dataset.k];
   save(); dressDraw(); snd.sparkle();
   const st = $('.stage'), r = st.getBoundingClientRect(); burst(st, r.width / 2, r.height / 2, 10);
 });
@@ -436,6 +453,12 @@ $('#dMolly').addEventListener('click', () => {
   const m = $('#dMolly'); m.classList.remove('hop'); void m.offsetWidth; m.classList.add('hop'); who === 'pippi' ? snd.chirp() : snd.giggle();
   if (outfit().wand) { snd.sparkle(); const st = $('.stage'), r = st.getBoundingClientRect(); burst(st, r.width * .7, r.height * .35, 16); }
 });
+$('#view3d').onclick = () => {
+  snd.sparkle();
+  $('#viewer3d iframe').src = 'molly-3d.html#who=' + who + '&o=' + encodeURIComponent(JSON.stringify(outfit()));
+  $('#viewer3d').classList.add('on');
+};
+$('#close3d').onclick = () => { $('#viewer3d').classList.remove('on'); $('#viewer3d iframe').src = 'about:blank'; snd.boop(); };
 $('#dressReset').onclick = () => { if (who === 'molly') S.outfit = NO_OUTFIT(); else S.pippiOutfit = NO_OUTFIT(); save(); dressDraw(); snd.boop(); };
 
 /* ---------- home + nav ---------- */
@@ -450,7 +473,7 @@ function go(id) {
   deselect();
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
   if (id === 'home') homeDraw();
-  if (id === 'land') { landS.draw(); landS.tray(); sky(); }
+  if (id === 'land') { landS.draw(); landS.tray(); sky(); sunDraw(); }
   if (id === 'castle') { castleS.draw(); castleS.tray(); wall(); }
   if (id === 'dress') dressDraw();
 }

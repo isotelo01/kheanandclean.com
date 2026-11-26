@@ -8,6 +8,12 @@
     gold: { a: '#ffc94d', b: '#fff0c2' }
   };
 
+  const SHOE = { pink: '#ff6fb1', purple: '#a24bd1', blue: '#3fa0e0', gold: '#ffc21a', red: '#e8344e' };
+  function shoe(x, y, rx, ry, c) {
+    return '<g><ellipse cx="' + x + '" cy="' + y + '" rx="' + rx + '" ry="' + ry + '" fill="' + c + '" stroke="#fff" stroke-width="1.5"/>' +
+      '<ellipse cx="' + (x - rx * .3) + '" cy="' + (y - ry * .35) + '" rx="' + rx * .3 + '" ry="' + ry * .25 + '" fill="#fff" opacity=".55"/>' +
+      '<path d="M' + x + ' ' + (y - ry * .2) + ' l-' + ry * .45 + ' -' + ry * .45 + ' a' + ry * .3 + ' ' + ry * .3 + ' 0 0 1 ' + ry * .45 + ' -' + ry * .2 + ' a' + ry * .3 + ' ' + ry * .3 + ' 0 0 1 ' + ry * .45 + ' ' + ry * .2 + 'z" fill="#fff"/></g>';
+  }
   function molly(o) {
     o = o || {};
     const d = DRESS[o.dress || 'none'];
@@ -66,6 +72,7 @@
       '<circle cx="74" cy="52" r="3.5" fill="#fff6c2"/><circle cx="100" cy="44" r="3.5" fill="#fff6c2"/><circle cx="126" cy="52" r="3.5" fill="#fff6c2"/>';
     // bow
     if (o.bow) s += '<g transform="translate(140 30) rotate(15)"><path d="M0 0 L-20 -12 L-20 12 Z M0 0 L20 -12 L20 12 Z" fill="#ff6fb1" stroke="#e0458f" stroke-width="2" stroke-linejoin="round"/><circle r="6" fill="#ffd23f"/></g>';
+    if (o.shoes && SHOE[o.shoes]) s += shoe(76, 254, 22, 13, SHOE[o.shoes]) + shoe(124, 254, 22, 13, SHOE[o.shoes]);
     // sparkles (glitter)
     if (o.glitter) s += '<g fill="#ffe27a"><path d="M30 90 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z"/><path d="M170 80 l2.5 6 6 2.5 -6 2.5 -2.5 6 -2.5 -6 -6 -2.5 6 -2.5z"/><path d="M40 230 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z"/><path d="M166 236 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2z"/></g>';
     return s + '</svg>';
@@ -91,6 +98,7 @@
       (o.gloss ? '<ellipse cx="48" cy="61.5" rx="2" ry="1" fill="#fff" opacity=".8"/>' : '') +
       '<ellipse cx="30" cy="65" rx="6" ry="3.5" fill="#ff8fb8" opacity="' + (o.blush ? '.9' : '.6') + '"/><ellipse cx="70" cy="65" rx="6" ry="3.5" fill="#ff8fb8" opacity="' + (o.blush ? '.9' : '.6') + '"/>' +
       '<path d="M40 91 l-4 6 M40 91 l0 7 M40 91 l4 6 M60 91 l-4 6 M60 91 l0 7 M60 91 l4 6" stroke="#ff9a2e" stroke-width="3" stroke-linecap="round"/>';
+    if (o.shoes && SHOE[o.shoes]) s += shoe(40, 96, 9, 5.5, SHOE[o.shoes]) + shoe(60, 96, 9, 5.5, SHOE[o.shoes]);
     if (o.necklace) {
       s += '<g fill="#fffaf0" stroke="#e5d7b8" stroke-width=".8">';
       for (let i = 0; i <= 6; i++) { const a = Math.PI * (0.2 + 0.6 * i / 6); s += '<circle cx="' + (50 - Math.cos(a) * 16).toFixed(1) + '" cy="' + (68 + Math.sin(a) * 6).toFixed(1) + '" r="2.4"/>'; }
@@ -129,5 +137,5 @@
     window: V('0 0 100 120', '<path d="M10 116V50a40 40 0 0 1 80 0v66z" fill="#8fd3ff" stroke="#ffd23f" stroke-width="5"/><path d="M50 12v104M10 66h80" stroke="#ffd23f" stroke-width="4"/><circle cx="72" cy="38" r="8" fill="#fff6c2"/><path d="M4 116h92" stroke="#ff8fc8" stroke-width="8" stroke-linecap="round"/>')
   };
 
-  window.MollyArt = { molly, pippi, PIECES, DRESS };
+  window.MollyArt = { molly, pippi, PIECES, DRESS, SHOE };
 })();
