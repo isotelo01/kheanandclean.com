@@ -337,23 +337,48 @@ export class Exhaust {
 }
 
 /* ---------- outdoor arena: dirt floor, painted wall, stands full of cheering fans ---------- */
-function wallTex() {
-  const cv = document.createElement('canvas'); cv.width = 2048; cv.height = 128;
-  const c = cv.getContext('2d'), cols = ['#d62828', '#1565c0', '#ffd60a', '#1d7a2e', '#ff8c1a', '#7b2cbf'];
-  const words = ['MONSTER TRUCKS', '★ WHISTLER ★', 'BIG JUMPS', 'CRUSH IT!'];
-  for (let i = 0; i < 8; i++) {
-    c.fillStyle = cols[i % cols.length]; c.fillRect(i * 256, 0, 256, 128);
-    c.fillStyle = i % cols.length === 2 ? '#111' : '#fff'; c.font = '900 34px Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(words[i % words.length], i * 256 + 128, 66);
-  }
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.repeat.x = -6; return t;
+// Made-up sponsors for the arena wall, each on its own sharp sign.
+const SPONSORS = [
+  { name: 'RUMBLE OIL',  tag: 'MOTOR OIL FOR MONSTERS', bg: '#111111', fg: '#ffd60a', icon: 'drop' },
+  { name: 'ROCKET GAS',  tag: "FILL 'ER UP!",           bg: '#d62828', fg: '#ffffff', icon: 'pump' },
+  { name: 'MEGAMUD',     tag: 'MONSTER TRUCK OIL',      bg: '#ff8c1a', fg: '#2b1700', icon: 'tire' },
+  { name: 'BLAZE FUEL',  tag: 'RACE FUEL',              bg: '#1565c0', fg: '#ffffff', icon: 'flame' },
+  { name: 'GATOR GRIP',  tag: 'TIRES',                  bg: '#1d7a2e', fg: '#ffffff', icon: 'tire' },
+  { name: 'WHISTLER',    tag: '★ RACING TEAM ★',        bg: '#7b2cbf', fg: '#ffffff', icon: 'star' }
+];
+function drawIcon(c, kind, x, y, s, color) {
+  c.save(); c.translate(x, y); c.fillStyle = color; c.strokeStyle = color; c.lineWidth = s * .12;
+  if (kind === 'drop') { c.beginPath(); c.moveTo(0, -s * .55); c.bezierCurveTo(s * .45, -s * .05, s * .42, s * .5, 0, s * .5); c.bezierCurveTo(-s * .42, s * .5, -s * .45, -s * .05, 0, -s * .55); c.fill(); }
+  else if (kind === 'pump') { c.fillRect(-s * .38, -s * .5, s * .5, s); c.clearRect(-s * .3, -s * .4, s * .34, s * .26); c.beginPath(); c.moveTo(s * .12, -s * .2); c.lineTo(s * .38, -s * .05); c.lineTo(s * .38, s * .3); c.stroke(); }
+  else if (kind === 'tire') { c.beginPath(); c.arc(0, 0, s * .45, 0, 7); c.lineWidth = s * .2; c.stroke(); c.beginPath(); c.arc(0, 0, s * .12, 0, 7); c.fill(); }
+  else if (kind === 'flame') { c.beginPath(); c.moveTo(0, -s * .55); c.quadraticCurveTo(s * .5, -s * .05, s * .3, s * .3); c.quadraticCurveTo(s * .15, s * .55, 0, s * .5); c.quadraticCurveTo(-s * .35, s * .45, -s * .32, s * .15); c.quadraticCurveTo(-s * .3, -s * .1, -s * .05, -s * .2); c.quadraticCurveTo(s * .05, -s * .35, 0, -s * .55); c.fill(); }
+  else { c.beginPath(); for (let k = 0; k < 10; k++) { const r = k % 2 ? s * .22 : s * .5, a = -Math.PI / 2 + k * Math.PI / 5; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } c.closePath(); c.fill(); }
+  c.restore();
+}
+function sponsorTex(sp) {
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256;
+  const c = cv.getContext('2d');
+  c.fillStyle = sp.bg; c.fillRect(0, 0, 1024, 256);
+  c.strokeStyle = sp.fg; c.lineWidth = 10; c.strokeRect(14, 14, 996, 228);
+  drawIcon(c, sp.icon, 130, 128, 150, sp.fg);
+  c.fillStyle = sp.fg; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = '900 104px Arial Black, Arial, sans-serif'; c.fillText(sp.name, 600, 108, 740);
+  c.font = '800 44px Arial, sans-serif'; c.fillText(sp.tag, 600, 196, 740);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
 export function buildArena(R = 40) {
   const g = new THREE.Group();
   const floor = new THREE.Mesh(new THREE.CircleGeometry(R + 1, 96), new THREE.MeshStandardMaterial({ color: '#8b5a2b', roughness: 1 }));
   floor.rotation.x = -Math.PI / 2; floor.position.y = -.01; floor.receiveShadow = true; g.add(floor);
-  const wall = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 1.4, 128, 1, true), new THREE.MeshStandardMaterial({ map: wallTex(), side: THREE.BackSide, roughness: .7 }));
-  wall.position.y = .7; g.add(wall);
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(R - .03, R - .03, 1.6, 128, 1, true), new THREE.MeshStandardMaterial({ color: '#1f2a44', side: THREE.BackSide, roughness: .8 }));
+  wall.position.y = .8; g.add(wall);
+  // sponsor signs around the wall, facing the middle
+  const signMats = SPONSORS.map(sp => new THREE.MeshStandardMaterial({ map: sponsorTex(sp), roughness: .6 }));
+  const signGeo = new THREE.PlaneGeometry(5.2, 1.3), nSigns = Math.floor(Math.PI * 2 * R / 6.4);
+  for (let i = 0; i < nSigns; i++) {
+    const a = i / nSigns * Math.PI * 2, sign = new THREE.Mesh(signGeo, signMats[i % signMats.length]);
+    sign.position.set(Math.cos(a) * (R - .09), .8, Math.sin(a) * (R - .09)); sign.lookAt(0, .8, 0); g.add(sign);
+  }
   // stepped stands all the way around
   const ROWS = 7, STEP = 1.6, RISE = 1.0, BASE = 1.6;
   const prof = [new THREE.Vector2(R, 0), new THREE.Vector2(R, BASE)];
