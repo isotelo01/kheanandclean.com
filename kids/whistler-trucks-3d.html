@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Whistler's Monster Trucks 3D</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #8fd3ff; }
+  #view { position: fixed; inset: 0; touch-action: none; }
+  #top { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; pointer-events: none; }
+  #top > * { pointer-events: auto; }
+  .round { font: inherit; font-size: 24px; width: 54px; height: 54px; border-radius: 50%; border: none; background: #fff; box-shadow: 0 4px 0 rgba(0,0,0,.3); text-decoration: none; display: flex; align-items: center; justify-content: center; color: #1a1a1a; cursor: pointer; }
+  #name { font-size: clamp(24px, 6vw, 40px); font-weight: 900; color: #fff; text-shadow: 3px 3px 0 #d62828, 5px 5px 0 #1a1a1a; text-align: center; }
+  #pick { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: repeat(4, auto); gap: 8px; }
+  @media (max-width: 560px) { #pick { grid-template-columns: repeat(2, auto); } }
+  #pick button { font: inherit; font-size: 17px; font-weight: 800; padding: 12px 14px; border: 4px solid transparent; border-radius: 16px; color: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.35); cursor: pointer; white-space: nowrap; }
+  #pick button.sel { border-color: #ffd60a; transform: translateY(-3px); }
+  #hint { position: fixed; top: 76px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.85); padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 15px; transition: opacity .6s; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="top">
+  <a class="round" href="./whistler-trucks.html" aria-label="Back to the game">🏠</a>
+  <div id="name"></div>
+  <button class="round" id="spin" aria-label="Spin on or off">🔄</button>
+</div>
+<div id="hint">Drag to turn the truck · Pinch to zoom</div>
+<div id="pick"></div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+// Same four trucks as the 2D game.
+const TRUCKS = [
+  { name: 'Flame Fang',    body: '#d62828', accent: '#ff8c1a', rim: '#ffd60a', deco: 'flames' },
+  { name: 'Skull Crusher', body: '#2b2b2b', accent: '#9be564', rim: '#9be564', deco: 'skull' },
+  { name: 'Thunder Bolt',  body: '#1565c0', accent: '#ffd60a', rim: '#c0c0c0', deco: 'bolt' },
+  { name: 'Dragon Roar',   body: '#1d7a2e', accent: '#a0e426', rim: '#ff6f00', deco: 'dragon' }
+];
+
+/* ---------- scene ---------- */
+const view = document.getElementById('view');
+const ren = new THREE.WebGLRenderer({ antialias: true });
+ren.setPixelRatio(Math.min(devicePixelRatio, 2));
+ren.setSize(innerWidth, innerHeight);
+ren.shadowMap.enabled = true; ren.shadowMap.type = THREE.PCFSoftShadowMap;
+ren.outputColorSpace = THREE.SRGBColorSpace;
+view.appendChild(ren.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#8fd3ff');
+scene.fog = new THREE.Fog('#8fd3ff', 14, 30);
+
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
+function fitCam() { const far = innerWidth < innerHeight ? 11.5 : 8.5; cam.position.set(far * 0.62, 3.6, far * 0.78); }
+fitCam();
+const ctl = new OrbitControls(cam, ren.domElement);
+ctl.enableDamping = true; ctl.target.set(0, 1.5, 0);
+ctl.minDistance = 4; ctl.maxDistance = 18; ctl.maxPolarAngle = Math.PI * 0.49; ctl.enablePan = false;
+ctl.autoRotate = true; ctl.autoRotateSpeed = 2.2;
+
+scene.add(new THREE.HemisphereLight('#ffffff', '#8b5a2b', 1.4));
+const sun = new THREE.DirectionalLight('#ffffff', 2.2);
+sun.position.set(5, 9, 4); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 });
+scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(7, 64), new THREE.MeshStandardMaterial({ color: '#8b5a2b', roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const ring = new THREE.Mesh(new THREE.RingGeometry(4.2, 4.6, 64), new THREE.MeshStandardMaterial({ color: '#ffd60a', roughness: .8 }));
+ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; scene.add(ring);
+
+/* ---------- helpers ---------- */
+const std = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .1, ...extra });
+const BLACK = std('#1b1b1b', { roughness: .9 });
+function mesh(geo, mat, cast = true) { const m = new THREE.Mesh(geo, mat); m.castShadow = cast; m.receiveShadow = true; return m; }
+// convert the 2D drawing's coordinates (SVG) to 3D units
+const P = (x, y) => new THREE.Vector2((x - 126) / 60, (100 - y) / 60);
+
+function svgTexture(svg, w, h) {
+  const img = new Image(), cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  img.onload = () => { cv.getContext('2d').drawImage(img, 0, 0, w, h); tex.needsUpdate = true; };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  return tex;
+}
+
+// side paint, drawn from the same artwork as the 2D trucks
+function decoSVG(t) {
+  let d = '';
+  if (t.deco === 'flames') d = `
+    <path d="M36 98 C52 90 58 72 52 58 C66 70 76 66 80 56 C88 70 100 74 106 60 C112 74 128 78 138 66 C140 80 158 86 188 88 L188 98 Z" fill="${t.accent}" stroke="#111" stroke-width="2.5"/>
+    <path d="M44 98 C58 92 62 82 60 72 C70 80 80 78 84 70 C90 82 104 84 110 74 C116 84 130 88 140 80 C144 90 160 92 186 94 L186 98 Z" fill="#ffd60a"/>`;
+  else if (t.deco === 'skull') d = `
+    <path d="M72 58 L128 98 M128 58 L72 98" stroke="#111" stroke-width="11" stroke-linecap="round"/>
+    <path d="M72 58 L128 98 M128 58 L72 98" stroke="#f5f5f5" stroke-width="6" stroke-linecap="round"/>
+    <rect x="89" y="80" width="22" height="14" rx="3" fill="#f5f5f5" stroke="#111" stroke-width="3"/>
+    <circle cx="100" cy="72" r="16" fill="#f5f5f5" stroke="#111" stroke-width="3"/>
+    <circle cx="94" cy="71" r="5" fill="#111"/><circle cx="106" cy="71" r="5" fill="#111"/>
+    <path d="M100 76 l-3 5 h6 z" fill="#111"/><path d="M95 84 v8 M100 84 v8 M105 84 v8" stroke="#111" stroke-width="2"/>
+    <path d="M140 64 h40 M146 76 h34 M152 88 h28" stroke="${t.accent}" stroke-width="5" stroke-linecap="round"/>`;
+  else if (t.deco === 'bolt') d = `
+    <path d="M58 57 L108 57 L90 74 L128 74 L66 99 L84 82 L50 82 Z" fill="${t.accent}" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M142 60 L170 60 L160 72 L182 72 L146 96 L156 82 L136 82 Z" fill="${t.accent}" stroke="#111" stroke-width="3" stroke-linejoin="round"/>`;
+  else if (t.deco === 'dragon') {
+    for (let row = 0; row < 3; row++) for (let x = 42 + (row % 2) * 8; x < 186; x += 16)
+      d += `<path d="M${x - 8} ${66 + row * 12} a8 8 0 0 0 16 0" fill="${t.accent}" stroke="#111" stroke-width="1.5"/>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="30 52 160 48" width="1280" height="384">${d}</svg>`;
+}
+
+// angry face for the front grille
+function faceSVG() {
+  let teeth = '';
+  for (let x = 14; x < 186; x += 17) teeth += `<path d="M${x} 66 l8.5 16 l8.5 -16 z M${x} 100 l8.5 -14 l8.5 14 z" fill="#fff"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 104" width="800" height="416">
+    <path d="M18 18 L80 30 L76 50 L22 46 Z M182 18 L120 30 L124 50 L178 46 Z" fill="#fff" stroke="#111" stroke-width="5" stroke-linejoin="round"/>
+    <circle cx="58" cy="38" r="8" fill="#111"/><circle cx="142" cy="38" r="8" fill="#111"/>
+    <path d="M10 8 L88 26 M190 8 L112 26" stroke="#111" stroke-width="10" stroke-linecap="round"/>
+    <rect x="10" y="64" width="180" height="38" rx="6" fill="#111"/>${teeth}
+  </svg>`;
+}
+
+/* ---------- truck builder ---------- */
+const W = 1.6;               // body width
+const TIRE_R = 1.0, TIRE_W = 0.85;
+const BODY_Y = 1.62;         // bottom of the body
+
+function tire(t) {
+  const g = new THREE.Group();
+  const rubber = mesh(new THREE.CylinderGeometry(TIRE_R * .92, TIRE_R * .92, TIRE_W, 40), BLACK);
+  rubber.rotation.x = Math.PI / 2; g.add(rubber);
+  const sidewall = mesh(new THREE.TorusGeometry(TIRE_R * .62, .06, 8, 40), std('#333', { roughness: .9 }));
+  sidewall.position.z = TIRE_W / 2; g.add(sidewall);
+  const sw2 = sidewall.clone(); sw2.position.z = -TIRE_W / 2; g.add(sw2);
+  const lugGeo = new THREE.BoxGeometry(0.2, 0.26, TIRE_W * 1.02);
+  for (let k = 0; k < 18; k++) {
+    const a = k / 18 * Math.PI * 2, lug = mesh(lugGeo, BLACK);
+    lug.position.set(Math.cos(a) * TIRE_R * .95, Math.sin(a) * TIRE_R * .95, 0); lug.rotation.z = a; g.add(lug);
+  }
+  const rimMat = std(t.rim, { metalness: .5, roughness: .3 });
+  [1, -1].forEach(side => {
+    const rim = mesh(new THREE.CylinderGeometry(.42, .42, .08, 24), rimMat);
+    rim.rotation.x = Math.PI / 2; rim.position.z = side * (TIRE_W / 2 + .01); g.add(rim);
+    const hub = mesh(new THREE.CylinderGeometry(.13, .13, .14, 16), BLACK);
+    hub.rotation.x = Math.PI / 2; hub.position.z = side * (TIRE_W / 2 + .03); g.add(hub);
+    for (let b = 0; b < 5; b++) {
+      const a = b / 5 * Math.PI * 2, bolt = mesh(new THREE.CylinderGeometry(.04, .04, .12, 8), BLACK);
+      bolt.rotation.x = Math.PI / 2; bolt.position.set(Math.cos(a) * .27, Math.sin(a) * .27, side * (TIRE_W / 2 + .03)); g.add(bolt);
+    }
+  });
+  return g;
+}
+
+class Helix extends THREE.Curve {
+  constructor(r, h, turns) { super(); this.r = r; this.h = h; this.turns = turns; }
+  getPoint(u, out = new THREE.Vector3()) { const a = u * this.turns * Math.PI * 2; return out.set(Math.cos(a) * this.r, u * this.h, Math.sin(a) * this.r); }
+}
+
+function buildTruck(t) {
+  const truck = new THREE.Group(), wheels = [];
+  const bodyMat = std(t.body, { metalness: .35, roughness: .35 });
+  const accentMat = std(t.accent, { metalness: .3, roughness: .4 });
+
+  // body: the 2D side outline, pushed out into 3D
+  const pts = [[30,100],[30,62],[40,52],[112,52],[124,22],[178,22],[189,30],[196,52],[214,56],[222,68],[222,100]].map(p => P(...p));
+  const body = mesh(new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: W, bevelEnabled: true, bevelSize: .05, bevelThickness: .05, bevelSegments: 3 }), bodyMat);
+  body.position.set(0, BODY_Y, -W / 2); truck.add(body);
+
+  // windows (side and front)
+  const glass = std('#bfe9ff', { metalness: .2, roughness: .1 });
+  const win = mesh(new THREE.ExtrudeGeometry(new THREE.Shape([[128,50],[120,50],[128,28],[174,28],[182,50]].map(p => P(...p))), { depth: W + .14, bevelEnabled: false }), glass, false);
+  win.position.set(0, BODY_Y, -(W + .14) / 2); truck.add(win);
+  const ws = mesh(new THREE.BoxGeometry(.05, .3, W - .2), glass, false);
+  const a = P(184, 30), b = P(194, 50);
+  ws.position.set((a.x + b.x) / 2 + .05, BODY_Y + (a.y + b.y) / 2, 0); ws.rotation.z = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2; truck.add(ws);
+
+  // side paint (both sides)
+  const decoTex = svgTexture(decoSVG(t), 1280, 384);
+  const dTL = P(30, 52), dBR = P(190, 100);
+  const decoGeo = new THREE.PlaneGeometry(dBR.x - dTL.x, dTL.y - dBR.y);
+  [1, -1].forEach(side => {
+    // double-sided so the far side shows a mirror image with the paint still facing forward
+    const m = new THREE.Mesh(decoGeo, new THREE.MeshStandardMaterial({ map: decoTex, transparent: true, roughness: .4, side: THREE.DoubleSide }));
+    m.position.set((dTL.x + dBR.x) / 2, BODY_Y + (dTL.y + dBR.y) / 2, side * (W / 2 + .056));
+    truck.add(m);
+  });
+
+  // angry face on the front
+  const fTop = P(222, 58), fBot = P(222, 100);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(W - .1, fTop.y - fBot.y), new THREE.MeshStandardMaterial({ map: svgTexture(faceSVG(), 800, 416), transparent: true, roughness: .4 }));
+  face.position.set(fTop.x + .056, BODY_Y + (fTop.y + fBot.y) / 2, 0); face.rotation.y = Math.PI / 2; truck.add(face);
+
+  // roof: light bar, or dragon spikes
+  const roofY = BODY_Y + P(0, 22).y + .05;
+  if (t.deco === 'dragon') {
+    for (let x = 116; x <= 172; x += 14) {
+      const sp = mesh(new THREE.ConeGeometry(.13, .38, 4), accentMat);
+      sp.position.set(P(x, 0).x, roofY + .19, 0); truck.add(sp);
+    }
+  } else {
+    const bar = mesh(new THREE.BoxGeometry(.9, .07, W - .3), BLACK); bar.position.set(P(153, 0).x, roofY, 0); truck.add(bar);
+    const lightMat = std('#ffd60a', { emissive: '#ffb300', emissiveIntensity: .6 });
+    [-0.5, -0.17, 0.17, 0.5].forEach(z => { const l = mesh(new THREE.BoxGeometry(.16, .14, .18), lightMat); l.position.set(P(153, 0).x + .25, roofY + .1, z); truck.add(l); });
+  }
+
+  // exhaust stacks
+  [1, -1].forEach(side => {
+    const ex = mesh(new THREE.CylinderGeometry(.07, .07, .7, 12), std('#b0b0b0', { metalness: .9, roughness: .2 }));
+    ex.position.set(P(105, 0).x, BODY_Y + P(0, 52).y + .3, side * (W / 2 - .12)); truck.add(ex);
+  });
+
+  // chassis, axles, springs
+  const chassis = mesh(new THREE.BoxGeometry(3.1, .2, 1.1), std('#444', { metalness: .6 }));
+  chassis.position.set(0, BODY_Y - .2, 0); truck.add(chassis);
+  const WX = [-1.2, 1.2];
+  WX.forEach(x => {
+    const axle = mesh(new THREE.CylinderGeometry(.09, .09, 2.5, 12), std('#555', { metalness: .7 }));
+    axle.rotation.x = Math.PI / 2; axle.position.set(x, TIRE_R, 0); truck.add(axle);
+    [1, -1].forEach(side => {
+      const spring = mesh(new THREE.TubeGeometry(new Helix(.12, BODY_Y - .2 - TIRE_R, 6), 80, .03, 6), accentMat);
+      spring.position.set(x, TIRE_R, side * .55); truck.add(spring);
+      const shock = mesh(new THREE.CylinderGeometry(.045, .045, BODY_Y - TIRE_R, 8), std('#ddd', { metalness: .8 }));
+      shock.position.set(x, (BODY_Y + TIRE_R) / 2 - .1, side * .55); truck.add(shock);
+      const w = tire(t); w.position.set(x, TIRE_R, side * (W / 2 + TIRE_W / 2 + .05)); truck.add(w); wheels.push(w);
+    });
+  });
+
+  truck.userData.wheels = wheels;
+  return truck;
+}
+
+/* ---------- picker ---------- */
+const trucks = TRUCKS.map(buildTruck);
+let current = null;
+const pick = document.getElementById('pick');
+TRUCKS.forEach((t, i) => {
+  const b = document.createElement('button');
+  b.textContent = t.name; b.style.background = t.body;
+  b.onclick = () => show(i);
+  pick.appendChild(b);
+});
+function show(i) {
+  if (current) scene.remove(current);
+  current = trucks[i]; current.position.y = 3; current.userData.drop = 0;
+  scene.add(current);
+  document.getElementById('name').textContent = TRUCKS[i].name;
+  [...pick.children].forEach((b, k) => b.classList.toggle('sel', k === i));
+}
+show(0);
+
+const spinBtn = document.getElementById('spin');
+spinBtn.onclick = () => { ctl.autoRotate = !ctl.autoRotate; spinBtn.style.opacity = ctl.autoRotate ? 1 : .5; };
+ctl.addEventListener('start', () => { document.getElementById('hint').style.opacity = 0; });
+
+/* ---------- animate ---------- */
+const clock = new THREE.Clock();
+function loop() {
+  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  if (current) {
+    // drop in with a bounce, then idle with a little engine shake
+    const u = current.userData;
+    if (u.drop < 1) { u.drop = Math.min(1, u.drop + dt * 1.6); const s = u.drop; current.position.y = 3 * Math.pow(1 - s, 2) * Math.abs(Math.cos(s * 9)); }
+    else current.position.y = Math.abs(Math.sin(t * 22)) * .015;
+    u.wheels.forEach(w => w.rotation.z -= dt * 1.5);
+  }
+  ctl.update();
+  ren.render(scene, cam);
+  requestAnimationFrame(loop);
+}
+loop();
+
+addEventListener('resize', () => { ren.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+</script>
+</body>
+</html>
