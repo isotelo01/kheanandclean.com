@@ -7,8 +7,17 @@ export const TRUCKS = [
   { name: 'Flame Fang',    body: '#d62828', accent: '#ff8c1a', rim: '#ffd60a', deco: 'flames' },
   { name: 'Skull Crusher', body: '#2b2b2b', accent: '#9be564', rim: '#9be564', deco: 'skull' },
   { name: 'Thunder Bolt',  body: '#1565c0', accent: '#ffd60a', rim: '#c0c0c0', deco: 'bolt' },
-  { name: 'Dragon Roar',   body: '#1d7a2e', accent: '#a0e426', rim: '#ff6f00', deco: 'dragon' }
+  { name: 'Dragon Roar',   body: '#1d7a2e', accent: '#a0e426', rim: '#ff6f00', deco: 'dragon' },
+  // shaped like a later (2007+) Avalanche: long crew cab, short bed, body-color sail panels, blunt front, no gray trim
+  { name: 'Tyda Mad',      body: '#e0218a', accent: '#ffd60a', rim: '#c0c0c0', deco: 'mad', shape: 'avalanche' }
 ];
+// side outline for each body shape (2D drawing coordinates; front is on the right)
+export const SHAPES = {
+  pickup:    { body: [[30,100],[30,62],[40,52],[112,52],[124,22],[178,22],[189,30],[196,52],[214,56],[222,68],[222,100]],
+               windows: [[[128,50],[120,50],[128,28],[174,28],[182,50]]], stackX: 105 },
+  avalanche: { body: [[30,100],[30,56],[34,51],[52,51],[100,24],[110,22],[170,22],[182,27],[194,50],[218,52],[222,58],[222,100]],
+               windows: [[[104,50],[110,28],[138,28],[138,50]], [[142,50],[142,28],[173,28],[181,50]]], ws: [[182, 29], [193, 49]], stackX: 40 }
+};
 
 /* ---------- helpers ---------- */
 export const std = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .1, ...extra });
@@ -47,7 +56,17 @@ export function decoSVG(t) {
     for (let row = 0; row < 3; row++) for (let x = 42 + (row % 2) * 8; x < 186; x += 16)
       d += `<path d="M${x - 8} ${66 + row * 12} a8 8 0 0 0 16 0" fill="${t.accent}" stroke="#111" stroke-width="1.5"/>`;
   }
+  else if (t.deco === 'mad') d = madDeco(t);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="30 52 160 48" width="1280" height="384">${d}</svg>`;
+}
+
+// Tyda Mad: name in big letters with cartoon "mad" marks
+export function madDeco(t) {
+  const mark = (x, y) => `<path d="M${x - 7} ${y - 3} q5 3 0 6 M${x + 7} ${y - 3} q-5 3 0 6 M${x - 3} ${y - 7} q3 5 6 0 M${x - 3} ${y + 7} q3 -5 6 0" stroke="#111" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M${x - 7} ${y - 3} q5 3 0 6 M${x + 7} ${y - 3} q-5 3 0 6 M${x - 3} ${y - 7} q3 5 6 0 M${x - 3} ${y + 7} q3 -5 6 0" stroke="#ff3b30" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+  return `${mark(43, 66)}${mark(181, 64)}
+    <text x="112" y="78" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="17"
+      fill="${t.accent}" stroke="#111" stroke-width="3" paint-order="stroke" letter-spacing="1">TYDA MAD</text>`;
 }
 
 // angry face for the front grille
@@ -183,16 +202,19 @@ export function buildTruck(t) {
   const accentMat = std(t.accent, { metalness: .3, roughness: .4 });
 
   // body: the 2D side outline, pushed out into 3D
-  const pts = [[30,100],[30,62],[40,52],[112,52],[124,22],[178,22],[189,30],[196,52],[214,56],[222,68],[222,100]].map(p => P(...p));
+  const shape = SHAPES[t.shape] || SHAPES.pickup;
+  const pts = shape.body.map(p => P(...p));
   const body = mesh(new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: W, bevelEnabled: true, bevelSize: .05, bevelThickness: .05, bevelSegments: 3 }), bodyMat);
   body.position.set(0, BODY_Y, -W / 2); truck.add(body);
 
   // windows (side and front)
   const glass = std('#bfe9ff', { metalness: .2, roughness: .1 });
-  const win = mesh(new THREE.ExtrudeGeometry(new THREE.Shape([[128,50],[120,50],[128,28],[174,28],[182,50]].map(p => P(...p))), { depth: W + .14, bevelEnabled: false }), glass, false);
-  win.position.set(0, BODY_Y, -(W + .14) / 2); truck.add(win);
+  shape.windows.forEach(wp => {
+    const win = mesh(new THREE.ExtrudeGeometry(new THREE.Shape(wp.map(p => P(...p))), { depth: W + .14, bevelEnabled: false }), glass, false);
+    win.position.set(0, BODY_Y, -(W + .14) / 2); truck.add(win);
+  });
   const ws = mesh(new THREE.BoxGeometry(.05, .3, W - .2), glass, false);
-  const a = P(184, 30), b = P(194, 50);
+  const [wa, wb] = shape.ws || [[184, 30], [194, 50]], a = P(...wa), b = P(...wb);
   ws.position.set((a.x + b.x) / 2 + .05, BODY_Y + (a.y + b.y) / 2, 0); ws.rotation.z = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2; truck.add(ws);
 
   // side paint (both sides)
@@ -228,7 +250,7 @@ export function buildTruck(t) {
   const stacks = [];
   [1, -1].forEach(side => {
     const ex = mesh(new THREE.CylinderGeometry(.07, .07, .7, 12), std('#b0b0b0', { metalness: .9, roughness: .2 }));
-    ex.position.set(P(105, 0).x, BODY_Y + P(0, 52).y + .3, side * (W / 2 - .12)); truck.add(ex);
+    ex.position.set(P(shape.stackX, 0).x, BODY_Y + P(0, 52).y + .3, side * (W / 2 - .12)); truck.add(ex);
     const tip = new THREE.Object3D(); tip.position.set(ex.position.x, ex.position.y + .38, ex.position.z); truck.add(tip); stacks.push(tip);   // where smoke comes out
   });
 

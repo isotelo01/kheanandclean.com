@@ -351,6 +351,18 @@ function truckSVG(which) {
       deco += `<path d="M${x - 8} ${66 + row * 12} a8 8 0 0 0 16 0" fill="${t.accent}" stroke="#111" stroke-width="1.5"/>`;
     for (let x = 112; x < 180; x += 14) roof += `<path d="M${x} 22 l7 -18 l7 18 z" fill="${t.accent}" stroke="#111" stroke-width="2.5" stroke-linejoin="round"/>`;
   }
+  else if (t.deco === 'mad') {
+    // Tyda Mad: name on the side with cartoon "mad" marks
+    const mark = (x, y) => [['#111', 5], ['#ff3b30', 2.6]].map(([c, w]) => `<path d="M${x - 7} ${y - 3} q5 3 0 6 M${x + 7} ${y - 3} q-5 3 0 6 M${x - 3} ${y - 7} q3 5 6 0 M${x - 3} ${y + 7} q3 -5 6 0" stroke="${c}" stroke-width="${w}" fill="none" stroke-linecap="round"/>`).join('');
+    deco = `${mark(43, 66)}${mark(181, 64)}<text x="112" y="78" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="17" fill="${t.accent}" stroke="#111" stroke-width="3" paint-order="stroke" letter-spacing="1">TYDA MAD</text>`;
+  }
+  // body outline + windows: the regular pickup, or the later-model Avalanche (long crew cab, short bed, sloped sail panels)
+  const ava = t.shape === 'avalanche';
+  const bodyPath = ava
+    ? 'M30 100 L30 56 Q30 51 35 51 L52 51 L100 24 Q103 22 110 22 L170 22 Q178 22 182 27 L194 50 L216 52 Q222 53 222 60 L222 100 Z'
+    : 'M30 100 L30 62 Q30 52 40 52 L112 52 L124 22 L178 22 Q186 22 189 30 L196 52 L214 56 Q222 58 222 68 L222 100 Z';
+  const winPath = ava ? 'M110 28 L138 28 L138 50 L104 50 Z M142 28 L173 28 L181 50 L142 50 Z' : 'M128 28 L174 28 L182 50 L120 50 Z';
+  const stackX = ava ? 36 : 100;
   if (!roof) roof = [132, 146, 160, 174].map(x => `<rect x="${x - 5}" y="10" width="10" height="9" rx="2" fill="#ffd60a" stroke="#111" stroke-width="2"/>`).join('') +
     `<rect x="126" y="17" width="54" height="5" fill="#111"/>`;
   let teeth = '';
@@ -358,10 +370,10 @@ function truckSVG(which) {
   return `<svg viewBox="0 0 240 205" xmlns="http://www.w3.org/2000/svg">
     ${spring(62)}${spring(178)}
     <rect x="48" y="100" width="144" height="10" rx="3" fill="#444" stroke="#111" stroke-width="2"/>
-    <rect x="100" y="24" width="9" height="30" rx="2" fill="#9a9a9a" stroke="#111" stroke-width="2.5"/>
+    <rect x="${stackX}" y="24" width="9" height="30" rx="2" fill="#9a9a9a" stroke="#111" stroke-width="2.5"/>
     ${roof}
-    <path d="M30 100 L30 62 Q30 52 40 52 L112 52 L124 22 L178 22 Q186 22 189 30 L196 52 L214 56 Q222 58 222 68 L222 100 Z" fill="${t.body}" stroke="#111" stroke-width="5" stroke-linejoin="round"/>
-    <path d="M128 28 L174 28 L182 50 L120 50 Z" fill="#bfe9ff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
+    <path d="${bodyPath}" fill="${t.body}" stroke="#111" stroke-width="5" stroke-linejoin="round"/>
+    <path d="${winPath}" fill="#bfe9ff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
     ${deco}
     <path d="M200 60 L219 64 L217 75 L202 72 Z" fill="#fff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
     <circle cx="211" cy="69" r="3.5" fill="#111"/>
@@ -386,7 +398,8 @@ const TRUCKS = [
   { name: 'Flame Fang',    body: '#d62828', accent: '#ff8c1a', rim: '#ffd60a', deco: 'flames' },
   { name: 'Skull Crusher', body: '#2b2b2b', accent: '#9be564', rim: '#9be564', deco: 'skull' },
   { name: 'Thunder Bolt',  body: '#1565c0', accent: '#ffd60a', rim: '#c0c0c0', deco: 'bolt' },
-  { name: 'Dragon Roar',   body: '#1d7a2e', accent: '#a0e426', rim: '#ff6f00', deco: 'dragon' }
+  { name: 'Dragon Roar',   body: '#1d7a2e', accent: '#a0e426', rim: '#ff6f00', deco: 'dragon' },
+  { name: 'Tyda Mad',      body: '#e0218a', accent: '#ffd60a', rim: '#c0c0c0', deco: 'mad', shape: 'avalanche' }
 ];
 let truckColor = 0;   // index into TRUCKS
 let mode = 'colors', stars = 0, meter = 0, round = null, busy = false;
@@ -657,7 +670,7 @@ try { localStorage.setItem('trucksProfiles', JSON.stringify([{ id: 'whistler', n
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
 <script type="module">
 import * as THREE from "three";
-import { TRUCKS, buildTruck, car3d, TIRE_R, buildArena, Exhaust, bump } from "./trucks3d.js";
+import { TRUCKS, buildTruck, car3d, TIRE_R, buildArena, Exhaust, bump } from "./trucks3d.js?v=2";
 
 const host = document.getElementById('scene3d'), gameScreen = document.getElementById('game');
 const ren = new THREE.WebGLRenderer({ antialias: true });
