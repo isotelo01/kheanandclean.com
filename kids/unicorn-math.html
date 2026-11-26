@@ -974,6 +974,11 @@
       mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
       mr.onstop = function () {
         var blob = new Blob(chunks, { type: mr.mimeType || type || "audio/mp4" });
+        if (blob.size < 200) {   // nothing got recorded: don't save an empty clip
+          $("recCount").textContent = "Oops, I didn't catch that. Let's try again!";
+          recBtns([{ cls: "check", text: "Try again", fn: go }, { cls: "erase", text: "Stop", fn: close }]);
+          return;
+        }
         var url = URL.createObjectURL(blob);
         $("recCount").textContent = "Listen…";
         var a = new Audio(url); a.play().catch(function () {});

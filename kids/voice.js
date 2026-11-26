@@ -85,17 +85,24 @@
   // clips[key] = playable URL for the active profile
   var clips = {};
   var owner = {};   // key -> name of the OTHER kid whose recording is used (first come, first served)
+  var localBlobs = {}, ownRemote = {}, others = {}, gen = 0;   // for checking/fixing empty website copies
+  var MIN_BYTES = 200;                                          // smaller than this = empty recording
   function loadClips() {
     var p = active();
-    owner = {};
-    if (!p) return sharedFill(null).then(function () { return clips; });
+    owner = {}; localBlobs = {}; ownRemote = {}; others = {};
+    var myGen = ++gen;
+    if (!p) return sharedFill(null).then(function () { checkClips(null, myGen); return clips; });
     var prefix = p.id + "/";
     var local = idb("readonly", function (st) {
       var keysReq = st.getAllKeys ? st.getAllKeys() : null, valsReq = st.getAll ? st.getAll() : null;
       return { keysReq: keysReq, valsReq: valsReq };
     }).then(function (r) {
       var ks = r.keysReq.result || [], vs = r.valsReq.result || [];
-      ks.forEach(function (k, i) { if (String(k).indexOf(prefix) === 0) clips[k.slice(prefix.length)] = URL.createObjectURL(vs[i]); });
+      ks.forEach(function (k, i) {
+        if (String(k).indexOf(prefix) !== 0 || !vs[i] || vs[i].size < MIN_BYTES) return;   // skip empty recordings
+        var key = k.slice(prefix.length);
+        localBlobs[key] = vs[i]; clips[key] = URL.createObjectURL(vs[i]);
+      });
     }).catch(function () {});
     // shared copies from the website (fill in anything this device doesn't have)
     var remote = fetch("https://firestore.googleapis.com/v1/projects/" + FB.projectId + "/databases/(default)/documents/kidVoices/" + p.id)
@@ -106,9 +113,13 @@
       }).catch(function () { return {}; });
     return Promise.all([local, remote]).then(function (r) {
       var f = r[1];
-      Object.keys(f).forEach(function (k) { if (!clips[k] && f[k].stringValue) clips[k] = f[k].stringValue; });
+      Object.keys(f).forEach(function (k) {
+        if (!f[k].stringValue) return;
+        ownRemote[k] = f[k].stringValue;
+        if (!clips[k]) clips[k] = f[k].stringValue;
+      });
       return sharedFill(p.id);
-    }).then(function () { return clips; });
+    }).then(function () { checkClips(p, myGen); return clips; });
   }
   // One shared set of lines: anything this kid hasn't recorded uses another kid's recording.
   function sharedFill(myId) {
@@ -116,6 +127,7 @@
       kids.forEach(function (k) {
         if (k.id === myId) return;
         Object.keys(k.clips).forEach(function (key) {
+          (others[key] = others[key] || []).push({ url: k.clips[key], name: k.name });
           if (!clips[key]) { clips[key] = k.clips[key]; owner[key] = k.name; }
         });
       });
@@ -151,22 +163,75 @@
   function saveClip(key, blob) {
     var p = active();
     if (!p) return Promise.reject(new Error("No profile"));
-    clips[key] = URL.createObjectURL(blob);
-    delete owner[key];
-    var local = idb("readwrite", function (st) { st.put(blob, p.id + "/" + key); }).catch(function () {});
-    return local.then(function () {
-      return firebase().then(function (f) {
-        var ext = /mp4|m4a|aac/.test(blob.type) ? "m4a" : "webm";
-        var ref = f.S.ref(f.S.getStorage(f.app), "kid-voices/" + p.id + "/" + key + "." + ext);
-        return f.S.uploadBytes(ref, blob, { contentType: blob.type || "audio/mp4" })
-          .then(function () { return f.S.getDownloadURL(ref); })
-          .then(function (url) {
-            var data = { name: p.name, updatedAt: f.F.serverTimestamp(), clips: {} };
-            data.clips[key] = url;
-            return f.F.setDoc(f.F.doc(f.F.getFirestore(f.app), "kidVoices", p.id), data, { merge: true });
-          })
-          .then(function () { return "shared"; });
-      }).catch(function (e) { console.warn("upload failed", e); return "local-error"; });
+    if (!blob || blob.size < MIN_BYTES) return Promise.reject(new Error("Empty recording"));
+    var type = blob.type || "audio/mp4";
+    // Read the sound into memory first. Uploading the recorder's Blob directly sent 0-byte files from the iPhone.
+    return blob.arrayBuffer().then(function (buf) {
+      var copy = new Blob([buf], { type: type });
+      clips[key] = URL.createObjectURL(copy);
+      delete owner[key]; localBlobs[key] = copy;
+      var local = idb("readwrite", function (st) { st.put(copy, p.id + "/" + key); }).catch(function () {});
+      return local.then(function () { return uploadClip(p, key, new Uint8Array(buf), type); });
+    });
+  }
+  // Upload bytes to the website and check the website really got them. Resolves "shared" or "local-error".
+  function uploadClip(p, key, bytes, type) {
+    return firebase().then(function (f) {
+      var ext = /mp4|m4a|aac/.test(type) ? "m4a" : "webm";
+      var ref = f.S.ref(f.S.getStorage(f.app), "kid-voices/" + p.id + "/" + key + "." + ext);
+      return f.S.uploadBytes(ref, bytes, { contentType: type })
+        .then(function (snap) {
+          if (!snap || !snap.metadata || +snap.metadata.size < MIN_BYTES) throw new Error("website got an empty file");
+          return f.S.getDownloadURL(ref);
+        })
+        .then(function (url) {
+          ownRemote[key] = url;
+          var data = { name: p.name, updatedAt: f.F.serverTimestamp(), clips: {} };
+          data.clips[key] = url;
+          return f.F.setDoc(f.F.doc(f.F.getFirestore(f.app), "kidVoices", p.id), data, { merge: true });
+        })
+        .then(function () { return "shared"; });
+    }).catch(function (e) { console.warn("upload failed", e); return "local-error"; });
+  }
+
+  // ---- empty website recordings: skip them, and re-upload from this device when it has a good copy
+  var sizeCache = {};
+  function remoteSize(url) {   // bytes in a website recording, or null if we can't tell
+    if (!/^https:\/\/firebasestorage\.googleapis\.com\//.test(url)) return Promise.resolve(null);
+    var meta = url.split("?")[0];
+    if (!(meta in sizeCache)) sizeCache[meta] = fetch(meta).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { return j && j.size != null ? +j.size : null; }).catch(function () { return null; });
+    return sizeCache[meta];
+  }
+  function checkClips(p, myGen) {
+    Object.keys(clips).forEach(function (key) {
+      var url = clips[key];
+      if (/^blob:/.test(url)) return;   // a good recording saved on this device
+      remoteSize(url).then(function (size) {
+        if (size === null || size >= MIN_BYTES || gen !== myGen) return;
+        // empty: use another kid's recording of this line if theirs has sound, otherwise the iPad voice
+        var list = (others[key] || []).filter(function (o) { return o.url !== url; });
+        (function tryNext(i) {
+          if (gen !== myGen) return;
+          if (i >= list.length) { if (clips[key] === url) { delete clips[key]; delete owner[key]; } return; }
+          remoteSize(list[i].url).then(function (s) {
+            if (s === null || s >= MIN_BYTES) { if (gen === myGen && clips[key] === url) { clips[key] = list[i].url; owner[key] = list[i].name; } }
+            else tryNext(i + 1);
+          });
+        })(0);
+      });
+    });
+    // fix the website copies of this kid's recordings that came out empty, using the good copy on this device
+    if (!p) return;
+    Object.keys(localBlobs).forEach(function (key) {
+      var url = ownRemote[key];
+      (url ? remoteSize(url) : Promise.resolve(0)).then(function (size) {
+        if (size === null || size >= MIN_BYTES || gen !== myGen) return;
+        var blob = localBlobs[key];
+        blob.arrayBuffer().then(function (buf) {
+          return uploadClip(p, key, new Uint8Array(buf), blob.type || "audio/mp4");
+        }).then(function (r) { if (r === "shared") delete sizeCache[(url || "").split("?")[0]]; }).catch(function () {});
+      });
     });
   }
 
