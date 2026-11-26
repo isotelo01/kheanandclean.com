@@ -71,11 +71,15 @@
   #roomName { background: #fde2ff; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 800; color: #d65db1; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rarrow { position: absolute; top: 40%; width: 46px; height: 64px; border-radius: 16px; background: rgba(255,255,255,.75); font-size: 24px; color: #d65db1; z-index: 9000; box-shadow: 0 3px 0 rgba(0,0,0,.12); }
   .rarrow.l { left: 6px; } .rarrow.r { right: 6px; }
+  .roomwrap { flex: 1; position: relative; overflow: hidden; display: flex; min-height: 0; }
+  .roomwrap > .scene { flex: 1; }
+  .roomwrap > .ghost { position: absolute; inset: 0; pointer-events: none; }
+  .roomwrap > .ghost::after { content: ''; position: absolute; top: 0; bottom: 0; width: 6px; background: linear-gradient(90deg, rgba(0,0,0,0), rgba(160,80,140,.25), rgba(0,0,0,0)); }
+  .roomwrap > .ghost.toL::after { right: -3px; } .roomwrap > .ghost.toR::after { left: -3px; }
   #wallDots { display: flex; gap: 5px; margin-top: 3px; }
   #wallDots i { width: 8px; height: 8px; border-radius: 50%; background: #f1c6e4; }
   #wallDots i.on { background: #d65db1; }
-  .room.turnR > .item { animation: turnR .35s ease-out; } .room.turnL > .item { animation: turnL .35s ease-out; }
-  @keyframes turnR { from { margin-left: 40%; opacity: 0; } } @keyframes turnL { from { margin-left: -40%; opacity: 0; } }
+
   .roommenu { position: absolute; inset: 8px; z-index: 20000; background: rgba(255,255,255,.97); border-radius: 22px; padding: 12px; display: none; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; align-content: start; overflow-y: auto; box-shadow: 0 8px 20px rgba(0,0,0,.2); }
   .roommenu.on { display: grid; }
   .roommenu button { background: #fff0fa; border: 3px solid #ffd1ea; border-radius: 18px; padding: 12px 6px; font-size: 16px; font-weight: 800; display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -187,7 +191,8 @@
     <button class="rb" id="wallBtn">🎨</button>
     <button class="rb wandBtn">🪄</button>
   </div>
-  <div class="scene room" id="castleScene"><div class="stripes"></div>
+  <div class="roomwrap" id="roomWrap">
+    <div class="scene room" id="castleScene"><div class="stripes"></div></div>
     <button class="rarrow l" id="roomPrev" aria-label="Turn left">↺</button><button class="rarrow r" id="roomNext" aria-label="Turn right">↻</button>
     <div class="roommenu" id="roomMenu"></div>
   </div>
@@ -248,7 +253,7 @@ const ROOMS = [
     { k: 'fireplace', x: 50, y: 64, s: 1.1 }, { k: 'sofa', x: 46, y: 92, s: 1.1 }, { k: 'window', x: 16, y: 46, s: 1 },
     { k: 'window', x: 84, y: 46, s: 1 }, { k: 'lamp', x: 88, y: 86, s: 1 }, { k: 'bookshelf', x: 12, y: 84, s: 1 }, { k: 'rug', x: 50, y: 98, s: 1.2 } ] },
   { id: 'kitchen', name: 'Kitchen', e: '🧁', floor: 'tile', items: [
-    { k: 'fridge', x: 10, y: 70, s: 1 }, { k: 'stove', x: 28, y: 70, s: 1 }, { k: 'counter', x: 56, y: 70, s: 1.1 }, { k: 'window', x: 56, y: 40, s: .8 },
+    { k: 'fridge', x: 10, y: 70, s: 1 }, { k: 'stove', x: 28, y: 70, s: 1 }, { k: 'counter', x: 56, y: 70, s: 1.1 }, { k: 'airfryer', x: 66, y: 70.5, s: 1, h3: 3.2 }, { k: 'window', x: 56, y: 40, s: .8 },
     { k: 'c1', x: 50, y: 50, s: 1 }, { k: 'table', x: 74, y: 94, s: 1 }, { k: 'cupcake', x: 70, y: 80, s: .8 }, { k: 'c3', x: 80, y: 80, s: .8 } ] },
   { id: 'dining', name: 'Dining Room', e: '🍽️', floor: 'wood', items: [
     { k: 'chandelier', x: 50, y: 22, s: 1 }, { k: 'window', x: 20, y: 46, s: 1 }, { k: 'window', x: 80, y: 46, s: 1 },
@@ -277,6 +282,11 @@ if (!S.rooms) {
 }
 A.HOUSE.upgradeRooms(S.rooms);   // every room has four walls now (you turn around inside it)
 S.view = S.view || {};
+if (!S.airfryer && !(S.rooms.kitchen || []).some(o => o.k === 'airfryer')) {              // kitchens made before the air fryer existed get one on the counter
+  const K = S.rooms.kitchen || (S.rooms.kitchen = []), c = K.find(o => o.k === 'counter');
+  K.push(c ? { k: 'airfryer', w: c.w || 0, x: Math.min(95, c.x + 8), y: Math.min(100, c.y + .5), s: 1, h3: 3.2 } : { k: 'airfryer', w: 0, x: 60, y: 80, s: 1 });
+}
+S.airfryer = 1;
 const viewOf = id => S.view[id] || 0;
 const NO_OUTFIT = () => ({ lashes: false, dress: 'none', crown: false, wand: false, bow: false, necklace: false, blush: false, gloss: false, shadow: false, glitter: false, glasses: false, flower: false });
 if (!S.pippiOutfit) S.pippiOutfit = Object.assign(NO_OUTFIT(), { bow: true });
@@ -327,7 +337,7 @@ const CASTLE_TABS = [
   ['🛁 Bath', ['tub', 'sink', 'toilet', 'mirror', 'washer', 'soap', 'lotion', 'towel', 'a4']],
   ['🧸 Toys', ['toybox', 'kidbed', 'beanbag', 'teddy', 'c10', 'puzzle', 'dice', 'yoyo', 'kite', 'blocks', 'car', 'ball', 'art', 'balloon']],
   ['🛏️ Bedroom', ['bed', 'mirror', 'throne', 'rug', 'window', 'chandelier', 'c13', 'c14', 'c12', 'teddy', 'c10', 'c17', 'c19', 'c20', 'c18', 'c16', 'c15', 'c11']],
-  ['🧁 Kitchen', ['stove', 'fridge', 'counter', 'island', 'table', 'longtable', 'cupcake', 'c1', 'c2', 'c3', 'c8', 'c9', 'c5', 'c4', 'c6', 'c7']],
+  ['🧁 Kitchen', ['airfryer', 'stove', 'fridge', 'counter', 'island', 'table', 'longtable', 'cupcake', 'c1', 'c2', 'c3', 'c8', 'c9', 'c5', 'c4', 'c6', 'c7']],
   ['🐥 Friends', ['molly', 'pippi', 'kitten', 'puppy', 'duckling', 'butterfly', 'teddy', 'a2', 'a3', 'a1', 'a8', 'a15', 'a5']]
 ];
 function art(k) {
@@ -361,7 +371,7 @@ function makeScene(name, el, tabsEl, rowEl, tabs) {
     n.innerHTML = '<div class="in">' + art(it.k) + '</div>';
     place(n); bind(n); return n;
   }
-  function place(n) { const it = n._it; n.style.left = it.x + '%'; n.style.top = it.y + '%'; n.style.width = (CAT[it.k].w * it.s * sceneScale()) + 'px'; }
+  function place(n) { const it = n._it; n.style.left = it.x + '%'; n.style.top = it.y + '%'; n.style.marginTop = name === 'castle' && it.h3 ? -(it.h3 * 30 * sceneScale()) + 'px' : '';   /* sits on top of a counter or table */ n.style.width = (CAT[it.k].w * it.s * sceneScale()) + 'px'; }
   function sceneScale() { return Math.max(.6, Math.min(1.5, el.clientWidth / 420, el.clientHeight / 560)); }
   function bind(n) {
     let sx, sy, ox, oy, moved, id;
@@ -550,10 +560,20 @@ $('#wallBtn').onclick = () => { S.walls = S.walls || {}; S.walls[S.room] = (((S.
 const ROOM_TAB = { foyer: 0, living: 0, dining: 0, bath: 1, kids: 2, play: 2, master: 3, kitchen: 4 };
 function setRoom(id) { deselect(); S.room = id; save(); castleS.draw(); castleS.setTab(ROOM_TAB[id] || 0); wall(); $('#roomMenu').classList.remove('on'); snd.pop(); }
 // turn around inside the room: ◀ turns left, ▶ turns right, one wall at a time
+let turning = false;
 function turn(d) {
-  deselect(); S.view[S.room] = (viewOf(S.room) + d + 4) % 4; save(); snd.boop();
-  const el = castleS.el; el.classList.remove('turnL', 'turnR'); void el.offsetWidth; el.classList.add(d > 0 ? 'turnR' : 'turnL');
+  if (turning) return; turning = true;
+  deselect(); $('#roomMenu').classList.remove('on');
+  const el = castleS.el, ghost = el.cloneNode(true);          // a picture of the wall you were facing
+  ghost.removeAttribute('id'); ghost.classList.add('ghost', d > 0 ? 'toL' : 'toR'); $('#roomWrap').appendChild(ghost);
+  S.view[S.room] = (viewOf(S.room) + d + 4) % 4; save(); snd.boop();
   castleS.draw(); wall();
+  // turning right: the old wall rolls away to the left and the next wall rolls in from the right (and the other way round)
+  const opt = { duration: 650, easing: 'cubic-bezier(.45,.05,.35,1)' };
+  ghost.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(' + (d > 0 ? -100 : 100) + '%)' }], opt);
+  const a = el.animate([{ transform: 'translateX(' + (d > 0 ? 100 : -100) + '%)' }, { transform: 'translateX(0)' }], opt);
+  a.onfinish = a.oncancel = () => { ghost.remove(); turning = false; };
+  [0, 1].forEach(i => setTimeout(snd.step, 150 + i * 260));
 }
 $('#roomPrev').addEventListener('pointerdown', ev => { ev.stopPropagation(); turn(-1); });
 $('#roomNext').addEventListener('pointerdown', ev => { ev.stopPropagation(); turn(1); });

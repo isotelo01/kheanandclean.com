@@ -147,6 +147,7 @@
     toybox: V('0 0 110 90', '<rect x="6" y="30" width="98" height="56" rx="6" fill="#6fc3ff" stroke="#3fa0e0" stroke-width="3"/><rect x="2" y="22" width="106" height="14" rx="6" fill="#ff8fc8" stroke="#e6609e" stroke-width="3"/><circle cx="30" cy="16" r="10" fill="#ffe14d"/><rect x="56" y="4" width="18" height="18" rx="3" fill="#6ad46a" transform="rotate(12 65 13)"/><circle cx="88" cy="14" r="8" fill="#b77dff"/><path d="M55 50l-8-8a6 6 0 0 1 8-6 6 6 0 0 1 8 6z" fill="#fff"/><text x="55" y="76" text-anchor="middle" font-family="Arial" font-weight="900" font-size="16" fill="#fff">TOYS</text>'),
     kidbed: V('0 0 140 90', '<rect x="4" y="10" width="20" height="78" rx="6" fill="#b77dff"/><rect x="116" y="34" width="20" height="54" rx="6" fill="#b77dff"/><rect x="18" y="44" width="104" height="28" rx="6" fill="#fff"/><rect x="40" y="46" width="82" height="30" rx="6" fill="#6fc3ff"/><g fill="#fff"><circle cx="56" cy="58" r="3"/><circle cx="76" cy="64" r="3"/><circle cx="96" cy="56" r="3"/><circle cx="110" cy="66" r="3"/></g><ellipse cx="34" cy="44" rx="14" ry="8" fill="#fff4fb" stroke="#e9c3d8"/><path d="M14 4l-4-4a3 3 0 0 1 4-3 3 3 0 0 1 4 3z" fill="#ffe14d"/>'),
     lamp: V('0 0 60 130', '<path d="M12 40L20 4h20l8 36z" fill="#ffd1ea" stroke="#ff8fc8" stroke-width="2"/><rect x="27" y="40" width="6" height="80" fill="#ffd23f"/><ellipse cx="30" cy="122" rx="20" ry="6" fill="#ffd23f"/><ellipse cx="30" cy="40" rx="14" ry="3" fill="#fff6c2" opacity=".9"/>'),
+    airfryer: V('0 0 80 96', '<rect x="6" y="6" width="68" height="84" rx="16" fill="#3a2a33"/><rect x="12" y="12" width="56" height="20" rx="8" fill="#ff8fc8"/><circle cx="28" cy="22" r="5" fill="#fff"/><path d="M28 22v-4" stroke="#3a2a33" stroke-width="2" stroke-linecap="round"/><rect x="38" y="18" width="24" height="8" rx="3" fill="#6fe0ff"/><rect x="12" y="40" width="56" height="42" rx="10" fill="#4a3a43"/><rect x="20" y="48" width="40" height="16" rx="5" fill="#ffb86b" opacity=".85"/><rect x="26" y="70" width="28" height="7" rx="3.5" fill="#ff8fc8"/><ellipse cx="40" cy="91" rx="28" ry="3" fill="#000" opacity=".15"/>'),
     window: V('0 0 100 120', '<path d="M10 116V50a40 40 0 0 1 80 0v66z" fill="#8fd3ff" stroke="#ffd23f" stroke-width="5"/><path d="M50 12v104M10 66h80" stroke="#ffd23f" stroke-width="4"/><circle cx="72" cy="38" r="8" fill="#fff6c2"/><path d="M4 116h92" stroke="#ff8fc8" stroke-width="8" stroke-linecap="round"/>')
   };
 
@@ -162,7 +163,7 @@
     a9: E('🐑', 54), a10: E('🐝', 34), a11: E('🐟', 38), a12: E('🐿️', 46), a13: E('🦔', 44), a14: E('🐴', 64), a15: E('🐼', 54), a16: E('🐸', 42),
     bed: P('bed', 170), mirror: P('mirror', 80), rug: P('rug', 170), window: P('window', 100), chandelier: P('chandelier', 130), throne: P('throne', 100),
     kitten: P('kitten', 56), puppy: P('puppy', 58), duckling: P('duckling', 56), butterfly: P('butterfly', 46), daisy: P('daisy', 34), cupcake: P('cupcake', 42), teddy: P('teddy', 56),
-    stairs: P('stairs', 240), door: P('door', 90), fireplace: P('fireplace', 130), counter: P('counter', 140), longtable: P('longtable', 200),
+    airfryer: P('airfryer', 40), stairs: P('stairs', 240), door: P('door', 90), fireplace: P('fireplace', 130), counter: P('counter', 140), longtable: P('longtable', 200),
     tub: P('tub', 150), sink: P('sink', 70), sofa: P('sofa', 170), bookshelf: P('bookshelf', 80), toybox: P('toybox', 100), kidbed: P('kidbed', 140), lamp: P('lamp', 50),
     toilet: E('🚽', 60), soap: E('🧼', 30), lotion: E('🧴', 34), towel: E('🧺', 44), tv: E('📺', 70), puzzle: E('🧩', 36), dice: E('🎲', 32), yoyo: E('🪀', 32), kite: E('🪁', 50), art: E('🎨', 40), blocks: E('🧱', 40), car: E('🚗', 44), ball: E('⚽', 34), plant2: E('🌵', 44),
     armchair: E('💺', 56), island: P('counter', 120), dresser: E('🗄️', 62), beanbag: E('🟣', 50), washer: E('🫧', 50),
@@ -183,7 +184,7 @@
   const K2T = { bed: 'bed', kidbed: 'kidbed', sofa: 'sofa', c13: 'sofa', c14: 'dchair', armchair: 'chair', table: 'table', longtable: 'longtable', tv: 'tv',
     fireplace: 'fireplace', bookshelf: 'bookshelf', c19: 'piano', stove: 'stove', fridge: 'fridge', counter: 'counter', island: 'island', tub: 'tub', toilet: 'toilet',
     sink: 'sink', mirror: 'mirror', throne: 'throne', dresser: 'dresser', toybox: 'toybox', teddy: 'teddy', c10: 'teddy', art: 'easel', beanbag: 'beanbag',
-    blocks: 'blocks', c12: 'plant', plant2: 'plant', lamp: 'lamp', rug: 'rug', c3: 'cake', c8: 'cake', cupcake: 'cake', washer: 'washer', chandelier: 'chandelier',
+    blocks: 'blocks', c12: 'plant', plant2: 'plant', lamp: 'lamp', rug: 'rug', c3: 'cake', c8: 'cake', cupcake: 'cake', washer: 'washer', airfryer: 'airfryer', chandelier: 'chandelier',
     molly: 'molly', pippi: 'pippi' };
   const FACE = [0, -Math.PI / 2, Math.PI, Math.PI / 2];      // furniture faces into the room from each wall
   const clampN = (a, b, v) => Math.max(a, Math.min(b, v));
