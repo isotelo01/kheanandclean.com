@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Molly's Wonderland 3D</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: linear-gradient(#ffe6f4, #e9d6ff); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: radial-gradient(circle at 50% 40%, #fff0fa, #f3d6ff 55%, #cdb6ff); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
   #c { position: fixed; inset: 0; }
   #c canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   #msg { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center; font-size: 18px; font-weight: 800; color: #a24bd1; pointer-events: none; }
@@ -36,14 +36,31 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(35, 1, .1, 100);
 camera.position.set(0, 2.4, 9.5);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 1.7, 0); controls.enablePan = false; controls.minDistance = 4; controls.maxDistance = 14;
+controls.target.set(0, 1.7, 0); controls.enablePan = false; controls.minDistance = 4; controls.maxDistance = 12;
 controls.autoRotate = true; controls.autoRotateSpeed = 2.2; controls.enableDamping = true;
 scene.add(new THREE.HemisphereLight(0xffffff, 0xffd1ea, 1.6));
 const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3, 8, 5); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); scene.add(sun);
-const ground = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, .2, 48), new THREE.MeshStandardMaterial({ color: '#8ee08e', roughness: .9 }));
-ground.position.y = -.1; ground.receiveShadow = true; scene.add(ground);
-const rim = new THREE.Mesh(new THREE.TorusGeometry(2.6, .08, 8, 64), new THREE.MeshStandardMaterial({ color: '#ffb3d9' }));
-rim.rotation.x = Math.PI / 2; scene.add(rim);
+/* figure stand (like an amiibo base) with "Made by Tevy Sotelo" on the bottom */
+const stand = new THREE.Group(); scene.add(stand);
+const base = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.3, .4, 64), new THREE.MeshStandardMaterial({ color: '#ffb3d9', roughness: .25, metalness: .15 }));
+base.position.y = -.2; base.receiveShadow = true; base.castShadow = true; stand.add(base);
+const topRing = new THREE.Mesh(new THREE.TorusGeometry(2.2, .06, 10, 80), new THREE.MeshStandardMaterial({ color: '#ffd23f', metalness: .6, roughness: .3 }));
+topRing.rotation.x = Math.PI / 2; stand.add(topRing);
+const botRing = topRing.clone(); botRing.scale.setScalar(2.3 / 2.2); botRing.position.y = -.4; stand.add(botRing);
+function signTexture() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1024;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#ffe6f4'; g.beginPath(); g.arc(512, 512, 512, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#ffd23f'; g.lineWidth = 22; g.beginPath(); g.arc(512, 512, 490, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = '#a24bd1'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const font = '"Snell Roundhand", "Segoe Script", "Brush Script MT", "Apple Chancery", cursive';
+  g.font = 'italic 120px ' + font; g.fillText('Made by', 512, 400);
+  g.font = 'italic bold 150px ' + font; g.fillText('Tevy Sotelo', 512, 580);
+  g.fillStyle = '#ff6fb1'; g.font = '80px sans-serif'; g.fillText('♥', 512, 760);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+const sign = new THREE.Mesh(new THREE.CircleGeometry(2.28, 64), new THREE.MeshStandardMaterial({ map: signTexture(), roughness: .6 }));
+sign.rotation.x = Math.PI / 2; sign.position.y = -.405; stand.add(sign);   // faces down, read it from underneath
 
 /* ---------- helpers ---------- */
 const mat = (c, x = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .55, ...x });
@@ -99,6 +116,29 @@ function glitter(n, rad, y0, y1) {
 }
 
 const root = new THREE.Group(); scene.add(root);
+
+/* floating rainbow stars and sparkly hearts in the background */
+const RAINBOW = ['#ff5a5a', '#ffa53b', '#ffe14d', '#6ad46a', '#59b7ff', '#b77dff'];
+const heartShape = (() => { const s = new THREE.Shape(); s.moveTo(0, -.5); s.bezierCurveTo(-.15, -.35, -.6, -.1, -.6, .2); s.bezierCurveTo(-.6, .5, -.25, .62, 0, .35); s.bezierCurveTo(.25, .62, .6, .5, .6, .2); s.bezierCurveTo(.6, -.1, .15, -.35, 0, -.5); return s; })();
+const heartGeo = new THREE.ExtrudeGeometry(heartShape, { depth: .18, bevelEnabled: true, bevelThickness: .08, bevelSize: .06, bevelSegments: 3 }); heartGeo.center();
+const bgItems = [];
+for (let i = 0; i < 46; i++) {
+  const isHeart = i % 2 === 1;
+  const c = isHeart ? ['#ff4f9a', '#ff8fc8', '#ff6fb1', '#e8344e'][i % 4] : RAINBOW[i % RAINBOW.length];
+  const m = new THREE.Mesh(isHeart ? heartGeo : starGeo(.5, .22, .14),
+    new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: .35, metalness: .45, roughness: .2 }));
+  const a = Math.random() * Math.PI * 2, r = 5 + Math.random() * 7;
+  m.position.set(Math.cos(a) * r, -1.5 + Math.random() * 8, Math.sin(a) * r);
+  m.scale.setScalar(.6 + Math.random() * .9);
+  m.rotation.set(Math.random() * 6, Math.random() * 6, 0);
+  m.userData = { y: m.position.y, f: Math.random() * 6, s: .3 + Math.random() * .6 };
+  scene.add(m); bgItems.push(m);
+}
+const twinkleGeo = new THREE.BufferGeometry(), tp = [];
+for (let i = 0; i < 260; i++) { const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 10; tp.push(Math.cos(a) * r, -2 + Math.random() * 10, Math.sin(a) * r); }
+twinkleGeo.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3));
+const twinkle = new THREE.Points(twinkleGeo, new THREE.PointsMaterial({ color: '#fff6c2', size: .09, transparent: true, opacity: .9 }));
+scene.add(twinkle);
 const spinners = [], floaters = [];
 const WHITE = mat('#ffffff', { roughness: .8 }), PINK = mat('#ffc2dc', { roughness: .8 });
 
@@ -193,6 +233,8 @@ const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const t = clock.getElapsedTime();
   spinners.forEach(s => s.rotation.y = t * 2);
+  bgItems.forEach(m => { const u = m.userData; m.position.y = u.y + Math.sin(t * u.s + u.f) * .4; m.rotation.y += .01 * u.s + .004; m.rotation.x = Math.sin(t * .5 + u.f) * .4; });
+  twinkle.material.opacity = .55 + Math.sin(t * 3) * .35; twinkle.rotation.y = t * .03;
   floaters.forEach(f => { f.rotation.y = t * 2; f.position.y += Math.sin(t * 2 + f.userData.f) * .003; });
   if (hop > 0) { hop = Math.max(0, hop - .03); }
   root.position.y = Math.sin((1 - hop) * Math.PI) * .6 * (hop > 0 ? 1 : 0) + Math.sin(t * 2) * .04;
