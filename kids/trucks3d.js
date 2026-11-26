@@ -67,18 +67,97 @@ export const W = 1.6;               // body width
 export const TIRE_R = 1.0, TIRE_W = 0.85;
 export const BODY_Y = 1.62;         // bottom of the body
 
+let treadCache = null;
+function treadGeo(ROUT, hw) {
+  if (treadCache) return treadCache;
+  const surf = z => { const e = Math.min(1, Math.abs(z / hw)); return ROUT - Math.pow(Math.max(0, (e - .6) / .4), 2.2) * .17; };
+  const boxes = [];   // each: { w, h, l, m: Matrix4 }
+  const n = new THREE.Vector3(), tdir = new THREE.Vector3(), d = new THREE.Vector3(), wv = new THREE.Vector3();
+  function seg(phi, z, dz, dyArc, h, w, len) {
+    // phi = angle around the tire, z = across the tire; (dz, dyArc) = direction of the bar on the surface
+    const r = surf(z), dr = (surf(z + dz * .01) - r) / .01;
+    n.set(Math.cos(phi), Math.sin(phi), 0); tdir.set(-Math.sin(phi), Math.cos(phi), 0);
+    d.set(0, 0, 0).addScaledVector(new THREE.Vector3(0, 0, 1), dz).addScaledVector(tdir, dyArc).addScaledVector(n, dr * dz).normalize();
+    const up = n.clone().addScaledVector(d, -n.dot(d)).normalize();
+    wv.crossVectors(up, d).normalize();
+    const m = new THREE.Matrix4().makeBasis(wv, up, d);
+    m.setPosition(n.x * (r + h / 2 - .01), n.y * (r + h / 2 - .01), z);
+    boxes.push({ w, h, l: len, m });
+  }
+  const BARS = 16, ANG = .62, SEGS = 6;                  // bars per side, sweep angle, pieces per bar (so it hugs the curve)
+  for (let k = 0; k < BARS; k++) {
+    [1, -1].forEach(side => {
+      const a0 = (k + (side < 0 ? .5 : 0)) / BARS * Math.PI * 2;
+      const z0 = -side * .05, z1 = side * hw * .97, L = Math.abs(z1 - z0);
+      for (let i = 0; i < SEGS; i++) {
+        const u = (i + .5) / SEGS, z = z0 + (z1 - z0) * u;
+        const back = Math.abs(z - z0) * Math.tan(ANG);       // bars sweep back toward the shoulders
+        const phi = a0 - back / ROUT;
+        const depth = .14 - .07 * Math.min(1, Math.abs(z) / hw);   // deeper in the middle
+        seg(phi, z, side, -Math.tan(ANG), depth, .15, L / SEGS / Math.cos(ANG) + .03);
+      }
+      // a block on the shoulder between bars
+      const zb = side * hw * .96, phiB = a0 - (hw * .9 * Math.tan(ANG)) / ROUT - Math.PI / BARS;
+      seg(phiB, zb, side, 0, .07, .16, .14);
+    });
+  }
+  // merge every box into one shape
+  const pos = [], nor = [], tmpN = new THREE.Matrix3();
+  boxes.forEach(b => {
+    const geo = new THREE.BoxGeometry(b.w, b.h, b.l).toNonIndexed();
+    geo.applyMatrix4(b.m);
+    pos.push(...geo.attributes.position.array); nor.push(...geo.attributes.normal.array);
+    geo.dispose();
+  });
+  treadCache = new THREE.BufferGeometry();
+  treadCache.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  treadCache.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  return treadCache;
+}
+let swTex = null;
+function sidewallTex(outerR) {
+  if (swTex) return swTex;
+  const S = 1024, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const c = cv.getContext('2d'), px = S / 2 / outerR;                      // pixels per unit (ring UVs span the outer circle)
+  c.fillStyle = '#1c1c1c'; c.fillRect(0, 0, S, S);
+  c.translate(S / 2, S / 2);
+  c.strokeStyle = '#5a5a5a'; c.lineWidth = 4;
+  [.47, outerR - .03].forEach(r => { c.beginPath(); c.arc(0, 0, r * px, 0, 7); c.stroke(); });
+  const text = 'WHISTLER  ★  MONSTER TIRES  ★  WHISTLER  ★  MONSTER TIRES  ★  ';
+  const rad = (.47 + outerR) / 2 * px;
+  c.font = `900 ${Math.round(.15 * px)}px Arial Black, Arial, sans-serif`; c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  const total = [...text].reduce((w, ch) => w + c.measureText(ch).width, 0), squeeze = (Math.PI * 2 * rad) / total;
+  let ang = -Math.PI / 2;
+  [...text].forEach(ch => {
+    const w = c.measureText(ch).width * squeeze, a = ang + w / 2 / rad;
+    c.save(); c.rotate(a); c.translate(0, -rad); c.scale(squeeze > 1 ? 1 : squeeze, 1); c.fillText(ch, 0, 0); c.restore();
+    ang += w / rad;
+  });
+  swTex = new THREE.CanvasTexture(cv); swTex.colorSpace = THREE.SRGBColorSpace; swTex.anisotropy = 8;
+  return swTex;
+}
 export function tire(t) {
   const g = new THREE.Group();
-  const rubber = mesh(new THREE.CylinderGeometry(TIRE_R * .92, TIRE_R * .92, TIRE_W, 40), BLACK);
-  rubber.rotation.x = Math.PI / 2; g.add(rubber);
-  const sidewall = mesh(new THREE.TorusGeometry(TIRE_R * .62, .06, 8, 40), std('#333', { roughness: .9 }));
-  sidewall.position.z = TIRE_W / 2; g.add(sidewall);
-  const sw2 = sidewall.clone(); sw2.position.z = -TIRE_W / 2; g.add(sw2);
-  const lugGeo = new THREE.BoxGeometry(0.2, 0.26, TIRE_W * 1.02);
-  for (let k = 0; k < 18; k++) {
-    const a = k / 18 * Math.PI * 2, lug = mesh(lugGeo, BLACK);
-    lug.position.set(Math.cos(a) * TIRE_R * .95, Math.sin(a) * TIRE_R * .95, 0); lug.rotation.z = a; g.add(lug);
+  // rounded monster-truck tire body: smooth shoulders, slightly crowned tread
+  const prof = [], hw = TIRE_W / 2, RIN = .5, ROUT = TIRE_R * .93;
+  for (let i = 0; i <= 20; i++) {
+    const u = i / 20, z = -hw + u * TIRE_W, e = Math.abs(z / hw);            // e: 0 at the middle, 1 at the edge
+    const shoulder = Math.pow(Math.max(0, (e - .6) / .4), 2.2);             // rounds off the last 40% toward each side
+    prof.push(new THREE.Vector2(ROUT - shoulder * .17, z));
   }
+  prof.unshift(new THREE.Vector2(RIN, -hw)); prof.push(new THREE.Vector2(RIN, hw));
+  const rubber = mesh(new THREE.LatheGeometry(prof, 56), std('#1c1c1c', { roughness: .85 }));
+  rubber.rotation.x = Math.PI / 2; g.add(rubber);
+  // white "WHISTLER" lettering around both sidewalls
+  const SW_OUT = ROUT - .17, swGeo = new THREE.RingGeometry(.44, SW_OUT, 64), swMat = new THREE.MeshStandardMaterial({ map: sidewallTex(SW_OUT), roughness: .85 });
+  [1, -1].forEach(side => {
+    const sw = new THREE.Mesh(swGeo, swMat);
+    sw.position.z = side * (hw + .004); if (side < 0) sw.rotation.y = Math.PI;
+    g.add(sw);
+  });
+  // real monster-truck "V" tread: long slanted bars from each shoulder, left and right staggered and
+  // overlapping a little in the middle; deeper in the center, lower on the shoulders, plus shoulder blocks
+  g.add(mesh(treadGeo(ROUT, hw), std('#141414', { roughness: .9 })));
   const rimMat = std(t.rim, { metalness: .5, roughness: .3 });
   [1, -1].forEach(side => {
     const rim = mesh(new THREE.CylinderGeometry(.42, .42, .08, 24), rimMat);
