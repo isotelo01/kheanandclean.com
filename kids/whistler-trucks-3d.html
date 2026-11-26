@@ -477,24 +477,80 @@ function buildOvalSet() {
   const lt = new THREE.CanvasTexture(cv); lt.colorSpace = THREE.SRGBColorSpace; lt.magFilter = THREE.NearestFilter;
   const line = new THREE.Mesh(new THREE.PlaneGeometry(1.2, OV.W), new THREE.MeshStandardMaterial({ map: lt, roughness: .8 }));
   line.rotation.x = -Math.PI / 2; line.position.set(0, .02, OV.R); g.add(line);
+  // jump ramp across the whole back straight (trucks drive toward -x there): slopes up from x 4 to x 1
+  const rampMat = std('#8a8a8a', { metalness: .5, roughness: .4 });
+  const ramp = mesh(new THREE.ExtrudeGeometry(new THREE.Shape([[OV.RAMP_X0, 0], [OV.RAMP_X1, 0], [OV.RAMP_X1, OV.RAMP_H]].map(p => new THREE.Vector2(...p))), { depth: OV.W, bevelEnabled: false }), rampMat);
+  ramp.position.z = -OV.R - OV.W / 2; g.add(ramp);
+  const lip = mesh(new THREE.BoxGeometry(.15, .12, OV.W), std('#ffd60a')); lip.position.set(OV.RAMP_X1, OV.RAMP_H, -OV.R); g.add(lip);
   return g;
 }
 let race = null;
 const smokes = {};
+const G_RACE = 20;
+// the jump on the back straight (distances around the track where the ramp starts and ends)
+Object.assign(OV, { RAMP_X0: 4, RAMP_X1: 1, RAMP_H: 1.4 });
+OV.RAMP_S0 = OV.SL + Math.PI * OV.R + (OV.SL / 2 - OV.RAMP_X0); OV.RAMP_S1 = OV.RAMP_S0 + (OV.RAMP_X0 - OV.RAMP_X1);
+// tire marks left in the dirt: a pool of dark marks that get reused
+const MARKS = 2400;
+const marks = new THREE.InstancedMesh(new THREE.PlaneGeometry(.6, .75).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: '#2e1c0e', transparent: true, opacity: .45, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), MARKS);
+marks.frustumCulled = false; let markN = 0;
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1), UPV = new THREE.Vector3(0, 1, 0);
+function clearMarks() { _m.makeScale(0, 0, 0); for (let i = 0; i < MARKS; i++) marks.setMatrixAt(i, _m); marks.instanceMatrix.needsUpdate = true; markN = 0; }
+function addMark(s, lat) { const p = ovalAt(s, lat); _q.setFromAxisAngle(UPV, p.yaw); _p.set(p.x, .016, p.z); _m.compose(_p, _q, _one); marks.setMatrixAt(markN++ % MARKS, _m); marks.instanceMatrix.needsUpdate = true; }
+clearMarks();
+// a pile of cars across the front straight; they stay flat once crushed
+const RCAR_X = [6.2, 8.8], RCAR_OFF = [-5.6, -2.8, 0, 2.8, 5.6];
+function buildRaceCars() {
+  const g = new THREE.Group(), list = [];
+  RCAR_X.forEach(x => RCAR_OFF.forEach(off => {
+    const c = car3d(CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)]); c.position.set(x, 0, OV.R + off); c.rotation.y = Math.PI / 2;
+    Object.assign(c.userData, { x, off, crush: 0, hit: false, tilt: (Math.random() - .5) * .25 }); g.add(c); list.push(c);
+  }));
+  g.userData.cars = list; return g;
+}
+function groundH(s, lat) {               // how high the ground is under a spot: the ramp, the cars, or flat dirt
+  const P = OV.P; s = ((s % P) + P) % P;
+  if (s >= OV.RAMP_S0 && s <= OV.RAMP_S1) return (s - OV.RAMP_S0) / (OV.RAMP_S1 - OV.RAMP_S0) * OV.RAMP_H;
+  if (s < OV.SL && race) {
+    const x = -OV.SL / 2 + s; let h = 0;
+    race.cars.forEach(c => { const u = c.userData; if (Math.abs(x - u.x) < CAR_HALF + .15 && Math.abs(lat - u.off) < 1.5) { if (!u.hit) { u.hit = true; thud(); } h = Math.max(h, 1.15 * c.scale.y); } });
+    return h;
+  }
+  return 0;
+}
+function makeFlame() {                    // nitro flame out the back
+  const g = new THREE.Group();
+  const outer = new THREE.Mesh(new THREE.ConeGeometry(.35, 1.6, 12), new THREE.MeshBasicMaterial({ color: '#ff7a1a', transparent: true, opacity: .85 }));
+  const inner = new THREE.Mesh(new THREE.ConeGeometry(.18, 1, 10), new THREE.MeshBasicMaterial({ color: '#fff27a' }));
+  [outer, inner].forEach(m => { m.rotation.z = Math.PI / 2; g.add(m); });   // pointing backward
+  g.position.set(-2.5, 1.7, 0); g.visible = false; return g;
+}
+function whoosh() {
+  if (!actx) return;
+  const n = actx.sampleRate * .7, b = actx.createBuffer(1, n, actx.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(i / n * Math.PI);
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = b; f.type = 'bandpass'; f.frequency.value = 1200; g.gain.value = .5; s.connect(f).connect(g).connect(actx.destination); s.start();
+}
+function startFlip(r) { if (!r || r.done || r.flip || r.air) return; r.flip = { t: 0, dir: Math.random() < .5 ? -1 : 1 }; r.nitro = 0; thud(); }
 function startRace(list) {
   if (stunt || race || list.length < 2) return;
   ovalSet = ovalSet || buildOvalSet(); scene.add(ovalSet); ring.visible = false; ground.visible = false;
   if (wh) { wh = null; stopEngine(); }
   scene.remove(current);
-  const n = list.length, gap = Math.min(3, (OV.W - 3) / Math.max(1, n - 1));
-  const Tw = 15 + Math.random() * 4, win = Math.floor(Math.random() * n);   // who wins is random every race
+  const carSet = buildRaceCars(); scene.add(carSet); clearMarks(); scene.add(marks);
+  const n = list.length, gap = Math.min(3, (OV.W - 3) / Math.max(1, n - 1)), Tw = 18 + Math.random() * 4;
   const racers = list.map((ti, k) => {
-    const truck = trucks[ti]; scene.add(truck); truck.userData.drop = 1;
-    return { ti, truck, d: (k - (n - 1) / 2) * gap, T: k === win ? Tw : Tw * (1.03 + Math.random() * .12),
-             amp: (Math.random() - .5) * .08, k: 1 + Math.floor(Math.random() * 3), s: 0, done: false,   // amp/k: speeding up and slowing down, so the lead changes
-             smoke: smokes[ti] || (smokes[ti] = new Exhaust(scene)) };
+    const truck = trucks[ti]; scene.add(truck); truck.userData.drop = 1; truck.rotation.order = 'YZX';
+    const flame = makeFlame(); truck.add(flame);
+    return { ti, truck, flame, d: (k - (n - 1) / 2) * gap, T: Tw * (1 + Math.random() * .12),   // random pace: the winner is random
+             amp: (Math.random() - .5) * .08, kk: 1 + Math.floor(Math.random() * 3),
+             s: 0, v: 0, lat: 0, latV: 0, latT: 0, swerve: 0, swerveT: 2 + Math.random() * 4, y: 0, vy: 0, air: false, pitch: 0, prevF: 0, wob: 0,
+             flip: null, nitro: 0, cool: 2, markAt: 0, done: false, smoke: smokes[ti] || (smokes[ti] = new Exhaust(scene)) };
   });
-  race = { racers, t: -3.3, win, snap: true, D: OV.LAPS * OV.P, s0: OV.SL / 2 - 3, shown: false, go: false };
+  racers.forEach(r => { r.lat = r.latT = r.d; });
+  race = { racers, cars: carSet.userData.cars, carSet, t: -3.3, snap: true, D: OV.LAPS * OV.P, s0: OV.SL / 2 - 3, winner: null, go: false, finished: 0, endAt: 0, hitCool: {} };
   racers.forEach(r => { const p = ovalAt(race.s0, r.d); r.truck.position.set(p.x, 0, p.z); r.truck.rotation.set(0, p.yaw, 0); });
   Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 30, bottom: -30 }); sun.shadow.camera.updateProjectionMatrix();
   sun.position.set(10, 40, 20); sun.target.position.set(0, 0, 0);
@@ -502,34 +558,89 @@ function startRace(list) {
   document.body.classList.add('racing'); startEngine(); engineRev(50);
 }
 function raceStep(dt) {
-  const R0 = race, ban = document.getElementById('banner');
+  const R0 = race, ban = document.getElementById('banner'), rs = R0.racers;
   R0.t += dt;
   if (R0.t < 0) { const c = Math.ceil(-R0.t); if (c <= 3 && ban.textContent !== String(c)) { ban.textContent = String(c); ban.classList.add('show'); engineRev(50 + (3 - c) * 12); sayVO('race_' + c); } }
-  else if (!R0.go) { R0.go = true; ban.textContent = 'GO!'; ban.classList.add('show'); engineRev(90); sayVO('race_go'); setTimeout(() => { if (race && !race.shown) ban.classList.remove('show'); }, 900); }
-  let lead = R0.racers[0], allDone = true;
-  R0.racers.forEach(r => {
-    const u = Math.max(0, Math.min(1, R0.t / r.T));
-    const ue = (u < .08 ? u * u / .16 : u - .04) / .96;                         // ease off the line
-    const prog = Math.min(1, ue + r.amp * Math.sin(2 * Math.PI * r.k * u) * (1 - u));
-    const s = prog * R0.D, ds = Math.max(0, s - r.s); r.s = s;
-    if (u >= 1 && !r.done) r.done = true;
-    if (!r.done) allDone = false;
-    const p = ovalAt(R0.s0 + s, r.d), b = bump(R0.t * 1.3 + r.ti, ds > .001);
-    r.truck.position.set(p.x, b.y, p.z); r.truck.rotation.set(b.rx, p.yaw, b.rz);
-    r.truck.userData.wheels.forEach(w => w.rotation.z -= ds / TIRE_R);
-    r.smoke.update(dt, r.truck, ds > .001 ? 24 : 7);
-    if (r.s > lead.s) lead = r;
+  else if (!R0.go) { R0.go = true; ban.textContent = 'GO!'; ban.classList.add('show'); engineRev(90); sayVO('race_go'); setTimeout(() => { if (race && !race.winner) ban.classList.remove('show'); }, 900); }
+  const going = R0.t >= 0, LIM = OV.W / 2 - 1.7;
+  // crushed cars flatten (and stay flat)
+  R0.cars.forEach(c => { const u = c.userData; if (u.hit && u.crush < 1) { u.crush = Math.min(1, u.crush + dt * 4); const k = 1 - Math.pow(1 - u.crush, 3); c.scale.set(1 + .05 * k, 1 - .7 * k, 1 + .08 * k); c.rotation.z = u.tilt * k; } });
+  rs.forEach(r => {
+    const vBase = R0.D / r.T;
+    // each truck chases its own random race plan (speeding up, slowing down); falling behind it fires the nitro
+    const u = Math.max(0, R0.t / r.T), ue = u < .08 ? u * u / .16 : u - .04;
+    const plan = R0.D * Math.min(1.2, ue / .96 + r.amp * Math.sin(2 * Math.PI * r.kk * Math.min(u, 1)) * Math.max(0, 1 - u));
+    r.cool -= dt;
+    if (going && !r.flip && !r.done && r.nitro <= 0 && r.cool <= 0 && (plan - r.s > 4 || Math.random() < dt * .05)) { r.nitro = 1.6; r.cool = 5; whoosh(); }
+    r.nitro = Math.max(0, r.nitro - dt);
+    let vDes = !going ? 0 : Math.min(vBase * 1.35, Math.max(vBase * .5, vBase + 1.2 * (plan - r.s)));
+    if (r.nitro > 0) vDes = vBase * 1.75;
+    if (r.flip || r.done) vDes = 0;
+    r.v = Math.max(0, r.v + Math.max((r.done ? -6 : -16) * dt, Math.min((r.nitro > 0 ? 30 : 14) * dt, vDes - r.v)));
+    r.s += r.v * dt;
+    // now and then a truck drifts toward its neighbor (that's how they bump), then steers back to its lane
+    if (going && !r.done) { r.swerveT -= dt; if (r.swerveT <= 0) { r.swerveT = 2.5 + Math.random() * 4; r.swerve = 1.1; r.latT = r.d + (Math.random() < .5 ? -1 : 1) * 2.6; } }
+    if (r.swerve > 0) { r.swerve -= dt; if (r.swerve <= 0) r.latT = r.d; }
+    r.latV += ((r.latT - r.lat) * 7 - r.latV * 3.2) * dt;
+    r.lat += r.latV * dt;
+    if (Math.abs(r.lat) > LIM) { r.lat = Math.sign(r.lat) * LIM; r.latV *= -.4; }
+    // ground under the front and back wheels: ramp, cars or dirt; fly off the end of the ramp
+    const hf = groundH(R0.s0 + r.s + 1.2, r.lat), hr = groundH(R0.s0 + r.s - 1.2, r.lat), g = (hf + hr) / 2;
+    const sm = ((R0.s0 + r.s + 1.2) % OV.P + OV.P) % OV.P;
+    if (!r.air && !r.flip && r.prevF < OV.RAMP_S1 && sm >= OV.RAMP_S1 && sm < OV.RAMP_S1 + 3 && r.v > 5) { r.air = true; r.vy = r.v * .4; r.y = OV.RAMP_H * .8; }
+    r.prevF = sm;
+    if (r.air) {
+      r.vy -= G_RACE * dt; r.y += r.vy * dt; r.pitch = Math.atan2(r.vy, Math.max(4, r.v)) * .8;
+      if (r.y <= g && r.vy < 0) { r.air = false; r.y = g; thud(); if (Math.random() < .3) startFlip(r); }   // a bad landing rolls the truck
+    } else if (!r.flip) { r.y += (g - r.y) * Math.min(1, dt * 18); r.pitch += (Math.atan2(hf - hr, 2.4) - r.pitch) * Math.min(1, dt * 14); }
+    // crash: barrel roll, land back on the wheels, then nitro to catch up
+    let roll = 0, hop = 0;
+    if (r.flip) {
+      const f = r.flip; f.t += dt; const p = Math.min(1, f.t / 1.1);
+      roll = f.dir * p * Math.PI * 2; hop = Math.sin(p * Math.PI) * 2.2; r.pitch *= .9; r.y += (g - r.y) * Math.min(1, dt * 10);
+      if (p >= 1 && !f.landed) { f.landed = 1; thud(); }
+      if (f.t > 1.8) { r.flip = null; r.cool = 0; }
+    }
+    // put the truck there; it turns a little while it steers back into its lane
+    const p = ovalAt(R0.s0 + r.s, r.lat), moving = r.v > .5 && !r.air && !r.flip, b = bump(R0.t * 1.3 + r.ti, moving);
+    r.wob *= Math.max(0, 1 - dt * 4);
+    r.truck.position.set(p.x, r.y + hop + (moving ? b.y : 0), p.z);
+    r.truck.rotation.set(roll + (moving ? b.rx : 0), p.yaw - Math.atan2(r.latV, Math.max(4, r.v)) + r.wob, r.pitch + (moving ? b.rz : 0));
+    r.truck.userData.wheels.forEach(w => w.rotation.z -= r.v * dt / TIRE_R);
+    r.smoke.update(dt, r.truck, r.nitro > 0 ? 40 : moving ? 24 : 7);
+    r.flame.visible = r.nitro > 0; if (r.nitro > 0) r.flame.scale.set(1 + Math.random() * .5, 1, 1);
+    if (moving && r.y < .3 && r.s - r.markAt > .7) { r.markAt = r.s; addMark(R0.s0 + r.s - 1.2, r.lat - 1.27); addMark(R0.s0 + r.s - 1.2, r.lat + 1.27); }   // tire marks
+    if (!r.done && r.s >= R0.D) {           // crossed the finish line: the first one wins
+      r.done = true; R0.finished++;
+      if (!R0.winner) { R0.winner = r; ban.textContent = '🏆 ' + TRUCKS[r.ti].name.toUpperCase() + ' WINS!'; ban.classList.add('show'); thud(); sayVO('race_win_' + slugName(TRUCKS[r.ti].name)); }
+    }
   });
-  const w = R0.racers[R0.win];
-  if (w.done && !R0.shown) { R0.shown = true; ban.textContent = '🏆 ' + TRUCKS[w.ti].name.toUpperCase() + ' WINS!'; ban.classList.add('show'); thud(); engineRev(60); sayVO('race_win_' + slugName(TRUCKS[w.ti].name)); }
-  if (allDone && R0.t > Math.max(...R0.racers.map(r => r.T)) + 3) return endRace();
-  // the camera follows the leader (the winner once they cross the line); drag to look around
-  const f = R0.shown ? w : lead, look = new THREE.Vector3(f.truck.position.x, 1.5, f.truck.position.z);
+  // bumping: trucks side by side push apart, bounce off, then steer back; a hard hit can roll the truck behind
+  for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+    const a = rs[i], c = rs[j]; if (a.flip || c.flip || a.air || c.air) continue;
+    const dS = a.s - c.s, dL = a.lat - c.lat;
+    if (Math.abs(dS) > 3.4 || Math.abs(dL) > 2.6) continue;
+    const sg = dL >= 0 ? 1 : -1, push = (2.6 - Math.abs(dL)) * .5;
+    a.lat += sg * push; c.lat -= sg * push; a.latV = sg * 4.5; c.latV = -sg * 4.5;
+    const key = i + '-' + j;
+    if (!R0.hitCool[key] || R0.t - R0.hitCool[key] > .7) {
+      R0.hitCool[key] = R0.t; thud(); a.wob = sg * .35; c.wob = -sg * .35; a.v *= .93; c.v *= .93;
+      a.swerve = c.swerve = 0; a.latT = a.d; c.latT = c.d;
+      if (going && Math.random() < .12) startFlip(dS < 0 ? a : c);
+    }
+  }
+  let lead = rs[0]; rs.forEach(r => { if (r.s > lead.s) lead = r; });
+  if (going) engineRev(55 + Math.min(45, lead.v * 2.2));
+  if (R0.finished === rs.length && !R0.endAt) R0.endAt = R0.t + 3;
+  if ((R0.endAt && R0.t > R0.endAt) || R0.t > 70) return endRace();
+  // the camera follows the leader (the winner once someone crosses the line); drag to look around
+  const f = R0.winner || lead, look = new THREE.Vector3(f.truck.position.x, 1.5, f.truck.position.z);
   const back = Math.max(1, .85 / cam.aspect);   // from behind and to the side, so the trucks show side by side
   followCam(R0, look.clone().add(new THREE.Vector3(-15 * back, 12, 17 * back)), look);
 }
 function endRace() {
-  race.racers.forEach(r => scene.remove(r.truck));
+  race.racers.forEach(r => { r.truck.remove(r.flame); r.truck.rotation.order = 'XYZ'; scene.remove(r.truck); });
+  scene.remove(race.carSet); scene.remove(marks);
   scene.remove(ovalSet); ring.visible = true; ground.visible = true;
   scene.add(current); current.position.set(0, 0, 0); current.rotation.set(0, 0, 0); current.userData.drop = 0;
   Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); sun.shadow.camera.updateProjectionMatrix();
