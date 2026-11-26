@@ -587,8 +587,12 @@ try { localStorage.setItem('trucksProfiles', JSON.stringify([{ id: 'whistler', n
 
   // recorder: show the words, count 1-2-3, record, play it back, then Keep or Redo
   let stream = null;
-  const getMic = () => stream && stream.getAudioTracks().some(t => t.readyState === 'live') ? Promise.resolve(stream)
-    : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(s => (stream = s));
+  // iPhone: "playback" (set in voice.js so voices play on silent) blocks the mic, so switch while recording
+  const session = t => { try { if (navigator.audioSession) navigator.audioSession.type = t; } catch (e) {} };
+  const getMic = () => { session('play-and-record');
+    return stream && stream.getAudioTracks().some(t => t.readyState === 'live') ? Promise.resolve(stream)
+    : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(s => (stream = s)); };
+  const micOff = () => { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } session('playback'); };
   const pickType = () => ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
   function btns(list) {
     const box = $v('recBtns'); box.innerHTML = '';
@@ -601,7 +605,7 @@ try { localStorage.setItem('trucksProfiles', JSON.stringify([{ id: 'whistler', n
     let i = 0;
     $v('recBox').classList.add('on');
     getMic().then(one, () => alertRec('The microphone is blocked. Allow the mic for this page, then try again.'));
-    function close() { $v('recBox').classList.remove('on'); drawVoices(); }
+    function close() { micOff(); $v('recBox').classList.remove('on'); drawVoices(); }
     function one() {
       if (i >= list.length) { close(); return; }
       $v('recWords').textContent = list[i].text; $v('recBar').style.width = '0';

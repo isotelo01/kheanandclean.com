@@ -913,6 +913,8 @@
   // Recorder: show the words, count "1, 2, 3", record, play it back, then Keep or Redo.
   var stream = null;
   function getMic() {
+    // iPhone: "playback" (set in voice.js so voices play on silent) blocks the mic, so switch for recording
+    try { if (navigator.audioSession) navigator.audioSession.type = "play-and-record"; } catch (e) {}
     if (stream) return Promise.resolve(stream);
     return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
       .then(function (s) { stream = s; return s; });
