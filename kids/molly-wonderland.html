@@ -455,7 +455,8 @@ $('#dMolly').addEventListener('click', () => {
 });
 $('#view3d').onclick = () => {
   snd.sparkle();
-  $('#viewer3d iframe').src = 'molly-3d.html#who=' + who + '&o=' + encodeURIComponent(JSON.stringify(outfit()));
+  const enc = x => encodeURIComponent(JSON.stringify(x));
+  $('#viewer3d iframe').src = 'molly-3d.html#who=' + who + '&m=' + enc(S.outfit) + '&p=' + enc(S.pippiOutfit);
   $('#viewer3d').classList.add('on');
 };
 $('#close3d').onclick = () => { $('#viewer3d').classList.remove('on'); $('#viewer3d iframe').src = 'about:blank'; snd.boop(); };
