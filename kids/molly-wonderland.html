@@ -65,6 +65,17 @@
   .land.night .sun { background: #fff6c2; box-shadow: 0 0 24px #fff6c2; width: 10vmin; height: 10vmin; top: 6%; }
   .room { background: linear-gradient(var(--wall) 0 62%, #f3c9a0 62%, #e6b07e 100%); --wall:#ffd9ec; transition: background .6s; }
   .room.w1 { --wall:#e6d1ff; } .room.w2 { --wall:#d3eeff; } .room.w3 { --wall:#fff0c2; }
+  .room.tile { background: linear-gradient(var(--wall) 0 62%, transparent 62%), repeating-conic-gradient(#fff 0 25%, #ffd9ec 0 50%) 0 0 / 44px 44px; }
+  .room.w4 { --wall:#d9f5dc; }
+  .ttl { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  #roomName { background: #fde2ff; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 800; color: #d65db1; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rarrow { position: absolute; top: 40%; width: 46px; height: 64px; border-radius: 16px; background: rgba(255,255,255,.75); font-size: 24px; color: #d65db1; z-index: 9000; box-shadow: 0 3px 0 rgba(0,0,0,.12); }
+  .rarrow.l { left: 6px; } .rarrow.r { right: 6px; }
+  .roommenu { position: absolute; inset: 8px; z-index: 20000; background: rgba(255,255,255,.97); border-radius: 22px; padding: 12px; display: none; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; align-content: start; overflow-y: auto; box-shadow: 0 8px 20px rgba(0,0,0,.2); }
+  .roommenu.on { display: grid; }
+  .roommenu button { background: #fff0fa; border: 3px solid #ffd1ea; border-radius: 18px; padding: 12px 6px; font-size: 16px; font-weight: 800; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .roommenu button .e { font-size: 34px; }
+  .roommenu button.on { border-color: #d65db1; }
   .room .stripes { position: absolute; inset: 0 0 38% 0; background: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 18px, transparent 18px 44px); pointer-events: none; }
 
   .item { position: absolute; transform: translate(-50%, -100%); touch-action: none; cursor: grab; }
@@ -166,11 +177,15 @@
 <section class="screen" id="castle">
   <div class="bar">
     <button class="rb" data-go="home">⬅️</button>
-    <h2>Castle</h2>
+    <div class="ttl"><h2>Castle</h2><button id="roomName"></button></div>
+    <button class="rb" id="castle3d" style="font-size:18px;font-weight:900;color:#a24bd1">3D</button>
     <button class="rb" id="wallBtn">🎨</button>
     <button class="rb wandBtn">🪄</button>
   </div>
-  <div class="scene room" id="castleScene"><div class="stripes"></div></div>
+  <div class="scene room" id="castleScene"><div class="stripes"></div>
+    <button class="rarrow l" id="roomPrev">◀</button><button class="rarrow r" id="roomNext">▶</button>
+    <div class="roommenu" id="roomMenu"></div>
+  </div>
   <div class="tray"><div class="tabs" id="castleTabs"></div><div class="row" id="castleRow"></div></div>
 </section>
 
@@ -219,6 +234,36 @@ if (!S) S = {
     { k: 'bed', x: 78, y: 78, s: 1 }, { k: 'throne', x: 30, y: 82, s: 1 }
   ]
 };
+/* castle rooms (a big house: grand hall with the staircase, living, kitchen, dining, bedrooms, bath, playroom) */
+const ROOMS = [
+  { id: 'foyer', name: 'Grand Hall', e: '🏰', floor: 'tile', items: [
+    { k: 'stairs', x: 50, y: 86, s: 1.25 }, { k: 'chandelier', x: 50, y: 22, s: 1 }, { k: 'door', x: 12, y: 64, s: 1 },
+    { k: 'rug', x: 50, y: 97, s: 1 }, { k: 'c12', x: 90, y: 84, s: 1 }, { k: 'c17', x: 88, y: 40, s: 1 } ] },
+  { id: 'living', name: 'Great Room', e: '🛋️', floor: 'wood', items: [
+    { k: 'fireplace', x: 50, y: 64, s: 1.1 }, { k: 'sofa', x: 46, y: 92, s: 1.1 }, { k: 'window', x: 16, y: 46, s: 1 },
+    { k: 'window', x: 84, y: 46, s: 1 }, { k: 'lamp', x: 88, y: 86, s: 1 }, { k: 'bookshelf', x: 12, y: 84, s: 1 }, { k: 'rug', x: 50, y: 98, s: 1.2 } ] },
+  { id: 'kitchen', name: 'Kitchen', e: '🧁', floor: 'tile', items: [
+    { k: 'fridge', x: 10, y: 70, s: 1 }, { k: 'stove', x: 28, y: 70, s: 1 }, { k: 'counter', x: 56, y: 70, s: 1.1 }, { k: 'window', x: 56, y: 40, s: .8 },
+    { k: 'c1', x: 50, y: 50, s: 1 }, { k: 'table', x: 74, y: 94, s: 1 }, { k: 'cupcake', x: 70, y: 80, s: .8 }, { k: 'c3', x: 80, y: 80, s: .8 } ] },
+  { id: 'dining', name: 'Dining Room', e: '🍽️', floor: 'wood', items: [
+    { k: 'chandelier', x: 50, y: 22, s: 1 }, { k: 'window', x: 20, y: 46, s: 1 }, { k: 'window', x: 80, y: 46, s: 1 },
+    { k: 'c14', x: 22, y: 90, s: 1 }, { k: 'longtable', x: 50, y: 92, s: 1.1 }, { k: 'c14', x: 78, y: 90, s: 1, f: 1 }, { k: 'c3', x: 50, y: 78, s: .9 } ] },
+  { id: 'master', name: 'Princess Bedroom', e: '👑', floor: 'wood', items: null },
+  { id: 'kids', name: "Kids' Room", e: '🧸', floor: 'wood', items: [
+    { k: 'kidbed', x: 72, y: 84, s: 1.1 }, { k: 'window', x: 30, y: 44, s: 1 }, { k: 'toybox', x: 24, y: 86, s: 1 },
+    { k: 'teddy', x: 46, y: 90, s: 1 }, { k: 'rug', x: 50, y: 97, s: 1 }, { k: 'lamp', x: 90, y: 80, s: .9 } ] },
+  { id: 'bath', name: 'Bathroom', e: '🛁', floor: 'tile', items: [
+    { k: 'tub', x: 68, y: 88, s: 1.1 }, { k: 'sink', x: 16, y: 80, s: 1 }, { k: 'toilet', x: 38, y: 86, s: 1.3 },
+    { k: 'mirror', x: 16, y: 50, s: .6 }, { k: 'a4', x: 70, y: 66, s: .7 }, { k: 'soap', x: 20, y: 60, s: .8 }, { k: 'window', x: 70, y: 40, s: .8 } ] },
+  { id: 'play', name: 'Playroom', e: '🎨', floor: 'wood', items: [
+    { k: 'toybox', x: 20, y: 86, s: 1 }, { k: 'c19', x: 72, y: 82, s: 1 }, { k: 'bookshelf', x: 90, y: 76, s: .9 }, { k: 'window', x: 40, y: 44, s: 1 },
+    { k: 'puzzle', x: 44, y: 92, s: 1 }, { k: 'dice', x: 54, y: 94, s: 1 }, { k: 'balloon', x: 12, y: 50, s: 1 }, { k: 'rug', x: 48, y: 98, s: 1 } ] }
+];
+const ROOM = id => ROOMS.find(r => r.id === id) || ROOMS[0];
+if (!S.rooms) {
+  S.rooms = {}; ROOMS.forEach(r => { S.rooms[r.id] = r.items ? JSON.parse(JSON.stringify(r.items)) : (S.castle || []); });
+  S.room = 'foyer'; S.walls = { master: S.wall || 0 };
+}
 const NO_OUTFIT = () => ({ lashes: false, dress: 'none', crown: false, wand: false, bow: false, necklace: false, blush: false, gloss: false, shadow: false, glitter: false, glasses: false, flower: false });
 if (!S.pippiOutfit) S.pippiOutfit = Object.assign(NO_OUTFIT(), { bow: true });
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
@@ -268,6 +313,9 @@ const CAT = {
   a9: E('🐑', 54), a10: E('🐝', 34), a11: E('🐟', 38), a12: E('🐿️', 46), a13: E('🦔', 44), a14: E('🐴', 64), a15: E('🐼', 54), a16: E('🐸', 42),
   bed: P('bed', 170), mirror: P('mirror', 80), rug: P('rug', 170), window: P('window', 100), chandelier: P('chandelier', 130), throne: P('throne', 100),
   kitten: P('kitten', 56), puppy: P('puppy', 58), duckling: P('duckling', 56), butterfly: P('butterfly', 46), daisy: P('daisy', 34), cupcake: P('cupcake', 42), teddy: P('teddy', 56),
+  stairs: P('stairs', 240), door: P('door', 90), fireplace: P('fireplace', 130), counter: P('counter', 140), longtable: P('longtable', 200),
+  tub: P('tub', 150), sink: P('sink', 70), sofa: P('sofa', 170), bookshelf: P('bookshelf', 80), toybox: P('toybox', 100), kidbed: P('kidbed', 140), lamp: P('lamp', 50),
+  toilet: E('🚽', 60), soap: E('🧼', 30), lotion: E('🧴', 34), towel: E('🧺', 44), tv: E('📺', 70), puzzle: E('🧩', 36), dice: E('🎲', 32), yoyo: E('🪀', 32), kite: E('🪁', 50), art: E('🎨', 40), blocks: E('🧱', 40), car: E('🚗', 44), ball: E('⚽', 34), plant2: E('🌵', 44),
   table: P('table', 120), stove: P('stove', 100), fridge: P('fridge', 80),
   c1: E('🫖', 40), c2: E('🧁', 36), c3: E('🎂', 50), c4: E('🍓', 30), c5: E('🍪', 32), c6: E('🥛', 32), c7: E('🍽️', 40), c8: E('🍰', 36), c9: E('🍩', 34),
   c10: E('🧸', 50), c11: E('👑', 40), c12: E('🪴', 60), c13: E('🛋️', 110), c14: E('🪑', 60), c15: E('🎀', 36), c16: E('💐', 44), c17: E('🖼️', 60), c18: E('🕯️', 34), c19: E('🎹', 90), c20: E('📚', 44)
@@ -278,8 +326,11 @@ const LAND_TABS = [
   ['🌈 Pretty', ['rainbow', 'castle', 'pond', 'fence', 'fountain', 'cloud', 'star', 'heart', 'balloon', 'sparkle', 'rock']]
 ];
 const CASTLE_TABS = [
+  ['🛋️ Living', ['sofa', 'fireplace', 'tv', 'bookshelf', 'lamp', 'stairs', 'door', 'window', 'chandelier', 'rug', 'c12', 'plant2', 'c17', 'c19', 'c20', 'c18']],
+  ['🛁 Bath', ['tub', 'sink', 'toilet', 'mirror', 'soap', 'lotion', 'towel', 'a4']],
+  ['🧸 Toys', ['toybox', 'kidbed', 'teddy', 'c10', 'puzzle', 'dice', 'yoyo', 'kite', 'blocks', 'car', 'ball', 'art', 'balloon']],
   ['🛏️ Bedroom', ['bed', 'mirror', 'throne', 'rug', 'window', 'chandelier', 'c13', 'c14', 'c12', 'teddy', 'c10', 'c17', 'c19', 'c20', 'c18', 'c16', 'c15', 'c11']],
-  ['🧁 Kitchen', ['stove', 'fridge', 'table', 'cupcake', 'c1', 'c2', 'c3', 'c8', 'c9', 'c5', 'c4', 'c6', 'c7']],
+  ['🧁 Kitchen', ['stove', 'fridge', 'counter', 'table', 'longtable', 'cupcake', 'c1', 'c2', 'c3', 'c8', 'c9', 'c5', 'c4', 'c6', 'c7']],
   ['🐥 Friends', ['molly', 'pippi', 'kitten', 'puppy', 'duckling', 'butterfly', 'teddy', 'a2', 'a3', 'a1', 'a8', 'a15', 'a5']]
 ];
 function art(k) {
@@ -299,8 +350,10 @@ let sel = null; // {scene, item, el}
 const selbar = $('#selbar');
 
 function makeScene(name, el, tabsEl, rowEl, tabs) {
-  const list = S[name];
+  const getList = () => name === 'castle' ? S.rooms[S.room] : S[name];
+  let list = getList();
   function draw() {
+    list = getList();
     el.querySelectorAll('.item').forEach(n => n.remove());
     list.forEach(it => el.appendChild(itemEl(it)));
     order();
@@ -433,7 +486,8 @@ function makeScene(name, el, tabsEl, rowEl, tabs) {
   });
   function api() {}
   api.walkTo = (...a) => walkTo(...a);
-  api.draw = draw; api.place = place; api.order = order; api.list = list; api.el = el; api.tray = tray; api.name = name;
+  api.setTab = i => { tab = i; tray(); };
+  api.draw = draw; api.place = place; api.order = order; Object.defineProperty(api, 'list', { get: () => list }); api.el = el; api.tray = tray; api.name = name;
   return api;
 }
 
@@ -461,6 +515,7 @@ const landS = makeScene('land', $('#landScene'), $('#landTabs'), $('#landRow'), 
 const castleS = makeScene('castle', $('#castleScene'), $('#castleTabs'), $('#castleRow'), CASTLE_TABS);
 
 async function enterCastle(withPippi) {
+  S.room = 'foyer';
   go('castle');
   const L = castleS.list, wanted = withPippi ? ['molly', 'pippi'] : ['molly'];
   wanted.forEach(k => { if (!L.some(i => i.k === k)) L.push({ k, x: 50, y: 90, s: 1 }); });
@@ -486,8 +541,32 @@ $('#sun').addEventListener('pointerdown', ev => {
 });
 function sky() { landS.el.classList.remove('sunset', 'night'); if (SKIES[S.sky]) landS.el.classList.add(SKIES[S.sky]); }
 $('#landSky').onclick = () => { S.sky = (S.sky + 1) % 3; sky(); save(); snd.sparkle(); };
-function wall() { castleS.el.classList.remove('w1', 'w2', 'w3'); if (S.wall) castleS.el.classList.add('w' + S.wall); }
-$('#wallBtn').onclick = () => { S.wall = (S.wall + 1) % 4; wall(); save(); snd.sparkle(); };
+function wall() {
+  const r = ROOM(S.room), w = (S.walls || {})[S.room] || 0;
+  castleS.el.classList.remove('w1', 'w2', 'w3', 'w4', 'tile'); if (w) castleS.el.classList.add('w' + w);
+  if (r.floor === 'tile') castleS.el.classList.add('tile');
+  $('#roomName').textContent = r.e + ' ' + r.name + ' ▾';
+}
+$('#wallBtn').onclick = () => { S.walls = S.walls || {}; S.walls[S.room] = (((S.walls[S.room] || 0) + 1) % 5); wall(); save(); snd.sparkle(); };
+const ROOM_TAB = { foyer: 0, living: 0, dining: 0, bath: 1, kids: 2, play: 2, master: 3, kitchen: 4 };
+function setRoom(id) { deselect(); S.room = id; save(); castleS.draw(); castleS.setTab(ROOM_TAB[id] || 0); wall(); $('#roomMenu').classList.remove('on'); snd.pop(); }
+function stepRoom(d) { const i = ROOMS.findIndex(r => r.id === S.room); setRoom(ROOMS[(i + d + ROOMS.length) % ROOMS.length].id); }
+$('#roomPrev').addEventListener('pointerdown', ev => { ev.stopPropagation(); stepRoom(-1); });
+$('#roomNext').addEventListener('pointerdown', ev => { ev.stopPropagation(); stepRoom(1); });
+$('#roomName').onclick = () => {
+  const m = $('#roomMenu');
+  if (m.classList.contains('on')) { m.classList.remove('on'); return; }
+  m.innerHTML = ROOMS.map(r => '<button data-room="' + r.id + '" class="' + (r.id === S.room ? 'on' : '') + '"><span class="e">' + r.e + '</span>' + r.name + '</button>').join('');
+  m.classList.add('on'); snd.boop();
+};
+$('#roomMenu').addEventListener('pointerdown', ev => ev.stopPropagation());
+$('#roomMenu').addEventListener('click', ev => { const b = ev.target.closest('[data-room]'); if (b) setRoom(b.dataset.room); });
+$('#castle3d').onclick = () => {
+  snd.sparkle();
+  const enc = x => encodeURIComponent(JSON.stringify(x));
+  $('#viewer3d iframe').src = 'molly-castle-3d.html#room=' + S.room + '&m=' + enc(S.outfit) + '&p=' + enc(S.pippiOutfit);
+  $('#viewer3d').classList.add('on');
+};
 document.querySelectorAll('.wandBtn').forEach(b => b.onclick = () => {
   wandOn.v = !wandOn.v; document.querySelectorAll('.wandBtn').forEach(x => x.classList.toggle('lit', wandOn.v));
   deselect(); snd.sparkle();
@@ -548,7 +627,7 @@ function go(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
   if (id === 'home') homeDraw();
   if (id === 'land') { landS.draw(); landS.tray(); sky(); sunDraw(); }
-  if (id === 'castle') { castleS.draw(); castleS.tray(); wall(); }
+  if (id === 'castle') { castleS.draw(); castleS.setTab(ROOM_TAB[S.room] || 0); wall(); }
   if (id === 'dress') dressDraw();
 }
 document.addEventListener('click', ev => { const b = ev.target.closest('[data-go]'); if (b) { snd.pop(); go(b.dataset.go); } });

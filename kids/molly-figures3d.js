@@ -1,0 +1,157 @@
+// Molly and Pippi 3D figures for Molly's Wonderland (used by molly-3d.html and molly-castle-3d.html).
+import * as THREE from "three";
+
+const DRESS = { pink: ['#ff8fc8', '#ffd1ea'], purple: ['#b77dff', '#e6d1ff'], blue: ['#6fc3ff', '#d3eeff'], gold: ['#ffc94d', '#fff0c2'] };
+const SHOE = { pink: '#ff6fb1', purple: '#a24bd1', blue: '#3fa0e0', gold: '#ffc21a', red: '#e8344e' };
+
+let root = new THREE.Group(), o = {};
+/* ---------- helpers ---------- */
+const mat = (c, x = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .55, ...x });
+function ball(r, c, pos, sc = [1, 1, 1], parent = root, m) {
+  const g = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 24), m || mat(c));
+  g.position.set(...pos); g.scale.set(...sc); g.castShadow = true; parent.add(g); return g;
+}
+function starGeo(R, r, d) {
+  const s = new THREE.Shape();
+  for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r : R; i ? s.lineTo(Math.cos(a) * q, Math.sin(a) * q) : s.moveTo(Math.cos(a) * q, Math.sin(a) * q); }
+  const g = new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: true, bevelThickness: d * .3, bevelSize: d * .3, bevelSegments: 2 }); g.center(); return g;
+}
+function smile(x, y, z, size, parent = root, color = '#2b1d22') { // "w" mouth from two small arcs
+  [-1, 1].forEach(sd => {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(size, size * .25, 8, 16, Math.PI), mat(color));
+    t.rotation.z = Math.PI; t.position.set(x + sd * size, y, z); parent.add(t);
+  });
+}
+function lashes(sd, x, y, z, s) { // three little lashes fanning up and out from the top of each eye
+  [.15, .6, 1.05].forEach(a => {
+    const len = s * 1.1, dx = sd * Math.sin(a), dy = Math.cos(a);
+    const l = new THREE.Mesh(new THREE.CylinderGeometry(s * .07, s * .11, len, 6), mat('#2b1d22'));
+    l.position.set(x + dx * (s * 1.05 + len / 2), y + dy * (s * 1.15 + len / 2), z - .02); l.rotation.z = -sd * a; root.add(l);
+  });
+}
+function crown(y, r, parent = root, z = 0) {
+  const g = new THREE.Group(), gold = mat('#ffd23f', { metalness: .5, roughness: .3 });
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, r * .55, 32, 1, true), gold); band.material.side = THREE.DoubleSide; g.add(band);
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * Math.PI * 2, c = new THREE.Mesh(new THREE.ConeGeometry(r * .22, r * .6, 12), gold);
+    c.position.set(Math.sin(a) * r, r * .55, Math.cos(a) * r); g.add(c);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(r * .08, 12, 8), mat('#fff6c2')); tip.position.set(Math.sin(a) * r, r * .88, Math.cos(a) * r); g.add(tip);
+  }
+  const gem = new THREE.Mesh(new THREE.SphereGeometry(r * .16, 16, 12), mat('#ff4f9a', { roughness: .2 })); gem.position.set(0, 0, r * 1.04); g.add(gem);
+  [[-.55, '#6fc3ff'], [.55, '#b77dff']].forEach(([a, c]) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r * .1, 12, 8), mat(c, { roughness: .2 })); m.position.set(Math.sin(a) * r * 1.03, 0, Math.cos(a) * r * 1.03); g.add(m); });
+  g.position.set(0, y, z); parent.add(g); return g;
+}
+function bow(pos, s, parent = root) {
+  const g = new THREE.Group(), m = mat('#ff6fb1');
+  [-1, 1].forEach(sd => { const c = new THREE.Mesh(new THREE.ConeGeometry(s * .5, s, 16), m); c.rotation.z = sd * Math.PI / 2; c.position.x = sd * s * .5; c.scale.z = .5; g.add(c); });
+  const k = new THREE.Mesh(new THREE.SphereGeometry(s * .25, 12, 8), mat('#ffd23f')); g.add(k);
+  g.position.set(...pos); g.rotation.z = -.3; parent.add(g); return g;
+}
+function wand(pos, len, parent = root) {
+  const g = new THREE.Group();
+  const st = new THREE.Mesh(new THREE.CylinderGeometry(len * .04, len * .04, len, 12), mat('#b77dff')); st.position.y = len / 2; g.add(st);
+  const star = new THREE.Mesh(starGeo(len * .28, len * .12, len * .08), mat('#ffe27a', { emissive: '#ffb800', emissiveIntensity: .35 })); star.position.y = len + len * .2; g.add(star);
+  g.position.set(...pos); g.rotation.z = -.45; parent.add(g); spinners.push(star); return g;
+}
+function pearls(y, r, n, size, parent = root, z = 0) {
+  const m = mat('#fffaf0', { roughness: .2 });
+  for (let i = 0; i < n; i++) { const a = -Math.PI * .55 + i / (n - 1) * Math.PI * 1.1; ball(size, null, [Math.sin(a) * r, y, z + Math.cos(a) * r], [1, 1, 1], parent, m); }
+}
+function glitter(n, rad, y0, y1) {
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Mesh(new THREE.OctahedronGeometry(.09), mat('#ffe27a', { emissive: '#ffd23f', emissiveIntensity: .6 }));
+    const a = Math.random() * Math.PI * 2; s.position.set(Math.cos(a) * rad, y0 + Math.random() * (y1 - y0), Math.sin(a) * rad);
+    s.userData.f = Math.random() * 6; root.add(s); floaters.push(s);
+  }
+}
+
+const spinners = [], floaters = [];
+const WHITE = mat('#ffffff', { roughness: .8 }), PINK = mat('#ffc2dc', { roughness: .8 });
+
+/* ---------- Molly ---------- */
+function buildMolly() {
+  const shoe = SHOE[o.shoes];
+  ball(.72, null, [0, .9, 0], [1, .95, .9], root, WHITE);                       // body
+  [-1, 1].forEach(sd => {
+    ball(.3, null, [sd * .36, .16, .2], [1, .55, 1.35], root, shoe ? mat(shoe, { roughness: .25 }) : WHITE); // feet / shoes
+    if (shoe) ball(.07, null, [sd * .36, .3, .5], [1, 1, 1], root, mat('#ffffff'));
+    const arm = ball(.22, null, [sd * .78, 1.05, .12], [.8, 1.3, .8], root, WHITE); arm.rotation.z = sd * .6;
+    const ear = ball(.3, null, [sd * .42, 3.2, -.05], [1, 2.5, .7], root, WHITE); ear.rotation.z = -sd * .16;
+    const inner = ball(.17, null, [sd * .44, 3.18, .13], [1, 2.4, .35], root, PINK); inner.rotation.z = -sd * .16;
+  });
+  ball(1.05, null, [0, 2, 0], [1.15, .95, 1], root, WHITE);                      // head
+  [-1, 1].forEach(sd => {
+    if (o.shadow) ball(.14, '#c08bff', [sd * .42, 2.17, .86], [1.3, .6, .4]);
+    ball(.11, '#2b1d22', [sd * .42, 2.05, .93], [1, 1.1, .6]);
+    ball(.035, '#ffffff', [sd * .4 + .03, 2.09, 1.0]);
+    if (o.lashes) lashes(sd, sd * .42, 2.05, .95, .11);
+    ball(.15, o.blush ? '#ff8fb8' : '#ffc6dc', [sd * .66, 1.82, .78], [1, .6, .3]);
+  });
+  if (o.gloss) ball(.1, '#ff4f9a', [0, 1.76, 1.0], [1.1, .6, .4], root, mat('#ff4f9a', { roughness: .1 }));
+  else smile(0, 1.8, 1.0, .07);
+  if (o.dress && DRESS[o.dress]) {
+    const [a, b] = DRESS[o.dress];
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(.62, 1.02, 1.0, 40), mat(a)); skirt.position.y = .72; skirt.castShadow = true; root.add(skirt);
+    const ruf = new THREE.Mesh(new THREE.TorusGeometry(1.0, .09, 10, 48), mat(b)); ruf.rotation.x = Math.PI / 2; ruf.position.y = .24; root.add(ruf);
+    const trim = new THREE.Mesh(new THREE.TorusGeometry(.86, .04, 8, 48), mat('#ffe27a', { metalness: .4 })); trim.rotation.x = Math.PI / 2; trim.position.y = .48; root.add(trim);
+    bow([0, 1.22, .66], .3);
+  }
+  if (o.necklace) pearls(1.38, .62, 11, .06);
+  if (o.crown) crown(2.95, .42);
+  if (o.bow) bow([.62, 3.85, .1], .34);
+  if (o.wand) wand([.95, .95, .3], 1.3);
+  if (o.glitter) glitter(14, 1.8, .5, 3.8);
+}
+
+/* ---------- Pippi ---------- */
+function buildPippi() {
+  const Y = mat('#ffe14d', { roughness: .7 }), Y2 = mat('#ffd21f', { roughness: .7 }), OR = mat('#ff9a2e');
+  const shoe = SHOE[o.shoes];
+  const s = 1.25; // scale up so she fills the stage like Molly
+  ball(1, null, [0, 1.12, 0], [1.05, 1, 1], root, Y);                               // body
+  [-1, 1].forEach(sd => {
+    const w = ball(.3, null, [sd * 1.0, 1.05, 0], [.6, 1.1, .9], root, Y2); w.rotation.z = sd * .5;   // wings
+    ball(.12, '#2b1d22', [sd * .34, 1.38, .9], [1, 1.1, .6]);
+    ball(.04, '#ffffff', [sd * .34 + .04, 1.43, .98]);
+    if (o.lashes) lashes(sd, sd * .34, 1.38, .92, .12);
+    ball(.14, o.blush ? '#ff8fb8' : '#ffb3c9', [sd * .58, 1.1, .78], [1, .6, .3]);
+    if (shoe) { ball(.17, null, [sd * .32, .1, .18], [1, .55, 1.4], root, mat(shoe, { roughness: .25 })); ball(.05, '#ffffff', [sd * .32, .2, .4]); }
+    else { const f = new THREE.Mesh(new THREE.ConeGeometry(.12, .3, 3), OR); f.rotation.x = Math.PI / 2; f.position.set(sd * .32, .06, .28); root.add(f);
+      const l = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, .22, 8), OR); l.position.set(sd * .32, .18, .05); root.add(l); }
+    if (o.shadow) ball(.15, '#c08bff', [sd * .34, 1.5, .84], [1.3, .55, .4]);
+  });
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(.13, .3, 16), o.gloss ? mat('#ff4f9a', { roughness: .1 }) : OR);
+  beak.rotation.x = Math.PI / 2; beak.position.set(0, 1.18, 1.08); root.add(beak);
+  for (let i = -1; i <= 1; i++) {                                                     // tuft
+    const t = new THREE.Mesh(new THREE.TorusGeometry(.18, .04, 8, 16, Math.PI * 1.2), mat('#f5c400'));
+    t.position.set(i * .14, 2.25, 0); t.rotation.z = Math.PI * .1 - i * .5; t.rotation.y = Math.PI / 2 * 0; root.add(t);
+  }
+  if (o.dress && DRESS[o.dress]) {
+    const [a, b] = DRESS[o.dress];
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(.92, 1.12, .55, 40), mat(a)); skirt.position.y = .55; skirt.castShadow = true; root.add(skirt);
+    const ruf = new THREE.Mesh(new THREE.TorusGeometry(1.1, .07, 10, 48), mat(b)); ruf.rotation.x = Math.PI / 2; ruf.position.y = .29; root.add(ruf);
+  }
+  if (o.necklace) pearls(.86, .9, 9, .055);
+  if (o.glasses) [-1, 1].forEach(sd => {
+    const g = new THREE.Mesh(starGeo(.26, .12, .04), mat('#ff8fc8', { transparent: true, opacity: .8 })); g.position.set(sd * .34, 1.4, 1.02); root.add(g);
+  });
+  if (o.crown) crown(2.05, .32);
+  if (o.bow) bow([-.5, 1.95, .35], .26);
+  if (o.flower) {
+    const fg = new THREE.Group();
+    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; ball(.1, '#ff8fc8', [Math.cos(a) * .13, Math.sin(a) * .13, 0], [1, 1, .5], fg); }
+    ball(.08, '#ffe27a', [0, 0, .03], [1, 1, .6], fg); fg.position.set(.5, 1.98, .4); root.add(fg);
+  }
+  if (o.wand) wand([1.15, .8, .2], 1);
+  if (o.glitter) glitter(12, 1.6, .4, 2.8);
+}
+
+
+// Build one figure. kind: "molly" or "pippi". Returns the group plus things to animate.
+export function makeFigure(kind, outfit) {
+  spinners.length = 0; floaters.length = 0;
+  root = new THREE.Group(); o = outfit || {};
+  kind === 'pippi' ? buildPippi() : buildMolly();
+  return { group: root, spinners: spinners.slice(), floaters: floaters.slice() };
+}
+export { starGeo, mat };
