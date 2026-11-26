@@ -29,6 +29,10 @@
   #add.on { display: grid; }
   #add button { background: #fff0fa; border: 3px solid #ffd1ea; border-radius: 16px; padding: 8px 4px; font-size: 13px; font-weight: 800; display: flex; flex-direction: column; align-items: center; gap: 2px; touch-action: pan-y; }
   #add button span { font-size: 30px; }
+  #joy { position: fixed; left: 16px; bottom: 120px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,.55); border: 4px solid rgba(214,93,177,.55); display: none; touch-action: none; }
+  #joy.on { display: block; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: #d65db1; box-shadow: 0 4px 0 rgba(0,0,0,.2); pointer-events: none; }
+  .chips button.walk { background: #5fbf5f; color: #fff; }
   #hint { position: fixed; left: 0; right: 0; top: 46%; text-align: center; font-size: 20px; font-weight: 900; color: #a24bd1; pointer-events: none; text-shadow: 0 2px 0 #fff; }
 </style>
 <script src="molly-art.js"></script>
@@ -43,6 +47,7 @@
   <button class="del" data-a="del">🗑️</button><button data-a="done">✅</button>
 </div>
 <div id="add"></div>
+<div id="joy"><div id="knob"></div></div>
 <div id="bottom">
   <div class="chips" id="rooms"></div>
   <div class="chips" id="floors"></div>
@@ -103,6 +108,8 @@ function cyl(rt, rb, h, m, x, y, z, parent, seg = 20) { const c = new THREE.Mesh
 function sph(r, m, x, y, z, parent, sc) { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), m); s.position.set(x, y, z); if (sc) s.scale.set(...sc); s.castShadow = true; parent.add(s); return s; }
 
 /* ---------- the house ---------- */
+const COLL = [[], []];   // wall boxes you can't walk through, per floor
+const WALLM = [];        // wall meshes (faded when they hide Molly)
 const level = [new THREE.Group(), new THREE.Group()]; scene.add(level[0], level[1]); level[1].position.y = UP;
 // wall along x (axis 'x', z fixed) or along z (axis 'z', x fixed); openings: [{at, w, type:'door'|'window', sill, h}]
 function wall(axis, fixed, a, b, f, open = [], m = WALL, t = .5) {
@@ -111,7 +118,8 @@ function wall(axis, fixed, a, b, f, open = [], m = WALL, t = .5) {
   const piece = (from, to, y0, y1) => {
     const len = to - from; if (len <= .01 || y1 - y0 <= .01) return;
     const mid = (from + to) / 2, cy = (y0 + y1) / 2;
-    if (axis === 'x') bx(len, y1 - y0, t, m, mid, cy, fixed, P); else bx(t, y1 - y0, len, m, fixed, cy, mid, P);
+    if (y0 < 3) COLL[f].push(axis === 'x' ? { x0: from, x1: to, z0: fixed - t / 2, z1: fixed + t / 2 } : { x0: fixed - t / 2, x1: fixed + t / 2, z0: from, z1: to });
+    WALLM.push(axis === 'x' ? bx(len, y1 - y0, t, m, mid, cy, fixed, P) : bx(t, y1 - y0, len, m, fixed, cy, mid, P));
   };
   open.forEach(o => {
     const s0 = o.at - o.w / 2, s1 = o.at + o.w / 2;
@@ -168,7 +176,8 @@ function buildHouse() {
   wall('x', 0, -20, -6, 1, [], WALL_IN, .4);
   wall('x', 6, 6, 20, 1, [D(9)], WALL_IN, .4);
   // fireplace wall chimney in the Great Room
-  bx(1.5, 9, 7, mat('#fff4fb'), 19.2, 4.5, 0, level[0]);
+  bx(1.5, 9, 7, mat('#fff4fb'), 19.2, 4.5, 0, level[0]); COLL[0].push({ x0: 18.4, x1: 20, z0: -3.5, z1: 3.5 });
+  COLL[1].push({ x0: -2.5, x1: 2.5, z0: 1.9, z1: 2.1 });   // balcony railing
   buildStairs(); buildYard();
 }
 
@@ -178,13 +187,13 @@ function buildStairs() {
   const rise = 5 / 7;
   for (let i = 0; i < 7; i++) {              // center flight: z 18 -> 12, 0 -> 5 ft
     const top = rise * (i + 1), z = 18 - i * (6 / 7) - (6 / 7) / 2;
-    bx(8, top, 6 / 7, step, 0, top / 2, z, G); bx(4.5, .06, 6 / 7, run, 0, top + .03, z, G);
+    WALLM.push(bx(8, top, 6 / 7, step, 0, top / 2, z, G)); bx(4.5, .06, 6 / 7, run, 0, top + .03, z, G);
   }
-  bx(11, 5, 4, step, 0, 2.5, 10, G); bx(6, .06, 4, run, 0, 5.03, 10, G);   // landing z 12 -> 8
+  WALLM.push(bx(11, 5, 4, step, 0, 2.5, 10, G)); bx(6, .06, 4, run, 0, 5.03, 10, G);   // landing z 12 -> 8
   [-1, 1].forEach(sd => {                     // side flights: z 8 -> 2, 5 -> 10 ft
     for (let i = 0; i < 7; i++) {
       const top = 5 + rise * (i + 1), z = 8 - i * (6 / 7) - (6 / 7) / 2;
-      bx(3, top, 6 / 7, step, sd * 4, top / 2, z, G); bx(1.8, .06, 6 / 7, run, sd * 4, top + .03, z, G);
+      WALLM.push(bx(3, top, 6 / 7, step, sd * 4, top / 2, z, G)); bx(1.8, .06, 6 / 7, run, sd * 4, top + .03, z, G);
     }
     // golden railings along the inside edge of each side flight
     const r = new THREE.Mesh(new THREE.CylinderGeometry(.12, .12, Math.hypot(6, 5), 8), TRIM);
@@ -285,7 +294,7 @@ const FURN = {
 // ground floor y = 0; upstairs items have f: 1
 const START = [
   // Grand Hall
-  { t: 'molly', x: 5, z: 16, f: 0, r: -.5 }, { t: 'pippi', x: -5, z: 16.5, f: 0, r: .5 }, { t: 'plant', x: -5, z: 1, f: 0 }, { t: 'plant', x: 5, z: 1, f: 0 }, { t: 'mirror', x: -5.3, z: 6, f: 0, r: Math.PI / 2 },
+  { t: 'molly', x: -2.2, z: -1, f: 0, r: .3 }, { t: 'pippi', x: 2.2, z: -.5, f: 0, r: -.3 }, { t: 'plant', x: -5, z: 1, f: 0 }, { t: 'plant', x: 5, z: 1, f: 0 }, { t: 'mirror', x: -5.3, z: 6, f: 0, r: Math.PI / 2 },
   // Great Room
   { t: 'fireplace', x: 18.9, z: 0, f: 0, r: -Math.PI / 2 }, { t: 'rug', x: 12, z: 0, f: 0, s: 1.2 }, { t: 'sofa', x: 10, z: 0, f: 0, r: Math.PI / 2 }, { t: 'chair', x: 14, z: 5, f: 0, r: Math.PI }, { t: 'chair', x: 14, z: -5, f: 0 },
   { t: 'table', x: 13, z: 0, f: 0, s: .6, c: 5 }, { t: 'piano', x: 15, z: -16.5, f: 0, c: 5 }, { t: 'bookshelf', x: 8, z: -18, f: 0 }, { t: 'tv', x: 13, z: 17.6, f: 0, r: Math.PI }, { t: 'sofa', x: 13, z: 12, f: 0, c: 1 }, { t: 'lamp', x: 18.5, z: 17.5, f: 0 }, { t: 'plant', x: 18.5, z: -17.5, f: 0 },
@@ -328,7 +337,7 @@ H.upgradeRooms(S.rooms);
 function to2(it) {
   const o = it.link.o;
   if (it.moved) { H.to2({ x: it.x, z: it.z }, it.link.id, o, it.wall ? (o.w || 0) : null); it.moved = 0; }
-  o.s = it.s || 1; o.col3 = it.c || 0; if (!it.wall) o.rot3 = it.r || 0; if (it.y && !it.wall) o.h3 = it.y; else delete o.h3;
+  o.s = it.s || 1; o.col3 = it.c || 0; if (!it.wall) o.rot3 = it.r || 0; if (it.y && !it.wall && it.t !== 'molly' && it.t !== 'pippi') o.h3 = it.y; else delete o.h3;
 }
 function fromStart(id) {             // the furnished 3D layout for a room, as 2D pictures
   return START.filter(i => (roomAt(i.x, i.z, i.f) || {}).id === id).map(i => {
@@ -395,7 +404,7 @@ function buildItem(it) {
 function place(g) {
   const it = g.userData.it, s = it.s || 1;
   g.position.set(it.x, (it.f ? UP : 0) + (it.y || 0), it.z); g.rotation.y = it.r || 0; g.scale.setScalar(s);
-  g.visible = it.f === 0 || floorShown === 1;
+  g.visible = it.f === 0 || floorShown === 1 || (walker && walker.it === it);
 }
 function rebuild() { furn.clear(); spinners.length = 0; items.forEach(buildItem); }
 const roomBounds = it => it.link ? roomOf(it.link.id) : (roomAt(it.x, it.z, it.f) || null);
@@ -430,13 +439,18 @@ function drawChips() {
   document.getElementById('floors').innerHTML =
     '<button class="fl' + (floorShown === 0 && !curRoom ? '' : ' dim') + '" data-f="0">🏠 Downstairs</button>' +
     '<button class="fl' + (floorShown === 1 && !curRoom ? '' : ' dim') + '" data-f="1">⬆️ Upstairs</button>' +
+    (walker ? '<button class="walk" id="stopWalk">✋ Stop walking</button><button data-who="molly" class="' + (walker.it.t === 'molly' ? 'on' : '') + '">🐰 Molly</button><button data-who="pippi" class="' + (walker.it.t === 'pippi' ? 'on' : '') + '">🐥 Pippi</button>'
+            : '<button class="walk" id="walkBtn">🚶 Walk around</button>') +
     '<button id="addBtn">➕ Add</button><button id="resetBtn">🧹 Start over</button>';
 }
-document.getElementById('rooms').addEventListener('click', ev => { const b = ev.target.closest('[data-r]'); if (b) goRoom(roomOf(b.dataset.r)); });
+document.getElementById('rooms').addEventListener('click', ev => { const b = ev.target.closest('[data-r]'); if (!b) return; if (walker) teleport(roomOf(b.dataset.r)); else goRoom(roomOf(b.dataset.r)); });
 document.getElementById('floors').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
   if (b.dataset.f) goFloor(+b.dataset.f);
   if (b.id === 'addBtn') toggleAdd();
+  if (b.id === 'walkBtn') startWalk('molly');
+  if (b.id === 'stopWalk') stopWalk();
+  if (b.dataset.who) startWalk(b.dataset.who);
   if (b.id === 'resetBtn') { if (b.dataset.sure) { SHARED.forEach(furnishRoom); own = START.filter(i => !SHARED.includes((roomAt(i.x, i.z, i.f) || {}).id)).map(i => ({ ...i })); loadItems(); save(); rebuild(); showFloor(floorShown); drawChips(); } else { b.dataset.sure = 1; b.textContent = '🧹 Tap again'; } }
 });
 
@@ -504,6 +518,10 @@ canvas.addEventListener('pointerup', ev => {
   pick(ev);
   const vis = furn.children.filter(g => g.visible);
   const hits = ray.intersectObjects(vis, true);
+  if (walker && (!hits.length || hits[0].object.parent === walker.g || isFloorish(hits[0]))) {
+    const fl = walker.it.f ? UP : 0, p = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -fl), new THREE.Vector3());
+    if (p && !hits.some(h => { let o = h.object; while (o.parent && o.parent !== furn) o = o.parent; return o !== walker.g && !FURN[o.userData.it.t]?.flat; })) { deselect(); walkTarget = p; showDot(p); return; }
+  }
   if (!hits.length) { deselect(); return; }
   let o = hits[0].object; while (o.parent && o.parent !== furn) o = o.parent;
   if (o === sel) return;
@@ -511,6 +529,142 @@ canvas.addEventListener('pointerup', ev => {
   if (o.userData.it.t === 'molly' || o.userData.it.t === 'pippi') hop(o);
 });
 function hop(g) { g.userData.hop = 1; }
+const isFloorish = h => { let o = h.object; while (o.parent && o.parent !== furn) o = o.parent; return !!FURN[o.userData.it?.t]?.flat; };
+
+/* ---------- walk around as Molly or Pippi (third person) ---------- */
+let walker = null, walkTarget = null, joyV = { x: 0, y: 0 }, lastSave = 0, dot = null;
+const SPEED = 9, RAD = .8;
+function groundAt(x, z, f) {             // which floor and how high you'd stand at x,z (null = can't stand there)
+  if (f === 1) {
+    if (Math.abs(x) < 6 && z > 2.05) {   // the open Grand Hall below the balcony
+      if (Math.abs(x) >= 2.5 && Math.abs(x) <= 5.5 && z < 8) return { f: 0, y: 5 + (8 - z) / 6 * 5 };
+      return null;
+    }
+    return { f: 1, y: 0 };
+  }
+  if (Math.abs(x) <= 4 && z >= 12 && z <= 18) return { f: 0, y: (18 - z) / 6 * 5 };          // center flight
+  if (Math.abs(x) <= 5.5 && z >= 8 && z < 12) return { f: 0, y: 5 };                           // landing
+  if (Math.abs(x) >= 2.5 && Math.abs(x) <= 5.5 && z >= 2 && z < 8) return z < 2.4 ? { f: 1, y: 0 } : { f: 0, y: 5 + (8 - z) / 6 * 5 };   // side flights up to the balcony
+  if (Math.hypot(x, z) > 44) return null;                                                      // the yard fence
+  return { f: 0, y: 0 };
+}
+function hitsWall(x, z, f) { return COLL[f].some(b => x > b.x0 - RAD && x < b.x1 + RAD && z > b.z0 - RAD && z < b.z1 + RAD); }
+function canStand(x, z, from, stuck) {
+  const g = groundAt(x, z, from.f); if (!g) return null;
+  if (g.f === from.f && g.y - (from.y || 0) > 1.3) return null;        // too big a step up
+  if (!stuck && hitsWall(x, z, g.f)) return null;                       // (if she's already touching a wall, let her walk away from it)
+  return g;
+}
+function figureItem(kind) {
+  let it = items.find(i => i.t === kind);
+  if (!it) {
+    const r = roomOf('foyer'), o = { k: kind, x: kind === 'molly' ? 40 : 60, y: 96, w: 2, s: 1 };
+    S.rooms.foyer.push(o); const p = H.to3(o, 'foyer');
+    it = { t: kind, k: kind, x: p.x, z: p.z, y: 0, f: 0, r: Math.PI, s: 1, link: { id: 'foyer', o } }; items.push(it); buildItem(it); save();
+  }
+  return it;
+}
+function startWalk(kind) {
+  deselect(); addEl.classList.remove('on');
+  const it = figureItem(kind), g = furn.children.find(c => c.userData.it === it);
+  const here = groundAt(it.x, it.z, it.f || 0);
+  if (!here || Math.abs(here.y - (it.y || 0)) > 1.3 || hitsWall(it.x, it.z, it.f || 0)) {   // squeezed beside the stairs or in a wall: step out to a clear spot
+    const r = roomAt(it.x, it.z, it.f || 0) || roomOf('foyer');
+    if (r.id === 'foyer') { it.x = kind === 'molly' ? -2.2 : 2.2; it.z = -1; it.f = 0; } else { it.x = (r.x[0] + r.x[1]) / 2; it.z = (r.z[0] + r.z[1]) / 2; it.f = r.f; }
+    it.y = 0; it.moved = 1; place(g); save();
+  }
+  walker = { it, g, moving: 0 }; walkTarget = null;
+  document.getElementById('joy').classList.add('on');
+  curRoom = null; showFloor(it.f || (it.y > 7 ? 1 : 0));
+  const back = new THREE.Vector3(Math.sin(it.r || 0), 0, Math.cos(it.r || 0)).multiplyScalar(10);   // start in front of her so you see her face
+  const tgt = new THREE.Vector3(it.x, (it.f ? UP : 0) + (it.y || 0) + 3, it.z);
+  fly = { t0: performance.now(), a: [controls.target.clone(), camera.position.clone()], b: [tgt, tgt.clone().add(back).add(new THREE.Vector3(0, 21, 0))] };
+  controls.minDistance = 8; controls.maxDistance = 45; controls.maxPolarAngle = .85;   // stay high enough to see over the walls
+  const hint = document.getElementById('hint'); hint.style.display = ''; hint.textContent = 'Use the circle or tap the floor to walk';
+  setTimeout(() => { hint.style.display = 'none'; }, 3000);
+  updateLabel(); drawChips();
+}
+function stopWalk() {
+  if (!walker) return; save(); unfade(); walker = null; walkTarget = null; if (dot) dot.visible = false;
+  document.getElementById('joy').classList.remove('on'); controls.minDistance = 10; controls.maxDistance = 140; controls.maxPolarAngle = 1.32; drawChips();
+}
+function teleport(r) {
+  const it = walker.it; it.x = (r.x[0] + r.x[1]) / 2; it.z = (r.z[0] + r.z[1]) / 2; it.f = r.f; it.y = 0;
+  if (r.id === 'foyer') { it.x = 0; it.z = 16; it.y = (18 - 16) / 6 * 5; }
+  walkTarget = null; relink(); it.moved = 1; save(); place(walker.g);
+  const tgt = new THREE.Vector3(it.x, (it.f ? UP : 0) + it.y + 3, it.z);
+  fly = { t0: performance.now(), a: [controls.target.clone(), camera.position.clone()], b: [tgt, tgt.clone().add(new THREE.Vector3(0, 21, 11))] };
+  showFloor(it.f); updateLabel();
+}
+function relink() {                       // walking into another room moves the 2D picture to that room too
+  const it = walker.it, r = roomAt(it.x, it.z, it.f);
+  if (!it.link || !r || !SHARED.includes(r.id) || r.id === it.link.id) return !!(r && it.link && SHARED.includes(r.id));
+  const L = S.rooms[it.link.id]; L.splice(L.indexOf(it.link.o), 1); S.rooms[r.id].push(it.link.o); it.link.id = r.id; return true;
+}
+function updateLabel() { const it = walker.it, r = roomAt(it.x, it.z, it.f); document.getElementById('roomLbl').textContent = (it.t === 'molly' ? '🐰 ' : '🐥 ') + (r ? r.name : 'Yard'); }
+function showDot(p) {
+  if (!dot) { dot = new THREE.Mesh(new THREE.TorusGeometry(.7, .15, 8, 24), mat('#ff4f9a', { emissive: '#ff4f9a', emissiveIntensity: .7 })); dot.rotation.x = Math.PI / 2; scene.add(dot); }
+  dot.position.set(p.x, p.y + .25, p.z); dot.visible = true;
+}
+window.mollyWalk = { go: (x, z) => { walkTarget = new THREE.Vector3(x, 0, z); }, test: (x, z, f, y) => [groundAt(x, z, f), hitsWall(x, z, f), COLL[f].filter(b => x > b.x0 - RAD && x < b.x1 + RAD && z > b.z0 - RAD && z < b.z1 + RAD)], where: () => walker && { x: walker.it.x, z: walker.it.z, y: walker.it.y, f: walker.it.f, room: walker.it.link && walker.it.link.id } };   // for testing
+const joy = document.getElementById('joy'), knob = document.getElementById('knob');
+joy.addEventListener('pointerdown', ev => { joy.setPointerCapture(ev.pointerId); joyMove(ev); });
+joy.addEventListener('pointermove', ev => { if (joy.hasPointerCapture(ev.pointerId)) joyMove(ev); });
+const joyEnd = () => { joyV = { x: 0, y: 0 }; knob.style.transform = ''; };
+joy.addEventListener('pointerup', joyEnd); joy.addEventListener('pointercancel', joyEnd);
+function joyMove(ev) {
+  const r = joy.getBoundingClientRect(), R0 = r.width / 2; let x = ev.clientX - r.left - R0, y = ev.clientY - r.top - R0;
+  const l = Math.hypot(x, y); if (l > R0 - 10) { x *= (R0 - 10) / l; y *= (R0 - 10) / l; }
+  knob.style.transform = 'translate(' + x + 'px,' + y + 'px)'; joyV = { x: x / (R0 - 10), y: y / (R0 - 10) }; walkTarget = null; if (dot) dot.visible = false;
+}
+let faded = [];
+const fadeMats = new Map();
+function fadeWalls(it) {               // see-through walls between the camera and the character
+  unfade();
+  if (!it) return;
+  const head = new THREE.Vector3(it.x, (it.f ? UP : 0) + (it.y || 0) + 2, it.z), from = camera.position.clone();
+  const rc = new THREE.Raycaster(from, head.clone().sub(from).normalize(), 0, from.distanceTo(head) - 1);
+  rc.intersectObjects(WALLM.filter(m => m.parent.visible), false).forEach(h => {
+    const m = h.object; if (m.userData.orig) return;
+    if (!fadeMats.has(m.material)) { const c = m.material.clone(); c.transparent = true; c.opacity = .22; c.depthWrite = false; fadeMats.set(m.material, c); }
+    m.userData.orig = m.material; m.material = fadeMats.get(m.material); faded.push(m);
+  });
+}
+function unfade() { faded.forEach(m => { m.material = m.userData.orig; delete m.userData.orig; }); faded = []; }
+function walkStep(dt, t) {
+  const it = walker.it, g = walker.g; let mx = 0, mz = 0;
+  if (Math.hypot(joyV.x, joyV.y) > .15) {
+    const fw = new THREE.Vector3().subVectors(controls.target, camera.position); fw.y = 0; fw.normalize();
+    const rt = new THREE.Vector3(-fw.z, 0, fw.x);
+    mx = fw.x * -joyV.y + rt.x * joyV.x; mz = fw.z * -joyV.y + rt.z * joyV.x;
+  } else if (walkTarget) {
+    mx = walkTarget.x - it.x; mz = walkTarget.z - it.z;
+    if (Math.hypot(mx, mz) < .4) { walkTarget = null; if (dot) dot.visible = false; mx = mz = 0; }
+  }
+  const len = Math.hypot(mx, mz), fig = g.children[0];
+  if (len < .01) {
+    if (walker.moving) { walker.moving = 0; if (relink()) it.moved = 1; save(); }
+    if (fig) { fig.rotation.z *= .8; fig.position.y *= .8; }
+    return;
+  }
+  const step = Math.min(len, 1) * SPEED * dt, dx = mx / len * step, dz = mz / len * step;
+  const from = { f: it.f, y: it.y || 0 }, stuck = hitsWall(it.x, it.z, it.f);
+  let ok = canStand(it.x + dx, it.z + dz, from, stuck), nx = it.x + dx, nz = it.z + dz;
+  if (!ok) { ok = canStand(it.x + dx, it.z, from, stuck); nx = it.x + dx; nz = it.z; }      // slide along walls
+  if (!ok) { ok = canStand(it.x, it.z + dz, from, stuck); nx = it.x; nz = it.z + dz; }
+  if (!ok) { if (walkTarget) { walkTarget = null; if (dot) dot.visible = false; } return; }
+  it.x = nx; it.z = nz; it.y = ok.y;
+  if (ok.f !== it.f) { it.f = ok.f; }
+  const want = Math.atan2(mx, mz); let d = want - (it.r || 0); d = Math.atan2(Math.sin(d), Math.cos(d)); it.r = (it.r || 0) + d * Math.min(1, dt * 10);
+  walker.moving = 1;
+  if (fig) { fig.rotation.z = Math.sin(t * 14) * .12; fig.position.y = Math.abs(Math.sin(t * 14)) * .25; }
+  place(g);
+  const showUp = it.f === 1 || it.y > 6.5 ? 1 : 0; if (showUp !== floorShown) showFloor(showUp);
+  if (t - lastSave > 1.5) { lastSave = t; if (relink()) it.moved = 1; save(); updateLabel(); }
+  // camera follows
+  const tgt = new THREE.Vector3(it.x, (it.f ? UP : 0) + it.y + 3, it.z), delta = tgt.clone().sub(controls.target);
+  if (!fly) { controls.target.add(delta); camera.position.add(delta); }
+}
 selEl.addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b || !sel) return;
   const it = sel.userData.it, a = b.dataset.a;
@@ -543,6 +697,9 @@ renderer.setAnimationLoop(() => {
     if (k >= 1) fly = null;
   }
   spinners.forEach(s => s.rotation.y = t * 2);
+  const dt = Math.min(.05, t - (window.__lt || t)); window.__lt = t;
+  if (walker) { walkStep(dt, t); fadeWalls(walker.it); }
+  if (dot && dot.visible) dot.rotation.z = t * 3;
   furn.children.forEach(g => {
     if (g.userData.hop) { g.userData.hop = Math.max(0, g.userData.hop - .025); const it = g.userData.it; g.position.y = (it.f ? UP : 0) + (it.y || 0) + Math.sin((1 - g.userData.hop) * Math.PI) * 1.5; }
   });

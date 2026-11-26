@@ -57,6 +57,7 @@
     s += '<ellipse cx="52" cy="196" rx="13" ry="20" fill="#fff" stroke="#e9dfe6" stroke-width="2" transform="rotate(30 52 196)"/>' +
       '<ellipse cx="148" cy="196" rx="13" ry="20" fill="#fff" stroke="#e9dfe6" stroke-width="2" transform="rotate(-30 148 196)"/>';
     // necklace
+    if (o.earrings) s += '<g transform="translate(32 146) scale(1)"><circle r="3.2" fill="#ffd23f"/><path d="M0 3v5" stroke="#ffd23f" stroke-width="1.6"/><path d="M0 20l-6.5-6.5a4.2 4.2 0 0 1 6.5-5.3 4.2 4.2 0 0 1 6.5 5.3z" fill="#ff4f9a" stroke="#ffd23f" stroke-width="1.2"/><circle cx="-2" cy="11.5" r="1.2" fill="#fff"/></g>' + '<g transform="translate(168 146) scale(1)"><circle r="3.2" fill="#ffd23f"/><path d="M0 3v5" stroke="#ffd23f" stroke-width="1.6"/><path d="M0 20l-6.5-6.5a4.2 4.2 0 0 1 6.5-5.3 4.2 4.2 0 0 1 6.5 5.3z" fill="#ff4f9a" stroke="#ffd23f" stroke-width="1.2"/><circle cx="-2" cy="11.5" r="1.2" fill="#fff"/></g>';
     if (o.necklace) {
       s += '<g fill="#fffaf0" stroke="#e5d7b8" stroke-width="1">';
       for (let i = 0; i <= 8; i++) { const a = Math.PI * (0.15 + 0.7 * i / 8); s += '<circle cx="' + (100 - Math.cos(a) * 30).toFixed(1) + '" cy="' + (176 + Math.sin(a) * 12).toFixed(1) + '" r="3.6"/>'; }
@@ -100,6 +101,7 @@
       '<ellipse cx="30" cy="65" rx="6" ry="3.5" fill="#ff8fb8" opacity="' + (o.blush ? '.9' : '.6') + '"/><ellipse cx="70" cy="65" rx="6" ry="3.5" fill="#ff8fb8" opacity="' + (o.blush ? '.9' : '.6') + '"/>' +
       '<path d="M40 91 l-4 6 M40 91 l0 7 M40 91 l4 6 M60 91 l-4 6 M60 91 l0 7 M60 91 l4 6" stroke="#ff9a2e" stroke-width="3" stroke-linecap="round"/>';
     if (o.shoes && SHOE[o.shoes]) s += shoe(40, 96, 9, 5.5, SHOE[o.shoes]) + shoe(60, 96, 9, 5.5, SHOE[o.shoes]);
+    if (o.earrings) s += '<g transform="translate(12 56) scale(0.55)"><circle r="3.2" fill="#ffd23f"/><path d="M0 3v5" stroke="#ffd23f" stroke-width="1.6"/><path d="M0 20l-6.5-6.5a4.2 4.2 0 0 1 6.5-5.3 4.2 4.2 0 0 1 6.5 5.3z" fill="#ff4f9a" stroke="#ffd23f" stroke-width="1.2"/><circle cx="-2" cy="11.5" r="1.2" fill="#fff"/></g>' + '<g transform="translate(88 56) scale(0.55)"><circle r="3.2" fill="#ffd23f"/><path d="M0 3v5" stroke="#ffd23f" stroke-width="1.6"/><path d="M0 20l-6.5-6.5a4.2 4.2 0 0 1 6.5-5.3 4.2 4.2 0 0 1 6.5 5.3z" fill="#ff4f9a" stroke="#ffd23f" stroke-width="1.2"/><circle cx="-2" cy="11.5" r="1.2" fill="#fff"/></g>';
     if (o.necklace) {
       s += '<g fill="#fffaf0" stroke="#e5d7b8" stroke-width=".8">';
       for (let i = 0; i <= 6; i++) { const a = Math.PI * (0.2 + 0.6 * i / 6); s += '<circle cx="' + (50 - Math.cos(a) * 16).toFixed(1) + '" cy="' + (68 + Math.sin(a) * 6).toFixed(1) + '" r="2.4"/>'; }

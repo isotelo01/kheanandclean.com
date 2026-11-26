@@ -29,6 +29,12 @@ function lashes(sd, x, y, z, s) { // three little lashes fanning up and out from
     l.position.set(x + dx * (s * 1.05 + len / 2), y + dy * (s * 1.15 + len / 2), z - .02); l.rotation.z = -sd * a; root.add(l);
   });
 }
+function earring(x, y, z, s) {   // gold stud with a little pink heart hanging under it
+  ball(s * .3, '#ffd23f', [x, y, z], [1, 1, 1], root, mat('#ffd23f', { metalness: .6, roughness: .25 }));
+  const hs = new THREE.Shape(); hs.moveTo(0, -.5); hs.bezierCurveTo(-.15, -.35, -.6, -.1, -.6, .2); hs.bezierCurveTo(-.6, .5, -.25, .62, 0, .35); hs.bezierCurveTo(.25, .62, .6, .5, .6, .2); hs.bezierCurveTo(.6, -.1, .15, -.35, 0, -.5);
+  const g = new THREE.ExtrudeGeometry(hs, { depth: .2, bevelEnabled: true, bevelThickness: .06, bevelSize: .05, bevelSegments: 2 }); g.center();
+  const h = new THREE.Mesh(g, mat('#ff4f9a', { roughness: .2, metalness: .2 })); h.scale.setScalar(s * .9); h.position.set(x, y - s * .9, z); root.add(h);
+}
 function crown(y, r, parent = root, z = 0) {
   const g = new THREE.Group(), gold = mat('#ffd23f', { metalness: .5, roughness: .3 });
   const band = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, r * .55, 32, 1, true), gold); band.material.side = THREE.DoubleSide; g.add(band);
@@ -97,6 +103,7 @@ function buildMolly() {
     bow([0, 1.22, .66], .3);
   }
   if (o.necklace) pearls(1.38, .62, 11, .06);
+  if (o.earrings) [-1, 1].forEach(sd => earring(sd * 1.17, 1.9, .2, .22));
   if (o.crown) crown(2.95, .42);
   if (o.bow) bow([.62, 3.85, .1], .34);
   if (o.wand) wand([.95, .95, .3], 1.3);
@@ -132,6 +139,7 @@ function buildPippi() {
     const ruf = new THREE.Mesh(new THREE.TorusGeometry(1.1, .07, 10, 48), mat(b)); ruf.rotation.x = Math.PI / 2; ruf.position.y = .29; root.add(ruf);
   }
   if (o.necklace) pearls(.86, .9, 9, .055);
+  if (o.earrings) [-1, 1].forEach(sd => earring(sd * 1.02, 1.42, .2, .18));
   if (o.glasses) [-1, 1].forEach(sd => {
     const g = new THREE.Mesh(starGeo(.26, .12, .04), mat('#ff8fc8', { transparent: true, opacity: .8 })); g.position.set(sd * .34, 1.4, 1.02); root.add(g);
   });
