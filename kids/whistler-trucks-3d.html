@@ -172,7 +172,7 @@ function startJump(kind = 'jump') {
   scene.fog.near = 60; scene.fog.far = 170;
   Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16 }); sun.shadow.camera.updateProjectionMatrix();
   document.body.classList.add('stunting');
-  ctl.enabled = false; ctl.autoRotate = false;
+  ctl.enabled = true; ctl.autoRotate = false;   // drag to look around the truck while it plays
   current.userData.drop = 1;
   stunt = { kind, set, tau: -0.9, landed: false, snap: true };
   startEngine();
@@ -227,15 +227,20 @@ function stuntStep(dt) {
   // chase camera from the side
   const zoff = 15 * Math.max(1, .85 / cam.aspect);   // back up on narrow phone screens
   const want = new THREE.Vector3(x - 5, 4.2 + y * .4 + (zoff - 15) * .15, zoff), look = new THREE.Vector3(x + 1.5, 1.8 + y * .5, 0);
-  if (s.snap) { cam.position.copy(want); s.snap = false; } else cam.position.lerp(want, 1 - Math.exp(-dt * 5));
-  cam.lookAt(look);
+  followCam(s, want, look);
+}
+// The camera rides along with the truck; dragging turns it around the truck (kept until the stunt ends).
+function followCam(s, want, look) {
+  if (s.snap) { cam.position.copy(want); ctl.target.copy(look); s.snap = false; }
+  else { cam.position.add(look.clone().sub(ctl.target)); ctl.target.copy(look); }
+  ctl.update();
 }
 scene.add(sun.target);
 document.getElementById('jump').onclick = () => startJump('jump');
 document.getElementById('crush').onclick = () => startJump('crush');
 
 /* ---------- crush stunt: drive over 4 cars ---------- */
-const CRUSH_X = [-4.6, -1.6, 1.4, 4.4], CRUSH_START = -15, CRUSH_END = 12, CRUSH_V = 6.5;
+const CRUSH_X = [-2.9, -1.45, 0, 1.45, 2.9], CRUSH_START = -15, CRUSH_END = 12, CRUSH_V = 6.5, CAR_HALF = .68;   // 5 cars side by side
 const CAR_COLORS = ['#e53935', '#1e63d6', '#fdd835', '#2e9e44', '#8e44ad', '#fb8c00'];
 function buildCrushSet() {
   const g = new THREE.Group();
@@ -243,7 +248,7 @@ function buildCrushSet() {
   track.rotation.x = -Math.PI / 2; track.position.y = .003; track.receiveShadow = true; g.add(track);
   const colors = [...CAR_COLORS].sort(() => Math.random() - .5);
   g.userData.cars = CRUSH_X.map((x, i) => {
-    const c = car3d(colors[i]); c.position.set(x, 0, 0); c.userData.crush = 0; c.userData.hit = false;
+    const c = car3d(colors[i % colors.length]); c.position.set(x, 0, 0); c.rotation.y = Math.PI / 2; c.userData.crush = 0; c.userData.hit = false;   // sideways across the path
     c.userData.tilt = (Math.random() - .5) * .25; g.add(c); return c;
   });
   return g;
@@ -261,17 +266,17 @@ function crushStep(dt) {
   let crushed = 0;
   cars.forEach(c => {
     const u = c.userData;
-    if (!u.hit && x + 1.2 >= c.position.x - 1.25) { u.hit = true; thud(); }
+    if (!u.hit && x + 1.2 >= c.position.x - CAR_HALF - .25) { u.hit = true; thud(); }
     if (u.hit && u.crush < 1) u.crush = Math.min(1, u.crush + dt * 4);
     const k = 1 - Math.pow(1 - u.crush, 3);
-    c.scale.set(1 + .08 * k, 1 - .7 * k, 1 + .05 * k);
-    c.rotation.x = u.tilt * k;
+    c.scale.set(1 + .05 * k, 1 - .7 * k, 1 + .08 * k);
+    c.rotation.z = u.tilt * k;
     if (u.crush >= 1) crushed++;
   });
   if (crushed === cars.length) document.getElementById('banner').classList.add('show');
 
   // ride up on whatever is under the front and back tires
-  const topAt = wx => { let h = 0; cars.forEach(c => { if (Math.abs(wx - c.position.x) < 1.3) h = Math.max(h, 1.15 * c.scale.y); }); return h; };
+  const topAt = wx => { let h = 0; cars.forEach(c => { if (Math.abs(wx - c.position.x) < CAR_HALF + .15) h = Math.max(h, 1.15 * c.scale.y); }); return h; };
   const hf = topAt(x + 1.2), hr = topAt(x - 1.2);
   const wantY = (hf + hr) / 2, wantP = Math.atan2(hf - hr, 2.4);
   const k = 1 - Math.exp(-dt * 16);
@@ -286,14 +291,13 @@ function crushStep(dt) {
 
   const zoff = 13 * Math.max(1, .85 / cam.aspect);
   const want = new THREE.Vector3(x - 4, 3.6 + (zoff - 13) * .15, zoff), look = new THREE.Vector3(x + 1.5, 1.2, 0);
-  if (s.snap) { cam.position.copy(want); s.snap = false; } else cam.position.lerp(want, 1 - Math.exp(-dt * 5));
-  cam.lookAt(look);
+  followCam(s, want, look);
 }
 
 /* ---------- animate ---------- */
 const clock = new THREE.Clock();
 function loop() {
-  const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+  const dt = Math.min(clock.getDelta(), .12), t = clock.elapsedTime;
   arena.userData.update(t);
   if (stunt) { (stunt.kind === 'crush' ? crushStep : stuntStep)(dt); smoke.update(dt, current, 24); ren.render(scene, cam); requestAnimationFrame(loop); return; }
   if (current) {

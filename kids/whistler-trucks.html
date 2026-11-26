@@ -683,7 +683,7 @@ ren.domElement.addEventListener('pointerdown', e => {
 /* ----- loop ----- */
 const clock = new THREE.Clock(); let lastX = 0;
 function loop() {
-  const dt = Math.min(clock.getDelta(), .05);
+  const dt = Math.min(clock.getDelta(), .12);
   for (let k = tweens.length - 1; k >= 0; k--) {
     const tw = tweens[k]; tw.t += dt; const u = Math.min(1, tw.t / tw.dur);
     tw.fn(u, dt); if (u >= 1) { tweens.splice(k, 1); tw.res(); }
