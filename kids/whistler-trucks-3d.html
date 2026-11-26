@@ -68,7 +68,7 @@ fitCam();
 const ctl = new OrbitControls(cam, ren.domElement);
 ctl.enableDamping = true; ctl.target.set(0, 1.5, 0);
 ctl.minDistance = 4; ctl.maxDistance = 30; ctl.maxPolarAngle = Math.PI * 0.68; ctl.enablePan = false;
-const GROUND_Y = .35;   // the camera never goes below the ground
+const GROUND_Y = .08;   // the camera never goes below the ground (low enough to peek up under the truck)
 function keepAboveGround() { if (cam.position.y < GROUND_Y) cam.position.y = GROUND_Y; }
 ctl.autoRotate = true; ctl.autoRotateSpeed = 2.2;
 
