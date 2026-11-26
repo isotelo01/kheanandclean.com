@@ -9,7 +9,7 @@ export const TRUCKS = [
   { name: 'Thunder Bolt',  body: '#1565c0', accent: '#ffd60a', rim: '#c0c0c0', deco: 'bolt' },
   { name: 'Dragon Roar',   body: '#1d7a2e', accent: '#a0e426', rim: '#ff6f00', deco: 'dragon' },
   // shaped like a later (2007+) Avalanche: long crew cab, short bed, body-color sail panels, blunt front, no gray trim
-  { name: 'Tyda Mad',      body: '#c9a66b', accent: '#d62828', rim: '#c0c0c0', deco: 'mad', shape: 'avalanche' }
+  { name: 'Tyda Mad',      body: '#c9a66b', accent: '#d62828', rim: '#c0c0c0', deco: 'mad', shape: 'avalanche', real: 'avalanche' }   // 2.0: realistic body
 ];
 // side outline for each body shape (2D drawing coordinates; front is on the right)
 export const SHAPES = {
@@ -214,10 +214,113 @@ export class Helix extends THREE.Curve {
   getPoint(u, out = new THREE.Vector3()) { const a = u * this.turns * Math.PI * 2; return out.set(Math.cos(a) * this.r, u * this.h, Math.sin(a) * this.r); }
 }
 
+/* ---------- 2.0 realistic body: 2004-05 Chevy Avalanche 1500, no cladding (body-color, Silverado-style front) ----------
+   Real size: 221.6" long, 79.8" wide, 73.6" tall, 130" wheelbase, 39" front overhang.
+   Measured in inches (i = back from the front bumper, h = up from the ground), scaled so the front axle
+   sits on the monster truck's front axle. Big wheel wells, like a real monster truck body. */
+const AV_IN = 3.6 / 221.6;   // world units per inch
+function avalancheFrontSVG(t) {
+  // 2003-05 Silverado/Avalanche front: tall headlamps at the corners, chrome-framed grille split by a
+  // body-color bar (no logo), body-color bumper with fog lamps and a black lower opening
+  const mesh = (x, y, w, h) => { let d = ''; for (let i = x + 3; i < x + w; i += 6) d += `<path d="M${i} ${y} v${h}" stroke="#2c2c2c" stroke-width="1.6"/>`; for (let j = y + 3; j < y + h; j += 5) d += `<path d="M${x} ${j} h${w}" stroke="#2c2c2c" stroke-width="1.2"/>`; return d; };
+  const lamp = (x, flip) => `<g transform="${flip ? `translate(${2 * x + 58} 0) scale(-1 1)` : ''}">
+      <path d="M${x} 6 H${x + 58} V46 H${x + 8} Q${x} 46 ${x} 38 Z" fill="#cfd8de" stroke="#222" stroke-width="2"/>
+      <circle cx="${x + 18}" cy="22" r="11" fill="#f4f7f9" stroke="#8a949a" stroke-width="2"/><circle cx="${x + 18}" cy="22" r="4" fill="#fff" stroke="#999"/>
+      <circle cx="${x + 42}" cy="22" r="10" fill="#f4f7f9" stroke="#8a949a" stroke-width="2"/><circle cx="${x + 42}" cy="22" r="3.5" fill="#fff" stroke="#999"/>
+      <rect x="${x + 4}" y="36" width="50" height="7" rx="2" fill="#f0a020" opacity=".9"/></g>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 266 100" width="1064" height="400">
+    <rect width="266" height="100" fill="${t.body}"/>
+    ${lamp(3, false)}${lamp(205, true)}
+    <rect x="66" y="4" width="134" height="48" rx="3" fill="#111" stroke="#d8d8d8" stroke-width="4"/>
+    ${mesh(70, 8, 126, 14)}${mesh(70, 38, 126, 11)}
+    <rect x="68" y="23" width="130" height="13" fill="${t.body}" stroke="#d8d8d8" stroke-width="2.5"/>
+    <path d="M2 58 H264" stroke="rgba(0,0,0,.35)" stroke-width="2"/>
+    <rect x="76" y="70" width="114" height="18" rx="4" fill="#141414"/>${mesh(78, 72, 110, 14)}
+    <rect x="112" y="58" width="42" height="11" rx="1.5" fill="#f2f2f2" stroke="#555" stroke-width="1.5"/>
+    <circle cx="40" cy="79" r="8" fill="#eef3f6" stroke="#333" stroke-width="2.5"/><circle cx="226" cy="79" r="8" fill="#eef3f6" stroke="#333" stroke-width="2.5"/>
+    <path d="M6 94 H260" stroke="rgba(0,0,0,.3)" stroke-width="3"/>
+  </svg>`;
+}
+function avalancheSideSVG(t, frontRight) {
+  // door seams, handles, fuel door and the truck's name, on the lower body side (h 16-51)
+  const u = i => frontRight ? 221.6 - i : i, v = h => 51 - h;
+  const seam = (i, h0, h1) => `<path d="M${u(i)} ${v(h1)} V${v(h0)}" stroke="rgba(0,0,0,.45)" stroke-width=".5"/>`;
+  const handle = i => `<rect x="${u(i) - 3.5}" y="${v(47.5)}" width="7" height="1.6" rx=".8" fill="${t.body}" stroke="rgba(0,0,0,.5)" stroke-width=".35"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 221.6 35" width="2216" height="350">
+    ${seam(58, 38, 51)}${seam(113, 22, 51)}${seam(158, 20, 51)}${handle(104)}${handle(150)}
+    <rect x="${u(178) - 3.5}" y="${v(45)}" width="7" height="6" rx="1" fill="none" stroke="rgba(0,0,0,.45)" stroke-width=".4"/>
+    <path d="M${u(2)} ${v(34)} H${u(219)}" stroke="rgba(255,255,255,.18)" stroke-width=".6"/>
+    <text x="${u(112)}" y="${v(24)}" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="11.5"
+      fill="${t.accent}" stroke="#111" stroke-width="1.6" paint-order="stroke" letter-spacing=".6">${t.name.toUpperCase()}</text>
+  </svg>`;
+}
+function avalancheBody(truck, t) {
+  const s = AV_IN, xF = 1.2 + 39 * s;                                  // front of the bumper (front axle at x = 1.2)
+  const X = i => xF - i * s, Y = h => BODY_Y + (h - 16) * s;           // inches → world
+  const BW = 79.8 * s;
+  const paint = std(t.body, { metalness: .55, roughness: .28 });
+  const black = std('#151515', { roughness: .6 });
+  const chrome = std('#e6e6e6', { metalness: .95, roughness: .12 });
+  const glass = std('#1c2933', { metalness: .4, roughness: .06 });
+  const ext = (shape, depth, mat, bevel = .02) => {
+    const m = mesh(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 3 }), mat);
+    m.position.z = -depth / 2; truck.add(m); return m;
+  };
+  const poly = list => { const sh = new THREE.Shape(); list.forEach(([i, h], k) => k ? sh.lineTo(X(i), Y(h)) : sh.moveTo(X(i), Y(h))); return sh; };
+
+  // lower body: bumper, hood, beltline, covered bed; big wheel wells over the monster tires
+  const lower = poly([[0, 16], [0, 46], [6, 48], [56, 51], [221.6, 51], [221.6, 22], [219, 16]]);
+  const well = (ci, r) => { const cx = X(ci), cy = Y(16); for (let k = 0; k <= 18; k++) { const a = k / 18 * Math.PI; lower.lineTo(cx - r * Math.cos(a), cy + r * Math.sin(a)); } };
+  well(186, .47); well(39, .47); lower.lineTo(X(0), Y(16));
+  ext(lower, BW, paint);
+  // cab + sail panels (the Avalanche's sloped "flying buttresses" from the roof down to the bed)
+  ext(poly([[56, 51], [60, 52.5], [88, 71.2], [96, 73.6], [156, 73.6], [162, 72.6], [205, 51.5], [205, 51]]), BW * .9, paint, .035);
+  // side glass, B-pillar, windshield
+  ext(poly([[64, 53.5], [89, 70.2], [111, 70.6], [111, 53.5]]), BW * .9 + .085, glass, 0);   // sits just outside the cab's rounded edge
+  ext(poly([[116, 53.5], [116, 70.6], [150, 70.6], [150, 53.5]]), BW * .9 + .085, glass, 0);
+  ext(poly([[111, 53], [111, 71.5], [116, 71.5], [116, 53]]), BW * .9 + .09, black, 0);
+  const a = new THREE.Vector2(X(60.5), Y(53)), b = new THREE.Vector2(X(87.5), Y(70.8));
+  const ws = mesh(new THREE.BoxGeometry(.012, a.distanceTo(b), BW * .82), glass, false);
+  ws.position.set((a.x + b.x) / 2 + .03, (a.y + b.y) / 2, 0); ws.rotation.z = Math.atan2(b.y - a.y, b.x - a.x) - Math.PI / 2; truck.add(ws);
+  // roof rails
+  [1, -1].forEach(sd => { const r = mesh(new THREE.BoxGeometry(56 * s, .035, .04), black); r.position.set(X(126), Y(73.6) + .055, sd * BW * .36); truck.add(r); });
+  // bed cover seam + rear "midgate" line
+  const cover = mesh(new THREE.BoxGeometry(16 * s, .012, BW * .86), black); cover.position.set(X(213), Y(51) + .026, 0); truck.add(cover);
+
+  // front: headlamps, grille, bumper (drawn), with a little depth for the grille bar
+  const fH = (46 - 16) * s, front = new THREE.Mesh(new THREE.PlaneGeometry(BW + .03, fH), new THREE.MeshStandardMaterial({ map: svgTexture(avalancheFrontSVG(t), 1064, 400), roughness: .35, metalness: .2 }));
+  front.position.set(X(0) + .022, Y(31), 0); front.rotation.y = Math.PI / 2; truck.add(front);
+  // sides: door seams, handles, name
+  [1, -1].forEach(sd => {
+    const tex = svgTexture(avalancheSideSVG(t, sd > 0), 2216, 350);
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(221.6 * s, 35 * s), new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: .4, depthWrite: false }));
+    p.position.set(X(110.8), Y(33.5), sd * (BW / 2 + .022)); if (sd < 0) p.rotation.y = Math.PI; truck.add(p);
+    // mirrors
+    const arm = mesh(new THREE.BoxGeometry(.05, .03, .08), black); arm.position.set(X(63), Y(54), sd * (BW * .45 + .04)); truck.add(arm);
+    const mir = mesh(new THREE.BoxGeometry(.05, .13, .14), paint); mir.position.set(X(64), Y(55), sd * (BW * .45 + .13)); truck.add(mir);
+    // taillights
+    const tl = mesh(new THREE.BoxGeometry(.03, 17 * s, .1), std('#c4161c', { emissive: '#5a0000', roughness: .25 })); tl.position.set(X(221.6) - .015, Y(39), sd * (BW / 2 - .07)); truck.add(tl);
+  });
+  // rear bumper
+  const rb = mesh(new THREE.BoxGeometry(.06, 6 * s, BW), chrome); rb.position.set(X(221.6) - .03, Y(19), 0); truck.add(rb);
+
+  // exhaust stacks standing up out of the bed
+  const stacks = [];
+  [1, -1].forEach(sd => {
+    const ex = mesh(new THREE.CylinderGeometry(.06, .06, .6, 12), chrome);
+    ex.position.set(X(196), Y(51) + .3, sd * BW * .28); truck.add(ex);
+    const tip = new THREE.Object3D(); tip.position.set(ex.position.x, ex.position.y + .32, ex.position.z); truck.add(tip); stacks.push(tip);
+  });
+  return stacks;
+}
+
 export function buildTruck(t) {
   const truck = new THREE.Group(), wheels = [];
   const bodyMat = std(t.body, { metalness: .35, roughness: .35 });
   const accentMat = std(t.accent, { metalness: .3, roughness: .4 });
+  let stacks = [];
+  if (t.real === 'avalanche') stacks = avalancheBody(truck, t);
+  else {
 
   // body: the 2D side outline, pushed out into 3D
   const shape = SHAPES[t.shape] || SHAPES.pickup;
@@ -266,12 +369,12 @@ export function buildTruck(t) {
   }
 
   // exhaust stacks
-  const stacks = [];
   [1, -1].forEach(side => {
     const ex = mesh(new THREE.CylinderGeometry(.07, .07, .7, 12), std('#b0b0b0', { metalness: .9, roughness: .2 }));
     ex.position.set(P(shape.stackX, 0).x, BODY_Y + P(0, 52).y + .3, side * (W / 2 - .12)); truck.add(ex);
     const tip = new THREE.Object3D(); tip.position.set(ex.position.x, ex.position.y + .38, ex.position.z); truck.add(tip); stacks.push(tip);   // where smoke comes out
   });
+  }   // end of the cartoon body
 
   // chassis, axles, springs
   const chassis = mesh(new THREE.BoxGeometry(3.1, .2, 1.1), std('#444', { metalness: .6 }));
