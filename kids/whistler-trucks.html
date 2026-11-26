@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Whistler's Monster Trucks</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: linear-gradient(#5ec8ff 0%, #b9ecff 55%, #8b5a2b 55%, #6b4220 100%);
+    color: #1a1a1a;
+  }
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; }
+  .screen.on { display: flex; }
+
+  /* HOME */
+  #home { justify-content: center; gap: 18px; padding: 16px; }
+  #home h1 { margin: 0; font-size: clamp(30px, 6vw, 56px); color: #fff; text-shadow: 3px 3px 0 #d62828, 6px 6px 0 #1a1a1a; text-align: center; }
+  .pick-label { font-size: 22px; font-weight: 700; color: #1a1a1a; background: #ffd60a; padding: 4px 14px; border-radius: 12px; }
+  #truckPick { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .truck-btn { background: rgba(255,255,255,.75); border: 5px solid transparent; border-radius: 18px; padding: 6px; cursor: pointer; }
+  .truck-btn.sel { border-color: #ffd60a; background: #fff; transform: scale(1.06); }
+  .truck-btn svg { width: 140px; height: 120px; display: block; }
+  .tname { display: block; font: 800 16px/1.2 inherit; font-family: inherit; color: #1a1a1a; margin-top: 2px; }
+  #modes { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 12px; max-width: 620px; width: 100%; }
+  .mode {
+    font: inherit; font-size: 22px; font-weight: 800; padding: 16px 8px; border: none; border-radius: 18px;
+    color: #fff; box-shadow: 0 6px 0 rgba(0,0,0,.35); cursor: pointer;
+  }
+  .mode:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  .mode small { display: block; font-size: 15px; font-weight: 600; opacity: .9; }
+
+  /* GAME */
+  #topbar { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; }
+  .roundbtn { font: inherit; font-size: 26px; width: 58px; height: 58px; border-radius: 50%; border: none; background: #fff; box-shadow: 0 4px 0 rgba(0,0,0,.3); cursor: pointer; }
+  #score { font-size: 28px; font-weight: 800; background: #fff; padding: 6px 16px; border-radius: 30px; box-shadow: 0 4px 0 rgba(0,0,0,.3); }
+  #meter { width: min(520px, 80%); height: 22px; background: rgba(255,255,255,.6); border-radius: 12px; overflow: hidden; border: 3px solid #1a1a1a; }
+  #meterFill { height: 100%; width: 0; background: repeating-linear-gradient(45deg, #ffd60a 0 14px, #1a1a1a 14px 28px); transition: width .4s; }
+  #prompt { margin: 10px 12px 0; font-size: clamp(26px, 5vw, 44px); font-weight: 800; text-align: center; color: #1a1a1a; background: #fff; padding: 8px 20px; border-radius: 20px; box-shadow: 0 5px 0 rgba(0,0,0,.25); display: flex; align-items: center; gap: 12px; }
+  #prompt button { font-size: 26px; border: none; background: #ffd60a; border-radius: 50%; width: 48px; height: 48px; cursor: pointer; flex: none; }
+  #helper { min-height: 70px; margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 40px; font-weight: 800; }
+  #helper svg { width: 70px; height: 52px; }
+  #yard { position: relative; flex: 1; width: 100%; }
+  #cars { position: absolute; left: 0; right: 0; bottom: 10%; display: flex; justify-content: center; gap: 2vw; padding: 0 2vw 0 22vw; }
+  .car { position: relative; width: min(15vw, 150px); cursor: pointer; transition: transform .25s; transform-origin: bottom center; }
+  .car svg { width: 100%; display: block; }
+  .car .tag { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); font-size: min(6vw, 54px); font-weight: 900; color: #1a1a1a; background: #fff; border-radius: 12px; padding: 0 10px; line-height: 1.15; border: 3px solid #1a1a1a; }
+  .car.smashed { transform: scaleY(.28) scaleX(1.15); filter: grayscale(.6) brightness(.8); pointer-events: none; }
+  .car.wiggle { animation: wiggle .45s; }
+  @keyframes wiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+  #truck { position: absolute; left: 1vw; bottom: 6%; width: min(26vw, 260px); transition: left .45s ease-in, bottom .25s; z-index: 5; pointer-events: none; }
+  #truck svg { width: 100%; display: block; }
+  #truck.bounce { animation: bounce .45s; }
+  @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-40px) rotate(-6deg); } }
+  #truck.jump { animation: bigjump 1.6s ease-in-out; }
+  @keyframes bigjump {
+    0% { transform: translate(0,0) rotate(0); }
+    40% { transform: translate(30vw,-38vh) rotate(-18deg); }
+    60% { transform: translate(45vw,-40vh) rotate(8deg); }
+    100% { transform: translate(0,0) rotate(0); }
+  }
+  #banner { position: absolute; top: 30%; left: 50%; transform: translate(-50%,-50%) scale(0); font-size: clamp(40px, 9vw, 90px); font-weight: 900; color: #ffd60a; text-shadow: 4px 4px 0 #d62828, 8px 8px 0 #1a1a1a; transition: transform .3s; z-index: 20; white-space: nowrap; pointer-events: none; }
+  #banner.show { transform: translate(-50%,-50%) scale(1); }
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 30; }
+  #startTap { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 40; }
+  #startTap button { font: inherit; font-size: 40px; font-weight: 900; padding: 24px 44px; border: none; border-radius: 24px; background: #ffd60a; box-shadow: 0 8px 0 #1a1a1a; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="startTap"><button id="startBtn">🏁 Let's Go!</button></div>
+
+<section id="home" class="screen">
+  <h1>Whistler's Monster Trucks</h1>
+  <div class="pick-label">Pick your truck</div>
+  <div id="truckPick"></div>
+  <div id="modes">
+    <button class="mode" data-mode="colors" style="background:#d62828">🎨 Colors<small>Smash the red car</small></button>
+    <button class="mode" data-mode="count" style="background:#1d7a2e">🔢 Count<small>Smash 3 cars</small></button>
+    <button class="mode" data-mode="letters" style="background:#1565c0">🔤 Letters<small>Smash the B car</small></button>
+    <button class="mode" data-mode="sounds" style="background:#7b2cbf">👂 Sounds<small>What says “mmm”?</small></button>
+    <button class="mode" data-mode="adding" style="background:#ef6c00">➕ Adding<small>2 + 1 = ?</small></button>
+    <button class="mode" data-mode="mix" style="background:#1a1a1a">💥 Mix It Up<small>A little of all</small></button>
+  </div>
+</section>
+
+<section id="game" class="screen">
+  <div id="topbar">
+    <button class="roundbtn" id="homeBtn" aria-label="Home">🏠</button>
+    <div id="meter"><div id="meterFill"></div></div>
+    <div id="score">⭐ 0</div>
+  </div>
+  <div id="prompt"><span id="promptText"></span><button id="replay" aria-label="Say it again">🔊</button></div>
+  <div id="helper"></div>
+  <div id="yard">
+    <div id="truck"></div>
+    <div id="cars"></div>
+  </div>
+  <div id="banner"></div>
+</section>
+
+<canvas id="confetti"></canvas>
+
+<script>
+/* =========================================================
+   VOICEOVERS
+   Drop recordings in the folder below named by line ID,
+   e.g.  whistler-trucks/vo/color_red.m4a  (or .mp3).
+   Any line without a recording uses the device voice.
+   ========================================================= */
+const VO_FOLDER = 'whistler-trucks/vo/';
+const VO_EXT = ['m4a', 'mp3'];
+
+const COLORS = [
+  { id: 'red',    hex: '#e53935' },
+  { id: 'blue',   hex: '#1e63d6' },
+  { id: 'green',  hex: '#2e9e44' },
+  { id: 'yellow', hex: '#fdd835' },
+  { id: 'orange', hex: '#fb8c00' },
+  { id: 'purple', hex: '#8e44ad' }
+];
+const NUM_WORDS = ['zero','one','two','three','four','five','six'];
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+// Letter sounds — what the device voice says if there is no recording.
+const SOUNDS = { A:'ah', B:'buh', C:'kuh', D:'duh', E:'eh', F:'fff', G:'guh', H:'hhh', I:'ih', J:'juh', K:'kuh', L:'lll', M:'mmm', N:'nnn', O:'aw', P:'puh', Q:'kwuh', R:'rrr', S:'sss', T:'tuh', U:'uh', V:'vvv', W:'wuh', X:'ks', Y:'yuh', Z:'zzz' };
+
+// Every line the game can say: id -> text. (Also listed in the voiceover sheet.)
+const LINES = {
+  welcome: "Welcome to Whistler's Monster Trucks!",
+  pick_truck: 'Pick your monster truck!',
+  pick_game: 'Now pick a game!',
+  lets_go: "Let's smash some cars!",
+  great_1: 'Crunch! Great job!',
+  great_2: 'Smash! You got it!',
+  great_3: 'Boom! Awesome!',
+  great_4: 'Yeah! Monster smash!',
+  great_5: "Whoa! You're a monster truck pro!",
+  great_6: 'Crushed it!',
+  try_1: 'Oops! Try again!',
+  try_2: 'Not that one. You can do it!',
+  try_3: 'Almost! Look again!',
+  big_jump: 'Big jump! Monster truck jump!'
+};
+COLORS.forEach(c => LINES['color_' + c.id] = `Smash the ${c.id} car!`);
+for (let n = 1; n <= 5; n++) LINES['count_' + n] = `Smash ${NUM_WORDS[n]} car${n > 1 ? 's' : ''}!`;
+for (let n = 1; n <= 5; n++) LINES['num_' + n] = NUM_WORDS[n] + '!';
+LETTERS.forEach(L => LINES['letter_' + L] = `Smash the ${L} car!`);
+LETTERS.forEach(L => LINES['sound_' + L] = `Smash the letter that says ${SOUNDS[L]}!`);
+for (let a = 1; a <= 4; a++) for (let b = 1; a + b <= 5; b++)
+  LINES[`add_${a}_${b}`] = `${cap(NUM_WORDS[a])} trucks plus ${NUM_WORDS[b]} truck${b > 1 ? 's' : ''}. Smash the answer!`;
+
+function cap(s) { return s[0].toUpperCase() + s.slice(1); }
+
+const audioCache = {};   // id -> HTMLAudioElement | null (null = no recording)
+let current = null;
+
+function findRecording(id) {
+  if (id in audioCache) return Promise.resolve(audioCache[id]);
+  return new Promise(resolve => {
+    let i = 0;
+    const tryNext = () => {
+      if (i >= VO_EXT.length) { audioCache[id] = null; return resolve(null); }
+      const a = new Audio(VO_FOLDER + id + '.' + VO_EXT[i++]);
+      a.preload = 'auto';
+      const ok = () => { cleanup(); audioCache[id] = a; resolve(a); };
+      const bad = () => { cleanup(); tryNext(); };
+      const cleanup = () => { a.removeEventListener('canplaythrough', ok); a.removeEventListener('error', bad); };
+      a.addEventListener('canplaythrough', ok, { once: true });
+      a.addEventListener('error', bad, { once: true });
+      a.load();
+      setTimeout(() => { if (!(id in audioCache)) bad(); }, 2500);
+    };
+    tryNext();
+  });
+}
+
+function stopVoice() {
+  if (current) { try { current.pause(); } catch (e) {} current = null; }
+  if (window.speechSynthesis) speechSynthesis.cancel();
+}
+
+async function say(id) {
+  stopVoice();
+  const rec = await findRecording(id);
+  if (rec) {
+    current = rec; rec.currentTime = 0;
+    return new Promise(res => { rec.onended = res; rec.play().catch(() => res()); });
+  }
+  if (!window.speechSynthesis) return;
+  return new Promise(res => {
+    const u = new SpeechSynthesisUtterance(LINES[id] || id);
+    u.rate = 0.95; u.pitch = 1.15;
+    u.onend = res; u.onerror = res;
+    speechSynthesis.speak(u);
+  });
+}
+
+/* =========================================================
+   SOUND EFFECTS (made in code, no files needed)
+   ========================================================= */
+let actx = null;
+function ac() { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); return actx; }
+function crunch() {
+  const c = ac(), len = c.sampleRate * 0.5, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.2);
+  const src = c.createBufferSource(); src.buffer = buf;
+  const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400;
+  const g = c.createGain(); g.gain.value = 0.9;
+  src.connect(f).connect(g).connect(c.destination); src.start();
+}
+function vroom(dur = 0.6) {
+  const c = ac(), o = c.createOscillator(), g = c.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(55, c.currentTime);
+  o.frequency.linearRampToValueAtTime(140, c.currentTime + dur);
+  g.gain.setValueAtTime(0.18, c.currentTime); g.gain.linearRampToValueAtTime(0, c.currentTime + dur);
+  o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime + dur);
+}
+function boop() {
+  const c = ac(), o = c.createOscillator(), g = c.createGain();
+  o.type = 'square'; o.frequency.setValueAtTime(220, c.currentTime); o.frequency.linearRampToValueAtTime(110, c.currentTime + 0.25);
+  g.gain.setValueAtTime(0.12, c.currentTime); g.gain.linearRampToValueAtTime(0, c.currentTime + 0.25);
+  o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime + 0.25);
+}
+
+/* =========================================================
+   DRAWINGS
+   ========================================================= */
+function truckSVG(which) {
+  const t = TRUCKS[which] || TRUCKS[0];
+  const tire = cx => {
+    let lugs = '';
+    for (let k = 0; k < 14; k++) lugs += `<rect x="${cx - 7}" y="98" width="14" height="12" rx="2" fill="#1b1b1b" transform="rotate(${k * 360 / 14} ${cx} 150)"/>`;
+    const bolts = [0, 72, 144, 216, 288].map(a => `<circle cx="${cx}" cy="137" r="2.5" fill="#111" transform="rotate(${a} ${cx} 150)"/>`).join('');
+    return `<g>${lugs}<circle cx="${cx}" cy="150" r="44" fill="#262626" stroke="#111" stroke-width="3"/>
+      <circle cx="${cx}" cy="150" r="34" fill="none" stroke="#3a3a3a" stroke-width="4"/>
+      <circle cx="${cx}" cy="150" r="20" fill="${t.rim}" stroke="#111" stroke-width="3"/>
+      <circle cx="${cx}" cy="150" r="6" fill="#111"/>${bolts}</g>`;
+  };
+  const spring = x => `<polyline points="${x},98 ${x - 7},104 ${x + 7},110 ${x - 7},116 ${x + 7},122 ${x - 7},128 ${x},134" fill="none" stroke="${t.accent}" stroke-width="5" stroke-linejoin="round"/>`;
+  let deco = '', roof = '';
+  if (t.deco === 'flames') deco = `
+    <path d="M36 98 C52 90 58 72 52 58 C66 70 76 66 80 56 C88 70 100 74 106 60 C112 74 128 78 138 66 C140 80 158 86 188 88 L188 98 Z" fill="${t.accent}" stroke="#111" stroke-width="2.5"/>
+    <path d="M44 98 C58 92 62 82 60 72 C70 80 80 78 84 70 C90 82 104 84 110 74 C116 84 130 88 140 80 C144 90 160 92 186 94 L186 98 Z" fill="#ffd60a"/>`;
+  else if (t.deco === 'skull') deco = `
+    <path d="M72 58 L128 98 M128 58 L72 98" stroke="#111" stroke-width="11" stroke-linecap="round"/>
+    <path d="M72 58 L128 98 M128 58 L72 98" stroke="#f5f5f5" stroke-width="6" stroke-linecap="round"/>
+    <rect x="89" y="80" width="22" height="14" rx="3" fill="#f5f5f5" stroke="#111" stroke-width="3"/>
+    <circle cx="100" cy="72" r="16" fill="#f5f5f5" stroke="#111" stroke-width="3"/>
+    <circle cx="94" cy="71" r="5" fill="#111"/><circle cx="106" cy="71" r="5" fill="#111"/>
+    <path d="M100 76 l-3 5 h6 z" fill="#111"/><path d="M95 84 v8 M100 84 v8 M105 84 v8" stroke="#111" stroke-width="2"/>
+    <path d="M140 64 h40 M146 76 h34 M152 88 h28" stroke="${t.accent}" stroke-width="5" stroke-linecap="round"/>`;
+  else if (t.deco === 'bolt') deco = `
+    <path d="M58 57 L108 57 L90 74 L128 74 L66 99 L84 82 L50 82 Z" fill="${t.accent}" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M142 60 L170 60 L160 72 L182 72 L146 96 L156 82 L136 82 Z" fill="${t.accent}" stroke="#111" stroke-width="3" stroke-linejoin="round"/>`;
+  else if (t.deco === 'dragon') {
+    for (let row = 0; row < 3; row++) for (let x = 42 + (row % 2) * 8; x < 186; x += 16)
+      deco += `<path d="M${x - 8} ${66 + row * 12} a8 8 0 0 0 16 0" fill="${t.accent}" stroke="#111" stroke-width="1.5"/>`;
+    for (let x = 112; x < 180; x += 14) roof += `<path d="M${x} 22 l7 -18 l7 18 z" fill="${t.accent}" stroke="#111" stroke-width="2.5" stroke-linejoin="round"/>`;
+  }
+  if (!roof) roof = [132, 146, 160, 174].map(x => `<rect x="${x - 5}" y="10" width="10" height="9" rx="2" fill="#ffd60a" stroke="#111" stroke-width="2"/>`).join('') +
+    `<rect x="126" y="17" width="54" height="5" fill="#111"/>`;
+  let teeth = '';
+  for (let x = 190; x < 220; x += 7) teeth += `<path d="M${x} 82 l3.5 8 l3.5 -8 z M${x} 98 l3.5 -7 l3.5 7 z" fill="#fff"/>`;
+  return `<svg viewBox="0 0 240 205" xmlns="http://www.w3.org/2000/svg">
+    ${spring(62)}${spring(178)}
+    <rect x="48" y="100" width="144" height="10" rx="3" fill="#444" stroke="#111" stroke-width="2"/>
+    <rect x="100" y="24" width="9" height="30" rx="2" fill="#9a9a9a" stroke="#111" stroke-width="2.5"/>
+    ${roof}
+    <path d="M30 100 L30 62 Q30 52 40 52 L112 52 L124 22 L178 22 Q186 22 189 30 L196 52 L214 56 Q222 58 222 68 L222 100 Z" fill="${t.body}" stroke="#111" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M128 28 L174 28 L182 50 L120 50 Z" fill="#bfe9ff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
+    ${deco}
+    <path d="M200 60 L219 64 L217 75 L202 72 Z" fill="#fff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="211" cy="69" r="3.5" fill="#111"/>
+    <path d="M195 55 L221 62" stroke="#111" stroke-width="5" stroke-linecap="round"/>
+    <rect x="188" y="82" width="34" height="16" rx="3" fill="#111"/>${teeth}
+    ${tire(62)}${tire(178)}
+  </svg>`;
+}
+function carSVG(color) {
+  return `<svg viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10 60 q0 -16 16 -18 l18 -22 h62 l22 22 q22 2 22 18 v14 h-140 z" fill="${color}" stroke="#1a1a1a" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M52 26 h22 v18 h-34 z M82 26 h20 l16 18 h-36 z" fill="#bfe9ff" stroke="#1a1a1a" stroke-width="3"/>
+    <circle cx="42" cy="76" r="15" fill="#1a1a1a"/><circle cx="42" cy="76" r="6" fill="#aaa"/>
+    <circle cx="118" cy="76" r="15" fill="#1a1a1a"/><circle cx="118" cy="76" r="6" fill="#aaa"/>
+  </svg>`;
+}
+
+/* =========================================================
+   GAME
+   ========================================================= */
+const TRUCKS = [
+  { name: 'Flame Fang',    body: '#d62828', accent: '#ff8c1a', rim: '#ffd60a', deco: 'flames' },
+  { name: 'Skull Crusher', body: '#2b2b2b', accent: '#9be564', rim: '#9be564', deco: 'skull' },
+  { name: 'Thunder Bolt',  body: '#1565c0', accent: '#ffd60a', rim: '#c0c0c0', deco: 'bolt' },
+  { name: 'Dragon Roar',   body: '#1d7a2e', accent: '#a0e426', rim: '#ff6f00', deco: 'dragon' }
+];
+let truckColor = 0;   // index into TRUCKS
+let mode = 'colors', stars = 0, meter = 0, round = null, busy = false;
+const JUMP_EVERY = 5;
+
+const $ = id => document.getElementById(id);
+const rand = n => Math.floor(Math.random() * n);
+const pick = arr => arr[rand(arr.length)];
+const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = rand(i + 1); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+function sample(arr, n, mustInclude) {
+  const rest = shuffle(arr.filter(x => x !== mustInclude)).slice(0, n - (mustInclude !== undefined ? 1 : 0));
+  return shuffle(mustInclude !== undefined ? rest.concat([mustInclude]) : rest);
+}
+
+function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
+
+function buildHome() {
+  $('truckPick').innerHTML = TRUCKS.map((t, i) =>
+    `<button class="truck-btn${i === 0 ? ' sel' : ''}" data-i="${i}">${truckSVG(i)}<span class="tname">${t.name}</span></button>`).join('');
+  $('truckPick').querySelectorAll('.truck-btn').forEach(b => b.onclick = () => {
+    $('truckPick').querySelectorAll('.truck-btn').forEach(x => x.classList.remove('sel'));
+    b.classList.add('sel'); truckColor = +b.dataset.i; vroom(0.4);
+  });
+  document.querySelectorAll('.mode').forEach(b => b.onclick = () => startGame(b.dataset.mode));
+}
+
+async function startGame(m) {
+  mode = m; meter = 0; updateMeter();
+  $('truck').innerHTML = truckSVG(truckColor);
+  show('game'); vroom(0.8);
+  await say('lets_go');
+  newRound();
+}
+
+function newRound() {
+  busy = false;
+  resetTruck();
+  const m = mode === 'mix' ? pick(['colors', 'count', 'letters', 'sounds', 'adding']) : mode;
+  let cars = [], prompt = '', voice = '', helper = '', need = 1;
+
+  if (m === 'colors') {
+    const target = pick(COLORS);
+    cars = sample(COLORS, 4, target).map(c => ({ color: c.hex, ok: c === target }));
+    prompt = `Smash the ${c2(target.id)} car!`; voice = 'color_' + target.id;
+  } else if (m === 'count') {
+    need = 1 + rand(5);
+    const total = Math.max(need + 1, 5);
+    cars = Array.from({ length: total }, () => ({ color: pick(COLORS).hex, ok: true }));
+    prompt = `Smash ${need} car${need > 1 ? 's' : ''}!`; voice = 'count_' + need;
+  } else if (m === 'letters') {
+    const target = pick(LETTERS);
+    cars = sample(LETTERS, 4, target).map(L => ({ color: pick(COLORS).hex, tag: L, ok: L === target }));
+    prompt = `Smash the ${target} car!`; voice = 'letter_' + target;
+  } else if (m === 'sounds') {
+    const target = pick(LETTERS);
+    // avoid letters that share a sound with the target (C/K)
+    const pool = LETTERS.filter(L => SOUNDS[L] !== SOUNDS[target] || L === target);
+    cars = sample(pool, 3, target).map(L => ({ color: pick(COLORS).hex, tag: L, ok: L === target }));
+    prompt = `What says “${SOUNDS[target]}”?`; voice = 'sound_' + target;
+  } else { // adding
+    const a = 1 + rand(4), b = 1 + rand(5 - a), ans = a + b;
+    const opts = sample([1, 2, 3, 4, 5], 3, ans);
+    cars = opts.map(n => ({ color: pick(COLORS).hex, tag: String(n), ok: n === ans }));
+    prompt = `${a} + ${b} = ?`; voice = `add_${a}_${b}`;
+    const mini = `<span style="display:inline-flex">${truckSVG(truckColor)}</span>`;
+    helper = mini.repeat(a) + '<span>+</span>' + mini.repeat(b);
+  }
+
+  round = { mode: m, need, got: 0, voice };
+  $('promptText').textContent = prompt;
+  $('helper').innerHTML = helper;
+  $('cars').innerHTML = cars.map((c, i) =>
+    `<div class="car" data-ok="${c.ok}" data-i="${i}">${carSVG(c.color)}${c.tag ? `<span class="tag">${c.tag}</span>` : ''}</div>`).join('');
+  $('cars').querySelectorAll('.car').forEach(el => el.onclick = () => tapCar(el));
+  say(voice);
+}
+function c2(s) { return s; }
+
+function resetTruck() {
+  const t = $('truck'); t.style.transition = 'none'; t.style.left = '1vw'; t.classList.remove('jump', 'bounce');
+  void t.offsetWidth; t.style.transition = '';
+}
+
+async function tapCar(el) {
+  if (busy) return;
+  ac().resume && ac().resume();
+  if (el.dataset.ok !== 'true') {
+    boop(); el.classList.remove('wiggle'); void el.offsetWidth; el.classList.add('wiggle');
+    say(pick(['try_1', 'try_2', 'try_3']));
+    return;
+  }
+  busy = true;
+  await driveTo(el);
+  crunch(); el.classList.add('smashed');
+  confetti(el.getBoundingClientRect(), 40);
+
+  if (round.mode === 'count') {
+    round.got++;
+    $('promptText').textContent = round.got;
+    await say('num_' + round.got);
+    if (round.got < round.need) { await backUp(); busy = false; return; }
+  }
+  stars++; meter++; $('score').textContent = '⭐ ' + stars; updateMeter();
+  await say(pick(['great_1', 'great_2', 'great_3', 'great_4', 'great_5', 'great_6']));
+  if (meter >= JUMP_EVERY) { await bigJump(); meter = 0; updateMeter(); }
+  setTimeout(newRound, 400);
+}
+
+function driveTo(el) {
+  return new Promise(res => {
+    const t = $('truck'), yard = $('yard').getBoundingClientRect(), r = el.getBoundingClientRect();
+    const tw = t.getBoundingClientRect().width;
+    vroom(0.5);
+    t.style.left = (r.left - yard.left + r.width / 2 - tw / 2) + 'px';
+    setTimeout(() => { t.classList.remove('bounce'); void t.offsetWidth; t.classList.add('bounce'); setTimeout(res, 250); }, 450);
+  });
+}
+function backUp() {
+  return new Promise(res => { $('truck').style.left = '1vw'; setTimeout(res, 450); });
+}
+
+function updateMeter() { $('meterFill').style.width = (meter / JUMP_EVERY * 100) + '%'; }
+
+async function bigJump() {
+  const t = $('truck');
+  t.style.left = '1vw';
+  await new Promise(r => setTimeout(r, 450));
+  vroom(1.4);
+  t.classList.remove('jump'); void t.offsetWidth; t.classList.add('jump');
+  $('banner').textContent = 'BIG JUMP!'; $('banner').classList.add('show');
+  confetti({ left: innerWidth / 2 - 50, top: innerHeight / 3, width: 100, height: 10 }, 160);
+  await say('big_jump');
+  await new Promise(r => setTimeout(r, 900));
+  $('banner').classList.remove('show'); t.classList.remove('jump');
+}
+
+/* confetti */
+const cv = $('confetti'), cx = cv.getContext('2d'); let bits = [], raf = null;
+function sizeCanvas() { cv.width = innerWidth; cv.height = innerHeight; }
+addEventListener('resize', sizeCanvas); sizeCanvas();
+function confetti(rect, n) {
+  const cols = ['#ffd60a', '#e53935', '#1e63d6', '#2e9e44', '#fb8c00', '#fff'];
+  for (let i = 0; i < n; i++) bits.push({
+    x: rect.left + rect.width / 2, y: rect.top + rect.height / 3,
+    vx: (Math.random() - .5) * 14, vy: -Math.random() * 14 - 4, s: 6 + Math.random() * 8,
+    c: pick(cols), r: Math.random() * 6, life: 90
+  });
+  if (!raf) raf = requestAnimationFrame(tick);
+}
+function tick() {
+  cx.clearRect(0, 0, cv.width, cv.height);
+  bits.forEach(b => { b.x += b.vx; b.y += b.vy; b.vy += .45; b.r += .2; b.life--; cx.save(); cx.translate(b.x, b.y); cx.rotate(b.r); cx.fillStyle = b.c; cx.fillRect(-b.s / 2, -b.s / 4, b.s, b.s / 2); cx.restore(); });
+  bits = bits.filter(b => b.life > 0 && b.y < cv.height + 20);
+  raf = bits.length ? requestAnimationFrame(tick) : (cx.clearRect(0, 0, cv.width, cv.height), null);
+}
+
+/* wiring */
+$('homeBtn').onclick = () => { stopVoice(); show('home'); say('pick_game'); };
+$('replay').onclick = () => round && say(round.voice);
+$('startBtn').onclick = async () => {
+  ac(); $('startTap').remove(); show('home'); vroom(0.8);
+  await say('welcome'); await say('pick_truck');
+};
+buildHome();
+</script>
+</body>
+</html>
