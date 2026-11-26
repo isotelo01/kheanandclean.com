@@ -29,16 +29,21 @@
     { key: "t2", text: "Almost! One more try!", secs: 3.5 },
     { key: "win", text: "Woohoo! You did it! A new friend joined your stable!", secs: 5 }
   ]);
+  // A game can set window.KID_VOICE_CONFIG before loading this file to use its own lines and its own saved kid
+  // (Monster Trucks does this so it never changes who's playing Unicorn Math).
+  var CFG = global.KID_VOICE_CONFIG || {};
+  if (CFG.lines) LINES = CFG.lines;
+  var ACTIVE_KEY = CFG.activeKey || "unicornActive", PROFILES_KEY = CFG.profilesKey || "unicornProfiles";
   var BY_TEXT = {};
   LINES.forEach(function (l) { BY_TEXT[l.text] = l.key; });
 
   // ---- profiles (kept on this device)
   function slug(name) { return String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "kid"; }
-  function getProfiles() { try { return JSON.parse(localStorage.getItem("unicornProfiles") || "[]"); } catch (e) { return []; } }
-  function setProfiles(p) { try { localStorage.setItem("unicornProfiles", JSON.stringify(p)); } catch (e) {} }
+  function getProfiles() { try { return JSON.parse(localStorage.getItem(PROFILES_KEY) || "[]"); } catch (e) { return []; } }
+  function setProfiles(p) { try { localStorage.setItem(PROFILES_KEY, JSON.stringify(p)); } catch (e) {} }
   function active() {
     var id = null;
-    try { id = localStorage.getItem("unicornActive"); } catch (e) {}
+    try { id = localStorage.getItem(ACTIVE_KEY); } catch (e) {}
     var list = getProfiles();
     for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
     return null;
@@ -53,7 +58,7 @@
     return found;
   }
   function useProfile(id) {
-    try { localStorage.setItem("unicornActive", id); } catch (e) {}
+    try { localStorage.setItem(ACTIVE_KEY, id); } catch (e) {}
     clips = {};
     return loadClips();
   }
@@ -119,10 +124,11 @@
         if (!clips[k]) clips[k] = f[k].stringValue;
       });
       return sharedFill(p.id);
-    }).then(function () { checkClips(p, myGen); return clips; });
+    }).then(function () { checkClips(p, myGen); setTimeout(prepareAll, 1500); return clips; });
   }
   // One shared set of lines: anything this kid hasn't recorded uses another kid's recording.
   function sharedFill(myId) {
+    if (CFG.share === false) return Promise.resolve();
     return siteKids().then(function (kids) {
       kids.forEach(function (k) {
         if (k.id === myId) return;
@@ -164,11 +170,15 @@
     var p = active();
     if (!p) return Promise.reject(new Error("No profile"));
     if (!blob || blob.size < MIN_BYTES) return Promise.reject(new Error("Empty recording"));
+    // Trim the quiet bits at the start and end so lines run together naturally (keeps the original if it can't).
+    return trimBlob(blob).then(function (b) { blob = b; return saveBytes(p, key, blob); });
+  }
+  function saveBytes(p, key, blob) {
     var type = blob.type || "audio/mp4";
     // Read the sound into memory first. Uploading the recorder's Blob directly sent 0-byte files from the iPhone.
     return blob.arrayBuffer().then(function (buf) {
       var copy = new Blob([buf], { type: type });
-      clips[key] = URL.createObjectURL(copy);
+      clips[key] = URL.createObjectURL(copy); prepare(clips[key]);
       delete owner[key]; localBlobs[key] = copy;
       var local = idb("readwrite", function (st) { st.put(copy, p.id + "/" + key); }).catch(function () {});
       return local.then(function () { return uploadClip(p, key, new Uint8Array(buf), type); });
@@ -177,7 +187,7 @@
   // Upload bytes to the website and check the website really got them. Resolves "shared" or "local-error".
   function uploadClip(p, key, bytes, type) {
     return firebase().then(function (f) {
-      var ext = /mp4|m4a|aac/.test(type) ? "m4a" : "webm";
+      var ext = /wav/.test(type) ? "wav" : /mp4|m4a|aac/.test(type) ? "m4a" : "webm";
       var ref = f.S.ref(f.S.getStorage(f.app), "kid-voices/" + p.id + "/" + key + "." + ext);
       return f.S.uploadBytes(ref, bytes, { contentType: type })
         .then(function (snap) {
@@ -317,7 +327,7 @@
     });
   }
   function logOut() {
-    try { localStorage.removeItem("unicornActive"); } catch (e) {}
+    try { localStorage.removeItem(ACTIVE_KEY); } catch (e) {}
     clips = {}; owner = {};
     return loadClips();
   }
@@ -349,10 +359,93 @@
 
   // ---- playback: play a list of clips in a row. Resolves false (and plays nothing) if any are missing.
   var current = null;
-  function stop() { if (current) { try { current.pause(); } catch (e) {} current = null; } }
+  function stop() {
+    if (current) { try { current.pause(); } catch (e) {} current = null; }
+    if (sources.length) { sources.forEach(function (s) { try { s.onended = null; s.stop(); } catch (e) {} }); sources = []; if (playDone) { playDone(true); playDone = null; } }
+  }
+
+  // ---- trimming quiet parts (shared by saving and playing)
+  var ctx = null, sources = [], playDone = null, bufCache = {};
+  function audioCtx() {
+    try {
+      if (!ctx) {
+        // iPhone: play through the speaker even when the ring switch is on silent, like normal audio does
+        try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+        ctx = new (global.AudioContext || global.webkitAudioContext)();
+      }
+      if (ctx.state === "suspended") ctx.resume();
+      return ctx;
+    } catch (e) { return null; }
+  }
+  try { ["touchend", "click"].forEach(function (ev) { document.addEventListener(ev, function () { audioCtx(); }, { passive: true }); }); } catch (e) {}
+  function quietEdges(buf) {   // [start, end] seconds of the part with sound in it
+    var d = buf.getChannelData(0), n = d.length, peak = 0, i;
+    for (i = 0; i < n; i++) { var v = Math.abs(d[i]); if (v > peak) peak = v; }
+    if (peak < .01) return null;                       // basically silent
+    var th = Math.max(.02, peak * .08), win = Math.floor(buf.sampleRate * .01), s = 0, e = n - 1;
+    for (i = 0; i < n; i += win) { if (Math.abs(d[i]) > th || maxIn(d, i, win) > th) { s = i; break; } }
+    for (i = n - 1; i >= 0; i -= win) { if (maxIn(d, Math.max(0, i - win), win) > th) { e = i; break; } }
+    var pad = .06;                                     // keep a tiny bit so words don't get clipped
+    return [Math.max(0, s / buf.sampleRate - pad), Math.min(buf.duration, e / buf.sampleRate + pad)];
+  }
+  function maxIn(d, from, len) { var m = 0; for (var j = from; j < Math.min(d.length, from + len); j++) { var v = Math.abs(d[j]); if (v > m) m = v; } return m; }
+  function decode(arrayBuf) {
+    var c = audioCtx(); if (!c) return Promise.reject(new Error("no audio"));
+    return new Promise(function (res, rej) { var r = c.decodeAudioData(arrayBuf, res, rej); if (r && r.then) r.then(res, rej); });
+  }
+  function trimmedBuffer(url) {   // decoded + trimmed sound for a clip, or null if it can't be fetched/decoded
+    if (!(url in bufCache)) bufCache[url] = fetch(url).then(function (r) { if (!r.ok) throw 0; return r.arrayBuffer(); })
+      .then(decode).then(function (buf) {
+        var q = quietEdges(buf); if (!q) return null;
+        return { buf: buf, start: q[0], end: q[1] };
+      }).catch(function () { return null; });
+    return bufCache[url];
+  }
+  function playBuffers(list) {
+    var c = audioCtx(), t = c.currentTime + .03;
+    sources = [];
+    return new Promise(function (res) {
+      playDone = res;
+      list.forEach(function (b, i) {
+        var src = c.createBufferSource(); src.buffer = b.buf; src.connect(c.destination);
+        src.start(t, b.start, b.end - b.start); t += (b.end - b.start) + .04;   // tiny gap between words
+        if (i === list.length - 1) src.onended = function () { sources = []; if (playDone) { playDone(true); playDone = null; } };
+        sources.push(src);
+      });
+    });
+  }
+  // Trim a new recording and save it as a small WAV file (plays everywhere). Falls back to the original.
+  function trimBlob(blob) {
+    return blob.arrayBuffer().then(function (ab) { return decode(ab.slice(0)); }).then(function (buf) {
+      var q = quietEdges(buf); if (!q) return blob;
+      var rate = 22050, len = Math.max(1, Math.floor((q[1] - q[0]) * rate));
+      var src = buf.getChannelData(0), out = new Int16Array(len), step = buf.sampleRate / rate, off = q[0] * buf.sampleRate;
+      for (var i = 0; i < len; i++) { var v = src[Math.min(src.length - 1, Math.floor(off + i * step))]; out[i] = Math.max(-1, Math.min(1, v)) * 32767; }
+      return wavBlob(out, rate);
+    }).catch(function () { return blob; });
+  }
+  function wavBlob(samples, rate) {
+    var b = new ArrayBuffer(44 + samples.length * 2), v = new DataView(b), w = function (o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, "RIFF"); v.setUint32(4, 36 + samples.length * 2, true); w(8, "WAVE"); w(12, "fmt ");
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+    v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, samples.length * 2, true);
+    for (var i = 0; i < samples.length; i++) v.setInt16(44 + i * 2, samples[i], true);
+    return new Blob([b], { type: "audio/wav" });
+  }
   function play(keys) {
     stop();
     for (var i = 0; i < keys.length; i++) if (!clips[keys[i]]) return Promise.resolve(false);
+    // smooth version (quiet start/end cut, words back to back) when those clips are already prepared;
+    // otherwise play them normally right away (iPhone only allows sound right on the tap) and prepare them for next time
+    var ready = keys.map(function (k) { return bufReady[clips[k]]; });
+    if (ready.every(Boolean) && audioCtx()) return playBuffers(ready);
+    keys.forEach(function (k) { prepare(clips[k]); });
+    return playPlain(keys);
+  }
+  var bufReady = {};
+  function prepare(url) { if (url && !(url in bufReady)) { bufReady[url] = null; trimmedBuffer(url).then(function (r) { bufReady[url] = r || false; }); } }
+  function prepareAll() { Object.keys(clips).forEach(function (k) { prepare(clips[k]); }); }
+  function playPlain(keys) {
     var idx = 0, failed = false;
     return new Promise(function (res) {
       // resolves false if any clip couldn't play (e.g. a format this device can't play), so the caller can fall back
@@ -387,7 +480,7 @@
       var nm = new URLSearchParams(location.search).get("name") || want;
       var L = getProfiles();
       if (!L.some(function (p) { return p.id === want; })) { L.push({ id: want, name: nm }); setProfiles(L); }
-      localStorage.setItem("unicornActive", want);
+      localStorage.setItem(ACTIVE_KEY, want);
     }
   } catch (e) {}
   loadClips();

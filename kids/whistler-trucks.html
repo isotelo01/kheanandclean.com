@@ -90,6 +90,30 @@
   }
   #banner { position: absolute; top: 30%; left: 50%; transform: translate(-50%,-50%) scale(0); font-size: clamp(40px, 9vw, 90px); font-weight: 900; color: #ffd60a; text-shadow: 4px 4px 0 #d62828, 8px 8px 0 #1a1a1a; transition: transform .3s; z-index: 20; white-space: nowrap; pointer-events: none; }
   #banner.show { transform: translate(-50%,-50%) scale(1); }
+  #home h1 { padding: 0 58px; }   /* room for the gear */
+  #gear { position: absolute; top: 12px; right: 12px; width: 54px; height: 54px; border-radius: 50%; border: none; background: #fff; font-size: 28px; box-shadow: 0 4px 0 rgba(0,0,0,.3); cursor: pointer; z-index: 5; }
+  .panel { position: fixed; inset: 0; z-index: 60; background: #8fd3ff; display: none; flex-direction: column; }
+  .panel.on { display: flex; }
+  .panel header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.15); }
+  .panel header h2 { margin: 0; font-size: 24px; flex: 1; }
+  .panel .x { width: 46px; height: 46px; border-radius: 50%; border: none; background: #eee; font-size: 24px; font-weight: 900; cursor: pointer; }
+  .panel .big { font: inherit; font-size: 17px; font-weight: 800; padding: 10px 14px; border: none; border-radius: 14px; background: #d62828; color: #fff; cursor: pointer; }
+  #vlList { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px 30px; flex: 1; }
+  .vgroup { font-weight: 900; font-size: 15px; color: #14213d; margin: 14px 4px 6px; text-transform: uppercase; }
+  .vline { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 14px; padding: 8px 10px; margin-bottom: 6px; }
+  .vline .vt { flex: 1; font-size: 17px; font-weight: 700; }
+  .vline .vt small { display: block; font-size: 12px; color: #2e9e44; font-weight: 800; }
+  .vline button { font: inherit; font-size: 16px; font-weight: 800; border: none; border-radius: 12px; padding: 8px 12px; cursor: pointer; }
+  .vline .vp { background: #ffd60a; } .vline .vr { background: #1565c0; color: #fff; }
+  #recBox { position: fixed; inset: 0; z-index: 70; background: rgba(20,33,61,.92); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 20px; color: #fff; text-align: center; }
+  #recBox.on { display: flex; }
+  #recWords { font-size: clamp(30px, 8vw, 60px); font-weight: 900; }
+  #recCount { font-size: 26px; font-weight: 800; min-height: 34px; }
+  #recBarWrap { width: min(420px, 80vw); height: 16px; background: rgba(255,255,255,.25); border-radius: 10px; overflow: hidden; }
+  #recBar { height: 100%; width: 0; background: #ffd60a; }
+  #recBtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #recBtns button { font: inherit; font-size: 20px; font-weight: 900; border: none; border-radius: 16px; padding: 14px 20px; cursor: pointer; background: #fff; color: #14213d; }
+  #recBtns button.go { background: #2e9e44; color: #fff; }
   #viewer3d { position: fixed; inset: 0; z-index: 50; background: #8fd3ff; display: none; }
   #viewer3d.on { display: block; }
   #viewer3d iframe { width: 100%; height: 100%; border: 0; display: block; }
@@ -104,6 +128,7 @@
 <div id="startTap"><button id="startBtn">🏁 Let's Go!</button></div>
 
 <section id="home" class="screen">
+  <button id="gear" aria-label="Voice recordings">⚙️</button>
   <h1>Whistler's Monster Trucks</h1>
   <div class="pick-label">Pick your truck</div>
   <div id="truckPick"></div>
@@ -130,6 +155,11 @@
   <div id="banner"></div>
 </section>
 
+<div id="voicePanel" class="panel">
+  <header><h2>🎤 Voice lines</h2><button class="big" id="recMissing">Record missing</button><button class="x" id="closeVoices" aria-label="Close">✕</button></header>
+  <div id="vlList"></div>
+</div>
+<div id="recBox"><div id="recWords"></div><div id="recCount"></div><div id="recBarWrap"><div id="recBar"></div></div><div id="recBtns"></div></div>
 <div id="viewer3d"><button id="close3d" aria-label="Close">✕</button><iframe title="3D truck" allow="autoplay"></iframe></div>
 
 <canvas id="confetti"></canvas>
@@ -212,6 +242,7 @@ function findRecording(id) {
 }
 
 function stopVoice() {
+  if (window.KidVoice) KidVoice.stop();
   if (current) { try { current.pause(); } catch (e) {} current = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
 }
@@ -224,6 +255,8 @@ function say(id) {
 
 async function sayNow(id) {
   stopVoice();
+  // the kids' own recordings (made with the ⚙️ voice recorder) come first
+  if (window.KidVoice && KidVoice.has(id)) { const ok = await KidVoice.play([id]); if (ok) return; }
   const rec = await findRecording(id);
   if (rec) {
     current = rec; rec.currentTime = 0;
@@ -512,6 +545,109 @@ $('startBtn').onclick = async () => {
   await say('welcome'); await say('pick_truck');
 };
 buildHome();
+</script>
+<script>
+// Kid voice recordings for this game: same system as Unicorn Math (voice.js), with this game's own lines.
+const VOICE_GROUPS = [['Start', /^(welcome|pick_|lets_go)/], ['Great job', /^great_/], ['Try again', /^try_/], ['Big jump', /^big_jump/],
+  ['Colors', /^color_/], ['Count', /^count_/], ['Numbers', /^num_/], ['Letters', /^letter_/], ['Letter sounds', /^sound_/], ['Adding', /^add_/]];
+window.KID_VOICE_CONFIG = {
+  activeKey: 'trucksActive', profilesKey: 'trucksProfiles', share: false,
+  lines: Object.keys(LINES).map(k => ({ key: k, text: LINES[k], secs: Math.min(6, 1.6 + LINES[k].length * .07) }))
+};
+try { localStorage.setItem('trucksProfiles', JSON.stringify([{ id: 'whistler', name: 'Whistler' }])); localStorage.setItem('trucksActive', 'whistler'); } catch (e) {}
+</script>
+<script src="voice.js?v=6"></script>
+<script>
+(function () {
+  const $v = id => document.getElementById(id);
+  function drawVoices() {
+    const list = $v('vlList'); list.innerHTML = '';
+    const lines = KidVoice.LINES;
+    let missing = 0;
+    VOICE_GROUPS.forEach(([title, re]) => {
+      const group = lines.filter(l => re.test(l.key)); if (!group.length) return;
+      const h = document.createElement('div'); h.className = 'vgroup'; h.textContent = title; list.appendChild(h);
+      group.forEach(l => {
+        const has = KidVoice.has(l.key); if (!has) missing++;
+        const row = document.createElement('div'); row.className = 'vline';
+        row.innerHTML = '<div class="vt"></div>';
+        row.querySelector('.vt').textContent = l.text;
+        if (has) { const tag = document.createElement('small'); tag.textContent = '✓ recorded'; row.querySelector('.vt').appendChild(tag);
+          const pb = document.createElement('button'); pb.className = 'vp'; pb.textContent = '▶'; pb.onclick = () => KidVoice.play([l.key]); row.appendChild(pb); }
+        const rb = document.createElement('button'); rb.className = 'vr'; rb.textContent = has ? '🎤 Redo' : '🎤 Record'; rb.onclick = () => recordLines([l]); row.appendChild(rb);
+        list.appendChild(row);
+      });
+    });
+    $v('recMissing').textContent = missing ? 'Record missing (' + missing + ')' : 'All recorded ✓';
+    $v('recMissing').disabled = !missing;
+  }
+  $v('gear').onclick = () => { stopVoice(); $v('voicePanel').classList.add('on'); drawVoices(); KidVoice.loadClips().then(drawVoices); };
+  $v('closeVoices').onclick = () => $v('voicePanel').classList.remove('on');
+  $v('recMissing').onclick = () => recordLines(KidVoice.LINES.filter(l => !KidVoice.has(l.key)));
+
+  // recorder: show the words, count 1-2-3, record, play it back, then Keep or Redo
+  let stream = null;
+  const getMic = () => stream && stream.getAudioTracks().some(t => t.readyState === 'live') ? Promise.resolve(stream)
+    : navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(s => (stream = s));
+  const pickType = () => ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+  function btns(list) {
+    const box = $v('recBtns'); box.innerHTML = '';
+    list.forEach(b => { const el = document.createElement('button'); el.textContent = b.text; if (b.go) el.className = 'go'; el.onclick = b.fn; box.appendChild(el); });
+  }
+  function recordLines(list) {
+    if (!list.length) return;
+    if (!window.MediaRecorder || !navigator.mediaDevices) { alertRec("This browser can't record. Try Safari."); return; }
+    stopVoice();
+    let i = 0;
+    $v('recBox').classList.add('on');
+    getMic().then(one, () => alertRec('The microphone is blocked. Allow the mic for this page, then try again.'));
+    function close() { $v('recBox').classList.remove('on'); drawVoices(); }
+    function one() {
+      if (i >= list.length) { close(); return; }
+      $v('recWords').textContent = list[i].text; $v('recBar').style.width = '0';
+      $v('recCount').textContent = list.length > 1 ? 'Line ' + (i + 1) + ' of ' + list.length + ' — on three, say it!' : 'On three, say it!';
+      btns([{ text: 'Start', go: true, fn: go }, { text: 'Stop', fn: close }]);
+    }
+    function go() {
+      btns([]); let c = 1; $v('recCount').textContent = '1'; beep(520);
+      const t = setInterval(() => {
+        c++;
+        if (c <= 2) { $v('recCount').textContent = String(c); beep(520); return; }
+        clearInterval(t); $v('recCount').textContent = '3 — say it! 🎤'; beep(880); capture(list[i]);
+      }, 800);
+    }
+    function capture(l) {
+      const type = pickType(), chunks = [];
+      let mr;
+      try { mr = type ? new MediaRecorder(stream, { mimeType: type }) : new MediaRecorder(stream); } catch (e) { mr = new MediaRecorder(stream); }
+      mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      mr.onstop = () => {
+        const blob = new Blob(chunks, { type: mr.mimeType || type || 'audio/mp4' });
+        if (blob.size < 200) { $v('recCount').textContent = "Oops, I didn't catch that. Let's try again!"; btns([{ text: 'Try again', go: true, fn: go }, { text: 'Stop', fn: close }]); return; }
+        const url = URL.createObjectURL(blob);
+        $v('recCount').textContent = 'Listen…'; new Audio(url).play().catch(() => {});
+        btns([
+          { text: 'Keep ✅', go: true, fn: () => { btns([]); $v('recCount').textContent = 'Saving…';
+              KidVoice.saveClip(l.key, blob).then(where => {
+                $v('recCount').textContent = where === 'shared' ? 'Saved!' : 'Saved on this phone (website upload didn\'t work)';
+                setTimeout(() => { i++; one(); }, 700);
+              }, () => { $v('recCount').textContent = "Couldn't save"; setTimeout(one, 900); }); } },
+          { text: 'Redo', fn: go },
+          { text: '▶ Again', fn: () => new Audio(url).play().catch(() => {}) }
+        ]);
+      };
+      mr.start();
+      const ms = l.secs * 1000, t0 = Date.now();
+      btns([{ text: 'Done', go: true, fn: () => { if (mr.state === 'recording') mr.stop(); } }]);
+      const t = setInterval(() => {
+        const f = Math.min(1, (Date.now() - t0) / ms); $v('recBar').style.width = (f * 100) + '%';
+        if (f >= 1 || mr.state !== 'recording') { clearInterval(t); if (mr.state === 'recording') mr.stop(); }
+      }, 50);
+    }
+  }
+  function alertRec(msg) { $v('recBox').classList.add('on'); $v('recWords').textContent = ''; $v('recCount').textContent = msg; btns([{ text: 'OK', fn: () => $v('recBox').classList.remove('on') }]); }
+  function beep(f) { try { const c = ac(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = f; g.gain.value = .15; o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime + .15); } catch (e) {} }
+})();
 </script>
 <!-- 3D yard: the truck and the cars to smash -->
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
