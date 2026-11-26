@@ -165,13 +165,14 @@ function findRecording(id) {
       if (i >= VO_EXT.length) { audioCache[id] = null; return resolve(null); }
       const a = new Audio(VO_FOLDER + id + '.' + VO_EXT[i++]);
       a.preload = 'auto';
-      const ok = () => { cleanup(); audioCache[id] = a; resolve(a); };
-      const bad = () => { cleanup(); tryNext(); };
-      const cleanup = () => { a.removeEventListener('canplaythrough', ok); a.removeEventListener('error', bad); };
-      a.addEventListener('canplaythrough', ok, { once: true });
-      a.addEventListener('error', bad, { once: true });
+      let done = false;
+      const ok = () => { if (done) return; done = true; cleanup(); audioCache[id] = a; resolve(a); };
+      const bad = () => { if (done) return; done = true; cleanup(); tryNext(); };
+      const cleanup = () => { a.removeEventListener('loadedmetadata', ok); a.removeEventListener('error', bad); };
+      a.addEventListener('loadedmetadata', ok);
+      a.addEventListener('error', bad);
       a.load();
-      setTimeout(() => { if (!(id in audioCache)) bad(); }, 2500);
+      setTimeout(bad, 2500);
     };
     tryNext();
   });
@@ -182,7 +183,13 @@ function stopVoice() {
   if (window.speechSynthesis) speechSynthesis.cancel();
 }
 
-async function say(id) {
+// Never let a voice line hold up the game: give up waiting after a few seconds.
+function say(id) {
+  const maxMs = 1500 + (LINES[id] || id).length * 90;
+  return Promise.race([sayNow(id), new Promise(r => setTimeout(r, maxMs))]);
+}
+
+async function sayNow(id) {
   stopVoice();
   const rec = await findRecording(id);
   if (rec) {
@@ -326,7 +333,6 @@ async function startGame(m) {
   mode = m; meter = 0; updateMeter();
   $('truck').innerHTML = truckSVG(truckColor);
   show('game'); vroom(0.8);
-  await say('lets_go');
   newRound();
 }
 
@@ -457,6 +463,8 @@ $('homeBtn').onclick = () => { stopVoice(); show('home'); say('pick_game'); };
 $('replay').onclick = () => round && say(round.voice);
 $('startBtn').onclick = async () => {
   ac(); $('startTap').remove(); show('home'); vroom(0.8);
+  // iPhone only allows speech after a tap — unlock it now.
+  if (window.speechSynthesis) { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} }
   await say('welcome'); await say('pick_truck');
 };
 buildHome();
