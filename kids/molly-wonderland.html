@@ -42,7 +42,7 @@
   .stars { position: relative; color: #ffd23f; font-size: 22px; letter-spacing: 6px; z-index: 2; }
   .heroes { position: relative; display: flex; align-items: flex-end; gap: 4px; z-index: 2; margin-top: 6px; }
   .heroes .m { width: min(42vw, 30vh, 220px); cursor: pointer; }
-  .heroes .p { width: min(18vw, 13vh, 95px); cursor: pointer; margin-bottom: 4px; }
+  .heroes .p { width: min(22vw, 16vh, 115px); cursor: pointer; margin-bottom: 4px; }
   .sign { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 10px; margin-top: 14px; width: min(86vw, 340px); }
   .sign button { font-size: 26px; font-weight: 900; padding: 14px 18px; border-radius: 20px; color: #fff; text-align: left; display: flex; align-items: center; gap: 12px;
     box-shadow: 0 6px 0 rgba(0,0,0,.22); }
@@ -103,14 +103,18 @@
   #dress { background: linear-gradient(#ffe6f4, #e9d6ff); }
   .dwrap { flex: 1; display: flex; gap: 10px; padding: 10px; min-height: 0; }
   .stage { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; min-height: 0; }
-  .stage .m { height: 100%; max-height: 100%; width: auto; aspect-ratio: 218/270; cursor: pointer; }
-  .stage .m svg { height: 100%; width: auto; }
+  .stage .m { position: absolute; inset: 0; cursor: pointer; }
+  .stage .m svg { width: 100%; height: 100%; }
   .opts { width: min(46vw, 330px); overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 10px; touch-action: pan-y; }
   .opts h3 { margin: 0; font-size: 18px; color: #a24bd1; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
   .grid button { background: #fff; border-radius: 16px; padding: 8px 4px; font-size: 30px; font-weight: 800; border: 3px solid #fff; display: flex; flex-direction: column; align-items: center; gap: 2px; touch-action: pan-y; }
   .grid button small { font-size: 12px; }
   .grid button.on { border-color: #d65db1; background: #fff0fa; }
+  .who { display: flex; gap: 8px; }
+  .who button { flex: 1; background: #fff; border: 3px solid #fff; border-radius: 18px; padding: 6px; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 900; touch-action: pan-y; }
+  .who button svg { width: 40px; height: 40px; flex: none; }
+  .who button.on { border-color: #d65db1; background: #fff0fa; color: #a24bd1; }
   .sw { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 2px #e6b8e0; }
   @media (max-aspect-ratio: 3/4) {
     .dwrap { flex-direction: column; }
@@ -164,7 +168,7 @@
 <section class="screen" id="dress">
   <div class="bar">
     <button class="rb" data-go="home">⬅️</button>
-    <h2>Dress Up Molly</h2>
+    <h2>Dress Up</h2>
     <button class="rb" id="dressReset">🧽</button>
   </div>
   <div class="dwrap">
@@ -203,6 +207,8 @@ if (!S) S = {
     { k: 'bed', x: 78, y: 78, s: 1 }, { k: 'throne', x: 30, y: 82, s: 1 }
   ]
 };
+const NO_OUTFIT = () => ({ dress: 'none', crown: false, wand: false, bow: false, necklace: false, blush: false, gloss: false, shadow: false, glitter: false, glasses: false, flower: false });
+if (!S.pippiOutfit) S.pippiOutfit = Object.assign(NO_OUTFIT(), { bow: true });
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 
 /* ---------- sounds ---------- */
@@ -244,32 +250,33 @@ const CAT = {
   f1: E('🌸', 40), f2: E('🌷', 44), f3: E('🌻', 48), f4: E('🌹', 40), f5: E('🌼', 40), f6: E('🍄', 40), f7: E('🌳', 110), f8: E('🌲', 100),
   pinktree: P('pinktree', 130), rainbow: P('rainbow', 190), castle: P('castle', 150), pond: P('pond', 150), fence: P('fence', 110),
   fountain: E('⛲', 80), cloud: E('☁️', 80), star: E('⭐', 40), heart: E('💖', 40), balloon: E('🎈', 50), rock: E('🪨', 44), sparkle: E('✨', 40),
-  molly: { molly: 1, w: 100 }, pippi: { pippi: 1, w: 62 },
+  molly: { molly: 1, w: 100 }, pippi: { pippi: 1, w: 74 },
   a1: E('🐰', 50), a2: E('🐱', 50), a3: E('🐶', 50), a4: E('🦆', 50), a5: E('🦋', 40), a6: E('🐞', 34), a7: E('🐢', 46), a8: E('🦄', 60),
   a9: E('🐑', 54), a10: E('🐝', 34), a11: E('🐟', 38), a12: E('🐿️', 46), a13: E('🦔', 44), a14: E('🐴', 64), a15: E('🐼', 54), a16: E('🐸', 42),
   bed: P('bed', 170), mirror: P('mirror', 80), rug: P('rug', 170), window: P('window', 100), chandelier: P('chandelier', 130), throne: P('throne', 100),
+  kitten: P('kitten', 56), puppy: P('puppy', 58), duckling: P('duckling', 56), butterfly: P('butterfly', 46), daisy: P('daisy', 34), cupcake: P('cupcake', 42), teddy: P('teddy', 56),
   table: P('table', 120), stove: P('stove', 100), fridge: P('fridge', 80),
   c1: E('🫖', 40), c2: E('🧁', 36), c3: E('🎂', 50), c4: E('🍓', 30), c5: E('🍪', 32), c6: E('🥛', 32), c7: E('🍽️', 40), c8: E('🍰', 36), c9: E('🍩', 34),
   c10: E('🧸', 50), c11: E('👑', 40), c12: E('🪴', 60), c13: E('🛋️', 110), c14: E('🪑', 60), c15: E('🎀', 36), c16: E('💐', 44), c17: E('🖼️', 60), c18: E('🕯️', 34), c19: E('🎹', 90), c20: E('📚', 44)
 };
 const LAND_TABS = [
-  ['🌸 Flowers', ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'pinktree', 'f7', 'f8']],
-  ['🐥 Animals', ['molly', 'pippi', 'a1', 'a2', 'a3', 'a4', 'a5', 'a8', 'a14', 'a9', 'a15', 'a7', 'a12', 'a13', 'a16', 'a6', 'a10', 'a11']],
+  ['🌸 Flowers', ['daisy', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'pinktree', 'f7', 'f8']],
+  ['🐥 Animals', ['molly', 'pippi', 'kitten', 'puppy', 'duckling', 'butterfly', 'a1', 'a2', 'a3', 'a4', 'a5', 'a8', 'a14', 'a9', 'a15', 'a7', 'a12', 'a13', 'a16', 'a6', 'a10', 'a11']],
   ['🌈 Pretty', ['rainbow', 'castle', 'pond', 'fence', 'fountain', 'cloud', 'star', 'heart', 'balloon', 'sparkle', 'rock']]
 ];
 const CASTLE_TABS = [
-  ['🛏️ Bedroom', ['bed', 'mirror', 'throne', 'rug', 'window', 'chandelier', 'c13', 'c14', 'c12', 'c10', 'c17', 'c19', 'c20', 'c18', 'c16', 'c15', 'c11']],
-  ['🧁 Kitchen', ['stove', 'fridge', 'table', 'c1', 'c2', 'c3', 'c8', 'c9', 'c5', 'c4', 'c6', 'c7']],
-  ['🐥 Friends', ['molly', 'pippi', 'a2', 'a3', 'a1', 'a8', 'a15', 'a5']]
+  ['🛏️ Bedroom', ['bed', 'mirror', 'throne', 'rug', 'window', 'chandelier', 'c13', 'c14', 'c12', 'teddy', 'c10', 'c17', 'c19', 'c20', 'c18', 'c16', 'c15', 'c11']],
+  ['🧁 Kitchen', ['stove', 'fridge', 'table', 'cupcake', 'c1', 'c2', 'c3', 'c8', 'c9', 'c5', 'c4', 'c6', 'c7']],
+  ['🐥 Friends', ['molly', 'pippi', 'kitten', 'puppy', 'duckling', 'butterfly', 'teddy', 'a2', 'a3', 'a1', 'a8', 'a15', 'a5']]
 ];
 function art(k) {
   const c = CAT[k];
   if (c.molly) return A.molly(S.outfit);
-  if (c.pippi) return A.pippi();
+  if (c.pippi) return A.pippi(S.pippiOutfit);
   if (c.p) return A.PIECES[c.p];
   return '<div class="emo" style="--fs:' + Math.round(c.w * .9) + 'px">' + c.e + '</div>';
 }
-function icon(k) { const c = CAT[k]; return c.e ? c.e : (c.molly ? A.molly(S.outfit) : c.pippi ? A.pippi() : A.PIECES[c.p]); }
+function icon(k) { const c = CAT[k]; return c.e ? c.e : (c.molly ? A.molly(S.outfit) : c.pippi ? A.pippi(S.pippiOutfit) : A.PIECES[c.p]); }
 
 /* ---------- scenes ---------- */
 const wandOn = { v: false };
@@ -399,34 +406,41 @@ document.querySelectorAll('.wandBtn').forEach(b => b.onclick = () => {
 });
 
 /* ---------- dress up ---------- */
+let who = 'molly';
 const DOPTS = [
   ['Dresses', 'dress', [['none', '🐰', 'None'], ['pink', '#ff8fc8', 'Pink'], ['purple', '#b77dff', 'Purple'], ['blue', '#6fc3ff', 'Blue'], ['gold', '#ffc94d', 'Gold']]],
   ['Accessories', 'acc', [['crown', '👑', 'Crown'], ['wand', '🪄', 'Wand'], ['bow', '🎀', 'Bow'], ['necklace', '📿', 'Pearls']]],
   ['Makeup', 'acc', [['blush', '🌸', 'Blush'], ['gloss', '💋', 'Lip gloss'], ['shadow', '👁️', 'Eyeshadow'], ['glitter', '✨', 'Glitter']]]
 ];
+const POPTS = [DOPTS[0], ['Accessories', 'acc', [['crown', '👑', 'Crown'], ['wand', '🪄', 'Wand'], ['bow', '🎀', 'Bow'], ['necklace', '📿', 'Pearls'], ['glasses', '🤩', 'Star glasses'], ['flower', '🌸', 'Flower']]], DOPTS[2]];
+const outfit = () => who === 'molly' ? S.outfit : S.pippiOutfit;
 function dressDraw() {
-  $('#dMolly').innerHTML = A.molly(S.outfit);
-  $('#dOpts').innerHTML = DOPTS.map(([h, t, os]) => '<h3>' + h + '</h3><div class="grid">' + os.map(([k, v, l]) => {
-    const on = t === 'dress' ? S.outfit.dress === k : !!S.outfit[k];
+  const o = outfit(), m = $('#dMolly');
+  m.innerHTML = who === 'molly' ? A.molly(o) : A.pippi(o);
+  $('#dOpts').innerHTML = '<div class="who"><button data-who="molly" class="' + (who === 'molly' ? 'on' : '') + '">' + A.molly(S.outfit) + '<span>Molly</span></button><button data-who="pippi" class="' + (who === 'pippi' ? 'on' : '') + '">' + A.pippi(S.pippiOutfit) + '<span>Pippi</span></button></div>' +
+    (who === 'molly' ? DOPTS : POPTS).map(([h, t, os]) => '<h3>' + h + '</h3><div class="grid">' + os.map(([k, v, l]) => {
+    const on = t === 'dress' ? o.dress === k : !!o[k];
     const face = v.startsWith('#') ? '<span class="sw" style="background:' + v + '"></span>' : v;
     return '<button class="' + (on ? 'on' : '') + '" data-t="' + t + '" data-k="' + k + '">' + face + '<small>' + l + '</small></button>';
   }).join('') + '</div>').join('');
 }
 $('#dOpts').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
-  if (b.dataset.t === 'dress') S.outfit.dress = b.dataset.k; else S.outfit[b.dataset.k] = !S.outfit[b.dataset.k];
+  if (b.dataset.who) { who = b.dataset.who; dressDraw(); who === 'pippi' ? snd.chirp() : snd.giggle(); return; }
+  const o = outfit();
+  if (b.dataset.t === 'dress') o.dress = b.dataset.k; else o[b.dataset.k] = !o[b.dataset.k];
   save(); dressDraw(); snd.sparkle();
   const st = $('.stage'), r = st.getBoundingClientRect(); burst(st, r.width / 2, r.height / 2, 10);
 });
 $('#dMolly').addEventListener('click', () => {
-  const m = $('#dMolly'); m.classList.remove('hop'); void m.offsetWidth; m.classList.add('hop'); snd.giggle();
-  if (S.outfit.wand) { snd.sparkle(); const st = $('.stage'), r = st.getBoundingClientRect(); burst(st, r.width * .7, r.height * .35, 16); }
+  const m = $('#dMolly'); m.classList.remove('hop'); void m.offsetWidth; m.classList.add('hop'); who === 'pippi' ? snd.chirp() : snd.giggle();
+  if (outfit().wand) { snd.sparkle(); const st = $('.stage'), r = st.getBoundingClientRect(); burst(st, r.width * .7, r.height * .35, 16); }
 });
-$('#dressReset').onclick = () => { S.outfit = { dress: 'none', crown: false, wand: false, bow: false, necklace: false, blush: false, gloss: false, shadow: false, glitter: false }; save(); dressDraw(); snd.boop(); };
+$('#dressReset').onclick = () => { if (who === 'molly') S.outfit = NO_OUTFIT(); else S.pippiOutfit = NO_OUTFIT(); save(); dressDraw(); snd.boop(); };
 
 /* ---------- home + nav ---------- */
 function homeDraw() {
-  $('#hMolly').innerHTML = A.molly(S.outfit); $('#hPippi').innerHTML = A.pippi();
+  $('#hMolly').innerHTML = A.molly(S.outfit); $('#hPippi').innerHTML = A.pippi(S.pippiOutfit);
   $('#hRain').innerHTML = A.PIECES.rainbow; $('#hCastle').innerHTML = A.PIECES.castle; $('#hTree').innerHTML = A.PIECES.pinktree;
 }
 $('#hPippi').onclick = e => { const p = e.currentTarget; p.classList.remove('hop'); void p.offsetWidth; p.classList.add('hop'); snd.chirp(); };
