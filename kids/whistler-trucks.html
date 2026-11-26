@@ -56,7 +56,10 @@
   #prompt button { font-size: 26px; border: none; background: #ffd60a; border-radius: 50%; width: 48px; height: 48px; cursor: pointer; flex: none; }
   #helper { min-height: 70px; margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 40px; font-weight: 800; }
   #helper svg { width: 70px; height: 52px; }
-  #yard { position: relative; flex: 1; width: 100%; }
+  #yard { position: relative; flex: 1; width: 100%; pointer-events: none; }
+  #scene3d { position: absolute; inset: 0; z-index: 0; }
+  #scene3d canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; }
+  #topbar, #prompt, #helper { position: relative; z-index: 1; }
   #cars { position: absolute; left: 0; right: 0; bottom: 10%; display: flex; justify-content: center; gap: 2vw; padding: 0 2vw 0 22vw; }
   .car { position: relative; width: min(15vw, 150px); cursor: pointer; transition: transform .25s; transform-origin: bottom center; }
   .car svg { width: 100%; display: block; }
@@ -112,10 +115,8 @@
   </div>
   <div id="prompt"><span id="promptText"></span><button id="replay" aria-label="Say it again">🔊</button></div>
   <div id="helper"></div>
-  <div id="yard">
-    <div id="truck"></div>
-    <div id="cars"></div>
-  </div>
+  <div id="scene3d"></div>
+  <div id="yard"></div>
   <div id="banner"></div>
 </section>
 
@@ -124,6 +125,9 @@
 <canvas id="confetti"></canvas>
 
 <script>
+// The 3D yard (module script at the bottom) resolves this when it's ready.
+window.yardReady = new Promise(r => { window.__yardResolve = r; });
+
 /* =========================================================
    VOICEOVERS
    Drop recordings in the folder below named by line ID,
@@ -376,8 +380,10 @@ function open3d(i) {
 
 async function startGame(m) {
   mode = m; meter = 0; updateMeter();
-  $('truck').innerHTML = truckSVG(truckColor);
   show('game'); vroom(0.8);
+  await window.yardReady;
+  Yard3D.onTap(i => tapCar(i));
+  Yard3D.setTruck(truckColor);
   newRound();
 }
 
@@ -415,39 +421,36 @@ function newRound() {
     helper = mini.repeat(a) + '<span>+</span>' + mini.repeat(b);
   }
 
-  round = { mode: m, need, got: 0, voice };
+  round = { mode: m, need, got: 0, voice, cars };
   $('promptText').textContent = prompt;
   $('helper').innerHTML = helper;
-  $('cars').innerHTML = cars.map((c, i) =>
-    `<div class="car" data-ok="${c.ok}" data-i="${i}">${carSVG(c.color)}${c.tag ? `<span class="tag">${c.tag}</span>` : ''}</div>`).join('');
-  $('cars').querySelectorAll('.car').forEach(el => el.onclick = () => tapCar(el));
+  Yard3D.setCars(cars);
   say(voice);
 }
 function c2(s) { return s; }
 
-function resetTruck() {
-  const t = $('truck'); t.style.transition = 'none'; t.style.left = '1vw'; t.classList.remove('jump', 'bounce');
-  void t.offsetWidth; t.style.transition = '';
-}
+function resetTruck() { Yard3D.reset(); }
 
-async function tapCar(el) {
-  if (busy) return;
+async function tapCar(i) {
+  const car = round && round.cars[i];
+  if (busy || !car || car.smashed) return;
   ac().resume && ac().resume();
-  if (el.dataset.ok !== 'true') {
-    boop(); el.classList.remove('wiggle'); void el.offsetWidth; el.classList.add('wiggle');
+  if (!car.ok) {
+    boop(); Yard3D.wiggle(i);
     say(pick(['try_1', 'try_2', 'try_3']));
     return;
   }
   busy = true;
-  await driveTo(el);
-  crunch(); el.classList.add('smashed');
-  confetti(el.getBoundingClientRect(), 40);
+  vroom(0.5);
+  await Yard3D.driveTo(i);
+  crunch(); car.smashed = true; Yard3D.smash(i);
+  confetti(Yard3D.rect(i), 40);
 
   if (round.mode === 'count') {
     round.got++;
     $('promptText').textContent = round.got;
     await say('num_' + round.got);
-    if (round.got < round.need) { await backUp(); busy = false; return; }
+    if (round.got < round.need) { await Yard3D.backUp(); busy = false; return; }
   }
   stars++; meter++; $('score').textContent = '⭐ ' + stars; updateMeter();
   await say(pick(['great_1', 'great_2', 'great_3', 'great_4', 'great_5', 'great_6']));
@@ -455,32 +458,18 @@ async function tapCar(el) {
   setTimeout(newRound, 400);
 }
 
-function driveTo(el) {
-  return new Promise(res => {
-    const t = $('truck'), yard = $('yard').getBoundingClientRect(), r = el.getBoundingClientRect();
-    const tw = t.getBoundingClientRect().width;
-    vroom(0.5);
-    t.style.left = (r.left - yard.left + r.width / 2 - tw / 2) + 'px';
-    setTimeout(() => { t.classList.remove('bounce'); void t.offsetWidth; t.classList.add('bounce'); setTimeout(res, 250); }, 450);
-  });
-}
-function backUp() {
-  return new Promise(res => { $('truck').style.left = '1vw'; setTimeout(res, 450); });
-}
 
 function updateMeter() { $('meterFill').style.width = (meter / JUMP_EVERY * 100) + '%'; }
 
 async function bigJump() {
-  const t = $('truck');
-  t.style.left = '1vw';
-  await new Promise(r => setTimeout(r, 450));
+  await Yard3D.backUp();
   vroom(1.4);
-  t.classList.remove('jump'); void t.offsetWidth; t.classList.add('jump');
+  const jump = Yard3D.bigJump();
   $('banner').textContent = 'BIG JUMP!'; $('banner').classList.add('show');
   confetti({ left: innerWidth / 2 - 50, top: innerHeight / 3, width: 100, height: 10 }, 160);
-  await say('big_jump');
-  await new Promise(r => setTimeout(r, 900));
-  $('banner').classList.remove('show'); t.classList.remove('jump');
+  await Promise.all([say('big_jump'), jump]);
+  await new Promise(r => setTimeout(r, 300));
+  $('banner').classList.remove('show');
 }
 
 /* confetti */
@@ -513,6 +502,177 @@ $('startBtn').onclick = async () => {
   await say('welcome'); await say('pick_truck');
 };
 buildHome();
+</script>
+<!-- 3D yard: the truck and the cars to smash -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { TRUCKS, buildTruck, car3d, TIRE_R } from "./trucks3d.js";
+
+const host = document.getElementById('scene3d'), gameScreen = document.getElementById('game');
+const ren = new THREE.WebGLRenderer({ antialias: true });
+ren.setPixelRatio(Math.min(devicePixelRatio, 2));
+ren.shadowMap.enabled = true; ren.shadowMap.type = THREE.PCFSoftShadowMap;
+ren.outputColorSpace = THREE.SRGBColorSpace;
+host.appendChild(ren.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#7fd0ff');
+scene.fog = new THREE.Fog('#7fd0ff', 45, 110);
+const cam = new THREE.PerspectiveCamera(36, 1, .1, 300);
+scene.add(new THREE.HemisphereLight('#ffffff', '#8b5a2b', 1.4));
+const sun = new THREE.DirectionalLight('#ffffff', 2.2);
+sun.position.set(4, 14, 9); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -.0005; sun.shadow.normalBias = .03;
+Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 12, bottom: -12 });
+scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 200), new THREE.MeshStandardMaterial({ color: '#8b5a2b', roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+/* ----- layout: one row of cars on wide screens, two staggered rows on tall phones ----- */
+let startX = -8.6, cars = [], truck = null, tapFn = null, view = { cx: 0, halfW: 11 };
+const trucks = {};
+const portrait = () => innerWidth < innerHeight;
+
+function setTruck(i) {
+  if (truck) scene.remove(truck);
+  truck = trucks[i] || (trucks[i] = buildTruck(TRUCKS[i]));
+  scene.add(truck); reset();
+}
+
+function disposeCar(c) {
+  scene.remove(c);
+  c.traverse(o => { if (o.isMesh) { o.geometry.dispose(); if (o.material.map) o.material.map.dispose(); } });
+}
+const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+function setCars(list) {
+  cars.forEach(disposeCar);
+  const n = list.length, tall = portrait();
+  const sp = tall ? Math.min(2.2, 9 / Math.max(1, n - 1)) : Math.min(3.2, 14 / Math.max(1, n - 1));
+  cars = list.map((c, i) => {
+    const g = car3d(c.color, c.tag);
+    g.position.set(2.5 + (i - (n - 1) / 2) * sp, 0, tall && n > 3 ? (i % 2 ? -1.5 : 1.5) : 0);
+    g.userData.idx = i;
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(2.9, 3.2, 2.2), hitMat); hit.position.y = 1.3; g.add(hit);   // bigger tap target
+    scene.add(g); return g;
+  });
+  const first = cars[0].position.x;
+  startX = first - (tall ? 3.6 : 4.2);
+  const left = startX - 2.6, right = cars[n - 1].position.x + 1.6;
+  view = { cx: (left + right) / 2, halfW: (right - left) / 2 + 1.4 };
+  fit(); reset();
+}
+
+function fit() {
+  const w = innerWidth, h = innerHeight;
+  ren.setSize(w, h); cam.aspect = w / h;
+  const tall = portrait();
+  cam.fov = tall ? 44 : 36;
+  const tanV = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)), tanH = tanV * cam.aspect;
+  const dist = Math.max(view.halfW / tanH, 13);
+  const dir = new THREE.Vector3(0, tall ? .75 : .42, 1).normalize();
+  cam.position.set(view.cx, 0, 0).addScaledVector(dir, dist);
+  // aim above the cars so they sit low on the screen, under the prompt
+  cam.lookAt(view.cx, dist * (tall ? .16 : .2), 0);
+  cam.updateProjectionMatrix();
+  sun.position.set(view.cx + 4, 14, 9); sun.target.position.set(view.cx, 0, 0);
+}
+scene.add(sun.target);
+addEventListener('resize', fit);
+
+/* ----- little animation helper ----- */
+const tweens = [];
+function tween(dur, fn) { return new Promise(res => tweens.push({ t: 0, dur, fn, res })); }
+
+function reset() {
+  if (!truck) return;
+  tweens.length = 0;
+  truck.position.set(startX, 0, 0); truck.rotation.set(0, 0, 0);
+}
+function driveTo(i) {
+  const c = cars[i], x0 = truck.position.x, z0 = truck.position.z, x1 = c.position.x, z1 = c.position.z;
+  const dur = Math.max(.5, Math.abs(x1 - x0) / 15);
+  return tween(dur, u => {
+    const e = u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+    truck.position.x = x0 + (x1 - x0) * e; truck.position.z = z0 + (z1 - z0) * e;
+    const climb = Math.max(0, (u - .62) / .38);                 // climb onto the car at the end
+    truck.position.y = Math.sin(climb * Math.PI / 2) * 1.2 + Math.sin(climb * Math.PI) * .45;
+    truck.rotation.z = Math.sin(climb * Math.PI) * .32;
+  });
+}
+function smash(i) {
+  const c = cars[i];
+  (c.userData.sign || []).forEach(m => { m.visible = false; });
+  const y0 = truck.position.y;
+  return tween(.22, u => {
+    const k = 1 - Math.pow(1 - u, 3);
+    c.scale.set(1 + .08 * k, 1 - .7 * k, 1 + .05 * k);
+    truck.position.y = y0 + (.38 - y0) * k + Math.sin(u * Math.PI) * .15;
+    truck.rotation.z *= .8;
+  });
+}
+function backUp() {
+  const x0 = truck.position.x, y0 = truck.position.y, z0 = truck.position.z;
+  return tween(.55, u => {
+    const e = 1 - Math.pow(1 - u, 2);
+    truck.position.x = x0 + (startX - x0) * e; truck.position.z = z0 * (1 - e);
+    truck.position.y = y0 * Math.max(0, 1 - u * 3);
+    truck.rotation.z = 0;
+  });
+}
+function wiggle(i) {
+  const c = cars[i];
+  return tween(.45, u => { c.rotation.y = Math.sin(u * Math.PI * 4) * .28 * (1 - u); });
+}
+function bigJump() {
+  const x0 = startX, x1 = cars.length ? cars[cars.length - 1].position.x + 4.5 : 10;
+  truck.position.set(x0, 0, 0);
+  return tween(1.6, u => {
+    truck.position.x = x0 + (x1 - x0) * u;
+    truck.position.y = 22 * u * (1 - u);                      // high arc over all the cars
+    truck.rotation.z = -u * Math.PI * 2;                       // front flip
+  }).then(() => { truck.position.set(startX, 4, 0); truck.rotation.set(0, 0, 0);
+    return tween(.5, u => { truck.position.y = 4 * (1 - u) * (1 - u) + Math.abs(Math.sin(u * Math.PI * 2)) * .4 * (1 - u); });
+  }).then(() => { truck.position.y = 0; });
+}
+function rect(i) {
+  const v = cars[i].position.clone().add(new THREE.Vector3(0, 1, 0)).project(cam);
+  const x = (v.x + 1) / 2 * innerWidth, y = (1 - v.y) / 2 * innerHeight;
+  return { left: x - 40, top: y - 20, width: 80, height: 40 };
+}
+
+/* ----- tapping a car ----- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+ren.domElement.addEventListener('pointerdown', e => {
+  const r = ren.domElement.getBoundingClientRect();
+  ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(ndc, cam);
+  const hit = ray.intersectObjects(cars, true)[0];
+  let o = hit && hit.object;
+  while (o && o.userData.idx === undefined) o = o.parent;
+  if (o && tapFn) tapFn(o.userData.idx);
+});
+
+/* ----- loop ----- */
+const clock = new THREE.Clock(); let lastX = 0;
+function loop() {
+  const dt = Math.min(clock.getDelta(), .05);
+  for (let k = tweens.length - 1; k >= 0; k--) {
+    const tw = tweens[k]; tw.t += dt; const u = Math.min(1, tw.t / tw.dur);
+    tw.fn(u, dt); if (u >= 1) { tweens.splice(k, 1); tw.res(); }
+  }
+  if (truck) {
+    const dx = truck.position.x - lastX; lastX = truck.position.x;
+    truck.userData.wheels.forEach(w => { w.rotation.z -= dx / TIRE_R; });
+  }
+  if (gameScreen.classList.contains('on')) ren.render(scene, cam);
+  requestAnimationFrame(loop);
+}
+fit(); loop();
+
+window.Yard3D = { setTruck, setCars, reset, driveTo, smash, backUp, wiggle, bigJump, rect, onTap: fn => { tapFn = fn; } };
+setTruck(0);
+window.__yardResolve();
 </script>
 </body>
 </html>
