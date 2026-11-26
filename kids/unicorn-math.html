@@ -453,7 +453,8 @@
       if (!keys) { var k = KidVoice.keyFor(text); keys = k ? [k] : null; }
       if (keys && KidVoice.hasAll(keys)) {
         try { speechSynthesis.cancel(); } catch (e) {}
-        KidVoice.play(keys);
+        // if a recording won't play on this device, say it with the iPad voice instead of staying silent
+        KidVoice.play(keys).then(function (ok) { if (!ok) tts(text); });
         return;
       }
     }
@@ -462,12 +463,17 @@
   function tts(text) {
     try {
       if (!window.speechSynthesis) return;
-      speechSynthesis.cancel();
       if (!voice) pickVoice();
       var u = new SpeechSynthesisUtterance(text);
       if (voice) { u.voice = voice; u.lang = voice.lang; }
       u.rate = 1.05; u.pitch = 1.15;
-      speechSynthesis.speak(u);
+      // iPhone can drop a line spoken right after cancel(), so only cancel when something is talking, then wait a beat
+      if (speechSynthesis.speaking || speechSynthesis.pending) {
+        speechSynthesis.cancel();
+        setTimeout(function () { speechSynthesis.speak(u); }, 120);
+      } else {
+        speechSynthesis.speak(u);
+      }
     } catch (e) {}
   }
   function sayProblem() {

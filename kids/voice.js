@@ -288,16 +288,18 @@
   function play(keys) {
     stop();
     for (var i = 0; i < keys.length; i++) if (!clips[keys[i]]) return Promise.resolve(false);
-    var idx = 0;
+    var idx = 0, failed = false;
     return new Promise(function (res) {
+      // resolves false if any clip couldn't play (e.g. a format this device can't play), so the caller can fall back
+      function bad() { failed = true; nextClip(); }
       function nextClip() {
-        if (idx >= keys.length) { current = null; return res(true); }
+        if (idx >= keys.length) { current = null; return res(!failed); }
         var a = new Audio(clips[keys[idx++]]);
         current = a;
         a.onended = nextClip;
-        a.onerror = nextClip;
+        a.onerror = bad;
         var pr = a.play();
-        if (pr && pr.catch) pr.catch(function () { nextClip(); });
+        if (pr && pr.catch) pr.catch(bad);
       }
       nextClip();
     });
