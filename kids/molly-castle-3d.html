@@ -191,7 +191,8 @@ function buildHouse() {
 
 /* grand staircase: a wide center flight up to a landing, then two flights split left and right to the balcony */
 function buildStairs() {
-  const G = level[0], step = mat('#ffffff', { roughness: .5 }), run = mat('#ff8fc8', { roughness: .9 });
+  const G = level[0], step = mat('#ffffff', { roughness: .5 }), run = mat('#ff8fc8', { roughness: .9 }), s0 = WALLM.length;
+  setTimeout(() => WALLM.slice(s0).forEach(m => { if (!m.material.transparent) m.userData.stair = 1; }));   // steps don't fade while walking
   const rise = 5 / 7;
   for (let i = 0; i < 7; i++) {              // center flight: z 18 -> 12, 0 -> 5 ft
     const top = rise * (i + 1), z = 18 - i * (6 / 7) - (6 / 7) / 2;
@@ -584,7 +585,7 @@ function startWalk(kind) {
   curRoom = null; showFloor(0);
   // third person: camera close behind her, a little above her head
   const tgt = new THREE.Vector3(it.x, (it.f ? UP : 0) + (it.y || 0) + 3, it.z);
-  const behind = new THREE.Vector3(-Math.sin(it.r), 0, -Math.cos(it.r)).multiplyScalar(CAM_D * .9).add(new THREE.Vector3(0, CAM_D * .42, 0));
+  const behind = new THREE.Vector3(-Math.sin(it.r), 0, -Math.cos(it.r)).multiplyScalar(CAM_D * .93).add(new THREE.Vector3(0, CAM_D * .36, 0));
   fly = { t0: performance.now(), a: [controls.target.clone(), camera.position.clone()], b: [tgt, tgt.clone().add(behind)] };
   controls.enableZoom = false; controls.minDistance = 1; controls.maxDistance = 100; controls.minPolarAngle = .35; controls.maxPolarAngle = 1.62;
   const hint = document.getElementById('hint'); hint.style.display = ''; hint.textContent = 'Walk in! Tap things to play with them';
@@ -598,10 +599,11 @@ function stopWalk() {
 }
 
 /* ---------- third-person camera: stays behind her, never goes through walls, ceilings or the roof ---------- */
-const CAM_D = 11;                         // how far behind her the camera sits
+const CAM_D = 8.5;                        // how far behind her the camera sits
 let camD = CAM_D;                         // pinch / mouse wheel changes it while walking
 const camRay = new THREE.Raycaster();
-function camBlockers() { return WALLM.filter(m => m.parent.visible).concat(level[1].children.filter(m => m.isMesh && m.geometry.type === 'PlaneGeometry'), ROOF.children); }
+let blockers = null;                      // every solid piece of the house (walls, trim, stairs, ceilings, roof); not the glass
+function camBlockers() { return blockers || (blockers = [...level[0].children, ...level[1].children, ...ROOF.children].filter(m => m.isMesh && !(m.userData.orig || m.material).transparent)); }
 function thirdPerson() {
   if (fly) return;
   const off = camera.position.clone().sub(controls.target); if (off.lengthSq() < 1e-4) return;
@@ -609,7 +611,7 @@ function thirdPerson() {
 }
 function keepCamClear() {
   const t = controls.target, dir = camera.position.clone().sub(t), d = dir.length(); dir.normalize();
-  camRay.set(t, dir); camRay.far = d;
+  camRay.set(t, dir); camRay.far = d + .7;
   const hit = camRay.intersectObjects(camBlockers(), false)[0];
   if (hit) camera.position.copy(t).addScaledVector(dir, Math.max(1.2, hit.distance - .7));
   // inside the house the camera stays under the ceiling of the floor she's on
@@ -717,7 +719,7 @@ function fadeWalls(it) {               // see-through walls between the camera a
   if (!it) return;
   const head = new THREE.Vector3(it.x, (it.f ? UP : 0) + (it.y || 0) + 2, it.z), from = camera.position.clone();
   const rc = new THREE.Raycaster(from, head.clone().sub(from).normalize(), 0, from.distanceTo(head) - 1);
-  rc.intersectObjects(WALLM.filter(m => m.parent.visible), false).forEach(h => {
+  rc.intersectObjects(WALLM.filter(m => m.parent.visible && !(walker && m.userData.stair)), false).forEach(h => {
     const m = h.object; if (m.userData.orig) return;
     if (!fadeMats.has(m.material)) { const c = m.material.clone(); c.transparent = true; c.opacity = .22; c.depthWrite = false; fadeMats.set(m.material, c); }
     m.userData.orig = m.material; m.material = fadeMats.get(m.material); faded.push(m);
