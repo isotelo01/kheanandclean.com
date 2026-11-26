@@ -18,6 +18,8 @@
   #pick button.sel { border-color: #ffd60a; transform: translateY(-3px); }
   #jump, #crush { position: fixed; top: 76px; left: calc(50% - 82px); transform: translateX(-50%); font: inherit; font-size: 24px; font-weight: 900; padding: 12px 26px; border: none; border-radius: 18px; background: #ffd60a; color: #1a1a1a; box-shadow: 0 6px 0 #1a1a1a; cursor: pointer; }
   #crush { left: calc(50% + 82px); background: #ff8c1a; }
+  #jump, #crush { white-space: nowrap; }
+  @media (max-width: 520px) { body:not(.embed) #jump, body:not(.embed) #crush { font-size: 19px; padding: 10px 16px; } body:not(.embed) #jump { left: calc(50% - 68px); } body:not(.embed) #crush { left: calc(50% + 68px); } }
   #jump:active, #crush:active { transform: translateX(-50%) translateY(4px); box-shadow: 0 2px 0 #1a1a1a; }
   /* in the game pop-up: a little round video button at the bottom */
   body.embed #jump, body.embed #crush { top: auto; bottom: 26px; width: 76px; height: 76px; padding: 0; border-radius: 50%; font-size: 36px; }
@@ -44,7 +46,7 @@
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { TRUCKS, std, mesh, buildTruck, schoolBus, car3d, TIRE_R } from "./trucks3d.js";
+import { TRUCKS, std, mesh, buildTruck, schoolBus, car3d, TIRE_R, buildArena, Exhaust, bump } from "./trucks3d.js";
 
 
 /* ---------- scene ---------- */
@@ -58,9 +60,9 @@ view.appendChild(ren.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#8fd3ff');
-scene.fog = new THREE.Fog('#8fd3ff', 24, 50);
+scene.fog = new THREE.Fog('#8fd3ff', 60, 170);
 
-const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 400);
 function fitCam() { const asp = innerWidth / innerHeight, far = asp < 1 ? Math.min(24, 9.2 / asp) : 8.5; cam.position.set(far * 0.62, 3.6 + (far - 8.5) * .12, far * 0.78); }
 fitCam();
 const ctl = new OrbitControls(cam, ren.domElement);
@@ -80,6 +82,8 @@ const ground = new THREE.Mesh(new THREE.CircleGeometry(7, 64), new THREE.MeshSta
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 const ring = new THREE.Mesh(new THREE.RingGeometry(4.2, 4.6, 64), new THREE.MeshStandardMaterial({ color: '#ffd60a', roughness: .8 }));
 ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01; scene.add(ring);
+const arena = buildArena(); scene.add(arena);   // outdoor arena with cheering fans
+const smoke = new Exhaust(scene);
 
 
 /* ---------- picker ---------- */
@@ -165,7 +169,7 @@ function startJump(kind = 'jump') {
   const set = kind === 'crush' ? buildCrushSet() : (stuntSet = stuntSet || buildStuntSet());
   scene.add(set); ring.visible = false;
   document.getElementById('banner').textContent = kind === 'crush' ? 'CRUSHED!' : 'BIG JUMP!';
-  scene.fog.near = 30; scene.fog.far = 70;
+  scene.fog.near = 60; scene.fog.far = 170;
   Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16 }); sun.shadow.camera.updateProjectionMatrix();
   document.body.classList.add('stunting');
   ctl.enabled = false; ctl.autoRotate = false;
@@ -176,7 +180,7 @@ function startJump(kind = 'jump') {
 
 function endJump() {
   scene.remove(stunt.set); ring.visible = true;
-  scene.fog.near = 24; scene.fog.far = 50;
+  scene.fog.near = 60; scene.fog.far = 170;
   Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); sun.shadow.camera.updateProjectionMatrix();
   current.position.set(0, 0, 0); current.rotation.set(0, 0, 0);
   sun.position.set(5, 9, 4); sun.target.position.set(0, 0, 0);
@@ -216,6 +220,7 @@ function stuntStep(dt) {
 
   current.position.set(x, y, 0);
   current.rotation.set(0, 0, pitch);
+  if (!inAir && speed > 0) { const b = bump(s.tau, true); current.position.y += b.y; current.rotation.x = b.rx; current.rotation.z += b.rz; }   // bump along
   current.userData.wheels.forEach(w => w.rotation.z -= dt * scale * speed / TIRE_R);
   sun.position.set(x + 5, 9, 4); sun.target.position.set(x, 0, 0);
 
@@ -275,6 +280,7 @@ function crushStep(dt) {
   const shake = speed ? Math.sin(s.tau * 50) * .02 : 0;
   current.position.set(x, s.y + Math.abs(shake), 0);
   current.rotation.set(shake * .5, 0, s.p);
+  if (speed) { const b = bump(s.tau, true); current.position.y += b.y * .7; current.rotation.x += b.rx; current.rotation.z += b.rz; }
   current.userData.wheels.forEach(w => w.rotation.z -= dt * speed / TIRE_R);
   sun.position.set(x + 5, 9, 4); sun.target.position.set(x, 0, 0);
 
@@ -288,13 +294,15 @@ function crushStep(dt) {
 const clock = new THREE.Clock();
 function loop() {
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
-  if (stunt) { (stunt.kind === 'crush' ? crushStep : stuntStep)(dt); ren.render(scene, cam); requestAnimationFrame(loop); return; }
+  arena.userData.update(t);
+  if (stunt) { (stunt.kind === 'crush' ? crushStep : stuntStep)(dt); smoke.update(dt, current, 24); ren.render(scene, cam); requestAnimationFrame(loop); return; }
   if (current) {
     // drop in with a bounce, then idle with a little engine shake
     const u = current.userData;
     if (u.drop < 1) { u.drop = Math.min(1, u.drop + dt * 1.6); const s = u.drop; current.position.y = 3 * Math.pow(1 - s, 2) * Math.abs(Math.cos(s * 9)); }
-    else current.position.y = Math.abs(Math.sin(t * 22)) * .015;
+    else { const b = bump(t, false); current.position.y = b.y; current.rotation.x = b.rx; current.rotation.z = b.rz; }   // idling rumble
     u.wheels.forEach(w => w.rotation.z -= dt * 1.5);
+    smoke.update(dt, current, 7);
   }
   ctl.update();
   ren.render(scene, cam);

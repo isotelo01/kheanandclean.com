@@ -146,9 +146,11 @@ export function buildTruck(t) {
   }
 
   // exhaust stacks
+  const stacks = [];
   [1, -1].forEach(side => {
     const ex = mesh(new THREE.CylinderGeometry(.07, .07, .7, 12), std('#b0b0b0', { metalness: .9, roughness: .2 }));
     ex.position.set(P(105, 0).x, BODY_Y + P(0, 52).y + .3, side * (W / 2 - .12)); truck.add(ex);
+    const tip = new THREE.Object3D(); tip.position.set(ex.position.x, ex.position.y + .38, ex.position.z); truck.add(tip); stacks.push(tip);   // where smoke comes out
   });
 
   // chassis, axles, springs
@@ -200,6 +202,7 @@ export function buildTruck(t) {
   });
 
   truck.userData.wheels = wheels;
+  truck.userData.stacks = stacks;
   return truck;
 }
 
@@ -282,5 +285,124 @@ export function car3d(color, label) {
     const post = add(new THREE.CylinderGeometry(.04, .04, .4, 8), BLACK, -.12, 1.37, 0);
     g.userData.sign = [sign, post];
   }
+  return g;
+}
+
+/* ---------- engine rumble: little bumps while idling, bigger ones while driving ---------- */
+export function bump(t, moving) {
+  if (moving) return { y: Math.abs(Math.sin(t * 11)) * .06 + Math.abs(Math.sin(t * 6.7 + 1)) * .05, rx: Math.sin(t * 5.3) * .028, rz: Math.sin(t * 7.9) * .022 };
+  return { y: Math.abs(Math.sin(t * 18)) * .02, rx: Math.sin(t * 9) * .006, rz: Math.sin(t * 13) * .003 };
+}
+
+/* ---------- exhaust smoke from the stacks ---------- */
+let smokeTexture = null;
+function smokeTex() {
+  if (smokeTexture) return smokeTexture;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const c = cv.getContext('2d'), g = c.createRadialGradient(32, 32, 2, 32, 32, 30);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.5, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+  smokeTexture = new THREE.CanvasTexture(cv); return smokeTexture;
+}
+export class Exhaust {
+  constructor(scene) { this.scene = scene; this.pool = []; this.live = []; this.acc = 0; this.v = new THREE.Vector3(); }
+  // rate = puffs per second from each stack
+  update(dt, truck, rate) {
+    if (truck && truck.parent && truck.userData.stacks) {
+      this.acc += dt * rate;
+      if (this.acc >= 1) truck.updateMatrixWorld(true);
+      while (this.acc >= 1) { this.acc -= 1; truck.userData.stacks.forEach(s => this.spawn(s.getWorldPosition(this.v), rate)); }
+    }
+    for (let i = this.live.length - 1; i >= 0; i--) {
+      const p = this.live[i]; p.age += dt;
+      const f = p.age / p.life;
+      if (f >= 1) { p.s.visible = false; this.pool.push(p); this.live.splice(i, 1); continue; }
+      p.s.position.addScaledVector(p.vel, dt); p.vel.y += dt * .25; p.vel.multiplyScalar(1 - dt * .6);
+      const sc = p.size * (1 + f * 2.2); p.s.scale.set(sc, sc, sc);
+      p.s.material.opacity = p.alpha * (1 - f);
+    }
+  }
+  spawn(pos, rate) {
+    const p = this.pool.pop() || (() => {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex(), color: '#6b6b6b', transparent: true, depthWrite: false }));
+      this.scene.add(s); return { s, vel: new THREE.Vector3() };
+    })();
+    const heavy = rate > 12;
+    p.s.visible = true; p.s.position.copy(pos);
+    p.vel.set((Math.random() - .5) * .3 - (heavy ? .5 : .1), 1.1 + Math.random() * .5, (Math.random() - .5) * .3);
+    p.age = 0; p.life = 1 + Math.random() * .6; p.size = heavy ? .38 : .26; p.alpha = heavy ? .6 : .38;
+    p.s.material.color.set(heavy ? '#4a4a4a' : '#7a7a7a');
+    this.live.push(p);
+  }
+}
+
+/* ---------- outdoor arena: dirt floor, painted wall, stands full of cheering fans ---------- */
+function wallTex() {
+  const cv = document.createElement('canvas'); cv.width = 2048; cv.height = 128;
+  const c = cv.getContext('2d'), cols = ['#d62828', '#1565c0', '#ffd60a', '#1d7a2e', '#ff8c1a', '#7b2cbf'];
+  const words = ['MONSTER TRUCKS', '★ WHISTLER ★', 'BIG JUMPS', 'CRUSH IT!'];
+  for (let i = 0; i < 8; i++) {
+    c.fillStyle = cols[i % cols.length]; c.fillRect(i * 256, 0, 256, 128);
+    c.fillStyle = i % cols.length === 2 ? '#111' : '#fff'; c.font = '900 34px Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(words[i % words.length], i * 256 + 128, 66);
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.repeat.x = -6; return t;
+}
+export function buildArena(R = 40) {
+  const g = new THREE.Group();
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(R + 1, 96), new THREE.MeshStandardMaterial({ color: '#8b5a2b', roughness: 1 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -.01; floor.receiveShadow = true; g.add(floor);
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 1.4, 128, 1, true), new THREE.MeshStandardMaterial({ map: wallTex(), side: THREE.BackSide, roughness: .7 }));
+  wall.position.y = .7; g.add(wall);
+  // stepped stands all the way around
+  const ROWS = 7, STEP = 1.6, RISE = 1.0, BASE = 1.6;
+  const prof = [new THREE.Vector2(R, 0), new THREE.Vector2(R, BASE)];
+  for (let r = 0; r < ROWS; r++) {
+    prof.push(new THREE.Vector2(R + .3 + r * STEP, BASE + r * RISE));
+    prof.push(new THREE.Vector2(R + .3 + r * STEP, BASE + (r + 1) * RISE));
+  }
+  const outer = R + .3 + ROWS * STEP;
+  prof.push(new THREE.Vector2(outer, BASE + ROWS * RISE + 1.4), new THREE.Vector2(outer + .4, BASE + ROWS * RISE + 1.4), new THREE.Vector2(outer + .4, 0));
+  const stands = new THREE.Mesh(new THREE.LatheGeometry(prof, 128), new THREE.MeshStandardMaterial({ color: '#9aa3ad', roughness: .9, side: THREE.DoubleSide }));
+  g.add(stands);
+  // fans: one body + one head per seat (instanced so it stays fast)
+  const seats = [];
+  for (let r = 0; r < ROWS; r++) {
+    const rad = R + .3 + r * STEP + STEP * .55, n = Math.floor(Math.PI * 2 * rad / .95);
+    for (let i = 0; i < n; i++) {
+      if (i % 26 < 2 || Math.random() < .22) continue;        // aisles and empty seats
+      const a = i / n * Math.PI * 2;
+      seats.push({ x: Math.cos(a) * rad, z: Math.sin(a) * rad, y: BASE + r * RISE, a, ph: Math.random() * 6.28, sp: 4 + Math.random() * 6, jump: Math.random() < .35 });
+    }
+  }
+  const shirts = ['#d62828', '#1565c0', '#ffd60a', '#1d7a2e', '#ff8c1a', '#7b2cbf', '#ffffff', '#222222', '#e91e63', '#00acc1'];
+  const skins = ['#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#ffdbac', '#a0522d'];
+  const bodies = new THREE.InstancedMesh(new THREE.BoxGeometry(.55, .85, .4), new THREE.MeshStandardMaterial({ roughness: .8 }), seats.length);
+  const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(.21, 10, 8), new THREE.MeshStandardMaterial({ roughness: .8 }), seats.length);
+  const col = new THREE.Color(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  seats.forEach((s, i) => {
+    s.q = new THREE.Quaternion().setFromAxisAngle(up, -s.a + Math.PI / 2 + Math.PI);   // face the middle
+    bodies.setColorAt(i, col.set(shirts[i % shirts.length]));
+    heads.setColorAt(i, col.set(skins[(i * 7) % skins.length]));
+  });
+  g.add(bodies, heads);
+  function place(t) {
+    seats.forEach((s, i) => {
+      const hop = s.jump ? Math.max(0, Math.sin(t * s.sp + s.ph)) * .35 : Math.abs(Math.sin(t * s.sp * .5 + s.ph)) * .06;
+      m.compose(pos.set(s.x, s.y + .43 + hop, s.z), s.q, one); bodies.setMatrixAt(i, m);
+      m.compose(pos.set(s.x, s.y + 1.07 + hop, s.z), s.q, one); heads.setMatrixAt(i, m);
+    });
+    bodies.instanceMatrix.needsUpdate = true; heads.instanceMatrix.needsUpdate = true;
+  }
+  place(0);
+  // light towers
+  const pole = std('#777', { metalness: .6 }), lamp = std('#fffbe0', { emissive: '#fff3b0', emissiveIntensity: .8 });
+  for (let k = 0; k < 6; k++) {
+    const a = k / 6 * Math.PI * 2 + .3, rr = outer + 2;
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(.25, .35, 24, 8), pole); p.position.set(Math.cos(a) * rr, 12, Math.sin(a) * rr); g.add(p);
+    const l = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.6, .5), lamp); l.position.set(Math.cos(a) * rr, 24.5, Math.sin(a) * rr); l.lookAt(0, 0, 0); g.add(l);
+  }
+  let last = 0;
+  g.userData.update = t => { if (t - last > 1 / 30) { last = t; place(t); } };   // cheer at 30 fps to save battery
   return g;
 }
