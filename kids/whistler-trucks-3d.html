@@ -101,7 +101,9 @@ TRUCKS.forEach((t, i) => {
   b.onclick = () => show(i);
   pick.appendChild(b);
 });
+let curIdx = 0;
 function show(i) {
+  curIdx = i;
   if (current) scene.remove(current);
   current = trucks[i]; current.position.y = 3; current.userData.drop = 0;
   scene.add(current);
@@ -141,6 +143,9 @@ const TH = Math.atan(RAMP_H / RAMP_L), VX = 15, G = 20, VY = VX * Math.tan(TH);
 const T_GROUND = 1.0, T_RAMP = RAMP_L / VX, T_AIR = 2 * LAUNCH / VX, T_RUN = 1.5;
 const START_X = -LAUNCH - RAMP_L - VX * T_GROUND;
 let stunt = null, stuntSet = null;
+// two lanes: the truck you picked drives the near lane, a buddy truck (the next one in the list) races the far lane
+const LANE = 3.2, BUDDY_LAG = .18;
+let buddy = null, smoke2 = null;
 
 /* ---------- dirt track for the jump and the crush ----------
    72 long, 14 wide: room for the ramps, buses and cars, and two monster trucks side by side.
@@ -203,10 +208,12 @@ function buildStuntSet() {
   const rampMat = std('#8a8a8a', { metalness: .5, roughness: .4 });
   const stripe = std('#ffd60a');
   const wedge = pts => { const m = mesh(new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(p => new THREE.Vector2(...p))), { depth: 3.4, bevelEnabled: false }), rampMat); m.position.z = -1.7; return m; };
-  g.add(wedge([[-LAUNCH - RAMP_L, 0], [-LAUNCH, 0], [-LAUNCH, RAMP_H]]));
-  g.add(wedge([[LAUNCH, RAMP_H], [LAUNCH, 0], [LAUNCH + RAMP_L, 0]]));
-  [-1, 1].forEach(s => { const lip = mesh(new THREE.BoxGeometry(.12, .1, 3.45), stripe); lip.position.set(s * LAUNCH, RAMP_H, 0); g.add(lip); });
-  [-3.6, -1.2, 1.2, 3.6].forEach(x => { const b = schoolBus(); b.position.x = x; g.add(b); });
+  [-LANE, LANE].forEach(z => {                  // ramps and a row of buses in each lane
+    const up = wedge([[-LAUNCH - RAMP_L, 0], [-LAUNCH, 0], [-LAUNCH, RAMP_H]]), down = wedge([[LAUNCH, RAMP_H], [LAUNCH, 0], [LAUNCH + RAMP_L, 0]]);
+    up.position.z = down.position.z = z - 1.7; g.add(up, down);
+    [-1, 1].forEach(s => { const lip = mesh(new THREE.BoxGeometry(.12, .1, 3.45), stripe); lip.position.set(s * LAUNCH, RAMP_H, z); g.add(lip); });
+    [-3.6, -1.2, 1.2, 3.6].forEach(x => { const b = schoolBus(); b.position.set(x, 0, z + .55); g.add(b); });
+  });
   return g;
 }
 
@@ -243,12 +250,15 @@ function startJump(kind = 'jump') {
   ctl.enabled = true; ctl.autoRotate = false;   // drag to look around the truck while it plays
   current.userData.drop = 1;
   stunt = { kind, set, tau: -0.9, landed: false, snap: true };
+  buddy = trucks[(curIdx + 1) % trucks.length]; buddy.position.set(0, 0, -LANE); buddy.rotation.set(0, 0, 0); scene.add(buddy);
+  smoke2 = smoke2 || new Exhaust(scene);
   if (wh) { wh = null; stopEngine(); }
   startEngine();
 }
 
 function endJump() {
   scene.remove(stunt.set); ring.visible = true;
+  if (buddy) { scene.remove(buddy); buddy = null; }
   scene.fog.near = 60; scene.fog.far = 170;
   Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); sun.shadow.camera.updateProjectionMatrix();
   current.position.set(0, 0, 0); current.rotation.set(0, 0, 0);
@@ -259,43 +269,46 @@ function endJump() {
   stopEngine(); stunt = null;
 }
 
-function stuntStep(dt) {
-  const s = stunt;
+// where a truck is at time tau in the jump (k keeps each truck's own landing thud)
+function jumpPose(tau, s, k) {
   const t1 = T_GROUND, t2 = t1 + T_RAMP, t3 = t2 + T_AIR, t4 = t3 + T_RAMP, t5 = t4 + T_RUN;
-  const inAir = s.tau > t2 && s.tau < t3;
-  const scale = inAir ? .38 : 1;                      // slow motion over the buses
-  s.tau += dt * scale;
-  const tau = s.tau;
-  let x, y = 0, pitch = 0, speed = VX;
-  if (tau < 0) { x = START_X; speed = 0; y = Math.abs(Math.sin(tau * 40)) * .03; engineRev(55); }
-  else if (tau < t1) { x = START_X + VX * tau; engineRev(70); }
-  else if (tau < t2) { x = START_X + VX * tau; y = (x - (-LAUNCH - RAMP_L)) * Math.tan(TH); pitch = TH; engineRev(85); }
-  else if (tau < t3) {
-    const ta = tau - t2; x = -LAUNCH + VX * ta; y = RAMP_H + VY * ta - G * ta * ta / 2;
-    pitch = Math.atan2(VY - G * ta, VX); engineRev(95);
-    if (ta > T_AIR * .25) document.getElementById('banner').classList.add('show');
-  }
-  else if (tau < t4) {
-    if (!s.landed) { s.landed = true; thud(); }
-    x = LAUNCH + VX * (tau - t3); y = RAMP_H - (x - LAUNCH) * Math.tan(TH); pitch = -TH; engineRev(60);
-  }
+  let x, y = 0, pitch = 0, speed = VX, inAir = false, rev = 45;
+  if (tau < 0) { x = START_X; speed = 0; y = Math.abs(Math.sin(tau * 40)) * .03; rev = 55; }
+  else if (tau < t1) { x = START_X + VX * tau; rev = 70; }
+  else if (tau < t2) { x = START_X + VX * tau; y = (x - (-LAUNCH - RAMP_L)) * Math.tan(TH); pitch = TH; rev = 85; }
+  else if (tau < t3) { const ta = tau - t2; x = -LAUNCH + VX * ta; y = RAMP_H + VY * ta - G * ta * ta / 2; pitch = Math.atan2(VY - G * ta, VX); inAir = true; rev = 95; }
+  else if (tau < t4) { if (k !== null && !s['landed' + k]) { s['landed' + k] = true; thud(); } x = LAUNCH + VX * (tau - t3); y = RAMP_H - (x - LAUNCH) * Math.tan(TH); pitch = -TH; rev = 60; }
   else if (tau < t5) {
     const tr = tau - t4, a = VX / T_RUN;
     x = LAUNCH + RAMP_L + VX * tr - a * tr * tr / 2; speed = VX - a * tr;
     y = .35 * Math.exp(-5 * tr) * Math.abs(Math.sin(tr * 11));
-    pitch = -.08 * Math.exp(-4 * tr) * Math.sin(tr * 11); engineRev(45);
+    pitch = -.08 * Math.exp(-4 * tr) * Math.sin(tr * 11);
   }
-  else { x = LAUNCH + RAMP_L + VX * T_RUN / 2; speed = 0; if (tau > t5 + 1.4) return endJump(); }
-
-  current.position.set(x, y, 0);
-  current.rotation.set(0, 0, pitch);
-  if (!inAir && speed > 0) { const b = bump(s.tau, true); current.position.y += b.y; current.rotation.x = b.rx; current.rotation.z += b.rz; }   // bump along
-  current.userData.wheels.forEach(w => w.rotation.z -= dt * scale * speed / TIRE_R);
+  else { x = LAUNCH + RAMP_L + VX * T_RUN / 2; speed = 0; }
+  return { x, y, pitch, speed, inAir, rev, airT: inAir ? tau - t2 : -1, done: tau > t5 + 1.4 };
+}
+function poseTruck(truck, p, z, dt, scale, tau) {
+  truck.position.set(p.x, p.y, z);
+  truck.rotation.set(0, 0, p.pitch);
+  if (!p.inAir && p.speed > 0) { const b = bump(tau, true); truck.position.y += b.y; truck.rotation.x = b.rx; truck.rotation.z += b.rz; }   // bump along
+  truck.userData.wheels.forEach(w => w.rotation.z -= dt * scale * p.speed / TIRE_R);
+}
+function stuntStep(dt) {
+  const s = stunt;
+  const scale = jumpPose(s.tau, s, null).inAir ? .38 : 1;     // slow motion over the buses
+  s.tau += dt * scale;
+  const a = jumpPose(s.tau, s, ''), b = jumpPose(s.tau - BUDDY_LAG, s, '2');   // your truck, and the buddy a split second behind
+  if (a.done && b.done) return endJump();
+  engineRev(a.rev);
+  if (a.airT > T_AIR * .25) document.getElementById('banner').classList.add('show');
+  poseTruck(current, a, LANE, dt, scale, s.tau);
+  if (buddy) poseTruck(buddy, b, -LANE, dt, scale, s.tau + 7);
+  const x = a.x, y = a.y;
   sun.position.set(x + 5, 9, 4); sun.target.position.set(x, 0, 0);
 
-  // chase camera from the side
-  const zoff = 15 * Math.max(1, .85 / cam.aspect);   // back up on narrow phone screens
-  const want = new THREE.Vector3(x - 5, 4.2 + y * .4 + (zoff - 15) * .15, zoff), look = new THREE.Vector3(x + 1.5, 1.8 + y * .5, 0);
+  // chase camera from the side, far enough back to see both lanes
+  const zoff = 16 * Math.max(1, .85 / cam.aspect);   // back up on narrow phone screens
+  const want = new THREE.Vector3(x - 5, 4.6 + y * .4 + (zoff - 16) * .15, zoff), look = new THREE.Vector3(x + 1.5, 1.8 + y * .5, 0);
   followCam(s, want, look);
 }
 // The camera rides along with the truck; dragging turns it around the truck (kept until the stunt ends).
@@ -314,23 +327,18 @@ const CAR_COLORS = ['#e53935', '#1e63d6', '#fdd835', '#2e9e44', '#8e44ad', '#fb8
 function buildCrushSet() {
   const g = new THREE.Group();
   g.add(dirtTrack());
-  const colors = [...CAR_COLORS].sort(() => Math.random() - .5);
-  g.userData.cars = CRUSH_X.map((x, i) => {
-    const c = car3d(colors[i % colors.length]); c.position.set(x, 0, 0); c.rotation.y = Math.PI / 2; c.userData.crush = 0; c.userData.hit = false;   // sideways across the path
-    c.userData.tilt = (Math.random() - .5) * .25; g.add(c); return c;
+  // a row of cars in each lane: [your lane, buddy's lane]
+  g.userData.lanes = [LANE, -LANE].map(z => {
+    const colors = [...CAR_COLORS].sort(() => Math.random() - .5);
+    return CRUSH_X.map((x, i) => {
+      const c = car3d(colors[i % colors.length]); c.position.set(x, 0, z); c.rotation.y = Math.PI / 2; c.userData.crush = 0; c.userData.hit = false;   // sideways across the path
+      c.userData.tilt = (Math.random() - .5) * .25; g.add(c); return c;
+    });
   });
   return g;
 }
-function crushStep(dt) {
-  const s = stunt, cars = s.set.userData.cars;
-  s.tau += dt;
-  const runT = (CRUSH_END - CRUSH_START) / CRUSH_V;
-  let x, speed = CRUSH_V;
-  if (s.tau < 0) { x = CRUSH_START; speed = 0; engineRev(55); }
-  else if (s.tau < runT) { x = CRUSH_START + CRUSH_V * s.tau; engineRev(75); }
-  else { x = CRUSH_END; speed = 0; engineRev(45); if (s.tau > runT + 1.6) return endJump(); }
-
-  // squash each car when the front tires reach it
+// one truck driving over its lane of cars: squash each car when the front tires reach it, ride up on top of them
+function rideCars(truck, x, speed, cars, st, dt, tau, z) {
   let crushed = 0;
   cars.forEach(c => {
     const u = c.userData;
@@ -341,24 +349,36 @@ function crushStep(dt) {
     c.rotation.z = u.tilt * k;
     if (u.crush >= 1) crushed++;
   });
-  if (crushed === cars.length) document.getElementById('banner').classList.add('show');
-
-  // ride up on whatever is under the front and back tires
   const topAt = wx => { let h = 0; cars.forEach(c => { if (Math.abs(wx - c.position.x) < CAR_HALF + .15) h = Math.max(h, 1.15 * c.scale.y); }); return h; };
   const hf = topAt(x + 1.2), hr = topAt(x - 1.2);
   const wantY = (hf + hr) / 2, wantP = Math.atan2(hf - hr, 2.4);
   const k = 1 - Math.exp(-dt * 16);
-  s.y = (s.y ?? 0) + (wantY - (s.y ?? 0)) * k;
-  s.p = (s.p ?? 0) + (wantP - (s.p ?? 0)) * k;
-  const shake = speed ? Math.sin(s.tau * 50) * .02 : 0;
-  current.position.set(x, s.y + Math.abs(shake), 0);
-  current.rotation.set(shake * .5, 0, s.p);
-  if (speed) { const b = bump(s.tau, true); current.position.y += b.y * .7; current.rotation.x += b.rx; current.rotation.z += b.rz; }
-  current.userData.wheels.forEach(w => w.rotation.z -= dt * speed / TIRE_R);
+  st.y = (st.y ?? 0) + (wantY - (st.y ?? 0)) * k;
+  st.p = (st.p ?? 0) + (wantP - (st.p ?? 0)) * k;
+  const shake = speed ? Math.sin(tau * 50) * .02 : 0;
+  truck.position.set(x, st.y + Math.abs(shake), z);
+  truck.rotation.set(shake * .5, 0, st.p);
+  if (speed) { const b = bump(tau, true); truck.position.y += b.y * .7; truck.rotation.x += b.rx; truck.rotation.z += b.rz; }
+  truck.userData.wheels.forEach(w => w.rotation.z -= dt * speed / TIRE_R);
+  return crushed;
+}
+function crushStep(dt) {
+  const s = stunt, [mine, theirs] = s.set.userData.lanes;
+  s.tau += dt;
+  const runT = (CRUSH_END - CRUSH_START) / CRUSH_V;
+  if (s.tau > runT + BUDDY_LAG + 1.6) return endJump();
+  const xAt = tau => tau < 0 ? CRUSH_START : tau < runT ? CRUSH_START + CRUSH_V * tau : CRUSH_END;
+  const spAt = tau => tau >= 0 && tau < runT ? CRUSH_V : 0;
+  engineRev(s.tau < 0 ? 55 : s.tau < runT ? 75 : 45);
+  s.a = s.a || {}; s.b = s.b || {};
+  const x = xAt(s.tau);
+  let crushed = rideCars(current, x, spAt(s.tau), mine, s.a, dt, s.tau, LANE);
+  if (buddy) crushed += rideCars(buddy, xAt(s.tau - BUDDY_LAG), spAt(s.tau - BUDDY_LAG), theirs, s.b, dt, s.tau + 3, -LANE);
+  if (crushed === mine.length + (buddy ? theirs.length : 0)) document.getElementById('banner').classList.add('show');
   sun.position.set(x + 5, 9, 4); sun.target.position.set(x, 0, 0);
 
-  const zoff = 13 * Math.max(1, .85 / cam.aspect);
-  const want = new THREE.Vector3(x - 4, 3.6 + (zoff - 13) * .15, zoff), look = new THREE.Vector3(x + 1.5, 1.2, 0);
+  const zoff = 15 * Math.max(1, .85 / cam.aspect);   // far enough back to see both lanes
+  const want = new THREE.Vector3(x - 4, 4.2 + (zoff - 15) * .15, zoff), look = new THREE.Vector3(x + 1.5, 1.2, 0);
   followCam(s, want, look);
 }
 
@@ -367,7 +387,7 @@ const clock = new THREE.Clock();
 function loop() {
   const dt = Math.min(clock.getDelta(), .12), t = clock.elapsedTime;
   arena.userData.update(t);
-  if (stunt) { (stunt.kind === 'crush' ? crushStep : stuntStep)(dt); smoke.update(dt, current, 24); ren.render(scene, cam); requestAnimationFrame(loop); return; }
+  if (stunt) { (stunt.kind === 'crush' ? crushStep : stuntStep)(dt); smoke.update(dt, current, 24); if (buddy && smoke2) smoke2.update(dt, buddy, 24); ren.render(scene, cam); requestAnimationFrame(loop); return; }
   if (current) {
     // drop in with a bounce, then idle with a little engine shake
     const u = current.userData;
