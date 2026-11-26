@@ -67,6 +67,12 @@
 </div></div>
 <div id="banner">BIG JUMP!</div>
 
+<script>
+// Whistler's recorded voice lines (made with the ⚙️ recorder on the game home screen) play here too
+window.KID_VOICE_CONFIG = { activeKey: 'trucksActive', profilesKey: 'trucksProfiles', share: false, lines: [] };
+try { localStorage.setItem('trucksProfiles', JSON.stringify([{ id: 'whistler', name: 'Whistler' }])); localStorage.setItem('trucksActive', 'whistler'); } catch (e) {}
+</script>
+<script src="voice.js?v=6"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from "three";
@@ -160,7 +166,7 @@ let wh = null;
 const WH_T = 2.2, WH_UP = .35, WH_DOWN = .4, WH_MAX = .55, AXLE_X = 1.2;
 document.getElementById('wheelie').onclick = () => {
   if (wh || stunt || !current) return;
-  wh = { t: 0 }; startEngine(); engineRev(95);
+  wh = { t: 0 }; startEngine(); engineRev(95); sayVO('wheelie');
 };
 
 
@@ -327,7 +333,7 @@ function stuntStep(dt) {
   const a = jumpPose(s.tau, s, ''), b = jumpPose(s.tau - BUDDY_LAG, s, '2');   // your truck, and the buddy a split second behind
   if (a.done && b.done) return endJump();
   engineRev(a.rev);
-  if (a.airT > T_AIR * .25) document.getElementById('banner').classList.add('show');
+  if (a.airT > T_AIR * .25) { document.getElementById('banner').classList.add('show'); if (!s.said) { s.said = 1; sayVO('big_jump'); } }
   poseTruck(current, a, LANE, dt, scale, s.tau);
   if (buddy) poseTruck(buddy, b, -LANE, dt, scale, s.tau + 7);
   const x = a.x, y = a.y;
@@ -401,12 +407,26 @@ function crushStep(dt) {
   const x = xAt(s.tau);
   let crushed = rideCars(current, x, spAt(s.tau), mine, s.a, dt, s.tau, LANE);
   if (buddy) crushed += rideCars(buddy, xAt(s.tau - BUDDY_LAG), spAt(s.tau - BUDDY_LAG), theirs, s.b, dt, s.tau + 3, -LANE);
-  if (crushed === mine.length + (buddy ? theirs.length : 0)) document.getElementById('banner').classList.add('show');
+  if (crushed === mine.length + (buddy ? theirs.length : 0)) { document.getElementById('banner').classList.add('show'); if (!s.said) { s.said = 1; sayVO('crush'); } }
   sun.position.set(x + 5, 9, 4); sun.target.position.set(x, 0, 0);
 
   const zoff = 15 * Math.max(1, .85 / cam.aspect);   // far enough back to see both lanes
   const want = new THREE.Vector3(x - 4, 4.2 + (zoff - 15) * .15, zoff), look = new THREE.Vector3(x + 1.5, 1.2, 0);
   followCam(s, want, look);
+}
+
+/* ---------- voiceovers: the recorded line if there is one, otherwise the device voice ---------- */
+const slugName = n => n.toLowerCase().replace(/[^a-z]+/g, '_');
+const VO = { race_pick: 'Pick your racers!', race_3: 'Three!', race_2: 'Two!', race_1: 'One!', race_go: 'Go!', big_jump: 'Big jump! Monster truck jump!', crush: 'Crushed!', wheelie: 'Wheelie!' };
+TRUCKS.forEach(t => { VO['race_win_' + slugName(t.name)] = t.name + ' wins!'; });
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1; u.pitch = 1.1; speechSynthesis.speak(u); } catch (e) {}
+}
+function sayVO(key) {
+  const text = VO[key] || key;
+  try { if (window.KidVoice && KidVoice.has(key)) { KidVoice.play([key]).then(ok => { if (!ok) speak(text); }); return; } } catch (e) {}
+  speak(text);
 }
 
 /* ---------- race: oval dirt track, pick the trucks, random winner ---------- */
@@ -484,8 +504,8 @@ function startRace(list) {
 function raceStep(dt) {
   const R0 = race, ban = document.getElementById('banner');
   R0.t += dt;
-  if (R0.t < 0) { const c = Math.ceil(-R0.t); if (c <= 3 && ban.textContent !== String(c)) { ban.textContent = String(c); ban.classList.add('show'); engineRev(50 + (3 - c) * 12); } }
-  else if (!R0.go) { R0.go = true; ban.textContent = 'GO!'; ban.classList.add('show'); engineRev(90); setTimeout(() => { if (race && !race.shown) ban.classList.remove('show'); }, 900); }
+  if (R0.t < 0) { const c = Math.ceil(-R0.t); if (c <= 3 && ban.textContent !== String(c)) { ban.textContent = String(c); ban.classList.add('show'); engineRev(50 + (3 - c) * 12); sayVO('race_' + c); } }
+  else if (!R0.go) { R0.go = true; ban.textContent = 'GO!'; ban.classList.add('show'); engineRev(90); sayVO('race_go'); setTimeout(() => { if (race && !race.shown) ban.classList.remove('show'); }, 900); }
   let lead = R0.racers[0], allDone = true;
   R0.racers.forEach(r => {
     const u = Math.max(0, Math.min(1, R0.t / r.T));
@@ -501,7 +521,7 @@ function raceStep(dt) {
     if (r.s > lead.s) lead = r;
   });
   const w = R0.racers[R0.win];
-  if (w.done && !R0.shown) { R0.shown = true; ban.textContent = '🏆 ' + TRUCKS[w.ti].name.toUpperCase() + ' WINS!'; ban.classList.add('show'); thud(); engineRev(60); }
+  if (w.done && !R0.shown) { R0.shown = true; ban.textContent = '🏆 ' + TRUCKS[w.ti].name.toUpperCase() + ' WINS!'; ban.classList.add('show'); thud(); engineRev(60); sayVO('race_win_' + slugName(TRUCKS[w.ti].name)); }
   if (allDone && R0.t > Math.max(...R0.racers.map(r => r.T)) + 3) return endRace();
   // the camera follows the leader (the winner once they cross the line); drag to look around
   const f = R0.shown ? w : lead, look = new THREE.Vector3(f.truck.position.x, 1.5, f.truck.position.z);
@@ -526,7 +546,7 @@ document.getElementById('race').onclick = () => {
   if (stunt || race) return;
   rpSel = [curIdx, (curIdx + 1) % TRUCKS.length];
   rpList.innerHTML = TRUCKS.map((t, i) => `<button data-i="${i}" style="background:${t.body}">${t.name}</button>`).join('');
-  drawRp(); rp.classList.add('on');
+  drawRp(); rp.classList.add('on'); sayVO('race_pick');
 };
 rpList.onclick = e => { const b = e.target.closest('button'); if (!b) return; const i = +b.dataset.i; rpSel = rpSel.includes(i) ? rpSel.filter(x => x !== i) : [...rpSel, i]; drawRp(); };
 rpGo.onclick = () => { if (rpSel.length < 2) return; rp.classList.remove('on'); startRace(rpSel.slice().sort((a, b) => a - b)); };

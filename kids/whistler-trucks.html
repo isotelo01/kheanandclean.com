@@ -562,7 +562,10 @@ buildHome();
 </script>
 <script>
 // Kid voice recordings for this game: same system as Unicorn Math (voice.js), with this game's own lines.
-const VOICE_GROUPS = [['Start', /^(welcome|pick_|lets_go)/], ['Great job', /^great_/], ['Try again', /^try_/], ['Big jump', /^big_jump/],
+// race and stunt lines, played on the 3D truck page (same recordings)
+Object.assign(LINES, { race_pick: 'Pick your racers!', race_3: 'Three!', race_2: 'Two!', race_1: 'One!', race_go: 'Go!', crush: 'Crushed!', wheelie: 'Wheelie!' });
+TRUCKS.forEach(t => { LINES['race_win_' + t.name.toLowerCase().replace(/[^a-z]+/g, '_')] = t.name + ' wins!'; });
+const VOICE_GROUPS = [['Start', /^(welcome|pick_|lets_go)/], ['Great job', /^great_/], ['Try again', /^try_/], ['Stunts', /^(big_jump|crush|wheelie)/], ['Race', /^race_/],
   ['Colors', /^color_/], ['Count', /^count_/], ['Numbers', /^num_/], ['Letters', /^letter_/], ['Letter sounds', /^sound_/], ['Adding', /^add_/]];
 window.KID_VOICE_CONFIG = {
   activeKey: 'trucksActive', profilesKey: 'trucksProfiles', share: false,
