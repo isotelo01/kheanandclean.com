@@ -81,6 +81,11 @@
   .hop { animation: hop .5s ease-out; }
   @keyframes hop { 40% { transform: translateY(-18%); } }
 
+  .item.walk .in { animation: waddle .46s ease-in-out infinite; }
+  @keyframes waddle { 0%,100% { transform: rotate(-7deg); } 25% { transform: translateY(-7%); } 50% { transform: rotate(7deg); } 75% { transform: translateY(-7%); } }
+  .item.enter .in { animation: enter .7s ease-in forwards; }
+  @keyframes enter { to { transform: translateY(-8%) scale(.25); opacity: 0; } }
+  .walkline { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 99998; }
   .fx { position: absolute; pointer-events: none; font-size: 26px; z-index: 9999; animation: fx 1s ease-out forwards; }
   @keyframes fx { from { opacity: 1; transform: translate(-50%,-50%) scale(.6); } to { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.3); } }
 
@@ -139,7 +144,7 @@
   <div class="stars">★ ★ ★</div>
   <div class="heroes"><div class="m" id="hMolly"></div><div class="p" id="hPippi"></div></div>
   <div class="sign">
-    <button style="background:#5fbf5f" data-go="land"><span class="e">🌸</span>My Land</button>
+    <button style="background:#5fbf5f" data-go="land"><span class="e">🌸</span>Wonderland</button>
     <button style="background:#d65db1" data-go="castle"><span class="e">🏰</span>Castle</button>
     <button style="background:#a24bd1" data-go="dress"><span class="e">👗</span>Dress Up</button>
   </div>
@@ -149,7 +154,7 @@
 <section class="screen" id="land">
   <div class="bar">
     <button class="rb" data-go="home">⬅️</button>
-    <h2>My Land</h2>
+    <h2>Wonderland</h2>
     <button class="rb" id="landSky">🌗</button>
     <button class="rb wandBtn">🪄</button>
   </div>
@@ -234,7 +239,8 @@ const snd = {
   sparkle: () => [1047, 1319, 1568, 2093, 1568, 2093].forEach((f, i) => tone(f, i * .06, .25, 'sine', .09)),
   chirp: () => { tone(1800, 0, .08, 'sine', .14, 2600); tone(1900, .12, .08, 'sine', .14, 2800); },
   giggle: () => [660, 880, 740, 990].forEach((f, i) => tone(f, i * .08, .12, 'triangle', .12)),
-  trash: () => tone(400, 0, .25, 'sawtooth', .07, 120)
+  trash: () => tone(400, 0, .25, 'sawtooth', .07, 120),
+  step: () => tone(240, 0, .05, 'triangle', .07)
 };
 
 /* ---------- sparkles ---------- */
@@ -286,6 +292,8 @@ function art(k) {
 function icon(k) { const c = CAT[k]; return c.e ? c.e : (c.molly ? A.molly(S.outfit) : c.pippi ? A.pippi(S.pippiOutfit) : A.PIECES[c.p]); }
 
 /* ---------- scenes ---------- */
+const FLAT = { rug: 1, pond: 1 }; // lie on the floor, always behind standing things
+const zOf = it => it.z != null ? 1000 + it.z : FLAT[it.k] ? 1 : Math.round(it.y * 10);
 const wandOn = { v: false };
 let sel = null; // {scene, item, el}
 const selbar = $('#selbar');
@@ -297,7 +305,7 @@ function makeScene(name, el, tabsEl, rowEl, tabs) {
     list.forEach(it => el.appendChild(itemEl(it)));
     order();
   }
-  function order() { [...el.querySelectorAll('.item')].forEach(n => { n.style.zIndex = n._it.z != null ? 1000 + n._it.z : Math.round(n._it.y * 10); }); }
+  function order() { [...el.querySelectorAll('.item')].forEach(n => { n.style.zIndex = zOf(n._it); }); }
   function itemEl(it) {
     const n = document.createElement('div'); n.className = 'item' + (it.f ? ' flip' : ''); n._it = it;
     n.innerHTML = '<div class="in">' + art(it.k) + '</div>';
@@ -316,16 +324,66 @@ function makeScene(name, el, tabsEl, rowEl, tabs) {
       const dx = ev.clientX - sx, dy = ev.clientY - sy;
       if (!moved && Math.hypot(dx, dy) < 8) return;
       moved = true;
+      if (walker(n)) { if (!n._walking) line(n._it.x, n._it.y, (ev.clientX - n._r.left) / n._r.width * 100, (ev.clientY - n._r.top) / n._r.height * 100); return; }
       n._it.x = Math.max(0, Math.min(100, ox + dx / n._r.width * 100));
       n._it.y = Math.max(5, Math.min(100, oy + dy / n._r.height * 100));
-      place(n); if (n._it.z == null) n.style.zIndex = Math.round(n._it.y * 10);
+      place(n); n.style.zIndex = zOf(n._it);
     });
     const up = ev => {
       if (ev.pointerId !== id || sx == null) return; sx = null;
+      if (moved && walker(n)) { if (n._walking) { line(); return; } walkMolly(n, ev.clientX, ev.clientY); return; }
       if (moved) { save(); select(n); return; }
       tapItem(n);
     };
     n.addEventListener('pointerup', up); n.addEventListener('pointercancel', up);
+  }
+  /* Molly walks where you drag (Wonderland only); Pippi follows; walking into the castle goes inside */
+  const walker = n => name === 'land' && n._it.k === 'molly' && !wandOn.v;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  let lineEl = null;
+  function line(x1, y1, x2, y2) {
+    if (x1 == null) { if (lineEl) lineEl.remove(); lineEl = null; return; }
+    if (!lineEl) { lineEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); lineEl.setAttribute('class', 'walkline'); el.appendChild(lineEl); }
+    const r = el.getBoundingClientRect(), X = v => v / 100 * r.width, Y = v => v / 100 * r.height;
+    lineEl.setAttribute('viewBox', '0 0 ' + r.width + ' ' + r.height);
+    lineEl.innerHTML = '<line x1="' + X(x1) + '" y1="' + Y(y1) + '" x2="' + X(x2) + '" y2="' + Y(y2) + '" stroke="#fff" stroke-width="7" stroke-dasharray="2 14" stroke-linecap="round"/>' +
+      '<line x1="' + X(x1) + '" y1="' + Y(y1) + '" x2="' + X(x2) + '" y2="' + Y(y2) + '" stroke="#d65db1" stroke-width="4" stroke-dasharray="2 14" stroke-linecap="round"/>' +
+      '<circle cx="' + X(x2) + '" cy="' + Y(y2) + '" r="11" fill="#ff6fb1" stroke="#fff" stroke-width="4"/>';
+  }
+  function walkTo(n, tx, ty) {
+    return new Promise(res => {
+      const it = n._it, sx = it.x, sy = it.y, r = el.getBoundingClientRect();
+      const dist = Math.hypot((tx - sx) * r.width / 100, (ty - sy) * r.height / 100);
+      const dur = Math.max(350, dist / 150 * 1000), t0 = performance.now(); let step = 0;
+      n.classList.add('walk');
+      (function f(now) {
+        const k = Math.min(1, (now - t0) / dur);
+        it.x = sx + (tx - sx) * k; it.y = sy + (ty - sy) * k; place(n);
+        n.style.zIndex = zOf(it);
+        if (now - step > 230) { step = now; snd.step(); }
+        if (k < 1) requestAnimationFrame(f); else { n.classList.remove('walk'); res(); }
+      })(t0);
+    });
+  }
+  async function walkMolly(n, cx, cy) {
+    n._walking = true;
+    const r = el.getBoundingClientRect();
+    let tx = Math.max(2, Math.min(98, (cx - r.left) / r.width * 100)), ty = Math.max(30, Math.min(100, (cy - r.top) / r.height * 100));
+    const items = [...el.querySelectorAll('.item')];
+    const castle = items.find(c => { if (c._it.k !== 'castle') return false; const b = c.getBoundingClientRect(); return cx >= b.left && cx <= b.right && cy >= b.top && cy <= b.bottom; });
+    if (castle) { tx = castle._it.x; ty = castle._it.y; }
+    line(n._it.x, n._it.y, tx, ty);
+    const pip = items.find(c => c._it.k === 'pippi' && !c._walking);
+    const back = tx >= n._it.x ? -7 : 7;
+    let pw = Promise.resolve();
+    if (pip) { pip._walking = true; pw = wait(350).then(() => walkTo(pip, castle ? tx : Math.max(2, Math.min(98, tx + back)), castle ? ty : Math.min(100, ty + 2))); }
+    await walkTo(n, tx, ty); line();
+    if (!castle) { await pw; n._walking = false; if (pip) pip._walking = false; save(); return; }
+    n.classList.add('enter'); snd.sparkle(); await pw;
+    if (pip) { pip.classList.add('enter'); snd.chirp(); }
+    await wait(700);
+    n._walking = false; if (pip) pip._walking = false; save();
+    enterCastle(!!pip);
   }
   function tapItem(n) {
     const k = n._it.k, r = el.getBoundingClientRect(), b = n.getBoundingClientRect();
@@ -374,6 +432,7 @@ function makeScene(name, el, tabsEl, rowEl, tabs) {
     snd.pop(); const n = add(b.dataset.k, null, null, true); select(n);
   });
   function api() {}
+  api.walkTo = (...a) => walkTo(...a);
   api.draw = draw; api.place = place; api.order = order; api.list = list; api.el = el; api.tray = tray; api.name = name;
   return api;
 }
@@ -400,6 +459,20 @@ selbar.addEventListener('click', ev => {
 
 const landS = makeScene('land', $('#landScene'), $('#landTabs'), $('#landRow'), LAND_TABS);
 const castleS = makeScene('castle', $('#castleScene'), $('#castleTabs'), $('#castleRow'), CASTLE_TABS);
+
+async function enterCastle(withPippi) {
+  go('castle');
+  const L = castleS.list, wanted = withPippi ? ['molly', 'pippi'] : ['molly'];
+  wanted.forEach(k => { if (!L.some(i => i.k === k)) L.push({ k, x: 50, y: 90, s: 1 }); });
+  castleS.draw();
+  const els = [...castleS.el.querySelectorAll('.item')];
+  const m = els.find(e => e._it.k === 'molly'), p = withPippi && els.find(e => e._it.k === 'pippi');
+  [[m, 50], [p, 58]].forEach(([e, sx]) => { if (e) { e._it.x = sx; e._it.y = 100; castleS.place(e); } });
+  const pw = p ? new Promise(r => setTimeout(r, 400)).then(() => castleS.walkTo(p, 58, 92)) : null;
+  await castleS.walkTo(m, 47, 87);
+  if (pw) await pw;
+  snd.giggle(); save();
+}
 
 /* sky + wall */
 const SKIES = ['', 'sunset', 'night'];
