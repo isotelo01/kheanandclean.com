@@ -505,7 +505,8 @@ function raceStep(dt) {
   if (allDone && R0.t > Math.max(...R0.racers.map(r => r.T)) + 3) return endRace();
   // the camera follows the leader (the winner once they cross the line); drag to look around
   const f = R0.shown ? w : lead, look = new THREE.Vector3(f.truck.position.x, 1.5, f.truck.position.z);
-  followCam(R0, look.clone().add(new THREE.Vector3(0, 13, 20 * Math.max(1, .85 / cam.aspect))), look);
+  const back = Math.max(1, .85 / cam.aspect);   // from behind and to the side, so the trucks show side by side
+  followCam(R0, look.clone().add(new THREE.Vector3(-15 * back, 12, 17 * back)), look);
 }
 function endRace() {
   race.racers.forEach(r => scene.remove(r.truck));
