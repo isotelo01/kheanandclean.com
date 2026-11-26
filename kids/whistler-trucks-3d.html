@@ -67,7 +67,9 @@ function fitCam() { const asp = innerWidth / innerHeight, far = asp < 1 ? Math.m
 fitCam();
 const ctl = new OrbitControls(cam, ren.domElement);
 ctl.enableDamping = true; ctl.target.set(0, 1.5, 0);
-ctl.minDistance = 4; ctl.maxDistance = 30; ctl.maxPolarAngle = Math.PI * 0.68; ctl.enablePan = false;   // can dip under to see the axles
+ctl.minDistance = 4; ctl.maxDistance = 30; ctl.maxPolarAngle = Math.PI * 0.68; ctl.enablePan = false;
+const GROUND_Y = .35;   // the camera never goes below the ground
+function keepAboveGround() { if (cam.position.y < GROUND_Y) cam.position.y = GROUND_Y; }
 ctl.autoRotate = true; ctl.autoRotateSpeed = 2.2;
 
 scene.add(new THREE.HemisphereLight('#ffffff', '#8b5a2b', 1.4));
@@ -233,7 +235,7 @@ function stuntStep(dt) {
 function followCam(s, want, look) {
   if (s.snap) { cam.position.copy(want); ctl.target.copy(look); s.snap = false; }
   else { cam.position.add(look.clone().sub(ctl.target)); ctl.target.copy(look); }
-  ctl.update();
+  ctl.update(); keepAboveGround();
 }
 scene.add(sun.target);
 document.getElementById('jump').onclick = () => startJump('jump');
@@ -308,7 +310,7 @@ function loop() {
     u.wheels.forEach(w => w.rotation.z -= dt * 1.5);
     smoke.update(dt, current, 7);
   }
-  ctl.update();
+  ctl.update(); keepAboveGround();
   ren.render(scene, cam);
   requestAnimationFrame(loop);
 }
