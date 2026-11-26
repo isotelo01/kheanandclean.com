@@ -63,7 +63,8 @@ scene.background = new THREE.Color('#8fd3ff');
 scene.fog = new THREE.Fog('#8fd3ff', 60, 170);
 
 const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 400);
-function fitCam() { const asp = innerWidth / innerHeight, far = asp < 1 ? Math.min(24, 9.2 / asp) : 8.5; cam.position.set(far * 0.62, 3.6 + (far - 8.5) * .12, far * 0.78); }
+// far enough back that the truck driving laps around the ring never runs into the camera
+function fitCam() { const asp = innerWidth / innerHeight, far = asp < 1 ? Math.min(30, 14 / asp) : 13.5; cam.position.set(far * 0.62, 5 + (far - 13.5) * .12, far * 0.78); }
 fitCam();
 const ctl = new OrbitControls(cam, ren.domElement);
 ctl.enableDamping = true; ctl.target.set(0, 1.5, 0);
