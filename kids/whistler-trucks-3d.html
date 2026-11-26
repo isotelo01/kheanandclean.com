@@ -70,7 +70,9 @@ ctl.enableDamping = true; ctl.target.set(0, 1.5, 0);
 ctl.minDistance = 4; ctl.maxDistance = 30; ctl.maxPolarAngle = Math.PI * 0.68; ctl.enablePan = false;
 const GROUND_Y = .08;   // the camera never goes below the ground (low enough to peek up under the truck)
 function keepAboveGround() { if (cam.position.y < GROUND_Y) cam.position.y = GROUND_Y; }
-ctl.autoRotate = true; ctl.autoRotateSpeed = 2.2;
+ctl.autoRotate = false; ctl.autoRotateSpeed = 2.2;   // the truck drives laps instead of the view spinning
+let driving = true, lapA = 0;
+const LAP_R = 4.4, LAP_V = 3.2;   // drives around the yellow ring
 
 scene.add(new THREE.HemisphereLight('#ffffff', '#8b5a2b', 1.4));
 const sun = new THREE.DirectionalLight('#ffffff', 2.2);
@@ -119,7 +121,8 @@ if (qs.has('embed')) {
 }
 
 const spinBtn = document.getElementById('spin');
-spinBtn.onclick = () => { ctl.autoRotate = !ctl.autoRotate; spinBtn.style.opacity = ctl.autoRotate ? 1 : .5; };
+// 🔄 = drive laps on / park in the middle
+spinBtn.onclick = () => { driving = !driving; spinBtn.style.opacity = driving ? 1 : .5; if (!driving && current) { current.position.x = 0; current.position.z = 0; current.rotation.y = 0; } };
 ctl.addEventListener('start', () => { document.getElementById('hint').style.opacity = 0; });
 
 
@@ -186,7 +189,7 @@ function endJump() {
   Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); sun.shadow.camera.updateProjectionMatrix();
   current.position.set(0, 0, 0); current.rotation.set(0, 0, 0);
   sun.position.set(5, 9, 4); sun.target.position.set(0, 0, 0);
-  fitCam(); ctl.target.set(0, 1.5, 0); ctl.enabled = true; ctl.autoRotate = spinBtn.style.opacity !== '0.5';
+  fitCam(); ctl.target.set(0, 1.5, 0); ctl.enabled = true; ctl.autoRotate = false;
   document.body.classList.remove('stunting');
   document.getElementById('banner').classList.remove('show');
   stopEngine(); stunt = null;
@@ -306,9 +309,15 @@ function loop() {
     // drop in with a bounce, then idle with a little engine shake
     const u = current.userData;
     if (u.drop < 1) { u.drop = Math.min(1, u.drop + dt * 1.6); const s = u.drop; current.position.y = 3 * Math.pow(1 - s, 2) * Math.abs(Math.cos(s * 9)); }
-    else { const b = bump(t, false); current.position.y = b.y; current.rotation.x = b.rx; current.rotation.z = b.rz; }   // idling rumble
-    u.wheels.forEach(w => w.rotation.z -= dt * 1.5);
-    smoke.update(dt, current, 7);
+    else { const b = bump(t, driving); current.position.y = b.y; current.rotation.x = b.rx; current.rotation.z = b.rz; }   // idling rumble / bumps while driving
+    if (driving) {
+      // drive around the ring: move along it, face the way it's going, wheels roll at the real speed
+      lapA += dt * LAP_V / LAP_R;
+      current.position.x = LAP_R * Math.sin(lapA); current.position.z = LAP_R * Math.cos(lapA);
+      current.rotation.y = lapA;
+      u.wheels.forEach(w => w.rotation.z -= dt * LAP_V / TIRE_R);
+    }
+    smoke.update(dt, current, driving ? 16 : 7);
   }
   ctl.update(); keepAboveGround();
   ren.render(scene, cam);
