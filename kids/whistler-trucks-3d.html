@@ -25,7 +25,7 @@
   body.embed #jump, body.embed #crush { top: auto; bottom: 26px; width: 76px; height: 76px; padding: 0; border-radius: 50%; font-size: 36px; }
   #banner { position: fixed; bottom: 4%; left: 50%; transform: translate(-50%,0) scale(0); font-size: clamp(40px, 10vw, 84px); font-weight: 900; color: #ffd60a; text-shadow: 4px 4px 0 #d62828, 8px 8px 0 #1a1a1a; transition: transform .3s; pointer-events: none; white-space: nowrap; }
   #banner.show { transform: translate(-50%,0) scale(1); }
-  body.stunting #pick, body.stunting #jump, body.stunting #crush, body.stunting #hint, body.stunting #spin { visibility: hidden; }
+  body.stunting #pick, body.stunting #jump, body.stunting #crush, body.stunting #hint, body.stunting #spin, body.stunting #wheelie { visibility: hidden; }
   #hint { position: fixed; top: 150px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.85); padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 15px; transition: opacity .6s; pointer-events: none; }
 </style>
 </head>
@@ -34,7 +34,7 @@
 <div id="top">
   <a class="round" href="./whistler-trucks.html" aria-label="Back to the game">🏠</a>
   <div id="name"></div>
-  <button class="round" id="spin" aria-label="Spin on or off">🔄</button>
+  <span style="display:flex;gap:8px"><button class="round" id="wheelie" aria-label="Wheelie">🛞</button><button class="round" id="spin" aria-label="Spin on or off">🔄</button></span>
 </div>
 <div id="hint">Drag to turn the truck · Pinch to zoom</div>
 <div id="pick"></div>
@@ -125,6 +125,14 @@ const spinBtn = document.getElementById('spin');
 spinBtn.onclick = () => { driving = !driving; spinBtn.style.opacity = driving ? 1 : .5; if (!driving && current) { current.position.x = 0; current.position.z = 0; current.rotation.y = 0; } };
 ctl.addEventListener('start', () => { document.getElementById('hint').style.opacity = 0; });
 
+// 🛞 wheelie: front wheels pop up, balances on the back wheels, then slams down
+let wh = null;
+const WH_T = 2.2, WH_UP = .35, WH_DOWN = .4, WH_MAX = .55, AXLE_X = 1.2;
+document.getElementById('wheelie').onclick = () => {
+  if (wh || stunt || !current) return;
+  wh = { t: 0 }; startEngine(); engineRev(95);
+};
+
 
 /* ---------- jump stunt ---------- */
 const RAMP_H = 2.6, RAMP_L = 4.5, LAUNCH = 6.5;            // ramps end/start at x = ±6.5
@@ -180,6 +188,7 @@ function startJump(kind = 'jump') {
   ctl.enabled = true; ctl.autoRotate = false;   // drag to look around the truck while it plays
   current.userData.drop = 1;
   stunt = { kind, set, tau: -0.9, landed: false, snap: true };
+  if (wh) { wh = null; stopEngine(); }
   startEngine();
 }
 
@@ -317,7 +326,18 @@ function loop() {
       current.rotation.y = lapA;
       u.wheels.forEach(w => w.rotation.z -= dt * LAP_V / TIRE_R);
     }
-    smoke.update(dt, current, driving ? 16 : 7);
+    if (wh) {
+      // tip up around the back wheels: ease up, wobble while balancing, then drop
+      wh.t += dt;
+      const k = wh.t < WH_UP ? Math.sin(wh.t / WH_UP * Math.PI / 2) : wh.t < WH_T - WH_DOWN ? 1 : Math.max(0, (WH_T - wh.t) / WH_DOWN);
+      const p = WH_MAX * k * k + (k === 1 ? Math.sin(wh.t * 9) * .04 : 0), r = TIRE_R;
+      const dx = -AXLE_X + AXLE_X * Math.cos(p) + r * Math.sin(p), dy = r + AXLE_X * Math.sin(p) - r * Math.cos(p);
+      const yaw = current.rotation.y;
+      current.rotation.z += p;
+      current.position.x += dx * Math.cos(yaw); current.position.z -= dx * Math.sin(yaw); current.position.y += dy;
+      if (wh.t >= WH_T) { wh = null; thud(); stopEngine(); }
+    }
+    smoke.update(dt, current, driving || wh ? 16 : 7);
   }
   ctl.update(); keepAboveGround();
   ren.render(scene, cam);
