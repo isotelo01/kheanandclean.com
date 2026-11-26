@@ -26,7 +26,24 @@
   #banner { position: fixed; bottom: 4%; left: 50%; transform: translate(-50%,0) scale(0); font-size: clamp(40px, 10vw, 84px); font-weight: 900; color: #ffd60a; text-shadow: 4px 4px 0 #d62828, 8px 8px 0 #1a1a1a; transition: transform .3s; pointer-events: none; white-space: nowrap; }
   #banner.show { transform: translate(-50%,0) scale(1); }
   body.stunting #pick, body.stunting #jump, body.stunting #crush, body.stunting #hint, body.stunting #spin, body.stunting #wheelie { visibility: hidden; }
-  #hint { position: fixed; top: 150px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.85); padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 15px; transition: opacity .6s; pointer-events: none; }
+  /* race */
+  #race { position: fixed; top: 136px; left: 50%; transform: translateX(-50%); font: inherit; font-size: 22px; font-weight: 900; padding: 10px 24px; border: none; border-radius: 18px; background: #2e9e44; color: #fff; box-shadow: 0 6px 0 #1a1a1a; cursor: pointer; white-space: nowrap; }
+  body.embed #race { top: auto; bottom: 26px; width: 76px; height: 76px; padding: 0; border-radius: 50%; font-size: 34px; }
+  body.stunting #race, body.racing #pick, body.racing #jump, body.racing #crush, body.racing #race, body.racing #hint, body.racing #spin, body.racing #wheelie { visibility: hidden; }
+  #raceX { position: fixed; top: 76px; right: 14px; display: none; }
+  body.racing #raceX { display: flex; }
+  #racePick { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 20; }
+  #racePick.on { display: flex; }
+  #racePick .box { position: relative; background: #fff; border-radius: 22px; padding: 16px; width: min(92vw, 420px); text-align: center; box-shadow: 0 8px 0 #1a1a1a; }
+  #racePick h2 { margin: 0 0 4px; font-size: 24px; }
+  #racePick p { margin: 0 0 10px; font-size: 15px; color: #555; }
+  #rpX { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border-radius: 50%; border: none; background: #eee; font-size: 20px; font-weight: 900; cursor: pointer; }
+  #rpList { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  #rpList button { font: inherit; font-size: 17px; font-weight: 800; padding: 12px 8px; border-radius: 14px; border: 4px solid transparent; color: #fff; opacity: .4; cursor: pointer; }
+  #rpList button.on { opacity: 1; border-color: #ffd60a; }
+  #rpGo { margin-top: 12px; font: inherit; font-size: 24px; font-weight: 900; padding: 12px 30px; border: none; border-radius: 16px; background: #2e9e44; color: #fff; box-shadow: 0 5px 0 #1a1a1a; cursor: pointer; }
+  #rpGo:disabled { opacity: .4; }
+  #hint { position: fixed; top: 196px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.85); padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 15px; transition: opacity .6s; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -40,6 +57,14 @@
 <div id="pick"></div>
 <button id="jump">🚀 Jump!</button>
 <button id="crush">💥 Crush!</button>
+<button id="race">🏁 Race</button>
+<button class="round" id="raceX" aria-label="Stop the race">✕</button>
+<div id="racePick"><div class="box">
+  <button id="rpX" aria-label="Close">✕</button>
+  <h2>🏁 Pick your racers</h2><p>Tap 2 or more trucks</p>
+  <div id="rpList"></div>
+  <button id="rpGo">Go!</button>
+</div></div>
 <div id="banner">BIG JUMP!</div>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
@@ -119,6 +144,8 @@ if (qs.has('embed')) {
   document.getElementById('jump').setAttribute('aria-label', 'Play the jump');
   document.getElementById('crush').textContent = '💥';
   document.getElementById('crush').setAttribute('aria-label', 'Crush the cars');
+  document.getElementById('race').textContent = '🏁';
+  document.getElementById('race').setAttribute('aria-label', 'Race');
   pick.style.display = 'none';
   document.querySelector('#top a').style.visibility = 'hidden';
 }
@@ -382,11 +409,135 @@ function crushStep(dt) {
   followCam(s, want, look);
 }
 
+/* ---------- race: oval dirt track, pick the trucks, random winner ---------- */
+const OV = { SL: 24, R: 15, W: 15, LAPS: 2 };          // straight length, middle radius of the turns, track width, laps
+OV.P = 2 * OV.SL + 2 * Math.PI * OV.R;                  // one lap around the middle of the track
+function ovalAt(s, d) {                                 // spot and heading at distance s around the track, d = lane (+ = outside)
+  const { SL, R, P } = OV, h = SL / 2, r = R + d, arc = Math.PI * R;
+  s = ((s % P) + P) % P;
+  if (s < SL) return { x: -h + s, z: r, yaw: 0 };                                          // front straight
+  s -= SL; if (s < arc) { const th = s / R; return { x: h + r * Math.sin(th), z: r * Math.cos(th), yaw: th }; }   // far turn
+  s -= arc; if (s < SL) return { x: h - s, z: -r, yaw: Math.PI };                          // back straight
+  s -= SL; const th = Math.PI + s / R; return { x: -h + r * Math.sin(th), z: r * Math.cos(th), yaw: th };          // near turn
+}
+let plainTex = null;
+function plainDirtTexture() {
+  if (plainTex) return plainTex;
+  const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const c = cv.getContext('2d'), img = c.createImageData(S, S), d = img.data;
+  for (let i = 0; i < S * S; i++) { const v = .82 + Math.random() * .3 + (Math.random() < .015 ? -.35 : 0); d[i * 4] = 112 * v; d[i * 4 + 1] = 74 * v; d[i * 4 + 2] = 42 * v; d[i * 4 + 3] = 255; }
+  c.putImageData(img, 0, 0);
+  for (let i = 0; i < 8; i++) { c.fillStyle = 'rgba(60,38,20,.25)'; c.beginPath(); c.ellipse(Math.random() * S, Math.random() * S, 10 + Math.random() * 30, 6 + Math.random() * 14, 0, 0, 7); c.fill(); }
+  plainTex = new THREE.CanvasTexture(cv); plainTex.colorSpace = THREE.SRGBColorSpace; plainTex.wrapS = plainTex.wrapT = THREE.RepeatWrapping; plainTex.repeat.set(.12, .12); plainTex.anisotropy = 8;
+  return plainTex;
+}
+let ovalSet = null;
+function buildOvalSet() {
+  const g = new THREE.Group(), h = OV.SL / 2;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 90), new THREE.MeshStandardMaterial({ color: '#9a7650', roughness: 1 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = .004; floor.receiveShadow = true; g.add(floor);
+  const stadium = r => { const sh = new THREE.Shape(); sh.moveTo(-h, r); sh.lineTo(h, r); sh.absarc(h, 0, r, Math.PI / 2, -Math.PI / 2, true); sh.lineTo(-h, -r); sh.absarc(-h, 0, r, -Math.PI / 2, Math.PI / 2, true); return sh; };
+  const ringShape = stadium(OV.R + OV.W / 2); ringShape.holes.push(stadium(OV.R - OV.W / 2));
+  const track = new THREE.Mesh(new THREE.ShapeGeometry(ringShape, 64), new THREE.MeshStandardMaterial({ map: plainDirtTexture(), roughness: 1 }));
+  track.rotation.x = -Math.PI / 2; track.position.y = .01; track.receiveShadow = true; g.add(track);
+  const infield = new THREE.Mesh(new THREE.ShapeGeometry(stadium(OV.R - OV.W / 2 - 1.8), 48), new THREE.MeshStandardMaterial({ color: '#5fae4a', roughness: 1 }));
+  infield.rotation.x = -Math.PI / 2; infield.position.y = .012; infield.receiveShadow = true; g.add(infield);
+  // dirt berms around the outside and the inside of the track
+  const dirt = new THREE.MeshStandardMaterial({ color: '#6b4626', roughness: 1, flatShading: true }), lump = new THREE.SphereGeometry(1, 7, 5);
+  [[OV.W / 2 + 1, 130], [-OV.W / 2 - .9, 70]].forEach(([d, n]) => {
+    for (let i = 0; i < n; i++) {
+      const p = ovalAt(i / n * OV.P, d), m = new THREE.Mesh(lump, dirt);
+      m.position.set(p.x, 0, p.z); m.scale.set(1.2 + Math.random() * .5, .55 + Math.random() * .3, 1.2 + Math.random() * .5); m.rotation.y = Math.random() * 3;
+      m.castShadow = m.receiveShadow = true; g.add(m);
+    }
+  });
+  // checkered start / finish line across the front straight
+  const cv = document.createElement('canvas'); cv.width = 32; cv.height = 256; const c = cv.getContext('2d');
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 4; x++) { c.fillStyle = (x + y) % 2 ? '#111' : '#fff'; c.fillRect(x * 8, y * 8, 8, 8); }
+  const lt = new THREE.CanvasTexture(cv); lt.colorSpace = THREE.SRGBColorSpace; lt.magFilter = THREE.NearestFilter;
+  const line = new THREE.Mesh(new THREE.PlaneGeometry(1.2, OV.W), new THREE.MeshStandardMaterial({ map: lt, roughness: .8 }));
+  line.rotation.x = -Math.PI / 2; line.position.set(0, .02, OV.R); g.add(line);
+  return g;
+}
+let race = null;
+const smokes = {};
+function startRace(list) {
+  if (stunt || race || list.length < 2) return;
+  ovalSet = ovalSet || buildOvalSet(); scene.add(ovalSet); ring.visible = false; ground.visible = false;
+  if (wh) { wh = null; stopEngine(); }
+  scene.remove(current);
+  const n = list.length, gap = Math.min(3, (OV.W - 3) / Math.max(1, n - 1));
+  const Tw = 15 + Math.random() * 4, win = Math.floor(Math.random() * n);   // who wins is random every race
+  const racers = list.map((ti, k) => {
+    const truck = trucks[ti]; scene.add(truck); truck.userData.drop = 1;
+    return { ti, truck, d: (k - (n - 1) / 2) * gap, T: k === win ? Tw : Tw * (1.03 + Math.random() * .12),
+             amp: (Math.random() - .5) * .08, k: 1 + Math.floor(Math.random() * 3), s: 0, done: false,   // amp/k: speeding up and slowing down, so the lead changes
+             smoke: smokes[ti] || (smokes[ti] = new Exhaust(scene)) };
+  });
+  race = { racers, t: -3.3, win, snap: true, D: OV.LAPS * OV.P, s0: OV.SL / 2 - 3, shown: false, go: false };
+  racers.forEach(r => { const p = ovalAt(race.s0, r.d); r.truck.position.set(p.x, 0, p.z); r.truck.rotation.set(0, p.yaw, 0); });
+  Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 30, bottom: -30 }); sun.shadow.camera.updateProjectionMatrix();
+  sun.position.set(10, 40, 20); sun.target.position.set(0, 0, 0);
+  const ban = document.getElementById('banner'); ban.style.fontSize = 'clamp(26px, 7vw, 64px)'; ban.classList.remove('show');
+  document.body.classList.add('racing'); startEngine(); engineRev(50);
+}
+function raceStep(dt) {
+  const R0 = race, ban = document.getElementById('banner');
+  R0.t += dt;
+  if (R0.t < 0) { const c = Math.ceil(-R0.t); if (c <= 3 && ban.textContent !== String(c)) { ban.textContent = String(c); ban.classList.add('show'); engineRev(50 + (3 - c) * 12); } }
+  else if (!R0.go) { R0.go = true; ban.textContent = 'GO!'; ban.classList.add('show'); engineRev(90); setTimeout(() => { if (race && !race.shown) ban.classList.remove('show'); }, 900); }
+  let lead = R0.racers[0], allDone = true;
+  R0.racers.forEach(r => {
+    const u = Math.max(0, Math.min(1, R0.t / r.T));
+    const ue = (u < .08 ? u * u / .16 : u - .04) / .96;                         // ease off the line
+    const prog = Math.min(1, ue + r.amp * Math.sin(2 * Math.PI * r.k * u) * (1 - u));
+    const s = prog * R0.D, ds = Math.max(0, s - r.s); r.s = s;
+    if (u >= 1 && !r.done) r.done = true;
+    if (!r.done) allDone = false;
+    const p = ovalAt(R0.s0 + s, r.d), b = bump(R0.t * 1.3 + r.ti, ds > .001);
+    r.truck.position.set(p.x, b.y, p.z); r.truck.rotation.set(b.rx, p.yaw, b.rz);
+    r.truck.userData.wheels.forEach(w => w.rotation.z -= ds / TIRE_R);
+    r.smoke.update(dt, r.truck, ds > .001 ? 24 : 7);
+    if (r.s > lead.s) lead = r;
+  });
+  const w = R0.racers[R0.win];
+  if (w.done && !R0.shown) { R0.shown = true; ban.textContent = '🏆 ' + TRUCKS[w.ti].name.toUpperCase() + ' WINS!'; ban.classList.add('show'); thud(); engineRev(60); }
+  if (allDone && R0.t > Math.max(...R0.racers.map(r => r.T)) + 3) return endRace();
+  // the camera follows the leader (the winner once they cross the line); drag to look around
+  const f = R0.shown ? w : lead, look = new THREE.Vector3(f.truck.position.x, 1.5, f.truck.position.z);
+  followCam(R0, look.clone().add(new THREE.Vector3(0, 13, 20 * Math.max(1, .85 / cam.aspect))), look);
+}
+function endRace() {
+  race.racers.forEach(r => scene.remove(r.truck));
+  scene.remove(ovalSet); ring.visible = true; ground.visible = true;
+  scene.add(current); current.position.set(0, 0, 0); current.rotation.set(0, 0, 0); current.userData.drop = 0;
+  Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); sun.shadow.camera.updateProjectionMatrix();
+  sun.position.set(5, 9, 4); sun.target.position.set(0, 0, 0);
+  fitCam(); ctl.target.set(0, 1.5, 0);
+  const ban = document.getElementById('banner'); ban.classList.remove('show'); ban.style.fontSize = '';
+  document.body.classList.remove('racing'); stopEngine(); race = null;
+}
+// race picker
+const rp = document.getElementById('racePick'), rpList = document.getElementById('rpList'), rpGo = document.getElementById('rpGo');
+let rpSel = [];
+function drawRp() { [...rpList.children].forEach(b => b.classList.toggle('on', rpSel.includes(+b.dataset.i))); rpGo.disabled = rpSel.length < 2; }
+document.getElementById('race').onclick = () => {
+  if (stunt || race) return;
+  rpSel = [curIdx, (curIdx + 1) % TRUCKS.length];
+  rpList.innerHTML = TRUCKS.map((t, i) => `<button data-i="${i}" style="background:${t.body}">${t.name}</button>`).join('');
+  drawRp(); rp.classList.add('on');
+};
+rpList.onclick = e => { const b = e.target.closest('button'); if (!b) return; const i = +b.dataset.i; rpSel = rpSel.includes(i) ? rpSel.filter(x => x !== i) : [...rpSel, i]; drawRp(); };
+rpGo.onclick = () => { if (rpSel.length < 2) return; rp.classList.remove('on'); startRace(rpSel.slice().sort((a, b) => a - b)); };
+document.getElementById('rpX').onclick = () => rp.classList.remove('on');
+document.getElementById('raceX').onclick = () => { if (race) endRace(); };
+
 /* ---------- animate ---------- */
 const clock = new THREE.Clock();
 function loop() {
   const dt = Math.min(clock.getDelta(), .12), t = clock.elapsedTime;
   arena.userData.update(t);
+  if (race) { raceStep(dt); ren.render(scene, cam); requestAnimationFrame(loop); return; }
   if (stunt) { (stunt.kind === 'crush' ? crushStep : stuntStep)(dt); smoke.update(dt, current, 24); if (buddy && smoke2) smoke2.update(dt, buddy, 24); ren.render(scene, cam); requestAnimationFrame(loop); return; }
   if (current) {
     // drop in with a bounce, then idle with a little engine shake
