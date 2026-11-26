@@ -311,39 +311,27 @@ const START = [
 const ART = window.MollyArt;
 const GAME_KEY = 'mollyWonderland1', KEY = 'mollyCastle3d2';
 const SHARED = ['foyer', 'living', 'kitchen', 'dining', 'master', 'kids', 'bath', 'play'];
-const K2T = { bed: 'bed', kidbed: 'kidbed', sofa: 'sofa', c13: 'sofa', c14: 'dchair', armchair: 'chair', table: 'table', longtable: 'longtable', tv: 'tv',
-  fireplace: 'fireplace', bookshelf: 'bookshelf', c19: 'piano', stove: 'stove', fridge: 'fridge', counter: 'counter', island: 'island', tub: 'tub', toilet: 'toilet',
-  sink: 'sink', mirror: 'mirror', throne: 'throne', dresser: 'dresser', toybox: 'toybox', teddy: 'teddy', c10: 'teddy', art: 'easel', beanbag: 'beanbag',
-  blocks: 'blocks', c12: 'plant', plant2: 'plant', lamp: 'lamp', rug: 'rug', c3: 'cake', c8: 'cake', cupcake: 'cake', washer: 'washer', chandelier: 'chandelier',
-  molly: 'molly', pippi: 'pippi' };
+const H = ART.HOUSE, K2T = H.K2T, inner = H.inner;
 const T2K = {}; Object.entries(K2T).forEach(([k, t]) => { if (!(t in T2K)) T2K[t] = k; });
 const SKIP3D = { stairs: 1, door: 1, window: 1 };      // the 3D house already has real stairs, doors and windows
 const clamp = (a, b, v) => Math.max(a, Math.min(b, v));
-const inner = r => ({ x0: r.x[0] + 1.2, x1: r.x[1] - 1.2, z0: r.z[0] + 1.2, z1: r.z[1] - 1.2 });
 let S = null; try { S = JSON.parse(localStorage.getItem(GAME_KEY) || 'null'); } catch (e) {}
 const noGame = !S || !S.rooms;
 if (noGame) { S = S || {}; S.rooms = {}; SHARED.forEach(id => S.rooms[id] = []); S.seed3d = {}; }
 S.seed3d = S.seed3d || {};
 let own = null; try { own = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
 if (!Array.isArray(own)) own = START.filter(i => !SHARED.includes((roomAt(i.x, i.z, i.f) || {}).id)).map(i => ({ ...i }));
-// 2D picture (x %, y %) <-> 3D spot in the room. 2D y 62..100 is the floor from the back wall to the front; above 62 is on the back wall.
-function to3(o, r) {
-  const b = inner(r), x = b.x0 + clamp(0, 100, o.x) / 100 * (b.x1 - b.x0);
-  if (K2T[o.k] === 'chandelier') return { x, z: (r.z[0] + r.z[1]) / 2, y: 7.2, wall: 1 };
-  if (o.y >= 62 || K2T[o.k]) return { x, z: b.z0 + Math.max(0, o.y - 62) / 38 * (b.z1 - b.z0), y: o.h3 || 0 };   // furniture always stands on the floor
-  return { x, z: r.z[0] + .4, y: Math.max(.6, (62 - o.y) / 62 * 8), wall: 1 };
-}
+H.upgradeRooms(S.rooms);
+// write a 3D change back into the 2D picture; only pieces that were moved get a new wall and spot
 function to2(it) {
-  const r = roomOf(it.link.id), b = inner(r), o = it.link.o;
-  o.x = Math.round(clamp(0, 100, (it.x - b.x0) / (b.x1 - b.x0) * 100) * 10) / 10;
-  if (!it.wall) o.y = Math.round(clamp(62, 100, 62 + (it.z - b.z0) / (b.z1 - b.z0) * 38) * 10) / 10;
-  o.s = it.s || 1; o.rot3 = it.r || 0; o.col3 = it.c || 0; if (it.y && !it.wall) o.h3 = it.y; else delete o.h3;
+  const o = it.link.o;
+  if (it.moved) { H.to2({ x: it.x, z: it.z }, it.link.id, o, it.wall ? (o.w || 0) : null); it.moved = 0; }
+  o.s = it.s || 1; o.col3 = it.c || 0; if (!it.wall) o.rot3 = it.r || 0; if (it.y && !it.wall) o.h3 = it.y; else delete o.h3;
 }
 function fromStart(id) {             // the furnished 3D layout for a room, as 2D pictures
-  const r = roomOf(id), b = inner(r);
   return START.filter(i => (roomAt(i.x, i.z, i.f) || {}).id === id).map(i => {
-    const o = { k: T2K[i.t], x: clamp(0, 100, (i.x - b.x0) / (b.x1 - b.x0) * 100), y: i.t === 'chandelier' ? 22 : clamp(62, 100, 62 + (i.z - b.z0) / (b.z1 - b.z0) * 38), s: i.s || 1 };
-    if (i.r) o.rot3 = i.r; if (i.c) o.col3 = i.c; if (i.y) o.h3 = i.y; return o;
+    const o = H.to2({ x: i.x, z: i.z }, id, { k: T2K[i.t], s: i.s || 1 });
+    if (i.r != null) o.rot3 = i.r; if (i.c) o.col3 = i.c; if (i.y) o.h3 = i.y; return o;
   });
 }
 function furnishRoom(id) {            // keep the 2D wall pictures and stickers, put in the 3D furniture
@@ -359,8 +347,8 @@ function loadItems() {
     const r = roomOf(id);
     (S.rooms[id] || []).forEach(o => {
       if (SKIP3D[o.k] || !ART.CAT[o.k]) return;
-      const p = to3(o, r);
-      items.push({ t: K2T[o.k] || 'sprite', k: o.k, x: p.x, z: p.z, y: p.y, wall: p.wall, f: r.f, r: o.rot3 || 0, c: o.col3 || 0, s: o.s || 1, link: { id, o } });
+      const p = H.to3(o, id), face = H.FACE[p.w];
+      items.push({ t: K2T[o.k] || 'sprite', k: o.k, x: p.x, z: p.z, y: p.y, wall: p.wall, w: p.w, f: r.f, r: p.wall && !K2T[o.k] ? face : (o.rot3 != null ? o.rot3 : face), c: o.col3 || 0, s: o.s || 1, link: { id, o } });
     });
   });
   items.push(...own);
@@ -462,7 +450,7 @@ addEl.addEventListener('click', ev => {
   const b = ev.target.closest('[data-t]'); if (!b) return;
   const r = curRoom || roomAt(controls.target.x, controls.target.z, floorShown) || roomOf(floorShown ? 'hall1' : 'foyer');
   const t = b.dataset.t, it = { t, x: (r.x[0] + r.x[1]) / 2 + (Math.random() - .5) * 3, z: (r.z[0] + r.z[1]) / 2 + (Math.random() - .5) * 3, f: r.f, y: t === 'chandelier' ? 7.2 : 0, wall: t === 'chandelier' ? 1 : 0, s: 1 };
-  if (SHARED.includes(r.id)) { const o = { k: T2K[t], x: 50, y: t === 'chandelier' ? 22 : 80, s: 1 }; S.rooms[r.id].push(o); it.k = o.k; it.link = { id: r.id, o }; } else own.push(it);
+  if (SHARED.includes(r.id)) { const o = { k: T2K[t], x: 50, y: t === 'chandelier' ? 22 : 80, w: 0, s: 1 }; S.rooms[r.id].push(o); it.k = o.k; it.link = { id: r.id, o }; it.moved = 1; } else own.push(it);
   items.push(it); save(); const g = buildItem(it); addEl.classList.remove('on'); select(g);
 });
 
@@ -502,7 +490,10 @@ canvas.addEventListener('pointermove', ev => {
   pick(ev); const hit = ray.ray.intersectPlane(drag.plane, new THREE.Vector3()); if (!hit) return;
   const it = sel.userData.it;
   const rb = roomBounds(it), b = rb ? inner(rb) : { x0: -19.3, x1: 19.3, z0: -18.3, z1: 18.3 };      // stays in its own room
-  it.x = clamp(b.x0, b.x1, hit.x + drag.dx); it.z = it.wall && rb ? (it.t === 'chandelier' ? clamp(b.z0, b.z1, hit.z + drag.dz) : rb.z[0] + .4) : clamp(b.z0, b.z1, hit.z + drag.dz);
+  const along = it.wall && it.t !== 'chandelier' ? (it.w === 1 || it.w === 3 ? 'z' : 'x') : null;   // wall pictures slide along their wall
+  if (along !== 'z') it.x = clamp(b.x0, b.x1, hit.x + drag.dx);
+  if (along !== 'x') it.z = clamp(b.z0, b.z1, hit.z + drag.dz);
+  it.moved = 1;
   place(sel); placeRing();
 });
 canvas.addEventListener('pointerup', ev => {

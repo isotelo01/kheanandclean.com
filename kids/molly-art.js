@@ -170,5 +170,66 @@
     c1: E('🫖', 40), c2: E('🧁', 36), c3: E('🎂', 50), c4: E('🍓', 30), c5: E('🍪', 32), c6: E('🥛', 32), c7: E('🍽️', 40), c8: E('🍰', 36), c9: E('🍩', 34),
     c10: E('🧸', 50), c11: E('👑', 40), c12: E('🪴', 60), c13: E('🛋️', 110), c14: E('🪑', 60), c15: E('🎀', 36), c16: E('💐', 44), c17: E('🖼️', 60), c18: E('🕯️', 34), c19: E('🎹', 90), c20: E('📚', 44)
   };
-  window.MollyArt = { molly, pippi, PIECES, DRESS, SHOE, CAT };
+
+  /* The castle house, shared by the 2D rooms and the 3D castle (1 unit = 1 foot).
+     In 2D you stand in the middle of a room and turn to face one wall at a time: w 0 back, 1 right, 2 front, 3 left.
+     A picture's x (0-100) runs along that wall from left to right; y 62 is at the wall and y 100 is the middle of the room;
+     y under 62 means it hangs on the wall. */
+  const ROOMS3D = {
+    foyer: { f: 0, x: [-6, 6], z: [-4, 19] }, living: { f: 0, x: [6, 20], z: [-19, 19] }, kitchen: { f: 0, x: [-20, -6], z: [-19, 0] },
+    dining: { f: 0, x: [-20, -6], z: [0, 19] }, master: { f: 1, x: [6, 20], z: [-19, 6] }, bath: { f: 1, x: [6, 20], z: [6, 19] },
+    kids: { f: 1, x: [-20, -6], z: [0, 19] }, play: { f: 1, x: [-20, -6], z: [-19, 0] }
+  };
+  const K2T = { bed: 'bed', kidbed: 'kidbed', sofa: 'sofa', c13: 'sofa', c14: 'dchair', armchair: 'chair', table: 'table', longtable: 'longtable', tv: 'tv',
+    fireplace: 'fireplace', bookshelf: 'bookshelf', c19: 'piano', stove: 'stove', fridge: 'fridge', counter: 'counter', island: 'island', tub: 'tub', toilet: 'toilet',
+    sink: 'sink', mirror: 'mirror', throne: 'throne', dresser: 'dresser', toybox: 'toybox', teddy: 'teddy', c10: 'teddy', art: 'easel', beanbag: 'beanbag',
+    blocks: 'blocks', c12: 'plant', plant2: 'plant', lamp: 'lamp', rug: 'rug', c3: 'cake', c8: 'cake', cupcake: 'cake', washer: 'washer', chandelier: 'chandelier',
+    molly: 'molly', pippi: 'pippi' };
+  const FACE = [0, -Math.PI / 2, Math.PI, Math.PI / 2];      // furniture faces into the room from each wall
+  const clampN = (a, b, v) => Math.max(a, Math.min(b, v));
+  const inner = r => ({ x0: r.x[0] + 1.2, x1: r.x[1] - 1.2, z0: r.z[0] + 1.2, z1: r.z[1] - 1.2 });
+  function spot(r, w, u, v) {           // wall w, u along it (0..1), v from the wall to the middle (0..1) -> x, z
+    const b = inner(r), hx = (b.x1 - b.x0) / 2, hz = (b.z1 - b.z0) / 2;
+    if (w === 1) return { x: b.x1 - v * hx, z: b.z0 + u * (b.z1 - b.z0) };
+    if (w === 2) return { x: b.x1 - u * (b.x1 - b.x0), z: b.z1 - v * hz };
+    if (w === 3) return { x: b.x0 + v * hx, z: b.z1 - u * (b.z1 - b.z0) };
+    return { x: b.x0 + u * (b.x1 - b.x0), z: b.z0 + v * hz };
+  }
+  function to3(o, id) {
+    const r = ROOMS3D[id], w = o.w || 0, u = clampN(0, 100, o.x) / 100;
+    if (K2T[o.k] === 'chandelier') { const p = spot(r, w, u, .75); return { x: p.x, z: p.z, y: 7.2, wall: 1, w }; }
+    if (o.y < 62 && !K2T[o.k]) {       // hangs on the wall
+      const p = spot(r, w, u, 0);
+      if (w === 0) p.z = r.z[0] + .4; if (w === 1) p.x = r.x[1] - .4; if (w === 2) p.z = r.z[1] - .4; if (w === 3) p.x = r.x[0] + .4;
+      return { x: p.x, z: p.z, y: Math.max(.6, (62 - o.y) / 62 * 8), wall: 1, w };
+    }
+    const p = spot(r, w, u, Math.max(0, o.y - 62) / 38);
+    return { x: p.x, z: p.z, y: o.h3 || 0, w };
+  }
+  function to2(p, id, o, keepWall) {   // a 3D spot -> which wall you see it on, and where
+    const r = ROOMS3D[id], b = inner(r), hx = (b.x1 - b.x0) / 2, hz = (b.z1 - b.z0) / 2;
+    const d = [(p.z - b.z0) / hz, (b.x1 - p.x) / hx, (b.z1 - p.z) / hz, (p.x - b.x0) / hx];
+    const w = keepWall != null ? keepWall : d.indexOf(Math.min(...d));
+    const u = w === 0 ? (p.x - b.x0) / (b.x1 - b.x0) : w === 1 ? (p.z - b.z0) / (b.z1 - b.z0) : w === 2 ? (b.x1 - p.x) / (b.x1 - b.x0) : (b.z1 - p.z) / (b.z1 - b.z0);
+    o.w = w; o.x = Math.round(clampN(0, 1, u) * 1000) / 10;
+    if (keepWall == null) o.y = Math.round((62 + clampN(0, 1, d[w]) * 38) * 10) / 10;
+    return o;
+  }
+  // pictures saved before rooms had four walls were a straight-on view of the whole room
+  function oldTo3(o, id) {
+    const r = ROOMS3D[id], b = inner(r), x = b.x0 + clampN(0, 100, o.x) / 100 * (b.x1 - b.x0);
+    if (K2T[o.k] === 'chandelier') return { x, z: (r.z[0] + r.z[1]) / 2, y: 7.2, wall: 1 };
+    if (o.y >= 62 || K2T[o.k]) return { x, z: b.z0 + Math.max(0, o.y - 62) / 38 * (b.z1 - b.z0), y: o.h3 || 0 };
+    return { x, z: r.z[0] + .4, y: 0, wall: 1 };
+  }
+  function upgradeRooms(rooms) {
+    Object.keys(ROOMS3D).forEach(id => (rooms[id] || []).forEach(o => {
+      if (o.w != null) return;
+      const p = oldTo3(o, id);
+      if (p.wall && K2T[o.k] !== 'chandelier') o.w = 0; else to2(p, id, o, K2T[o.k] === 'chandelier' ? 0 : null);
+      if (K2T[o.k] === 'chandelier') o.y = Math.min(o.y, 40);
+    }));
+  }
+  const HOUSE = { ROOMS3D, K2T, FACE, inner, spot, to3, to2, upgradeRooms };
+  window.MollyArt = { molly, pippi, PIECES, DRESS, SHOE, CAT, HOUSE };
 })();
