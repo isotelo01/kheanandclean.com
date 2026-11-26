@@ -46,7 +46,7 @@
     // eyes
     s += '<circle cx="78" cy="134" r="8" fill="#2b1d22"/><circle cx="122" cy="134" r="8" fill="#2b1d22"/>' +
       '<circle cx="81" cy="131" r="2.8" fill="#fff"/><circle cx="125" cy="131" r="2.8" fill="#fff"/>';
-    if (o.shadow) s += '<path d="M70 127 l-5 -4 M73 124 l-3 -5 M130 127 l5 -4 M127 124 l3 -5" stroke="#2b1d22" stroke-width="2" stroke-linecap="round"/>';
+    if (o.lashes) s += '<path d="M71 129 q-5 -2 -8 -8 M74 127 q-3 -3 -3 -10 M78.5 126 q0 -5 3 -10 M129 129 q5 -2 8 -8 M126 127 q3 -3 3 -10 M121.5 126 q0 -5 -3 -10" stroke="#2b1d22" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
     // blush
     s += '<ellipse cx="62" cy="152" rx="12" ry="7" fill="#ff9cc4" opacity="' + (o.blush ? '.85' : '.35') + '"/>' +
       '<ellipse cx="138" cy="152" rx="12" ry="7" fill="#ff9cc4" opacity="' + (o.blush ? '.85' : '.35') + '"/>';
@@ -93,6 +93,7 @@
     if (o.shadow) s += '<path d="M31 48 Q38 40 45 48 M55 48 Q62 40 69 48" stroke="#c08bff" stroke-width="5" fill="none" stroke-linecap="round" opacity=".75"/>';
     s += '<circle cx="38" cy="52" r="5" fill="#2b1d22"/><circle cx="62" cy="52" r="5" fill="#2b1d22"/>' +
       '<circle cx="40" cy="50" r="1.6" fill="#fff"/><circle cx="64" cy="50" r="1.6" fill="#fff"/>';
+    if (o.lashes) s += '<path d="M33.5 49 q-3 -1 -5.5 -5 M35.5 47.5 q-2 -2 -2 -6.5 M38.5 47 q0 -3 2 -6.5 M66.5 49 q3 -1 5.5 -5 M64.5 47.5 q2 -2 2 -6.5 M61.5 47 q0 -3 -2 -6.5" stroke="#2b1d22" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
     if (o.glasses) s += '<g stroke="#d65db1" stroke-width="2.5" fill="#ffd1ea" fill-opacity=".45"><path d="M38 44l2.5 5 5.5 .8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8z"/><path d="M62 44l2.5 5 5.5 .8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.5-.8z"/></g><path d="M45 52h10" stroke="#d65db1" stroke-width="2.5"/>';
     s += '<path d="M44 60 L56 60 L50 68 Z" fill="' + (o.gloss ? '#ff4f9a' : '#ff9a2e') + '"/>' +
       (o.gloss ? '<ellipse cx="48" cy="61.5" rx="2" ry="1" fill="#fff" opacity=".8"/>' : '') +
