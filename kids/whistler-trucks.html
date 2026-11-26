@@ -17,15 +17,18 @@
   .screen.on { display: flex; }
 
   /* HOME */
-  #home { justify-content: center; gap: 18px; padding: 16px; }
+  #home { justify-content: flex-start; gap: 18px; padding: 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #home > :first-child { margin-top: auto; }
+  #home > :last-child { margin-bottom: auto; }
   #home h1 { margin: 0; font-size: clamp(30px, 6vw, 56px); color: #fff; text-shadow: 3px 3px 0 #d62828, 6px 6px 0 #1a1a1a; text-align: center; }
   .pick-label { font-size: 22px; font-weight: 700; color: #1a1a1a; background: #ffd60a; padding: 4px 14px; border-radius: 12px; }
-  #truckPick { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  #truckPick { display: grid; grid-template-columns: repeat(2, auto); gap: 14px; justify-content: center; }
   .truck-btn { background: rgba(255,255,255,.75); border: 5px solid transparent; border-radius: 18px; padding: 6px; cursor: pointer; }
   .truck-btn.sel { border-color: #ffd60a; background: #fff; transform: scale(1.06); }
   .truck-btn svg { width: 140px; height: 120px; display: block; }
   .tname { display: block; font: 800 16px/1.2 inherit; font-family: inherit; color: #1a1a1a; margin-top: 2px; }
-  #modes { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 12px; max-width: 620px; width: 100%; }
+  #modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 620px; width: 100%; flex: none; }
+  @media (max-width: 520px) { #modes { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mode { font-size: 20px; } }
   .mode {
     font: inherit; font-size: 22px; font-weight: 800; padding: 16px 8px; border: none; border-radius: 18px;
     color: #fff; box-shadow: 0 6px 0 rgba(0,0,0,.35); cursor: pointer;
@@ -218,12 +221,30 @@ function crunch() {
   const g = c.createGain(); g.gain.value = 0.9;
   src.connect(f).connect(g).connect(c.destination); src.start();
 }
+// Deep engine rumble: two low detuned tones, muffled, with a fast "chug" pulse.
 function vroom(dur = 0.6) {
-  const c = ac(), o = c.createOscillator(), g = c.createGain();
-  o.type = 'sawtooth'; o.frequency.setValueAtTime(55, c.currentTime);
-  o.frequency.linearRampToValueAtTime(140, c.currentTime + dur);
-  g.gain.setValueAtTime(0.18, c.currentTime); g.gain.linearRampToValueAtTime(0, c.currentTime + dur);
-  o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime + dur);
+  const c = ac(), t = c.currentTime;
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(260, t); lp.Q.value = 4;
+  lp.frequency.linearRampToValueAtTime(420, t + dur * 0.6);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.5, t + 0.06);
+  g.gain.setValueAtTime(0.5, t + dur * 0.7);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  const chug = c.createGain(); chug.gain.value = 0.6;
+  const lfo = c.createOscillator(), lfoAmt = c.createGain();
+  lfo.frequency.setValueAtTime(14, t); lfo.frequency.linearRampToValueAtTime(30, t + dur * 0.6);
+  lfoAmt.gain.value = 0.4; lfo.connect(lfoAmt).connect(chug.gain);
+  [0, 7].forEach(detune => {
+    const o = c.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(38, t);
+    o.frequency.linearRampToValueAtTime(62, t + dur * 0.6);
+    o.frequency.linearRampToValueAtTime(52, t + dur);
+    o.detune.value = detune * 10;
+    o.connect(lp); o.start(t); o.stop(t + dur);
+  });
+  lp.connect(chug).connect(g).connect(c.destination);
+  lfo.start(t); lfo.stop(t + dur);
 }
 function boop() {
   const c = ac(), o = c.createOscillator(), g = c.createGain();
