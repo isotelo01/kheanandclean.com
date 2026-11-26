@@ -111,6 +111,7 @@ function sph(r, m, x, y, z, parent, sc) { const s = new THREE.Mesh(new THREE.Sph
 const COLL = [[], []];   // wall boxes you can't walk through, per floor
 const WALLM = [];        // wall meshes (faded when they hide Molly)
 const level = [new THREE.Group(), new THREE.Group()]; scene.add(level[0], level[1]); level[1].position.y = UP;
+const ROOF = new THREE.Group(); ROOF.position.y = UP; ROOF.visible = false; scene.add(ROOF);
 // wall along x (axis 'x', z fixed) or along z (axis 'z', x fixed); openings: [{at, w, type:'door'|'window', sill, h}]
 function wall(axis, fixed, a, b, f, open = [], m = WALL, t = .5) {
   const P = level[f], H = WALL_H, segs = []; let cur = a;
@@ -153,6 +154,13 @@ function buildHouse() {
     const slab = new THREE.Mesh(new THREE.BoxGeometry(w, .4, d), m);
     slab.position.set((r.x[0] + r.x[1]) / 2, -.2, (r.z[0] + r.z[1]) / 2); slab.receiveShadow = true; level[r.f].add(slab);
   });
+  // ceilings under the upstairs floors (part of the upstairs, so they only show when walking or looking upstairs)
+  ROOMS.filter(r => r.f === 1).forEach(r => {
+    const c = new THREE.Mesh(new THREE.PlaneGeometry(r.x[1] - r.x[0], r.z[1] - r.z[0]), mat('#fffaf2', { side: THREE.DoubleSide, roughness: .9 }));
+    c.rotation.x = Math.PI / 2; c.position.set((r.x[0] + r.x[1]) / 2, -.42, (r.z[0] + r.z[1]) / 2); level[1].add(c);
+  });
+  // roof over the upstairs: only shown while walking inside, so the castle feels like a real place
+  bx(41, .5, 39, mat('#ffe6f4', { roughness: .8 }), 0, WALL_H + .55, 0, ROOF);
   // upstairs balcony bits beside the stair opening (x -6..6, z 2..8 is open between the two side flights)
   // ground exterior
   wall('x', -19, -20, 20, 0, [W(-13), W(0, 3, 5, 2.5), W(13, 6)]);
@@ -404,7 +412,7 @@ function buildItem(it) {
 function place(g) {
   const it = g.userData.it, s = it.s || 1;
   g.position.set(it.x, (it.f ? UP : 0) + (it.y || 0), it.z); g.rotation.y = it.r || 0; g.scale.setScalar(s);
-  g.visible = it.f === 0 || floorShown === 1 || (walker && walker.it === it);
+  g.visible = it.f === 0 || floorShown === 1 || !!walker;   // walking inside: the whole castle is there
 }
 function rebuild() { furn.clear(); spinners.length = 0; items.forEach(buildItem); }
 const roomBounds = it => it.link ? roomOf(it.link.id) : (roomAt(it.x, it.z, it.f) || null);
@@ -413,8 +421,8 @@ const roomBounds = it => it.link ? roomOf(it.link.id) : (roomAt(it.x, it.z, it.f
 let floorShown = 0, curRoom = roomOf(hash.get('room')) || roomOf('foyer');
 let fly = null;
 function showFloor(f) {
-  floorShown = f; level[1].visible = f === 1;
-  furn.children.forEach(g => g.visible = g.userData.it.f === 0 || f === 1);
+  floorShown = f; level[1].visible = f === 1 || !!walker; ROOF.visible = !!walker;
+  furn.children.forEach(g => g.visible = g.userData.it.f === 0 || f === 1 || !!walker);
   drawChips();
 }
 function goRoom(r, instant) {
@@ -513,7 +521,7 @@ canvas.addEventListener('pointermove', ev => {
   place(sel); placeRing();
 });
 canvas.addEventListener('pointerup', ev => {
-  if (drag) { drag = null; controls.enabled = true; save(); return; }
+  if (drag) { drag = null; controls.enabled = true; save(); if (walker && sel && downAt && Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) <= 8) goUse(sel); return; }   // tapped it again: use it again
   if (!downAt || Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) > 8) return;   // that was a spin, not a tap
   pick(ev);
   const vis = furn.children.filter(g => g.visible);
@@ -524,9 +532,10 @@ canvas.addEventListener('pointerup', ev => {
   }
   if (!hits.length) { deselect(); return; }
   let o = hits[0].object; while (o.parent && o.parent !== furn) o = o.parent;
-  if (o === sel) return;
-  select(o);
-  if (o.userData.it.t === 'molly' || o.userData.it.t === 'pippi') hop(o);
+  if (o === sel && !walker) return;
+  if (o !== sel) select(o);
+  if (walker) goUse(o);                    // walking: she goes over and plays with it (the edit buttons still show)
+  else if (o.userData.it.t === 'molly' || o.userData.it.t === 'pippi') hop(o);
 });
 function hop(g) { g.userData.hop = 1; }
 const isFloorish = h => { let o = h.object; while (o.parent && o.parent !== furn) o = o.parent; return !!FURN[o.userData.it?.t]?.flat; };
@@ -567,33 +576,116 @@ function figureItem(kind) {
 function startWalk(kind) {
   deselect(); addEl.classList.remove('on');
   const it = figureItem(kind), g = furn.children.find(c => c.userData.it === it);
-  const here = groundAt(it.x, it.z, it.f || 0);
-  if (!here || Math.abs(here.y - (it.y || 0)) > 1.3 || hitsWall(it.x, it.z, it.f || 0)) {   // squeezed beside the stairs or in a wall: step out to a clear spot
-    const r = roomAt(it.x, it.z, it.f || 0) || roomOf('foyer');
-    if (r.id === 'foyer') { it.x = kind === 'molly' ? -2.2 : 2.2; it.z = -1; it.f = 0; } else { it.x = (r.x[0] + r.x[1]) / 2; it.z = (r.z[0] + r.z[1]) / 2; it.f = r.f; }
-    it.y = 0; it.moved = 1; place(g); save();
-  }
+  // walking starts outside on the front path, facing the front door, so you go into the castle yourself
+  it.x = kind === 'molly' ? -1.2 : 1.2; it.z = 29; it.f = 0; it.y = 0; it.r = Math.PI; it.moved = 1; standUp(g);
+  place(g); save();
   walker = { it, g, moving: 0 }; walkTarget = null;
   document.getElementById('joy').classList.add('on');
-  curRoom = null; showFloor(it.f || (it.y > 7 ? 1 : 0));
-  const back = new THREE.Vector3(Math.sin(it.r || 0), 0, Math.cos(it.r || 0)).multiplyScalar(10);   // start in front of her so you see her face
+  curRoom = null; showFloor(0);
+  // third person: camera close behind her, a little above her head
   const tgt = new THREE.Vector3(it.x, (it.f ? UP : 0) + (it.y || 0) + 3, it.z);
-  fly = { t0: performance.now(), a: [controls.target.clone(), camera.position.clone()], b: [tgt, tgt.clone().add(back).add(new THREE.Vector3(0, 21, 0))] };
-  controls.minDistance = 8; controls.maxDistance = 45; controls.maxPolarAngle = .85;   // stay high enough to see over the walls
-  const hint = document.getElementById('hint'); hint.style.display = ''; hint.textContent = 'Use the circle or tap the floor to walk';
+  const behind = new THREE.Vector3(-Math.sin(it.r), 0, -Math.cos(it.r)).multiplyScalar(CAM_D * .9).add(new THREE.Vector3(0, CAM_D * .42, 0));
+  fly = { t0: performance.now(), a: [controls.target.clone(), camera.position.clone()], b: [tgt, tgt.clone().add(behind)] };
+  controls.enableZoom = false; controls.minDistance = 1; controls.maxDistance = 100; controls.minPolarAngle = .35; controls.maxPolarAngle = 1.62;
+  const hint = document.getElementById('hint'); hint.style.display = ''; hint.textContent = 'Walk in! Tap things to play with them';
   setTimeout(() => { hint.style.display = 'none'; }, 3000);
   updateLabel(); drawChips();
 }
 function stopWalk() {
-  if (!walker) return; save(); unfade(); walker = null; walkTarget = null; if (dot) dot.visible = false;
-  document.getElementById('joy').classList.remove('on'); controls.minDistance = 10; controls.maxDistance = 140; controls.maxPolarAngle = 1.32; drawChips();
+  if (!walker) return; standUp(walker.g); save(); unfade(); walker = null; walkTarget = null; if (dot) dot.visible = false;
+  document.getElementById('joy').classList.remove('on'); controls.enableZoom = true; controls.minDistance = 10; controls.maxDistance = 140; controls.minPolarAngle = 0; controls.maxPolarAngle = 1.32;
+  showFloor(floorShown); goFloor(0);
+}
+
+/* ---------- third-person camera: stays behind her, never goes through walls, ceilings or the roof ---------- */
+const CAM_D = 11;                         // how far behind her the camera sits
+let camD = CAM_D;                         // pinch / mouse wheel changes it while walking
+const camRay = new THREE.Raycaster();
+function camBlockers() { return WALLM.filter(m => m.parent.visible).concat(level[1].children.filter(m => m.isMesh && m.geometry.type === 'PlaneGeometry'), ROOF.children); }
+function thirdPerson() {
+  if (fly) return;
+  const off = camera.position.clone().sub(controls.target); if (off.lengthSq() < 1e-4) return;
+  camera.position.copy(controls.target).addScaledVector(off.normalize(), camD);   // back to the full distance before turning
+}
+function keepCamClear() {
+  const t = controls.target, dir = camera.position.clone().sub(t), d = dir.length(); dir.normalize();
+  camRay.set(t, dir); camRay.far = d;
+  const hit = camRay.intersectObjects(camBlockers(), false)[0];
+  if (hit) camera.position.copy(t).addScaledVector(dir, Math.max(1.2, hit.distance - .7));
+  // inside the house the camera stays under the ceiling of the floor she's on
+  const it = walker.it, inHouse = Math.abs(camera.position.x) < 20 && Math.abs(camera.position.z) < 19;
+  if (inHouse) { const top = (it.f ? UP : 0) + (it.f || Math.abs(it.x) > 6 || it.z < 2 ? WALL_H : UP + WALL_H) - .5; if (camera.position.y > top) camera.position.y = top; }
+  if (camera.position.y < (it.f ? UP : 0) + .8) camera.position.y = (it.f ? UP : 0) + .8;
+}
+canvas.addEventListener('wheel', ev => { if (walker) { camD = clamp(4, 22, camD + Math.sign(ev.deltaY) * 1.2); ev.preventDefault(); } }, { passive: false });
+const pinch = new Map(); let pinch0 = null;
+canvas.addEventListener('pointerdown', ev => { pinch.set(ev.pointerId, ev); if (pinch.size === 2) { const [a, b] = [...pinch.values()]; pinch0 = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), c: camD }; } });
+canvas.addEventListener('pointermove', ev => { if (!pinch.has(ev.pointerId)) return; pinch.set(ev.pointerId, ev); if (walker && pinch0 && pinch.size === 2) { const [a, b] = [...pinch.values()]; camD = clamp(4, 22, pinch0.c * pinch0.d / Math.max(20, Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY))); } });
+['pointerup', 'pointercancel'].forEach(e => canvas.addEventListener(e, ev => { pinch.delete(ev.pointerId); if (pinch.size < 2) pinch0 = null; }));
+
+/* ---------- play with things: tap something and she walks over and uses it ---------- */
+const ACT = {
+  sofa: { sit: 1.85 }, chair: { sit: 1.75 }, dchair: { sit: 1.75 }, throne: { sit: 2.3 }, beanbag: { sit: 1.4 },
+  bed: { lie: 2.3 }, kidbed: { lie: 2 },
+  tv: { fx: 'tv' }, lamp: { fx: 'lamp' }, fireplace: { fx: 'fire' }, piano: { fx: 'piano' }, chandelier: { fx: 'lamp' },
+  tub: { fx: 'water' }, sink: { fx: 'water' }, toilet: { fx: 'flush' }, washer: { fx: 'water' },
+  airfryer: { fx: 'ding' }, stove: { fx: 'ding' }, fridge: { fx: 'open' }, toybox: { fx: 'open' }, dresser: { fx: 'open' }
+};
+let actx = null;
+function snd(kind) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume();
+    const t = actx.currentTime, tone = (f, at, len, type = 'sine', v = .18) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(v, t + at); g.gain.exponentialRampToValueAtTime(.001, t + at + len); o.connect(g).connect(actx.destination); o.start(t + at); o.stop(t + at + len + .05); };
+    const noise = (len, f, v = .25) => { const n = actx.sampleRate * len, b = actx.createBuffer(1, n, actx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n); const s = actx.createBufferSource(), fl = actx.createBiquadFilter(), g = actx.createGain(); s.buffer = b; fl.type = 'bandpass'; fl.frequency.value = f; g.gain.value = v; s.connect(fl).connect(g).connect(actx.destination); s.start(); };
+    if (kind === 'piano') [523, 659, 784, 1047, 784].forEach((f, i) => tone(f, i * .16, .5, 'triangle'));
+    else if (kind === 'water' || kind === 'flush') noise(kind === 'flush' ? 1.4 : .9, 900);
+    else if (kind === 'ding') tone(1320, 0, .6, 'sine', .2);
+    else if (kind === 'sit') tone(260, 0, .18, 'sine', .15);
+    else if (kind === 'click') tone(880, 0, .06, 'square', .06);
+    else if (kind === 'fire') noise(.6, 400, .2);
+    else [392, 523, 659].forEach((f, i) => tone(f, i * .08, .25, 'triangle', .12));   // sparkle
+  } catch (e) {}
+}
+function standUp(g) {
+  if (!g) return; const it = g.userData.it, fig = g.children[0];
+  if (fig) { fig.rotation.x = 0; fig.position.z = 0; }
+  if (walker && walker.sat) {
+    const f = walker.sat; it.x = f.x + Math.sin(f.r || 0) * 2.6; it.z = f.z + Math.cos(f.r || 0) * 2.6; it.y = 0;
+    const ok = groundAt(it.x, it.z, it.f); if (!ok || hitsWall(it.x, it.z, it.f)) { it.x = f.x; it.z = f.z; }
+    walker.sat = null; place(g);
+  }
+}
+function useThing(g) {
+  const f = g.userData.it, a = ACT[f.t] || {}, it = walker.it, s = f.s || 1;
+  if (a.sit || a.lie) {                   // sit on it / lie down on it
+    standUp(walker.g); walker.sat = f; walkTarget = null; if (dot) dot.visible = false;
+    it.x = f.x; it.z = f.z; it.f = f.f; it.y = (f.y || 0) + (a.sit || a.lie) * s; it.r = f.r || 0;
+    const fig = walker.g.children[0]; if (a.lie && fig) { fig.rotation.x = -Math.PI / 2; fig.position.z = .6; }   // head on the pillow
+    place(walker.g); snd('sit'); return;
+  }
+  const meshes = []; g.traverse(o => { if (o.isMesh) meshes.push(o); });
+  if (a.fx === 'tv') { g.userData.on = !g.userData.on; const scr = meshes.find(m => m.material.emissive && m.material.emissiveIntensity >= .4 && m.geometry.parameters.depth < .1); if (scr) { scr.material = scr.material.clone(); const c = new THREE.Color(PAL[Math.floor(Math.random() * PAL.length)]); scr.material.color.copy(c); scr.material.emissive.copy(c); scr.material.emissiveIntensity = g.userData.on ? 1 : .2; } snd('click'); }
+  else if (a.fx === 'lamp' || a.fx === 'fire') {
+    if (g.userData.light) { g.remove(g.userData.light); g.userData.light = null; }
+    else { const l = new THREE.PointLight(a.fx === 'fire' ? '#ff9a2e' : '#fff1c9', a.fx === 'fire' ? 40 : 30, 18); l.position.set(0, a.fx === 'fire' ? 2 : f.t === 'chandelier' ? -.5 : 5, a.fx === 'fire' ? 2 : 0); g.add(l); g.userData.light = l; }
+    snd(a.fx === 'fire' ? 'fire' : 'click');
+  }
+  else { g.userData.wig = 1; snd(a.fx || 'sparkle'); }
+  hop(walker.g);
+}
+function goUse(g) {                        // walk over first if it's far away
+  const f = g.userData.it, it = walker.it;
+  if (f === it) { hop(g); snd('sparkle'); return; }
+  if (Math.hypot(f.x - it.x, f.z - it.z) < 4.5 && (f.f === it.f)) { useThing(g); return; }
+  standUp(walker.g); walker.pending = g; walkTarget = new THREE.Vector3(f.x, 0, f.z); showDot({ x: f.x, y: (f.f ? UP : 0) + (f.y || 0), z: f.z });
 }
 function teleport(r) {
+  standUp(walker.g); walker.pending = null;
   const it = walker.it; it.x = (r.x[0] + r.x[1]) / 2; it.z = (r.z[0] + r.z[1]) / 2; it.f = r.f; it.y = 0;
   if (r.id === 'foyer') { it.x = 0; it.z = 16; it.y = (18 - 16) / 6 * 5; }
   walkTarget = null; relink(); it.moved = 1; save(); place(walker.g);
   const tgt = new THREE.Vector3(it.x, (it.f ? UP : 0) + it.y + 3, it.z);
-  fly = { t0: performance.now(), a: [controls.target.clone(), camera.position.clone()], b: [tgt, tgt.clone().add(new THREE.Vector3(0, 21, 11))] };
+  fly = { t0: performance.now(), a: [controls.target.clone(), camera.position.clone()], b: [tgt, tgt.clone().add(new THREE.Vector3(0, camD * .42, camD * .9))] };
   showFloor(it.f); updateLabel();
 }
 function relink() {                       // walking into another room moves the 2D picture to that room too
@@ -616,6 +708,7 @@ function joyMove(ev) {
   const r = joy.getBoundingClientRect(), R0 = r.width / 2; let x = ev.clientX - r.left - R0, y = ev.clientY - r.top - R0;
   const l = Math.hypot(x, y); if (l > R0 - 10) { x *= (R0 - 10) / l; y *= (R0 - 10) / l; }
   knob.style.transform = 'translate(' + x + 'px,' + y + 'px)'; joyV = { x: x / (R0 - 10), y: y / (R0 - 10) }; walkTarget = null; if (dot) dot.visible = false;
+  if (walker) walker.pending = null;
 }
 let faded = [];
 const fadeMats = new Map();
@@ -634,11 +727,13 @@ function unfade() { faded.forEach(m => { m.material = m.userData.orig; delete m.
 function walkStep(dt, t) {
   const it = walker.it, g = walker.g; let mx = 0, mz = 0;
   if (Math.hypot(joyV.x, joyV.y) > .15) {
+    if (walker.sat) standUp(g);            // get up off the couch / out of bed
     const fw = new THREE.Vector3().subVectors(controls.target, camera.position); fw.y = 0; fw.normalize();
     const rt = new THREE.Vector3(-fw.z, 0, fw.x);
     mx = fw.x * -joyV.y + rt.x * joyV.x; mz = fw.z * -joyV.y + rt.z * joyV.x;
   } else if (walkTarget) {
     mx = walkTarget.x - it.x; mz = walkTarget.z - it.z;
+    if (walker.pending && Math.hypot(mx, mz) < 3) { const p = walker.pending; walker.pending = null; walkTarget = null; if (dot) dot.visible = false; useThing(p); return; }   // got there: use it
     if (Math.hypot(mx, mz) < .4) { walkTarget = null; if (dot) dot.visible = false; mx = mz = 0; }
   }
   const len = Math.hypot(mx, mz), fig = g.children[0];
@@ -652,7 +747,11 @@ function walkStep(dt, t) {
   let ok = canStand(it.x + dx, it.z + dz, from, stuck), nx = it.x + dx, nz = it.z + dz;
   if (!ok) { ok = canStand(it.x + dx, it.z, from, stuck); nx = it.x + dx; nz = it.z; }      // slide along walls
   if (!ok) { ok = canStand(it.x, it.z + dz, from, stuck); nx = it.x; nz = it.z + dz; }
-  if (!ok) { if (walkTarget) { walkTarget = null; if (dot) dot.visible = false; } return; }
+  if (!ok) {
+    if (walkTarget) { walkTarget = null; if (dot) dot.visible = false; }
+    if (walker.pending) { const p = walker.pending, f = p.userData.it; walker.pending = null; if (Math.hypot(f.x - it.x, f.z - it.z) < 8) useThing(p); }   // blocked but close enough: use it anyway
+    return;
+  }
   it.x = nx; it.z = nz; it.y = ok.y;
   if (ok.f !== it.f) { it.f = ok.f; }
   const want = Math.atan2(mx, mz); let d = want - (it.r || 0); d = Math.atan2(Math.sin(d), Math.cos(d)); it.r = (it.r || 0) + d * Math.min(1, dt * 10);
@@ -698,13 +797,22 @@ renderer.setAnimationLoop(() => {
   }
   spinners.forEach(s => s.rotation.y = t * 2);
   const dt = Math.min(.05, t - (window.__lt || t)); window.__lt = t;
-  if (walker) { walkStep(dt, t); fadeWalls(walker.it); }
+  if (walker) {
+    walkStep(dt, t);
+    if (!fly) {                           // camera keeps her head in the middle (also when she sits or lies down)
+      const it = walker.it, head = new THREE.Vector3(it.x, (it.f ? UP : 0) + (it.y || 0) + 3, it.z), d = head.sub(controls.target);
+      controls.target.add(d); camera.position.add(d); thirdPerson();
+    }
+  }
   if (dot && dot.visible) dot.rotation.z = t * 3;
   furn.children.forEach(g => {
     if (g.userData.hop) { g.userData.hop = Math.max(0, g.userData.hop - .025); const it = g.userData.it; g.position.y = (it.f ? UP : 0) + (it.y || 0) + Math.sin((1 - g.userData.hop) * Math.PI) * 1.5; }
+    if (g.userData.wig) { g.userData.wig = Math.max(0, g.userData.wig - .02); g.rotation.z = Math.sin(g.userData.wig * 30) * .12 * g.userData.wig; }   // jiggle when used
   });
   if (ring) ring.material.emissiveIntensity = .5 + Math.sin(t * 5) * .4;
-  controls.update(); renderer.render(scene, camera);
+  controls.update();
+  if (walker) { if (!fly) keepCamClear(); fadeWalls(walker.it); }
+  renderer.render(scene, camera);
 });
 </script>
 </body>
