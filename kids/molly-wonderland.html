@@ -260,6 +260,9 @@ const ROOMS = [
     { k: 'puzzle', x: 44, y: 92, s: 1 }, { k: 'dice', x: 54, y: 94, s: 1 }, { k: 'balloon', x: 12, y: 50, s: 1 }, { k: 'rug', x: 48, y: 98, s: 1 } ] }
 ];
 const ROOM = id => ROOMS.find(r => r.id === id) || ROOMS[0];
+const MASTER_START = [{ k: 'window', x: 22, y: 42, s: 1 }, { k: 'chandelier', x: 55, y: 28, s: 1 }, { k: 'rug', x: 52, y: 92, s: 1.1 }, { k: 'bed', x: 78, y: 78, s: 1 }, { k: 'throne', x: 30, y: 82, s: 1 }];
+// rooms nobody has changed yet (the 3D castle furnishes those once, so 2D and 3D match)
+const freshRooms = () => ROOMS.filter(r => JSON.stringify(S.rooms[r.id]) === JSON.stringify(r.items || MASTER_START)).map(r => r.id);
 if (!S.rooms) {
   S.rooms = {}; ROOMS.forEach(r => { S.rooms[r.id] = r.items ? JSON.parse(JSON.stringify(r.items)) : (S.castle || []); });
   S.room = 'foyer'; S.walls = { master: S.wall || 0 };
@@ -302,35 +305,18 @@ function burst(parent, x, y, n = 10, list = FXE) {
 }
 
 /* ---------- catalog ---------- */
-const E = (v, w = 54) => ({ e: v, w });
-const P = (v, w) => ({ p: v, w });
-const CAT = {
-  f1: E('🌸', 40), f2: E('🌷', 44), f3: E('🌻', 48), f4: E('🌹', 40), f5: E('🌼', 40), f6: E('🍄', 40), f7: E('🌳', 110), f8: E('🌲', 100),
-  pinktree: P('pinktree', 130), rainbow: P('rainbow', 190), castle: P('castle', 150), pond: P('pond', 150), fence: P('fence', 110),
-  fountain: E('⛲', 80), cloud: E('☁️', 80), star: E('⭐', 40), heart: E('💖', 40), balloon: E('🎈', 50), rock: E('🪨', 44), sparkle: E('✨', 40),
-  molly: { molly: 1, w: 100 }, pippi: { pippi: 1, w: 74 },
-  a1: E('🐰', 50), a2: E('🐱', 50), a3: E('🐶', 50), a4: E('🦆', 50), a5: E('🦋', 40), a6: E('🐞', 34), a7: E('🐢', 46), a8: E('🦄', 60),
-  a9: E('🐑', 54), a10: E('🐝', 34), a11: E('🐟', 38), a12: E('🐿️', 46), a13: E('🦔', 44), a14: E('🐴', 64), a15: E('🐼', 54), a16: E('🐸', 42),
-  bed: P('bed', 170), mirror: P('mirror', 80), rug: P('rug', 170), window: P('window', 100), chandelier: P('chandelier', 130), throne: P('throne', 100),
-  kitten: P('kitten', 56), puppy: P('puppy', 58), duckling: P('duckling', 56), butterfly: P('butterfly', 46), daisy: P('daisy', 34), cupcake: P('cupcake', 42), teddy: P('teddy', 56),
-  stairs: P('stairs', 240), door: P('door', 90), fireplace: P('fireplace', 130), counter: P('counter', 140), longtable: P('longtable', 200),
-  tub: P('tub', 150), sink: P('sink', 70), sofa: P('sofa', 170), bookshelf: P('bookshelf', 80), toybox: P('toybox', 100), kidbed: P('kidbed', 140), lamp: P('lamp', 50),
-  toilet: E('🚽', 60), soap: E('🧼', 30), lotion: E('🧴', 34), towel: E('🧺', 44), tv: E('📺', 70), puzzle: E('🧩', 36), dice: E('🎲', 32), yoyo: E('🪀', 32), kite: E('🪁', 50), art: E('🎨', 40), blocks: E('🧱', 40), car: E('🚗', 44), ball: E('⚽', 34), plant2: E('🌵', 44),
-  table: P('table', 120), stove: P('stove', 100), fridge: P('fridge', 80),
-  c1: E('🫖', 40), c2: E('🧁', 36), c3: E('🎂', 50), c4: E('🍓', 30), c5: E('🍪', 32), c6: E('🥛', 32), c7: E('🍽️', 40), c8: E('🍰', 36), c9: E('🍩', 34),
-  c10: E('🧸', 50), c11: E('👑', 40), c12: E('🪴', 60), c13: E('🛋️', 110), c14: E('🪑', 60), c15: E('🎀', 36), c16: E('💐', 44), c17: E('🖼️', 60), c18: E('🕯️', 34), c19: E('🎹', 90), c20: E('📚', 44)
-};
+const CAT = A.CAT; // picture catalog lives in molly-art.js so the 3D castle can use it too
 const LAND_TABS = [
   ['🌸 Flowers', ['daisy', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'pinktree', 'f7', 'f8']],
   ['🐥 Animals', ['molly', 'pippi', 'kitten', 'puppy', 'duckling', 'butterfly', 'a1', 'a2', 'a3', 'a4', 'a5', 'a8', 'a14', 'a9', 'a15', 'a7', 'a12', 'a13', 'a16', 'a6', 'a10', 'a11']],
   ['🌈 Pretty', ['rainbow', 'castle', 'pond', 'fence', 'fountain', 'cloud', 'star', 'heart', 'balloon', 'sparkle', 'rock']]
 ];
 const CASTLE_TABS = [
-  ['🛋️ Living', ['sofa', 'fireplace', 'tv', 'bookshelf', 'lamp', 'stairs', 'door', 'window', 'chandelier', 'rug', 'c12', 'plant2', 'c17', 'c19', 'c20', 'c18']],
-  ['🛁 Bath', ['tub', 'sink', 'toilet', 'mirror', 'soap', 'lotion', 'towel', 'a4']],
-  ['🧸 Toys', ['toybox', 'kidbed', 'teddy', 'c10', 'puzzle', 'dice', 'yoyo', 'kite', 'blocks', 'car', 'ball', 'art', 'balloon']],
+  ['🛋️ Living', ['sofa', 'armchair', 'fireplace', 'tv', 'dresser', 'bookshelf', 'lamp', 'stairs', 'door', 'window', 'chandelier', 'rug', 'c12', 'plant2', 'c17', 'c19', 'c20', 'c18']],
+  ['🛁 Bath', ['tub', 'sink', 'toilet', 'mirror', 'washer', 'soap', 'lotion', 'towel', 'a4']],
+  ['🧸 Toys', ['toybox', 'kidbed', 'beanbag', 'teddy', 'c10', 'puzzle', 'dice', 'yoyo', 'kite', 'blocks', 'car', 'ball', 'art', 'balloon']],
   ['🛏️ Bedroom', ['bed', 'mirror', 'throne', 'rug', 'window', 'chandelier', 'c13', 'c14', 'c12', 'teddy', 'c10', 'c17', 'c19', 'c20', 'c18', 'c16', 'c15', 'c11']],
-  ['🧁 Kitchen', ['stove', 'fridge', 'counter', 'table', 'longtable', 'cupcake', 'c1', 'c2', 'c3', 'c8', 'c9', 'c5', 'c4', 'c6', 'c7']],
+  ['🧁 Kitchen', ['stove', 'fridge', 'counter', 'island', 'table', 'longtable', 'cupcake', 'c1', 'c2', 'c3', 'c8', 'c9', 'c5', 'c4', 'c6', 'c7']],
   ['🐥 Friends', ['molly', 'pippi', 'kitten', 'puppy', 'duckling', 'butterfly', 'teddy', 'a2', 'a3', 'a1', 'a8', 'a15', 'a5']]
 ];
 function art(k) {
@@ -564,7 +550,8 @@ $('#roomMenu').addEventListener('click', ev => { const b = ev.target.closest('[d
 $('#castle3d').onclick = () => {
   snd.sparkle();
   const enc = x => encodeURIComponent(JSON.stringify(x));
-  $('#viewer3d iframe').src = 'molly-castle-3d.html#room=' + S.room + '&m=' + enc(S.outfit) + '&p=' + enc(S.pippiOutfit);
+  save();
+  $('#viewer3d iframe').src = 'molly-castle-3d.html#room=' + S.room + '&fresh=' + freshRooms().join(',') + '&m=' + enc(S.outfit) + '&p=' + enc(S.pippiOutfit);
   $('#viewer3d').classList.add('on');
 };
 document.querySelectorAll('.wandBtn').forEach(b => b.onclick = () => {
@@ -611,7 +598,11 @@ $('#view3d').onclick = () => {
   $('#viewer3d iframe').src = 'molly-3d.html#who=' + who + '&m=' + enc(S.outfit) + '&p=' + enc(S.pippiOutfit);
   $('#viewer3d').classList.add('on');
 };
-$('#close3d').onclick = () => { $('#viewer3d').classList.remove('on'); $('#viewer3d iframe').src = 'about:blank'; snd.boop(); };
+$('#close3d').onclick = () => {
+  $('#viewer3d').classList.remove('on'); $('#viewer3d iframe').src = 'about:blank'; snd.boop();
+  try { const n = JSON.parse(localStorage.getItem(KEY) || 'null'); if (n && n.rooms) { S.rooms = n.rooms; S.seed3d = n.seed3d; } } catch (e) {}   // pick up changes made in 3D
+  if ($('#castle').classList.contains('on')) castleS.draw();
+};
 $('#dressReset').onclick = () => { if (who === 'molly') S.outfit = NO_OUTFIT(); else S.pippiOutfit = NO_OUTFIT(); save(); dressDraw(); snd.boop(); };
 
 /* ---------- home + nav ---------- */

@@ -150,5 +150,25 @@
     window: V('0 0 100 120', '<path d="M10 116V50a40 40 0 0 1 80 0v66z" fill="#8fd3ff" stroke="#ffd23f" stroke-width="5"/><path d="M50 12v104M10 66h80" stroke="#ffd23f" stroke-width="4"/><circle cx="72" cy="38" r="8" fill="#fff6c2"/><path d="M4 116h92" stroke="#ff8fc8" stroke-width="8" stroke-linecap="round"/>')
   };
 
-  window.MollyArt = { molly, pippi, PIECES, DRESS, SHOE };
+  // picture catalog for the game (key -> emoji or drawn piece, base width)
+  const E = (v, w = 54) => ({ e: v, w });
+  const P = (v, w) => ({ p: v, w });
+  const CAT = {
+    f1: E('🌸', 40), f2: E('🌷', 44), f3: E('🌻', 48), f4: E('🌹', 40), f5: E('🌼', 40), f6: E('🍄', 40), f7: E('🌳', 110), f8: E('🌲', 100),
+    pinktree: P('pinktree', 130), rainbow: P('rainbow', 190), castle: P('castle', 150), pond: P('pond', 150), fence: P('fence', 110),
+    fountain: E('⛲', 80), cloud: E('☁️', 80), star: E('⭐', 40), heart: E('💖', 40), balloon: E('🎈', 50), rock: E('🪨', 44), sparkle: E('✨', 40),
+    molly: { molly: 1, w: 100 }, pippi: { pippi: 1, w: 74 },
+    a1: E('🐰', 50), a2: E('🐱', 50), a3: E('🐶', 50), a4: E('🦆', 50), a5: E('🦋', 40), a6: E('🐞', 34), a7: E('🐢', 46), a8: E('🦄', 60),
+    a9: E('🐑', 54), a10: E('🐝', 34), a11: E('🐟', 38), a12: E('🐿️', 46), a13: E('🦔', 44), a14: E('🐴', 64), a15: E('🐼', 54), a16: E('🐸', 42),
+    bed: P('bed', 170), mirror: P('mirror', 80), rug: P('rug', 170), window: P('window', 100), chandelier: P('chandelier', 130), throne: P('throne', 100),
+    kitten: P('kitten', 56), puppy: P('puppy', 58), duckling: P('duckling', 56), butterfly: P('butterfly', 46), daisy: P('daisy', 34), cupcake: P('cupcake', 42), teddy: P('teddy', 56),
+    stairs: P('stairs', 240), door: P('door', 90), fireplace: P('fireplace', 130), counter: P('counter', 140), longtable: P('longtable', 200),
+    tub: P('tub', 150), sink: P('sink', 70), sofa: P('sofa', 170), bookshelf: P('bookshelf', 80), toybox: P('toybox', 100), kidbed: P('kidbed', 140), lamp: P('lamp', 50),
+    toilet: E('🚽', 60), soap: E('🧼', 30), lotion: E('🧴', 34), towel: E('🧺', 44), tv: E('📺', 70), puzzle: E('🧩', 36), dice: E('🎲', 32), yoyo: E('🪀', 32), kite: E('🪁', 50), art: E('🎨', 40), blocks: E('🧱', 40), car: E('🚗', 44), ball: E('⚽', 34), plant2: E('🌵', 44),
+    armchair: E('💺', 56), island: P('counter', 120), dresser: E('🗄️', 62), beanbag: E('🟣', 50), washer: E('🫧', 50),
+    table: P('table', 120), stove: P('stove', 100), fridge: P('fridge', 80),
+    c1: E('🫖', 40), c2: E('🧁', 36), c3: E('🎂', 50), c4: E('🍓', 30), c5: E('🍪', 32), c6: E('🥛', 32), c7: E('🍽️', 40), c8: E('🍰', 36), c9: E('🍩', 34),
+    c10: E('🧸', 50), c11: E('👑', 40), c12: E('🪴', 60), c13: E('🛋️', 110), c14: E('🪑', 60), c15: E('🎀', 36), c16: E('💐', 44), c17: E('🖼️', 60), c18: E('🕯️', 34), c19: E('🎹', 90), c20: E('📚', 44)
+  };
+  window.MollyArt = { molly, pippi, PIECES, DRESS, SHOE, CAT };
 })();
