@@ -67,6 +67,10 @@
   }
   #banner { position: absolute; top: 30%; left: 50%; transform: translate(-50%,-50%) scale(0); font-size: clamp(40px, 9vw, 90px); font-weight: 900; color: #ffd60a; text-shadow: 4px 4px 0 #d62828, 8px 8px 0 #1a1a1a; transition: transform .3s; z-index: 20; white-space: nowrap; pointer-events: none; }
   #banner.show { transform: translate(-50%,-50%) scale(1); }
+  #viewer3d { position: fixed; inset: 0; z-index: 50; background: #8fd3ff; display: none; }
+  #viewer3d.on { display: block; }
+  #viewer3d iframe { width: 100%; height: 100%; border: 0; display: block; }
+  #close3d { position: absolute; top: 12px; right: 12px; width: 58px; height: 58px; border-radius: 50%; border: none; background: #fff; font: 900 30px/1 inherit; font-family: inherit; color: #1a1a1a; box-shadow: 0 4px 0 rgba(0,0,0,.3); cursor: pointer; z-index: 2; }
   #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 30; }
   #startTap { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 40; }
   #startTap button { font: inherit; font-size: 40px; font-weight: 900; padding: 24px 44px; border: none; border-radius: 24px; background: #ffd60a; box-shadow: 0 8px 0 #1a1a1a; cursor: pointer; }
@@ -104,6 +108,8 @@
   </div>
   <div id="banner"></div>
 </section>
+
+<div id="viewer3d"><button id="close3d" aria-label="Close">✕</button><iframe title="3D truck" allow="autoplay"></iframe></div>
 
 <canvas id="confetti"></canvas>
 
@@ -346,8 +352,16 @@ function buildHome() {
   $('truckPick').querySelectorAll('.truck-btn').forEach(b => b.onclick = () => {
     $('truckPick').querySelectorAll('.truck-btn').forEach(x => x.classList.remove('sel'));
     b.classList.add('sel'); truckColor = +b.dataset.i; vroom(0.4);
+    open3d(truckColor);
   });
+  $('close3d').onclick = () => { $('viewer3d').classList.remove('on'); $('viewer3d').querySelector('iframe').src = 'about:blank'; };
   document.querySelectorAll('.mode').forEach(b => b.onclick = () => startGame(b.dataset.mode));
+}
+
+// Pop-up 3D view of a truck (uses the Monster Trucks 3D page)
+function open3d(i) {
+  $('viewer3d').querySelector('iframe').src = 'whistler-trucks-3d.html?embed=1&truck=' + i;
+  $('viewer3d').classList.add('on');
 }
 
 async function startGame(m) {

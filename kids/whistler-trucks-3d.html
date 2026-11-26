@@ -253,7 +253,13 @@ function show(i) {
   document.getElementById('name').textContent = TRUCKS[i].name;
   [...pick.children].forEach((b, k) => b.classList.toggle('sel', k === i));
 }
-show(0);
+// ?truck=0-3 opens that truck; ?embed=1 is the pop-up inside the game (no picker, no home button)
+const qs = new URLSearchParams(location.search);
+show(Math.min(TRUCKS.length - 1, Math.max(0, parseInt(qs.get('truck'), 10) || 0)));
+if (qs.has('embed')) {
+  pick.style.display = 'none';
+  document.querySelector('#top a').style.visibility = 'hidden';
+}
 
 const spinBtn = document.getElementById('spin');
 spinBtn.onclick = () => { ctl.autoRotate = !ctl.autoRotate; spinBtn.style.opacity = ctl.autoRotate ? 1 : .5; };
